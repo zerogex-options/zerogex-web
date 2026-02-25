@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# ==============================================
+# Step 020: Node.js Installation
+# ==============================================
+
+set -e
+
+log "Node.js Installation"
+
+# Check if nvm is already installed
+if [ -d "$HOME/.nvm" ]; then
+    log "  ℹ nvm already installed, skipping installation..."
+else
+    log "  → Installing nvm (Node Version Manager)..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    
+    log "  → Loading nvm..."
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+fi
+
+# Load nvm if not already loaded
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Install Node.js 20
+log "  → Installing Node.js 20..."
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# Verify installation
+NODE_VERSION=$(node -v)
+NPM_VERSION=$(npm -v)
+
+log ""
+log "Node.js installation complete!"
+log ""
+log "Summary:"
+log "  ✓ nvm installed"
+log "  ✓ Node.js version: $NODE_VERSION"
+log "  ✓ npm version: $NPM_VERSION"
+log ""

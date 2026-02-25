@@ -1,0 +1,147 @@
+#!/bin/bash
+
+# ==============================================
+# Step 100: Deployment Validation
+# ==============================================
+
+set -e
+
+log "Deployment Validation"
+
+APP_DIR="$HOME/zerogex-web/frontend"
+
+# Validation tracking
+TOTAL_CHECKS=0
+PASSED_CHECKS=0
+FAILED_CHECKS=0
+
+# Section 1: Node.js
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "1. Node.js Environment"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node -v)
+    log "  ✓ Node.js installed: $NODE_VERSION"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Node.js not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 2: Application
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "2. Application Files"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -d "$APP_DIR" ]; then
+    log "  ✓ Application directory exists"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Application directory not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -d "$APP_DIR/.next" ]; then
+    log "  ✓ Production build exists"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Production build not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 3: PM2
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "3. PM2 Process Manager"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if pm2 list | grep -q "zerogex-web"; then
+    PM2_STATUS=$(pm2 list | grep zerogex-web | awk '{print $10}')
+    if [ "$PM2_STATUS" = "online" ]; then
+        log "  ✓ Application running (PM2)"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+    else
+        log "  ✗ Application not running (status: $PM2_STATUS)"
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+    fi
+else
+    log "  ✗ Application not found in PM2"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 4: Nginx
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "4. Nginx Configuration"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if sudo systemctl is-active --quiet nginx; then
+    log "  ✓ Nginx is running"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Nginx is not running"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -f /etc/nginx/sites-enabled/zerogex-web ]; then
+    log "  ✓ Site configuration enabled"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Site configuration not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 5: Port Check
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "5. Port Connectivity"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    log "  ✓ Application responds on port 3000"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Application not responding on port 3000"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Final Summary
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "VALIDATION SUMMARY"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log ""
+log "Total Checks: $TOTAL_CHECKS"
+log "Passed: $PASSED_CHECKS"
+log "Failed: $FAILED_CHECKS"
+log ""
+
+if [ "$FAILED_CHECKS" -eq 0 ]; then
+    log "✓ Deployment validation PASSED!"
+    log ""
+    log "ZeroGEX Web is ready!"
+    log ""
+    log "Access your site:"
+    DOMAIN=$(grep "server_name" /etc/nginx/sites-available/zerogex-web 2>/dev/null | awk '{print $2}' | sed 's/;//' | head -1)
+    if [ ! -z "$DOMAIN" ]; then
+        log "  https://$DOMAIN"
+    fi
+    log "  http://$(curl -s ifconfig.me):80"
+else
+    log "✗ Deployment validation FAILED!"
+    log ""
+    log "Please review failed checks above."
+    exit 1
+fi

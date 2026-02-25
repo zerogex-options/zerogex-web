@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# ==============================================
+# Step 010: System Setup and Basic Configuration
+# ==============================================
+
+set -e
+
+log "System Setup and Basic Configuration"
+
+# Update system
+log "  → Updating system packages..."
+export DEBIAN_FRONTEND=noninteractive
+sudo apt update && sudo apt upgrade -y
+
+# Install essential tools
+log "  → Installing essential tools..."
+sudo apt install -y \
+    git \
+    curl \
+    wget \
+    build-essential \
+    jq \
+    htop \
+    vim \
+    nginx
+
+# Update timezone
+log "  → Setting timezone to America/New_York..."
+sudo timedatectl set-timezone America/New_York
+
+# Verify timezone update
+log "  → Verifying timezone..."
+log "     Current time: $(date)"
+
+log "System setup complete!"
+log ""
+log "Summary:"
+log "  ✓ System packages updated"
+log "  ✓ Essential tools installed"
+log "  ✓ Nginx installed"
+log "  ✓ Timezone set to America/New_York"
+log ""

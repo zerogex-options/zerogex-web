@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# ==============================================
+# Step 050: Nginx Reverse Proxy Configuration
+# ==============================================
+
+set -e
+
+log "Nginx Reverse Proxy Configuration"
+
+# Prompt for domain name
+read -p "  Enter your domain name (e.g., zerogex.io): " DOMAIN_NAME
+while [ -z "$DOMAIN_NAME" ]; do
+    echo "     ✗ Domain name cannot be empty"
+    read -p "  Enter your domain name: " DOMAIN_NAME
+done
+
+# Create nginx configuration
+log "  → Creating nginx configuration for $DOMAIN_NAME..."
+sudo tee /etc/nginx/sites-available/zerogex-web > /dev/null << EOF
+server {
+    listen 80;
+    server_name $DOMAIN_NAME www.$DOMAIN_NAME;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+# Enable the site
+log "  → Enabling site..."
+sudo ln -sf /etc/nginx/sites-available/zerogex-web /etc/nginx/sites-enabled/
+
+# Remove default nginx site
+log "  → Removing default nginx site..."
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Test nginx configuration
+log "  → Testing nginx configuration..."
+if sudo nginx -t; then
+    log "     ✓ Nginx configuration valid"
+else
+    log "     ✗ Nginx configuration invalid!"
+    exit 1
+fi
+
+# Restart nginx
+log "  → Restarting nginx..."
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+
+log ""
+log "Nginx configuration complete!"
+log ""
+log "Summary:"
+log "  ✓ Nginx configured for domain: $DOMAIN_NAME"
+log "  ✓ Reverse proxy set up to port 3000"
+log "  ✓ Nginx restarted and enabled"
+log ""
+log "Next steps:"
+log "  1. Point your domain DNS to this server's IP"
+log "  2. Run step 060.ssl to set up HTTPS with Let's Encrypt"
+log ""

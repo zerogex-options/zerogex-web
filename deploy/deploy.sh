@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# ==============================================
+# ZeroGEX Web Platform Deployment Script
+# ==============================================
+
+set -e  # Exit on any error
+
+# Export HOME
+[ -z "$HOME" ] && export HOME="/home/ubuntu"
+
+# Variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STEPS_DIR="$SCRIPT_DIR/steps"
+LOG_DIR="${HOME}/logs"
+LOG_FILE="${LOG_DIR}/web_deployment_$(date +%Y%m%d_%H%M%S).log"
+
+# Help text
+show_help() {
+    cat << EOF
+ZeroGEX Web Platform Deployment Script
+
+Usage: ./deploy.sh [OPTIONS]
+
+Options:
+  --start-from STEP    Start deployment from a specific step
+                       STEP can be a step number (e.g., 020) or name (e.g., nodejs)
+  -h, --help          Show this help message
+
+Examples:
+  ./deploy.sh                        # Run full deployment (all steps)
+  ./deploy.sh --start-from 020       # Start from step 020
+  ./deploy.sh --start-from nodejs    # Start from Node.js step
+  ./deploy.sh --start-from nginx     # Start from nginx step
+
+Available Steps:
+EOF
+
+    for step in $(ls -1 $STEPS_DIR/*.* 2>/dev/null); do
+        desc=$(grep "# Step" "$step" | head -1 | awk -F: '{print $2}')
+        printf "%s\t%s\n" "$(basename $step)" "- $desc"
+    done
+
+    echo
+    echo "Logs are saved to: ${LOG_DIR}/web_deployment_YYYYMMDD_HHMMSS.log"
+    echo
+
+    exit 0
+}
+
+# Parse command line arguments
+START_FROM=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --start-from)
+            START_FROM="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Create logs directory if it doesn't exist
+[ ! -d "$LOG_DIR" ] && mkdir -p "$LOG_DIR"
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Export log function for sub-steps
+export -f log
+export LOG_FILE
+
+log "=========================================="
+log "🚀 Deploying ZeroGEX Web Platform..."
+if [ -n "$START_FROM" ]; then
+    log "Starting from step: $START_FROM"
+fi
+log "=========================================="
+
+# Flag to track if we should start executing
+SHOULD_EXECUTE=false
+if [ -z "$START_FROM" ]; then
+    SHOULD_EXECUTE=true
+fi
+
+# Execute each step in order
+for step_script in "$STEPS_DIR"/*.* ; do
+    if [ -x "$step_script" ]; then
+        step_name=$(basename "$step_script")
+
+        # Check if this is the start-from step
+        if [ -n "$START_FROM" ] && [[ "$step_name" == *"$START_FROM"* ]]; then
+            SHOULD_EXECUTE=true
+            log "Found start step: $step_name"
+        fi
+
+        # Skip steps before the start-from step
+        if [ "$SHOULD_EXECUTE" = false ]; then
+            log "Skipping: $step_name"
+            continue
+        fi
+
+        log "=========================================="
+        log "Executing: $step_name ..."
+
+        if bash "$step_script"; then
+            log "✓ $step_name completed successfully"
+        else
+            log "✗ $step_name failed"
+            exit 1
+        fi
+        log ""
+    fi
+done
+
+log ""
+log "=========================================="
+log "✅ Deployment Complete!"
+log "=========================================="
+log "Log file: $LOG_FILE"

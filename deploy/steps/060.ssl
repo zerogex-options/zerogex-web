@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# ==============================================
+# Step 060: SSL/HTTPS Setup with Let's Encrypt
+# ==============================================
+
+set -e
+
+log "SSL/HTTPS Setup with Let's Encrypt"
+
+# Get domain name from nginx config
+DOMAIN_NAME=$(grep "server_name" /etc/nginx/sites-available/zerogex-web | awk '{print $2}' | sed 's/;//' | head -1)
+
+if [ -z "$DOMAIN_NAME" ]; then
+    log "  ✗ Could not determine domain name from nginx config"
+    read -p "  Enter your domain name: " DOMAIN_NAME
+fi
+
+log "  → Domain: $DOMAIN_NAME"
+
+# Prompt for email
+read -p "  Enter email for Let's Encrypt notifications: " EMAIL
+while [ -z "$EMAIL" ]; do
+    echo "     ✗ Email cannot be empty"
+    read -p "  Enter email: " EMAIL
+done
+
+# Install certbot
+log "  → Installing certbot..."
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obtain SSL certificate
+log "  → Obtaining SSL certificate..."
+log "     This will modify your nginx configuration automatically"
+
+if sudo certbot --nginx -d "$DOMAIN_NAME" -d "www.$DOMAIN_NAME" --non-interactive --agree-tos -m "$EMAIL"; then
+    log "     ✓ SSL certificate obtained successfully!"
+else
+    log "     ✗ Failed to obtain SSL certificate"
+    log ""
+    log "Common issues:"
+    log "  • Domain DNS not pointing to this server yet"
+    log "  • Port 80 not open in security group"
+    log "  • Domain not resolving correctly"
+    log ""
+    log "You can retry this step later with:"
+    log "  sudo certbot --nginx -d $DOMAIN_NAME -d www.$DOMAIN_NAME"
+    exit 1
+fi
+
+# Test automatic renewal
+log "  → Testing automatic renewal..."
+sudo certbot renew --dry-run
+
+log ""
+log "SSL setup complete!"
+log ""
+log "Summary:"
+log "  ✓ SSL certificate obtained for: $DOMAIN_NAME"
+log "  ✓ Nginx configured for HTTPS"
+log "  ✓ Automatic renewal configured"
+log ""
+log "Your site is now accessible at:"
+log "  https://$DOMAIN_NAME"
+log ""

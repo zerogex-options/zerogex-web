@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# ==============================================
+# Step 040: PM2 Process Manager Setup
+# ==============================================
+
+set -e
+
+log "PM2 Process Manager Setup"
+
+# Load nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Use Node 20
+nvm use 20
+
+# Install PM2 globally
+log "  → Installing PM2..."
+npm install -g pm2
+
+# Navigate to application
+APP_DIR="$HOME/zerogex-web/frontend"
+cd "$APP_DIR"
+
+# Stop existing PM2 process if running
+log "  → Stopping existing process (if any)..."
+pm2 delete zerogex-web 2>/dev/null || true
+
+# Start application with PM2
+log "  → Starting application with PM2..."
+pm2 start npm --name "zerogex-web" -- start
+
+# Save PM2 process list
+log "  → Saving PM2 configuration..."
+pm2 save
+
+# Setup PM2 to start on boot
+log "  → Setting up PM2 startup script..."
+PM2_STARTUP=$(pm2 startup | grep "sudo env PATH")
+if [ ! -z "$PM2_STARTUP" ]; then
+    eval $PM2_STARTUP
+fi
+
+# Show status
+log "  → PM2 Status:"
+pm2 status
+
+log ""
+log "PM2 setup complete!"
+log ""
+log "Summary:"
+log "  ✓ PM2 installed"
+log "  ✓ Application started and running"
+log "  ✓ PM2 configured to start on boot"
+log ""
+log "Useful PM2 commands:"
+log "  pm2 status             - Show all processes"
+log "  pm2 logs zerogex-web   - View logs"
+log "  pm2 restart zerogex-web - Restart application"
+log "  pm2 stop zerogex-web    - Stop application"
+log "  pm2 monit              - Monitor in real-time"
+log ""
