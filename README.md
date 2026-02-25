@@ -65,6 +65,8 @@ git clone <your-repo-url> zerogex-web
 cd zerogex-web/frontend
 
 # 2. Install dependencies
+sudo apt update
+sudo apt install npm
 npm install
 
 # 3. Run development server
