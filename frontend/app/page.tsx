@@ -33,17 +33,11 @@ const mockSmartMoneyTrades = [
 ];
 
 export default function DashboardPage() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  // Detect theme from body (set in layout)
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const bodyBg = document.body.style.backgroundColor;
-      setTheme(bodyBg === colors.bgDark ? 'dark' : 'light');
-    });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
-    return () => observer.disconnect();
-  }, []);
+  import { useTheme } from '@/core/ThemeContext';
+
+  // Inside component
+  const theme = useTheme();
 
   return (
     <div className="space-y-8">

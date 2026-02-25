@@ -4,16 +4,10 @@ import { useEffect, useState } from 'react';
 import { colors } from '@/core/colors';
 
 export default function AboutPage() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  import { useTheme } from '@/core/ThemeContext';
 
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const bodyBg = document.body.style.backgroundColor;
-      setTheme(bodyBg === colors.bgDark ? 'dark' : 'light');
-    });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
-    return () => observer.disconnect();
-  }, []);
+  // Inside component
+  const theme = useTheme();
 
   return (
     <div className="space-y-6 max-w-4xl">

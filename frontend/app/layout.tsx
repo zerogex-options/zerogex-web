@@ -1,39 +1,36 @@
-'use client';
-
-import { useState } from 'react';
-import { Theme } from '@/core/types';
-import { colors } from '@/core/colors';
-import Header from '@/components/Header';
-import Navigation from '@/components/Navigation';
+import type { Metadata } from 'next';
+import { DM_Sans } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from '@/core/ThemeContext';
+
+const dmSans = DM_Sans({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '700']
+});
+
+export const metadata: Metadata = {
+  title: 'ZeroGEX™ | Real-Time Options Analytics',
+  description: 'Professional options analytics platform featuring real-time gamma exposure, dealer positioning, and options flow analysis',
+};
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
-  const [theme, setTheme] = useState<Theme>('dark');
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
-
+}>) {
   return (
     <html lang="en">
-      <body
-        style={{
-          backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight,
-          color: theme === 'dark' ? colors.light : colors.dark,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      <body 
+        className={dmSans.className}
+        style={{ 
+          backgroundColor: '#423d3f',
           margin: 0,
-          minHeight: '100vh',
+          padding: 0
         }}
       >
-        <Header theme={theme} onToggleTheme={toggleTheme} />
-        <Navigation theme={theme} />
-        <main className="container mx-auto px-6 py-10">
+        <ThemeProvider value="dark">
           {children}
-        </main>
+        </ThemeProvider>
       </body>
     </html>
   );
