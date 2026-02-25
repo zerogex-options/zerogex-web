@@ -1,8 +1,8 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { MetricCardProps } from '@/lib/types';
-import { colors } from '@/lib/colors';
+import { MetricCardProps } from '@/core/types';
+import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 
 export default function MetricCard({

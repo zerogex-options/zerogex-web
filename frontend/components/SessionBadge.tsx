@@ -1,7 +1,7 @@
 'use client';
 
-import { MarketSession, Theme } from '@/lib/types';
-import { colors } from '@/lib/colors';
+import { MarketSession, Theme } from '@/core/types';
+import { colors } from '@/core/colors';
 
 interface SessionBadgeProps {
   session: MarketSession;

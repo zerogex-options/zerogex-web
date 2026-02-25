@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
-import { Theme } from '@/lib/types';
-import { formatTime } from '@/lib/utils';
-import { colors } from '@/lib/colors';
+import { Theme } from '@/core/types';
+import { formatTime } from '@/core/utils';
+import { colors } from '@/core/colors';
 
 interface WorldClocksProps {
   theme: Theme;

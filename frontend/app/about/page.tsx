@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { colors } from '@/lib/colors';
+import { colors } from '@/core/colors';
 
 export default function AboutPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');

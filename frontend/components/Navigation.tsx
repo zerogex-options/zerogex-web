@@ -1,8 +1,8 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Theme } from '@/lib/types';
-import { colors } from '@/lib/colors';
+import { Theme } from '@/core/types';
+import { colors } from '@/core/colors';
 
 interface NavigationProps {
   theme: Theme;

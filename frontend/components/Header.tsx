@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
-import { Theme, LivePrice } from '@/lib/types';
-import { getMarketSession } from '@/lib/utils';
-import { colors } from '@/lib/colors';
+import { Theme, LivePrice } from '@/core/types';
+import { getMarketSession } from '@/core/utils';
+import { colors } from '@/core/colors';
 import SessionBadge from './SessionBadge';
 import WorldClocks from './WorldClocks';
 import LivePriceWidget from './LivePriceWidget';

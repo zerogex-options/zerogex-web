@@ -1,8 +1,8 @@
 'use client';
 
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { LivePrice, Theme } from '@/lib/types';
-import { colors } from '@/lib/colors';
+import { LivePrice, Theme } from '@/core/types';
+import { colors } from '@/core/colors';
 
 interface LivePriceWidgetProps {
   data: LivePrice;

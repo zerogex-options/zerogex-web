@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Info } from 'lucide-react';
-import { colors } from '@/lib/colors';
+import { colors } from '@/core/colors';
 
 interface TooltipWrapperProps {
   text: string;

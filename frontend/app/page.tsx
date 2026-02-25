@@ -5,8 +5,8 @@ import { Target, Activity, Scale, Zap, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Area, AreaChart } from 'recharts';
 import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import { colors } from '@/lib/colors';
-import { GEXStrikeData } from '@/lib/types';
+import { colors } from '@/core/colors';
+import { GEXStrikeData } from '@/core/types';
 import { Info } from 'lucide-react';
 
 // Mock data - will be replaced with real API

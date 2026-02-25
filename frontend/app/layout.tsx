@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Theme } from '@/lib/types';
-import { colors } from '@/lib/colors';
+import { Theme } from '@/core/types';
+import { colors } from '@/core/colors';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import './globals.css';
