@@ -31,9 +31,9 @@ cd "$APP_DIR"
 log "  → Stopping existing process (if any)..."
 pm2 delete zerogex-web 2>/dev/null || true
 
-# Clear Next.js cache to ensure clean state
-log "  → Clearing Next.js cache..."
-rm -rf .next/cache
+# Clear Next.js build and cache to ensure clean state
+log "  → Clearing Next.js build and cache..."
+rm -rf .next
 
 # Start application with PM2
 log "  → Starting application with PM2..."

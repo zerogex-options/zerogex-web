@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================
-# Step 060: SSL/HTTPS Setup with Let's Encrypt
+# Step 070: SSL/HTTPS Setup with Let's Encrypt
 # ==============================================
 
 set -e
@@ -40,12 +40,25 @@ else
     log ""
     log "Common issues:"
     log "  • Domain DNS not pointing to this server yet"
-    log "  • Port 80 not open in security group"
+    log "  • Port 80/443 not open in firewall (UFW)"
     log "  • Domain not resolving correctly"
     log ""
     log "You can retry this step later with:"
     log "  sudo certbot --nginx -d $DOMAIN_NAME -d www.$DOMAIN_NAME"
     exit 1
+fi
+
+# Certbot may have modified the config - verify API proxy is still there
+log "  → Verifying API proxy configuration..."
+if ! grep -q "location /api/" /etc/nginx/sites-available/zerogex-web; then
+    log "  ⚠ API proxy was removed by certbot, restoring..."
+
+    # Get the HTTPS server block and add API proxy before the location / block
+    sudo sed -i '/location \/ {/i\    # API proxy to backend (port 8000)\n    location /api/ {\n        proxy_pass http://localhost:8000/api/;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection '"'"'upgrade'"'"';\n        proxy_set_header Host $host;\n        proxy_cache_bypass $http_upgrade;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_connect_timeout 60s;\n        proxy_send_timeout 60s;\n        proxy_read_timeout 60s;\n    }\n\n    # WebSocket proxy to backend\n    location /ws {\n        proxy_pass http://localhost:8000/ws;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n' /etc/nginx/sites-available/zerogex-web
+
+    # Reload nginx
+    sudo systemctl reload nginx
+    log "     ✓ API proxy restored"
 fi
 
 # Test automatic renewal
@@ -58,8 +71,12 @@ log ""
 log "Summary:"
 log "  ✓ SSL certificate obtained for: $DOMAIN_NAME"
 log "  ✓ Nginx configured for HTTPS"
+log "  ✓ API proxy verified at /api"
+log "  ✓ WebSocket proxy verified at /ws"
 log "  ✓ Automatic renewal configured"
 log ""
 log "Your site is now accessible at:"
 log "  https://$DOMAIN_NAME"
+log "  API: https://$DOMAIN_NAME/api"
+log "  WebSocket: wss://$DOMAIN_NAME/ws"
 log ""

@@ -22,6 +22,37 @@ server {
     listen 80;
     server_name $DOMAIN_NAME www.$DOMAIN_NAME;
 
+    # API proxy to backend (port 8000)
+    location /api/ {
+        proxy_pass http://localhost:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        # Increase timeouts for long-running API calls
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # WebSocket proxy to backend
+    location /ws {
+        proxy_pass http://localhost:8000/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # Frontend proxy to Next.js (port 3000)
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -63,10 +94,13 @@ log "Nginx configuration complete!"
 log ""
 log "Summary:"
 log "  ✓ Nginx configured for domain: $DOMAIN_NAME"
-log "  ✓ Reverse proxy set up to port 3000"
+log "  ✓ API proxy set up: /api/* → http://localhost:8000/api/*"
+log "  ✓ WebSocket proxy set up: /ws → http://localhost:8000/ws"
+log "  ✓ Frontend proxy set up: / → http://localhost:3000"
 log "  ✓ Nginx restarted and enabled"
 log ""
 log "Next steps:"
 log "  1. Point your domain DNS to this server's IP"
-log "  2. Run step 060.ssl to set up HTTPS with Let's Encrypt"
+log "  2. Run step 060 to open firewall ports"
+log "  3. Run step 070 to set up HTTPS with Let's Encrypt"
 log ""

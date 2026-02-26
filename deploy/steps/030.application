@@ -46,23 +46,32 @@ nvm use 20
 log "  → Installing npm dependencies..."
 npm install
 
-# Create .env.local if it doesn't exist
-if [ ! -f ".env.local" ]; then
-    log "  → Creating .env.local file..."
-    cat > .env.local << 'EOF'
-# API Configuration (when backend is ready)
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+# Clear Next.js build cache for clean build
+log "  → Clearing Next.js build cache..."
+rm -rf .next
+
+# Prompt for domain name for .env.local
+read -p "  Enter your domain name for API configuration (e.g., zerogex.io): " DOMAIN_NAME
+while [ -z "$DOMAIN_NAME" ]; do
+    echo "     ✗ Domain name cannot be empty"
+    read -p "  Enter your domain name: " DOMAIN_NAME
+done
+
+# Create .env.local with proper API URLs
+log "  → Creating .env.local file..."
+cat > .env.local << EOF
+# API Configuration
+# Base URL without /api suffix (hooks add /api/ automatically)
+# Uses relative URLs through nginx proxy - no need for localhost:8000
+NEXT_PUBLIC_API_URL=https://$DOMAIN_NAME
+NEXT_PUBLIC_WS_URL=wss://$DOMAIN_NAME/ws
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_WEBSOCKET=false
 NEXT_PUBLIC_ENABLE_GRAFANA=false
 EOF
-    chmod 600 .env.local
-    log "     ✓ .env.local created"
-else
-    log "     ℹ .env.local already exists"
-fi
+chmod 600 .env.local
+log "     ✓ .env.local created with API URL: https://$DOMAIN_NAME"
 
 # Build for production
 log "  → Building application for production..."
@@ -75,5 +84,6 @@ log "Summary:"
 log "  ✓ Repository cloned/updated"
 log "  ✓ Dependencies installed"
 log "  ✓ Production build created"
-log "  ✓ .env.local configured"
+log "  ✓ .env.local configured for domain: $DOMAIN_NAME"
+log "  ✓ API will be proxied through nginx at /api"
 log ""
