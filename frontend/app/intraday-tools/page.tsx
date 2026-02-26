@@ -59,21 +59,29 @@ export default function IntradayToolsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard
-              label="Current Price"
+              title="Current Price"
               value={`$${vwap.price.toFixed(2)}`}
+              tooltip="Current market price"
+              theme="dark"
             />
             <MetricCard
-              label="VWAP"
+              title="VWAP"
               value={`$${vwap.vwap.toFixed(2)}`}
+              tooltip="Volume weighted average price"
+              theme="dark"
             />
             <MetricCard
-              label="Deviation"
+              title="Deviation"
               value={`${vwap.vwap_deviation_pct.toFixed(2)}%`}
-              sentiment={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'warning' : 'neutral'}
+              trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'}
+              tooltip="Percentage deviation from VWAP"
+              theme="dark"
             />
             <MetricCard
-              label="Position"
+              title="Position"
               value={vwap.vwap_position}
+              tooltip="Price position relative to VWAP"
+              theme="dark"
             />
           </div>
         )}
@@ -92,22 +100,30 @@ export default function IntradayToolsPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               <MetricCard
-                label="Current Price"
+                title="Current Price"
                 value={`$${orb.current_price.toFixed(2)}`}
+                tooltip="Current market price"
+                theme="dark"
               />
               <MetricCard
-                label="ORB High"
+                title="ORB High"
                 value={`$${orb.orb_high.toFixed(2)}`}
                 subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`}
+                tooltip="Opening range high"
+                theme="dark"
               />
               <MetricCard
-                label="ORB Low"
+                title="ORB Low"
                 value={`$${orb.orb_low.toFixed(2)}`}
                 subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`}
+                tooltip="Opening range low"
+                theme="dark"
               />
               <MetricCard
-                label="ORB Range"
+                title="ORB Range"
                 value={`$${orb.orb_range.toFixed(2)}`}
+                tooltip="Opening range size"
+                theme="dark"
               />
             </div>
             <div className="bg-[#423d3f] rounded-lg p-6">

@@ -15,17 +15,25 @@ export NVM_DIR="$HOME/.nvm"
 # Use Node 20
 nvm use 20
 
-# Install PM2 globally
-log "  → Installing PM2..."
-npm install -g pm2
+# Install PM2 globally if not already installed
+if ! command -v pm2 &> /dev/null; then
+    log "  → Installing PM2..."
+    npm install -g pm2
+else
+    log "  ℹ PM2 already installed"
+fi
 
 # Navigate to application
 APP_DIR="$HOME/zerogex-web/frontend"
 cd "$APP_DIR"
 
-# Stop existing PM2 process if running
+# Stop and delete existing PM2 process (idempotent)
 log "  → Stopping existing process (if any)..."
 pm2 delete zerogex-web 2>/dev/null || true
+
+# Clear Next.js cache to ensure clean state
+log "  → Clearing Next.js cache..."
+rm -rf .next/cache
 
 # Start application with PM2
 log "  → Starting application with PM2..."
@@ -35,12 +43,18 @@ pm2 start npm --name "zerogex-web" -- start
 log "  → Saving PM2 configuration..."
 pm2 save
 
-# Setup PM2 to start on boot
+# Setup PM2 to start on boot (idempotent)
 log "  → Setting up PM2 startup script..."
-PM2_STARTUP=$(pm2 startup | grep "sudo env PATH")
+# Get the startup command but don't fail if already configured
+PM2_STARTUP=$(pm2 startup | grep "sudo env PATH" || true)
 if [ ! -z "$PM2_STARTUP" ]; then
     eval $PM2_STARTUP
+else
+    log "     ℹ PM2 startup already configured"
 fi
+
+# Wait a moment for app to start
+sleep 3
 
 # Show status
 log "  → PM2 Status:"
@@ -51,6 +65,8 @@ log "PM2 setup complete!"
 log ""
 log "Summary:"
 log "  ✓ PM2 installed"
+log "  ✓ Previous process stopped (if existed)"
+log "  ✓ Next.js cache cleared"
 log "  ✓ Application started and running"
 log "  ✓ PM2 configured to start on boot"
 log ""

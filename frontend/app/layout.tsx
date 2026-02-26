@@ -28,7 +28,7 @@ export default function RootLayout({
           padding: 0
         }}
       >
-        <ThemeProvider value="dark">
+        <ThemeProvider>
           {children}
         </ThemeProvider>
       </body>

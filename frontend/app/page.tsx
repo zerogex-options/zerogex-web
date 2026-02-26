@@ -46,24 +46,32 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricCard
-            label="SPY Price"
+            title="SPY Price"
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
             subtitle={quoteData ? `Vol: ${(quoteData.volume / 1000000).toFixed(1)}M` : ''}
+            tooltip="Current SPY price and volume"
+            theme="dark"
           />
           <MetricCard
-            label="Net GEX"
+            title="Net GEX"
             value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'}
-            sentiment={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
+            trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
+            tooltip="Net gamma exposure across all strikes"
+            theme="dark"
           />
           <MetricCard
-            label="Gamma Flip"
+            title="Gamma Flip"
             value={gexData?.gamma_flip ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'}
             subtitle="Dealer positioning"
+            tooltip="Price level where dealer gamma flips from positive to negative"
+            theme="dark"
           />
           <MetricCard
-            label="Max Pain"
+            title="Max Pain"
             value={gexData?.max_pain ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'}
             subtitle="Options expiry target"
+            tooltip="Strike price where option holders experience maximum loss"
+            theme="dark"
           />
         </div>
       </section>
@@ -73,19 +81,25 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Gamma Exposure</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
-            label="Call GEX"
+            title="Call GEX"
             value={gexData ? `$${(gexData.total_call_gex / 1000000).toFixed(1)}M` : '--'}
-            sentiment="bullish"
+            trend="bullish"
+            tooltip="Total gamma exposure from call options"
+            theme="dark"
           />
           <MetricCard
-            label="Put GEX"
+            title="Put GEX"
             value={gexData ? `$${(gexData.total_put_gex / 1000000).toFixed(1)}M` : '--'}
-            sentiment="bearish"
+            trend="bearish"
+            tooltip="Total gamma exposure from put options"
+            theme="dark"
           />
           <MetricCard
-            label="Put/Call Ratio"
+            title="Put/Call Ratio"
             value={gexData?.put_call_ratio ? gexData.put_call_ratio.toFixed(2) : '--'}
-            sentiment={gexData && gexData.put_call_ratio > 1 ? 'bearish' : 'bullish'}
+            trend={gexData && gexData.put_call_ratio > 1 ? 'bearish' : 'bullish'}
+            tooltip="Ratio of put volume to call volume"
+            theme="dark"
           />
         </div>
       </section>
@@ -95,14 +109,18 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Key Levels</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
-            label="Call Wall (Resistance)"
+            title="Call Wall (Resistance)"
             value={gexData?.call_wall ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
             subtitle="Heavy call open interest"
+            tooltip="Strike with highest call open interest acting as resistance"
+            theme="dark"
           />
           <MetricCard
-            label="Put Wall (Support)"
+            title="Put Wall (Support)"
             value={gexData?.put_wall ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
             subtitle="Heavy put open interest"
+            tooltip="Strike with highest put open interest acting as support"
+            theme="dark"
           />
         </div>
       </section>

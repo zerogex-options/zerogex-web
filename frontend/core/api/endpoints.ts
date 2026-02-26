@@ -2,7 +2,7 @@
  * API Endpoints for ZeroGEX Backend
  */
 
-import { apiClient } from './client';
+import { apiClient } from './clients';
 import type {
   GEXSummary,
   GEXByStrike,

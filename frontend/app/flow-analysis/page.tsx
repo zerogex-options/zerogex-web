@@ -43,26 +43,34 @@ export default function FlowAnalysisPage() {
         <h2 className="text-2xl font-semibold mb-4">Flow Summary (Last Hour)</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricCard
-            label="Call Volume"
+            title="Call Volume"
             value={totalCallVolume.toLocaleString()}
             subtitle={`$${(totalCallPremium / 1000000).toFixed(2)}M premium`}
-            sentiment="bullish"
+            trend="bullish"
+            tooltip="Total call option volume in the last hour"
+            theme="dark"
           />
           <MetricCard
-            label="Put Volume"
+            title="Put Volume"
             value={totalPutVolume.toLocaleString()}
             subtitle={`$${(totalPutPremium / 1000000).toFixed(2)}M premium`}
-            sentiment="bearish"
+            trend="bearish"
+            tooltip="Total put option volume in the last hour"
+            theme="dark"
           />
           <MetricCard
-            label="Net Flow"
+            title="Net Flow"
             value={netFlow.toLocaleString()}
-            sentiment={netFlow > 0 ? 'bullish' : 'bearish'}
+            trend={netFlow > 0 ? 'bullish' : 'bearish'}
+            tooltip="Net call volume minus put volume"
+            theme="dark"
           />
           <MetricCard
-            label="Net Premium"
+            title="Net Premium"
             value={`$${(netPremium / 1000000).toFixed(2)}M`}
-            sentiment={netPremium > 0 ? 'bullish' : 'bearish'}
+            trend={netPremium > 0 ? 'bullish' : 'bearish'}
+            tooltip="Net call premium minus put premium"
+            theme="dark"
           />
         </div>
       </section>

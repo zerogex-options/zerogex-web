@@ -65,12 +65,13 @@ log "━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if pm2 list | grep -q "zerogex-web"; then
-    PM2_STATUS=$(pm2 list | grep zerogex-web | awk '{print $10}')
-    if [ "$PM2_STATUS" = "online" ]; then
+    # Check if process is online (status column contains "online")
+    if pm2 list | grep "zerogex-web" | grep -q "online"; then
         log "  ✓ Application running (PM2)"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
     else
-        log "  ✗ Application not running (status: $PM2_STATUS)"
+        PM2_STATUS=$(pm2 list | grep zerogex-web | awk '{print $10}')
+        log "  ✗ Application not online (status: $PM2_STATUS)"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
     fi
 else
@@ -109,11 +110,35 @@ log "5. Port Connectivity"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
+if curl -s --max-time 5 http://localhost:3000 > /dev/null 2>&1; then
     log "  ✓ Application responds on port 3000"
     PASSED_CHECKS=$((PASSED_CHECKS + 1))
 else
     log "  ✗ Application not responding on port 3000"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 6: Firewall
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "6. Firewall Configuration"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if sudo ufw status | grep -q "80/tcp.*ALLOW"; then
+    log "  ✓ Port 80 (HTTP) open in firewall"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Port 80 not open in firewall"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if sudo ufw status | grep -q "443/tcp.*ALLOW"; then
+    log "  ✓ Port 443 (HTTPS) open in firewall"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ Port 443 not open in firewall"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
@@ -136,7 +161,12 @@ if [ "$FAILED_CHECKS" -eq 0 ]; then
     log "Access your site:"
     DOMAIN=$(grep "server_name" /etc/nginx/sites-available/zerogex-web 2>/dev/null | awk '{print $2}' | sed 's/;//' | head -1)
     if [ ! -z "$DOMAIN" ]; then
-        log "  https://$DOMAIN"
+        # Check if SSL certificate exists
+        if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+            log "  https://$DOMAIN"
+        else
+            log "  http://$DOMAIN"
+        fi
     fi
     log "  http://$(curl -s ifconfig.me):80"
 else
