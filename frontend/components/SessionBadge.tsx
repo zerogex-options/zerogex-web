@@ -15,10 +15,11 @@ export default function SessionBadge({ session, theme }: SessionBadgeProps) {
     'after-hours': { label: 'AFTER HOURS', color: colors.muted, icon: '○' },
     'closed': { label: 'CLOSED', color: colors.bearish, icon: '●' },
     'halted': { label: 'HALTED', color: '#eab308', icon: '▲' },
-    'closed-weekend': { label: 'CLOSED', color: colors.bearish, icon: '●' },
+    'closed-weekend': { label: 'CLOSED (WEEKEND)', color: colors.bearish, icon: '●' },
+    'closed-holiday': { label: 'CLOSED (HOLIDAY)', color: colors.bearish, icon: '●' },
   };
 
-  const badge = badges[session];
+  const badge = badges[session] || badges['closed'];
 
   return (
     <div

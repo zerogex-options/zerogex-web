@@ -1,6 +1,13 @@
 export type Theme = 'light' | 'dark';
 
-export type MarketSession = 'open' | 'pre-market' | 'after-hours' | 'closed' | 'halted' | 'closed-weekend';
+export type MarketSession = 
+  | 'open' 
+  | 'pre-market' 
+  | 'after-hours' 
+  | 'closed' 
+  | 'halted' 
+  | 'closed-weekend'
+  | 'closed-holiday';
 
 export interface LivePrice {
   symbol: string;

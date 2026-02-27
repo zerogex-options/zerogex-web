@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
+import ClientLayout from '@/components/ClientLayout';
 
 const dmSans = DM_Sans({ 
   subsets: ['latin'],
@@ -11,6 +12,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'ZeroGEX™ | Real-Time Options Analytics',
   description: 'Professional options analytics platform featuring real-time gamma exposure, dealer positioning, and options flow analysis',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -20,16 +24,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body 
         className={dmSans.className}
         style={{ 
-          backgroundColor: '#423d3f',
           margin: 0,
           padding: 0
         }}
       >
         <ThemeProvider>
-          {children}
+          <ClientLayout>
+            {children}
+          </ClientLayout>
         </ThemeProvider>
       </body>
     </html>
