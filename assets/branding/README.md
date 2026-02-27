@@ -1,8 +1,12 @@
 # ZeroGEX Branding Assets
 
-## Logo Files
-- `zerogex-logo.png` - Primary logo (high-resolution source)
-- `zerogex-logo.svg` - Vector logo (scalable)
+## Logo Files (Dark/Light)
+- `Dark_Full.png`/`Light_Full.png` - Full Logo
+- `Dark_Title.png`/`Light_Title.png` - Title-only
+- `Dark_Title_Subtitle.png`/`Light_Title_Subtitle.png` - Title and subtitle
+- `Dark_Helmet.png`/`Light_Helmet.png` - Helmet logo
+- `Dark_Crosshairs.png`/`Light_Crosshairs.png` - Crosshairs logo
+- `favicon.ico` - Mini helmet logo
 
 ## Color Palette
 - Primary Dark: `#423d3f`
@@ -10,11 +14,6 @@
 - Light: `#f2f2f2`
 - Accent/Bearish: `#f45854`
 - Bullish: `#10b981`
-
-## Usage
-- Header logo: 32x32px
-- Favicon: 32x32px
-- Apple touch icon: 180x180px
 
 ## Generating Web Assets
 Run `make logo` to copy assets to frontend/public/
