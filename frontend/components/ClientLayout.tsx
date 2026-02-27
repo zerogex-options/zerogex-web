@@ -5,6 +5,7 @@ import { colors } from '@/core/colors';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import ThemeToggle from './ThemeToggle';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
@@ -29,6 +30,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {children}
       </main>
       <Footer theme={theme} />
+      
+      {/* Floating Theme Toggle */}
+      <ThemeToggle theme={theme} onToggle={toggleTheme} />
     </div>
   );
 }

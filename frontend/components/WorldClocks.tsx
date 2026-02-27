@@ -7,6 +7,7 @@ import { colors } from '@/core/colors';
 interface WorldClocksProps {
   theme: Theme;
   session: MarketSession;
+  hideCountdown?: boolean;
 }
 
 function AnalogClock({ time, label, theme }: { time: Date; label: string; theme: Theme }) {
@@ -19,8 +20,8 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
   const secondAngle = seconds * 6;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="80" height="80" viewBox="0 0 100 100">
+    <div className="flex flex-col items-center gap-1">
+      <svg width="60" height="60" viewBox="0 0 100 100">
         {/* Clock face */}
         <circle
           cx="50"
@@ -88,23 +89,22 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
         <circle cx="50" cy="50" r="3" fill={colors.bearish} />
       </svg>
       
-      <div className="text-sm font-semibold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
+      <div className="text-xs font-semibold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
         {label}
       </div>
-      <div className="text-xs font-mono opacity-60">
-        {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+      <div className="text-xs opacity-60" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+        {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
       </div>
     </div>
   );
 }
 
-export default function WorldClocks({ theme, session }: WorldClocksProps) {
+export default function WorldClocks({ theme, session, hideCountdown = false }: WorldClocksProps) {
   const [times, setTimes] = useState({
     ny: new Date(),
     london: new Date(),
     tokyo: new Date(),
   });
-  const [countdown, setCountdown] = useState('');
 
   useEffect(() => {
     const updateAll = () => {
@@ -115,63 +115,18 @@ export default function WorldClocks({ theme, session }: WorldClocksProps) {
         london: new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' })),
         tokyo: new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' })),
       });
-
-      // Calculate countdown
-      const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-
-      if (session === 'open') {
-        // Countdown to market close (4:00 PM ET)
-        const closeTime = new Date(nyTime);
-        closeTime.setHours(16, 0, 0, 0);
-        const diff = closeTime.getTime() - nyTime.getTime();
-        
-        if (diff > 0) {
-          const h = Math.floor(diff / (1000 * 60 * 60));
-          const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          const s = Math.floor((diff % (1000 * 60)) / 1000);
-          setCountdown(`${h}h ${m}m ${s}s till close`);
-        }
-      } else if (session === 'pre-market') {
-        // Countdown to market open (9:30 AM ET)
-        const openTime = new Date(nyTime);
-        openTime.setHours(9, 30, 0, 0);
-        const diff = openTime.getTime() - nyTime.getTime();
-        
-        if (diff > 0) {
-          const h = Math.floor(diff / (1000 * 60 * 60));
-          const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          const s = Math.floor((diff % (1000 * 60)) / 1000);
-          setCountdown(`${h}h ${m}m ${s}s till open`);
-        }
-      } else {
-        setCountdown('');
-      }
     };
 
     updateAll();
     const interval = setInterval(updateAll, 1000);
     return () => clearInterval(interval);
-  }, [session]);
+  }, []);
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex items-center gap-8">
-        <AnalogClock time={times.ny} label="New York" theme={theme} />
-        <AnalogClock time={times.london} label="London" theme={theme} />
-        <AnalogClock time={times.tokyo} label="Tokyo" theme={theme} />
-      </div>
-      
-      {countdown && (
-        <div 
-          className="text-sm font-semibold px-3 py-1.5 rounded-lg"
-          style={{ 
-            color: colors.bearish,
-            backgroundColor: theme === 'dark' ? `${colors.bearish}15` : `${colors.bearish}10`,
-          }}
-        >
-          {countdown}
-        </div>
-      )}
+    <div className="flex items-center gap-4">
+      <AnalogClock time={times.ny} label="NEW YORK" theme={theme} />
+      <AnalogClock time={times.london} label="LONDON" theme={theme} />
+      <AnalogClock time={times.tokyo} label="TOKYO" theme={theme} />
     </div>
   );
 }

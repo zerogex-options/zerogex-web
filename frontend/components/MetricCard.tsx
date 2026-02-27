@@ -26,6 +26,19 @@ export default function MetricCard({
       style={{
         backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
         border: `1px solid ${colors.muted}`,
+        boxShadow: theme === 'dark' 
+          ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)' 
+          : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = theme === 'dark'
+          ? '0 8px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3)'
+          : '0 8px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = theme === 'dark'
+          ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)'
+          : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)';
       }}
     >
       <div className="flex justify-between items-start mb-3">

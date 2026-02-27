@@ -19,8 +19,20 @@
   }
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  height: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Prevent overscroll bounce on mobile */
+html {
+  overscroll-behavior: none;
 }
