@@ -21,7 +21,7 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg width="60" height="60" viewBox="0 0 100 100">
+      <svg width="70" height="70" viewBox="0 0 100 100">
         {/* Clock face */}
         <circle
           cx="50"
@@ -29,14 +29,14 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
           r="48"
           fill="none"
           stroke={colors.muted}
-          strokeWidth="2"
+          strokeWidth="3"
         />
         
         {/* Hour markers */}
         {[...Array(12)].map((_, i) => {
           const angle = (i * 30 - 90) * (Math.PI / 180);
-          const x1 = 50 + 40 * Math.cos(angle);
-          const y1 = 50 + 40 * Math.sin(angle);
+          const x1 = 50 + 38 * Math.cos(angle);
+          const y1 = 50 + 38 * Math.sin(angle);
           const x2 = 50 + 44 * Math.cos(angle);
           const y2 = 50 + 44 * Math.sin(angle);
           return (
@@ -47,7 +47,7 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
               x2={x2}
               y2={y2}
               stroke={colors.muted}
-              strokeWidth="2"
+              strokeWidth="3"
             />
           );
         })}
@@ -59,7 +59,7 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
           x2={50 + 25 * Math.sin((hourAngle * Math.PI) / 180)}
           y2={50 - 25 * Math.cos((hourAngle * Math.PI) / 180)}
           stroke={theme === 'dark' ? colors.light : colors.dark}
-          strokeWidth="3"
+          strokeWidth="4"
           strokeLinecap="round"
         />
 
@@ -70,7 +70,7 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
           x2={50 + 35 * Math.sin((minuteAngle * Math.PI) / 180)}
           y2={50 - 35 * Math.cos((minuteAngle * Math.PI) / 180)}
           stroke={theme === 'dark' ? colors.light : colors.dark}
-          strokeWidth="2"
+          strokeWidth="3"
           strokeLinecap="round"
         />
 
@@ -81,18 +81,18 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
           x2={50 + 38 * Math.sin((secondAngle * Math.PI) / 180)}
           y2={50 - 38 * Math.cos((secondAngle * Math.PI) / 180)}
           stroke={colors.bearish}
-          strokeWidth="1"
+          strokeWidth="2"
           strokeLinecap="round"
         />
 
         {/* Center dot */}
-        <circle cx="50" cy="50" r="3" fill={colors.bearish} />
+        <circle cx="50" cy="50" r="4" fill={colors.bearish} />
       </svg>
       
-      <div className="text-xs font-semibold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
+      <div className="text-xs font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
         {label}
       </div>
-      <div className="text-xs opacity-60" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+      <div className="text-sm font-bold opacity-80" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
         {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
       </div>
     </div>

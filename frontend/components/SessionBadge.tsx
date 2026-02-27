@@ -58,8 +58,8 @@ export default function SessionBadge({ session, theme, showCountdown = false }: 
 
   const badges = {
     'open': { label: 'MARKET OPEN', color: colors.bullish, icon: '●' },
-    'pre-market': { label: 'PRE-MARKET', color: colors.muted, icon: '○' },
-    'after-hours': { label: 'AFTER HOURS', color: colors.muted, icon: '○' },
+    'pre-market': { label: 'PRE-MARKET', color: '#f97316', icon: '○' },
+    'after-hours': { label: 'AFTER HOURS', color: '#f97316', icon: '○' },
     'closed': { label: 'CLOSED', color: colors.bearish, icon: '●' },
     'halted': { label: 'HALTED', color: '#eab308', icon: '▲' },
     'closed-weekend': { label: 'CLOSED (WEEKEND)', color: colors.bearish, icon: '●' },
