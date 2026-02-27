@@ -83,6 +83,13 @@ export const marketAPI = {
   },
 
   /**
+   * Get previous day's closing price
+   */
+  getPreviousClose: async (symbol: string = 'SPY'): Promise<{ symbol: string; previous_close: number; timestamp: string }> => {
+    return apiClient.get<{ symbol: string; previous_close: number; timestamp: string }>(`/api/market/previous-close?symbol=${symbol}`);
+  },
+
+  /**
    * Get historical quotes
    */
   getHistoricalQuotes: async (

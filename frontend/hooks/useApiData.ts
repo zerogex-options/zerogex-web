@@ -97,3 +97,10 @@ export function useOptionFlow(windowMinutes = 60, refreshInterval = 5000) {
 export function useSmartMoneyFlow(limit = 10, refreshInterval = 10000) {
   return useApiData<any[]>(`/api/flow/smart-money?limit=${limit}`, { refreshInterval });
 }
+
+export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
+  return useApiData<{ symbol: string; previous_close: number; timestamp: string }>(
+    `/api/market/previous-close?symbol=${symbol}`,
+    { refreshInterval }
+  );
+}

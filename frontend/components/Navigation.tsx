@@ -13,11 +13,11 @@ export default function Navigation({ theme }: NavigationProps) {
   const router = useRouter();
 
   const pages = [
-    { id: '/', label: 'Dashboard' },
-    { id: '/flow-analysis', label: 'Flow Analysis' },
-    { id: '/greeks-gex', label: 'Greeks & GEX' },
-    { id: '/intraday-tools', label: 'Intraday Tools' },
-    { id: '/about', label: 'About' },
+    { id: '/', label: 'DASHBOARD' },
+    { id: '/flow-analysis', label: 'FLOW ANALYSIS' },
+    { id: '/greeks-gex', label: 'GREEKS & GEX' },
+    { id: '/intraday-tools', label: 'INTRADAY TOOLS' },
+    { id: '/about', label: 'ABOUT' },
   ];
 
   return (

@@ -17,7 +17,7 @@ export default function MetricCard({
   const trendColors = {
     bullish: colors.bullish,
     bearish: colors.bearish,
-    neutral: colors.light,
+    neutral: theme === 'dark' ? colors.light : colors.dark,
   };
 
   return (
@@ -45,7 +45,7 @@ export default function MetricCard({
       <div 
         className="text-4xl font-bold mb-2"
         style={{ 
-          color: theme === 'dark' ? colors.light : colors.dark 
+          color: trendColors[trend]
         }}
       >
         {value}
@@ -53,7 +53,7 @@ export default function MetricCard({
       {subtitle && (
         <div 
           className="text-sm font-semibold"
-          style={{ color: trendColors[trend] }}
+          style={{ color: colors.muted }}
         >
           {subtitle}
         </div>
