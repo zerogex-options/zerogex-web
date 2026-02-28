@@ -23,7 +23,7 @@ export default function Footer({ theme }: FooterProps) {
             src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
             alt="ZeroGEX" 
             style={{
-              height: '320px',
+              height: '480px',
               width: 'auto',
               objectFit: 'contain'
             }}

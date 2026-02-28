@@ -52,97 +52,104 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     >
       <div className="container mx-auto px-6 py-4">
         {/* Desktop Layout */}
-        <div className="hidden md:grid" style={{ gridTemplateColumns: 'auto 1fr auto', gap: '2rem', alignItems: 'center' }}>
-          
-          {/* Left Column - Dropdowns & Quote */}
-          <div className="flex items-center gap-4">
-            {/* Dropdowns */}
-            <div className="flex flex-col gap-2">
-              <select
-                value={selectedSymbol}
-                onChange={(e) => setSelectedSymbol(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
-                style={{
-                  backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-                  borderColor: colors.muted,
-                  color: theme === 'dark' ? colors.light : colors.dark,
-                  width: '120px',
-                }}
-              >
-                <option>SPY</option>
-                <option>SPX</option>
-                <option>QQQ</option>
-                <option>IWM</option>
-              </select>
-
-              <select
-                value={selectedTimeframe}
-                onChange={(e) => setSelectedTimeframe(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
-                style={{
-                  backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-                  borderColor: colors.muted,
-                  color: theme === 'dark' ? colors.light : colors.dark,
-                  width: '120px',
-                }}
-              >
-                <option value="1min">1 Min</option>
-                <option value="5min">5 Min</option>
-                <option value="15min">15 Min</option>
-                <option value="1hr">1 Hour</option>
-                <option value="1day">1 Day</option>
-              </select>
-            </div>
-
-            {/* Live Price */}
-            {livePrice && (
-              <div className="flex flex-col gap-1">
-                <span className="font-bold text-2xl">${livePrice.price.toFixed(2)}</span>
-                <div 
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
+        <div className="hidden md:block relative">
+          {/* Main grid for left and right content */}
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'center' }}>
+            
+            {/* Left Column - Dropdowns & Quote */}
+            <div className="flex items-center gap-4">
+              {/* Dropdowns */}
+              <div className="flex flex-col gap-2">
+                <select
+                  value={selectedSymbol}
+                  onChange={(e) => setSelectedSymbol(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                   style={{
-                    backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
-                    color: isPositive ? colors.bullish : colors.bearish,
+                    backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                    borderColor: colors.muted,
+                    color: theme === 'dark' ? colors.light : colors.dark,
+                    width: '120px',
                   }}
                 >
-                  {isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                  {isPositive ? '+' : ''}{livePrice.change.toFixed(2)} ({isPositive ? '+' : ''}{livePrice.changePercent.toFixed(2)}%)
-                </div>
+                  <option>SPY</option>
+                  <option>SPX</option>
+                  <option>QQQ</option>
+                  <option>IWM</option>
+                </select>
+
+                <select
+                  value={selectedTimeframe}
+                  onChange={(e) => setSelectedTimeframe(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
+                  style={{
+                    backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                    borderColor: colors.muted,
+                    color: theme === 'dark' ? colors.light : colors.dark,
+                    width: '120px',
+                  }}
+                >
+                  <option value="1min">1 Min</option>
+                  <option value="5min">5 Min</option>
+                  <option value="15min">15 Min</option>
+                  <option value="1hr">1 Hour</option>
+                  <option value="1day">1 Day</option>
+                </select>
               </div>
-            )}
+
+              {/* Live Price */}
+              {livePrice && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-2xl">${livePrice.price.toFixed(2)}</span>
+                  <div 
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
+                    style={{
+                      backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
+                      color: isPositive ? colors.bullish : colors.bearish,
+                    }}
+                  >
+                    {isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
+                    {isPositive ? '+' : ''}{livePrice.change.toFixed(2)} ({isPositive ? '+' : ''}{livePrice.changePercent.toFixed(2)}%)
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column */}
+            <div className="flex flex-col gap-2 items-end">
+              {/* Session Badge */}
+              <div 
+                onClick={() => setShowCountdown(!showCountdown)}
+                style={{ cursor: 'pointer' }}
+              >
+                <SessionBadge 
+                  session={session} 
+                  theme={theme} 
+                  showCountdown={showCountdown}
+                />
+              </div>
+              
+              {/* World Clocks */}
+              <div className="scale-90 origin-right">
+                <WorldClocks theme={theme} session={session} hideCountdown={true} />
+              </div>
+            </div>
           </div>
 
-          {/* Center Column - Logo */}
-          <div className="flex items-center justify-center">
+          {/* Absolutely centered logo */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ top: 0, bottom: 0 }}
+          >
             <img 
               src={theme === 'dark' ? '/title-dark.png' : '/title-light.png'}
               alt="ZeroGEX" 
               style={{
                 height: '140px',
                 width: 'auto',
-                objectFit: 'contain'
+                objectFit: 'contain',
+                pointerEvents: 'auto'
               }}
             />
-          </div>
-
-          {/* Right Column */}
-          <div className="flex flex-col gap-2 items-end">
-            {/* Session Badge */}
-            <div 
-              onClick={() => setShowCountdown(!showCountdown)}
-              style={{ cursor: 'pointer' }}
-            >
-              <SessionBadge 
-                session={session} 
-                theme={theme} 
-                showCountdown={showCountdown}
-              />
-            </div>
-            
-            {/* World Clocks */}
-            <div className="scale-90 origin-right">
-              <WorldClocks theme={theme} session={session} hideCountdown={true} />
-            </div>
           </div>
         </div>
 
