@@ -87,6 +87,7 @@ logo:
 	cp assets/branding/Light_Title.png frontend/public/title-light.png
 	cp assets/branding/Dark_Title_Subtitle.png frontend/public/title-subtitle-dark.png
 	cp assets/branding/Light_Title_Subtitle.png frontend/public/title-subtitle-light.png
+	cp assets/branding/Helmet.png frontend/public/helmet.png
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	@echo "Logos copied successfully!"
 
