@@ -14,6 +14,7 @@ export default function Navigation({ theme }: NavigationProps) {
 
   const pages = [
     { id: '/', label: 'DASHBOARD' },
+    { id: '/charts', label: 'CHARTS' },
     { id: '/flow-analysis', label: 'FLOW ANALYSIS' },
     { id: '/greeks-gex', label: 'GREEKS & GEX' },
     { id: '/intraday-tools', label: 'INTRADAY TOOLS' },
