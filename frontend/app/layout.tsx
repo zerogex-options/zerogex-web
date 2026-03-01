@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
+import { TimeframeProvider } from '@/core/TimeframeContext';
 import ClientLayout from '@/components/ClientLayout';
 
 const dmSans = DM_Sans({ 
@@ -35,9 +36,11 @@ export default function RootLayout({
         }}
       >
         <ThemeProvider>
-          <ClientLayout>
-            {children}
-          </ClientLayout>
+          <TimeframeProvider>
+            <ClientLayout>
+              {children}
+            </ClientLayout>
+          </TimeframeProvider>
         </ThemeProvider>
       </body>
     </html>

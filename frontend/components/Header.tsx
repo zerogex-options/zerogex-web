@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { Theme } from '@/core/types';
+import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
 import { colors } from '@/core/colors';
 import SessionBadge from './SessionBadge';
@@ -18,7 +19,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState('SPY');
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1min');
+  const { timeframe, setTimeframe } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
 
   // Fetch real market data
@@ -78,8 +79,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 </select>
 
                 <select
-                  value={selectedTimeframe}
-                  onChange={(e) => setSelectedTimeframe(e.target.value)}
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value as any)}
                   className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                   style={{
                     backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
@@ -195,8 +196,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 </select>
 
                 <select
-                  value={selectedTimeframe}
-                  onChange={(e) => setSelectedTimeframe(e.target.value)}
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value as any)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
                     backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,

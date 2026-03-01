@@ -8,4 +8,5 @@ export const colors = {
   bgDark: '#2a2628',
   cardLight: '#ffffff',
   bgLight: '#f2f2f2',
+  primary: '#f59e0b',
 };

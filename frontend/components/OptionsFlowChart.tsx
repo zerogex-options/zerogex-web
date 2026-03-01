@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
+import { useTimeframe } from '@/core/TimeframeContext'; // ADD THIS
 import { colors } from '@/core/colors';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
@@ -20,20 +21,75 @@ interface ChartDataPoint {
   puts: number;
 }
 
+// ADD THIS HELPER FUNCTION
+function aggregateFlowData(data: FlowDataPoint[], bucketMinutes: number, maxPoints: number): FlowDataPoint[] {
+  if (data.length === 0) return [];
+  
+  // Sort by timestamp
+  const sorted = [...data].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  
+  // Take last maxPoints * bucketMinutes worth of data
+  const startIdx = Math.max(0, sorted.length - maxPoints);
+  const relevantData = sorted.slice(startIdx);
+  
+  // Group into buckets
+  const buckets = new Map<string, FlowDataPoint[]>();
+  
+  relevantData.forEach(point => {
+    const timestamp = new Date(point.timestamp);
+    const bucketTime = new Date(
+      Math.floor(timestamp.getTime() / (bucketMinutes * 60000)) * (bucketMinutes * 60000)
+    );
+    const bucketKey = bucketTime.toISOString();
+    
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, []);
+    }
+    buckets.get(bucketKey)!.push(point);
+  });
+  
+  // Average each bucket
+  const aggregated: FlowDataPoint[] = [];
+  buckets.forEach((points, timestamp) => {
+    const avgCallNotional = points.reduce((sum, p) => sum + p.call_notional, 0) / points.length;
+    const avgPutNotional = points.reduce((sum, p) => sum + p.put_notional, 0) / points.length;
+    
+    aggregated.push({
+      timestamp,
+      call_notional: avgCallNotional,
+      put_notional: avgPutNotional,
+    });
+  });
+  
+  return aggregated.sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+}
+
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
+  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints } = useTimeframe(); // ADD THIS
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
-  // Fetch flow data
+  const intervalMinutes = getIntervalMinutes();
+  const windowMinutes = getWindowMinutes();
+  const maxPoints = getMaxDataPoints();
+
+  // Fetch flow data with dynamic window
   const { data: flowData, loading, error } = useApiData<FlowDataPoint[]>(
-    '/api/flow/timeseries?window_minutes=60&interval_minutes=5',
+    `/api/flow/timeseries?window_minutes=${windowMinutes}&interval_minutes=1`,
     { refreshInterval: 5000 }
   );
 
   useEffect(() => {
     if (!flowData || flowData.length === 0) return;
 
-    const formatted = flowData.map(d => ({
+    // Aggregate data based on timeframe
+    const aggregated = aggregateFlowData(flowData, intervalMinutes, maxPoints);
+
+    const formatted = aggregated.map(d => ({
       time: new Date(d.timestamp).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
@@ -44,8 +100,10 @@ export default function OptionsFlowChart() {
     }));
 
     setChartData(formatted);
-  }, [flowData]);
+  }, [flowData, intervalMinutes, maxPoints]);
 
+  // ... rest of component stays the same ...
+  
   if (loading && chartData.length === 0) {
     return <LoadingSpinner size="lg" />;
   }
@@ -137,6 +195,7 @@ export default function OptionsFlowChart() {
               position: 'insideLeft',
               style: { fill: theme === 'dark' ? colors.light : colors.dark }
             }}
+            domain={[0, 'auto']}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 
@@ -151,7 +210,7 @@ export default function OptionsFlowChart() {
             name="Call Premium"
             stroke={colors.bullish} 
             strokeWidth={3}
-            dot={{ fill: colors.bullish, r: 4 }}
+            dot={false}
             activeDot={{ r: 6 }}
           />
           <Line 
@@ -160,7 +219,7 @@ export default function OptionsFlowChart() {
             name="Put Premium"
             stroke={colors.bearish} 
             strokeWidth={3}
-            dot={{ fill: colors.bearish, r: 4 }}
+            dot={false}
             activeDot={{ r: 6 }}
           />
         </LineChart>
