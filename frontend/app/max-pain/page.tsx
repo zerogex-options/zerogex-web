@@ -42,14 +42,14 @@ export default function MaxPainPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard title="Current Max Pain" value={gexSummary?.max_pain ? `$${gexSummary.max_pain.toFixed(2)}` : '--'} tooltip="Latest max pain from /api/gex/summary. Calculation is based on open-interest payout minimization across strikes." theme="dark" />
           <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : '--'} tooltip="Most recent max pain value from /api/max-pain/timeseries. Useful for tracking intraday drift in the max-pain level." theme="dark" />
-          <MetricCard title="Underlying Price" value={latest?.price ? `$${latest.price.toFixed(2)}` : '--'} trend={latest && latest.price > latest.maxPain ? 'bullish' : 'bearish'} tooltip="Latest underlying price from the max-pain timeseries endpoint. Comparing this to max pain helps gauge whether price is above or below the expiry-pinning zone." theme="dark" />
+          <MetricCard title="Underlying Price" value={typeof latest?.price === 'number' ? `$${latest.price.toFixed(2)}` : '--'} trend={typeof latest?.price === 'number' && latest.price > latest.maxPain ? 'bullish' : 'bearish'} tooltip="Latest underlying price from the max-pain timeseries endpoint. Comparing this to max pain helps gauge whether price is above or below the expiry-pinning zone." theme="dark" />
         </div>
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle title="Notional Open Interest by Strike" tooltip="Vertical bar chart of strike-level notional open interest from /api/max-pain/by-strike. Peaks identify strikes with the most positioning weight, often influential for pinning dynamics." />
         {oiError ? <ErrorMessage message={oiError} /> : oiChart.length === 0 ? <div className="text-gray-400 text-center py-8">No max pain OI data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={oiChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" tickFormatter={(value) => `${Number(value).toFixed(0)}M`} /><Tooltip formatter={(value: number) => `$${value.toFixed(2)}M`} /><Bar dataKey="notionalOiM" fill="#10b981" /></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={360}><BarChart data={oiChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" tickFormatter={(value) => `${Number(value).toFixed(0)}M`} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><Bar dataKey="notionalOiM" fill="#10b981" /></BarChart></ResponsiveContainer>
         )}
       </section>
 

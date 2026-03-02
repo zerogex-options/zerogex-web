@@ -47,7 +47,7 @@ export default function GammaExposurePage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Strike-by-strike net gamma bars from /api/gex/by-strike. Values above zero indicate positive net gamma; below zero indicate negative net gamma. Clusters reveal potential hedging pressure zones around key strikes." />
         {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeChart.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" tickFormatter={(value) => `${Number(value).toFixed(0)}M`} /><Tooltip formatter={(value: number) => `$${value.toFixed(2)}M`} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" fill="#60a5fa" /></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" tickFormatter={(value) => `${Number(value).toFixed(0)}M`} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" fill="#60a5fa" /></BarChart></ResponsiveContainer>
         )}
       </section>
     </div>
