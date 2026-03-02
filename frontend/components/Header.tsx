@@ -137,7 +137,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 }}
               >
                 <img 
-                  src={theme === 'dark' ? '/title-dark.png' : '/title-light.png'}
+                  src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
                   alt="ZeroGEX" 
                   style={{
                     height: '60px',
@@ -263,7 +263,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 style={{ top: 0, bottom: 0 }}
               >
                 <img 
-                  src={theme === 'dark' ? '/title-dark.png' : '/title-light.png'}
+                  src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
                   alt="ZeroGEX" 
                   style={{
                     height: '140px',
@@ -301,7 +301,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
             <img 
-              src={theme === 'dark' ? '/title-dark.png' : '/title-light.png'}
+              src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
               alt="ZeroGEX" 
               style={{
                 height: '48px',

@@ -81,13 +81,13 @@ clean:
 # Copy logos from assets to public
 logo:
 	@echo "Copying logos from assets to public..."
-	cp assets/branding/Dark_Full.png frontend/public/logo-dark.png
-	cp assets/branding/Light_Full.png frontend/public/logo-light.png
-	cp assets/branding/Dark_Title.png frontend/public/title-dark.png
-	cp assets/branding/Light_Title.png frontend/public/title-light.png
-	cp assets/branding/Dark_Title_Subtitle.png frontend/public/title-subtitle-dark.png
-	cp assets/branding/Light_Title_Subtitle.png frontend/public/title-subtitle-light.png
-	cp assets/branding/Helmet.png frontend/public/helmet.png
+	cp assets/branding/Dark_Full.svg frontend/public/logo-dark.svg
+	cp assets/branding/Light_Full.svg frontend/public/logo-light.svg
+	cp assets/branding/Dark_Title.svg frontend/public/title-dark.svg
+	cp assets/branding/Light_Title.svg frontend/public/title-light.svg
+	cp assets/branding/Dark_Title_Subtitle.svg frontend/public/title-subtitle-dark.svg
+	cp assets/branding/Light_Title_Subtitle.svg frontend/public/title-subtitle-light.svg
+	cp assets/branding/Helmet.svg frontend/public/helmet.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	@echo "Logos copied successfully!"
 

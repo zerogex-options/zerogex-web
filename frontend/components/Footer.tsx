@@ -20,7 +20,7 @@ export default function Footer({ theme }: FooterProps) {
         <div className="flex flex-col items-center gap-6">
           {/* Logo */}
           <img 
-            src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
+            src={theme === 'dark' ? '/logo-dark.svg' : '/logo-light.svg'}
             alt="ZeroGEX" 
             style={{
               height: '480px',
