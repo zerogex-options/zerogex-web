@@ -42,6 +42,7 @@ export default function Navigation({ theme }: NavigationProps) {
                 style={{
                   color: isActive ? colors.bearish : (theme === 'dark' ? colors.light : colors.dark),
                   opacity: isActive ? 1 : 0.6,
+                  cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {

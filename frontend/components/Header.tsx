@@ -140,7 +140,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
                   alt="ZeroGEX" 
                   style={{
-                    height: '60px',
+                    height: '100px',
                     width: 'auto',
                     objectFit: 'contain',
                     transition: 'height 0.3s ease',
@@ -266,7 +266,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
                   alt="ZeroGEX" 
                   style={{
-                    height: '140px',
+                    height: '200px',
                     width: 'auto',
                     objectFit: 'contain',
                     pointerEvents: 'auto',
