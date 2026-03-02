@@ -235,16 +235,16 @@ export default function GammaHeatmap() {
   // FIXED chart dimensions - calculate based on available width and number of data points
   const yAxisWidth = 80;
   const availableWidth = containerWidth - yAxisWidth - 40;
-  const cellWidth = Math.max(20, Math.floor(availableWidth / Math.min(timestamps.length, maxPoints)));
+  const cellWidth = Math.max(20, Math.floor(availableWidth / maxPoints));
   const cellHeight = 30;
   const numStrikes = strikes.length;
   
   // Chart dimensions stay constant
-  const chartWidth = Math.min(timestamps.length, maxPoints) * cellWidth + yAxisWidth + 40;
+  const chartWidth = maxPoints * cellWidth + yAxisWidth + 40;
   const chartHeight = numStrikes * cellHeight + 80;
 
   // Aggregate price data for overlay
-  const aggregatedPriceData = priceData ? aggregatePriceData(priceData, intervalMinutes, maxPoints) : [];
+  const aggregatedPriceData = priceData ? aggregatePriceData(omitClosedMarketTimes(priceData, (p) => p.timestamp), intervalMinutes, maxPoints) : [];
 
   return (
     <div 
