@@ -8,6 +8,7 @@ interface WorldClocksProps {
   theme: Theme;
   session: MarketSession;
   hideCountdown?: boolean;
+  compact?: boolean;
 }
 
 function AnalogClock({ time, label, theme }: { time: Date; label: string; theme: Theme }) {
@@ -99,7 +100,27 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
   );
 }
 
-export default function WorldClocks({ theme, session, hideCountdown = false }: WorldClocksProps) {
+function CompactTime({ time, label, theme }: { time: Date; label: string; theme: Theme }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div 
+        className="text-sm font-bold" 
+        style={{ 
+          fontFamily: 'monospace', 
+          fontVariantNumeric: 'tabular-nums',
+          color: theme === 'dark' ? colors.light : colors.dark 
+        }}
+      >
+        {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+      </div>
+      <div className="text-xs opacity-60" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+export default function WorldClocks({ theme, session, hideCountdown = false, compact = false }: WorldClocksProps) {
   const [times, setTimes] = useState({
     ny: new Date(),
     london: new Date(),
@@ -121,6 +142,16 @@ export default function WorldClocks({ theme, session, hideCountdown = false }: W
     const interval = setInterval(updateAll, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3">
+        <CompactTime time={times.ny} label="NY" theme={theme} />
+        <CompactTime time={times.london} label="LON" theme={theme} />
+        <CompactTime time={times.tokyo} label="TYO" theme={theme} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4">

@@ -8,9 +8,10 @@ interface SessionBadgeProps {
   session: MarketSession;
   theme: Theme;
   showCountdown?: boolean;
+  compact?: boolean;
 }
 
-export default function SessionBadge({ session, theme, showCountdown = false }: SessionBadgeProps) {
+export default function SessionBadge({ session, theme, showCountdown = false, compact = false }: SessionBadgeProps) {
   const [countdown, setCountdown] = useState('');
   const [countdownLabel, setCountdownLabel] = useState('');
 
@@ -67,6 +68,29 @@ export default function SessionBadge({ session, theme, showCountdown = false }: 
   };
 
   const badge = badges[session] || badges['closed'];
+
+  // Compact mode - circle only in a square container
+  if (compact && !showCountdown) {
+    return (
+      <div
+        className="px-2 py-2 rounded-lg flex items-center justify-center"
+        style={{
+          backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
+          border: `1px solid ${colors.muted}40`,
+          boxShadow: theme === 'dark' ? '0 2px 8px rgba(0, 0, 0, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+          width: '40px',
+          height: '40px',
+        }}
+      >
+        <span 
+          className="text-2xl leading-none"
+          style={{ color: badge.color }}
+        >
+          {badge.icon}
+        </span>
+      </div>
+    );
+  }
 
   // Show countdown if toggle is on and countdown exists
   if (showCountdown && countdown) {
