@@ -6,6 +6,7 @@
 'use client';
 
 import { useApiData } from '@/hooks/useApiData';
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
@@ -38,6 +39,12 @@ export default function IntradayToolsPage() {
 
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];
+  const divergenceChart = (divergence || []).slice().reverse().map((signal) => ({
+    time: new Date(signal.time_et).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    priceChange: signal.price_change_5min,
+    netVolumeK: signal.net_volume / 1000,
+  }));
+
 
   if ((vwapLoading || orbLoading) && !vwapData && !orbData) {
     return <LoadingSpinner size="lg" />;
@@ -212,6 +219,23 @@ export default function IntradayToolsPage() {
       {/* Momentum Divergence */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
+        {divergenceChart.length > 0 && (
+          <div className="bg-[#423d3f] rounded-lg p-6 mb-4">
+            <h3 className="text-lg font-semibold mb-3">Momentum Divergence Trend</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={divergenceChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
+                <XAxis dataKey="time" stroke="#f2f2f2" />
+                <YAxis yAxisId="left" stroke="#f2f2f2" />
+                <YAxis yAxisId="right" orientation="right" stroke="#f2f2f2" />
+                <Tooltip />
+                <Legend />
+                <Line yAxisId="left" dataKey="priceChange" name="5m Price Change ($)" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                <Line yAxisId="right" dataKey="netVolumeK" name="Net Volume (K)" stroke="#60a5fa" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
         {!divergence || divergence.length === 0 ? (
           <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
             No divergence signals
