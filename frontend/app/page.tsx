@@ -10,6 +10,7 @@ import MetricCard from '@/components/MetricCard';
 import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
+import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -80,6 +81,11 @@ export default function DashboardPage() {
             trend="neutral"
           />
         </div>
+      </section>
+
+
+      <section className="mb-8">
+        <UnderlyingCandlesChart />
       </section>
 
       {/* GEX Metrics */}
