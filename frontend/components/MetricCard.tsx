@@ -4,6 +4,7 @@ import { Info } from 'lucide-react';
 import { MetricCardProps } from '@/core/types';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 
 export default function MetricCard({
   title,
@@ -21,7 +22,8 @@ export default function MetricCard({
   };
 
   return (
-    <div
+    <ExpandableCard>
+      <div
       className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
       style={{
         backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
@@ -71,6 +73,7 @@ export default function MetricCard({
           {subtitle}
         </div>
       )}
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }

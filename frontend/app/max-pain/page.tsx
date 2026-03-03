@@ -7,9 +7,11 @@ import MetricCard from '@/components/MetricCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { useTimeframe } from '@/core/TimeframeContext';
 import { omitClosedMarketTimes } from '@/core/utils';
 
-interface MaxPainStrikeRow { strike: number; notional_oi?: number; total_notional_oi?: number }
+interface MaxPainStrikeRow { settlement_price: number; total_notional: number }
+interface MaxPainCurrentResponse { timestamp: string; symbol: string; max_pain: number; strikes: MaxPainStrikeRow[] }
 interface MaxPainTimeRow { timestamp?: string; time?: string; time_et?: string; max_pain: number; price?: number; underlying_price?: number }
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
@@ -17,13 +19,14 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function MaxPainPage() {
-  const { data: gexSummary } = useGEXSummary(5000);
-  const { data: oiByStrike, loading: oiLoading, error: oiError } = useApiData<MaxPainStrikeRow[]>('/api/max-pain/by-strike?limit=40', { refreshInterval: 30000 });
-  const { data: maxPainSeries, loading: seriesLoading, error: seriesError } = useApiData<MaxPainTimeRow[]>('/api/max-pain/timeseries?window_minutes=390&interval_minutes=5', { refreshInterval: 10000 });
+  const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
+  const { data: gexSummary } = useGEXSummary(symbol, 5000);
+  const { data: maxPainCurrent, loading: oiLoading, error: oiError } = useApiData<MaxPainCurrentResponse>(`/api/max-pain/current?symbol=${symbol}&strike_limit=200`, { refreshInterval: 30000 });
+  const { data: maxPainSeries, loading: seriesLoading, error: seriesError } = useApiData<MaxPainTimeRow[]>(`/api/max-pain/timeseries?symbol=${symbol}&timeframe=${timeframe}&limit=${getMaxDataPoints()}`, { refreshInterval: 10000 });
 
-  if ((oiLoading || seriesLoading) && !oiByStrike && !maxPainSeries) return <LoadingSpinner size="lg" />;
+  if ((oiLoading || seriesLoading) && !maxPainCurrent && !maxPainSeries) return <LoadingSpinner size="lg" />;
 
-  const oiChart = (oiByStrike || []).map((row) => ({ strike: row.strike, notionalOiM: (row.notional_oi ?? row.total_notional_oi ?? 0) / 1000000 }));
+  const oiChart = (maxPainCurrent?.strikes || []).map((row) => ({ strike: row.settlement_price, notionalOiM: row.total_notional / 1000000 }));
   const rawSeries = (maxPainSeries || []).map((row) => ({
     timestamp: row.timestamp ?? row.time ?? row.time_et ?? '',
     time: new Date(row.timestamp ?? row.time ?? row.time_et ?? '').toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
@@ -40,7 +43,7 @@ export default function MaxPainPage() {
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series. Max pain approximates the strike that minimizes aggregate option-holder payoff into expiry, and can act as a price magnet near expiration." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard title="Current Max Pain" value={gexSummary?.max_pain ? `$${gexSummary.max_pain.toFixed(2)}` : '--'} tooltip="Latest max pain from /api/gex/summary. Calculation is based on open-interest payout minimization across strikes." theme="dark" />
+          <MetricCard title="Current Max Pain" value={gexSummary?.max_pain ? `$${Number(gexSummary.max_pain).toFixed(2)}` : '--'} tooltip="Latest max pain from /api/gex/summary. Calculation is based on open-interest payout minimization across strikes." theme="dark" />
           <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : '--'} tooltip="Most recent max pain value from /api/max-pain/timeseries. Useful for tracking intraday drift in the max-pain level." theme="dark" />
           <MetricCard title="Underlying Price" value={typeof latest?.price === 'number' ? `$${latest.price.toFixed(2)}` : '--'} trend={typeof latest?.price === 'number' && latest.price > latest.maxPain ? 'bullish' : 'bearish'} tooltip="Latest underlying price from the max-pain timeseries endpoint. Comparing this to max pain helps gauge whether price is above or below the expiry-pinning zone." theme="dark" />
         </div>

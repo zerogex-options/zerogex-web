@@ -1,6 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -28,11 +29,6 @@ interface FlowByStrikeRow {
   total_premium: number;
 }
 
-interface FlowTimeseriesRow {
-  timestamp: string;
-  call_notional: number;
-  put_notional: number;
-}
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -46,18 +42,14 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { getWindowMinutes } = useTimeframe();
+  const { getWindowMinutes, symbol } = useTimeframe();
   const windowMinutes = getWindowMinutes();
 
-  const { data: flowData, loading: flowLoading, error: flowError } = useOptionFlow(windowMinutes, 5000);
-  const { data: smartMoney, loading: smartLoading, error: smartError } = useSmartMoneyFlow(20, 10000);
-  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikeRow[]>('/api/flow/by-strike?limit=25', {
+  const { data: flowData, loading: flowLoading, error: flowError } = useOptionFlow(symbol, windowMinutes, 5000);
+  const { data: smartMoney, loading: smartLoading, error: smartError } = useSmartMoneyFlow(symbol, 20, 10000);
+  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikeRow[]>(`/api/flow/by-strike?symbol=${symbol}&limit=25`, {
     refreshInterval: 5000,
   });
-  const { data: flowTimeseries, error: ratioError } = useApiData<FlowTimeseriesRow[]>(
-    `/api/flow/timeseries?window_minutes=${windowMinutes}&interval_minutes=1`,
-    { refreshInterval: 5000 }
-  );
 
   if (flowLoading && !flowData) return <LoadingSpinner size="lg" />;
 
@@ -71,6 +63,19 @@ export default function FlowAnalysisPage() {
   const netFlow = totalCallVolume - totalPutVolume;
   const netPremium = totalCallPremium - totalPutPremium;
   const putCallRatio = totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
+
+  const [putCallRatioSeries, setPutCallRatioSeries] = useState<Array<{ timestamp: string; time: string; ratio: number }>>([]);
+
+  useEffect(() => {
+    const timestamp = new Date().toISOString();
+    setPutCallRatioSeries((prev) =>
+      [...prev, {
+        timestamp,
+        time: new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        ratio: totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0,
+      }].slice(-96)
+    );
+  }, [totalCallVolume, totalPutVolume]);
 
   const byStrikeChart = (flowByStrike || []).map((row) => ({
     strike: row.strike,
@@ -88,14 +93,6 @@ export default function FlowAnalysisPage() {
     (r) => r.timestamp
   );
 
-  const putCallRatioSeries = omitClosedMarketTimes(
-    (flowTimeseries || []).map((row) => ({
-      timestamp: row.timestamp,
-      time: new Date(row.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      ratio: row.call_notional > 0 ? row.put_notional / row.call_notional : 0,
-    })),
-    (r) => r.timestamp
-  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -121,7 +118,7 @@ export default function FlowAnalysisPage() {
           title="Put/Call Ratio Timeseries"
           tooltip="Shows how the put/call notional ratio evolves through the window. Values above 1 indicate put notional dominating call notional."
         />
-        {ratioError ? <ErrorMessage message={ratioError} /> : putCallRatioSeries.length === 0 ? <div className="text-gray-400 text-center py-8">No put/call ratio timeseries available</div> : (
+        {putCallRatioSeries.length === 0 ? <div className="text-gray-400 text-center py-8">No put/call ratio timeseries available</div> : (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={putCallRatioSeries}>
               <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />

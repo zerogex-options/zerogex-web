@@ -11,13 +11,15 @@ import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
+import { useTimeframe } from '@/core/TimeframeContext';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
+  const { symbol } = useTimeframe();
   
   // Fetch data with different refresh intervals
-  const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(5000);
-  const { data: quoteData, loading: quoteLoading, error: quoteError } = useMarketQuote(1000);
+  const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
+  const { data: quoteData, loading: quoteLoading, error: quoteError } = useMarketQuote(symbol, 1000);
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {

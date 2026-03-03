@@ -8,15 +8,17 @@ import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmap from '@/components/GammaHeatmap';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { useTimeframe } from '@/core/TimeframeContext';
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return <div className="flex items-center gap-2 mb-4"><h2 className="text-2xl font-semibold">{title}</h2><TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper></div>;
 }
 
 export default function GammaExposurePage() {
-  const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(5000);
-  const { data: quoteData } = useMarketQuote(1000);
-  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(40, 10000);
+  const { symbol } = useTimeframe();
+  const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 40, 10000);
 
   if (gexLoading && !gexData) {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;

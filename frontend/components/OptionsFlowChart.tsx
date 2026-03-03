@@ -1,130 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useApiData } from '@/hooks/useApiData';
+import { useOptionFlow } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
-import { useTimeframe } from '@/core/TimeframeContext'; // ADD THIS
+import { useTimeframe } from '@/core/TimeframeContext';
 import { colors } from '@/core/colors';
-import { omitClosedMarketTimes } from '@/core/utils';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
-
-interface FlowDataPoint {
-  timestamp: string;
-  call_notional: number;
-  put_notional: number;
-}
+import ExpandableCard from './ExpandableCard';
 
 interface ChartDataPoint {
+  timestamp: string;
   time: string;
   calls: number;
   puts: number;
 }
 
-// ADD THIS HELPER FUNCTION
-function aggregateFlowData(data: FlowDataPoint[], bucketMinutes: number, maxPoints: number): FlowDataPoint[] {
-  if (data.length === 0) return [];
-  
-  // Sort by timestamp
-  const sorted = [...data].sort((a, b) => 
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-  
-  // Take last maxPoints * bucketMinutes worth of data
-  const startIdx = Math.max(0, sorted.length - maxPoints);
-  const relevantData = sorted.slice(startIdx);
-  
-  // Group into buckets
-  const buckets = new Map<string, FlowDataPoint[]>();
-  
-  relevantData.forEach(point => {
-    const timestamp = new Date(point.timestamp);
-    const bucketTime = new Date(
-      Math.floor(timestamp.getTime() / (bucketMinutes * 60000)) * (bucketMinutes * 60000)
-    );
-    const bucketKey = bucketTime.toISOString();
-    
-    if (!buckets.has(bucketKey)) {
-      buckets.set(bucketKey, []);
-    }
-    buckets.get(bucketKey)!.push(point);
-  });
-  
-  // Average each bucket
-  const aggregated: FlowDataPoint[] = [];
-  buckets.forEach((points, timestamp) => {
-    const avgCallNotional = points.reduce((sum, p) => sum + p.call_notional, 0) / points.length;
-    const avgPutNotional = points.reduce((sum, p) => sum + p.put_notional, 0) / points.length;
-    
-    aggregated.push({
-      timestamp,
-      call_notional: avgCallNotional,
-      put_notional: avgPutNotional,
-    });
-  });
-  
-  return aggregated.sort((a, b) => 
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-}
-
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints } = useTimeframe(); // ADD THIS
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-
-  const intervalMinutes = getIntervalMinutes();
+  const { getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
   const windowMinutes = getWindowMinutes();
   const maxPoints = getMaxDataPoints();
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
-  // Fetch flow data with dynamic window
-  const { data: flowData, loading, error } = useApiData<FlowDataPoint[]>(
-    `/api/flow/timeseries?window_minutes=${windowMinutes}&interval_minutes=1`,
-    { refreshInterval: 5000 }
-  );
+  const { data: flowData, loading, error } = useOptionFlow(symbol, windowMinutes, 5000);
 
   useEffect(() => {
     if (!flowData || flowData.length === 0) return;
 
-    // Aggregate data based on timeframe
-    const filteredFlow = omitClosedMarketTimes(flowData, (d) => d.timestamp);
-    const aggregated = aggregateFlowData(filteredFlow, intervalMinutes, maxPoints);
+    const callRow = flowData.find((r) => r.option_type === 'CALL');
+    const putRow = flowData.find((r) => r.option_type === 'PUT');
+    const timestamp = (callRow?.time_window_end || putRow?.time_window_end || new Date().toISOString()) as string;
 
-    const formatted = aggregated.map(d => ({
-      time: new Date(d.timestamp).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      }),
-      calls: d.call_notional / 1000000, // Convert to millions
-      puts: d.put_notional / 1000000,
-    }));
+    const point: ChartDataPoint = {
+      timestamp,
+      time: new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      calls: ((callRow?.total_premium as number) || 0) / 1_000_000,
+      puts: ((putRow?.total_premium as number) || 0) / 1_000_000,
+    };
 
-    setChartData(formatted);
-  }, [flowData, intervalMinutes, maxPoints]);
+    setChartData((prev) => {
+      const merged = [...prev, point]
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .filter((row, idx, arr) => idx === 0 || row.timestamp !== arr[idx - 1].timestamp)
+        .slice(-maxPoints);
+      return merged;
+    });
+  }, [flowData, maxPoints]);
 
-  // ... rest of component stays the same ...
-  
-  if (loading && chartData.length === 0) {
-    return <LoadingSpinner size="lg" />;
-  }
+  const totals = useMemo(() => {
+    return chartData.reduce(
+      (acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }),
+      { calls: 0, puts: 0 }
+    );
+  }, [chartData]);
 
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
+  if (loading && chartData.length === 0) return <LoadingSpinner size="lg" />;
+  if (error) return <ErrorMessage message={error} />;
 
   if (chartData.length === 0) {
     return (
-      <div 
-        className="rounded-lg p-8 text-center"
-        style={{
-          backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
-        }}
-      >
+      <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <p style={{ color: colors.muted }}>No flow data available</p>
       </div>
     );
@@ -133,22 +72,10 @@ export default function OptionsFlowChart() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div 
-          className="p-3 rounded-lg shadow-lg"
-          style={{
-            backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-            border: `1px solid ${colors.muted}`,
-          }}
-        >
-          <p className="font-semibold mb-2" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
-            {label}
-          </p>
-          <p style={{ color: colors.bullish, fontSize: '14px' }}>
-            Calls: ${payload[0].value.toFixed(2)}M
-          </p>
-          <p style={{ color: colors.bearish, fontSize: '14px' }}>
-            Puts: ${payload[1].value.toFixed(2)}M
-          </p>
+        <div className="p-3 rounded-lg shadow-lg" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+          <p className="font-semibold mb-2" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>{label}</p>
+          <p style={{ color: colors.bullish, fontSize: '14px' }}>Calls: ${payload[0].value.toFixed(2)}M</p>
+          <p style={{ color: colors.bearish, fontSize: '14px' }}>Puts: ${payload[1].value.toFixed(2)}M</p>
           <p style={{ color: theme === 'dark' ? colors.light : colors.dark, fontSize: '12px', marginTop: '4px' }}>
             Net: ${(payload[0].value - payload[1].value).toFixed(2)}M
           </p>
@@ -159,110 +86,31 @@ export default function OptionsFlowChart() {
   };
 
   return (
-    <div 
-      className="rounded-lg p-6"
-      style={{
-        backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-      }}
-    >
-      <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Flow - Notional Premium</h3>
-        <TooltipWrapper text="Timeseries of call and put notional premium from /api/flow/timeseries. Values are bucket-aggregated and shown in millions. The spread between call and put curves indicates net directional options demand and potential sentiment shifts."><Info size={14} /></TooltipWrapper>
-      </div>
-
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart
-          data={chartData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            stroke={colors.muted}
-            opacity={0.3}
-          />
-          <XAxis 
-            dataKey="time" 
-            stroke={theme === 'dark' ? colors.light : colors.dark}
-            style={{ fontSize: '12px' }}
-            tick={{ fill: theme === 'dark' ? colors.light : colors.dark }}
-          />
-          <YAxis 
-            stroke={theme === 'dark' ? colors.light : colors.dark}
-            style={{ fontSize: '12px' }}
-            tick={{ fill: theme === 'dark' ? colors.light : colors.dark }}
-            label={{ 
-              value: 'Premium ($M)', 
-              angle: -90, 
-              position: 'insideLeft',
-              style: { fill: theme === 'dark' ? colors.light : colors.dark }
-            }}
-            domain={[0, 'auto']}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend 
-            wrapperStyle={{ 
-              paddingTop: '20px',
-              color: theme === 'dark' ? colors.light : colors.dark 
-            }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="calls" 
-            name="Call Premium"
-            stroke={colors.bullish} 
-            strokeWidth={3}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="puts" 
-            name="Put Premium"
-            stroke={colors.bearish} 
-            strokeWidth={3}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 mt-6">
-        <div className="text-center">
-          <div style={{ color: colors.muted, fontSize: '12px', marginBottom: '4px' }}>
-            Total Call Premium
-          </div>
-          <div style={{ color: colors.bullish, fontSize: '20px', fontWeight: 'bold' }}>
-            ${chartData.reduce((sum, d) => sum + d.calls, 0).toFixed(2)}M
-          </div>
+    <ExpandableCard>
+      <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
+          <TooltipWrapper text="Polled from /api/flow/by-type for the selected symbol + window. Tracks call and put notional premium over time in millions."><Info size={14} /></TooltipWrapper>
         </div>
-        <div className="text-center">
-          <div style={{ color: colors.muted, fontSize: '12px', marginBottom: '4px' }}>
-            Total Put Premium
-          </div>
-          <div style={{ color: colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>
-            ${chartData.reduce((sum, d) => sum + d.puts, 0).toFixed(2)}M
-          </div>
-        </div>
-        <div className="text-center">
-          <div style={{ color: colors.muted, fontSize: '12px', marginBottom: '4px' }}>
-            Net Flow
-          </div>
-          <div style={{ 
-            color: chartData.reduce((sum, d) => sum + (d.calls - d.puts), 0) > 0 ? colors.bullish : colors.bearish,
-            fontSize: '20px', 
-            fontWeight: 'bold' 
-          }}>
-            ${chartData.reduce((sum, d) => sum + (d.calls - d.puts), 0).toFixed(2)}M
-          </div>
+
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
+            <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} />
+            <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={[0, 'auto']} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Line type="monotone" dataKey="calls" name="Call Premium" stroke={colors.bullish} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+          </LineChart>
+        </ResponsiveContainer>
+
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Call Premium</div><div style={{ color: colors.bullish, fontSize: '20px', fontWeight: 'bold' }}>${totals.calls.toFixed(2)}M</div></div>
+          <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Put Premium</div><div style={{ color: colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>${totals.puts.toFixed(2)}M</div></div>
+          <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Net Flow</div><div style={{ color: totals.calls - totals.puts > 0 ? colors.bullish : colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>${(totals.calls - totals.puts).toFixed(2)}M</div></div>
         </div>
       </div>
-
-      {/* Data timestamp */}
-      <div className="text-right text-xs mt-4" style={{ color: colors.muted }}>
-        Last updated: {new Date().toLocaleTimeString()}
-      </div>
-    </div>
+    </ExpandableCard>
   );
 }

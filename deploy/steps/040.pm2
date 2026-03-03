@@ -1,79 +1,29 @@
 #!/bin/bash
 
-# ==============================================
-# Step 040: PM2 Process Manager Setup
-# ==============================================
-
-set -e
+set -euo pipefail
 
 log "PM2 Process Manager Setup"
 
-# Load nvm
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Use Node 20
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use 20
 
-# Install PM2 globally if not already installed
-if ! command -v pm2 &> /dev/null; then
-    log "  → Installing PM2..."
-    npm install -g pm2
-else
-    log "  ℹ PM2 already installed"
-fi
+command -v pm2 >/dev/null || npm install -g pm2
 
-# Navigate to application
-APP_DIR="$HOME/zerogex-web/frontend"
+APP_NAME="${WEB_PM2_NAME:-zerogex-web}"
+APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
+WEB_PORT="${WEB_PORT:-3000}"
+
 cd "$APP_DIR"
 
-# Stop and delete existing PM2 process (idempotent)
-log "  → Stopping existing process (if any)..."
-pm2 delete zerogex-web 2>/dev/null || true
-
-# Clear Next.js build and cache to ensure clean state
-log "  → Clearing Next.js build and cache..."
-rm -rf .next
-
-# Start application with PM2
-log "  → Starting application with PM2..."
-pm2 start npm --name "zerogex-web" -- start
-
-# Save PM2 process list
-log "  → Saving PM2 configuration..."
+log "  → Restarting PM2 app: $APP_NAME on port $WEB_PORT"
+pm2 delete "$APP_NAME" 2>/dev/null || true
+PORT="$WEB_PORT" pm2 start npm --name "$APP_NAME" -- start
 pm2 save
 
-# Setup PM2 to start on boot (idempotent)
-log "  → Setting up PM2 startup script..."
-# Get the startup command but don't fail if already configured
 PM2_STARTUP=$(pm2 startup | grep "sudo env PATH" || true)
-if [ ! -z "$PM2_STARTUP" ]; then
-    eval $PM2_STARTUP
-else
-    log "     ℹ PM2 startup already configured"
-fi
+[ -n "$PM2_STARTUP" ] && eval "$PM2_STARTUP" || log "  ℹ PM2 startup already configured"
 
-# Wait a moment for app to start
-sleep 3
-
-# Show status
-log "  → PM2 Status:"
-pm2 status
-
-log ""
-log "PM2 setup complete!"
-log ""
-log "Summary:"
-log "  ✓ PM2 installed"
-log "  ✓ Previous process stopped (if existed)"
-log "  ✓ Next.js cache cleared"
-log "  ✓ Application started and running"
-log "  ✓ PM2 configured to start on boot"
-log ""
-log "Useful PM2 commands:"
-log "  pm2 status             - Show all processes"
-log "  pm2 logs zerogex-web   - View logs"
-log "  pm2 restart zerogex-web - Restart application"
-log "  pm2 stop zerogex-web    - Stop application"
-log "  pm2 monit              - Monitor in real-time"
-log ""
+sleep 2
+pm2 status "$APP_NAME"
+log "PM2 setup complete"

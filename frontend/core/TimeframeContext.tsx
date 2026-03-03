@@ -3,10 +3,13 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 type Timeframe = '1min' | '5min' | '15min' | '1hr' | '1day';
+export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ' | 'IWM';
 
 interface TimeframeContextType {
   timeframe: Timeframe;
   setTimeframe: (timeframe: Timeframe) => void;
+  symbol: UnderlyingSymbol;
+  setSymbol: (symbol: UnderlyingSymbol) => void;
   getIntervalMinutes: () => number;
   getWindowMinutes: () => number;
   getMaxDataPoints: () => number;
@@ -16,8 +19,8 @@ const TimeframeContext = createContext<TimeframeContextType | undefined>(undefin
 
 export function TimeframeProvider({ children }: { children: ReactNode }) {
   const [timeframe, setTimeframe] = useState<Timeframe>('5min');
+  const [symbol, setSymbol] = useState<UnderlyingSymbol>('SPY');
 
-  // Convert timeframe to interval minutes
   const getIntervalMinutes = () => {
     switch (timeframe) {
       case '1min': return 1;
@@ -29,15 +32,12 @@ export function TimeframeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Calculate window as: base_minutes * timeframe_multiplier
-  // Base is 180 minutes (3 hours) for 1-min
   const getWindowMinutes = () => {
     const interval = getIntervalMinutes();
-    const baseMinutes = 180; // 3 hours for 1-min
-    return baseMinutes * interval; // Scales proportionally with timeframe
+    const baseMinutes = 180;
+    return baseMinutes * interval;
   };
 
-  // Fixed number of data points for consistent chart size
   const getMaxDataPoints = () => 96;
 
   return (
@@ -45,6 +45,8 @@ export function TimeframeProvider({ children }: { children: ReactNode }) {
       value={{
         timeframe,
         setTimeframe,
+        symbol,
+        setSymbol,
         getIntervalMinutes,
         getWindowMinutes,
         getMaxDataPoints,

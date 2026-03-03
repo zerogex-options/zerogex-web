@@ -6,6 +6,7 @@ import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 import { colors } from '@/core/colors';
 import { useTheme } from '@/core/ThemeContext';
 import { omitClosedMarketTimes } from '@/core/utils';
@@ -58,8 +59,8 @@ function aggregateBars(data: CandleBar[], bucketMinutes: number, maxPoints: numb
 
 export default function UnderlyingCandlesChart() {
   const { theme } = useTheme();
-  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints } = useTimeframe();
-  const { data: quote } = useMarketQuote(1000);
+  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
+  const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const intervalMinutes = getIntervalMinutes();
@@ -67,7 +68,7 @@ export default function UnderlyingCandlesChart() {
   const maxPoints = getMaxDataPoints();
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/price/timeseries?window_minutes=${windowMinutes}&interval_minutes=1`,
+    `/api/market/historical?symbol=${symbol}&timeframe=1min&limit=${Math.max(windowMinutes, 120)}`,
     { refreshInterval: 5000 }
   );
 
@@ -111,7 +112,8 @@ export default function UnderlyingCandlesChart() {
   const hovered = hoveredIdx !== null ? bars[hoveredIdx] : null;
 
   return (
-    <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
+    <ExpandableCard>
+      <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-2xl font-semibold">{quote?.symbol || 'Underlying'} Price Action</h2>
         <TooltipWrapper text="Hollow OHLC candles aggregated to the selected interval (1m/5m/15m/1h/1d). Hollow candle means close >= open; filled means close < open. Volume bars are overlaid on the lower panel with shared x-axis time."><Info size={14} /></TooltipWrapper>
@@ -180,6 +182,7 @@ export default function UnderlyingCandlesChart() {
           <line x1={padLeft} x2={width - padRight} y1={volumeAreaBottom} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.6} />
         </svg>
       </div>
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }

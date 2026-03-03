@@ -18,14 +18,13 @@ interface HeaderProps {
 export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState('SPY');
-  const { timeframe, setTimeframe } = useTimeframe();
+  const { timeframe, setTimeframe, symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Fetch real market data
-  const { data: quoteData } = useMarketQuote(1000);
-  const { data: previousCloseData } = usePreviousClose(selectedSymbol, 60000);
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: previousCloseData } = usePreviousClose(symbol, 60000);
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
   // Calculate change from previous close
   const livePrice = quoteData && previousCloseData ? {
-    symbol: selectedSymbol,
+    symbol,
     price: quoteData.close,
     change: quoteData.close - previousCloseData.previous_close,
     changePercent: ((quoteData.close - previousCloseData.previous_close) / previousCloseData.previous_close) * 100,
@@ -79,8 +78,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <div className="flex items-center gap-4">
                 <div className="flex flex-col gap-2">
                   <select
-                    value={selectedSymbol}
-                    onChange={(e) => setSelectedSymbol(e.target.value)}
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value as any)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
                       backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
@@ -189,8 +188,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col gap-2">
                     <select
-                      value={selectedSymbol}
-                      onChange={(e) => setSelectedSymbol(e.target.value)}
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value as any)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
                         backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
@@ -327,8 +326,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <div className="space-y-4">
               <div className="flex gap-2">
                 <select
-                  value={selectedSymbol}
-                  onChange={(e) => setSelectedSymbol(e.target.value)}
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value as any)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
                     backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
