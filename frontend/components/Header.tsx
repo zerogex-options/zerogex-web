@@ -58,6 +58,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   } : null;
 
   const isPositive = livePrice ? livePrice.change >= 0 : false;
+  const quoteTimestampLabel = quoteData?.timestamp ? `as of ${new Date(quoteData.timestamp).toLocaleString()}` : 'latest quote';
+  const prevCloseLabel = previousCloseData?.timestamp ? `since ${new Date(previousCloseData.timestamp).toLocaleString()}` : 'since previous close';
 
   return (
     <header
@@ -114,9 +116,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                 {livePrice && (
                   <div className="flex flex-col gap-1">
-                    <span className="font-bold text-xl">${livePrice.price.toFixed(2)}</span>
+                    <span className="font-bold text-xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
                     <div 
                       className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
+                      title={prevCloseLabel}
                       style={{
                         backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
                         color: isPositive ? colors.bullish : colors.bearish,
@@ -223,9 +226,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                   {livePrice && (
                     <div className="flex flex-col gap-1">
-                      <span className="font-bold text-2xl">${livePrice.price.toFixed(2)}</span>
+                      <span className="font-bold text-2xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
                       <div 
                         className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
+                        title={prevCloseLabel}
                         style={{
                           backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
                           color: isPositive ? colors.bullish : colors.bearish,
@@ -358,9 +362,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
               {livePrice && (
                 <div className="flex items-center gap-4 flex-wrap">
-                  <span className="font-bold text-2xl">${livePrice.price.toFixed(2)}</span>
+                  <span className="font-bold text-2xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
                   <div 
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
+                    title={prevCloseLabel}
                     style={{
                       backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
                       color: isPositive ? colors.bullish : colors.bearish,

@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext'; // ADD THIS
 import { colors } from '@/core/colors';
+import { omitClosedMarketTimes } from '@/core/utils';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import TooltipWrapper from './TooltipWrapper';
 
 interface FlowDataPoint {
   timestamp: string;
@@ -87,7 +90,8 @@ export default function OptionsFlowChart() {
     if (!flowData || flowData.length === 0) return;
 
     // Aggregate data based on timeframe
-    const aggregated = aggregateFlowData(flowData, intervalMinutes, maxPoints);
+    const filteredFlow = omitClosedMarketTimes(flowData, (d) => d.timestamp);
+    const aggregated = aggregateFlowData(filteredFlow, intervalMinutes, maxPoints);
 
     const formatted = aggregated.map(d => ({
       time: new Date(d.timestamp).toLocaleTimeString('en-US', { 
@@ -162,12 +166,10 @@ export default function OptionsFlowChart() {
         border: `1px solid ${colors.muted}`,
       }}
     >
-      <h3 
-        className="text-xl font-bold mb-4"
-        style={{ color: theme === 'dark' ? colors.light : colors.dark }}
-      >
-        Options Flow - Notional Premium
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Flow - Notional Premium</h3>
+        <TooltipWrapper text="Timeseries of call and put notional premium from /api/flow/timeseries. Values are bucket-aggregated and shown in millions. The spread between call and put curves indicates net directional options demand and potential sentiment shifts."><Info size={14} /></TooltipWrapper>
+      </div>
 
       <ResponsiveContainer width="100%" height={400}>
         <LineChart

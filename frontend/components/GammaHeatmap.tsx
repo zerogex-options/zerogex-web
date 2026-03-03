@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { Info } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { colors } from '@/core/colors';
+import { omitClosedMarketTimes } from '@/core/utils';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
+import TooltipWrapper from './TooltipWrapper';
 
 interface GammaDataPoint {
   timestamp: string;
@@ -106,14 +109,17 @@ export default function GammaHeatmap() {
   useEffect(() => {
     if (!gexData || gexData.length === 0 || !priceData || priceData.length === 0) return;
 
+    const filteredPriceData = omitClosedMarketTimes(priceData, (p) => p.timestamp);
+    const filteredRawGex = omitClosedMarketTimes(gexData, (g) => g.timestamp);
+
     // Aggregate price data based on timeframe
-    const aggregatedPriceData = aggregatePriceData(priceData, intervalMinutes, maxPoints);
+    const aggregatedPriceData = aggregatePriceData(filteredPriceData, intervalMinutes, maxPoints);
     
     // Use ONLY the timestamps that have price data (this omits market closed periods)
     const validTimestamps = aggregatedPriceData.map(p => p.timestamp).sort();
 
     // Filter GEX data to only include timestamps that have price data
-    const filteredGexData = gexData.filter(g => {
+    const filteredGexData = filteredRawGex.filter(g => {
       const gexTime = new Date(g.timestamp).getTime();
       // Find if there's a price timestamp within the bucket window
       return validTimestamps.some(pt => {
@@ -229,16 +235,16 @@ export default function GammaHeatmap() {
   // FIXED chart dimensions - calculate based on available width and number of data points
   const yAxisWidth = 80;
   const availableWidth = containerWidth - yAxisWidth - 40;
-  const cellWidth = Math.max(20, Math.floor(availableWidth / Math.min(timestamps.length, maxPoints)));
+  const cellWidth = Math.max(20, Math.floor(availableWidth / maxPoints));
   const cellHeight = 30;
   const numStrikes = strikes.length;
   
   // Chart dimensions stay constant
-  const chartWidth = Math.min(timestamps.length, maxPoints) * cellWidth + yAxisWidth + 40;
+  const chartWidth = maxPoints * cellWidth + yAxisWidth + 40;
   const chartHeight = numStrikes * cellHeight + 80;
 
   // Aggregate price data for overlay
-  const aggregatedPriceData = priceData ? aggregatePriceData(priceData, intervalMinutes, maxPoints) : [];
+  const aggregatedPriceData = priceData ? aggregatePriceData(omitClosedMarketTimes(priceData, (p) => p.timestamp), intervalMinutes, maxPoints) : [];
 
   return (
     <div 
@@ -249,12 +255,10 @@ export default function GammaHeatmap() {
         border: `1px solid ${colors.muted}`,
       }}
     >
-      <h3 
-        className="text-xl font-bold mb-4"
-        style={{ color: theme === 'dark' ? colors.light : colors.dark }}
-      >
-        Gamma Exposure Heatmap
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
+        <TooltipWrapper text="Heatmap of net gamma by strike and time from /api/gex/heatmap, with underlying price overlay. Green/red intensity reflects positive/negative gamma magnitude. This helps infer where dealer hedging may stabilize or destabilize price around key strikes."><Info size={14} /></TooltipWrapper>
+      </div>
 
       <div style={{ width: '100%' }}>
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
