@@ -114,10 +114,10 @@ log "━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if curl -s --max-time 5 "http://localhost:$WEB_PORT" > /dev/null 2>&1; then
-    log "  ✓ Application responds on port 3000"
+    log "  ✓ Application responds on port $WEB_PORT"
     PASSED_CHECKS=$((PASSED_CHECKS + 1))
 else
-    log "  ✗ Application not responding on port 3000"
+    log "  ✗ Application not responding on port $WEB_PORT"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# ==============================================
+# Step 070: SSL/HTTPS Setup with Let's Encrypt
+# ==============================================
+
 set -euo pipefail
 
 log "SSL/HTTPS Setup"
@@ -9,19 +13,36 @@ CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}"
 DOMAIN_NAME="${WEB_DOMAIN:-}"
 EMAIL="${LETSENCRYPT_EMAIL:-}"
 
+# Resolve domain from config/env/prompt
 if [ -z "$DOMAIN_NAME" ] && [ -f "$CONF_PATH" ]; then
   DOMAIN_NAME=$(awk '/server_name/ {print $2}' "$CONF_PATH" | sed 's/;//' | head -1)
 fi
 [ -z "$DOMAIN_NAME" ] && read -p "  Enter your domain name: " DOMAIN_NAME
 [ -z "$EMAIL" ] && read -p "  Enter email for Let's Encrypt: " EMAIL
 
+log "  → Site name: $SITE_NAME"
+log "  → Domain: $DOMAIN_NAME"
+log "  → Email: $EMAIL"
+
+# Install certbot and issue cert
+log "  → Installing certbot"
 sudo apt install -y certbot python3-certbot-nginx
 
-log "  → Issuing certificate for ${DOMAIN_NAME}"
+log "  → Issuing certificate (non-interactive)"
 sudo certbot --nginx -d "$DOMAIN_NAME" -d "www.$DOMAIN_NAME" --non-interactive --agree-tos -m "$EMAIL" --redirect
 
+# Validate + reload + renewal test
+log "  → Validating nginx"
 sudo nginx -t
+log "  → Reloading nginx"
 sudo systemctl reload nginx
+
+log "  → Testing cert renewal"
 sudo certbot renew --dry-run
 
-log "SSL setup complete for ${DOMAIN_NAME}"
+log ""
+log "SSL setup complete!"
+log "Summary:"
+log "  ✓ HTTPS certificate installed for $DOMAIN_NAME"
+log "  ✓ HTTP -> HTTPS redirect configured"
+log "  ✓ certbot renewal dry-run successful"

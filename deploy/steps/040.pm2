@@ -1,29 +1,59 @@
 #!/bin/bash
 
+# ==============================================
+# Step 040: PM2 Process Manager Setup
+# ==============================================
+
 set -euo pipefail
 
 log "PM2 Process Manager Setup"
 
+# Load Node via nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use 20
 
-command -v pm2 >/dev/null || npm install -g pm2
-
+# Configurable values for standalone or co-hosted deployment
 APP_NAME="${WEB_PM2_NAME:-zerogex-web}"
 APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
 WEB_PORT="${WEB_PORT:-3000}"
 
-cd "$APP_DIR"
+log "  → App name: $APP_NAME"
+log "  → App dir: $APP_DIR"
+log "  → Port: $WEB_PORT"
 
-log "  → Restarting PM2 app: $APP_NAME on port $WEB_PORT"
+# Install PM2 if needed
+if ! command -v pm2 >/dev/null; then
+  log "  → Installing PM2..."
+  npm install -g pm2
+else
+  log "  ℹ PM2 already installed"
+fi
+
+# Restart process idempotently
+cd "$APP_DIR"
+log "  → Restarting PM2 app: $APP_NAME"
 pm2 delete "$APP_NAME" 2>/dev/null || true
 PORT="$WEB_PORT" pm2 start npm --name "$APP_NAME" -- start
-pm2 save
 
+# Persist PM2 config and boot startup
+log "  → Saving PM2 process list"
+pm2 save
 PM2_STARTUP=$(pm2 startup | grep "sudo env PATH" || true)
-[ -n "$PM2_STARTUP" ] && eval "$PM2_STARTUP" || log "  ℹ PM2 startup already configured"
+if [ -n "$PM2_STARTUP" ]; then
+  log "  → Configuring PM2 startup"
+  eval "$PM2_STARTUP"
+else
+  log "  ℹ PM2 startup already configured"
+fi
 
 sleep 2
+log "  → PM2 status"
 pm2 status "$APP_NAME"
-log "PM2 setup complete"
+
+log ""
+log "PM2 setup complete!"
+log "Summary:"
+log "  ✓ PM2 ready"
+log "  ✓ App '$APP_NAME' running on port $WEB_PORT"
+log "  ✓ PM2 saved + startup configured"

@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# ==============================================
+# Step 050: Nginx Reverse Proxy Configuration
+# ==============================================
+
 set -euo pipefail
 
 log "Nginx Reverse Proxy Configuration"
 
+# Config (supports independent or co-hosted deployments)
 SITE_NAME="${WEB_SITE_NAME:-zerogex-web}"
 WEB_PORT="${WEB_PORT:-3000}"
 API_UPSTREAM="${WEB_API_UPSTREAM:-http://127.0.0.1:8000}"
@@ -15,6 +20,13 @@ fi
 
 CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}"
 
+log "  → Site name: $SITE_NAME"
+log "  → Domain: $DOMAIN_NAME"
+log "  → Frontend upstream: http://127.0.0.1:$WEB_PORT"
+log "  → API/WS upstream: $API_UPSTREAM"
+
+# Create site config
+log "  → Writing nginx config: $CONF_PATH"
 sudo tee "$CONF_PATH" >/dev/null <<EOF_CONF
 server {
     listen 80;
@@ -22,6 +34,7 @@ server {
 
     client_max_body_size 25m;
 
+    # API reverse proxy
     location /api/ {
         proxy_pass ${API_UPSTREAM}/api/;
         proxy_http_version 1.1;
@@ -34,6 +47,7 @@ server {
         proxy_read_timeout 60s;
     }
 
+    # WebSocket reverse proxy
     location /ws {
         proxy_pass ${API_UPSTREAM}/ws;
         proxy_http_version 1.1;
@@ -45,6 +59,7 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
+    # Frontend reverse proxy
     location / {
         proxy_pass http://127.0.0.1:${WEB_PORT};
         proxy_http_version 1.1;
@@ -56,11 +71,21 @@ server {
 }
 EOF_CONF
 
+# Enable + validate + restart
+log "  → Enabling site"
 sudo ln -sfn "$CONF_PATH" "/etc/nginx/sites-enabled/${SITE_NAME}"
+
+log "  → Validating nginx config"
 sudo nginx -t
+
+log "  → Restarting nginx"
 sudo systemctl restart nginx
 sudo systemctl enable nginx
 
-log "Nginx configured for ${DOMAIN_NAME}"
-log "  Frontend -> 127.0.0.1:${WEB_PORT}"
-log "  API/WebSocket -> ${API_UPSTREAM}"
+log ""
+log "Nginx configuration complete!"
+log "Summary:"
+log "  ✓ Nginx site enabled: $SITE_NAME"
+log "  ✓ Frontend -> 127.0.0.1:${WEB_PORT}"
+log "  ✓ API/WS -> ${API_UPSTREAM}"
+log "  ✓ Domain -> ${DOMAIN_NAME}, www.${DOMAIN_NAME}"

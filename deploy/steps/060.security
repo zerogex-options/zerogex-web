@@ -1,11 +1,18 @@
 #!/bin/bash
 
+# ==============================================
+# Step 060: Security Hardening
+# ==============================================
+
 set -euo pipefail
 
 log "Security Hardening"
 
+log "  → Installing security packages (ufw, fail2ban, unattended-upgrades)"
 sudo apt install -y ufw fail2ban unattended-upgrades apt-listchanges
 
+# Firewall baseline
+log "  → Configuring UFW rules"
 sudo ufw allow 22/tcp comment 'SSH'
 sudo ufw allow 80/tcp comment 'HTTP'
 sudo ufw allow 443/tcp comment 'HTTPS'
@@ -13,6 +20,8 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw --force enable
 
+# fail2ban
+log "  → Writing fail2ban jail.local"
 sudo tee /etc/fail2ban/jail.local >/dev/null <<'EOF_JAIL'
 [DEFAULT]
 bantime = 1h
@@ -26,7 +35,16 @@ logpath = %(sshd_log)s
 backend = %(sshd_backend)s
 EOF_JAIL
 
+log "  → Enabling/restarting fail2ban"
 sudo systemctl enable fail2ban
 sudo systemctl restart fail2ban
 
-log "Security hardening complete"
+log "  → UFW status"
+sudo ufw status verbose | tee -a "$LOG_FILE"
+
+log ""
+log "Security hardening complete!"
+log "Summary:"
+log "  ✓ UFW enabled (22/80/443 allowed)"
+log "  ✓ fail2ban configured for sshd"
+log "  ✓ unattended-upgrades installed"
