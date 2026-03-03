@@ -12,22 +12,25 @@ interface TooltipWrapperProps {
 export default function TooltipWrapper({ text, children }: TooltipWrapperProps) {
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState<'left' | 'right' | 'center'>('center');
+  const [coords, setCoords] = useState({ top: 0, left: 0, right: 0 });
   const buttonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (show && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const windowWidth = window.innerWidth;
-      
-      // Determine best position based on button location
+
+      setCoords({
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2,
+        right: windowWidth - rect.right,
+      });
+
       if (rect.left < windowWidth / 3) {
-        // Button on left side - tooltip opens to the right
         setPosition('right');
       } else if (rect.right > (windowWidth * 2) / 3) {
-        // Button on right side - tooltip opens to the left
         setPosition('left');
       } else {
-        // Button in center - tooltip centered
         setPosition('center');
       }
     }
@@ -35,10 +38,9 @@ export default function TooltipWrapper({ text, children }: TooltipWrapperProps) 
 
   const getTooltipStyle = () => {
     const baseStyle = {
-      position: 'absolute' as const,
-      top: '100%',
-      marginTop: '8px',
-      zIndex: 99999,
+      position: 'fixed' as const,
+      top: `${coords.top}px`,
+      zIndex: 2147483647,
       width: '280px',
       backgroundColor: colors.cardDark,
       color: colors.light,
@@ -52,12 +54,12 @@ export default function TooltipWrapper({ text, children }: TooltipWrapperProps) 
     };
 
     if (position === 'left') {
-      return { ...baseStyle, right: 0 };
-    } else if (position === 'right') {
-      return { ...baseStyle, left: 0 };
-    } else {
-      return { ...baseStyle, left: '50%', transform: 'translateX(-50%)' };
+      return { ...baseStyle, right: `${coords.right}px` };
     }
+    if (position === 'right') {
+      return { ...baseStyle, left: `${Math.max(8, coords.left - 16)}px` };
+    }
+    return { ...baseStyle, left: `${coords.left}px`, transform: 'translateX(-50%)' };
   };
 
   return (
@@ -66,21 +68,13 @@ export default function TooltipWrapper({ text, children }: TooltipWrapperProps) 
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity duration-200"
-        style={{ 
-          cursor: 'help',
-          background: 'none',
-          border: 'none',
-          padding: 0
-        }}
+        style={{ cursor: 'help', background: 'none', border: 'none', padding: 0 }}
         type="button"
+        onClick={(e) => e.stopPropagation()}
       >
         {children || <Info size={14} />}
       </button>
-      {show && (
-        <div style={getTooltipStyle()}>
-          {text}
-        </div>
-      )}
+      {show && <div style={getTooltipStyle()}>{text}</div>}
     </div>
   );
 }

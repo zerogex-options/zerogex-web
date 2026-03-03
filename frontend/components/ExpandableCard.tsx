@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { Expand, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 
@@ -18,14 +18,6 @@ export default function ExpandableCard({ children, className = '', expandClassNa
   return (
     <>
       <div className={`relative cursor-zoom-in ${className}`} onClick={() => setExpanded(true)}>
-        <button
-          type="button"
-          aria-label="Expand card"
-          className="absolute top-2 right-2 z-10 p-1 rounded-md"
-          style={{ color: colors.muted, backgroundColor: theme === 'dark' ? `${colors.dark}66` : `${colors.light}cc` }}
-        >
-          <Expand size={14} />
-        </button>
         {children}
       </div>
 

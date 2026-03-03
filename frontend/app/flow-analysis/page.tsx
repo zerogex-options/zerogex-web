@@ -1,7 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -29,6 +29,12 @@ interface FlowByStrikeRow {
   total_premium: number;
 }
 
+function safeTimeLabel(value?: string) {
+  if (!value) return '--:--';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -46,20 +52,18 @@ export default function FlowAnalysisPage() {
   const windowMinutes = getWindowMinutes();
 
   const { data: flowData, loading: flowLoading, error: flowError } = useOptionFlow(symbol, windowMinutes, 5000);
-  const { data: smartMoney, loading: smartLoading, error: smartError } = useSmartMoneyFlow(symbol, 20, 10000);
-  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikeRow[]>(`/api/flow/by-strike?symbol=${symbol}&limit=25`, {
+  const { data: smartMoney, loading: smartLoading, error: smartError } = useSmartMoneyFlow(symbol, 20, windowMinutes, 10000);
+  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikeRow[]>(`/api/flow/by-strike?symbol=${symbol}&window_minutes=${windowMinutes}&limit=25`, {
     refreshInterval: 5000,
   });
-
-  if (flowLoading && !flowData) return <LoadingSpinner size="lg" />;
 
   const callFlow = flowData?.find((f) => f.option_type === 'CALL');
   const putFlow = flowData?.find((f) => f.option_type === 'PUT');
 
-  const totalCallVolume = callFlow?.total_volume || 0;
-  const totalPutVolume = putFlow?.total_volume || 0;
-  const totalCallPremium = callFlow?.total_premium || 0;
-  const totalPutPremium = putFlow?.total_premium || 0;
+  const totalCallVolume = Number(callFlow?.total_volume || 0);
+  const totalPutVolume = Number(putFlow?.total_volume || 0);
+  const totalCallPremium = Number(callFlow?.total_premium || 0);
+  const totalPutPremium = Number(putFlow?.total_premium || 0);
   const netFlow = totalCallVolume - totalPutVolume;
   const netPremium = totalCallPremium - totalPutPremium;
   const putCallRatio = totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
@@ -67,32 +71,34 @@ export default function FlowAnalysisPage() {
   const [putCallRatioSeries, setPutCallRatioSeries] = useState<Array<{ timestamp: string; time: string; ratio: number }>>([]);
 
   useEffect(() => {
+    if (!flowData || flowData.length === 0) return;
     const timestamp = new Date().toISOString();
     setPutCallRatioSeries((prev) =>
       [...prev, {
         timestamp,
-        time: new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        ratio: totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0,
+        time: safeTimeLabel(timestamp),
+        ratio: Number.isFinite(putCallRatio) ? putCallRatio : 0,
       }].slice(-96)
     );
-  }, [totalCallVolume, totalPutVolume]);
+  }, [flowData, putCallRatio]);
 
-  const byStrikeChart = (flowByStrike || []).map((row) => ({
-    strike: row.strike,
-    volume: row.total_volume,
-    premiumM: row.total_premium / 1_000_000,
-  }));
+  const byStrikeChart = useMemo(() => (flowByStrike || []).map((row) => ({
+    strike: Number(row.strike),
+    volume: Number(row.total_volume || 0),
+    premiumM: Number(row.total_premium || 0) / 1_000_000,
+  })), [flowByStrike]);
 
-  const smartMoneyChart = omitClosedMarketTimes(
+  const smartMoneyChart = useMemo(() => omitClosedMarketTimes(
     (smartMoney || []).map((row) => ({
-      time: new Date(row.time_window_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      time: safeTimeLabel(row.time_window_end),
       timestamp: row.time_window_end,
-      score: row.unusual_activity_score,
-      premiumK: row.total_premium / 1000,
+      score: Number(row.unusual_activity_score || 0),
+      premiumK: Number(row.total_premium || 0) / 1000,
     })),
     (r) => r.timestamp
-  );
+  ), [smartMoney]);
 
+  if (flowLoading && !flowData) return <LoadingSpinner size="lg" />;
 
   return (
     <div className="container mx-auto px-4 py-8">

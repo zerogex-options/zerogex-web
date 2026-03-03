@@ -152,7 +152,8 @@ export default function UnderlyingCandlesChart() {
             const bodyH = Math.max(1, Math.abs(openY - closeY));
             return (
               <g key={b.timestamp} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}>
-                <line x1={x} x2={x} y1={highY} y2={lowY} stroke={c} strokeWidth={1.4} />
+                <line x1={x} x2={x} y1={highY} y2={Math.min(openY, closeY)} stroke={c} strokeWidth={1.4} />
+                <line x1={x} x2={x} y1={Math.max(openY, closeY)} y2={lowY} stroke={c} strokeWidth={1.4} />
                 <rect
                   x={x - candleWidth / 2}
                   y={bodyY}
