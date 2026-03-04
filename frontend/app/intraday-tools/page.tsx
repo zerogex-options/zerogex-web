@@ -113,7 +113,14 @@ export default function IntradayToolsPage() {
     { refreshInterval: 5000 }
   );
 
-  const divergence = extractDivergenceRows(divergenceResponse);
+  const { data: divergenceFallback } = useApiData<unknown>(
+    `/api/trading/momentum-divergence?symbol=${symbol}`,
+    { refreshInterval: 5000 }
+  );
+
+  const primaryDivergence = extractDivergenceRows(divergenceResponse);
+  const fallbackDivergence = extractDivergenceRows(divergenceFallback);
+  const divergence = primaryDivergence.length > 0 ? primaryDivergence : fallbackDivergence;
 
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];

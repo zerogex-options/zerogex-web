@@ -183,7 +183,7 @@ export default function UnderlyingCandlesChart() {
         </div>
         <div className="relative">
           {hovered && (
-            <div className="absolute right-3 top-2 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono pointer-events-none">
+            <div className="absolute right-0 top-0 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono pointer-events-none">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}

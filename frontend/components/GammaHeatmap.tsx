@@ -65,19 +65,20 @@ export default function GammaHeatmap() {
     const clamped = Math.max(-GEX_COLOR_CAP, Math.min(GEX_COLOR_CAP, value));
     const sign = clamped >= 0 ? 1 : -1;
     const magnitude = Math.abs(clamped);
-    const logNorm = Math.log10(1 + magnitude) / Math.log10(1 + GEX_COLOR_CAP);
-    const normalized = (sign * logNorm + 1) / 2;
+    const logNorm = Math.log2(1 + magnitude) / Math.log2(1 + GEX_COLOR_CAP);
+    const normalizedRaw = (sign * logNorm + 1) / 2;
+    const normalized = 0.5 + (normalizedRaw - 0.5) * 0.55;
 
-    const hue = 280 - normalized * 240; // purple -> cyan -> green
-    const saturation = 84 + normalized * 12;
-    const lightness = 28 + normalized * 40;
-    return `hsl(${hue.toFixed(1)} ${saturation.toFixed(1)}% ${lightness.toFixed(1)}%)`;
+    const hue = 270 - normalized * 120; // softer purple -> teal -> green
+    const saturation = 68 + normalized * 10;
+    const lightness = 40 + normalized * 16;
+    return `hsl(${hue.toFixed(2)} ${saturation.toFixed(2)}% ${lightness.toFixed(2)}%)`;
   };
 
   const yAxisWidth = 80;
   const availableWidth = containerWidth - yAxisWidth - 40;
   const cellWidth = Math.max(18, Math.floor(availableWidth / Math.max(1, derived.timestamps.length)));
-  const cellHeight = 28;
+  const cellHeight = 22;
   const chartWidth = Math.max(600, derived.timestamps.length * cellWidth + yAxisWidth + 40);
   const chartHeight = Math.max(240, derived.strikes.length * cellHeight + 80);
 
