@@ -65,7 +65,7 @@ export default function AboutPage() {
                 •{" "}
                 <a
                   className="underline"
-                  href="https://api.zerogex.io/api/docs"
+                  href="https://api.zerogex.io/docs"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -76,7 +76,7 @@ export default function AboutPage() {
                 •{" "}
                 <a
                   className="underline"
-                  href="https://api.zerogex.io/api/redoc"
+                  href="https://api.zerogex.io/redoc"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -87,7 +87,7 @@ export default function AboutPage() {
                 •{" "}
                 <a
                   className="underline"
-                  href="https://api.zerogex.io/api/openapi.json"
+                  href="https://api.zerogex.io/openapi.json"
                   target="_blank"
                   rel="noreferrer"
                 >
