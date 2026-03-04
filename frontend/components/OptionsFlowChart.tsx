@@ -19,14 +19,37 @@ interface ChartDataPoint {
   puts: number;
 }
 
+function mergeSeries(prev: ChartDataPoint[], point: ChartDataPoint, maxPoints: number) {
+  const existingIdx = prev.findIndex((p) => p.timestamp === point.timestamp);
+  const next = [...prev];
+  if (existingIdx >= 0) {
+    next[existingIdx] = point; // update most recent bucket only
+  } else {
+    next.push(point);
+  }
+  return next
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .slice(-maxPoints);
+}
+
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
   const { getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
   const windowMinutes = getWindowMinutes();
   const maxPoints = getMaxDataPoints();
+  const cacheKey = `zerogex:options-flow:${symbol}:${windowMinutes}`;
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
   const { data: flowData, loading, error } = useOptionFlow(symbol, windowMinutes, 5000);
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setChartData(JSON.parse(cached));
+      }
+    } catch {}
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!flowData || flowData.length === 0) return;
@@ -38,70 +61,43 @@ export default function OptionsFlowChart() {
     const point: ChartDataPoint = {
       timestamp,
       time: new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      calls: ((callRow?.total_premium as number) || 0) / 1_000_000,
-      puts: ((putRow?.total_premium as number) || 0) / 1_000_000,
+      calls: Number(callRow?.total_premium || 0) / 1_000_000,
+      puts: Number(putRow?.total_premium || 0) / 1_000_000,
     };
 
     setChartData((prev) => {
-      const merged = [...prev, point]
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .filter((row, idx, arr) => idx === 0 || row.timestamp !== arr[idx - 1].timestamp)
-        .slice(-maxPoints);
+      const merged = mergeSeries(prev, point, maxPoints);
+      try { localStorage.setItem(cacheKey, JSON.stringify(merged)); } catch {}
       return merged;
     });
-  }, [flowData, maxPoints]);
+  }, [flowData, cacheKey, maxPoints]);
 
-  const totals = useMemo(() => {
-    return chartData.reduce(
-      (acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }),
-      { calls: 0, puts: 0 }
-    );
-  }, [chartData]);
+  const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
 
   if (loading && chartData.length === 0) return <LoadingSpinner size="lg" />;
-  if (error) return <ErrorMessage message={error} />;
+  if (error && chartData.length === 0) return <ErrorMessage message={error} />;
 
   if (chartData.length === 0) {
-    return (
-      <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
-        <p style={{ color: colors.muted }}>No flow data available</p>
-      </div>
-    );
+    return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No flow data available</p></div>;
   }
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="p-3 rounded-lg shadow-lg" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
-          <p className="font-semibold mb-2" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>{label}</p>
-          <p style={{ color: colors.bullish, fontSize: '14px' }}>Calls: ${payload[0].value.toFixed(2)}M</p>
-          <p style={{ color: colors.bearish, fontSize: '14px' }}>Puts: ${payload[1].value.toFixed(2)}M</p>
-          <p style={{ color: theme === 'dark' ? colors.light : colors.dark, fontSize: '12px', marginTop: '4px' }}>
-            Net: ${(payload[0].value - payload[1].value).toFixed(2)}M
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ExpandableCard>
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
-          <TooltipWrapper text="Polled from /api/flow/by-type for the selected symbol + window. Tracks call and put notional premium over time in millions."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Polled from /api/flow/by-type. Historical points are cached client-side; only the current bucket is updated."><Info size={14} /></TooltipWrapper>
         </div>
 
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
             <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} />
-            <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={[0, 'auto']} />
-            <Tooltip content={<CustomTooltip />} />
+            <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={['auto', 'auto']} />
+            <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="calls" name="Call Premium" stroke={colors.bullish} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-            <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="calls" name="Call Premium" stroke={colors.bullish} strokeWidth={3} dot={false} />
+            <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} />
           </LineChart>
         </ResponsiveContainer>
 
