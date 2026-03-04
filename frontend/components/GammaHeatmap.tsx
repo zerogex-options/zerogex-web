@@ -12,6 +12,8 @@ import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
+
+const GEX_COLOR_CAP = 10_000_000;
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 
 export default function GammaHeatmap() {
@@ -59,12 +61,14 @@ export default function GammaHeatmap() {
   if (error) return <ErrorMessage message={error} />;
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
-  const values = derived.cells.map((d) => d.value);
-  const absMax = Math.max(1, ...values.map((v) => Math.abs(v)));
   const getColor = (value: number) => {
-    const intensity = Math.pow(Math.abs(value / absMax), 0.6);
-    const opacity = 0.2 + 0.75 * intensity;
-    return value >= 0 ? `rgba(56,189,248,${opacity})` : `rgba(168,85,247,${opacity})`;
+    const clamped = Math.max(-GEX_COLOR_CAP, Math.min(GEX_COLOR_CAP, value));
+    const normalized = (clamped + GEX_COLOR_CAP) / (2 * GEX_COLOR_CAP);
+
+    const hue = 280 - normalized * 240; // purple -> cyan -> green
+    const saturation = 85 + normalized * 10;
+    const lightness = 30 + normalized * 35;
+    return `hsl(${hue.toFixed(1)} ${saturation.toFixed(1)}% ${lightness.toFixed(1)}%)`;
   };
 
   const yAxisWidth = 80;
@@ -88,10 +92,18 @@ export default function GammaHeatmap() {
         </div>
 
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
-          <rect x={84} y={8} width="12" height="12" fill={`rgba(56,189,248,0.75)`} />
-          <text x={100} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Positive GEX</text>
-          <rect x={180} y={8} width="12" height="12" fill={`rgba(168,85,247,0.75)`} />
-          <text x={196} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Negative GEX</text>
+          <defs>
+            <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={getColor(-GEX_COLOR_CAP)} />
+              <stop offset="50%" stopColor={getColor(0)} />
+              <stop offset="100%" stopColor={getColor(GEX_COLOR_CAP)} />
+            </linearGradient>
+          </defs>
+
+          <rect x={84} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
+          <text x={84} y={32} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>-{(GEX_COLOR_CAP / 1_000_000).toFixed(0)}M</text>
+          <text x={186} y={32} fontSize="11" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
+          <text x={304} y={32} fontSize="11" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>+{(GEX_COLOR_CAP / 1_000_000).toFixed(0)}M</text>
 
           {derived.strikes.map((strike, idx) => (
             <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + 40} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>

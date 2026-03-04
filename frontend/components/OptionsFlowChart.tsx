@@ -60,7 +60,9 @@ export default function OptionsFlowChart() {
           <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
         </div>
 
-        <ResponsiveContainer width="100%" height={400}>
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px]">
+            <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
             <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} minTickGap={20} />
@@ -71,6 +73,8 @@ export default function OptionsFlowChart() {
             <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} />
           </LineChart>
         </ResponsiveContainer>
+          </div>
+        </div>
 
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Call Premium</div><div style={{ color: colors.bullish, fontSize: '20px', fontWeight: 'bold' }}>${totals.calls.toFixed(2)}M</div></div>

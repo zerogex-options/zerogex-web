@@ -142,6 +142,11 @@ export default function FlowAnalysisPage() {
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && <ErrorMessage message={flowError} />}
 
+
+      <section className="mb-8">
+        <OptionsFlowChart />
+      </section>
+
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
@@ -198,7 +203,9 @@ export default function FlowAnalysisPage() {
             No put/call ratio timeseries available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px]">
+              <ResponsiveContainer width="100%" height={300}>
             <LineChart data={putCallRatioSeries}>
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -218,11 +225,9 @@ export default function FlowAnalysisPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+            </div>
+          </div>
         )}
-      </section>
-
-      <section className="mb-8">
-        <OptionsFlowChart />
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
@@ -237,7 +242,9 @@ export default function FlowAnalysisPage() {
             No flow-by-strike data available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={340}>
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px]">
+              <ResponsiveContainer width="100%" height={340}>
             <BarChart
               data={byStrikeChart}
               margin={{ top: 5, right: 45, left: 25, bottom: 5 }}
@@ -285,6 +292,8 @@ export default function FlowAnalysisPage() {
               />
             </BarChart>
           </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </section>
 

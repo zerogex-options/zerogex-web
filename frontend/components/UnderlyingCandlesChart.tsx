@@ -181,7 +181,7 @@ export default function UnderlyingCandlesChart() {
         </div>
         <div className="relative">
           {hovered && (
-            <div className="absolute right-3 top-2 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono">
+            <div className="absolute right-3 top-2 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono pointer-events-none">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}
@@ -194,7 +194,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
