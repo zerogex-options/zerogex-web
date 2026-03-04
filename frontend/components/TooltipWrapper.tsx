@@ -48,7 +48,7 @@ export default function TooltipWrapper({
   if (expanded && inlineInExpanded) {
     return (
       <div
-        className="mt-3 rounded-lg border px-4 py-3 text-sm leading-relaxed"
+        className="mt-4 rounded-lg border px-6 py-4 text-base md:text-lg leading-relaxed"
         style={{
           backgroundColor: `${colors.muted}12`,
           borderColor: `${colors.muted}55`,
@@ -56,10 +56,7 @@ export default function TooltipWrapper({
           maxWidth: "880px",
         }}
       >
-        <div className="font-semibold mb-1" style={{ color: colors.light }}>
-          Chart notes
-        </div>
-        <div style={{ opacity: 0.9 }}>{text}</div>
+        <div style={{ opacity: 0.95 }}>{text}</div>
       </div>
     );
   }

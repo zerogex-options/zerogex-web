@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -56,24 +56,25 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
-  const windowMinutes = getWindowMinutes();
+  const { timeframe, getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
+  const intervalMinutes = timeframe === "1day" ? 1440 : timeframe === "1hr" ? 60 : Number(timeframe.replace("min", ""));
+  const windowUnits = Math.max(1, Math.min(90, Math.round(getWindowMinutes() / Math.max(1, intervalMinutes))));
   const maxPoints = getMaxDataPoints();
 
   const {
     data: flowData,
     loading: flowLoading,
     error: flowError,
-  } = useOptionFlow(symbol, windowMinutes, 5000);
+  } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
   const {
     data: smartMoney,
     loading: smartLoading,
     error: smartError,
-  } = useSmartMoneyFlow(symbol, 30, windowMinutes, 10000);
+  } = useSmartMoneyFlow(symbol, 30, timeframe, windowUnits, 10000);
   const { data: flowByStrike, error: strikeError } = useApiData<
     FlowByStrikeRow[]
   >(
-    `/api/flow/by-strike?symbol=${symbol}&window_minutes=${windowMinutes}&limit=25`,
+    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=25`,
     { refreshInterval: 5000 },
   );
 
@@ -89,53 +90,65 @@ export default function FlowAnalysisPage() {
   const putCallRatio =
     totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
 
-  const cacheKey = `zerogex:put-call:${symbol}:${windowMinutes}`;
-  const [putCallRatioSeries, setPutCallRatioSeries] = useState<
-    Array<{ timestamp: string; time: string; ratio: number }>
-  >([]);
+  const cacheKey = `zerogex:put-call:${symbol}:${timeframe}:${windowUnits}`;
 
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) setPutCallRatioSeries(JSON.parse(cached));
-    } catch {}
-  }, [cacheKey]);
+  const putCallRatioSeries = useMemo(() => {
+    const cachedRows: Array<{ timestamp: string; time: string; ratio: number }> = [];
 
-  useEffect(() => {
-    if (!flowData || flowData.length === 0) return;
-    const timestamp = (callFlow?.time_window_end ||
-      putFlow?.time_window_end ||
-      new Date().toISOString()) as string;
-    setPutCallRatioSeries((prev) => {
-      const row = {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        ratio: Number.isFinite(putCallRatio) ? putCallRatio : 0,
-      };
-      const idx = prev.findIndex((p) => p.timestamp === timestamp);
-      const merged =
-        idx >= 0
-          ? [...prev.slice(0, idx), row, ...prev.slice(idx + 1)]
-          : [...prev, row];
-      const finalRows = merged
-        .sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-        )
-        .slice(-maxPoints);
+    if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(cacheKey, JSON.stringify(finalRows));
-      } catch {}
-      return finalRows;
-    });
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as Array<{ timestamp: string; time: string; ratio: number }>;
+          cachedRows.push(...parsed);
+        }
+      } catch {
+        // Ignore cache parse failures
+      }
+    }
+
+    if (!flowData || flowData.length === 0) {
+      return cachedRows.slice(-maxPoints);
+    }
+
+    const timestamp =
+      (callFlow?.time_window_end || putFlow?.time_window_end || new Date().toISOString()) as string;
+
+    const row = {
+      timestamp,
+      time: safeTimeLabel(timestamp),
+      ratio: Number.isFinite(putCallRatio) ? putCallRatio : 0,
+    };
+
+    const idx = cachedRows.findIndex((p) => p.timestamp === timestamp);
+    const merged =
+      idx >= 0
+        ? [...cachedRows.slice(0, idx), row, ...cachedRows.slice(idx + 1)]
+        : [...cachedRows, row];
+
+    return merged
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      )
+      .slice(-maxPoints);
   }, [
+    cacheKey,
     flowData,
-    putCallRatio,
     callFlow?.time_window_end,
     putFlow?.time_window_end,
+    putCallRatio,
     maxPoints,
-    cacheKey,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(putCallRatioSeries));
+    } catch {
+      // Ignore storage failures
+    }
+  }, [cacheKey, putCallRatioSeries]);
 
   const byStrikeChart = useMemo(
     () =>

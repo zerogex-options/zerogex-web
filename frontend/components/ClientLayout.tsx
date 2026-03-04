@@ -24,9 +24,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         flexDirection: 'column',
       }}
     >
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header theme={theme} />
       <Navigation theme={theme} />
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>
       <Footer theme={theme} />

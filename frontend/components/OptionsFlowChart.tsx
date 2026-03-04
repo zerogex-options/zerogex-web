@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useOptionFlow } from '@/hooks/useApiData';
@@ -34,25 +34,29 @@ function mergeSeries(prev: ChartDataPoint[], point: ChartDataPoint, maxPoints: n
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
-  const windowMinutes = getWindowMinutes();
+  const { timeframe, getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
+  const intervalMinutes = timeframe === "1day" ? 1440 : timeframe === "1hr" ? 60 : Number(timeframe.replace("min", ""));
+  const windowUnits = Math.max(1, Math.min(90, Math.round(getWindowMinutes() / Math.max(1, intervalMinutes))));
   const maxPoints = getMaxDataPoints();
-  const cacheKey = `zerogex:options-flow:${symbol}:${windowMinutes}`;
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const cacheKey = `zerogex:options-flow:${symbol}:${timeframe}:${windowUnits}`;
 
-  const { data: flowData, loading, error } = useOptionFlow(symbol, windowMinutes, 5000);
+  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
 
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        setChartData(JSON.parse(cached));
+  const chartData = useMemo(() => {
+    const cachedRows: ChartDataPoint[] = [];
+
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) cachedRows.push(...(JSON.parse(cached) as ChartDataPoint[]));
+      } catch {
+        // Ignore parse failures
       }
-    } catch {}
-  }, [cacheKey]);
+    }
 
-  useEffect(() => {
-    if (!flowData || flowData.length === 0) return;
+    if (!flowData || flowData.length === 0) {
+      return cachedRows.slice(-maxPoints);
+    }
 
     const callRow = flowData.find((r) => r.option_type === 'CALL');
     const putRow = flowData.find((r) => r.option_type === 'PUT');
@@ -65,12 +69,17 @@ export default function OptionsFlowChart() {
       puts: Number(putRow?.total_premium || 0) / 1_000_000,
     };
 
-    setChartData((prev) => {
-      const merged = mergeSeries(prev, point, maxPoints);
-      try { localStorage.setItem(cacheKey, JSON.stringify(merged)); } catch {}
-      return merged;
-    });
-  }, [flowData, cacheKey, maxPoints]);
+    return mergeSeries(cachedRows, point, maxPoints);
+  }, [cacheKey, flowData, maxPoints]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(chartData));
+    } catch {
+      // Ignore storage failures
+    }
+  }, [cacheKey, chartData]);
 
   const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
 

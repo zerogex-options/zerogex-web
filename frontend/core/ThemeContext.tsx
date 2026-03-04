@@ -11,17 +11,16 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  const saved = localStorage.getItem('theme');
+  return saved === 'light' || saved === 'dark' ? saved : 'dark';
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    // Load theme from localStorage
-    const saved = localStorage.getItem('theme') as Theme;
-    if (saved) setTheme(saved);
-  }, []);
-
-  useEffect(() => {
-    // Save theme to localStorage and update document
     localStorage.setItem('theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);

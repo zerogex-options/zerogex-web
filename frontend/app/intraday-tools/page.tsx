@@ -15,30 +15,69 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 
+interface VwapDeviationRow {
+  price: number;
+  vwap: number;
+  vwap_deviation_pct: number;
+  vwap_position: string;
+}
+
+interface OpeningRangeRow {
+  current_price: number;
+  orb_high: number;
+  distance_above_orb_high: number;
+  orb_low: number;
+  distance_below_orb_low: number;
+  orb_range: number;
+  orb_status: string;
+}
+
+interface GammaLevelRow {
+  strike: number;
+  net_gex: number;
+  gex_level: string;
+}
+
+interface VolumeSpikeRow {
+  time_et: string;
+  current_volume: number;
+  volume_ratio: number;
+  volume_sigma: number;
+  volume_class: string;
+}
+
+interface DivergenceRow {
+  time_et: string;
+  divergence_signal: string;
+  price: number;
+  price_change_5min: number;
+  net_volume: number;
+}
+
 export default function IntradayToolsPage() {
-  const { symbol } = useTimeframe();
-  const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<any[]>(
-    `/api/trading/vwap-deviation?symbol=${symbol}&limit=1`,
+  const { symbol, timeframe } = useTimeframe();
+  const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
+    `/api/trading/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
-  const { data: orbData, loading: orbLoading, error: orbError } = useApiData<any[]>(
-    `/api/trading/opening-range?symbol=${symbol}&limit=1`,
+  const { data: orbData, loading: orbLoading, error: orbError } = useApiData<OpeningRangeRow[]>(
+    `/api/trading/opening-range?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
-  const { data: gammaLevels } = useApiData<any[]>(
+  const { data: gammaLevels } = useApiData<GammaLevelRow[]>(
     `/api/trading/gamma-levels?symbol=${symbol}&limit=10`,
     { refreshInterval: 30000 }
   );
 
-  const { data: volumeSpikes } = useApiData<any[]>(
+  const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
     `/api/trading/volume-spikes?symbol=${symbol}&limit=5`,
     { refreshInterval: 10000 }
   );
 
-  const { data: divergence } = useApiData<any[]>(
-    `/api/trading/momentum-divergence?symbol=${symbol}&limit=5`,
+  const { data: divergence } = useApiData<DivergenceRow[]>(
+    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 

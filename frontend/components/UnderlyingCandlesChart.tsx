@@ -83,33 +83,40 @@ export default function UnderlyingCandlesChart() {
   const maxPoints = getMaxDataPoints();
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=1min&limit=${Math.max(windowMinutes, 120)}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=1min&window_units=${Math.min(90, Math.max(windowMinutes, 20))}`,
     { refreshInterval: 5000 },
   );
 
   const bars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
-    let prev = filtered[0]?.close ?? filtered[0]?.price ?? 0;
-    const normalized: CandleBar[] = filtered.map((d) => {
-      const close = d.close ?? d.price ?? prev;
-      const open = d.open ?? prev;
-      const high = d.high ?? Math.max(open, close);
-      const low = d.low ?? Math.min(open, close);
-      prev = close;
-      const volume = d.volume ?? 0;
-      const up = close >= open;
-      return {
-        timestamp: d.timestamp,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        upVolume: up ? volume : 0,
-        downVolume: up ? 0 : volume,
-      };
-    });
-    return aggregateBars(normalized, intervalMinutes, maxPoints);
+    const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
+
+    const normalized = filtered.reduce(
+      (acc, d) => {
+        const close = d.close ?? d.price ?? acc.prevClose;
+        const open = d.open ?? acc.prevClose;
+        const high = d.high ?? Math.max(open, close);
+        const low = d.low ?? Math.min(open, close);
+        const volume = d.volume ?? 0;
+        const up = close >= open;
+
+        acc.rows.push({
+          timestamp: d.timestamp,
+          open,
+          high,
+          low,
+          close,
+          volume,
+          upVolume: up ? volume : 0,
+          downVolume: up ? 0 : volume,
+        });
+        acc.prevClose = close;
+        return acc;
+      },
+      { rows: [] as CandleBar[], prevClose: seed },
+    );
+
+    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
 
   if (loading && bars.length === 0) return <LoadingSpinner />;
@@ -126,7 +133,6 @@ export default function UnderlyingCandlesChart() {
   const padLeft = 70;
   const padRight = 30;
   const padTop = 30;
-  const padBottom = 45;
   const priceAreaBottom = 350;
   const volumeAreaTop = 370;
   const volumeAreaBottom = 470;

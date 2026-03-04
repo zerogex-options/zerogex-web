@@ -1,43 +1,33 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApiData } from '@/hooks/useApiData';
-import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 
-interface GammaDataPoint {
-  timestamp: string;
-  strike: number;
-  net_gex: number;
-}
-
-interface PriceDataPoint {
-  timestamp: string;
-  close: number;
-}
+interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
+interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 
 export default function GammaHeatmap() {
   const { theme } = useTheme();
-  const { getIntervalMinutes, getMaxDataPoints, timeframe, symbol } = useTimeframe();
+  const { getMaxDataPoints, timeframe, symbol } = useTimeframe();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
-
-  const intervalMinutes = getIntervalMinutes();
   const maxPoints = getMaxDataPoints();
 
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&interval_minutes=${intervalMinutes}`,
+    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${Math.min(90, maxPoints)}`,
     { refreshInterval: 5000 }
   );
 
   const { data: priceData } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&limit=${Math.max(maxPoints * 2, 120)}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${Math.min(90, maxPoints)}`,
     { refreshInterval: 5000 }
   );
 
@@ -59,7 +49,7 @@ export default function GammaHeatmap() {
     const map = new Map(rows.map((r) => [`${r.timestamp}_${Number(r.strike)}`, Number(r.net_gex)]));
 
     const cells = sortedTimestamps.flatMap((ts, x) =>
-      strikes.map((strike) => ({ x, y: strike, value: map.get(`${ts}_${strike}`) ?? 0, timestamp: ts }))
+      strikes.map((strike) => ({ x, y: strike, value: map.get(`${ts}_${strike}`) ?? 0 }))
     );
 
     return { cells, strikes, timestamps: sortedTimestamps };
@@ -67,9 +57,7 @@ export default function GammaHeatmap() {
 
   if (loading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
-  if (derived.cells.length === 0) {
-    return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
-  }
+  if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
   const values = derived.cells.map((d) => d.value);
   const absMax = Math.max(1, ...values.map((v) => Math.abs(v)));
@@ -86,14 +74,17 @@ export default function GammaHeatmap() {
   const chartWidth = Math.max(600, derived.timestamps.length * cellWidth + yAxisWidth + 40);
   const chartHeight = Math.max(240, derived.strikes.length * cellHeight + 80);
 
-  const priceByTs = new Map((priceData || []).map((p) => [p.timestamp, Number(p.close)]));
+  const priceByTs = new Map((priceData || []).map((p) => [p.timestamp, p]));
+  const minStrike = Math.min(...derived.strikes);
+  const maxStrike = Math.max(...derived.strikes);
+  const yForPrice = (p: number) => 40 + (derived.strikes.length * cellHeight) * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
 
   return (
     <ExpandableCard>
       <div ref={containerRef} className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
-          <TooltipWrapper text="Heatmap from /api/gex/heatmap for selected symbol/timeframe. Overlay line uses /api/market/historical closes."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Heatmap from /api/gex/heatmap. Price overlay is OHLC candlesticks from /api/market/historical aligned to the same timeframe."><Info size={14} /></TooltipWrapper>
         </div>
 
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
@@ -107,24 +98,36 @@ export default function GammaHeatmap() {
             return <rect key={idx} x={xPos} y={yPos} width={cellWidth} height={cellHeight} fill={getColor(cell.value)} />;
           })}
 
-          {(() => {
-            if (derived.strikes.length === 0) return null;
-            const minStrike = Math.min(...derived.strikes);
-            const maxStrike = Math.max(...derived.strikes);
-            const points = derived.timestamps
-              .map((ts, idx) => {
-                const p = priceByTs.get(ts);
-                if (!p) return null;
-                const x = idx * cellWidth + 80 + cellWidth / 2;
-                const y = 40 + (derived.strikes.length * cellHeight) * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
-                return { x, y, p };
-              })
-              .filter(Boolean) as { x: number; y: number; p: number }[];
+          {derived.timestamps.map((ts, idx) => {
+            const row = priceByTs.get(ts);
+            if (!row) return null;
+            const open = Number(row.open ?? row.close ?? 0);
+            const high = Number(row.high ?? row.close ?? open);
+            const low = Number(row.low ?? row.close ?? open);
+            const close = Number(row.close ?? open);
+            const x = idx * cellWidth + 80 + cellWidth / 2;
+            const up = close >= open;
+            const c = up ? colors.bullish : colors.bearish;
+            const bodyTop = yForPrice(Math.max(open, close));
+            const bodyBottom = yForPrice(Math.min(open, close));
+            const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+            const candleWidth = Math.max(3, Math.min(10, cellWidth * 0.45));
 
-            if (points.length < 2) return null;
-            const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-            return <path d={pathData} fill="none" stroke={colors.primary} strokeWidth={2.5} />;
-          })()}
+            return (
+              <g key={`candle-${ts}`}>
+                <line x1={x} x2={x} y1={yForPrice(high)} y2={yForPrice(low)} stroke={c} strokeWidth={1.3} />
+                <rect
+                  x={x - candleWidth / 2}
+                  y={bodyTop}
+                  width={candleWidth}
+                  height={bodyHeight}
+                  fill={up ? 'transparent' : c}
+                  stroke={c}
+                  strokeWidth={1.3}
+                />
+              </g>
+            );
+          })}
 
           {derived.timestamps.map((timestamp, idx) => {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;

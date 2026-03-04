@@ -5,6 +5,7 @@ import { MetricCardProps } from '@/core/types';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
+import { useTheme } from '@/core/ThemeContext';
 
 export default function MetricCard({
   title,
@@ -15,10 +16,12 @@ export default function MetricCard({
   icon,
   theme,
 }: MetricCardProps) {
+  const { theme: activeTheme } = useTheme();
+  const resolvedTheme = activeTheme || theme;
   const trendColors = {
     bullish: colors.bullish,
     bearish: colors.bearish,
-    neutral: theme === 'dark' ? colors.light : colors.dark,
+    neutral: resolvedTheme === 'dark' ? colors.light : colors.dark,
   };
 
   return (
@@ -26,19 +29,19 @@ export default function MetricCard({
       <div
       className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
       style={{
-        backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+        backgroundColor: resolvedTheme === 'dark' ? colors.cardDark : colors.cardLight,
         border: `1px solid ${colors.muted}`,
-        boxShadow: theme === 'dark' 
+        boxShadow: resolvedTheme === 'dark' 
           ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)' 
           : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = theme === 'dark'
+        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
           ? '0 8px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3)'
           : '0 8px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = theme === 'dark'
+        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
           ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)'
           : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)';
       }}

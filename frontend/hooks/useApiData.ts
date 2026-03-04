@@ -7,6 +7,61 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+interface OptionFlowRow {
+  time_window_start: string;
+  time_window_end: string;
+  interval_timestamp?: string | null;
+  symbol: string;
+  option_type?: string | null;
+  strike?: number | null;
+  total_volume: number;
+  total_premium: number;
+  avg_iv?: number | null;
+  net_delta?: number | null;
+  sentiment?: string | null;
+  unusual_activity_score?: number | null;
+}
+
+interface GEXSummaryRow {
+  timestamp: string;
+  symbol: string;
+  spot_price: number;
+  total_call_gex: number;
+  total_put_gex: number;
+  net_gex: number;
+  gamma_flip?: number | null;
+  max_pain?: number | null;
+  call_wall?: number | null;
+  put_wall?: number | null;
+}
+
+interface GEXStrikeRow {
+  timestamp: string;
+  symbol: string;
+  strike: number;
+  call_oi: number;
+  put_oi: number;
+  call_volume: number;
+  put_volume: number;
+  call_gex: number;
+  put_gex: number;
+  net_gex: number;
+  spot_price: number;
+  distance_from_spot: number;
+}
+
+interface MarketQuoteRow {
+  timestamp: string;
+  symbol: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number | null;
+  up_volume?: number | null;
+  down_volume?: number | null;
+}
+
 interface UseApiDataOptions {
   refreshInterval?: number;
   enabled?: boolean;
@@ -93,23 +148,23 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
 }
 
 export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
-  return useApiData<any>(`/api/gex/summary?symbol=${symbol}`, { refreshInterval });
+  return useApiData<GEXSummaryRow>(`/api/gex/summary?symbol=${symbol}`, { refreshInterval });
 }
 
 export function useGEXByStrike(symbol = 'SPY', limit = 50, refreshInterval = 10000) {
-  return useApiData<any[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}`, { refreshInterval });
+  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}`, { refreshInterval });
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
-  return useApiData<any>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
+  return useApiData<MarketQuoteRow>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
 }
 
-export function useOptionFlow(symbol = 'SPY', windowMinutes = 60, refreshInterval = 5000) {
-  return useApiData<any[]>(`/api/flow/by-type?symbol=${symbol}&window_minutes=${windowMinutes}`, { refreshInterval });
+export function useOptionFlow(symbol = 'SPY', timeframe = '1min', windowUnits = 60, refreshInterval = 5000) {
+  return useApiData<OptionFlowRow[]>(`/api/flow/by-type?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`, { refreshInterval });
 }
 
-export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, windowMinutes = 60, refreshInterval = 10000) {
-  return useApiData<any[]>(`/api/flow/smart-money?symbol=${symbol}&window_minutes=${windowMinutes}&limit=${limit}`, { refreshInterval });
+export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, timeframe = '1min', windowUnits = 60, refreshInterval = 10000) {
+  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=${limit}`, { refreshInterval });
 }
 
 export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
