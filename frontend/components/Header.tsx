@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
@@ -30,6 +30,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [showCountdown, setShowCountdown] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedNavOpen, setCollapsedNavOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -59,7 +60,30 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
     localStorage.setItem("headerCollapsed", String(newState));
+    window.dispatchEvent(
+      new CustomEvent("header:collapse-changed", { detail: newState }),
+    );
   };
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("header:collapse-changed", { detail: isCollapsed }),
+    );
+  }, [isCollapsed]);
+
+  useEffect(() => {
+    const setHeaderHeight = () => {
+      const h = headerRef.current?.offsetHeight ?? 0;
+      document.documentElement.style.setProperty(
+        "--zgx-header-height",
+        `${h}px`,
+      );
+    };
+
+    setHeaderHeight();
+    window.addEventListener("resize", setHeaderHeight);
+    return () => window.removeEventListener("resize", setHeaderHeight);
+  }, [isCollapsed, mobileMenuOpen]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -92,6 +116,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
   return (
     <header
+      ref={headerRef}
       className="border-b sticky top-0 z-40"
       style={{
         backgroundColor: theme === "dark" ? colors.bgDark : colors.bgLight,

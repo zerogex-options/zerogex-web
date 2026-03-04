@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Theme } from "@/core/types";
 import { colors } from "@/core/colors";
@@ -11,6 +12,26 @@ interface NavigationProps {
 export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsCollapsed(localStorage.getItem("headerCollapsed") === "true");
+    } catch {}
+
+    const onCollapsed = (event: Event) => {
+      const detail = (event as CustomEvent<boolean>).detail;
+      if (typeof detail === "boolean") setIsCollapsed(detail);
+    };
+
+    window.addEventListener("header:collapse-changed", onCollapsed);
+    return () =>
+      window.removeEventListener("header:collapse-changed", onCollapsed);
+  }, []);
+
+  if (isCollapsed) {
+    return null;
+  }
 
   const pages = [
     { id: "/", label: "DASHBOARD" },
@@ -23,10 +44,11 @@ export default function Navigation({ theme }: NavigationProps) {
 
   return (
     <nav
-      className="border-b hidden md:block"
+      className="border-b hidden md:block sticky z-30"
       style={{
         backgroundColor: theme === "dark" ? colors.bgDark : colors.bgLight,
         borderColor: colors.muted,
+        top: "var(--zgx-header-height, 0px)",
       }}
     >
       <div className="container mx-auto px-6">

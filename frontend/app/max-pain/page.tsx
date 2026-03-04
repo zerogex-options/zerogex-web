@@ -144,6 +144,12 @@ export default function MaxPainPage() {
   const yMin = combinedValues.length ? Math.min(...combinedValues) : 0;
   const yMax = combinedValues.length ? Math.max(...combinedValues) : 1;
   const pad = Math.max(0.5, (yMax - yMin) * 0.1);
+  const dollarMin = Math.floor(yMin - pad);
+  const dollarMax = Math.ceil(yMax + pad);
+  const yTicks = Array.from(
+    { length: Math.max(1, dollarMax - dollarMin + 1) },
+    (_, i) => dollarMin + i,
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -247,7 +253,13 @@ export default function MaxPainPage() {
                 opacity={0.3}
               />
               <XAxis dataKey="time" stroke="#f2f2f2" />
-              <YAxis stroke="#f2f2f2" domain={[yMin - pad, yMax + pad]} />
+              <YAxis
+                stroke="#f2f2f2"
+                domain={[dollarMin, dollarMax]}
+                ticks={yTicks}
+                allowDecimals={false}
+                tickFormatter={(value) => `$${Math.round(Number(value))}`}
+              />
               <Tooltip />
               <Legend />
               <Line

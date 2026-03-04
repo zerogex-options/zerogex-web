@@ -46,7 +46,22 @@ export default function TooltipWrapper({
   }, [show]);
 
   if (expanded && inlineInExpanded) {
-    return <p className="text-xs opacity-80 mt-1">{text}</p>;
+    return (
+      <div
+        className="mt-3 rounded-lg border px-4 py-3 text-sm leading-relaxed"
+        style={{
+          backgroundColor: `${colors.muted}12`,
+          borderColor: `${colors.muted}55`,
+          color: colors.light,
+          maxWidth: "880px",
+        }}
+      >
+        <div className="font-semibold mb-1" style={{ color: colors.light }}>
+          Chart notes
+        </div>
+        <div style={{ opacity: 0.9 }}>{text}</div>
+      </div>
+    );
   }
 
   const getTooltipStyle = () => {
