@@ -33,6 +33,7 @@ interface GEXSummaryRow {
   max_pain?: number | null;
   call_wall?: number | null;
   put_wall?: number | null;
+  put_call_ratio?: number | null;
 }
 
 interface GEXStrikeRow {

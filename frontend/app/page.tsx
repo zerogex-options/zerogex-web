@@ -54,7 +54,7 @@ export default function DashboardPage() {
           <MetricCard
             title="SPY Price"
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Vol: ${(quoteData.volume / 1000000).toFixed(1)}M` : ''}
+            subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
             tooltip="Current SPY closing price. Calculation: Latest market price from real-time quote feed. Volume shows total shares traded today in millions. This is the most recent price at which SPY traded."
             theme={theme}
             trend="neutral"
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           <MetricCard
             title="Put/Call Ratio"
             value={gexData?.put_call_ratio ? gexData.put_call_ratio.toFixed(2) : '--'}
-            trend={gexData && gexData.put_call_ratio > 1 ? 'bearish' : 'bullish'}
+            trend={gexData && (gexData.put_call_ratio ?? 0) > 1 ? 'bearish' : 'bullish'}
             tooltip="Ratio of put option volume to call option volume. Calculation: Total put volume divided by total call volume over the last hour. Values > 1.0 indicate more put buying (bearish sentiment). Values < 1.0 indicate more call buying (bullish sentiment). Extreme readings can signal reversals."
             theme={theme}
           />

@@ -159,12 +159,13 @@ export default function MaxPainPage() {
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard title="Current Max Pain" value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"} theme={theme} />
-          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} theme={theme} />
+          <MetricCard title="Current Max Pain" value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"} tooltip="Current max pain from /api/max-pain/current." theme={theme} />
+          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Latest max pain point from /api/max-pain/timeseries." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.price ? `$${latest.price.toFixed(2)}` : "--"}
             trend={latest?.price && currentMaxPain ? (latest.price > currentMaxPain ? "bullish" : "bearish") : "neutral"}
+            tooltip="Latest underlying price mapped from /api/market/historical."
             theme={theme}
           />
         </div>
