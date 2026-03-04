@@ -50,7 +50,7 @@ export default function GreeksGEXPage() {
           <MetricCard
             title="SPY Price"
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Vol: ${(quoteData.volume / 1000000).toFixed(1)}M` : ''}
+            subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
             tooltip="Current SPY price and volume"
             theme="dark"
           />
@@ -99,7 +99,7 @@ export default function GreeksGEXPage() {
           <MetricCard
             title="Put/Call Ratio"
             value={gexData?.put_call_ratio ? gexData.put_call_ratio.toFixed(2) : '--'}
-            trend={gexData && gexData.put_call_ratio > 1 ? 'bearish' : 'bullish'}
+            trend={gexData && (gexData.put_call_ratio ?? 0) > 1 ? 'bearish' : 'bullish'}
             tooltip="Ratio of put volume to call volume"
             theme="dark"
           />

@@ -80,5 +80,5 @@ export interface UnderlyingQuote {
 export interface HealthStatus {
   status: string;
   timestamp: string;
-  services?: Record<string, any>;
+  services?: Record<string, unknown>;
 }

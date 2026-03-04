@@ -12,7 +12,7 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 
 interface UseWebSocketOptions {
   enabled?: boolean;
-  onMessage?: (data: any) => void;
+  onMessage?: (data: unknown) => void;
   onError?: (error: Event) => void;
 }
 
@@ -29,6 +29,7 @@ export function useWebSocket<T>(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const connectRef = useRef<() => void>(() => undefined);
 
   const connect = useCallback(() => {
     if (!enabled) return;
@@ -76,7 +77,7 @@ export function useWebSocket<T>(
           );
           
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
+            connectRef.current();
           }, RECONNECT_DELAY);
         } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
           setError('Failed to reconnect after multiple attempts');
@@ -89,6 +90,10 @@ export function useWebSocket<T>(
       setError('Failed to create connection');
     }
   }, [endpoint, enabled, onMessage, onError]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -103,8 +108,14 @@ export function useWebSocket<T>(
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
-    connect();
-    return () => disconnect();
+    const timer = setTimeout(() => {
+      connect();
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      disconnect();
+    };
   }, [connect, disconnect]);
 
   return { data, isConnected, error, reconnect: connect, disconnect };

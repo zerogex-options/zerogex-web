@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -56,24 +56,24 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
-  const windowMinutes = getWindowMinutes();
+  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
+  const windowUnits = maxPoints;
 
   const {
     data: flowData,
     loading: flowLoading,
     error: flowError,
-  } = useOptionFlow(symbol, windowMinutes, 5000);
+  } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
   const {
     data: smartMoney,
     loading: smartLoading,
     error: smartError,
-  } = useSmartMoneyFlow(symbol, 30, windowMinutes, 10000);
+  } = useSmartMoneyFlow(symbol, 30, timeframe, windowUnits, 10000);
   const { data: flowByStrike, error: strikeError } = useApiData<
     FlowByStrikeRow[]
   >(
-    `/api/flow/by-strike?symbol=${symbol}&window_minutes=${windowMinutes}&limit=25`,
+    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=25`,
     { refreshInterval: 5000 },
   );
 
@@ -89,53 +89,28 @@ export default function FlowAnalysisPage() {
   const putCallRatio =
     totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
 
-  const cacheKey = `zerogex:put-call:${symbol}:${windowMinutes}`;
-  const [putCallRatioSeries, setPutCallRatioSeries] = useState<
-    Array<{ timestamp: string; time: string; ratio: number }>
-  >([]);
+  const putCallRatioSeries = useMemo(() => {
+    const grouped = new Map<string, { calls: number; puts: number }>();
 
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) setPutCallRatioSeries(JSON.parse(cached));
-    } catch {}
-  }, [cacheKey]);
-
-  useEffect(() => {
-    if (!flowData || flowData.length === 0) return;
-    const timestamp = (callFlow?.time_window_end ||
-      putFlow?.time_window_end ||
-      new Date().toISOString()) as string;
-    setPutCallRatioSeries((prev) => {
-      const row = {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        ratio: Number.isFinite(putCallRatio) ? putCallRatio : 0,
-      };
-      const idx = prev.findIndex((p) => p.timestamp === timestamp);
-      const merged =
-        idx >= 0
-          ? [...prev.slice(0, idx), row, ...prev.slice(idx + 1)]
-          : [...prev, row];
-      const finalRows = merged
-        .sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-        )
-        .slice(-maxPoints);
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(finalRows));
-      } catch {}
-      return finalRows;
+    (flowData || []).forEach((row) => {
+      const ts = row.interval_timestamp || row.time_window_end;
+      if (!ts) return;
+      const key = String(ts);
+      const current = grouped.get(key) || { calls: 0, puts: 0 };
+      const volume = Number(row.total_volume || 0);
+      if ((row.option_type || "").toUpperCase() === "CALL") current.calls += volume;
+      if ((row.option_type || "").toUpperCase() === "PUT") current.puts += volume;
+      grouped.set(key, current);
     });
-  }, [
-    flowData,
-    putCallRatio,
-    callFlow?.time_window_end,
-    putFlow?.time_window_end,
-    maxPoints,
-    cacheKey,
-  ]);
+
+    return Array.from(grouped.entries())
+      .map(([timestamp, value]) => {
+        const ratio = value.calls > 0 ? value.puts / value.calls : 0;
+        return { timestamp, time: safeTimeLabel(timestamp), ratio };
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .slice(-maxPoints);
+  }, [flowData, maxPoints]);
 
   const byStrikeChart = useMemo(
     () =>
@@ -216,7 +191,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Put/Call Ratio Timeseries"
-          tooltip="Client-cached series. Only current bucket updates; older points remain unchanged."
+          tooltip="Put/call ratio over the selected timeframe using a 90-unit window from /api/flow/by-type."
         />
         {putCallRatioSeries.length === 0 ? (
           <div className="text-gray-400 text-center py-8">

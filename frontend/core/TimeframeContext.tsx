@@ -34,11 +34,11 @@ export function TimeframeProvider({ children }: { children: ReactNode }) {
 
   const getWindowMinutes = () => {
     const interval = getIntervalMinutes();
-    const baseMinutes = 180;
+    const baseMinutes = 90;
     return baseMinutes * interval;
   };
 
-  const getMaxDataPoints = () => 96;
+  const getMaxDataPoints = () => 90;
 
   return (
     <TimeframeContext.Provider

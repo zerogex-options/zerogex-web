@@ -8,7 +8,7 @@ export class APIError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public data?: any
+    public data?: unknown
   ) {
     super(message);
     this.name = 'APIError';
@@ -52,14 +52,14 @@ export const apiClient = {
   get: <T>(endpoint: string, options?: RequestInit) =>
     fetchAPI<T>(endpoint, { ...options, method: 'GET' }),
 
-  post: <T>(endpoint: string, data?: any, options?: RequestInit) =>
+  post: <T>(endpoint: string, data?: unknown, options?: RequestInit) =>
     fetchAPI<T>(endpoint, {
       ...options,
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     }),
 
-  put: <T>(endpoint: string, data?: any, options?: RequestInit) =>
+  put: <T>(endpoint: string, data?: unknown, options?: RequestInit) =>
     fetchAPI<T>(endpoint, {
       ...options,
       method: 'PUT',

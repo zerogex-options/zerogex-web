@@ -11,6 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Theme } from "@/core/types";
+import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { getMarketSession } from "@/core/utils";
 import { colors } from "@/core/colors";
@@ -20,15 +21,23 @@ import { useMarketQuote, usePreviousClose } from "@/hooks/useApiData";
 
 interface HeaderProps {
   theme: Theme;
-  onToggleTheme: () => void;
 }
 
-export default function Header({ theme, onToggleTheme }: HeaderProps) {
+type TimeframeValue = "1min" | "5min" | "15min" | "1hr" | "1day";
+
+export default function Header({ theme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { timeframe, setTimeframe, symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("headerCollapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [collapsedNavOpen, setCollapsedNavOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
@@ -46,14 +55,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: previousCloseData } = usePreviousClose(symbol, 60000);
-
-  // Load collapsed state from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("headerCollapsed");
-    if (saved === "true") {
-      setIsCollapsed(true);
-    }
-  }, []);
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {
@@ -151,7 +152,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <div className="flex flex-col gap-2">
                   <select
                     value={symbol}
-                    onChange={(e) => setSymbol(e.target.value as any)}
+                    onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
                       backgroundColor:
@@ -169,7 +170,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                   <select
                     value={timeframe}
-                    onChange={(e) => setTimeframe(e.target.value as any)}
+                    onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
                       backgroundColor:
@@ -332,7 +333,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <div className="flex flex-col gap-2">
                     <select
                       value={symbol}
-                      onChange={(e) => setSymbol(e.target.value as any)}
+                      onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
                         backgroundColor:
@@ -350,7 +351,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                     <select
                       value={timeframe}
-                      onChange={(e) => setTimeframe(e.target.value as any)}
+                      onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
                         backgroundColor:
@@ -520,7 +521,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <div className="flex gap-2">
                 <select
                   value={symbol}
-                  onChange={(e) => setSymbol(e.target.value as any)}
+                  onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
                     backgroundColor:
@@ -537,7 +538,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                 <select
                   value={timeframe}
-                  onChange={(e) => setTimeframe(e.target.value as any)}
+                  onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
                     backgroundColor:

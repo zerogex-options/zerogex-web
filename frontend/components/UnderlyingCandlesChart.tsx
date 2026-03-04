@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { useApiData, useMarketQuote } from "@/hooks/useApiData";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -20,6 +20,8 @@ interface PriceBar {
   close?: number;
   price?: number;
   volume?: number;
+  up_volume?: number | null;
+  down_volume?: number | null;
 }
 
 interface CandleBar {
@@ -73,43 +75,53 @@ function aggregateBars(
 
 export default function UnderlyingCandlesChart() {
   const { theme } = useTheme();
-  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints, symbol } =
+  const { timeframe, getIntervalMinutes, getMaxDataPoints, symbol } =
     useTimeframe();
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const intervalMinutes = getIntervalMinutes();
-  const windowMinutes = getWindowMinutes();
   const maxPoints = getMaxDataPoints();
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=1min&limit=${Math.max(windowMinutes, 120)}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
 
   const bars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
-    let prev = filtered[0]?.close ?? filtered[0]?.price ?? 0;
-    const normalized: CandleBar[] = filtered.map((d) => {
-      const close = d.close ?? d.price ?? prev;
-      const open = d.open ?? prev;
-      const high = d.high ?? Math.max(open, close);
-      const low = d.low ?? Math.min(open, close);
-      prev = close;
-      const volume = d.volume ?? 0;
-      const up = close >= open;
-      return {
-        timestamp: d.timestamp,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        upVolume: up ? volume : 0,
-        downVolume: up ? 0 : volume,
-      };
-    });
-    return aggregateBars(normalized, intervalMinutes, maxPoints);
+    const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
+
+    const normalized = filtered.reduce(
+      (acc, d) => {
+        const close = d.close ?? d.price ?? acc.prevClose;
+        const open = d.open ?? acc.prevClose;
+        const high = d.high ?? Math.max(open, close);
+        const low = d.low ?? Math.min(open, close);
+        const volume = d.volume ?? 0;
+        const apiUp = d.up_volume ?? null;
+        const apiDown = d.down_volume ?? null;
+        const up = close >= open;
+        const upVolume = apiUp !== null && apiDown !== null ? apiUp : up ? volume : 0;
+        const downVolume = apiUp !== null && apiDown !== null ? apiDown : up ? 0 : volume;
+
+        acc.rows.push({
+          timestamp: d.timestamp,
+          open,
+          high,
+          low,
+          close,
+          volume: upVolume + downVolume,
+          upVolume,
+          downVolume,
+        });
+        acc.prevClose = close;
+        return acc;
+      },
+      { rows: [] as CandleBar[], prevClose: seed },
+    );
+
+    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
 
   if (loading && bars.length === 0) return <LoadingSpinner />;
@@ -126,7 +138,6 @@ export default function UnderlyingCandlesChart() {
   const padLeft = 70;
   const padRight = 30;
   const padTop = 30;
-  const padBottom = 45;
   const priceAreaBottom = 350;
   const volumeAreaTop = 370;
   const volumeAreaBottom = 470;
@@ -146,6 +157,16 @@ export default function UnderlyingCandlesChart() {
     (v / Math.max(1, maxVol)) * (volumeAreaBottom - volumeAreaTop);
 
   const hovered = hoveredIdx !== null ? bars[hoveredIdx] : null;
+
+  const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (bars.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xPx = event.clientX - rect.left;
+    const xView = (xPx / Math.max(1, rect.width)) * width;
+    const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    const clamped = Math.max(0, Math.min(bars.length - 1, idx));
+    setHoveredIdx(clamped);
+  };
 
   return (
     <ExpandableCard>
@@ -173,7 +194,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -210,6 +231,29 @@ export default function UnderlyingCandlesChart() {
               );
             })}
 
+                        <text
+              x="18"
+              y={(volumeAreaTop + volumeAreaBottom) / 2}
+              transform={`rotate(-90, 18, ${(volumeAreaTop + volumeAreaBottom) / 2})`}
+              fontSize="12"
+              fill={colors.muted}
+            >
+              Volume
+            </text>
+
+            {[0, 0.5, 1].map((p) => {
+              const y = volumeAreaBottom - p * (volumeAreaBottom - volumeAreaTop);
+              const vol = p * maxVol;
+              return (
+                <g key={`v-${p}`}>
+                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
+                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
+                    {vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
+                  </text>
+                </g>
+              );
+            })}
+
             {bars.map((b, i) => {
               const x = padLeft + i * xStep;
               const up = b.close >= b.open;
@@ -229,9 +273,15 @@ export default function UnderlyingCandlesChart() {
               return (
                 <g
                   key={b.timestamp}
-                  onMouseEnter={() => setHoveredIdx(i)}
-                  onMouseLeave={() => setHoveredIdx(null)}
+
                 >
+                  <rect
+                    x={x - Math.max(candleWidth, xStep * 1.4) / 2}
+                    y={padTop}
+                    width={Math.max(candleWidth, xStep * 1.4)}
+                    height={volumeAreaBottom - padTop}
+                    fill="transparent"
+                  />
                   <line
                     x1={x}
                     x2={x}
