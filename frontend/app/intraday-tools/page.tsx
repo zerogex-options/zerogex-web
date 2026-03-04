@@ -13,30 +13,32 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes } from '@/core/utils';
+import { useTimeframe } from '@/core/TimeframeContext';
 
 export default function IntradayToolsPage() {
+  const { symbol } = useTimeframe();
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<any[]>(
-    '/api/trading/vwap-deviation?limit=1',
+    `/api/trading/vwap-deviation?symbol=${symbol}&limit=1`,
     { refreshInterval: 5000 }
   );
 
   const { data: orbData, loading: orbLoading, error: orbError } = useApiData<any[]>(
-    '/api/trading/opening-range?limit=1',
+    `/api/trading/opening-range?symbol=${symbol}&limit=1`,
     { refreshInterval: 5000 }
   );
 
   const { data: gammaLevels } = useApiData<any[]>(
-    '/api/trading/gamma-levels?limit=10',
+    `/api/trading/gamma-levels?symbol=${symbol}&limit=10`,
     { refreshInterval: 30000 }
   );
 
   const { data: volumeSpikes } = useApiData<any[]>(
-    '/api/trading/volume-spikes?limit=5',
+    `/api/trading/volume-spikes?symbol=${symbol}&limit=5`,
     { refreshInterval: 10000 }
   );
 
   const { data: divergence } = useApiData<any[]>(
-    '/api/trading/momentum-divergence?limit=5',
+    `/api/trading/momentum-divergence?symbol=${symbol}&limit=5`,
     { refreshInterval: 5000 }
   );
 

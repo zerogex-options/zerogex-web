@@ -1,71 +1,50 @@
 #!/bin/bash
 
 # ==============================================
-# Step 070: Security Hardening
+# Step 060: Security Hardening
 # ==============================================
 
-set -e
+set -euo pipefail
 
 log "Security Hardening"
 
-# Install UFW if not already installed
-log "  → Installing UFW (Uncomplicated Firewall)..."
-sudo apt install -y ufw
+log "  → Installing security packages (ufw, fail2ban, unattended-upgrades)"
+sudo apt install -y ufw fail2ban unattended-upgrades apt-listchanges
 
-# Configure firewall rules
-log "  → Configuring firewall rules..."
-
-# Allow SSH (critical - do this first!)
-log "     • Allowing SSH (port 22)..."
-sudo ufw allow 22/tcp comment 'SSH access'
-
-# Allow HTTP and HTTPS
-log "     • Allowing HTTP (port 80)..."
+# Firewall baseline
+log "  → Configuring UFW rules"
+sudo ufw allow 22/tcp comment 'SSH'
 sudo ufw allow 80/tcp comment 'HTTP'
-
-log "     • Allowing HTTPS (port 443)..."
 sudo ufw allow 443/tcp comment 'HTTPS'
-
-# Set default policies
-log "     • Setting default policies..."
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
+sudo ufw --force enable
 
-# Enable firewall
-log "  → Enabling firewall..."
-echo "y" | sudo ufw enable
-
-# Show firewall status
-log "  → Firewall status:"
-sudo ufw status verbose
-
-# Configure fail2ban
-log "  → Installing fail2ban..."
-sudo apt install -y fail2ban
-
-# Create fail2ban configuration
-sudo tee /etc/fail2ban/jail.local > /dev/null << 'EOF'
+# fail2ban
+log "  → Writing fail2ban jail.local"
+sudo tee /etc/fail2ban/jail.local >/dev/null <<'EOF_JAIL'
 [DEFAULT]
-bantime = 3600
-findtime = 600
-maxretry = 3
+bantime = 1h
+findtime = 10m
+maxretry = 5
 
 [sshd]
 enabled = true
 port = 22
 logpath = %(sshd_log)s
 backend = %(sshd_backend)s
-EOF
+EOF_JAIL
 
-# Start fail2ban
+log "  → Enabling/restarting fail2ban"
 sudo systemctl enable fail2ban
 sudo systemctl restart fail2ban
 
+log "  → UFW status"
+sudo ufw status verbose | tee -a "$LOG_FILE"
+
 log ""
 log "Security hardening complete!"
-log ""
 log "Summary:"
-log "  ✓ UFW firewall configured"
-log "  ✓ Ports open: 22 (SSH), 80 (HTTP), 443 (HTTPS)"
-log "  ✓ fail2ban installed and configured"
-log ""
+log "  ✓ UFW enabled (22/80/443 allowed)"
+log "  ✓ fail2ban configured for sshd"
+log "  ✓ unattended-upgrades installed"

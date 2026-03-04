@@ -1,82 +1,228 @@
 #!/bin/bash
 
 # ==============================================
-# Step 070: SSL/HTTPS Setup with Let's Encrypt
+# Step 070: SSL/HTTPS Setup + Auto-Renew (Hardened)
 # ==============================================
 
-set -e
+set -euo pipefail
 
-log "SSL/HTTPS Setup with Let's Encrypt"
+log "SSL/HTTPS Setup + Auto-Renew (Hardened)"
 
-# Get domain name from nginx config
-DOMAIN_NAME=$(grep "server_name" /etc/nginx/sites-available/zerogex-web | awk '{print $2}' | sed 's/;//' | head -1)
+SITE_NAME="${WEB_SITE_NAME:-zerogex-web}"
+DOMAIN_NAME="${WEB_DOMAIN:-}"
+API_UPSTREAM="${WEB_API_UPSTREAM:-http://127.0.0.1:8000}"
+WEB_PORT="${WEB_PORT:-3000}"
+SITE_CONF="/etc/nginx/sites-available/${SITE_NAME}"
+LE_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
-if [ -z "$DOMAIN_NAME" ]; then
-    log "  ✗ Could not determine domain name from nginx config"
-    read -p "  Enter your domain name: " DOMAIN_NAME
+# Derive domain from existing site config if not supplied
+if [ -z "$DOMAIN_NAME" ] && [ -f "$SITE_CONF" ]; then
+  DOMAIN_NAME=$(awk '/server_name/ {print $2}' "$SITE_CONF" | sed 's/;//' | head -1)
 fi
 
-log "  → Domain: $DOMAIN_NAME"
+if [ ! -f "$SITE_CONF" ]; then
+  log "  ✗ Nginx site config not found: $SITE_CONF"
+  log "    Run step 050 first."
+  exit 1
+fi
 
-# Prompt for email
-read -p "  Enter email for Let's Encrypt notifications: " EMAIL
-while [ -z "$EMAIL" ]; do
-    echo "     ✗ Email cannot be empty"
-    read -p "  Enter email: " EMAIL
+if [ -z "$LE_EMAIL" ]; then
+  read -p "  Enter email for Let's Encrypt notifications: " LE_EMAIL
+fi
+
+while [ -z "$LE_EMAIL" ]; do
+  echo "     ✗ Email cannot be empty"
+  read -p "  Enter email: " LE_EMAIL
 done
 
-# Install certbot
-log "  → Installing certbot..."
+if [ -z "$DOMAIN_NAME" ]; then
+  read -p "  Enter web domain (e.g., app.zerogex.io): " DOMAIN_NAME
+fi
+
+while [ -z "$DOMAIN_NAME" ]; do
+  echo "     ✗ Domain cannot be empty"
+  read -p "  Enter web domain: " DOMAIN_NAME
+done
+
+log "  → Site: $SITE_NAME"
+log "  → Domain: $DOMAIN_NAME"
+log "  → Frontend upstream: http://127.0.0.1:$WEB_PORT"
+log "  → API/WS upstream: $API_UPSTREAM"
+
+log "  → Installing certbot nginx plugin..."
 sudo apt install -y certbot python3-certbot-nginx
 
-# Obtain SSL certificate
-log "  → Obtaining SSL certificate..."
-log "     This will modify your nginx configuration automatically"
-
-if sudo certbot --nginx -d "$DOMAIN_NAME" -d "www.$DOMAIN_NAME" --non-interactive --agree-tos -m "$EMAIL"; then
-    log "     ✓ SSL certificate obtained successfully!"
+log "  → Requesting/renewing certificate for ${DOMAIN_NAME} (+ www)..."
+if sudo certbot --nginx \
+  -d "$DOMAIN_NAME" \
+  -d "www.$DOMAIN_NAME" \
+  --non-interactive \
+  --agree-tos \
+  -m "$LE_EMAIL" \
+  --redirect \
+  --hsts \
+  --staple-ocsp \
+  --keep-until-expiring; then
+  log "     ✓ Certificate is present and nginx is configured"
 else
-    log "     ✗ Failed to obtain SSL certificate"
-    log ""
-    log "Common issues:"
-    log "  • Domain DNS not pointing to this server yet"
-    log "  • Port 80/443 not open in firewall (UFW)"
-    log "  • Domain not resolving correctly"
-    log ""
-    log "You can retry this step later with:"
-    log "  sudo certbot --nginx -d $DOMAIN_NAME -d www.$DOMAIN_NAME"
-    exit 1
+  log "     ✗ Failed to obtain certificate"
+  log ""
+  log "Common issues:"
+  log "  • DNS for ${DOMAIN_NAME} is not pointing to this server"
+  log "  • Port 80/443 is blocked by security group or firewall"
+  log "  • Nginx config test fails"
+  exit 1
 fi
 
-# Certbot may have modified the config - verify API proxy is still there
-log "  → Verifying API proxy configuration..."
-if ! grep -q "location /api/" /etc/nginx/sites-available/zerogex-web; then
-    log "  ⚠ API proxy was removed by certbot, restoring..."
+log "  → Installing hardened HTTPS nginx config..."
+sudo tee "$SITE_CONF" > /dev/null <<EOF_CONF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
 
-    # Get the HTTPS server block and add API proxy before the location / block
-    sudo sed -i '/location \/ {/i\    # API proxy to backend (port 8000)\n    location /api/ {\n        proxy_pass http://localhost:8000/api/;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection '"'"'upgrade'"'"';\n        proxy_set_header Host $host;\n        proxy_cache_bypass $http_upgrade;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_connect_timeout 60s;\n        proxy_send_timeout 60s;\n        proxy_read_timeout 60s;\n    }\n\n    # WebSocket proxy to backend\n    location /ws {\n        proxy_pass http://localhost:8000/ws;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }\n' /etc/nginx/sites-available/zerogex-web
+    # ACME challenge path for certbot
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
 
-    # Reload nginx
-    sudo systemctl reload nginx
-    log "     ✓ API proxy restored"
-fi
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
 
-# Test automatic renewal
-log "  → Testing automatic renewal..."
-sudo certbot renew --dry-run
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
+
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:MozSSL:10m;
+    ssl_session_tickets off;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header X-XSS-Protection "0" always;
+
+    server_tokens off;
+    client_max_body_size 25m;
+
+    # API reverse proxy
+    location /api/ {
+        proxy_pass ${API_UPSTREAM}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        limit_req zone=zerogex_api_per_ip burst=40 nodelay;
+    }
+
+    # WebSocket reverse proxy
+    location /ws {
+        proxy_pass ${API_UPSTREAM}/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Frontend reverse proxy
+    location / {
+        proxy_pass http://127.0.0.1:${WEB_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+EOF_CONF
+
+log "  → Testing nginx configuration..."
+sudo nginx -t
+log "  → Reloading nginx..."
+sudo systemctl reload nginx
+
+log "  → Writing cert deploy hook..."
+sudo tee /usr/local/bin/zerogex-web-certbot-deploy-hook.sh > /dev/null <<'HOOKEOF'
+#!/bin/bash
+set -e
+systemctl reload nginx
+HOOKEOF
+sudo chmod 755 /usr/local/bin/zerogex-web-certbot-deploy-hook.sh
+
+log "  → Installing systemd renewal units..."
+sudo tee /etc/systemd/system/zerogex-web-cert-renew.service > /dev/null <<'SVCEOF'
+[Unit]
+Description=Renew Let's Encrypt certificates for ZeroGEX Web
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --deploy-hook /usr/local/bin/zerogex-web-certbot-deploy-hook.sh
+SVCEOF
+
+sudo tee /etc/systemd/system/zerogex-web-cert-renew.timer > /dev/null <<'TIMEREOF'
+[Unit]
+Description=Twice-daily Let's Encrypt renewal check for ZeroGEX Web
+
+[Timer]
+OnCalendar=*-*-* 00,12:00:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMEREOF
+
+log "  → Enabling renewal timer..."
+sudo systemctl daemon-reload
+sudo systemctl enable --now zerogex-web-cert-renew.timer
+
+log "  → Testing renewal flow (dry-run)..."
+sudo certbot renew --dry-run --cert-name "$DOMAIN_NAME" --deploy-hook "/usr/local/bin/zerogex-web-certbot-deploy-hook.sh"
 
 log ""
 log "SSL setup complete!"
 log ""
 log "Summary:"
-log "  ✓ SSL certificate obtained for: $DOMAIN_NAME"
-log "  ✓ Nginx configured for HTTPS"
-log "  ✓ API proxy verified at /api"
-log "  ✓ WebSocket proxy verified at /ws"
-log "  ✓ Automatic renewal configured"
+log "  ✓ TLS certificate configured for ${DOMAIN_NAME}"
+log "  ✓ Hardened HTTPS reverse proxy installed"
+log "  ✓ HTTP -> HTTPS redirect enabled"
+log "  ✓ Systemd timer enabled: zerogex-web-cert-renew.timer"
 log ""
-log "Your site is now accessible at:"
-log "  https://$DOMAIN_NAME"
-log "  API: https://$DOMAIN_NAME/api"
-log "  WebSocket: wss://$DOMAIN_NAME/ws"
-log ""
+log "App endpoints:"
+log "  • https://${DOMAIN_NAME}"
+log "  • https://${DOMAIN_NAME}/api/docs"
+log "  • https://${DOMAIN_NAME}/api/redoc"
+log "  • https://${DOMAIN_NAME}/api/openapi.json"

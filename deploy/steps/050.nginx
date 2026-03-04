@@ -1,106 +1,149 @@
 #!/bin/bash
 
 # ==============================================
-# Step 050: Nginx Reverse Proxy Configuration
+# Step 050: Nginx Reverse Proxy (HTTP bootstrap)
 # ==============================================
 
-set -e
+set -euo pipefail
 
-log "Nginx Reverse Proxy Configuration"
+log "Nginx Reverse Proxy (HTTP bootstrap)"
 
-# Prompt for domain name
-read -p "  Enter your domain name (e.g., zerogex.io): " DOMAIN_NAME
+# Config (supports independent or co-hosted deployments)
+SITE_NAME="${WEB_SITE_NAME:-zerogex-web}"
+WEB_PORT="${WEB_PORT:-3000}"
+API_UPSTREAM="${WEB_API_UPSTREAM:-http://127.0.0.1:8000}"
+DOMAIN_NAME="${WEB_DOMAIN:-}"
+CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}"
+
+if [ -z "$DOMAIN_NAME" ]; then
+  read -p "  Enter your web domain (e.g., app.zerogex.io): " DOMAIN_NAME
+fi
+
 while [ -z "$DOMAIN_NAME" ]; do
-    echo "     ✗ Domain name cannot be empty"
-    read -p "  Enter your domain name: " DOMAIN_NAME
+  echo "     ✗ Domain cannot be empty"
+  read -p "  Enter your web domain: " DOMAIN_NAME
 done
 
-# Create nginx configuration
-log "  → Creating nginx configuration for $DOMAIN_NAME..."
-sudo tee /etc/nginx/sites-available/zerogex-web > /dev/null << EOF
+log "  → Site name: $SITE_NAME"
+log "  → Domain: $DOMAIN_NAME"
+log "  → Frontend upstream: http://127.0.0.1:$WEB_PORT"
+log "  → API/WS upstream: $API_UPSTREAM"
+
+# Detect conflicting server_name ownership across enabled sites.
+log "  → Checking for conflicting server_name ownership..."
+CONFLICTS=$(sudo grep -R "server_name" /etc/nginx/sites-enabled 2>/dev/null \
+  | grep -E "(^|[[:space:]])${DOMAIN_NAME}([[:space:];]|$)|(^|[[:space:]])www\.${DOMAIN_NAME}([[:space:];]|$)" \
+  | grep -v "/${SITE_NAME}:" || true)
+
+if [ -n "$CONFLICTS" ]; then
+  log "  ✗ Conflict detected: another enabled nginx site already serves ${DOMAIN_NAME}"
+  log "    Details:"
+  while IFS= read -r line; do log "      $line"; done <<< "$CONFLICTS"
+  log "    Use a distinct domain/subdomain (recommended: app.* for web, api.* for API)."
+  exit 1
+fi
+
+# Shared snippets used across zerogex services (safe if co-hosted)
+log "  → Ensuring shared nginx snippets exist..."
+if [ ! -f /etc/nginx/conf.d/zerogex-upgrade-map.conf ]; then
+  sudo tee /etc/nginx/conf.d/zerogex-upgrade-map.conf > /dev/null <<'MAPEOF'
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+MAPEOF
+fi
+
+if [ ! -f /etc/nginx/conf.d/zerogex-rate-limit.conf ]; then
+  sudo tee /etc/nginx/conf.d/zerogex-rate-limit.conf > /dev/null <<'LIMITEOF'
+# Per-IP rate limiting for app/API endpoints
+limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
+LIMITEOF
+fi
+
+# Write HTTP bootstrap config (TLS hardened config comes in step 070)
+log "  → Writing HTTP bootstrap nginx config: $CONF_PATH"
+sudo tee "$CONF_PATH" >/dev/null <<EOF_CONF
 server {
     listen 80;
-    server_name $DOMAIN_NAME www.$DOMAIN_NAME;
+    listen [::]:80;
+    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
 
-    # API proxy to backend (port 8000)
+    # ACME challenge path for certbot
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # API reverse proxy
     location /api/ {
-        proxy_pass http://localhost:8000/api/;
+        proxy_pass ${API_UPSTREAM}/api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection \$connection_upgrade;
         proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
 
-        # Increase timeouts for long-running API calls
-        proxy_connect_timeout 60s;
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        limit_req zone=zerogex_api_per_ip burst=40 nodelay;
+    }
+
+    # WebSocket reverse proxy
+    location /ws {
+        proxy_pass ${API_UPSTREAM}/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
     }
 
-    # WebSocket proxy to backend
-    location /ws {
-        proxy_pass http://localhost:8000/ws;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-
-    # Frontend proxy to Next.js (port 3000)
+    # Frontend reverse proxy
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:${WEB_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection \$connection_upgrade;
         proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
     }
 }
-EOF
+EOF_CONF
 
-# Enable the site
-log "  → Enabling site..."
-sudo ln -sf /etc/nginx/sites-available/zerogex-web /etc/nginx/sites-enabled/
+log "  → Enabling site ${SITE_NAME}"
+sudo ln -sfn "$CONF_PATH" "/etc/nginx/sites-enabled/${SITE_NAME}"
 
-# Remove default nginx site
-log "  → Removing default nginx site..."
-sudo rm -f /etc/nginx/sites-enabled/default
+log "  → Testing nginx configuration"
+sudo nginx -t
 
-# Test nginx configuration
-log "  → Testing nginx configuration..."
-if sudo nginx -t; then
-    log "     ✓ Nginx configuration valid"
-else
-    log "     ✗ Nginx configuration invalid!"
-    exit 1
-fi
-
-# Restart nginx
-log "  → Restarting nginx..."
+log "  → Restarting nginx"
 sudo systemctl restart nginx
 sudo systemctl enable nginx
 
 log ""
-log "Nginx configuration complete!"
-log ""
+log "Nginx bootstrap configuration complete!"
 log "Summary:"
-log "  ✓ Nginx configured for domain: $DOMAIN_NAME"
-log "  ✓ API proxy set up: /api/* → http://localhost:8000/api/*"
-log "  ✓ WebSocket proxy set up: /ws → http://localhost:8000/ws"
-log "  ✓ Frontend proxy set up: / → http://localhost:3000"
-log "  ✓ Nginx restarted and enabled"
+log "  ✓ Site enabled: ${SITE_NAME}"
+log "  ✓ Domain: ${DOMAIN_NAME} (and www)"
+log "  ✓ HTTP reverse proxy active"
+log "  ✓ ACME challenge path ready for certbot"
+log "  ✓ Safe for co-hosting if domains are distinct"
 log ""
-log "Next steps:"
-log "  1. Point your domain DNS to this server's IP"
-log "  2. Run step 060 to open firewall ports"
-log "  3. Run step 070 to set up HTTPS with Let's Encrypt"
-log ""
+log "Next step:"
+log "  • Run step 070 for hardened HTTPS + auto-renew"
