@@ -1,14 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Menu, X, TrendingUp, TrendingDown, ChevronUp, ChevronDown } from 'lucide-react';
-import { Theme } from '@/core/types';
-import { useTimeframe } from '@/core/TimeframeContext';
-import { getMarketSession } from '@/core/utils';
-import { colors } from '@/core/colors';
-import SessionBadge from './SessionBadge';
-import WorldClocks from './WorldClocks';
-import { useMarketQuote, usePreviousClose } from '@/hooks/useApiData';
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Menu,
+  X,
+  TrendingUp,
+  TrendingDown,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
+import { Theme } from "@/core/types";
+import { useTimeframe } from "@/core/TimeframeContext";
+import { getMarketSession } from "@/core/utils";
+import { colors } from "@/core/colors";
+import SessionBadge from "./SessionBadge";
+import WorldClocks from "./WorldClocks";
+import { useMarketQuote, usePreviousClose } from "@/hooks/useApiData";
 
 interface HeaderProps {
   theme: Theme;
@@ -21,6 +29,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const { timeframe, setTimeframe, symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [collapsedNavOpen, setCollapsedNavOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const pages = [
+    { id: "/", label: "DASHBOARD" },
+    { id: "/flow-analysis", label: "FLOW ANALYSIS" },
+    { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
+    { id: "/intraday-tools", label: "INTRADAY TOOLS" },
+    { id: "/max-pain", label: "MAX PAIN" },
+    { id: "/about", label: "ABOUT" },
+  ];
 
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
@@ -28,8 +48,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('headerCollapsed');
-    if (saved === 'true') {
+    const saved = localStorage.getItem("headerCollapsed");
+    if (saved === "true") {
       setIsCollapsed(true);
     }
   }, []);
@@ -38,7 +58,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const toggleCollapsed = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    localStorage.setItem('headerCollapsed', String(newState));
+    localStorage.setItem("headerCollapsed", String(newState));
   };
 
   useEffect(() => {
@@ -49,43 +69,71 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   }, []);
 
   // Calculate change from previous close
-  const livePrice = quoteData && previousCloseData ? {
-    symbol,
-    price: quoteData.close,
-    change: quoteData.close - previousCloseData.previous_close,
-    changePercent: ((quoteData.close - previousCloseData.previous_close) / previousCloseData.previous_close) * 100,
-  } : null;
+  const livePrice =
+    quoteData && previousCloseData
+      ? {
+          symbol,
+          price: quoteData.close,
+          change: quoteData.close - previousCloseData.previous_close,
+          changePercent:
+            ((quoteData.close - previousCloseData.previous_close) /
+              previousCloseData.previous_close) *
+            100,
+        }
+      : null;
 
   const isPositive = livePrice ? livePrice.change >= 0 : false;
-  const quoteTimestampLabel = quoteData?.timestamp ? `as of ${new Date(quoteData.timestamp).toLocaleString()}` : 'latest quote';
-  const prevCloseLabel = previousCloseData?.timestamp ? `since ${new Date(previousCloseData.timestamp).toLocaleString()}` : 'since previous close';
+  const quoteTimestampLabel = quoteData?.timestamp
+    ? `as of ${new Date(quoteData.timestamp).toLocaleString()}`
+    : "latest quote";
+  const prevCloseLabel = previousCloseData?.timestamp
+    ? `since ${new Date(previousCloseData.timestamp).toLocaleString()}`
+    : "since previous close";
 
   return (
     <header
       className="border-b sticky top-0 z-40"
       style={{
-        backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight,
+        backgroundColor: theme === "dark" ? colors.bgDark : colors.bgLight,
         borderColor: colors.muted,
       }}
     >
-      <div className="container mx-auto px-6" style={{ paddingTop: isCollapsed ? '8px' : '16px', paddingBottom: isCollapsed ? '8px' : '16px', transition: 'padding 0.3s ease' }}>
+      <div
+        className="container mx-auto px-6"
+        style={{
+          paddingTop: isCollapsed ? "8px" : "16px",
+          paddingBottom: isCollapsed ? "8px" : "16px",
+          transition: "padding 0.3s ease",
+        }}
+      >
         {/* Desktop Layout */}
         <div className="hidden md:block relative">
           {isCollapsed ? (
             // Collapsed Layout - Single Line with Absolute Centered Logo
-            <div className="relative flex items-center justify-between" style={{ paddingRight: '48px' }}>
+            <div
+              className="relative flex items-center justify-between"
+              style={{ paddingRight: "48px" }}
+            >
               {/* Left: Dropdowns + Live Price */}
               <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setCollapsedNavOpen((v) => !v)}
+                  className="p-2 rounded-lg"
+                  aria-label="Toggle navigation"
+                >
+                  {collapsedNavOpen ? <X size={18} /> : <Menu size={18} />}
+                </button>
                 <div className="flex flex-col gap-2">
                   <select
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value as any)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
-                      backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                      backgroundColor:
+                        theme === "dark" ? colors.cardDark : colors.cardLight,
                       borderColor: colors.muted,
-                      color: theme === 'dark' ? colors.light : colors.dark,
-                      width: '90px',
+                      color: theme === "dark" ? colors.light : colors.dark,
+                      width: "90px",
                     }}
                   >
                     <option>SPY</option>
@@ -99,10 +147,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     onChange={(e) => setTimeframe(e.target.value as any)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
-                      backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                      backgroundColor:
+                        theme === "dark" ? colors.cardDark : colors.cardLight,
                       borderColor: colors.muted,
-                      color: theme === 'dark' ? colors.light : colors.dark,
-                      width: '90px',
+                      color: theme === "dark" ? colors.light : colors.dark,
+                      width: "90px",
                     }}
                   >
                     <option value="1min">1 Min</option>
@@ -115,49 +164,111 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                 {livePrice && (
                   <div className="flex flex-col gap-1">
-                    <span className="font-bold text-xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
-                    <div 
+                    <span
+                      className="font-bold text-xl"
+                      title={quoteTimestampLabel}
+                    >
+                      ${livePrice.price.toFixed(2)}
+                    </span>
+                    <div
                       className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
                       title={prevCloseLabel}
                       style={{
-                        backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
+                        backgroundColor:
+                          theme === "dark"
+                            ? `${isPositive ? colors.bullish : colors.bearish}15`
+                            : `${isPositive ? colors.bullish : colors.bearish}10`,
                         color: isPositive ? colors.bullish : colors.bearish,
                       }}
                     >
-                      {isPositive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
-                      {isPositive ? '+' : ''}{livePrice.change.toFixed(2)} ({isPositive ? '+' : ''}{livePrice.changePercent.toFixed(2)}%)
+                      {isPositive ? (
+                        <TrendingUp size={12} strokeWidth={2.5} />
+                      ) : (
+                        <TrendingDown size={12} strokeWidth={2.5} />
+                      )}
+                      {isPositive ? "+" : ""}
+                      {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
+                      {livePrice.changePercent.toFixed(2)}%)
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Absolute Center: Logo */}
-              <div 
+              <div
                 className="absolute left-1/2 top-1/2 pointer-events-none"
                 style={{
-                  transform: 'translate(-50%, -50%)',
+                  transform: "translate(-50%, -50%)",
                 }}
               >
-                <img 
-                  src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
-                  alt="ZeroGEX" 
+                <img
+                  src={
+                    theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
+                  }
+                  alt="ZeroGEX"
                   style={{
-                    height: '100px',
-                    width: 'auto',
-                    objectFit: 'contain',
-                    transition: 'height 0.3s ease',
-                    pointerEvents: 'auto'
+                    height: "100px",
+                    width: "auto",
+                    objectFit: "contain",
+                    transition: "height 0.3s ease",
+                    pointerEvents: "auto",
                   }}
                 />
               </div>
 
               {/* Right: Text Times + Session Circle (pulled in from right) */}
-              <div className="flex items-center gap-4" style={{ marginRight: '24px' }}>
+              <div
+                className="flex items-center gap-4"
+                style={{ marginRight: "24px" }}
+              >
                 <WorldClocks theme={theme} session={session} compact={true} />
-                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: 'pointer' }}>
-                  <SessionBadge session={session} theme={theme} showCountdown={showCountdown} compact={true} />
+                <div
+                  onClick={() => setShowCountdown(!showCountdown)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <SessionBadge
+                    session={session}
+                    theme={theme}
+                    showCountdown={showCountdown}
+                    compact={true}
+                  />
                 </div>
               </div>
+
+              {collapsedNavOpen && (
+                <div
+                  className="absolute left-0 top-full mt-2 rounded-lg border p-2 z-30 min-w-[220px]"
+                  style={{
+                    backgroundColor:
+                      theme === "dark" ? colors.cardDark : colors.cardLight,
+                    borderColor: colors.muted,
+                  }}
+                >
+                  {pages.map((page) => {
+                    const active = pathname === page.id;
+                    return (
+                      <button
+                        key={page.id}
+                        className="w-full text-left px-3 py-2 rounded text-sm"
+                        style={{
+                          color: active
+                            ? colors.bearish
+                            : theme === "dark"
+                              ? colors.light
+                              : colors.dark,
+                          opacity: active ? 1 : 0.85,
+                        }}
+                        onClick={() => {
+                          router.push(page.id);
+                          setCollapsedNavOpen(false);
+                        }}
+                      >
+                        {page.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Collapse Toggle Button - Rightmost */}
               <button
@@ -165,15 +276,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute right-0"
                 style={{
                   color: colors.muted,
-                  backgroundColor: 'transparent',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  backgroundColor: "transparent",
+                  top: "50%",
+                  transform: "translateY(-50%)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = `${colors.muted}20`;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.backgroundColor = "transparent";
                 }}
                 aria-label="Expand header"
               >
@@ -182,8 +293,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             </div>
           ) : (
             // Expanded Layout - Original with right padding for toggle button
-            <div style={{ paddingRight: '48px' }}>
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'center' }}>
+            <div style={{ paddingRight: "48px" }}>
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "2rem",
+                  alignItems: "center",
+                }}
+              >
                 {/* Left Column - Dropdowns & Quote */}
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col gap-2">
@@ -192,10 +310,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       onChange={(e) => setSymbol(e.target.value as any)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
-                        backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                        backgroundColor:
+                          theme === "dark" ? colors.cardDark : colors.cardLight,
                         borderColor: colors.muted,
-                        color: theme === 'dark' ? colors.light : colors.dark,
-                        width: '120px',
+                        color: theme === "dark" ? colors.light : colors.dark,
+                        width: "120px",
                       }}
                     >
                       <option>SPY</option>
@@ -209,10 +328,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       onChange={(e) => setTimeframe(e.target.value as any)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
-                        backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                        backgroundColor:
+                          theme === "dark" ? colors.cardDark : colors.cardLight,
                         borderColor: colors.muted,
-                        color: theme === 'dark' ? colors.light : colors.dark,
-                        width: '120px',
+                        color: theme === "dark" ? colors.light : colors.dark,
+                        width: "120px",
                       }}
                     >
                       <option value="1min">1 Min</option>
@@ -225,17 +345,31 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                   {livePrice && (
                     <div className="flex flex-col gap-1">
-                      <span className="font-bold text-2xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
-                      <div 
+                      <span
+                        className="font-bold text-2xl"
+                        title={quoteTimestampLabel}
+                      >
+                        ${livePrice.price.toFixed(2)}
+                      </span>
+                      <div
                         className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
                         title={prevCloseLabel}
                         style={{
-                          backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
+                          backgroundColor:
+                            theme === "dark"
+                              ? `${isPositive ? colors.bullish : colors.bearish}15`
+                              : `${isPositive ? colors.bullish : colors.bearish}10`,
                           color: isPositive ? colors.bullish : colors.bearish,
                         }}
                       >
-                        {isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                        {isPositive ? '+' : ''}{livePrice.change.toFixed(2)} ({isPositive ? '+' : ''}{livePrice.changePercent.toFixed(2)}%)
+                        {isPositive ? (
+                          <TrendingUp size={14} strokeWidth={2.5} />
+                        ) : (
+                          <TrendingDown size={14} strokeWidth={2.5} />
+                        )}
+                        {isPositive ? "+" : ""}
+                        {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
+                        {livePrice.changePercent.toFixed(2)}%)
                       </div>
                     </div>
                   )}
@@ -243,37 +377,43 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
                 {/* Right Column - with padding to avoid toggle button */}
                 <div className="flex flex-col gap-2 items-end">
-                  <div 
+                  <div
                     onClick={() => setShowCountdown(!showCountdown)}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: "pointer" }}
                   >
-                    <SessionBadge 
-                      session={session} 
-                      theme={theme} 
+                    <SessionBadge
+                      session={session}
+                      theme={theme}
                       showCountdown={showCountdown}
                     />
                   </div>
-                  
+
                   <div className="scale-90 origin-right">
-                    <WorldClocks theme={theme} session={session} hideCountdown={true} />
+                    <WorldClocks
+                      theme={theme}
+                      session={session}
+                      hideCountdown={true}
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Absolutely centered logo */}
-              <div 
+              <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 style={{ top: 0, bottom: 0 }}
               >
-                <img 
-                  src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
-                  alt="ZeroGEX" 
+                <img
+                  src={
+                    theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
+                  }
+                  alt="ZeroGEX"
                   style={{
-                    height: '200px',
-                    width: 'auto',
-                    objectFit: 'contain',
-                    pointerEvents: 'auto',
-                    transition: 'height 0.3s ease'
+                    height: "200px",
+                    width: "auto",
+                    objectFit: "contain",
+                    pointerEvents: "auto",
+                    transition: "height 0.3s ease",
                   }}
                 />
               </div>
@@ -284,13 +424,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 className="absolute top-0 right-0 p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10"
                 style={{
                   color: colors.muted,
-                  backgroundColor: 'transparent',
+                  backgroundColor: "transparent",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = `${colors.muted}20`;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.backgroundColor = "transparent";
                 }}
                 aria-label="Collapse header"
               >
@@ -303,17 +443,17 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
-            <img 
-              src={theme === 'dark' ? '/title-dark.svg' : '/title-light.svg'}
-              alt="ZeroGEX" 
+            <img
+              src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+              alt="ZeroGEX"
               style={{
-                height: '48px',
-                width: 'auto',
-                objectFit: 'contain'
+                height: "48px",
+                width: "auto",
+                objectFit: "contain",
               }}
             />
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2"
               >
@@ -324,15 +464,44 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
           {mobileMenuOpen && (
             <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                {pages.map((page) => {
+                  const active = pathname === page.id;
+                  return (
+                    <button
+                      key={page.id}
+                      onClick={() => {
+                        router.push(page.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                      style={{
+                        backgroundColor:
+                          theme === "dark" ? colors.cardDark : colors.cardLight,
+                        borderColor: active ? colors.bearish : colors.muted,
+                        color: active
+                          ? colors.bearish
+                          : theme === "dark"
+                            ? colors.light
+                            : colors.dark,
+                      }}
+                    >
+                      {page.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex gap-2">
                 <select
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value as any)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
-                    backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                    backgroundColor:
+                      theme === "dark" ? colors.cardDark : colors.cardLight,
                     borderColor: colors.muted,
-                    color: theme === 'dark' ? colors.light : colors.dark,
+                    color: theme === "dark" ? colors.light : colors.dark,
                   }}
                 >
                   <option>SPY</option>
@@ -346,9 +515,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   onChange={(e) => setTimeframe(e.target.value as any)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
-                    backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                    backgroundColor:
+                      theme === "dark" ? colors.cardDark : colors.cardLight,
                     borderColor: colors.muted,
-                    color: theme === 'dark' ? colors.light : colors.dark,
+                    color: theme === "dark" ? colors.light : colors.dark,
                   }}
                 >
                   <option value="1min">1 Min</option>
@@ -361,25 +531,46 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
               {livePrice && (
                 <div className="flex items-center gap-4 flex-wrap">
-                  <span className="font-bold text-2xl" title={quoteTimestampLabel}>${livePrice.price.toFixed(2)}</span>
-                  <div 
+                  <span
+                    className="font-bold text-2xl"
+                    title={quoteTimestampLabel}
+                  >
+                    ${livePrice.price.toFixed(2)}
+                  </span>
+                  <div
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
                     title={prevCloseLabel}
                     style={{
-                      backgroundColor: theme === 'dark' ? `${isPositive ? colors.bullish : colors.bearish}15` : `${isPositive ? colors.bullish : colors.bearish}10`,
+                      backgroundColor:
+                        theme === "dark"
+                          ? `${isPositive ? colors.bullish : colors.bearish}15`
+                          : `${isPositive ? colors.bullish : colors.bearish}10`,
                       color: isPositive ? colors.bullish : colors.bearish,
                     }}
                   >
-                    {isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                    {isPositive ? '+' : ''}{livePrice.change.toFixed(2)} ({isPositive ? '+' : ''}{livePrice.changePercent.toFixed(2)}%)
+                    {isPositive ? (
+                      <TrendingUp size={14} strokeWidth={2.5} />
+                    ) : (
+                      <TrendingDown size={14} strokeWidth={2.5} />
+                    )}
+                    {isPositive ? "+" : ""}
+                    {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
+                    {livePrice.changePercent.toFixed(2)}%)
                   </div>
                 </div>
               )}
-              
+
               <WorldClocks theme={theme} session={session} />
               <div className="flex items-center gap-2">
-                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: 'pointer' }}>
-                  <SessionBadge session={session} theme={theme} showCountdown={showCountdown} />
+                <div
+                  onClick={() => setShowCountdown(!showCountdown)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <SessionBadge
+                    session={session}
+                    theme={theme}
+                    showCountdown={showCountdown}
+                  />
                 </div>
               </div>
             </div>

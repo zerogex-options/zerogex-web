@@ -1,19 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Info } from 'lucide-react';
-import { colors } from '@/core/colors';
+import { useState, useEffect, useRef } from "react";
+import { Info } from "lucide-react";
+import { colors } from "@/core/colors";
+import { useExpandedCard } from "./ExpandableCard";
 
 interface TooltipWrapperProps {
   text: string;
   children?: React.ReactNode;
+  inlineInExpanded?: boolean;
 }
 
-export default function TooltipWrapper({ text, children }: TooltipWrapperProps) {
+export default function TooltipWrapper({
+  text,
+  children,
+  inlineInExpanded = true,
+}: TooltipWrapperProps) {
   const [show, setShow] = useState(false);
-  const [position, setPosition] = useState<'left' | 'right' | 'center'>('center');
+  const [position, setPosition] = useState<"left" | "right" | "center">(
+    "center",
+  );
   const [coords, setCoords] = useState({ top: 0, left: 0, right: 0 });
   const buttonRef = useRef<HTMLDivElement>(null);
+  const expanded = useExpandedCard();
 
   useEffect(() => {
     if (show && buttonRef.current) {
@@ -27,48 +36,64 @@ export default function TooltipWrapper({ text, children }: TooltipWrapperProps) 
       });
 
       if (rect.left < windowWidth / 3) {
-        setPosition('right');
+        setPosition("right");
       } else if (rect.right > (windowWidth * 2) / 3) {
-        setPosition('left');
+        setPosition("left");
       } else {
-        setPosition('center');
+        setPosition("center");
       }
     }
   }, [show]);
 
+  if (expanded && inlineInExpanded) {
+    return <p className="text-xs opacity-80 mt-1">{text}</p>;
+  }
+
   const getTooltipStyle = () => {
     const baseStyle = {
-      position: 'fixed' as const,
+      position: "fixed" as const,
       top: `${coords.top}px`,
       zIndex: 2147483647,
-      width: '280px',
+      width: "280px",
       backgroundColor: colors.cardDark,
       color: colors.light,
       border: `1px solid ${colors.muted}`,
-      borderRadius: '8px',
-      padding: '12px',
-      fontSize: '13px',
-      lineHeight: '1.5',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-      pointerEvents: 'none' as const,
+      borderRadius: "8px",
+      padding: "12px",
+      fontSize: "13px",
+      lineHeight: "1.5",
+      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+      pointerEvents: "none" as const,
     };
 
-    if (position === 'left') {
+    if (position === "left") {
       return { ...baseStyle, right: `${coords.right}px` };
     }
-    if (position === 'right') {
+    if (position === "right") {
       return { ...baseStyle, left: `${Math.max(8, coords.left - 16)}px` };
     }
-    return { ...baseStyle, left: `${coords.left}px`, transform: 'translateX(-50%)' };
+    return {
+      ...baseStyle,
+      left: `${coords.left}px`,
+      transform: "translateX(-50%)",
+    };
   };
 
   return (
-    <div ref={buttonRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div
+      ref={buttonRef}
+      style={{ position: "relative", display: "inline-block" }}
+    >
       <button
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
         className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity duration-200"
-        style={{ cursor: 'help', background: 'none', border: 'none', padding: 0 }}
+        style={{
+          cursor: "help",
+          background: "none",
+          border: "none",
+          padding: 0,
+        }}
         type="button"
         onClick={(e) => e.stopPropagation()}
       >

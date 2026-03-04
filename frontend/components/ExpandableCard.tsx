@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, createContext, useContext, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -11,6 +11,9 @@ interface ExpandableCardProps {
   expandClassName?: string;
 }
 
+const ExpandedCardContext = createContext(false);
+export const useExpandedCard = () => useContext(ExpandedCardContext);
+
 export default function ExpandableCard({ children, className = '', expandClassName = '' }: ExpandableCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { theme } = useTheme();
@@ -18,7 +21,7 @@ export default function ExpandableCard({ children, className = '', expandClassNa
   return (
     <>
       <div className={`relative cursor-zoom-in ${className}`} onClick={() => setExpanded(true)}>
-        {children}
+        <ExpandedCardContext.Provider value={false}>{children}</ExpandedCardContext.Provider>
       </div>
 
       {expanded && (
@@ -41,7 +44,9 @@ export default function ExpandableCard({ children, className = '', expandClassNa
             >
               <X size={18} />
             </button>
-            <div className="clear-both p-4 md:p-6">{children}</div>
+            <div className="clear-both p-4 md:p-6">
+              <ExpandedCardContext.Provider value>{children}</ExpandedCardContext.Provider>
+            </div>
           </div>
         </div>
       )}
