@@ -63,11 +63,14 @@ export default function GammaHeatmap() {
 
   const getColor = (value: number) => {
     const clamped = Math.max(-GEX_COLOR_CAP, Math.min(GEX_COLOR_CAP, value));
-    const normalized = (clamped + GEX_COLOR_CAP) / (2 * GEX_COLOR_CAP);
+    const sign = clamped >= 0 ? 1 : -1;
+    const magnitude = Math.abs(clamped);
+    const logNorm = Math.log10(1 + magnitude) / Math.log10(1 + GEX_COLOR_CAP);
+    const normalized = (sign * logNorm + 1) / 2;
 
     const hue = 280 - normalized * 240; // purple -> cyan -> green
-    const saturation = 85 + normalized * 10;
-    const lightness = 30 + normalized * 35;
+    const saturation = 84 + normalized * 12;
+    const lightness = 28 + normalized * 40;
     return `hsl(${hue.toFixed(1)} ${saturation.toFixed(1)}% ${lightness.toFixed(1)}%)`;
   };
 

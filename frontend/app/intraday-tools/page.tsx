@@ -49,12 +49,41 @@ interface VolumeSpikeRow {
 interface DivergenceRow {
   time_et?: string;
   timestamp?: string;
+  time?: string;
   time_window_end?: string;
   divergence_signal?: string;
   signal?: string;
+  divergence_type?: string;
   price?: number;
   price_change_5min?: number;
   net_volume?: number;
+}
+
+function extractDivergenceRows(payload: unknown): DivergenceRow[] {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload as DivergenceRow[];
+  if (typeof payload !== 'object') return [];
+
+  const direct = payload as Record<string, unknown>;
+  const preferredKeys = ['data', 'results', 'signals', 'rows', 'items'];
+  for (const key of preferredKeys) {
+    const candidate = direct[key];
+    if (Array.isArray(candidate)) return candidate as DivergenceRow[];
+    if (candidate && typeof candidate === 'object') {
+      const nested = extractDivergenceRows(candidate);
+      if (nested.length > 0) return nested;
+    }
+  }
+
+  for (const value of Object.values(direct)) {
+    if (Array.isArray(value)) return value as DivergenceRow[];
+    if (value && typeof value === 'object') {
+      const nested = extractDivergenceRows(value);
+      if (nested.length > 0) return nested;
+    }
+  }
+
+  return [];
 }
 
 export default function IntradayToolsPage() {
@@ -79,19 +108,17 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
-  const { data: divergenceResponse } = useApiData<DivergenceRow[] | { data?: DivergenceRow[]; results?: DivergenceRow[]; signals?: DivergenceRow[] }>(
+  const { data: divergenceResponse } = useApiData<unknown>(
     `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
-  const divergence = Array.isArray(divergenceResponse)
-    ? divergenceResponse
-    : divergenceResponse?.data || divergenceResponse?.results || divergenceResponse?.signals || [];
+  const divergence = extractDivergenceRows(divergenceResponse);
 
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];
   const divergenceChart = omitClosedMarketTimes((divergence || []).slice().reverse().map((signal) => {
-    const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || '';
+    const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
     return {
       time: timestamp
         ? new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -305,8 +332,8 @@ export default function IntradayToolsPage() {
           <div className="bg-[#423d3f] rounded-lg p-6">
             <div className="space-y-3">
               {divergence.map((signal, idx) => {
-                const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || '';
-                const divergenceSignal = signal.divergence_signal || signal.signal || 'No signal';
+                const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
+                const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
                 const price = Number(signal.price || 0);
                 const priceChange = Number(signal.price_change_5min || 0);
                 const netVolume = Number(signal.net_volume || 0);

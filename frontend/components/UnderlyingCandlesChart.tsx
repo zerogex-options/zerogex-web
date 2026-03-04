@@ -156,7 +156,9 @@ export default function UnderlyingCandlesChart() {
     volumeAreaBottom -
     (v / Math.max(1, maxVol)) * (volumeAreaBottom - volumeAreaTop);
 
-  const hovered = hoveredIdx !== null ? bars[hoveredIdx] : null;
+  const fallbackIdx = Math.max(0, bars.length - 1);
+  const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
+  const hovered = bars[resolvedIdx] ?? null;
 
   const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     if (bars.length === 0) return;
@@ -194,7 +196,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}

@@ -36,14 +36,14 @@ export default function Navigation({ theme }: NavigationProps) {
       const h = isCollapsed ? 0 : navRef.current?.offsetHeight ?? 0;
       document.documentElement.style.setProperty("--zgx-nav-height", `${h}px`);
     };
-    setNavHeight();
-    window.addEventListener("resize", setNavHeight);
-    return () => window.removeEventListener("resize", setNavHeight);
-  }, [isCollapsed]);
 
-  useEffect(() => {
-    if (!isCollapsed) return;
-    document.documentElement.style.setProperty("--zgx-nav-height", "0px");
+    setNavHeight();
+    const raf = requestAnimationFrame(setNavHeight);
+    window.addEventListener("resize", setNavHeight);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", setNavHeight);
+    };
   }, [isCollapsed]);
 
   const pages = [

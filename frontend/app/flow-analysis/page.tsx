@@ -142,11 +142,6 @@ export default function FlowAnalysisPage() {
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && <ErrorMessage message={flowError} />}
 
-
-      <section className="mb-8">
-        <OptionsFlowChart />
-      </section>
-
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
@@ -191,6 +186,10 @@ export default function FlowAnalysisPage() {
             theme="dark"
           />
         </div>
+      </section>
+
+      <section className="mb-8">
+        <OptionsFlowChart />
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
