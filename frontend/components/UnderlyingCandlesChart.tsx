@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { useApiData, useMarketQuote } from "@/hooks/useApiData";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -158,6 +158,16 @@ export default function UnderlyingCandlesChart() {
 
   const hovered = hoveredIdx !== null ? bars[hoveredIdx] : null;
 
+  const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (bars.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xPx = event.clientX - rect.left;
+    const xView = (xPx / Math.max(1, rect.width)) * width;
+    const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    const clamped = Math.max(0, Math.min(bars.length - 1, idx));
+    setHoveredIdx(clamped);
+  };
+
   return (
     <ExpandableCard>
       <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
@@ -184,7 +194,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -271,7 +281,6 @@ export default function UnderlyingCandlesChart() {
                     width={Math.max(candleWidth, xStep * 1.4)}
                     height={volumeAreaBottom - padTop}
                     fill="transparent"
-                    onMouseMove={() => setHoveredIdx(i)}
                   />
                   <line
                     x1={x}
