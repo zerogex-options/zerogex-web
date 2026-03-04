@@ -22,12 +22,12 @@ export default function GammaHeatmap() {
   const maxPoints = getMaxDataPoints();
 
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${Math.min(90, maxPoints)}`,
+    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 }
   );
 
   const { data: priceData } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${Math.min(90, maxPoints)}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 }
   );
 
@@ -62,9 +62,9 @@ export default function GammaHeatmap() {
   const values = derived.cells.map((d) => d.value);
   const absMax = Math.max(1, ...values.map((v) => Math.abs(v)));
   const getColor = (value: number) => {
-    const intensity = Math.pow(Math.abs(value / absMax), 0.55);
-    const opacity = 0.22 + 0.78 * intensity;
-    return value >= 0 ? `rgba(16,185,129,${opacity})` : `rgba(244,88,84,${opacity})`;
+    const intensity = Math.pow(Math.abs(value / absMax), 0.6);
+    const opacity = 0.2 + 0.75 * intensity;
+    return value >= 0 ? `rgba(56,189,248,${opacity})` : `rgba(168,85,247,${opacity})`;
   };
 
   const yAxisWidth = 80;
@@ -108,17 +108,22 @@ export default function GammaHeatmap() {
             const x = idx * cellWidth + 80 + cellWidth / 2;
             const up = close >= open;
             const c = up ? colors.bullish : colors.bearish;
-            const bodyTop = yForPrice(Math.max(open, close));
-            const bodyBottom = yForPrice(Math.min(open, close));
-            const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+            const openY = yForPrice(open);
+            const closeY = yForPrice(close);
+            const highY = yForPrice(high);
+            const lowY = yForPrice(low);
+            const bodyY = Math.min(openY, closeY);
+            const bodyBottom = Math.max(openY, closeY);
+            const bodyHeight = Math.max(1, bodyBottom - bodyY);
             const candleWidth = Math.max(3, Math.min(10, cellWidth * 0.45));
 
             return (
               <g key={`candle-${ts}`}>
-                <line x1={x} x2={x} y1={yForPrice(high)} y2={yForPrice(low)} stroke={c} strokeWidth={1.3} />
+                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.3} />
+                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.3} />
                 <rect
                   x={x - candleWidth / 2}
-                  y={bodyTop}
+                  y={bodyY}
                   width={candleWidth}
                   height={bodyHeight}
                   fill={up ? 'transparent' : c}

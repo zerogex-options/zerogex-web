@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useOptionFlow } from '@/hooks/useApiData';
@@ -11,75 +10,38 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
+import { useMemo } from 'react';
 
-interface ChartDataPoint {
-  timestamp: string;
-  time: string;
-  calls: number;
-  puts: number;
-}
-
-function mergeSeries(prev: ChartDataPoint[], point: ChartDataPoint, maxPoints: number) {
-  const existingIdx = prev.findIndex((p) => p.timestamp === point.timestamp);
-  const next = [...prev];
-  if (existingIdx >= 0) {
-    next[existingIdx] = point; // update most recent bucket only
-  } else {
-    next.push(point);
-  }
-  return next
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    .slice(-maxPoints);
+function toTime(ts: string) {
+  return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { timeframe, getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
-  const intervalMinutes = timeframe === "1day" ? 1440 : timeframe === "1hr" ? 60 : Number(timeframe.replace("min", ""));
-  const windowUnits = Math.max(1, Math.min(90, Math.round(getWindowMinutes() / Math.max(1, intervalMinutes))));
+  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const cacheKey = `zerogex:options-flow:${symbol}:${timeframe}:${windowUnits}`;
 
-  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
+  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, maxPoints, 5000);
 
   const chartData = useMemo(() => {
-    const cachedRows: ChartDataPoint[] = [];
+    const grouped = new Map<string, { calls: number; puts: number }>();
 
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) cachedRows.push(...(JSON.parse(cached) as ChartDataPoint[]));
-      } catch {
-        // Ignore parse failures
-      }
-    }
+    (flowData || []).forEach((row) => {
+      const ts = row.interval_timestamp || row.time_window_end;
+      if (!ts) return;
+      const key = String(ts);
+      const current = grouped.get(key) || { calls: 0, puts: 0 };
+      const premium = Number(row.total_premium || 0) / 1_000_000;
+      if ((row.option_type || '').toUpperCase() === 'CALL') current.calls += premium;
+      if ((row.option_type || '').toUpperCase() === 'PUT') current.puts += premium;
+      grouped.set(key, current);
+    });
 
-    if (!flowData || flowData.length === 0) {
-      return cachedRows.slice(-maxPoints);
-    }
-
-    const callRow = flowData.find((r) => r.option_type === 'CALL');
-    const putRow = flowData.find((r) => r.option_type === 'PUT');
-    const timestamp = (callRow?.time_window_end || putRow?.time_window_end || new Date().toISOString()) as string;
-
-    const point: ChartDataPoint = {
-      timestamp,
-      time: new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      calls: Number(callRow?.total_premium || 0) / 1_000_000,
-      puts: Number(putRow?.total_premium || 0) / 1_000_000,
-    };
-
-    return mergeSeries(cachedRows, point, maxPoints);
-  }, [cacheKey, flowData, maxPoints]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(chartData));
-    } catch {
-      // Ignore storage failures
-    }
-  }, [cacheKey, chartData]);
+    return Array.from(grouped.entries())
+      .map(([timestamp, v]) => ({ timestamp, time: toTime(timestamp), calls: v.calls, puts: v.puts }))
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .slice(-maxPoints);
+  }, [flowData, maxPoints]);
 
   const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
 
@@ -95,13 +57,13 @@ export default function OptionsFlowChart() {
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
-          <TooltipWrapper text="Polled from /api/flow/by-type. Historical points are cached client-side; only the current bucket is updated."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
         </div>
 
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
-            <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} />
+            <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} minTickGap={20} />
             <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={['auto', 'auto']} />
             <Tooltip />
             <Legend />
@@ -113,7 +75,7 @@ export default function OptionsFlowChart() {
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Call Premium</div><div style={{ color: colors.bullish, fontSize: '20px', fontWeight: 'bold' }}>${totals.calls.toFixed(2)}M</div></div>
           <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Put Premium</div><div style={{ color: colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>${totals.puts.toFixed(2)}M</div></div>
-          <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Net Flow</div><div style={{ color: totals.calls - totals.puts > 0 ? colors.bullish : colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>${(totals.calls - totals.puts).toFixed(2)}M</div></div>
+          <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Net Premium</div><div style={{ color: totals.calls - totals.puts >= 0 ? colors.bullish : colors.bearish, fontSize: '20px', fontWeight: 'bold' }}>${(totals.calls - totals.puts).toFixed(2)}M</div></div>
         </div>
       </div>
     </ExpandableCard>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -56,10 +56,9 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { timeframe, getWindowMinutes, getMaxDataPoints, symbol } = useTimeframe();
-  const intervalMinutes = timeframe === "1day" ? 1440 : timeframe === "1hr" ? 60 : Number(timeframe.replace("min", ""));
-  const windowUnits = Math.max(1, Math.min(90, Math.round(getWindowMinutes() / Math.max(1, intervalMinutes))));
+  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
+  const windowUnits = maxPoints;
 
   const {
     data: flowData,
@@ -90,65 +89,28 @@ export default function FlowAnalysisPage() {
   const putCallRatio =
     totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
 
-  const cacheKey = `zerogex:put-call:${symbol}:${timeframe}:${windowUnits}`;
-
   const putCallRatioSeries = useMemo(() => {
-    const cachedRows: Array<{ timestamp: string; time: string; ratio: number }> = [];
+    const grouped = new Map<string, { calls: number; puts: number }>();
 
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached) as Array<{ timestamp: string; time: string; ratio: number }>;
-          cachedRows.push(...parsed);
-        }
-      } catch {
-        // Ignore cache parse failures
-      }
-    }
+    (flowData || []).forEach((row) => {
+      const ts = row.interval_timestamp || row.time_window_end;
+      if (!ts) return;
+      const key = String(ts);
+      const current = grouped.get(key) || { calls: 0, puts: 0 };
+      const volume = Number(row.total_volume || 0);
+      if ((row.option_type || "").toUpperCase() === "CALL") current.calls += volume;
+      if ((row.option_type || "").toUpperCase() === "PUT") current.puts += volume;
+      grouped.set(key, current);
+    });
 
-    if (!flowData || flowData.length === 0) {
-      return cachedRows.slice(-maxPoints);
-    }
-
-    const timestamp =
-      (callFlow?.time_window_end || putFlow?.time_window_end || new Date().toISOString()) as string;
-
-    const row = {
-      timestamp,
-      time: safeTimeLabel(timestamp),
-      ratio: Number.isFinite(putCallRatio) ? putCallRatio : 0,
-    };
-
-    const idx = cachedRows.findIndex((p) => p.timestamp === timestamp);
-    const merged =
-      idx >= 0
-        ? [...cachedRows.slice(0, idx), row, ...cachedRows.slice(idx + 1)]
-        : [...cachedRows, row];
-
-    return merged
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-      )
+    return Array.from(grouped.entries())
+      .map(([timestamp, value]) => {
+        const ratio = value.calls > 0 ? value.puts / value.calls : 0;
+        return { timestamp, time: safeTimeLabel(timestamp), ratio };
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .slice(-maxPoints);
-  }, [
-    cacheKey,
-    flowData,
-    callFlow?.time_window_end,
-    putFlow?.time_window_end,
-    putCallRatio,
-    maxPoints,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(putCallRatioSeries));
-    } catch {
-      // Ignore storage failures
-    }
-  }, [cacheKey, putCallRatioSeries]);
+  }, [flowData, maxPoints]);
 
   const byStrikeChart = useMemo(
     () =>
@@ -229,7 +191,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Put/Call Ratio Timeseries"
-          tooltip="Client-cached series. Only current bucket updates; older points remain unchanged."
+          tooltip="Put/call ratio over the selected timeframe using a 90-unit window from /api/flow/by-type."
         />
         {putCallRatioSeries.length === 0 ? (
           <div className="text-gray-400 text-center py-8">

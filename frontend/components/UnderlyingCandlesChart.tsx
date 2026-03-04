@@ -73,17 +73,16 @@ function aggregateBars(
 
 export default function UnderlyingCandlesChart() {
   const { theme } = useTheme();
-  const { getIntervalMinutes, getWindowMinutes, getMaxDataPoints, symbol } =
+  const { timeframe, getIntervalMinutes, getMaxDataPoints, symbol } =
     useTimeframe();
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const intervalMinutes = getIntervalMinutes();
-  const windowMinutes = getWindowMinutes();
   const maxPoints = getMaxDataPoints();
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=1min&window_units=${Math.min(90, Math.max(windowMinutes, 20))}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
 
