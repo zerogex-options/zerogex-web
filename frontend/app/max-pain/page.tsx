@@ -250,6 +250,7 @@ export default function MaxPainPage() {
               <Tooltip formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`} />
               <Legend />
               <ReferenceLine
+                ifOverflow="extendDomain"
                 x={safeNum(activeExpiration?.max_pain || currentMaxPain)}
                 stroke={colors.primary}
                 strokeDasharray="6 4"
@@ -257,6 +258,7 @@ export default function MaxPainPage() {
                 label={{ value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`, fill: textColor, position: "insideTopLeft" }}
               />
               <ReferenceLine
+                ifOverflow="extendDomain"
                 x={currentUnderlying}
                 stroke={"#60a5fa"}
                 strokeDasharray="6 4"

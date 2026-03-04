@@ -244,11 +244,6 @@ export default function UnderlyingCandlesChart() {
               );
             })}
 
-            <rect x={width - 230} y={8} width="10" height="10" fill={colors.bullish} opacity={0.75} />
-            <text x={width - 214} y={16} fontSize="11" fill={theme === "dark" ? colors.light : colors.dark}>Up Volume</text>
-            <rect x={width - 130} y={8} width="10" height="10" fill={colors.bearish} opacity={0.75} />
-            <text x={width - 114} y={16} fontSize="11" fill={theme === "dark" ? colors.light : colors.dark}>Down Volume</text>
-
             {bars.map((b, i) => {
               const x = padLeft + i * xStep;
               const up = b.close >= b.open;
@@ -271,6 +266,13 @@ export default function UnderlyingCandlesChart() {
                   onMouseEnter={() => setHoveredIdx(i)}
                   onMouseLeave={() => setHoveredIdx(null)}
                 >
+                  <rect
+                    x={x - Math.max(candleWidth, xStep * 0.9) / 2}
+                    y={padTop}
+                    width={Math.max(candleWidth, xStep * 0.9)}
+                    height={volumeAreaBottom - padTop}
+                    fill="transparent"
+                  />
                   <line
                     x1={x}
                     x2={x}

@@ -92,8 +92,6 @@ export default function GammaHeatmap() {
           <text x={100} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Positive GEX</text>
           <rect x={180} y={8} width="12" height="12" fill={`rgba(168,85,247,0.75)`} />
           <text x={196} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Negative GEX</text>
-          <rect x={282} y={8} width="12" height="12" fill="transparent" stroke={colors.bullish} strokeWidth="1.9" />
-          <text x={298} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Underlying Candles</text>
 
           {derived.strikes.map((strike, idx) => (
             <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + 40} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
