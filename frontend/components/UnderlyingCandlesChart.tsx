@@ -20,6 +20,8 @@ interface PriceBar {
   close?: number;
   price?: number;
   volume?: number;
+  up_volume?: number | null;
+  down_volume?: number | null;
 }
 
 interface CandleBar {
@@ -97,7 +99,11 @@ export default function UnderlyingCandlesChart() {
         const high = d.high ?? Math.max(open, close);
         const low = d.low ?? Math.min(open, close);
         const volume = d.volume ?? 0;
+        const apiUp = d.up_volume ?? null;
+        const apiDown = d.down_volume ?? null;
         const up = close >= open;
+        const upVolume = apiUp !== null && apiDown !== null ? apiUp : up ? volume : 0;
+        const downVolume = apiUp !== null && apiDown !== null ? apiDown : up ? 0 : volume;
 
         acc.rows.push({
           timestamp: d.timestamp,
@@ -105,9 +111,9 @@ export default function UnderlyingCandlesChart() {
           high,
           low,
           close,
-          volume,
-          upVolume: up ? volume : 0,
-          downVolume: up ? 0 : volume,
+          volume: upVolume + downVolume,
+          upVolume,
+          downVolume,
         });
         acc.prevClose = close;
         return acc;
@@ -214,6 +220,34 @@ export default function UnderlyingCandlesChart() {
                 </g>
               );
             })}
+
+                        <text
+              x="18"
+              y={(volumeAreaTop + volumeAreaBottom) / 2}
+              transform={`rotate(-90, 18, ${(volumeAreaTop + volumeAreaBottom) / 2})`}
+              fontSize="12"
+              fill={colors.muted}
+            >
+              Volume
+            </text>
+
+            {[0, 0.5, 1].map((p) => {
+              const y = volumeAreaBottom - p * (volumeAreaBottom - volumeAreaTop);
+              const vol = p * maxVol;
+              return (
+                <g key={`v-${p}`}>
+                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
+                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
+                    {vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
+                  </text>
+                </g>
+              );
+            })}
+
+            <rect x={width - 230} y={8} width="10" height="10" fill={colors.bullish} opacity={0.75} />
+            <text x={width - 214} y={16} fontSize="11" fill={theme === "dark" ? colors.light : colors.dark}>Up Volume</text>
+            <rect x={width - 130} y={8} width="10" height="10" fill={colors.bearish} opacity={0.75} />
+            <text x={width - 114} y={16} fontSize="11" fill={theme === "dark" ? colors.light : colors.dark}>Down Volume</text>
 
             {bars.map((b, i) => {
               const x = padLeft + i * xStep;

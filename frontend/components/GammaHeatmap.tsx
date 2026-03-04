@@ -88,6 +88,13 @@ export default function GammaHeatmap() {
         </div>
 
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
+          <rect x={84} y={8} width="12" height="12" fill={`rgba(56,189,248,0.75)`} />
+          <text x={100} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Positive GEX</text>
+          <rect x={180} y={8} width="12" height="12" fill={`rgba(168,85,247,0.75)`} />
+          <text x={196} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Negative GEX</text>
+          <rect x={282} y={8} width="12" height="12" fill="transparent" stroke={colors.bullish} strokeWidth="1.9" />
+          <text x={298} y={18} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>Underlying Candles</text>
+
           {derived.strikes.map((strike, idx) => (
             <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + 40} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
           ))}
@@ -119,8 +126,8 @@ export default function GammaHeatmap() {
 
             return (
               <g key={`candle-${ts}`}>
-                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.3} />
-                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.3} />
+                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.9} />
+                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.9} />
                 <rect
                   x={x - candleWidth / 2}
                   y={bodyY}
@@ -128,7 +135,7 @@ export default function GammaHeatmap() {
                   height={bodyHeight}
                   fill={up ? 'transparent' : c}
                   stroke={c}
-                  strokeWidth={1.3}
+                  strokeWidth={1.9}
                 />
               </g>
             );

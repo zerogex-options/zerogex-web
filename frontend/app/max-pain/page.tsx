@@ -254,14 +254,14 @@ export default function MaxPainPage() {
                 stroke={colors.primary}
                 strokeDasharray="6 4"
                 strokeWidth={2}
-                label={{ value: "Max Pain", fill: textColor, position: "insideTopLeft" }}
+                label={{ value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`, fill: textColor, position: "insideTopLeft" }}
               />
               <ReferenceLine
                 x={currentUnderlying}
                 stroke={"#60a5fa"}
                 strokeDasharray="6 4"
                 strokeWidth={2}
-                label={{ value: "Underlying", fill: textColor, position: "insideTopRight" }}
+                label={{ value: `Underlying $${currentUnderlying.toFixed(2)}`, fill: textColor, position: "insideTopRight" }}
               />
               <Bar dataKey="callNotionalM" name="Call Notional" fill={colors.bullish} />
               <Bar dataKey="putNotionalM" name="Put Notional" fill={colors.bearish} />
@@ -321,8 +321,10 @@ export default function MaxPainPage() {
               );
             })}
 
-            <text x={tsWidth - 170} y={24} fill={colors.primary} fontSize="11">■ Max Pain</text>
-            <text x={tsWidth - 170} y={40} fill={colors.bullish} fontSize="11">□/■ Underlying Candles</text>
+            <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
+            <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain Line</text>
+            <rect x={padLeft + 130} y={4} width="10" height="10" fill="transparent" stroke={colors.bullish} strokeWidth="1.5" />
+            <text x={padLeft + 146} y={12} fill={textColor} fontSize="11">Underlying Candles</text>
           </svg>
         )}
       </section>
