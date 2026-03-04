@@ -184,7 +184,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -263,15 +263,15 @@ export default function UnderlyingCandlesChart() {
               return (
                 <g
                   key={b.timestamp}
-                  onMouseEnter={() => setHoveredIdx(i)}
-                  onMouseLeave={() => setHoveredIdx(null)}
+
                 >
                   <rect
-                    x={x - Math.max(candleWidth, xStep * 0.9) / 2}
+                    x={x - Math.max(candleWidth, xStep * 1.4) / 2}
                     y={padTop}
-                    width={Math.max(candleWidth, xStep * 0.9)}
+                    width={Math.max(candleWidth, xStep * 1.4)}
                     height={volumeAreaBottom - padTop}
                     fill="transparent"
+                    onMouseMove={() => setHoveredIdx(i)}
                   />
                   <line
                     x1={x}

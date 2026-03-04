@@ -148,6 +148,14 @@ export default function MaxPainPage() {
     .filter((row) => row.strike > 0)
     .sort((a, b) => a.strike - b.strike);
 
+  const underlyingStrikeMarker = oiChart.length
+    ? oiChart.reduce((closest, row) =>
+        Math.abs(row.strike - currentUnderlying) < Math.abs(closest - currentUnderlying)
+          ? row.strike
+          : closest,
+      oiChart[0].strike)
+    : currentUnderlying;
+
   const seriesChart = (maxPainSeries || [])
     .map((row) => {
       const ts = row.timestamp || "";
@@ -259,7 +267,7 @@ export default function MaxPainPage() {
               />
               <ReferenceLine
                 ifOverflow="extendDomain"
-                x={currentUnderlying}
+                x={underlyingStrikeMarker}
                 stroke={"#60a5fa"}
                 strokeDasharray="6 4"
                 strokeWidth={2}
