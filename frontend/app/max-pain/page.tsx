@@ -1,6 +1,6 @@
 "use client";
 
-import { Info } from "lucide-react";
+import { Info, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import {
   Bar,
@@ -21,6 +21,7 @@ import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
+import { omitClosedMarketTimes } from "@/core/utils";
 
 interface MaxPainPoint {
   settlement_price: number;
@@ -156,10 +157,13 @@ export default function MaxPainPage() {
       oiChart[0].strike)
     : currentUnderlying;
 
-  const seriesChart = (maxPainSeries || [])
+  const filteredMaxPainRows = omitClosedMarketTimes(maxPainSeries || [], (row) => row.timestamp || "");
+  const filteredPriceRows = omitClosedMarketTimes(priceSeries || [], (row) => row.timestamp);
+
+  const seriesChart = filteredMaxPainRows
     .map((row) => {
       const ts = row.timestamp || "";
-      const candle = nearestCandle(ts, priceSeries || []);
+      const candle = nearestCandle(ts, filteredPriceRows);
       if (!candle) return null;
       return {
         timestamp: ts,
@@ -183,6 +187,8 @@ export default function MaxPainPage() {
   }>;
 
   const latest = seriesChart[seriesChart.length - 1];
+  const impliedMove = currentMaxPain - currentUnderlying;
+  const impliedMovePct = currentUnderlying > 0 ? (impliedMove / currentUnderlying) * 100 : 0;
 
   const textColor = theme === "dark" ? colors.light : colors.dark;
   const panelBg = theme === "dark" ? colors.cardDark : colors.cardLight;
@@ -216,7 +222,25 @@ export default function MaxPainPage() {
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard title="Current Max Pain" value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"} tooltip="Current max pain from /api/max-pain/current." theme={theme} />
+          <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: colors.muted }}>
+            <div className="text-xs mb-1" style={{ color: colors.muted }}>Current Max Pain</div>
+            <div className="text-2xl font-bold" style={{ color: textColor }}>{currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"}</div>
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit mt-2"
+              style={{
+                backgroundColor:
+                  theme === "dark"
+                    ? `${impliedMove >= 0 ? colors.bullish : colors.bearish}15`
+                    : `${impliedMove >= 0 ? colors.bullish : colors.bearish}10`,
+                color: impliedMove >= 0 ? colors.bullish : colors.bearish,
+              }}
+              title="Implied move = Max Pain - Current Underlying"
+            >
+              <span>Implied Move:</span>
+              {impliedMove >= 0 ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
+              {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
+            </div>
+          </div>
           <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Latest max pain point from /api/max-pain/timeseries." theme={theme} />
           <MetricCard
             title="Underlying Price"
@@ -332,9 +356,7 @@ export default function MaxPainPage() {
             })}
 
             <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
-            <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain Line</text>
-            <rect x={padLeft + 130} y={4} width="10" height="10" fill="transparent" stroke={colors.bullish} strokeWidth="1.5" />
-            <text x={padLeft + 146} y={12} fill={textColor} fontSize="11">Underlying Candles</text>
+            <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
         )}
       </section>

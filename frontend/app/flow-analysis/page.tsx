@@ -25,6 +25,7 @@ import MetricCard from "@/components/MetricCard";
 import OptionsFlowChart from "@/components/OptionsFlowChart";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { omitClosedMarketTimes } from "@/core/utils";
 
 interface FlowByStrikeRow {
   strike: number;
@@ -103,13 +104,14 @@ export default function FlowAnalysisPage() {
       grouped.set(key, current);
     });
 
-    return Array.from(grouped.entries())
+    const rows = Array.from(grouped.entries())
       .map(([timestamp, value]) => {
         const ratio = value.calls > 0 ? value.puts / value.calls : 0;
         return { timestamp, time: safeTimeLabel(timestamp), ratio };
       })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-maxPoints);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
   }, [flowData, maxPoints]);
 
   const byStrikeChart = useMemo(
@@ -188,6 +190,10 @@ export default function FlowAnalysisPage() {
         </div>
       </section>
 
+      <section className="mb-8">
+        <OptionsFlowChart />
+      </section>
+
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Put/Call Ratio Timeseries"
@@ -198,7 +204,9 @@ export default function FlowAnalysisPage() {
             No put/call ratio timeseries available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px]">
+              <ResponsiveContainer width="100%" height={300}>
             <LineChart data={putCallRatioSeries}>
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -218,11 +226,9 @@ export default function FlowAnalysisPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+            </div>
+          </div>
         )}
-      </section>
-
-      <section className="mb-8">
-        <OptionsFlowChart />
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
@@ -237,7 +243,9 @@ export default function FlowAnalysisPage() {
             No flow-by-strike data available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={340}>
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px]">
+              <ResponsiveContainer width="100%" height={340}>
             <BarChart
               data={byStrikeChart}
               margin={{ top: 5, right: 45, left: 25, bottom: 5 }}
@@ -285,6 +293,8 @@ export default function FlowAnalysisPage() {
               />
             </BarChart>
           </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </section>
 

@@ -47,15 +47,49 @@ interface VolumeSpikeRow {
 }
 
 interface DivergenceRow {
-  time_et: string;
-  divergence_signal: string;
-  price: number;
-  price_change_5min: number;
-  net_volume: number;
+  time_et?: string;
+  timestamp?: string;
+  time?: string;
+  time_window_end?: string;
+  divergence_signal?: string;
+  signal?: string;
+  divergence_type?: string;
+  price?: number;
+  price_change_5min?: number;
+  net_volume?: number;
+}
+
+function extractDivergenceRows(payload: unknown): DivergenceRow[] {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload as DivergenceRow[];
+  if (typeof payload !== 'object') return [];
+
+  const direct = payload as Record<string, unknown>;
+  const preferredKeys = ['data', 'results', 'signals', 'rows', 'items'];
+  for (const key of preferredKeys) {
+    const candidate = direct[key];
+    if (Array.isArray(candidate)) return candidate as DivergenceRow[];
+    if (candidate && typeof candidate === 'object') {
+      const nested = extractDivergenceRows(candidate);
+      if (nested.length > 0) return nested;
+    }
+  }
+
+  for (const value of Object.values(direct)) {
+    if (Array.isArray(value)) return value as DivergenceRow[];
+    if (value && typeof value === 'object') {
+      const nested = extractDivergenceRows(value);
+      if (nested.length > 0) return nested;
+    }
+  }
+
+  return [];
 }
 
 export default function IntradayToolsPage() {
-  const { symbol, timeframe } = useTimeframe();
+  const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
+  const maxPoints = getMaxDataPoints();
+  const divergenceWindowUnits = maxPoints;
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
     `/api/trading/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
@@ -76,19 +110,40 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
-  const { data: divergence } = useApiData<DivergenceRow[]>(
-    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+  const { data: divergenceResponse } = useApiData<unknown>(
+    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
   );
 
+  const { data: divergenceFallback } = useApiData<unknown>(
+    `/api/trading/momentum-divergence?symbol=${symbol}`,
+    { refreshInterval: 5000 }
+  );
+
+  const { data: divergenceDefault } = useApiData<unknown>(
+    `/api/trading/momentum-divergence`,
+    { refreshInterval: 5000 }
+  );
+
+  const primaryDivergence = extractDivergenceRows(divergenceResponse);
+  const fallbackDivergence = extractDivergenceRows(divergenceFallback);
+  const defaultDivergence = extractDivergenceRows(divergenceDefault);
+  const divergence = [primaryDivergence, fallbackDivergence, defaultDivergence].find((rows) => rows.length > 0) || [];
+
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];
-  const divergenceChart = omitClosedMarketTimes((divergence || []).slice().reverse().map((signal) => ({
-    time: new Date(signal.time_et).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-    priceChange: signal.price_change_5min,
-    netVolumeK: signal.net_volume / 1000,
-    timestamp: signal.time_et,
-  })), (row) => row.timestamp);
+  const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || "");
+  const divergenceChart = omitClosedMarketTimes((divergenceMarketRows || []).slice().reverse().map((signal) => {
+    const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
+    return {
+      time: timestamp
+        ? new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        : '--:--',
+      priceChange: Number(signal.price_change_5min || 0),
+      netVolumeK: Number(signal.net_volume || 0) / 1000,
+      timestamp,
+    };
+  }), (row) => row.timestamp);
 
 
   if ((vwapLoading || orbLoading) && !vwapData && !orbData) {
@@ -267,8 +322,10 @@ export default function IntradayToolsPage() {
         {divergenceChart.length > 0 && (
           <div className="bg-[#423d3f] rounded-lg p-6 mb-4">
             <div className="flex items-center gap-2 mb-3"><h3 className="text-lg font-semibold">Momentum Divergence Trend</h3><TooltipWrapper text="This chart plots short-horizon price change vs net directional volume from /api/trading/momentum-divergence. Price change is computed over 5 minutes; net volume is buy-minus-sell style flow. Persistent divergence between the two can signal weakening momentum or reversal risk."><Info size={14} /></TooltipWrapper></div>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={divergenceChart}>
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={divergenceChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
                 <XAxis dataKey="time" stroke="#f2f2f2" />
                 <YAxis yAxisId="left" stroke="#f2f2f2" />
@@ -277,37 +334,46 @@ export default function IntradayToolsPage() {
                 <Legend />
                 <Line yAxisId="left" dataKey="priceChange" name="5m Price Change ($)" stroke="#f59e0b" strokeWidth={2} dot={false} />
                 <Line yAxisId="right" dataKey="netVolumeK" name="Net Volume (K)" stroke="#60a5fa" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
-        {!divergence || divergence.length === 0 ? (
+        {!divergenceMarketRows || divergenceMarketRows.length === 0 ? (
           <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
             No divergence signals
           </div>
         ) : (
           <div className="bg-[#423d3f] rounded-lg p-6">
             <div className="space-y-3">
-              {divergence.map((signal, idx) => (
-                <div key={idx} className="border-b border-gray-800 pb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold">{new Date(signal.time_et).toLocaleTimeString()}</div>
-                    <div className={`px-3 py-1 rounded text-sm font-semibold ${
-                      signal.divergence_signal.includes('🚨') ? 'bg-yellow-900 text-yellow-300' :
-                      signal.divergence_signal.includes('🟢') ? 'bg-green-900 text-green-300' :
-                      signal.divergence_signal.includes('🔴') ? 'bg-red-900 text-red-300' :
-                      'bg-gray-800 text-gray-300'
-                    }`}>
-                      {signal.divergence_signal}
+              {divergenceMarketRows.map((signal, idx) => {
+                const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
+                const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
+                const price = Number(signal.price || 0);
+                const priceChange = Number(signal.price_change_5min || 0);
+                const netVolume = Number(signal.net_volume || 0);
+                return (
+                  <div key={idx} className="border-b border-gray-800 pb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold">{timestamp ? new Date(timestamp).toLocaleTimeString() : '--:--'}</div>
+                      <div className={`px-3 py-1 rounded text-sm font-semibold ${
+                        divergenceSignal.includes('🚨') ? 'bg-yellow-900 text-yellow-300' :
+                        divergenceSignal.includes('🟢') ? 'bg-green-900 text-green-300' :
+                        divergenceSignal.includes('🔴') ? 'bg-red-900 text-red-300' :
+                        'bg-gray-800 text-gray-300'
+                      }`}>
+                        {divergenceSignal}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      Price: ${price.toFixed(2)} | 
+                      5min Change: ${priceChange.toFixed(2)} |
+                      Net Volume: {netVolume.toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-400">
-                    Price: ${signal.price.toFixed(2)} | 
-                    5min Change: ${signal.price_change_5min.toFixed(2)} |
-                    Net Volume: {signal.net_volume.toLocaleString()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

@@ -11,6 +11,7 @@ import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { useMemo } from 'react';
+import { omitClosedMarketTimes } from '@/core/utils';
 
 function toTime(ts: string) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -37,10 +38,11 @@ export default function OptionsFlowChart() {
       grouped.set(key, current);
     });
 
-    return Array.from(grouped.entries())
+    const rows = Array.from(grouped.entries())
       .map(([timestamp, v]) => ({ timestamp, time: toTime(timestamp), calls: v.calls, puts: v.puts }))
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-maxPoints);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
   }, [flowData, maxPoints]);
 
   const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
@@ -60,7 +62,9 @@ export default function OptionsFlowChart() {
           <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
         </div>
 
-        <ResponsiveContainer width="100%" height={400}>
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px]">
+            <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
             <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} minTickGap={20} />
@@ -71,6 +75,8 @@ export default function OptionsFlowChart() {
             <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} />
           </LineChart>
         </ResponsiveContainer>
+          </div>
+        </div>
 
         <div className="grid grid-cols-3 gap-4 mt-6">
           <div className="text-center"><div style={{ color: colors.muted, fontSize: '12px' }}>Total Call Premium</div><div style={{ color: colors.bullish, fontSize: '20px', fontWeight: 'bold' }}>${totals.calls.toFixed(2)}M</div></div>

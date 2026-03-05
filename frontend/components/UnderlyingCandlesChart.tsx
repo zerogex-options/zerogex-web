@@ -82,9 +82,10 @@ export default function UnderlyingCandlesChart() {
 
   const intervalMinutes = getIntervalMinutes();
   const maxPoints = getMaxDataPoints();
+  const fetchWindowUnits = maxPoints;
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 },
   );
 
@@ -156,7 +157,9 @@ export default function UnderlyingCandlesChart() {
     volumeAreaBottom -
     (v / Math.max(1, maxVol)) * (volumeAreaBottom - volumeAreaTop);
 
-  const hovered = hoveredIdx !== null ? bars[hoveredIdx] : null;
+  const fallbackIdx = Math.max(0, bars.length - 1);
+  const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
+  const hovered = bars[resolvedIdx] ?? null;
 
   const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     if (bars.length === 0) return;
@@ -181,7 +184,7 @@ export default function UnderlyingCandlesChart() {
         </div>
         <div className="relative">
           {hovered && (
-            <div className="absolute right-3 top-2 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono">
+            <div className="absolute right-0 top-0 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono pointer-events-none">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}
@@ -194,7 +197,7 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}

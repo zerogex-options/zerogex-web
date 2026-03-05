@@ -82,8 +82,20 @@ export default function Header({ theme }: HeaderProps) {
     };
 
     setHeaderHeight();
+
+    const observer = new ResizeObserver(() => {
+      setHeaderHeight();
+    });
+
+    if (headerRef.current) {
+      observer.observe(headerRef.current);
+    }
+
     window.addEventListener("resize", setHeaderHeight);
-    return () => window.removeEventListener("resize", setHeaderHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", setHeaderHeight);
+    };
   }, [isCollapsed, mobileMenuOpen]);
 
   useEffect(() => {
