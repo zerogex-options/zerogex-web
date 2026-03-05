@@ -82,7 +82,7 @@ export default function GammaHeatmap() {
   const plotLeft = 64;
   const plotTop = 30;
   const plotWidth = chartWidth - yAxisWidth - 12;
-  const plotHeight = chartHeight - 56;
+  const plotHeight = chartHeight - 82;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
   const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
@@ -116,9 +116,9 @@ export default function GammaHeatmap() {
           </defs>
 
           <rect x={plotLeft} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
-          <text x={plotLeft} y={26} fontSize="10" fill={theme === 'dark' ? colors.light : colors.dark}>{(minValue / 1_000_000).toFixed(1)}M</text>
-          <text x={plotLeft + 110} y={26} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
-          <text x={plotLeft + 220} y={26} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft} y={32} fontSize="10" fill={theme === 'dark' ? colors.light : colors.dark}>{(minValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
+          <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
           {derived.strikes.map((strike, idx) => (
             <text key={`y-${strike}`} x={plotLeft - 6} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
