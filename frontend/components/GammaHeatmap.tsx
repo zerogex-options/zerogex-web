@@ -67,11 +67,12 @@ export default function GammaHeatmap() {
     const magnitude = Math.abs(clamped);
     const logNorm = Math.log2(1 + magnitude) / Math.log2(1 + GEX_COLOR_CAP);
     const normalizedRaw = (sign * logNorm + 1) / 2;
-    const normalized = 0.5 + (normalizedRaw - 0.5) * 0.55;
+    const smooth = 0.5 + Math.tanh((normalizedRaw - 0.5) * 1.35) / 2;
+    const normalized = 0.5 + (smooth - 0.5) * 0.6;
 
-    const hue = 270 - normalized * 120; // softer purple -> teal -> green
-    const saturation = 68 + normalized * 10;
-    const lightness = 40 + normalized * 16;
+    const hue = 280 - normalized * 240; // purple -> cyan -> green
+    const saturation = 76 + normalized * 12;
+    const lightness = 34 + normalized * 24;
     return `hsl(${hue.toFixed(2)} ${saturation.toFixed(2)}% ${lightness.toFixed(2)}%)`;
   };
 
@@ -116,7 +117,7 @@ export default function GammaHeatmap() {
           {derived.cells.map((cell, idx) => {
             const xPos = cell.x * cellWidth + 80;
             const yPos = derived.strikes.indexOf(cell.y) * cellHeight + 40;
-            return <rect key={idx} x={xPos} y={yPos} width={cellWidth} height={cellHeight} fill={getColor(cell.value)} />;
+            return <rect key={idx} x={xPos} y={yPos} width={cellWidth} height={cellHeight} fill={getColor(cell.value)} shapeRendering="geometricPrecision" opacity={0.95} />;
           })}
 
           {derived.timestamps.map((ts, idx) => {
