@@ -87,13 +87,9 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
 }
 
 export default function IntradayToolsPage() {
-  const { symbol, timeframe, getMaxDataPoints, getIntervalMinutes } = useTimeframe();
+  const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const intervalMinutes = getIntervalMinutes();
-  const divergenceWindowUnits = Math.max(
-    maxPoints * 4,
-    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
-  );
+  const divergenceWindowUnits = maxPoints;
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
     `/api/trading/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }

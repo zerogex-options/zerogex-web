@@ -17,13 +17,9 @@ interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
 
 export default function GammaHeatmap() {
   const { theme } = useTheme();
-  const { getMaxDataPoints, getIntervalMinutes, timeframe, symbol } = useTimeframe();
+  const { getMaxDataPoints, timeframe, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const intervalMinutes = getIntervalMinutes();
-  const fetchWindowUnits = Math.max(
-    maxPoints * 4,
-    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
-  );
+  const fetchWindowUnits = maxPoints;
 
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
     `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
@@ -77,25 +73,25 @@ export default function GammaHeatmap() {
   };
 
   const chartWidth = 1200;
-  const chartHeight = 520;
-  const yAxisWidth = 80;
-  const plotLeft = 80;
-  const plotTop = 40;
-  const plotWidth = chartWidth - yAxisWidth - 40;
-  const plotHeight = chartHeight - 80;
+  const chartHeight = 620;
+  const yAxisWidth = 64;
+  const plotLeft = 64;
+  const plotTop = 30;
+  const plotWidth = chartWidth - yAxisWidth - 12;
+  const plotHeight = chartHeight - 56;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
   const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
 
   return (
     <ExpandableCard>
-      <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
-        <div className="flex items-center gap-2 mb-4">
+      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
           <TooltipWrapper text="Relative heatmap scale for net GEX in the currently visible window."><Info size={14} /></TooltipWrapper>
         </div>
 
-        <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
+        <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="block">
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={getColor(minValue)} />
@@ -107,10 +103,10 @@ export default function GammaHeatmap() {
             </filter>
           </defs>
 
-          <rect x={84} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
-          <text x={84} y={32} fontSize="11" fill={theme === 'dark' ? colors.light : colors.dark}>{(minValue / 1_000_000).toFixed(1)}M</text>
-          <text x={186} y={32} fontSize="11" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
-          <text x={304} y={32} fontSize="11" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
+          <rect x={plotLeft} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
+          <text x={plotLeft} y={26} fontSize="10" fill={theme === 'dark' ? colors.light : colors.dark}>{(minValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft + 110} y={26} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
+          <text x={plotLeft + 220} y={26} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
           {derived.strikes.map((strike, idx) => (
             <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
@@ -123,14 +119,12 @@ export default function GammaHeatmap() {
               return (
                 <rect
                   key={idx}
-                  x={xPos - 0.4}
-                  y={yPos - 0.4}
-                  width={cellWidth + 0.8}
-                  height={cellHeight + 0.8}
-                  rx={Math.min(4, cellWidth * 0.22)}
-                  ry={Math.min(4, cellHeight * 0.22)}
+                  x={xPos}
+                  y={yPos}
+                  width={cellWidth}
+                  height={cellHeight}
                   fill={getColor(cell.value)}
-                  opacity={0.96}
+                  opacity={0.98}
                 />
               );
             })}

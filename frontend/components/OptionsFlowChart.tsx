@@ -19,15 +19,10 @@ function toTime(ts: string) {
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { timeframe, getMaxDataPoints, getIntervalMinutes, symbol } = useTimeframe();
+  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const intervalMinutes = getIntervalMinutes();
-  const fetchWindowUnits = Math.max(
-    maxPoints * 4,
-    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
-  );
 
-  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, fetchWindowUnits, 5000);
+  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, maxPoints, 5000);
 
   const chartData = useMemo(() => {
     const grouped = new Map<string, { calls: number; puts: number }>();

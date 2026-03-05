@@ -57,13 +57,9 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { timeframe, getMaxDataPoints, getIntervalMinutes, symbol } = useTimeframe();
+  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const intervalMinutes = getIntervalMinutes();
-  const windowUnits = Math.max(
-    maxPoints * 4,
-    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
-  );
+  const windowUnits = maxPoints;
 
   const {
     data: flowData,
