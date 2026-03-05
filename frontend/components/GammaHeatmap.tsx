@@ -13,6 +13,7 @@ import ExpandableCard from './ExpandableCard';
 import { omitClosedMarketTimes } from '@/core/utils';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
+interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 
 
 export default function GammaHeatmap() {
@@ -26,7 +27,10 @@ export default function GammaHeatmap() {
     { refreshInterval: 5000 }
   );
 
-
+  const { data: priceData } = useApiData<PriceDataPoint[]>(
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    { refreshInterval: 5000 }
+  );
 
   const derived = useMemo(() => {
     const rows = (gexData || []).slice(-5000);
@@ -82,6 +86,11 @@ export default function GammaHeatmap() {
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
   const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
+  const priceRows = omitClosedMarketTimes(priceData || [], (p) => p.timestamp);
+  const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
+  const minStrike = Math.min(...derived.strikes);
+  const maxStrike = Math.max(...derived.strikes);
+  const yForPrice = (p: number) => plotTop + plotHeight * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
 
   return (
     <ExpandableCard>
@@ -129,6 +138,42 @@ export default function GammaHeatmap() {
               );
             })}
           </g>
+
+          {derived.timestamps.map((ts, idx) => {
+            const row = priceByTs.get(ts);
+            if (!row) return null;
+            const open = Number(row.open ?? row.close ?? 0);
+            const high = Number(row.high ?? row.close ?? open);
+            const low = Number(row.low ?? row.close ?? open);
+            const close = Number(row.close ?? open);
+            const x = idx * cellWidth + plotLeft + cellWidth / 2;
+            const up = close >= open;
+            const c = up ? colors.bullish : colors.bearish;
+            const openY = yForPrice(open);
+            const closeY = yForPrice(close);
+            const highY = yForPrice(high);
+            const lowY = yForPrice(low);
+            const bodyY = Math.min(openY, closeY);
+            const bodyBottom = Math.max(openY, closeY);
+            const bodyHeight = Math.max(1, bodyBottom - bodyY);
+            const candleWidth = Math.max(2, Math.min(8, cellWidth * 0.42));
+
+            return (
+              <g key={`candle-${ts}`}>
+                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                <rect
+                  x={x - candleWidth / 2}
+                  y={bodyY}
+                  width={candleWidth}
+                  height={bodyHeight}
+                  fill={up ? 'transparent' : c}
+                  stroke={c}
+                  strokeWidth={1.4}
+                />
+              </g>
+            );
+          })}
 
           {derived.timestamps.map((timestamp, idx) => {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
