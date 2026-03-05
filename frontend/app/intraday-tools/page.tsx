@@ -87,7 +87,13 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
 }
 
 export default function IntradayToolsPage() {
-  const { symbol, timeframe } = useTimeframe();
+  const { symbol, timeframe, getMaxDataPoints, getIntervalMinutes } = useTimeframe();
+  const maxPoints = getMaxDataPoints();
+  const intervalMinutes = getIntervalMinutes();
+  const divergenceWindowUnits = Math.max(
+    maxPoints * 4,
+    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
+  );
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
     `/api/trading/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
@@ -109,7 +115,7 @@ export default function IntradayToolsPage() {
   );
 
   const { data: divergenceResponse } = useApiData<unknown>(
-    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
   );
 
@@ -130,7 +136,8 @@ export default function IntradayToolsPage() {
 
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];
-  const divergenceChart = omitClosedMarketTimes((divergence || []).slice().reverse().map((signal) => {
+  const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || "");
+  const divergenceChart = omitClosedMarketTimes((divergenceMarketRows || []).slice().reverse().map((signal) => {
     const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
     return {
       time: timestamp
@@ -337,14 +344,14 @@ export default function IntradayToolsPage() {
             </div>
           </div>
         )}
-        {!divergence || divergence.length === 0 ? (
+        {!divergenceMarketRows || divergenceMarketRows.length === 0 ? (
           <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
             No divergence signals
           </div>
         ) : (
           <div className="bg-[#423d3f] rounded-lg p-6">
             <div className="space-y-3">
-              {divergence.map((signal, idx) => {
+              {divergenceMarketRows.map((signal, idx) => {
                 const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
                 const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
                 const price = Number(signal.price || 0);

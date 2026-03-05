@@ -11,6 +11,7 @@ import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { useMemo } from 'react';
+import { omitClosedMarketTimes } from '@/core/utils';
 
 function toTime(ts: string) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -18,10 +19,15 @@ function toTime(ts: string) {
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
+  const { timeframe, getMaxDataPoints, getIntervalMinutes, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
+  const intervalMinutes = getIntervalMinutes();
+  const fetchWindowUnits = Math.max(
+    maxPoints * 4,
+    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
+  );
 
-  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, maxPoints, 5000);
+  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, fetchWindowUnits, 5000);
 
   const chartData = useMemo(() => {
     const grouped = new Map<string, { calls: number; puts: number }>();
@@ -37,10 +43,11 @@ export default function OptionsFlowChart() {
       grouped.set(key, current);
     });
 
-    return Array.from(grouped.entries())
+    const rows = Array.from(grouped.entries())
       .map(([timestamp, v]) => ({ timestamp, time: toTime(timestamp), calls: v.calls, puts: v.puts }))
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-maxPoints);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
   }, [flowData, maxPoints]);
 
   const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);

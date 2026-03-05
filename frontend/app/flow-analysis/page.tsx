@@ -25,6 +25,7 @@ import MetricCard from "@/components/MetricCard";
 import OptionsFlowChart from "@/components/OptionsFlowChart";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { omitClosedMarketTimes } from "@/core/utils";
 
 interface FlowByStrikeRow {
   strike: number;
@@ -56,9 +57,13 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
+  const { timeframe, getMaxDataPoints, getIntervalMinutes, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const windowUnits = maxPoints;
+  const intervalMinutes = getIntervalMinutes();
+  const windowUnits = Math.max(
+    maxPoints * 4,
+    maxPoints + Math.ceil((3 * 24 * 60) / Math.max(1, intervalMinutes)),
+  );
 
   const {
     data: flowData,
@@ -103,13 +108,14 @@ export default function FlowAnalysisPage() {
       grouped.set(key, current);
     });
 
-    return Array.from(grouped.entries())
+    const rows = Array.from(grouped.entries())
       .map(([timestamp, value]) => {
         const ratio = value.calls > 0 ? value.puts / value.calls : 0;
         return { timestamp, time: safeTimeLabel(timestamp), ratio };
       })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-maxPoints);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
   }, [flowData, maxPoints]);
 
   const byStrikeChart = useMemo(
