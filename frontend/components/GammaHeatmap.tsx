@@ -1,7 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { useApiData } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -19,8 +19,6 @@ interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?
 export default function GammaHeatmap() {
   const { theme } = useTheme();
   const { getMaxDataPoints, timeframe, symbol } = useTimeframe();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(1200);
   const maxPoints = getMaxDataPoints();
 
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
@@ -33,14 +31,6 @@ export default function GammaHeatmap() {
     { refreshInterval: 5000 }
   );
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) setContainerWidth(entry.contentRect.width);
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   const derived = useMemo(() => {
     const rows = (gexData || []).slice(-5000);
@@ -67,30 +57,43 @@ export default function GammaHeatmap() {
     const magnitude = Math.abs(clamped);
     const logNorm = Math.log2(1 + magnitude) / Math.log2(1 + GEX_COLOR_CAP);
     const normalizedRaw = (sign * logNorm + 1) / 2;
-    const smooth = 0.5 + Math.tanh((normalizedRaw - 0.5) * 1.35) / 2;
-    const normalized = 0.5 + (smooth - 0.5) * 0.6;
+    const normalized = 0.5 + (normalizedRaw - 0.5) * 0.72;
 
-    const hue = 280 - normalized * 240; // purple -> cyan -> green
-    const saturation = 76 + normalized * 12;
-    const lightness = 34 + normalized * 24;
-    return `hsl(${hue.toFixed(2)} ${saturation.toFixed(2)}% ${lightness.toFixed(2)}%)`;
+    const deepBlue = { r: 29, g: 78, b: 216 };
+    const white = { r: 245, g: 247, b: 255 };
+    const lavender = { r: 196, g: 181, b: 253 };
+
+    const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
+      r: Math.round(a.r + (b.r - a.r) * t),
+      g: Math.round(a.g + (b.g - a.g) * t),
+      b: Math.round(a.b + (b.b - a.b) * t),
+    });
+
+    const rgb = normalized <= 0.5
+      ? blend(deepBlue, white, normalized / 0.5)
+      : blend(white, lavender, (normalized - 0.5) / 0.5);
+
+    return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   };
 
+  const chartWidth = 1200;
+  const chartHeight = 520;
   const yAxisWidth = 80;
-  const availableWidth = containerWidth - yAxisWidth - 40;
-  const cellWidth = Math.max(18, Math.floor(availableWidth / Math.max(1, derived.timestamps.length)));
-  const cellHeight = 22;
-  const chartWidth = Math.max(600, derived.timestamps.length * cellWidth + yAxisWidth + 40);
-  const chartHeight = Math.max(240, derived.strikes.length * cellHeight + 80);
+  const plotLeft = 80;
+  const plotTop = 40;
+  const plotWidth = chartWidth - yAxisWidth - 40;
+  const plotHeight = chartHeight - 80;
+  const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
+  const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
   const priceByTs = new Map((priceData || []).map((p) => [p.timestamp, p]));
   const minStrike = Math.min(...derived.strikes);
   const maxStrike = Math.max(...derived.strikes);
-  const yForPrice = (p: number) => 40 + (derived.strikes.length * cellHeight) * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
+  const yForPrice = (p: number) => plotTop + plotHeight * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
 
   return (
     <ExpandableCard>
-      <div ref={containerRef} className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+      <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
           <TooltipWrapper text="Heatmap from /api/gex/heatmap. Price overlay is OHLC candlesticks from /api/market/historical aligned to the same timeframe."><Info size={14} /></TooltipWrapper>
@@ -103,6 +106,9 @@ export default function GammaHeatmap() {
               <stop offset="50%" stopColor={getColor(0)} />
               <stop offset="100%" stopColor={getColor(GEX_COLOR_CAP)} />
             </linearGradient>
+            <filter id="heatmapSmooth" x="-8%" y="-8%" width="116%" height="116%">
+              <feGaussianBlur stdDeviation="1.2" />
+            </filter>
           </defs>
 
           <rect x={84} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
@@ -111,14 +117,28 @@ export default function GammaHeatmap() {
           <text x={304} y={32} fontSize="11" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>+{(GEX_COLOR_CAP / 1_000_000).toFixed(0)}M</text>
 
           {derived.strikes.map((strike, idx) => (
-            <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + 40} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
+            <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
           ))}
 
-          {derived.cells.map((cell, idx) => {
-            const xPos = cell.x * cellWidth + 80;
-            const yPos = derived.strikes.indexOf(cell.y) * cellHeight + 40;
-            return <rect key={idx} x={xPos} y={yPos} width={cellWidth} height={cellHeight} fill={getColor(cell.value)} shapeRendering="geometricPrecision" opacity={0.95} />;
-          })}
+          <g filter="url(#heatmapSmooth)">
+            {derived.cells.map((cell, idx) => {
+              const xPos = cell.x * cellWidth + plotLeft;
+              const yPos = derived.strikes.indexOf(cell.y) * cellHeight + plotTop;
+              return (
+                <rect
+                  key={idx}
+                  x={xPos - 0.4}
+                  y={yPos - 0.4}
+                  width={cellWidth + 0.8}
+                  height={cellHeight + 0.8}
+                  rx={Math.min(4, cellWidth * 0.22)}
+                  ry={Math.min(4, cellHeight * 0.22)}
+                  fill={getColor(cell.value)}
+                  opacity={0.96}
+                />
+              );
+            })}
+          </g>
 
           {derived.timestamps.map((ts, idx) => {
             const row = priceByTs.get(ts);
@@ -127,7 +147,7 @@ export default function GammaHeatmap() {
             const high = Number(row.high ?? row.close ?? open);
             const low = Number(row.low ?? row.close ?? open);
             const close = Number(row.close ?? open);
-            const x = idx * cellWidth + 80 + cellWidth / 2;
+            const x = idx * cellWidth + plotLeft + cellWidth / 2;
             const up = close >= open;
             const c = up ? colors.bullish : colors.bearish;
             const openY = yForPrice(open);
@@ -160,7 +180,7 @@ export default function GammaHeatmap() {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
             if (idx % spacing !== 0) return null;
             const time = new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return <text key={`x-${timestamp}`} x={idx * cellWidth + 80 + cellWidth / 2} y={chartHeight - 20} textAnchor="middle" style={{ fontSize: '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
+            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 20} textAnchor="middle" style={{ fontSize: '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
           })}
         </svg>
       </div>
