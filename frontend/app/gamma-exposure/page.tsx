@@ -49,7 +49,6 @@ export default function GammaExposurePage() {
       </section>
 
       <section className="mb-8">
-        <SectionTitle title="Gamma Exposure Heatmap" tooltip="Time/strike matrix of net gamma from /api/gex/heatmap, overlaid with underlying price path. Color intensity reflects magnitude; sign indicates positive vs negative gamma pockets that can act as support/resistance zones." />
         <GammaHeatmap />
       </section>
 

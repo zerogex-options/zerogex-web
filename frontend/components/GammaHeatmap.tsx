@@ -80,9 +80,9 @@ export default function GammaHeatmap() {
   const chartHeight = 620;
   const yAxisWidth = 64;
   const plotLeft = 64;
-  const plotTop = 30;
+  const plotTop = 42;
   const plotWidth = chartWidth - yAxisWidth - 12;
-  const plotHeight = chartHeight - 82;
+  const plotHeight = chartHeight - 76;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
   const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
@@ -182,7 +182,7 @@ export default function GammaHeatmap() {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
             if (idx % spacing !== 0) return null;
             const time = new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 20} textAnchor="middle" style={{ fontSize: '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
+            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
           })}
         </svg>
       </div>
