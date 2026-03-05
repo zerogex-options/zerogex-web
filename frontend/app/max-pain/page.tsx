@@ -221,19 +221,10 @@ export default function MaxPainPage() {
 
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MetricCard title="Current Max Pain" value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"} tooltip="Current max pain from /api/max-pain/current." theme={theme} />
-          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Latest max pain point from /api/max-pain/timeseries." theme={theme} />
-          <MetricCard
-            title="Underlying Price"
-            value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
-            trend={latest?.close && currentMaxPain ? (latest.close > currentMaxPain ? "bullish" : "bearish") : "neutral"}
-            tooltip="Latest underlying close mapped from /api/market/historical."
-            theme={theme}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: colors.muted }}>
-            <div className="text-xs mb-1" style={{ color: colors.muted }}>Implied Move</div>
-            <div className="text-2xl font-bold" style={{ color: textColor }}>${impliedMove.toFixed(2)}</div>
+            <div className="text-xs mb-1" style={{ color: colors.muted }}>Current Max Pain</div>
+            <div className="text-2xl font-bold" style={{ color: textColor }}>{currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"}</div>
             <div
               className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit mt-2"
               style={{
@@ -243,11 +234,21 @@ export default function MaxPainPage() {
                     : `${impliedMove >= 0 ? colors.bullish : colors.bearish}10`,
                 color: impliedMove >= 0 ? colors.bullish : colors.bearish,
               }}
+              title="Implied move = Max Pain - Current Underlying"
             >
+              <span>Implied Move:</span>
               {impliedMove >= 0 ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
               {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
             </div>
           </div>
+          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Latest max pain point from /api/max-pain/timeseries." theme={theme} />
+          <MetricCard
+            title="Underlying Price"
+            value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
+            trend={latest?.close && currentMaxPain ? (latest.close > currentMaxPain ? "bullish" : "bearish") : "neutral"}
+            tooltip="Latest underlying close mapped from /api/market/historical."
+            theme={theme}
+          />
         </div>
       </section>
 

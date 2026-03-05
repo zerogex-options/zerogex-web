@@ -110,6 +110,9 @@ export default function GammaHeatmap() {
             <filter id="heatmapSmooth" x="-8%" y="-8%" width="116%" height="116%">
               <feGaussianBlur stdDeviation="1.2" />
             </filter>
+            <clipPath id="heatmapClip">
+              <rect x={plotLeft + 2} y={plotTop + 2} width={Math.max(0, plotWidth - 4)} height={Math.max(0, plotHeight - 4)} />
+            </clipPath>
           </defs>
 
           <rect x={plotLeft} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
@@ -118,10 +121,10 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 220} y={26} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
           {derived.strikes.map((strike, idx) => (
-            <text key={`y-${strike}`} x={70} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
+            <text key={`y-${strike}`} x={plotLeft - 6} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
           ))}
 
-          <g filter="url(#heatmapSmooth)">
+          <g filter="url(#heatmapSmooth)" clipPath="url(#heatmapClip)">
             {derived.cells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
               const yPos = derived.strikes.indexOf(cell.y) * cellHeight + plotTop;
@@ -167,7 +170,7 @@ export default function GammaHeatmap() {
                   y={bodyY}
                   width={candleWidth}
                   height={bodyHeight}
-                  fill={up ? 'transparent' : c}
+                  fill={c}
                   stroke={c}
                   strokeWidth={1.4}
                 />
