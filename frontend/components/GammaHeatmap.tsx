@@ -51,13 +51,14 @@ export default function GammaHeatmap() {
   if (error) return <ErrorMessage message={error} />;
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
-  const values = derived.cells.map((d) => d.value);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
+  const values = derived.cells.map((d) => Number(d.value || 0));
+  const maxAbsValue = Math.max(1, ...values.map((v) => Math.abs(v)));
+  const minValue = -maxAbsValue;
+  const maxValue = maxAbsValue;
 
   const getColor = (value: number) => {
-    if (maxValue - minValue < 1e-9) return 'rgb(245, 247, 255)';
-    const normalized = (value - minValue) / (maxValue - minValue);
+    if (maxAbsValue < 1e-9) return 'rgb(245, 247, 255)';
+    const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
     const deepBlue = { r: 29, g: 78, b: 216 };
     const white = { r: 245, g: 247, b: 255 };
@@ -90,7 +91,16 @@ export default function GammaHeatmap() {
   const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
   const minStrike = Math.min(...derived.strikes);
   const maxStrike = Math.max(...derived.strikes);
-  const yForPrice = (p: number) => plotTop + plotHeight * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
+  const priceLow = Math.min(...priceRows.map((p) => Number(p.low ?? p.close ?? p.open ?? Infinity)));
+  const priceHigh = Math.max(...priceRows.map((p) => Number(p.high ?? p.close ?? p.open ?? -Infinity)));
+  const hasPriceRange = Number.isFinite(priceLow) && Number.isFinite(priceHigh);
+  const combinedMinRaw = Math.min(minStrike, hasPriceRange ? priceLow : minStrike);
+  const combinedMaxRaw = Math.max(maxStrike, hasPriceRange ? priceHigh : maxStrike);
+  const combinedSpan = Math.max(1e-9, combinedMaxRaw - combinedMinRaw);
+  const combinedPadding = combinedSpan * 0.03;
+  const combinedMin = combinedMinRaw - combinedPadding;
+  const combinedMax = combinedMaxRaw + combinedPadding;
+  const yForValue = (v: number) => plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
 
   return (
     <ExpandableCard>
@@ -120,14 +130,14 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
-          {derived.strikes.map((strike, idx) => (
-            <text key={`y-${strike}`} x={plotLeft - 6} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
+          {derived.strikes.map((strike) => (
+            <text key={`y-${strike}`} x={plotLeft - 6} y={yForValue(strike)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
           ))}
 
           <g filter="url(#heatmapSmooth)" clipPath="url(#heatmapClip)">
             {derived.cells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
-              const yPos = derived.strikes.indexOf(cell.y) * cellHeight + plotTop;
+              const yPos = yForValue(cell.y) - cellHeight / 2;
               return (
                 <rect
                   key={idx}
@@ -152,10 +162,10 @@ export default function GammaHeatmap() {
             const x = idx * cellWidth + plotLeft + cellWidth / 2;
             const up = close >= open;
             const c = up ? colors.bullish : colors.bearish;
-            const openY = yForPrice(open);
-            const closeY = yForPrice(close);
-            const highY = yForPrice(high);
-            const lowY = yForPrice(low);
+            const openY = yForValue(open);
+            const closeY = yForValue(close);
+            const highY = yForValue(high);
+            const lowY = yForValue(low);
             const bodyY = Math.min(openY, closeY);
             const bodyBottom = Math.max(openY, closeY);
             const bodyHeight = Math.max(1, bodyBottom - bodyY);

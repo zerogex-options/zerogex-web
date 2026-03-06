@@ -270,6 +270,21 @@ function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: Underlying
   });
 }
 
+function getUnderlyingDomain(rows: TimeseriesRow[]) {
+  const prices = rows
+    .map((r) => Number(r.underlyingPrice))
+    .filter((v) => Number.isFinite(v));
+
+  if (prices.length === 0) return ['auto', 'auto'] as const;
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const span = Math.max(0.01, maxPrice - minPrice);
+  const padding = span * 0.03;
+
+  return [minPrice - padding, maxPrice + padding] as const;
+}
+
 function getZeroOffset(minValue: number, maxValue: number) {
   if (maxValue <= 0) return 0;
   if (minValue >= 0) return 1;
@@ -285,6 +300,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const minVolume = Math.min(0, ...rows.map((r) => r.netVolume));
   const maxVolume = Math.max(0, ...rows.map((r) => r.netVolume));
   const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
+  const underlyingDomain = getUnderlyingDomain(rows);
 
   return (
     <div className="h-[540px]">
@@ -292,7 +308,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
         <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
           <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
