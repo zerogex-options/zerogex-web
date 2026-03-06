@@ -270,11 +270,6 @@ function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: Underlying
   });
 }
 
-function getSymmetricDomain(values: number[]) {
-  const maxAbs = Math.max(1, ...values.map((v) => Math.abs(Number(v) || 0)));
-  return [-maxAbs, maxAbs] as [number, number];
-}
-
 function getZeroOffset(minValue: number, maxValue: number) {
   if (maxValue <= 0) return 0;
   if (minValue >= 0) return 1;
@@ -286,10 +281,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
-  const premiumDomain = getSymmetricDomain([
-    ...rows.map((r) => r.callPremium),
-    ...rows.map((r) => r.putPremium),
-  ]);
+  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium), ...rows.map((r) => r.putPremium));
   const minVolume = Math.min(0, ...rows.map((r) => r.netVolume));
   const maxVolume = Math.max(0, ...rows.map((r) => r.netVolume));
   const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
@@ -305,7 +297,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             yAxisId="premium"
             stroke="#f2f2f2"
             orientation="right"
-            domain={premiumDomain}
+            domain={[0, Math.max(1, maxPremium)]}
             tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
           />
           <Tooltip
