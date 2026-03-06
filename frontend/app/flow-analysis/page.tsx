@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useApiData, useOptionFlow } from "@/hooks/useApiData";
+import { useApiData } from "@/hooks/useApiData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
@@ -22,17 +22,32 @@ import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
 
-interface FlowRow {
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  option_type?: string | null;
-  strike?: number | string | null;
-  expiration?: string | null;
-  expiration_date?: string | null;
-  expiry?: string | null;
-  total_volume?: number;
-  total_premium?: number;
+interface FlowByTypePoint {
+  timestamp: string;
+  call_volume: number;
+  call_premium: number;
+  put_volume: number;
+  put_premium: number;
+  net_volume: number;
+  net_premium: number;
+}
+
+interface FlowByExpirationPoint {
+  timestamp: string;
+  expiration: string;
+  volume: number;
+  premium: number;
+  net_volume: number;
+  net_premium: number;
+}
+
+interface FlowByStrikePoint {
+  timestamp: string;
+  strike: number | string;
+  volume: number;
+  premium: number;
+  net_volume: number;
+  net_premium: number;
 }
 
 interface TimeseriesRow {
@@ -55,14 +70,6 @@ function safeTimeLabel(value?: string) {
         minute: "2-digit",
         hour12: false,
       });
-}
-
-function getTimestamp(row: FlowRow) {
-  return row.interval_timestamp || row.time_window_end || row.time_window_start || "";
-}
-
-function getExpiration(row: FlowRow) {
-  return row.expiration_date || row.expiration || row.expiry || "";
 }
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
@@ -114,16 +121,30 @@ function MultiSelectChips({
   );
 }
 
-function buildTimeseries(rows: FlowRow[], maxPoints: number): TimeseriesRow[] {
-  const grouped = new Map<string, { callPremium: number; putPremium: number; callVolume: number; putVolume: number }>();
+function normalizeSignedFlow(totalPremium: number, netPremium: number, totalVolume: number, netVolume: number) {
+  const callPremium = Math.max(0, (totalPremium + netPremium) / 2);
+  const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
+  const derivedNetVolume = Number.isFinite(netVolume)
+    ? netVolume
+    : Math.max(-totalVolume, Math.min(totalVolume, totalVolume));
+
+  return {
+    callPremium,
+    putPremium,
+    netVolume: derivedNetVolume,
+  };
+}
+
+function buildTimeseriesFromByType(rows: FlowByTypePoint[], maxPoints: number): TimeseriesRow[] {
+  const grouped = new Map<
+    string,
+    { callPremium: number; putPremium: number; callVolume: number; putVolume: number }
+  >();
 
   rows.forEach((row) => {
-    const ts = getTimestamp(row);
+    const ts = row.timestamp;
     if (!ts) return;
 
-    const type = (row.option_type || "").toUpperCase();
-    const premium = Number(row.total_premium || 0);
-    const volume = Number(row.total_volume || 0);
     const current = grouped.get(ts) || {
       callPremium: 0,
       putPremium: 0,
@@ -131,14 +152,10 @@ function buildTimeseries(rows: FlowRow[], maxPoints: number): TimeseriesRow[] {
       putVolume: 0,
     };
 
-    if (type === "CALL") {
-      current.callPremium += premium;
-      current.callVolume += volume;
-    }
-    if (type === "PUT") {
-      current.putPremium += premium;
-      current.putVolume += volume;
-    }
+    current.callPremium += Number(row.call_premium || 0);
+    current.putPremium += Number(row.put_premium || 0);
+    current.callVolume += Number(row.call_volume || 0);
+    current.putVolume += Number(row.put_volume || 0);
 
     grouped.set(ts, current);
   });
@@ -161,149 +178,188 @@ function buildTimeseries(rows: FlowRow[], maxPoints: number): TimeseriesRow[] {
   return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
 }
 
+function buildTimeseriesFromNetRows(
+  rows: Array<{ timestamp: string; premium: number; net_premium: number; volume: number; net_volume: number }>,
+  maxPoints: number,
+): TimeseriesRow[] {
+  const grouped = new Map<string, { totalPremium: number; netPremium: number; totalVolume: number; netVolume: number }>();
+
+  rows.forEach((row) => {
+    const ts = row.timestamp;
+    if (!ts) return;
+
+    const current = grouped.get(ts) || {
+      totalPremium: 0,
+      netPremium: 0,
+      totalVolume: 0,
+      netVolume: 0,
+    };
+
+    current.totalPremium += Number(row.premium || 0);
+    current.netPremium += Number(row.net_premium || 0);
+    current.totalVolume += Number(row.volume || 0);
+    current.netVolume += Number(row.net_volume || 0);
+
+    grouped.set(ts, current);
+  });
+
+  const chartRows = Array.from(grouped.entries())
+    .map(([timestamp, value]) => {
+      const normalized = normalizeSignedFlow(
+        value.totalPremium,
+        value.netPremium,
+        value.totalVolume,
+        value.netVolume,
+      );
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium: normalized.callPremium,
+        putPremium: normalized.putPremium,
+        netVolume: normalized.netVolume,
+        positiveNetVolume: normalized.netVolume > 0 ? normalized.netVolume : 0,
+        negativeNetVolume: normalized.netVolume < 0 ? normalized.netVolume : 0,
+      };
+    })
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
+  if (rows.length === 0) {
+    return <div className="text-gray-400 text-center py-8">No chart data available</div>;
+  }
+
   return (
-    <>
-      {rows.length === 0 ? (
-        <div className="text-gray-400 text-center py-8">No chart data available</div>
-      ) : (
-        <ResponsiveContainer width="100%" height={540}>
-          <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-            <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
-            <YAxis
-              yAxisId="premium"
-              stroke="#f2f2f2"
-              tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
-            />
-            <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" />
-            <Tooltip
-              formatter={(value, name) => {
-                const n = Number(value ?? 0);
-                if (name === "Call Premium" || name === "Put Premium") {
-                  return [`$${n.toLocaleString()}`, name];
-                }
-                return [n.toLocaleString(), name];
-              }}
-            />
-            <Legend />
-            <Line
-              yAxisId="premium"
-              type="monotone"
-              dataKey="callPremium"
-              name="Call Premium"
-              stroke="#10b981"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              yAxisId="premium"
-              type="monotone"
-              dataKey="putPremium"
-              name="Put Premium"
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={false}
-            />
-            <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.5} />
-            <Area
-              yAxisId="volume"
-              type="monotone"
-              dataKey="positiveNetVolume"
-              name="Net Volume (+)"
-              stroke="#22c55e"
-              fill="#22c55e"
-              fillOpacity={0.35}
-            />
-            <Area
-              yAxisId="volume"
-              type="monotone"
-              dataKey="negativeNetVolume"
-              name="Net Volume (-)"
-              stroke="#ef4444"
-              fill="#ef4444"
-              fillOpacity={0.35}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      )}
-    </>
+    <ResponsiveContainer width="100%" height={540}>
+      <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
+        <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
+        <YAxis
+          yAxisId="premium"
+          stroke="#f2f2f2"
+          tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
+        />
+        <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" />
+        <Tooltip
+          formatter={(value, name) => {
+            const n = Number(value ?? 0);
+            if (name === "Call Premium" || name === "Put Premium") {
+              return [`$${n.toLocaleString()}`, name];
+            }
+            return [n.toLocaleString(), name];
+          }}
+        />
+        <Legend />
+        <Line
+          yAxisId="premium"
+          type="monotone"
+          dataKey="callPremium"
+          name="Call Premium"
+          stroke="#10b981"
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          yAxisId="premium"
+          type="monotone"
+          dataKey="putPremium"
+          name="Put Premium"
+          stroke="#ef4444"
+          strokeWidth={2}
+          dot={false}
+        />
+        <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.5} />
+        <Area
+          yAxisId="volume"
+          type="monotone"
+          dataKey="positiveNetVolume"
+          name="Net Volume (+)"
+          stroke="#22c55e"
+          fill="#22c55e"
+          fillOpacity={0.35}
+        />
+        <Area
+          yAxisId="volume"
+          type="monotone"
+          dataKey="negativeNetVolume"
+          name="Net Volume (-)"
+          stroke="#ef4444"
+          fill="#ef4444"
+          fillOpacity={0.35}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }
 
 export default function FlowAnalysisPage() {
   const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const windowUnits = maxPoints;
+  const windowUnits = Math.max(1, Math.min(90, maxPoints));
 
   const {
-    data: flowData,
+    data: flowByType,
     loading: flowLoading,
     error: flowError,
-  } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
+  } = useApiData<FlowByTypePoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
+    { refreshInterval: 5000 },
+  );
 
-  const { data: flowByExpiration, error: expirationError } = useApiData<FlowRow[]>(
+  const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
     `/api/flow/by-expiration?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
     { refreshInterval: 5000 },
   );
 
-  const { data: flowByStrike, error: strikeError } = useApiData<FlowRow[]>(
+  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
     `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
     { refreshInterval: 5000 },
   );
 
   const latestSnapshot = useMemo(() => {
-    const rows = flowData || [];
+    const rows = flowByType || [];
     if (rows.length === 0) return null;
 
-    const latestTimestamp = rows.reduce((latest, row) => {
-      const ts = getTimestamp(row);
-      if (!ts) return latest;
-      if (!latest) return ts;
-      return new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest;
-    }, "");
+    const latest = [...rows].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )[0];
 
-    const latestRows = rows.filter((r) => getTimestamp(r) === latestTimestamp);
-    const call = latestRows.find((r) => (r.option_type || "").toUpperCase() === "CALL");
-    const put = latestRows.find((r) => (r.option_type || "").toUpperCase() === "PUT");
-
-    const callVolume = Number(call?.total_volume || 0);
-    const putVolume = Number(put?.total_volume || 0);
-    const callPremium = Number(call?.total_premium || 0);
-    const putPremium = Number(put?.total_premium || 0);
+    const callVolume = Number(latest.call_volume || 0);
+    const putVolume = Number(latest.put_volume || 0);
+    const callPremium = Number(latest.call_premium || 0);
+    const putPremium = Number(latest.put_premium || 0);
 
     return {
-      timestamp: latestTimestamp,
+      timestamp: latest.timestamp,
       callVolume,
       putVolume,
       callPremium,
       putPremium,
-      netFlow: callVolume - putVolume,
-      netPremium: callPremium - putPremium,
+      netFlow: Number(latest.net_volume || callVolume - putVolume),
+      netPremium: Number(latest.net_premium || callPremium - putPremium),
       putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
     };
-  }, [flowData]);
+  }, [flowByType]);
 
-  const mainSeries = useMemo(() => buildTimeseries(flowData || [], maxPoints), [flowData, maxPoints]);
+  const mainSeries = useMemo(
+    () => buildTimeseriesFromByType(flowByType || [], maxPoints),
+    [flowByType, maxPoints],
+  );
 
   const expirationOptions = useMemo(
     () =>
-      Array.from(
-        new Set((flowByExpiration || []).map((r) => getExpiration(r)).filter(Boolean)),
-      ).sort(),
+      Array.from(new Set((flowByExpiration || []).map((r) => r.expiration).filter(Boolean))).sort(),
     [flowByExpiration],
   );
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
 
   const strikeOptions = useMemo(
     () =>
-      Array.from(
-        new Set(
-          (flowByStrike || [])
-            .map((r) => (r.strike !== undefined && r.strike !== null ? String(r.strike) : ""))
-            .filter(Boolean),
-        ),
-      ).sort((a, b) => Number(a) - Number(b)),
+      Array.from(new Set((flowByStrike || []).map((r) => String(r.strike)).filter(Boolean))).sort(
+        (a, b) => Number(a) - Number(b),
+      ),
     [flowByStrike],
   );
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
@@ -311,7 +367,7 @@ export default function FlowAnalysisPage() {
   const expirationRowsFiltered = useMemo(() => {
     const source = flowByExpiration || [];
     if (selectedExpirations.size === 0) return source;
-    return source.filter((r) => selectedExpirations.has(getExpiration(r)));
+    return source.filter((r) => selectedExpirations.has(r.expiration));
   }, [flowByExpiration, selectedExpirations]);
 
   const strikeRowsFiltered = useMemo(() => {
@@ -321,10 +377,14 @@ export default function FlowAnalysisPage() {
   }, [flowByStrike, selectedStrikes]);
 
   const expirationSeries = useMemo(
-    () => buildTimeseries(expirationRowsFiltered, maxPoints),
+    () => buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints),
     [expirationRowsFiltered, maxPoints],
   );
-  const strikeSeries = useMemo(() => buildTimeseries(strikeRowsFiltered, maxPoints), [strikeRowsFiltered, maxPoints]);
+
+  const strikeSeries = useMemo(
+    () => buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints),
+    [strikeRowsFiltered, maxPoints],
+  );
 
   const toggleExpirations = (value: string) => {
     setSelectedExpirations((prev) => {
@@ -344,7 +404,7 @@ export default function FlowAnalysisPage() {
     });
   };
 
-  if (flowLoading && !flowData) return <LoadingSpinner size="lg" />;
+  if (flowLoading && !flowByType) return <LoadingSpinner size="lg" />;
 
   return (
     <div className="container mx-auto px-4 py-8">
