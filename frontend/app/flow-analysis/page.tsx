@@ -50,6 +50,12 @@ interface FlowByStrikePoint {
   net_premium: number;
 }
 
+interface UnderlyingPoint {
+  timestamp: string;
+  close?: number;
+  price?: number;
+}
+
 interface TimeseriesRow {
   timestamp: string;
   time: string;
@@ -58,6 +64,7 @@ interface TimeseriesRow {
   netVolume: number;
   positiveNetVolume: number;
   negativeNetVolume: number;
+  underlyingPrice: number | null;
 }
 
 function safeTimeLabel(value?: string) {
@@ -171,6 +178,7 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[], maxPoints: number): 
         netVolume,
         positiveNetVolume: netVolume > 0 ? netVolume : 0,
         negativeNetVolume: netVolume < 0 ? netVolume : 0,
+        underlyingPrice: null,
       };
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -219,6 +227,7 @@ function buildTimeseriesFromNetRows(
         netVolume: normalized.netVolume,
         positiveNetVolume: normalized.netVolume > 0 ? normalized.netVolume : 0,
         negativeNetVolume: normalized.netVolume < 0 ? normalized.netVolume : 0,
+        underlyingPrice: null,
       };
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -226,71 +235,146 @@ function buildTimeseriesFromNetRows(
   return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
 }
 
+function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: UnderlyingPoint[]): TimeseriesRow[] {
+  if (rows.length === 0 || underlyingRows.length === 0) return rows;
+
+  const sortedUnderlying = [...underlyingRows]
+    .filter((r) => Boolean(r.timestamp))
+    .map((r) => ({
+      timestamp: r.timestamp,
+      timeMs: new Date(r.timestamp).getTime(),
+      price: Number(r.close ?? r.price ?? NaN),
+    }))
+    .filter((r) => Number.isFinite(r.timeMs) && Number.isFinite(r.price))
+    .sort((a, b) => a.timeMs - b.timeMs);
+
+  if (sortedUnderlying.length === 0) return rows;
+
+  let idx = 0;
+  return rows.map((row) => {
+    const t = new Date(row.timestamp).getTime();
+    while (idx + 1 < sortedUnderlying.length && sortedUnderlying[idx + 1].timeMs <= t) {
+      idx += 1;
+    }
+
+    const current = sortedUnderlying[idx];
+    const next = idx + 1 < sortedUnderlying.length ? sortedUnderlying[idx + 1] : null;
+
+    const chosen =
+      next && Math.abs(next.timeMs - t) < Math.abs(current.timeMs - t) ? next.price : current.price;
+
+    return {
+      ...row,
+      underlyingPrice: chosen,
+    };
+  });
+}
+
+function getSymmetricDomain(values: number[]) {
+  const maxAbs = Math.max(1, ...values.map((v) => Math.abs(Number(v) || 0)));
+  return [-maxAbs, maxAbs] as [number, number];
+}
+
+function getZeroOffset(minValue: number, maxValue: number) {
+  if (maxValue <= 0) return 0;
+  if (minValue >= 0) return 1;
+  return maxValue / (maxValue - minValue);
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
+  const premiumDomain = getSymmetricDomain([
+    ...rows.map((r) => r.callPremium),
+    ...rows.map((r) => r.putPremium),
+  ]);
+  const minVolume = Math.min(0, ...rows.map((r) => r.netVolume));
+  const maxVolume = Math.max(0, ...rows.map((r) => r.netVolume));
+  const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
+
   return (
-    <ResponsiveContainer width="100%" height={540}>
-      <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-        <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
-        <YAxis
-          yAxisId="premium"
-          stroke="#f2f2f2"
-          tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
-        />
-        <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" />
-        <Tooltip
-          formatter={(value, name) => {
-            const n = Number(value ?? 0);
-            if (name === "Call Premium" || name === "Put Premium") {
+    <div className="h-[540px]">
+      <ResponsiveContainer width="100%" height="75%">
+        <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
+          <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} hide />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" />
+          <YAxis
+            yAxisId="premium"
+            stroke="#f2f2f2"
+            orientation="right"
+            domain={premiumDomain}
+            tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
+          />
+          <Tooltip
+            formatter={(value, name) => {
+              const n = Number(value ?? 0);
+              if (name === "Underlying") return [`$${n.toFixed(2)}`, name];
               return [`$${n.toLocaleString()}`, name];
-            }
-            return [n.toLocaleString(), name];
-          }}
-        />
-        <Legend />
-        <Line
-          yAxisId="premium"
-          type="monotone"
-          dataKey="callPremium"
-          name="Call Premium"
-          stroke="#10b981"
-          strokeWidth={2}
-          dot={false}
-        />
-        <Line
-          yAxisId="premium"
-          type="monotone"
-          dataKey="putPremium"
-          name="Put Premium"
-          stroke="#ef4444"
-          strokeWidth={2}
-          dot={false}
-        />
-        <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.5} />
-        <Area
-          yAxisId="volume"
-          type="monotone"
-          dataKey="positiveNetVolume"
-          name="Net Volume (+)"
-          stroke="#22c55e"
-          fill="#22c55e"
-          fillOpacity={0.35}
-        />
-        <Area
-          yAxisId="volume"
-          type="monotone"
-          dataKey="negativeNetVolume"
-          name="Net Volume (-)"
-          stroke="#ef4444"
-          fill="#ef4444"
-          fillOpacity={0.35}
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
+            }}
+          />
+          <Legend />
+          <ReferenceLine yAxisId="premium" y={0} stroke="#f2f2f2" opacity={0.6} />
+          <Line
+            yAxisId="price"
+            type="monotone"
+            dataKey="underlyingPrice"
+            name="Underlying"
+            stroke="#facc15"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            yAxisId="premium"
+            type="monotone"
+            dataKey="callPremium"
+            name="Net Call Prem"
+            stroke="#10b981"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            yAxisId="premium"
+            type="monotone"
+            dataKey="putPremium"
+            name="Net Put Prem"
+            stroke="#ef4444"
+            strokeWidth={2}
+            dot={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <ResponsiveContainer width="100%" height="25%">
+        <ComposedChart data={rows} margin={{ top: 0, right: 30, left: 20, bottom: 10 }}>
+          <defs>
+            <linearGradient id="netVolumeSplit" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity={0.55} />
+              <stop offset={`${Math.max(0, Math.min(1, volumeZeroOffset)) * 100}%`} stopColor="#22c55e" stopOpacity={0.55} />
+              <stop offset={`${Math.max(0, Math.min(1, volumeZeroOffset)) * 100}%`} stopColor="#ef4444" stopOpacity={0.55} />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity={0.55} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
+          <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
+          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} />
+          <Tooltip formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
+          <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
+          <Area
+            yAxisId="volume"
+            type="monotone"
+            dataKey="netVolume"
+            name="Net Volume"
+            stroke="#f2f2f2"
+            strokeOpacity={0.5}
+            fill="url(#netVolumeSplit)"
+            isAnimationActive={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -315,6 +399,11 @@ export default function FlowAnalysisPage() {
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
     `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    { refreshInterval: 5000 },
+  );
+
+  const { data: underlyingHistory } = useApiData<UnderlyingPoint[]>(
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
     { refreshInterval: 5000 },
   );
 
@@ -343,10 +432,10 @@ export default function FlowAnalysisPage() {
     };
   }, [flowByType]);
 
-  const mainSeries = useMemo(
-    () => buildTimeseriesFromByType(flowByType || [], maxPoints),
-    [flowByType, maxPoints],
-  );
+  const mainSeries = useMemo(() => {
+    const baseRows = buildTimeseriesFromByType(flowByType || [], maxPoints);
+    return attachUnderlyingPrice(baseRows, underlyingHistory || []);
+  }, [flowByType, maxPoints, underlyingHistory]);
 
   const expirationOptions = useMemo(
     () =>
@@ -377,13 +466,21 @@ export default function FlowAnalysisPage() {
   }, [flowByStrike, selectedStrikes]);
 
   const expirationSeries = useMemo(
-    () => buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints),
-    [expirationRowsFiltered, maxPoints],
+    () =>
+      attachUnderlyingPrice(
+        buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints),
+        underlyingHistory || [],
+      ),
+    [expirationRowsFiltered, maxPoints, underlyingHistory],
   );
 
   const strikeSeries = useMemo(
-    () => buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints),
-    [strikeRowsFiltered, maxPoints],
+    () =>
+      attachUnderlyingPrice(
+        buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints),
+        underlyingHistory || [],
+      ),
+    [strikeRowsFiltered, maxPoints, underlyingHistory],
   );
 
   const toggleExpirations = (value: string) => {
