@@ -100,7 +100,10 @@ export default function GammaHeatmap() {
   const combinedPadding = combinedSpan * 0.03;
   const combinedMin = combinedMinRaw - combinedPadding;
   const combinedMax = combinedMaxRaw + combinedPadding;
-  const yForValue = (v: number) => plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
+  const yForValue = (v: number) => {
+  const raw = plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
+  return Math.max(plotTop, Math.min(plotTop + plotHeight, raw));
+};
 
   return (
     <ExpandableCard>
@@ -121,7 +124,7 @@ export default function GammaHeatmap() {
               <feGaussianBlur stdDeviation="1.2" />
             </filter>
             <clipPath id="heatmapClip">
-              <rect x={plotLeft + 2} y={plotTop + 2} width={Math.max(0, plotWidth - 4)} height={Math.max(0, plotHeight - 4)} />
+              <rect x={plotLeft} y={plotTop} width={Math.max(0, plotWidth)} height={Math.max(0, plotHeight)} />
             </clipPath>
           </defs>
 

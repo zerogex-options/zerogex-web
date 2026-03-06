@@ -316,6 +316,27 @@ function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]) {
   });
 }
 
+
+function formatFlowXAxisLabel(timestamp: string, includeDate: boolean) {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return '--:--';
+
+  const time = d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  if (!includeDate) return time;
+
+  const day = d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+
+  return `${day} ${time}`;
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
@@ -329,23 +350,28 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
   const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
   const underlyingDomain = getUnderlyingDomain(rows);
+  const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
 
   return (
     <div className="h-[540px]">
       <ResponsiveContainer width="100%" height="75%">
-        <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 10, right: 70, left: 70, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-          <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} label={{ value: "Underlying Price", angle: -90, position: "insideLeft", fill: "#f2f2f2", offset: 2 }} />
+          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} hide />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Underlying Price", angle: -90, position: "outsideLeft", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
             orientation="right"
             domain={[0, Math.max(1, maxPremium)]}
             tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
-            label={{ value: "Notional Value", angle: 90, position: "insideRight", fill: "#f2f2f2", offset: 2 }}
+            tick={{ fontSize: 10 }}
+            tickMargin={8}
+            width={62}
+            label={{ value: "Notional Value", angle: 90, position: "outsideRight", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
           />
           <Tooltip
+            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
               if (name === "Underlying") return [`$${n.toFixed(2)}`, name];
@@ -385,7 +411,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       </ResponsiveContainer>
 
       <ResponsiveContainer width="100%" height="25%">
-        <ComposedChart data={rows} margin={{ top: 0, right: 30, left: 20, bottom: 10 }}>
+        <ComposedChart data={rows} margin={{ top: 0, right: 70, left: 70, bottom: 10 }}>
           <defs>
             <linearGradient id="netVolumeSplit" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#22c55e" stopOpacity={0.55} />
@@ -395,9 +421,9 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
-          <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} />
-          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} label={{ value: "Net Volume", angle: 90, position: "insideRight", fill: "#f2f2f2", offset: 2 }} />
-          <Tooltip formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
+          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} tick={{ fontSize: 10 }} />
+          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "outsideRight", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
             yAxisId="volume"
