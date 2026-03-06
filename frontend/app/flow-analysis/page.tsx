@@ -1,36 +1,48 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
-  Bar,
-  BarChart,
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  useOptionFlow,
-  useSmartMoneyFlow,
-  useApiData,
-} from "@/hooks/useApiData";
+import { useApiData, useOptionFlow } from "@/hooks/useApiData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
-import OptionsFlowChart from "@/components/OptionsFlowChart";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
 
-interface FlowByStrikeRow {
-  strike: number;
-  total_volume: number;
-  total_premium: number;
+interface FlowRow {
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
+  option_type?: string | null;
+  strike?: number | string | null;
+  expiration?: string | null;
+  expiration_date?: string | null;
+  expiry?: string | null;
+  total_volume?: number;
+  total_premium?: number;
+}
+
+interface TimeseriesRow {
+  timestamp: string;
+  time: string;
+  callPremium: number;
+  putPremium: number;
+  netVolume: number;
+  positiveNetVolume: number;
+  negativeNetVolume: number;
 }
 
 function safeTimeLabel(value?: string) {
@@ -45,6 +57,14 @@ function safeTimeLabel(value?: string) {
       });
 }
 
+function getTimestamp(row: FlowRow) {
+  return row.interval_timestamp || row.time_window_end || row.time_window_start || "";
+}
+
+function getExpiration(row: FlowRow) {
+  return row.expiration_date || row.expiration || row.expiry || "";
+}
+
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -53,6 +73,161 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
         <Info size={14} />
       </TooltipWrapper>
     </div>
+  );
+}
+
+function MultiSelectChips({
+  options,
+  selected,
+  onToggle,
+  label,
+}: {
+  options: string[];
+  selected: Set<string>;
+  onToggle: (v: string) => void;
+  label: string;
+}) {
+  if (options.length === 0) {
+    return <div className="text-gray-400 text-sm">No {label.toLowerCase()} available</div>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 mb-4">
+      {options.map((option) => {
+        const active = selected.has(option);
+        return (
+          <button
+            key={option}
+            onClick={() => onToggle(option)}
+            className={`px-3 py-1.5 text-sm rounded-md border transition ${
+              active
+                ? "bg-blue-500/20 border-blue-400 text-blue-200"
+                : "bg-[#2f2b2d] border-gray-600 text-gray-300 hover:border-gray-400"
+            }`}
+            type="button"
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function buildTimeseries(rows: FlowRow[], maxPoints: number): TimeseriesRow[] {
+  const grouped = new Map<string, { callPremium: number; putPremium: number; callVolume: number; putVolume: number }>();
+
+  rows.forEach((row) => {
+    const ts = getTimestamp(row);
+    if (!ts) return;
+
+    const type = (row.option_type || "").toUpperCase();
+    const premium = Number(row.total_premium || 0);
+    const volume = Number(row.total_volume || 0);
+    const current = grouped.get(ts) || {
+      callPremium: 0,
+      putPremium: 0,
+      callVolume: 0,
+      putVolume: 0,
+    };
+
+    if (type === "CALL") {
+      current.callPremium += premium;
+      current.callVolume += volume;
+    }
+    if (type === "PUT") {
+      current.putPremium += premium;
+      current.putVolume += volume;
+    }
+
+    grouped.set(ts, current);
+  });
+
+  const chartRows = Array.from(grouped.entries())
+    .map(([timestamp, value]) => {
+      const netVolume = value.callVolume - value.putVolume;
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium: value.callPremium,
+        putPremium: value.putPremium,
+        netVolume,
+        positiveNetVolume: netVolume > 0 ? netVolume : 0,
+        negativeNetVolume: netVolume < 0 ? netVolume : 0,
+      };
+    })
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
+}
+
+function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
+  return (
+    <>
+      {rows.length === 0 ? (
+        <div className="text-gray-400 text-center py-8">No chart data available</div>
+      ) : (
+        <ResponsiveContainer width="100%" height={540}>
+          <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
+            <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
+            <YAxis
+              yAxisId="premium"
+              stroke="#f2f2f2"
+              tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
+            />
+            <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" />
+            <Tooltip
+              formatter={(value, name) => {
+                const n = Number(value ?? 0);
+                if (name === "Call Premium" || name === "Put Premium") {
+                  return [`$${n.toLocaleString()}`, name];
+                }
+                return [n.toLocaleString(), name];
+              }}
+            />
+            <Legend />
+            <Line
+              yAxisId="premium"
+              type="monotone"
+              dataKey="callPremium"
+              name="Call Premium"
+              stroke="#10b981"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              yAxisId="premium"
+              type="monotone"
+              dataKey="putPremium"
+              name="Put Premium"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={false}
+            />
+            <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.5} />
+            <Area
+              yAxisId="volume"
+              type="monotone"
+              dataKey="positiveNetVolume"
+              name="Net Volume (+)"
+              stroke="#22c55e"
+              fill="#22c55e"
+              fillOpacity={0.35}
+            />
+            <Area
+              yAxisId="volume"
+              type="monotone"
+              dataKey="negativeNetVolume"
+              name="Net Volume (-)"
+              stroke="#ef4444"
+              fill="#ef4444"
+              fillOpacity={0.35}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
+    </>
   );
 }
 
@@ -66,76 +241,108 @@ export default function FlowAnalysisPage() {
     loading: flowLoading,
     error: flowError,
   } = useOptionFlow(symbol, timeframe, windowUnits, 5000);
-  const {
-    data: smartMoney,
-    loading: smartLoading,
-    error: smartError,
-  } = useSmartMoneyFlow(symbol, 30, timeframe, windowUnits, 10000);
-  const { data: flowByStrike, error: strikeError } = useApiData<
-    FlowByStrikeRow[]
-  >(
-    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=25`,
+
+  const { data: flowByExpiration, error: expirationError } = useApiData<FlowRow[]>(
+    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
     { refreshInterval: 5000 },
   );
 
-  const callFlow = flowData?.find((f) => f.option_type === "CALL");
-  const putFlow = flowData?.find((f) => f.option_type === "PUT");
+  const { data: flowByStrike, error: strikeError } = useApiData<FlowRow[]>(
+    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    { refreshInterval: 5000 },
+  );
 
-  const totalCallVolume = Number(callFlow?.total_volume || 0);
-  const totalPutVolume = Number(putFlow?.total_volume || 0);
-  const totalCallPremium = Number(callFlow?.total_premium || 0);
-  const totalPutPremium = Number(putFlow?.total_premium || 0);
-  const netFlow = totalCallVolume - totalPutVolume;
-  const netPremium = totalCallPremium - totalPutPremium;
-  const putCallRatio =
-    totalCallVolume > 0 ? totalPutVolume / totalCallVolume : 0;
+  const latestSnapshot = useMemo(() => {
+    const rows = flowData || [];
+    if (rows.length === 0) return null;
 
-  const putCallRatioSeries = useMemo(() => {
-    const grouped = new Map<string, { calls: number; puts: number }>();
+    const latestTimestamp = rows.reduce((latest, row) => {
+      const ts = getTimestamp(row);
+      if (!ts) return latest;
+      if (!latest) return ts;
+      return new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest;
+    }, "");
 
-    (flowData || []).forEach((row) => {
-      const ts = row.interval_timestamp || row.time_window_end;
-      if (!ts) return;
-      const key = String(ts);
-      const current = grouped.get(key) || { calls: 0, puts: 0 };
-      const volume = Number(row.total_volume || 0);
-      if ((row.option_type || "").toUpperCase() === "CALL") current.calls += volume;
-      if ((row.option_type || "").toUpperCase() === "PUT") current.puts += volume;
-      grouped.set(key, current);
-    });
+    const latestRows = rows.filter((r) => getTimestamp(r) === latestTimestamp);
+    const call = latestRows.find((r) => (r.option_type || "").toUpperCase() === "CALL");
+    const put = latestRows.find((r) => (r.option_type || "").toUpperCase() === "PUT");
 
-    const rows = Array.from(grouped.entries())
-      .map(([timestamp, value]) => {
-        const ratio = value.calls > 0 ? value.puts / value.calls : 0;
-        return { timestamp, time: safeTimeLabel(timestamp), ratio };
-      })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const callVolume = Number(call?.total_volume || 0);
+    const putVolume = Number(put?.total_volume || 0);
+    const callPremium = Number(call?.total_premium || 0);
+    const putPremium = Number(put?.total_premium || 0);
 
-    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
-  }, [flowData, maxPoints]);
+    return {
+      timestamp: latestTimestamp,
+      callVolume,
+      putVolume,
+      callPremium,
+      putPremium,
+      netFlow: callVolume - putVolume,
+      netPremium: callPremium - putPremium,
+      putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
+    };
+  }, [flowData]);
 
-  const byStrikeChart = useMemo(
+  const mainSeries = useMemo(() => buildTimeseries(flowData || [], maxPoints), [flowData, maxPoints]);
+
+  const expirationOptions = useMemo(
     () =>
-      (flowByStrike || []).map((row) => ({
-        strike: Number(row.strike),
-        volume: Number(row.total_volume || 0),
-        premiumM: Number(row.total_premium || 0) / 1_000_000,
-      })),
+      Array.from(
+        new Set((flowByExpiration || []).map((r) => getExpiration(r)).filter(Boolean)),
+      ).sort(),
+    [flowByExpiration],
+  );
+  const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+
+  const strikeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (flowByStrike || [])
+            .map((r) => (r.strike !== undefined && r.strike !== null ? String(r.strike) : ""))
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => Number(a) - Number(b)),
     [flowByStrike],
   );
+  const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
 
-  const smartMoneyRows = useMemo(
-    () =>
-      (smartMoney || []).map((row) => ({
-        time: safeTimeLabel(row.time_window_end),
-        type: row.option_type || "--",
-        strike: row.strike ?? "--",
-        volume: Number(row.total_volume || 0),
-        premium: Number(row.total_premium || 0),
-        score: Number(row.unusual_activity_score || 0),
-      })),
-    [smartMoney],
+  const expirationRowsFiltered = useMemo(() => {
+    const source = flowByExpiration || [];
+    if (selectedExpirations.size === 0) return source;
+    return source.filter((r) => selectedExpirations.has(getExpiration(r)));
+  }, [flowByExpiration, selectedExpirations]);
+
+  const strikeRowsFiltered = useMemo(() => {
+    const source = flowByStrike || [];
+    if (selectedStrikes.size === 0) return source;
+    return source.filter((r) => selectedStrikes.has(String(r.strike)));
+  }, [flowByStrike, selectedStrikes]);
+
+  const expirationSeries = useMemo(
+    () => buildTimeseries(expirationRowsFiltered, maxPoints),
+    [expirationRowsFiltered, maxPoints],
   );
+  const strikeSeries = useMemo(() => buildTimeseries(strikeRowsFiltered, maxPoints), [strikeRowsFiltered, maxPoints]);
+
+  const toggleExpirations = (value: string) => {
+    setSelectedExpirations((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  };
+
+  const toggleStrikes = (value: string) => {
+    setSelectedStrikes((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  };
 
   if (flowLoading && !flowData) return <LoadingSpinner size="lg" />;
 
@@ -147,205 +354,88 @@ export default function FlowAnalysisPage() {
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
-          tooltip="Snapshot metrics over selected symbol/time window."
+          tooltip="Most recent snapshot from the latest row returned for the selected interval."
         />
+        <div className="text-gray-400 text-sm mb-3">
+          Latest timestamp: {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
             title="Call Volume"
-            value={totalCallVolume.toLocaleString()}
-            subtitle={`$${(totalCallPremium / 1_000_000).toFixed(2)}M premium`}
+            value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
+            subtitle={`$${(Number(latestSnapshot?.callPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bullish"
-            tooltip="Total call contracts traded in-window."
+            tooltip="Latest call contracts traded in the selected interval."
             theme="dark"
           />
           <MetricCard
             title="Put Volume"
-            value={totalPutVolume.toLocaleString()}
-            subtitle={`$${(totalPutPremium / 1_000_000).toFixed(2)}M premium`}
+            value={Number(latestSnapshot?.putVolume || 0).toLocaleString()}
+            subtitle={`$${(Number(latestSnapshot?.putPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bearish"
-            tooltip="Total put contracts traded in-window."
+            tooltip="Latest put contracts traded in the selected interval."
             theme="dark"
           />
           <MetricCard
             title="Net Flow"
-            value={netFlow.toLocaleString()}
-            trend={netFlow > 0 ? "bullish" : "bearish"}
-            tooltip="Call volume minus put volume."
+            value={Number(latestSnapshot?.netFlow || 0).toLocaleString()}
+            trend={Number(latestSnapshot?.netFlow || 0) > 0 ? "bullish" : "bearish"}
+            tooltip="Latest call volume minus put volume."
             theme="dark"
           />
           <MetricCard
             title="Net Premium"
-            value={`$${(netPremium / 1_000_000).toFixed(2)}M`}
-            trend={netPremium > 0 ? "bullish" : "bearish"}
-            tooltip="Call premium minus put premium."
+            value={`$${(Number(latestSnapshot?.netPremium || 0) / 1_000_000).toFixed(2)}M`}
+            trend={Number(latestSnapshot?.netPremium || 0) > 0 ? "bullish" : "bearish"}
+            tooltip="Latest call premium minus put premium."
             theme="dark"
           />
           <MetricCard
             title="Put/Call Ratio"
-            value={putCallRatio.toFixed(2)}
-            trend={putCallRatio > 1 ? "bearish" : "bullish"}
-            tooltip="Put volume divided by call volume."
+            value={Number(latestSnapshot?.putCallRatio || 0).toFixed(2)}
+            trend={Number(latestSnapshot?.putCallRatio || 0) > 1 ? "bearish" : "bullish"}
+            tooltip="Latest put volume divided by call volume."
             theme="dark"
           />
         </div>
       </section>
 
-      <section className="mb-8">
-        <OptionsFlowChart />
+      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+        <SectionTitle
+          title="Net Premium + Net Volume Timeseries"
+          tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero."
+        />
+        <FullWidthFlowChart rows={mainSeries} />
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
-          title="Put/Call Ratio Timeseries"
-          tooltip="Put/call ratio over the selected timeframe using a 90-unit window from /api/flow/by-type."
+          title="Flow by Expiration"
+          tooltip="Same chart format, filtered by one or more expiration dates."
         />
-        {putCallRatioSeries.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">
-            No put/call ratio timeseries available
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-[720px]">
-              <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={putCallRatioSeries}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#968f92"
-                opacity={0.3}
-              />
-              <XAxis dataKey="time" stroke="#f2f2f2" />
-              <YAxis stroke="#f2f2f2" domain={["auto", "auto"]} />
-              <Tooltip formatter={(value) => Number(value ?? 0).toFixed(2)} />
-              <Legend />
-              <Line
-                dataKey="ratio"
-                name="Put/Call Ratio"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-            </div>
-          </div>
-        )}
+        <MultiSelectChips
+          options={expirationOptions}
+          selected={selectedExpirations}
+          onToggle={toggleExpirations}
+          label="Expirations"
+        />
+        {expirationError && <ErrorMessage message={expirationError} />}
+        <FullWidthFlowChart rows={expirationSeries} />
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Flow by Strike"
-          tooltip="Volume and premium by strike; premium uses secondary axis."
+          tooltip="Same chart format, filtered by one or more strikes."
         />
-        {strikeError ? (
-          <ErrorMessage message={strikeError} />
-        ) : byStrikeChart.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">
-            No flow-by-strike data available
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-[720px]">
-              <ResponsiveContainer width="100%" height={340}>
-            <BarChart
-              data={byStrikeChart}
-              margin={{ top: 5, right: 45, left: 25, bottom: 5 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#968f92"
-                opacity={0.3}
-              />
-              <XAxis
-                dataKey="strike"
-                stroke="#f2f2f2"
-                tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
-              />
-              <YAxis yAxisId="left" stroke="#f2f2f2" />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#f2f2f2"
-                tickFormatter={(v) => `${Number(v).toFixed(1)}M`}
-              />
-              <Tooltip
-                formatter={(value, name) => {
-                  const n = Number(value ?? 0);
-                  return [
-                    name === "premiumM"
-                      ? `$${n.toFixed(2)}M`
-                      : n.toLocaleString(),
-                    String(name),
-                  ];
-                }}
-              />
-              <Legend />
-              <Bar
-                yAxisId="left"
-                dataKey="volume"
-                name="Volume"
-                fill="#10b981"
-              />
-              <Bar
-                yAxisId="right"
-                dataKey="premiumM"
-                name="Premium ($M)"
-                fill="#60a5fa"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
-        <SectionTitle
-          title="Smart Money"
-          tooltip="Raw smart-money rows from /api/flow/smart-money."
+        <MultiSelectChips
+          options={strikeOptions}
+          selected={selectedStrikes}
+          onToggle={toggleStrikes}
+          label="Strikes"
         />
-        {smartError ? (
-          <ErrorMessage message={smartError} />
-        ) : smartLoading ? (
-          <LoadingSpinner />
-        ) : smartMoneyRows.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">
-            No unusual activity detected
-          </div>
-        ) : (
-          <div className="overflow-auto max-h-[420px]">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-gray-600">
-                  <th className="py-2 pr-4">Time</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Strike</th>
-                  <th className="py-2 pr-4">Volume</th>
-                  <th className="py-2 pr-4">Premium</th>
-                  <th className="py-2 pr-4">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {smartMoneyRows.map((r, i) => (
-                  <tr
-                    key={`${r.time}-${r.strike}-${i}`}
-                    className="border-b border-gray-700/50"
-                  >
-                    <td className="py-2 pr-4">{r.time}</td>
-                    <td className="py-2 pr-4">{r.type}</td>
-                    <td className="py-2 pr-4">
-                      {typeof r.strike === "number"
-                        ? `$${Number(r.strike).toFixed(2)}`
-                        : r.strike}
-                    </td>
-                    <td className="py-2 pr-4">{r.volume.toLocaleString()}</td>
-                    <td className="py-2 pr-4">${r.premium.toLocaleString()}</td>
-                    <td className="py-2 pr-4">{r.score.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {strikeError && <ErrorMessage message={strikeError} />}
+        <FullWidthFlowChart rows={strikeSeries} />
       </section>
     </div>
   );
