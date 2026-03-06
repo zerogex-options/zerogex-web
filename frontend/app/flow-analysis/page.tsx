@@ -291,14 +291,42 @@ function getZeroOffset(minValue: number, maxValue: number) {
   return maxValue / (maxValue - minValue);
 }
 
+
+function roundToStep(value: number, step: number, mode: 'up' | 'down') {
+  if (!Number.isFinite(value)) return 0;
+  if (mode === 'down') return Math.floor(value / step) * step;
+  return Math.ceil(value / step) * step;
+}
+
+function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]) {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => {
+    const row = byTs.get(timestamp);
+    if (row) return row;
+    return {
+      timestamp,
+      time: safeTimeLabel(timestamp),
+      callPremium: 0,
+      putPremium: 0,
+      netVolume: 0,
+      positiveNetVolume: 0,
+      negativeNetVolume: 0,
+      underlyingPrice: null,
+    } satisfies TimeseriesRow;
+  });
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
   const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium), ...rows.map((r) => r.putPremium));
-  const minVolume = Math.min(0, ...rows.map((r) => r.netVolume));
-  const maxVolume = Math.max(0, ...rows.map((r) => r.netVolume));
+  const minVolumeRaw = Math.min(0, ...rows.map((r) => r.netVolume));
+  const maxVolumeRaw = Math.max(0, ...rows.map((r) => r.netVolume));
+  const volumeStep = 10_000;
+  const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
+  const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
   const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
   const underlyingDomain = getUnderlyingDomain(rows);
 
@@ -307,14 +335,15 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       <ResponsiveContainer width="100%" height="75%">
         <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-          <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} />
+          <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} hide />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} label={{ value: "Underlying Price", angle: -90, position: "insideLeft", fill: "#f2f2f2", offset: 2 }} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
             orientation="right"
             domain={[0, Math.max(1, maxPremium)]}
             tickFormatter={(v) => `$${(Number(v) / 1_000_000).toFixed(1)}M`}
+            label={{ value: "Notional Value", angle: 90, position: "insideRight", fill: "#f2f2f2", offset: 2 }}
           />
           <Tooltip
             formatter={(value, name) => {
@@ -366,8 +395,8 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
-          <XAxis dataKey="time" stroke="#f2f2f2" minTickGap={24} />
-          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} />
+          <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} />
+          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} label={{ value: "Net Volume", angle: 90, position: "insideRight", fill: "#f2f2f2", offset: 2 }} />
           <Tooltip formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
@@ -440,10 +469,14 @@ export default function FlowAnalysisPage() {
     };
   }, [flowByType]);
 
+  const mainBaseSeries = useMemo(() => buildTimeseriesFromByType(flowByType || [], maxPoints), [flowByType, maxPoints]);
+
+  const timelineTimestamps = useMemo(() => mainBaseSeries.map((r) => r.timestamp), [mainBaseSeries]);
+
   const mainSeries = useMemo(() => {
-    const baseRows = buildTimeseriesFromByType(flowByType || [], maxPoints);
-    return attachUnderlyingPrice(baseRows, underlyingHistory || []);
-  }, [flowByType, maxPoints, underlyingHistory]);
+    const aligned = alignSeriesToTimeline(mainBaseSeries, timelineTimestamps);
+    return attachUnderlyingPrice(aligned, underlyingHistory || []);
+  }, [mainBaseSeries, timelineTimestamps, underlyingHistory]);
 
   const expirationOptions = useMemo(
     () =>
@@ -473,23 +506,17 @@ export default function FlowAnalysisPage() {
     return source.filter((r) => selectedStrikes.has(String(r.strike)));
   }, [flowByStrike, selectedStrikes]);
 
-  const expirationSeries = useMemo(
-    () =>
-      attachUnderlyingPrice(
-        buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints),
-        underlyingHistory || [],
-      ),
-    [expirationRowsFiltered, maxPoints, underlyingHistory],
-  );
+  const expirationSeries = useMemo(() => {
+    const base = buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints);
+    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
+    return attachUnderlyingPrice(aligned, underlyingHistory || []);
+  }, [expirationRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
 
-  const strikeSeries = useMemo(
-    () =>
-      attachUnderlyingPrice(
-        buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints),
-        underlyingHistory || [],
-      ),
-    [strikeRowsFiltered, maxPoints, underlyingHistory],
-  );
+  const strikeSeries = useMemo(() => {
+    const base = buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints);
+    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
+    return attachUnderlyingPrice(aligned, underlyingHistory || []);
+  }, [strikeRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
 
   const toggleExpirations = (value: string) => {
     setSelectedExpirations((prev) => {

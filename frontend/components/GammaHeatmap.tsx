@@ -62,7 +62,7 @@ export default function GammaHeatmap() {
 
     const deepBlue = { r: 29, g: 78, b: 216 };
     const white = { r: 245, g: 247, b: 255 };
-    const lavender = { r: 196, g: 181, b: 253 };
+    const orange = { r: 251, g: 146, b: 60 };
 
     const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
       r: Math.round(a.r + (b.r - a.r) * t),
@@ -72,7 +72,7 @@ export default function GammaHeatmap() {
 
     const rgb = normalized <= 0.5
       ? blend(deepBlue, white, normalized / 0.5)
-      : blend(white, lavender, (normalized - 0.5) / 0.5);
+      : blend(white, orange, (normalized - 0.5) / 0.5);
 
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   };
@@ -152,41 +152,43 @@ export default function GammaHeatmap() {
             })}
           </g>
 
-          {derived.timestamps.map((ts, idx) => {
-            const row = priceByTs.get(ts);
-            if (!row) return null;
-            const open = Number(row.open ?? row.close ?? 0);
-            const high = Number(row.high ?? row.close ?? open);
-            const low = Number(row.low ?? row.close ?? open);
-            const close = Number(row.close ?? open);
-            const x = idx * cellWidth + plotLeft + cellWidth / 2;
-            const up = close >= open;
-            const c = up ? colors.bullish : colors.bearish;
-            const openY = yForValue(open);
-            const closeY = yForValue(close);
-            const highY = yForValue(high);
-            const lowY = yForValue(low);
-            const bodyY = Math.min(openY, closeY);
-            const bodyBottom = Math.max(openY, closeY);
-            const bodyHeight = Math.max(1, bodyBottom - bodyY);
-            const candleWidth = Math.max(2, Math.min(8, cellWidth * 0.42));
+          <g clipPath="url(#heatmapClip)">
+            {derived.timestamps.map((ts, idx) => {
+              const row = priceByTs.get(ts);
+              if (!row) return null;
+              const open = Number(row.open ?? row.close ?? 0);
+              const high = Number(row.high ?? row.close ?? open);
+              const low = Number(row.low ?? row.close ?? open);
+              const close = Number(row.close ?? open);
+              const x = idx * cellWidth + plotLeft + cellWidth / 2;
+              const up = close >= open;
+              const c = up ? colors.bullish : colors.bearish;
+              const openY = yForValue(open);
+              const closeY = yForValue(close);
+              const highY = yForValue(high);
+              const lowY = yForValue(low);
+              const bodyY = Math.min(openY, closeY);
+              const bodyBottom = Math.max(openY, closeY);
+              const bodyHeight = Math.max(1, bodyBottom - bodyY);
+              const candleWidth = Math.max(2, Math.min(8, cellWidth * 0.42));
 
-            return (
-              <g key={`candle-${ts}`}>
-                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.5} opacity={0.95} />
-                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.5} opacity={0.95} />
-                <rect
-                  x={x - candleWidth / 2}
-                  y={bodyY}
-                  width={candleWidth}
-                  height={bodyHeight}
-                  fill={c}
-                  stroke={c}
-                  strokeWidth={1.4}
-                />
-              </g>
-            );
-          })}
+              return (
+                <g key={`candle-${ts}`}>
+                  <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                  <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                  <rect
+                    x={x - candleWidth / 2}
+                    y={bodyY}
+                    width={candleWidth}
+                    height={bodyHeight}
+                    fill={c}
+                    stroke={c}
+                    strokeWidth={1.4}
+                  />
+                </g>
+              );
+            })}
+          </g>
 
           {derived.timestamps.map((timestamp, idx) => {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
