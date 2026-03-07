@@ -51,12 +51,7 @@ export default function GammaHeatmap() {
   if (error) return <ErrorMessage message={error} />;
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
-  const values = derived.cells.map((d) => Number(d.value || 0));
-  const maxAbsValue = Math.max(1, ...values.map((v) => Math.abs(v)));
-  const minValue = -maxAbsValue;
-  const maxValue = maxAbsValue;
-
-  const getColor = (value: number) => {
+  const getColor = (value: number, maxAbsValue: number) => {
     if (maxAbsValue < 1e-9) return 'rgb(245, 247, 255)';
     const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
@@ -85,7 +80,6 @@ export default function GammaHeatmap() {
   const plotWidth = chartWidth - yAxisWidth - 12;
   const plotHeight = chartHeight - 76;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
-  const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
   const priceRows = omitClosedMarketTimes(priceData || [], (p) => p.timestamp);
   const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
@@ -100,6 +94,32 @@ export default function GammaHeatmap() {
   const combinedPadding = combinedSpan * 0.03;
   const combinedMin = combinedMinRaw - combinedPadding;
   const combinedMax = combinedMaxRaw + combinedPadding;
+  const topLevel = Math.ceil(combinedMax);
+  const bottomLevel = Math.floor(combinedMin);
+  const yLevels = Array.from({ length: Math.max(1, topLevel - bottomLevel + 1) }, (_, i) => topLevel - i);
+  const yLabelStep = Math.max(1, Math.ceil(yLevels.length / 16));
+
+  const cellValueMap = new Map<string, number>();
+  derived.cells.forEach((cell) => {
+    const ts = derived.timestamps[cell.x];
+    if (!ts) return;
+    cellValueMap.set(`${ts}_${Number(cell.y).toFixed(2)}`, Number(cell.value || 0));
+  });
+
+  const filledCells = derived.timestamps.flatMap((ts, x) =>
+    yLevels.map((level) => ({
+      x,
+      y: level,
+      value: cellValueMap.get(`${ts}_${Number(level).toFixed(2)}`) ?? 0,
+    })),
+  );
+
+  const cellHeight = plotHeight / Math.max(1, yLevels.length);
+  const values = filledCells.map((d) => Number(d.value || 0));
+  const maxAbsValue = Math.max(1, ...values.map((v) => Math.abs(v)));
+  const minValue = -maxAbsValue;
+  const maxValue = maxAbsValue;
+
   const yForValue = (v: number) => {
   const raw = plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
   return Math.max(plotTop, Math.min(plotTop + plotHeight, raw));
@@ -116,9 +136,9 @@ export default function GammaHeatmap() {
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="block">
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={getColor(minValue)} />
-              <stop offset="50%" stopColor={getColor((minValue + maxValue) / 2)} />
-              <stop offset="100%" stopColor={getColor(maxValue)} />
+              <stop offset="0%" stopColor={getColor(minValue, maxAbsValue)} />
+              <stop offset="50%" stopColor={getColor((minValue + maxValue) / 2, maxAbsValue)} />
+              <stop offset="100%" stopColor={getColor(maxValue, maxAbsValue)} />
             </linearGradient>
             <filter id="heatmapSmooth" x="-8%" y="-8%" width="116%" height="116%">
               <feGaussianBlur stdDeviation="1.2" />
@@ -133,12 +153,15 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
-          {derived.strikes.map((strike) => (
-            <text key={`y-${strike}`} x={plotLeft - 6} y={yForValue(strike)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
-          ))}
+          {yLevels.map((level, idx) => {
+            if (idx % yLabelStep !== 0) return null;
+            return (
+              <text key={`y-${level}`} x={plotLeft - 6} y={yForValue(level)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${level.toFixed(0)}</text>
+            );
+          })}
 
           <g filter="url(#heatmapSmooth)" clipPath="url(#heatmapClip)">
-            {derived.cells.map((cell, idx) => {
+            {filledCells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
               const yPos = yForValue(cell.y) - cellHeight / 2;
               return (
@@ -148,7 +171,7 @@ export default function GammaHeatmap() {
                   y={yPos}
                   width={cellWidth}
                   height={cellHeight}
-                  fill={getColor(cell.value)}
+                  fill={getColor(cell.value, maxAbsValue)}
                   opacity={0.98}
                 />
               );

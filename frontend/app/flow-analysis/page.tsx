@@ -56,6 +56,12 @@ interface UnderlyingPoint {
   price?: number;
 }
 
+
+interface PutCallRatioRow {
+  timestamp: string;
+  ratio: number;
+}
+
 interface TimeseriesRow {
   timestamp: string;
   time: string;
@@ -184,6 +190,29 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[], maxPoints: number): 
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
+}
+
+
+function buildPutCallRatioSeries(rows: FlowByTypePoint[], maxPoints: number): PutCallRatioRow[] {
+  const grouped = new Map<string, { callVolume: number; putVolume: number }>();
+
+  rows.forEach((row) => {
+    const ts = row.timestamp;
+    if (!ts) return;
+    const current = grouped.get(ts) || { callVolume: 0, putVolume: 0 };
+    current.callVolume += Number(row.call_volume || 0);
+    current.putVolume += Number(row.put_volume || 0);
+    grouped.set(ts, current);
+  });
+
+  const points = Array.from(grouped.entries())
+    .map(([timestamp, value]) => ({
+      timestamp,
+      ratio: value.callVolume > 0 ? value.putVolume / value.callVolume : 0,
+    }))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return omitClosedMarketTimes(points, (row) => row.timestamp).slice(-maxPoints);
 }
 
 function buildTimeseriesFromNetRows(
@@ -337,6 +366,28 @@ function formatFlowXAxisLabel(timestamp: string, includeDate: boolean) {
   return `${day} ${time}`;
 }
 
+
+function getDateMarkerMeta(timestamps: string[]) {
+  const groups = new Map<string, { first: number; last: number }>();
+
+  timestamps.forEach((ts, idx) => {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return;
+    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const current = groups.get(key);
+    if (!current) groups.set(key, { first: idx, last: idx });
+    else groups.set(key, { first: current.first, last: idx });
+  });
+
+  const indexToLabel = new Map<number, string>();
+  groups.forEach((g, label) => {
+    const mid = Math.floor((g.first + g.last) / 2);
+    indexToLabel.set(mid, label);
+  });
+
+  return indexToLabel;
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
@@ -351,6 +402,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
   const underlyingDomain = getUnderlyingDomain(rows);
   const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
+  const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
 
   return (
     <div className="h-[540px]">
@@ -378,7 +430,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               return [`$${n.toLocaleString()}`, name];
             }}
           />
-          <Legend />
+          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
           <ReferenceLine yAxisId="premium" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Line
             yAxisId="price"
@@ -411,7 +463,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       </ResponsiveContainer>
 
       <ResponsiveContainer width="100%" height="25%">
-        <ComposedChart data={rows} margin={{ top: 0, right: 70, left: 70, bottom: 10 }}>
+        <ComposedChart data={rows} margin={{ top: 0, right: 70, left: 70, bottom: 28 }}>
           <defs>
             <linearGradient id="netVolumeSplit" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#22c55e" stopOpacity={0.55} />
@@ -421,7 +473,26 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
-          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} tick={{ fontSize: 10 }} />
+          <XAxis
+            dataKey="timestamp"
+            stroke="#f2f2f2"
+            minTickGap={24}
+            tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+              const x = Number(props?.x ?? 0);
+              const y = Number(props?.y ?? 0);
+              const payload = props?.payload;
+              const index = Number(props?.index ?? -1);
+              const ts = String(payload?.value || "");
+              const timeLabel = formatFlowXAxisLabel(ts, false);
+              const dateLabel = dateMarkerMeta.get(index);
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text>
+                  {dateLabel ? <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>{dateLabel}</text> : null}
+                </g>
+              );
+            }}
+          />
           <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
@@ -544,6 +615,15 @@ export default function FlowAnalysisPage() {
     return attachUnderlyingPrice(aligned, underlyingHistory || []);
   }, [strikeRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
 
+  const putCallRatioSeries = useMemo(() => {
+    const base = buildPutCallRatioSeries(flowByType || [], maxPoints);
+    const byTs = new Map(base.map((r) => [r.timestamp, r.ratio]));
+    return timelineTimestamps.map((timestamp) => ({
+      timestamp,
+      ratio: byTs.get(timestamp) ?? 0,
+    }));
+  }, [flowByType, maxPoints, timelineTimestamps]);
+
   const toggleExpirations = (value: string) => {
     setSelectedExpirations((prev) => {
       const next = new Set(prev);
@@ -620,7 +700,7 @@ export default function FlowAnalysisPage() {
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
-          title="Net Premium + Net Volume Timeseries"
+          title="Options Flow"
           tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero."
         />
         <FullWidthFlowChart rows={mainSeries} />
@@ -639,6 +719,37 @@ export default function FlowAnalysisPage() {
         />
         {expirationError && <ErrorMessage message={expirationError} />}
         <FullWidthFlowChart rows={expirationSeries} />
+      </section>
+
+      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+        <SectionTitle
+          title="Put/Call Ratio"
+          tooltip="Put/call volume ratio over time using the selected timeframe."
+        />
+        {putCallRatioSeries.length === 0 ? (
+          <div className="text-gray-400 text-center py-8">No put/call ratio data available</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart data={putCallRatioSeries} margin={{ top: 10, right: 70, left: 70, bottom: 28 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} />
+              <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} tick={{ fontSize: 10 }} />
+              <YAxis stroke="#f2f2f2" tick={{ fontSize: 10 }} tickMargin={8} width={62} />
+              <Tooltip
+                labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+                formatter={(value) => [Number(value ?? 0).toFixed(2), "Put/Call Ratio"]}
+              />
+              <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
+              <Line
+                type="monotone"
+                dataKey="ratio"
+                name="Put/Call Ratio"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
