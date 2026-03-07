@@ -179,17 +179,6 @@ export default function GammaHeatmap() {
           </g>
 
 
-          <g clipPath="url(#heatmapClip)" stroke="#d1d5db" strokeOpacity={0.06} strokeWidth={1}>
-            {Array.from({ length: derived.timestamps.length + 1 }).map((_, idx) => {
-              const x = plotLeft + idx * cellWidth;
-              return <line key={`gx-${idx}`} x1={x} x2={x} y1={plotTop} y2={plotTop + plotHeight} />;
-            })}
-            {Array.from({ length: yLevels.length + 1 }).map((_, idx) => {
-              const y = plotTop + idx * cellHeight;
-              return <line key={`gy-${idx}`} x1={plotLeft} x2={plotLeft + plotWidth} y1={y} y2={y} />;
-            })}
-          </g>
-
           <g clipPath="url(#heatmapClip)">
             {derived.timestamps.map((ts, idx) => {
               const row = priceByTs.get(ts);

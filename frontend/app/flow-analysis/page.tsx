@@ -475,6 +475,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
           <XAxis
             dataKey="timestamp"
             stroke="#f2f2f2"
+            interval={0}
             minTickGap={24}
             tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
               const x = Number(props?.x ?? 0);
