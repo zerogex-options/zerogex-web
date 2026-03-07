@@ -358,7 +358,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
         <ComposedChart data={rows} margin={{ top: 10, right: 70, left: 70, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
           <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Underlying Price", angle: -90, position: "outsideLeft", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
@@ -368,7 +368,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             tick={{ fontSize: 10 }}
             tickMargin={8}
             width={62}
-            label={{ value: "Notional Value", angle: 90, position: "outsideRight", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
+            label={{ value: "Notional Value", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
           />
           <Tooltip
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
@@ -422,7 +422,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
           <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} tick={{ fontSize: 10 }} />
-          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "outsideRight", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
