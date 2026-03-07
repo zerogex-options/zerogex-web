@@ -381,8 +381,7 @@ function getDateMarkerMeta(timestamps: string[]) {
 
   const indexToLabel = new Map<number, string>();
   groups.forEach((g, label) => {
-    const mid = Math.floor((g.first + g.last) / 2);
-    indexToLabel.set(mid, label);
+    indexToLabel.set(g.first, label);
   });
 
   return indexToLabel;
@@ -723,6 +722,21 @@ export default function FlowAnalysisPage() {
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
+          title="Flow by Strike"
+          tooltip="Same chart format, filtered by one or more strikes."
+        />
+        <MultiSelectChips
+          options={strikeOptions}
+          selected={selectedStrikes}
+          onToggle={toggleStrikes}
+          label="Strikes"
+        />
+        {strikeError && <ErrorMessage message={strikeError} />}
+        <FullWidthFlowChart rows={strikeSeries} />
+      </section>
+
+      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+        <SectionTitle
           title="Put/Call Ratio"
           tooltip="Put/call volume ratio over time using the selected timeframe."
         />
@@ -750,21 +764,6 @@ export default function FlowAnalysisPage() {
             </ComposedChart>
           </ResponsiveContainer>
         )}
-      </section>
-
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
-        <SectionTitle
-          title="Flow by Strike"
-          tooltip="Same chart format, filtered by one or more strikes."
-        />
-        <MultiSelectChips
-          options={strikeOptions}
-          selected={selectedStrikes}
-          onToggle={toggleStrikes}
-          label="Strikes"
-        />
-        {strikeError && <ErrorMessage message={strikeError} />}
-        <FullWidthFlowChart rows={strikeSeries} />
       </section>
     </div>
   );
