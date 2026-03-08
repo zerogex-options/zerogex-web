@@ -140,9 +140,6 @@ export default function GammaHeatmap() {
               <stop offset="50%" stopColor={getColor((minValue + maxValue) / 2, maxAbsValue)} />
               <stop offset="100%" stopColor={getColor(maxValue, maxAbsValue)} />
             </linearGradient>
-            <filter id="heatmapSmooth" x="-8%" y="-8%" width="116%" height="116%">
-              <feGaussianBlur stdDeviation="1.2" />
-            </filter>
             <clipPath id="heatmapClip">
               <rect x={plotLeft} y={plotTop} width={Math.max(0, plotWidth)} height={Math.max(0, plotHeight)} />
             </clipPath>
@@ -160,19 +157,19 @@ export default function GammaHeatmap() {
             );
           })}
 
-          <g filter="url(#heatmapSmooth)" clipPath="url(#heatmapClip)">
+          <g clipPath="url(#heatmapClip)">
             {filledCells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
-              const yPos = yForValue(cell.y) - cellHeight / 2;
+              const yPos = yForValue(cell.y) - cellHeight / 2 - 0.5;
               return (
                 <rect
                   key={idx}
                   x={xPos}
                   y={yPos}
                   width={cellWidth}
-                  height={cellHeight}
+                  height={cellHeight + 1}
                   fill={getColor(cell.value, maxAbsValue)}
-                  opacity={0.98}
+                  opacity={1}
                 />
               );
             })}

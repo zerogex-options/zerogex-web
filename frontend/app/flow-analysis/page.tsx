@@ -402,6 +402,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const underlyingDomain = getUnderlyingDomain(rows);
   const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
+  const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
 
   return (
     <div className="h-[540px]">
@@ -485,9 +486,11 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               const ts = String(payload?.value || "");
               const timeLabel = formatFlowXAxisLabel(ts, false);
               const dateLabel = dateMarkerMeta.get(index);
+              const showTime = index % timeTickStep === 0 || Boolean(dateLabel);
+              if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
-                  <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text>
+                  {showTime ? <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text> : null}
                   {dateLabel ? <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>{dateLabel}</text> : null}
                 </g>
               );
@@ -624,6 +627,13 @@ export default function FlowAnalysisPage() {
     }));
   }, [flowByType, maxPoints, timelineTimestamps]);
 
+
+  const ratioDateMarkerMeta = useMemo(
+    () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
+    [putCallRatioSeries],
+  );
+  const ratioTimeTickStep = Math.max(1, Math.ceil(Math.max(1, putCallRatioSeries.length) / 10));
+
   const toggleExpirations = (value: string) => {
     setSelectedExpirations((prev) => {
       const next = new Set(prev);
@@ -747,7 +757,29 @@ export default function FlowAnalysisPage() {
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart data={putCallRatioSeries} margin={{ top: 10, right: 70, left: 70, bottom: 28 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} />
-              <XAxis dataKey="timestamp" tickFormatter={safeTimeLabel} stroke="#f2f2f2" minTickGap={24} tick={{ fontSize: 10 }} />
+              <XAxis
+                dataKey="timestamp"
+                stroke="#f2f2f2"
+                interval={0}
+                minTickGap={24}
+                tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                  const x = Number(props?.x ?? 0);
+                  const y = Number(props?.y ?? 0);
+                  const payload = props?.payload;
+                  const index = Number(props?.index ?? -1);
+                  const ts = String(payload?.value || "");
+                  const timeLabel = formatFlowXAxisLabel(ts, false);
+                  const dateLabel = ratioDateMarkerMeta.get(index);
+                  const showTime = index % ratioTimeTickStep === 0 || Boolean(dateLabel);
+                  if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                  return (
+                    <g transform={`translate(${x},${y})`}>
+                      {showTime ? <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text> : null}
+                      {dateLabel ? <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>{dateLabel}</text> : null}
+                    </g>
+                  );
+                }}
+              />
               <YAxis stroke="#f2f2f2" tick={{ fontSize: 10 }} tickMargin={8} width={62} />
               <Tooltip
                 labelFormatter={(value) => new Date(String(value)).toLocaleString()}
