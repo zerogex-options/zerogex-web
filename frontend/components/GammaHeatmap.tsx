@@ -51,17 +51,13 @@ export default function GammaHeatmap() {
   if (error) return <ErrorMessage message={error} />;
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
-  const values = derived.cells.map((d) => d.value);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-
-  const getColor = (value: number) => {
-    if (maxValue - minValue < 1e-9) return 'rgb(245, 247, 255)';
-    const normalized = (value - minValue) / (maxValue - minValue);
+  const getColor = (value: number, maxAbsValue: number) => {
+    if (maxAbsValue < 1e-9) return 'rgb(245, 247, 255)';
+    const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
     const deepBlue = { r: 29, g: 78, b: 216 };
     const white = { r: 245, g: 247, b: 255 };
-    const lavender = { r: 196, g: 181, b: 253 };
+    const orange = { r: 251, g: 146, b: 60 };
 
     const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
       r: Math.round(a.r + (b.r - a.r) * t),
@@ -71,7 +67,7 @@ export default function GammaHeatmap() {
 
     const rgb = normalized <= 0.5
       ? blend(deepBlue, white, normalized / 0.5)
-      : blend(white, lavender, (normalized - 0.5) / 0.5);
+      : blend(white, orange, (normalized - 0.5) / 0.5);
 
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   };
@@ -84,13 +80,50 @@ export default function GammaHeatmap() {
   const plotWidth = chartWidth - yAxisWidth - 12;
   const plotHeight = chartHeight - 76;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
-  const cellHeight = plotHeight / Math.max(1, derived.strikes.length);
 
   const priceRows = omitClosedMarketTimes(priceData || [], (p) => p.timestamp);
   const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
   const minStrike = Math.min(...derived.strikes);
   const maxStrike = Math.max(...derived.strikes);
-  const yForPrice = (p: number) => plotTop + plotHeight * (1 - (p - minStrike) / Math.max(1e-9, maxStrike - minStrike));
+  const priceLow = Math.min(...priceRows.map((p) => Number(p.low ?? p.close ?? p.open ?? Infinity)));
+  const priceHigh = Math.max(...priceRows.map((p) => Number(p.high ?? p.close ?? p.open ?? -Infinity)));
+  const hasPriceRange = Number.isFinite(priceLow) && Number.isFinite(priceHigh);
+  const combinedMinRaw = Math.min(minStrike, hasPriceRange ? priceLow : minStrike);
+  const combinedMaxRaw = Math.max(maxStrike, hasPriceRange ? priceHigh : maxStrike);
+  const combinedSpan = Math.max(1e-9, combinedMaxRaw - combinedMinRaw);
+  const combinedPadding = combinedSpan * 0.03;
+  const combinedMin = combinedMinRaw - combinedPadding;
+  const combinedMax = combinedMaxRaw + combinedPadding;
+  const topLevel = Math.ceil(combinedMax);
+  const bottomLevel = Math.floor(combinedMin);
+  const yLevels = Array.from({ length: Math.max(1, topLevel - bottomLevel + 1) }, (_, i) => topLevel - i);
+  const yLabelStep = Math.max(1, Math.ceil(yLevels.length / 16));
+
+  const cellValueMap = new Map<string, number>();
+  derived.cells.forEach((cell) => {
+    const ts = derived.timestamps[cell.x];
+    if (!ts) return;
+    cellValueMap.set(`${ts}_${Number(cell.y).toFixed(2)}`, Number(cell.value || 0));
+  });
+
+  const filledCells = derived.timestamps.flatMap((ts, x) =>
+    yLevels.map((level) => ({
+      x,
+      y: level,
+      value: cellValueMap.get(`${ts}_${Number(level).toFixed(2)}`) ?? 0,
+    })),
+  );
+
+  const cellHeight = plotHeight / Math.max(1, yLevels.length);
+  const values = filledCells.map((d) => Number(d.value || 0));
+  const maxAbsValue = Math.max(1, ...values.map((v) => Math.abs(v)));
+  const minValue = -maxAbsValue;
+  const maxValue = maxAbsValue;
+
+  const yForValue = (v: number) => {
+  const raw = plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
+  return Math.max(plotTop, Math.min(plotTop + plotHeight, raw));
+};
 
   return (
     <ExpandableCard>
@@ -103,15 +136,12 @@ export default function GammaHeatmap() {
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="block">
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={getColor(minValue)} />
-              <stop offset="50%" stopColor={getColor((minValue + maxValue) / 2)} />
-              <stop offset="100%" stopColor={getColor(maxValue)} />
+              <stop offset="0%" stopColor={getColor(minValue, maxAbsValue)} />
+              <stop offset="50%" stopColor={getColor((minValue + maxValue) / 2, maxAbsValue)} />
+              <stop offset="100%" stopColor={getColor(maxValue, maxAbsValue)} />
             </linearGradient>
-            <filter id="heatmapSmooth" x="-8%" y="-8%" width="116%" height="116%">
-              <feGaussianBlur stdDeviation="1.2" />
-            </filter>
             <clipPath id="heatmapClip">
-              <rect x={plotLeft + 2} y={plotTop + 2} width={Math.max(0, plotWidth - 4)} height={Math.max(0, plotHeight - 4)} />
+              <rect x={plotLeft} y={plotTop} width={Math.max(0, plotWidth)} height={Math.max(0, plotHeight)} />
             </clipPath>
           </defs>
 
@@ -120,63 +150,69 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
 
-          {derived.strikes.map((strike, idx) => (
-            <text key={`y-${strike}`} x={plotLeft - 6} y={idx * cellHeight + cellHeight / 2 + plotTop} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${strike.toFixed(0)}</text>
-          ))}
+          {yLevels.map((level, idx) => {
+            if (idx % yLabelStep !== 0) return null;
+            return (
+              <text key={`y-${level}`} x={plotLeft - 6} y={yForValue(level)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${level.toFixed(0)}</text>
+            );
+          })}
 
-          <g filter="url(#heatmapSmooth)" clipPath="url(#heatmapClip)">
-            {derived.cells.map((cell, idx) => {
+          <g clipPath="url(#heatmapClip)">
+            {filledCells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
-              const yPos = derived.strikes.indexOf(cell.y) * cellHeight + plotTop;
+              const yPos = yForValue(cell.y) - cellHeight / 2 - 0.5;
               return (
                 <rect
                   key={idx}
                   x={xPos}
                   y={yPos}
                   width={cellWidth}
-                  height={cellHeight}
-                  fill={getColor(cell.value)}
-                  opacity={0.98}
+                  height={cellHeight + 1}
+                  fill={getColor(cell.value, maxAbsValue)}
+                  opacity={1}
                 />
               );
             })}
           </g>
 
-          {derived.timestamps.map((ts, idx) => {
-            const row = priceByTs.get(ts);
-            if (!row) return null;
-            const open = Number(row.open ?? row.close ?? 0);
-            const high = Number(row.high ?? row.close ?? open);
-            const low = Number(row.low ?? row.close ?? open);
-            const close = Number(row.close ?? open);
-            const x = idx * cellWidth + plotLeft + cellWidth / 2;
-            const up = close >= open;
-            const c = up ? colors.bullish : colors.bearish;
-            const openY = yForPrice(open);
-            const closeY = yForPrice(close);
-            const highY = yForPrice(high);
-            const lowY = yForPrice(low);
-            const bodyY = Math.min(openY, closeY);
-            const bodyBottom = Math.max(openY, closeY);
-            const bodyHeight = Math.max(1, bodyBottom - bodyY);
-            const candleWidth = Math.max(2, Math.min(8, cellWidth * 0.42));
 
-            return (
-              <g key={`candle-${ts}`}>
-                <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.5} opacity={0.95} />
-                <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.5} opacity={0.95} />
-                <rect
-                  x={x - candleWidth / 2}
-                  y={bodyY}
-                  width={candleWidth}
-                  height={bodyHeight}
-                  fill={c}
-                  stroke={c}
-                  strokeWidth={1.4}
-                />
-              </g>
-            );
-          })}
+          <g clipPath="url(#heatmapClip)">
+            {derived.timestamps.map((ts, idx) => {
+              const row = priceByTs.get(ts);
+              if (!row) return null;
+              const open = Number(row.open ?? row.close ?? 0);
+              const high = Number(row.high ?? row.close ?? open);
+              const low = Number(row.low ?? row.close ?? open);
+              const close = Number(row.close ?? open);
+              const x = idx * cellWidth + plotLeft + cellWidth / 2;
+              const up = close >= open;
+              const c = up ? colors.bullish : colors.bearish;
+              const openY = yForValue(open);
+              const closeY = yForValue(close);
+              const highY = yForValue(high);
+              const lowY = yForValue(low);
+              const bodyY = Math.min(openY, closeY);
+              const bodyBottom = Math.max(openY, closeY);
+              const bodyHeight = Math.max(1, bodyBottom - bodyY);
+              const candleWidth = Math.max(2, Math.min(8, cellWidth * 0.42));
+
+              return (
+                <g key={`candle-${ts}`}>
+                  <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                  <line x1={x} x2={x} y1={bodyBottom} y2={lowY} stroke={c} strokeWidth={1.5} opacity={0.95} />
+                  <rect
+                    x={x - candleWidth / 2}
+                    y={bodyY}
+                    width={candleWidth}
+                    height={bodyHeight}
+                    fill={c}
+                    stroke={c}
+                    strokeWidth={1.4}
+                  />
+                </g>
+              );
+            })}
+          </g>
 
           {derived.timestamps.map((timestamp, idx) => {
             const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;

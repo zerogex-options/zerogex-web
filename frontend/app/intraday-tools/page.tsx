@@ -6,12 +6,9 @@
 'use client';
 
 import { useApiData } from '@/hooks/useApiData';
-import { Info } from 'lucide-react';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 
@@ -133,17 +130,6 @@ export default function IntradayToolsPage() {
   const vwap = vwapData?.[0];
   const orb = orbData?.[0];
   const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || "");
-  const divergenceChart = omitClosedMarketTimes((divergenceMarketRows || []).slice().reverse().map((signal) => {
-    const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
-    return {
-      time: timestamp
-        ? new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-        : '--:--',
-      priceChange: Number(signal.price_change_5min || 0),
-      netVolumeK: Number(signal.net_volume || 0) / 1000,
-      timestamp,
-    };
-  }), (row) => row.timestamp);
 
 
   if ((vwapLoading || orbLoading) && !vwapData && !orbData) {
@@ -296,7 +282,7 @@ export default function IntradayToolsPage() {
           </div>
         ) : (
           <div className="bg-[#423d3f] rounded-lg p-6">
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {volumeSpikes.map((spike, idx) => (
                 <div key={idx} className="flex items-center justify-between border-b border-gray-800 pb-3">
                   <div>
@@ -319,34 +305,13 @@ export default function IntradayToolsPage() {
       {/* Momentum Divergence */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
-        {divergenceChart.length > 0 && (
-          <div className="bg-[#423d3f] rounded-lg p-6 mb-4">
-            <div className="flex items-center gap-2 mb-3"><h3 className="text-lg font-semibold">Momentum Divergence Trend</h3><TooltipWrapper text="This chart plots short-horizon price change vs net directional volume from /api/trading/momentum-divergence. Price change is computed over 5 minutes; net volume is buy-minus-sell style flow. Persistent divergence between the two can signal weakening momentum or reversal risk."><Info size={14} /></TooltipWrapper></div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px]">
-                <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={divergenceChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
-                <XAxis dataKey="time" stroke="#f2f2f2" />
-                <YAxis yAxisId="left" stroke="#f2f2f2" />
-                <YAxis yAxisId="right" orientation="right" stroke="#f2f2f2" />
-                <Tooltip />
-                <Legend />
-                <Line yAxisId="left" dataKey="priceChange" name="5m Price Change ($)" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" dataKey="netVolumeK" name="Net Volume (K)" stroke="#60a5fa" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        )}
         {!divergenceMarketRows || divergenceMarketRows.length === 0 ? (
           <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
             No divergence signals
           </div>
         ) : (
           <div className="bg-[#423d3f] rounded-lg p-6">
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {divergenceMarketRows.map((signal, idx) => {
                 const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
                 const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
