@@ -48,6 +48,7 @@ export default function Navigation({ theme }: NavigationProps) {
 
   const pages = [
     { id: "/", label: "DASHBOARD" },
+    { id: "/trading-signals", label: "TRADING SIGNALS" },
     { id: "/flow-analysis", label: "FLOW ANALYSIS" },
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },

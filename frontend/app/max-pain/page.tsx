@@ -157,6 +157,9 @@ export default function MaxPainPage() {
       oiChart[0].strike)
     : currentUnderlying;
 
+  const markerSeparation = Math.abs(safeNum(activeExpiration?.max_pain || currentMaxPain) - underlyingStrikeMarker);
+  const labelsNeedExtraOffset = markerSeparation <= 5;
+
   const filteredMaxPainRows = omitClosedMarketTimes(maxPainSeries || [], (row) => row.timestamp || "");
   const filteredPriceRows = omitClosedMarketTimes(priceSeries || [], (row) => row.timestamp);
 
@@ -287,7 +290,12 @@ export default function MaxPainPage() {
                 stroke={colors.primary}
                 strokeDasharray="6 4"
                 strokeWidth={2}
-                label={{ value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`, fill: textColor, position: "insideTopLeft" }}
+                label={{
+                  value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`,
+                  fill: textColor,
+                  position: "insideTopLeft",
+                  dy: labelsNeedExtraOffset ? 0 : 8,
+                }}
               />
               <ReferenceLine
                 ifOverflow="extendDomain"
@@ -295,7 +303,12 @@ export default function MaxPainPage() {
                 stroke={"#60a5fa"}
                 strokeDasharray="6 4"
                 strokeWidth={2}
-                label={{ value: `Underlying $${currentUnderlying.toFixed(2)}`, fill: textColor, position: "insideTopRight" }}
+                label={{
+                  value: `Underlying $${currentUnderlying.toFixed(2)}`,
+                  fill: textColor,
+                  position: "insideTopRight",
+                  dy: labelsNeedExtraOffset ? 22 : 8,
+                }}
               />
               <Bar dataKey="callNotionalM" name="Call Notional" fill={colors.bullish} />
               <Bar dataKey="putNotionalM" name="Put Notional" fill={colors.bearish} />

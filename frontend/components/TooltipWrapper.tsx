@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Info } from "lucide-react";
 import { colors } from "@/core/colors";
 import { useExpandedCard } from "./ExpandableCard";
@@ -20,20 +20,13 @@ export default function TooltipWrapper({
   const [position, setPosition] = useState<"left" | "right" | "center">(
     "center",
   );
-  const [coords, setCoords] = useState({ top: 0, left: 0, right: 0 });
   const buttonRef = useRef<HTMLDivElement>(null);
   const expanded = useExpandedCard();
 
-  useEffect(() => {
-    if (show && buttonRef.current) {
+  const handleMouseEnter = () => {
+    if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const windowWidth = window.innerWidth;
-
-      setCoords({
-        top: rect.bottom + 8,
-        left: rect.left + rect.width / 2,
-        right: windowWidth - rect.right,
-      });
 
       if (rect.left < windowWidth / 3) {
         setPosition("right");
@@ -43,7 +36,8 @@ export default function TooltipWrapper({
         setPosition("center");
       }
     }
-  }, [show]);
+    setShow(true);
+  };
 
   if (expanded && inlineInExpanded) {
     return (
@@ -63,8 +57,8 @@ export default function TooltipWrapper({
 
   const getTooltipStyle = () => {
     const baseStyle = {
-      position: "fixed" as const,
-      top: `${coords.top}px`,
+      position: "absolute" as const,
+      top: "calc(100% + 8px)",
       zIndex: 2147483647,
       width: "280px",
       backgroundColor: colors.cardDark,
@@ -79,14 +73,14 @@ export default function TooltipWrapper({
     };
 
     if (position === "left") {
-      return { ...baseStyle, right: `${coords.right}px` };
+      return { ...baseStyle, right: 0 };
     }
     if (position === "right") {
-      return { ...baseStyle, left: `${Math.max(8, coords.left - 16)}px` };
+      return { ...baseStyle, left: 0 };
     }
     return {
       ...baseStyle,
-      left: `${coords.left}px`,
+      left: "50%",
       transform: "translateX(-50%)",
     };
   };
@@ -97,7 +91,7 @@ export default function TooltipWrapper({
       style={{ position: "relative", display: "inline-block" }}
     >
       <button
-        onMouseEnter={() => setShow(true)}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setShow(false)}
         className="inline-flex items-center opacity-60 hover:opacity-100 transition-opacity duration-200"
         style={{

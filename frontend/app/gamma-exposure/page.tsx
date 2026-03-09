@@ -24,7 +24,17 @@ export default function GammaExposurePage() {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
   }
 
-  const strikeChart = (gexByStrike || []).map((row) => ({ strike: row.strike, netGexM: row.net_gex / 1000000 }));
+  const strikeChart = Object.values(
+    (gexByStrike || []).reduce<Record<string, { strike: number; netGexM: number }>>((acc, row) => {
+      const strike = Number(row.strike);
+      const key = strike.toFixed(2);
+      if (!acc[key]) {
+        acc[key] = { strike, netGexM: 0 };
+      }
+      acc[key].netGexM += row.net_gex / 1000000;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.strike - b.strike);
   const quoteVolume = quoteData?.volume ?? 0;
   const formatLarge = (value: number) => {
     const abs = Math.abs(value);
@@ -55,7 +65,7 @@ export default function GammaExposurePage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Strike-by-strike net gamma bars from /api/gex/by-strike. Values above zero indicate positive net gamma; below zero indicate negative net gamma. Clusters reveal potential hedging pressure zones around key strikes." />
         {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeChart.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM">{strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}</Bar></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" barSize={10}>{strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}</Bar></BarChart></ResponsiveContainer>
         )}
       </section>
     </div>

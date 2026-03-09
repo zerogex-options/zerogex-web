@@ -69,6 +69,59 @@ interface UseApiDataOptions {
   onError?: (error: string) => void;
 }
 
+export type SignalTimeframe = 'intraday' | 'swing' | 'multi_day';
+
+interface SignalComponent {
+  name: string;
+  weight: number;
+  score: number;
+  description: string;
+  value?: number | null;
+  applicable?: boolean;
+}
+
+interface TradeIdea {
+  trade_type: string;
+  rationale: string;
+  target_expiry: string;
+  suggested_strikes: string;
+  estimated_win_pct: number;
+}
+
+export interface TradeSignalResponse {
+  symbol: string;
+  timeframe: SignalTimeframe;
+  timestamp: string;
+  current_price: number;
+  composite_score: number;
+  max_possible_score: number;
+  normalized_score: number;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  strength: 'high' | 'medium' | 'low';
+  estimated_win_pct: number;
+  components: SignalComponent[];
+  trade_idea: TradeIdea;
+  net_gex?: number | null;
+  gamma_flip?: number | null;
+  price_vs_flip?: number | null;
+  vwap?: number | null;
+  vwap_deviation_pct?: number | null;
+  put_call_ratio?: number | null;
+  dealer_net_delta?: number | null;
+  smart_money_direction?: 'bullish' | 'bearish' | 'neutral' | null;
+  unusual_volume_detected?: boolean;
+  orb_breakout_direction?: 'bullish' | 'bearish' | 'neutral' | null;
+}
+
+export interface SignalAccuracyPoint {
+  strength: string;
+  timeframe: SignalTimeframe;
+  win_rate: number;
+  total_signals: number;
+  wins?: number;
+  losses?: number;
+}
+
 function normalizeNumbers(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(normalizeNumbers);
@@ -171,6 +224,17 @@ export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, timeframe = '1min'
 export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
   return useApiData<{ symbol: string; previous_close: number; timestamp: string }>(
     `/api/market/previous-close?symbol=${symbol}`,
+    { refreshInterval }
+  );
+}
+
+export function useTradeSignal(symbol = 'SPY', timeframe: SignalTimeframe = 'intraday', refreshInterval = 15000) {
+  return useApiData<TradeSignalResponse>(`/api/signals/trade?symbol=${symbol}&timeframe=${timeframe}`, { refreshInterval });
+}
+
+export function useSignalAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
+  return useApiData<SignalAccuracyPoint[] | Record<string, unknown>>(
+    `/api/signals/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
     { refreshInterval }
   );
 }
