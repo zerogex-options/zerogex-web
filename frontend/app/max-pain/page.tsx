@@ -19,6 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
+import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
 import { omitClosedMarketTimes } from "@/core/utils";
@@ -107,10 +108,11 @@ function svgPath(points: Array<{ x: number; y: number }>) {
 }
 
 export default function MaxPainPage() {
-  const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
+  const { symbol, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
   const maxPoints = getMaxDataPoints();
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
+  const [timeseriesTimeframe, setTimeseriesTimeframe] = useState<ChartTimeframe>("5min");
 
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
 
@@ -120,12 +122,12 @@ export default function MaxPainPage() {
   );
 
   const { data: maxPainSeries, loading: seriesLoading, error: seriesError } = useApiData<MaxPainTimeRow[]>(
-    `/api/max-pain/timeseries?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/max-pain/timeseries?symbol=${symbol}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
     { refreshInterval: 10000 },
   );
 
   const { data: priceSeries } = useApiData<MarketHistoryRow[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
     { refreshInterval: 10000 },
   );
 
@@ -319,6 +321,7 @@ export default function MaxPainPage() {
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
         <SectionTitle title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
+        <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} />
         {seriesError ? (
           <ErrorMessage message={seriesError} />
         ) : seriesChart.length === 0 ? (

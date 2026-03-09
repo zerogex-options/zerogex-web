@@ -1,7 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApiData } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -11,6 +11,7 @@ import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { omitClosedMarketTimes } from '@/core/utils';
+import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
@@ -18,7 +19,8 @@ interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?
 
 export default function GammaHeatmap() {
   const { theme } = useTheme();
-  const { getMaxDataPoints, timeframe, symbol } = useTimeframe();
+  const { getMaxDataPoints, symbol } = useTimeframe();
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
@@ -132,6 +134,8 @@ export default function GammaHeatmap() {
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
           <TooltipWrapper text="Relative heatmap scale for net GEX in the currently visible window."><Info size={14} /></TooltipWrapper>
         </div>
+
+        <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />
 
         <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="block">
           <defs>
