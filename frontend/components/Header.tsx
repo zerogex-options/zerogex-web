@@ -23,12 +23,10 @@ interface HeaderProps {
   theme: Theme;
 }
 
-type TimeframeValue = "1min" | "5min" | "15min" | "1hr" | "1day";
-
 export default function Header({ theme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { timeframe, setTimeframe, symbol, setSymbol } = useTimeframe();
+  const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -179,25 +177,6 @@ export default function Header({ theme }: HeaderProps) {
                     <option>SPX</option>
                     <option>QQQ</option>
                     <option>IWM</option>
-                  </select>
-
-                  <select
-                    value={timeframe}
-                    onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
-                    className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
-                    style={{
-                      backgroundColor:
-                        theme === "dark" ? colors.cardDark : colors.cardLight,
-                      borderColor: colors.muted,
-                      color: theme === "dark" ? colors.light : colors.dark,
-                      width: "90px",
-                    }}
-                  >
-                    <option value="1min">1 Min</option>
-                    <option value="5min">5 Min</option>
-                    <option value="15min">15 Min</option>
-                    <option value="1hr">1 Hour</option>
-                    <option value="1day">1 Day</option>
                   </select>
                 </div>
 
@@ -360,25 +339,6 @@ export default function Header({ theme }: HeaderProps) {
                       <option>SPX</option>
                       <option>QQQ</option>
                       <option>IWM</option>
-                    </select>
-
-                    <select
-                      value={timeframe}
-                      onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
-                      className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
-                      style={{
-                        backgroundColor:
-                          theme === "dark" ? colors.cardDark : colors.cardLight,
-                        borderColor: colors.muted,
-                        color: theme === "dark" ? colors.light : colors.dark,
-                        width: "120px",
-                      }}
-                    >
-                      <option value="1min">1 Min</option>
-                      <option value="5min">5 Min</option>
-                      <option value="15min">15 Min</option>
-                      <option value="1hr">1 Hour</option>
-                      <option value="1day">1 Day</option>
                     </select>
                   </div>
 
@@ -547,24 +507,6 @@ export default function Header({ theme }: HeaderProps) {
                   <option>SPX</option>
                   <option>QQQ</option>
                   <option>IWM</option>
-                </select>
-
-                <select
-                  value={timeframe}
-                  onChange={(e) => setTimeframe(e.target.value as TimeframeValue)}
-                  className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
-                  style={{
-                    backgroundColor:
-                      theme === "dark" ? colors.cardDark : colors.cardLight,
-                    borderColor: colors.muted,
-                    color: theme === "dark" ? colors.light : colors.dark,
-                  }}
-                >
-                  <option value="1min">1 Min</option>
-                  <option value="5min">5 Min</option>
-                  <option value="15min">15 Min</option>
-                  <option value="1hr">1 Hour</option>
-                  <option value="1day">1 Day</option>
                 </select>
               </div>
 

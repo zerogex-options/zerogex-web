@@ -2,12 +2,20 @@ import { MarketSession } from './types';
 
 export const getMarketSession = (): MarketSession => {
   const now = new Date();
-  const day = now.getDay();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const weekday = parts.find((p) => p.type === 'weekday')?.value;
+  const hours = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minutes = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
   const time = hours * 60 + minutes;
 
-  if (day === 0 || day === 6) return 'closed-weekend';
+  if (weekday === 'Sat' || weekday === 'Sun') return 'closed-weekend';
 
   const marketOpen = 9 * 60 + 30;
   const marketClose = 16 * 60;

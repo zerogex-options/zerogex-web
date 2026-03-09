@@ -57,6 +57,19 @@ interface UnderlyingPoint {
 }
 
 
+
+type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
+
+const CHART_TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
+  { value: "1min", label: "1 Min" },
+  { value: "5min", label: "5 Min" },
+  { value: "15min", label: "15 Min" },
+  { value: "1hr", label: "1 Hour" },
+  { value: "1day", label: "1 Day" },
+];
+
+const getWindowUnitsForTimeframe = (maxPoints: number) => Math.max(1, Math.min(90, maxPoints));
+
 interface PutCallRatioRow {
   timestamp: string;
   ratio: number;
@@ -156,7 +169,12 @@ function normalizeSignedFlow(totalPremium: number, netPremium: number, totalVolu
   const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
   const derivedNetVolume = Number.isFinite(netVolume)
     ? netVolume
-    : Math.max(-totalVolume, Math.min(totalVolume, totalVolume));
+    : Math.round(
+        Math.max(
+          -totalVolume,
+          Math.min(totalVolume, totalVolume * ((netPremium || 0) / Math.max(1, totalPremium || 0))),
+        ),
+      );
 
   return {
     callPremium,
@@ -404,6 +422,31 @@ function getDateMarkerMeta(timestamps: string[]) {
   return indexToLabel;
 }
 
+
+function TimeframeSelector({
+  value,
+  onChange,
+}: {
+  value: ChartTimeframe;
+  onChange: (value: ChartTimeframe) => void;
+}) {
+  return (
+    <div className="mb-4 flex justify-end">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as ChartTimeframe)}
+        className="px-3 py-2 rounded-lg border text-sm font-semibold bg-[#2f2b2d] border-gray-600 text-gray-200"
+      >
+        {CHART_TIMEFRAME_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
@@ -533,31 +576,45 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
+  const { getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const windowUnits = Math.max(1, Math.min(90, maxPoints));
+
+  const [optionsFlowTimeframe, setOptionsFlowTimeframe] = useState<ChartTimeframe>("5min");
+  const [expirationTimeframe, setExpirationTimeframe] = useState<ChartTimeframe>("5min");
+  const [strikeTimeframe, setStrikeTimeframe] = useState<ChartTimeframe>("5min");
+  const [ratioTimeframe, setRatioTimeframe] = useState<ChartTimeframe>("5min");
+
+  const optionsWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const expirationWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const strikeWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const ratioWindowUnits = getWindowUnitsForTimeframe(maxPoints);
 
   const {
     data: flowByType,
     loading: flowLoading,
     error: flowError,
   } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
+    `/api/flow/by-type?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
     { refreshInterval: 5000 },
   );
 
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${expirationTimeframe}&window_units=${expirationWindowUnits}&limit=50000`,
     { refreshInterval: 5000 },
   );
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    `/api/flow/by-strike?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}&limit=50000`,
     { refreshInterval: 5000 },
   );
 
   const { data: underlyingHistory } = useApiData<UnderlyingPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
+    { refreshInterval: 5000 },
+  );
+
+  const { data: ratioFlowByType } = useApiData<FlowByTypePoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&timeframe=${ratioTimeframe}&window_units=${ratioWindowUnits}`,
     { refreshInterval: 5000 },
   );
 
@@ -627,24 +684,18 @@ export default function FlowAnalysisPage() {
 
   const expirationSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints);
-    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [expirationRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(base, underlyingHistory || []);
+  }, [expirationRowsFiltered, maxPoints, underlyingHistory]);
 
   const strikeSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints);
-    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [strikeRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(base, underlyingHistory || []);
+  }, [strikeRowsFiltered, maxPoints, underlyingHistory]);
 
-  const putCallRatioSeries = useMemo(() => {
-    const base = buildPutCallRatioSeries(flowByType || [], maxPoints);
-    const byTs = new Map(base.map((r) => [r.timestamp, r.ratio]));
-    return timelineTimestamps.map((timestamp) => ({
-      timestamp,
-      ratio: byTs.get(timestamp) ?? 0,
-    }));
-  }, [flowByType, maxPoints, timelineTimestamps]);
+  const putCallRatioSeries = useMemo(
+    () => buildPutCallRatioSeries(ratioFlowByType || [], maxPoints),
+    [ratioFlowByType, maxPoints],
+  );
 
 
   const ratioDateMarkerMeta = useMemo(
@@ -732,6 +783,7 @@ export default function FlowAnalysisPage() {
           title="Options Flow"
           tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero."
         />
+        <TimeframeSelector value={optionsFlowTimeframe} onChange={setOptionsFlowTimeframe} />
         <FullWidthFlowChart rows={mainSeries} />
       </section>
 
@@ -747,6 +799,7 @@ export default function FlowAnalysisPage() {
           label="Expirations"
         />
         {expirationError && <ErrorMessage message={expirationError} />}
+        <TimeframeSelector value={expirationTimeframe} onChange={setExpirationTimeframe} />
         <FullWidthFlowChart rows={expirationSeries} />
       </section>
 
@@ -762,6 +815,7 @@ export default function FlowAnalysisPage() {
           label="Strikes"
         />
         {strikeError && <ErrorMessage message={strikeError} />}
+        <TimeframeSelector value={strikeTimeframe} onChange={setStrikeTimeframe} />
         <FullWidthFlowChart rows={strikeSeries} />
       </section>
 
@@ -770,6 +824,7 @@ export default function FlowAnalysisPage() {
           title="Put/Call Ratio"
           tooltip="Put/call volume ratio over time using the selected timeframe."
         />
+        <TimeframeSelector value={ratioTimeframe} onChange={setRatioTimeframe} />
         {putCallRatioSeries.length === 0 ? (
           <div className="text-gray-400 text-center py-8">No put/call ratio data available</div>
         ) : (
@@ -804,7 +859,6 @@ export default function FlowAnalysisPage() {
                 labelFormatter={(value) => new Date(String(value)).toLocaleString()}
                 formatter={(value) => [Number(value ?? 0).toFixed(2), "Put/Call Ratio"]}
               />
-              <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
               <Line
                 type="monotone"
                 dataKey="ratio"
