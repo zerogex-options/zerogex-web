@@ -57,7 +57,7 @@ export default function TooltipWrapper({
 
   const getTooltipStyle = () => {
     const baseStyle = {
-      position: "fixed" as const,
+      position: "absolute" as const,
       top: "calc(100% + 8px)",
       zIndex: 2147483647,
       width: "280px",
