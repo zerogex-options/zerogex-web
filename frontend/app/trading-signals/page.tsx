@@ -89,13 +89,15 @@ export default function TradingSignalsPage() {
   const { symbol, timeframe } = useTimeframe();
   const [lookbackDays, setLookbackDays] = useState(30);
 
-  const signalTimeframe: SignalTimeframe = useMemo(() => {
+  const getDefaultSignalTimeframe = (): SignalTimeframe => {
     if (timeframe === '1min' || timeframe === '5min') return 'intraday';
     if (timeframe === '15min' || timeframe === '1hr') return 'swing';
     return 'multi_day';
-  }, [timeframe]);
+  };
 
-  const { data: signal, loading: signalLoading, error: signalError, refetch } = useTradeSignal(symbol, signalTimeframe);
+  const [selectedSignalTimeframe, setSelectedSignalTimeframe] = useState<SignalTimeframe>(getDefaultSignalTimeframe);
+
+  const { data: signal, loading: signalLoading, error: signalError, refetch } = useTradeSignal(symbol, selectedSignalTimeframe);
   const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = useSignalAccuracy(symbol, lookbackDays, 60000);
 
   const accuracyRows = useMemo(() => parseAccuracyRows(accuracyPayload ?? null), [accuracyPayload]);
@@ -119,13 +121,13 @@ export default function TradingSignalsPage() {
 
   const accuracyChartData = useMemo(() => {
     return accuracyRows
-      .filter((row) => row.timeframe === signalTimeframe)
+      .filter((row) => row.timeframe === selectedSignalTimeframe)
       .map((row) => ({
         bucket: titleCase(row.strength),
         winRate: Number((row.win_rate * 100).toFixed(1)),
         samples: row.total_signals,
       }));
-  }, [accuracyRows, signalTimeframe]);
+  }, [accuracyRows, selectedSignalTimeframe]);
 
   const indicatorRows: IndicatorRow[] = useMemo(() => {
     if (!signal) return [];
@@ -183,6 +185,28 @@ export default function TradingSignalsPage() {
       <h1 className="text-3xl font-bold mb-2">Trading Signals</h1>
       <p className="text-gray-400 mb-8">Actionable options trade signals powered by composite analytics.</p>
 
+      <section className="mb-6">
+        <div className="inline-flex rounded-xl border border-slate-700 bg-[#302c2d] p-1">
+          {(['intraday', 'swing', 'multi_day'] as SignalTimeframe[]).map((tf) => {
+            const isActive = selectedSignalTimeframe === tf;
+            return (
+              <button
+                key={tf}
+                onClick={() => setSelectedSignalTimeframe(tf)}
+                className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+                style={{
+                  backgroundColor: isActive ? '#1f2937' : 'transparent',
+                  color: isActive ? '#e2e8f0' : '#94a3b8',
+                }}
+                type="button"
+              >
+                {timeframeLabels[tf]}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {signalError && <ErrorMessage message={signalError} onRetry={refetch} />}
       {accuracyError && <ErrorMessage message={accuracyError} />}
 
@@ -200,7 +224,7 @@ export default function TradingSignalsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
             <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-amber-400" size={22} /> Suggested Trade Idea</h2>
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-900/50 text-emerald-300 border border-emerald-700/60">
-              {timeframeLabels[signalTimeframe]} Setup
+              {timeframeLabels[selectedSignalTimeframe]} Setup
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -231,7 +255,7 @@ export default function TradingSignalsPage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-300" />Signal Components</h2>
-          <div className="text-sm text-gray-400">Timeframe: {timeframeLabels[signalTimeframe]}</div>
+          <div className="text-sm text-gray-400">Timeframe: {timeframeLabels[selectedSignalTimeframe]}</div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="h-80 rounded-xl border border-slate-700 bg-black/20 p-3">
