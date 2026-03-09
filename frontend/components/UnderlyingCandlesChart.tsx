@@ -174,17 +174,17 @@ export default function UnderlyingCandlesChart() {
   return (
     <ExpandableCard>
       <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
             {quote?.symbol || "Underlying"} Price Action
           </h2>
           <TooltipWrapper text="Hollow OHLC candles aggregated to selected interval. Volume bars are stacked by up volume (green) and down volume (red).">
             <Info size={14} />
           </TooltipWrapper>
-        </div>
-        <div className="relative">
+          </div>
           {hovered && (
-            <div className="absolute right-0 top-0 z-10 text-xs rounded px-3 py-2 bg-black/70 text-white font-mono pointer-events-none">
+            <div className="text-xs rounded px-3 py-2 bg-black/50 text-white font-mono pointer-events-none whitespace-nowrap">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}
@@ -197,6 +197,8 @@ export default function UnderlyingCandlesChart() {
               </div>
             </div>
           )}
+        </div>
+        <div className="relative">
           <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
