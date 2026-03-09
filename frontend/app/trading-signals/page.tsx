@@ -240,7 +240,20 @@ export default function TradingSignalsPage() {
                 <PolarGrid stroke="#64748b" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: 12 }} />
                 <Radar name="Score" dataKey="scorePct" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.45} />
-                <Tooltip formatter={(value: number, _name, payload) => [`${value.toFixed(1)}%`, payload?.payload?.subject || 'Component']} />
+                <Tooltip
+                  formatter={(value, _name, item) => {
+                    const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                    const subject =
+                      item &&
+                      typeof item.payload === 'object' &&
+                      item.payload !== null &&
+                      'subject' in item.payload
+                        ? String((item.payload as { subject?: string }).subject ?? 'Component')
+                        : 'Component';
+
+                    return [`${numericValue.toFixed(1)}%`, subject];
+                  }}
+                />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -287,7 +300,20 @@ export default function TradingSignalsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#555" />
               <XAxis dataKey="bucket" stroke="#ccc" />
               <YAxis stroke="#ccc" domain={[0, 100]} unit="%" />
-              <Tooltip formatter={(value: number, _name, payload) => [`${value.toFixed(1)}%`, `${payload?.payload?.samples ?? 0} samples`]} />
+              <Tooltip
+                formatter={(value, _name, item) => {
+                  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                  const sampleCount =
+                    item &&
+                    typeof item.payload === 'object' &&
+                    item.payload !== null &&
+                    'samples' in item.payload
+                      ? Number((item.payload as { samples?: number }).samples ?? 0)
+                      : 0;
+
+                  return [`${numericValue.toFixed(1)}%`, `${sampleCount} samples`];
+                }}
+              />
               <Line type="monotone" dataKey="winRate" stroke="#34d399" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
