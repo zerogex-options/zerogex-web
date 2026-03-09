@@ -85,6 +85,23 @@ function safeTimeLabel(value?: string) {
       });
 }
 
+function getNewYorkDateKey(date: Date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date);
+}
+
+function isActiveExpiration(expiration?: string, todayKey: string = getNewYorkDateKey()) {
+  if (!expiration) return false;
+  const normalized = expiration.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return true;
+  return normalized >= todayKey;
+}
+
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -580,7 +597,7 @@ export default function FlowAnalysisPage() {
 
   const expirationOptions = useMemo(
     () =>
-      Array.from(new Set((flowByExpiration || []).map((r) => r.expiration).filter(Boolean))).sort(),
+      Array.from(new Set((flowByExpiration || []).map((r) => r.expiration).filter((value) => isActiveExpiration(value)))).sort(),
     [flowByExpiration],
   );
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
@@ -596,9 +613,11 @@ export default function FlowAnalysisPage() {
 
   const expirationRowsFiltered = useMemo(() => {
     const source = flowByExpiration || [];
-    if (selectedExpirations.size === 0) return source;
-    return source.filter((r) => selectedExpirations.has(r.expiration));
-  }, [flowByExpiration, selectedExpirations]);
+    const available = new Set(expirationOptions);
+    const activeSelection = new Set(Array.from(selectedExpirations).filter((value) => available.has(value)));
+    if (activeSelection.size === 0) return source.filter((r) => available.has(r.expiration));
+    return source.filter((r) => activeSelection.has(r.expiration));
+  }, [flowByExpiration, selectedExpirations, expirationOptions]);
 
   const strikeRowsFiltered = useMemo(() => {
     const source = flowByStrike || [];
