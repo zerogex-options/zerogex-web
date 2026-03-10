@@ -40,6 +40,7 @@ interface GEXStrikeRow {
   timestamp: string;
   symbol: string;
   strike: number;
+  expiration: string;
   call_oi: number;
   put_oi: number;
   call_volume: number;
@@ -47,6 +48,8 @@ interface GEXStrikeRow {
   call_gex: number;
   put_gex: number;
   net_gex: number;
+  vanna_exposure?: number | null;
+  charm_exposure?: number | null;
   spot_price: number;
   distance_from_spot: number;
 }
@@ -205,8 +208,13 @@ export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
   return useApiData<GEXSummaryRow>(`/api/gex/summary?symbol=${symbol}`, { refreshInterval });
 }
 
-export function useGEXByStrike(symbol = 'SPY', limit = 50, refreshInterval = 10000) {
-  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}`, { refreshInterval });
+export function useGEXByStrike(
+  symbol = 'SPY',
+  limit = 50,
+  refreshInterval = 10000,
+  sortBy: 'distance' | 'impact' = 'distance'
+) {
+  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}&sort_by=${sortBy}`, { refreshInterval });
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {

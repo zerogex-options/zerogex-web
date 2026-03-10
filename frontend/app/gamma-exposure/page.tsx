@@ -1,7 +1,20 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { useGEXSummary, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -14,27 +27,87 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return <div className="flex items-center gap-2 mb-4"><h2 className="text-2xl font-semibold">{title}</h2><TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper></div>;
 }
 
+type StrikeAggregate = {
+  strike: number;
+  distanceFromSpot: number;
+  netGexM: number;
+  callOi: number;
+  putOi: number;
+  callVolume: number;
+  putVolume: number;
+  vannaM: number;
+  charmM: number;
+};
+
+type SortKey = keyof StrikeAggregate;
+
 export default function GammaExposurePage() {
   const { symbol } = useTimeframe();
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 40, 10000);
+  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
+
+  const expirationOptions = useMemo(() => {
+    const unique = new Set((gexByStrike || []).map((row) => String(row.expiration)));
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [gexByStrike]);
+
+  const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('strike');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const strikeData = useMemo(() => {
+    const selected = selectedExpirations && selectedExpirations.length > 0 ? selectedExpirations : expirationOptions;
+    const activeExpirations = new Set(selected);
+    const filteredSource = (gexByStrike || []).filter((row) => activeExpirations.has(String(row.expiration)));
+
+    const grouped = new Map<string, StrikeAggregate>();
+    filteredSource.forEach((row) => {
+      const strike = Number(row.strike);
+      const key = strike.toFixed(2);
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          strike,
+          distanceFromSpot: Number(row.distance_from_spot || 0),
+          netGexM: 0,
+          callOi: 0,
+          putOi: 0,
+          callVolume: 0,
+          putVolume: 0,
+          vannaM: 0,
+          charmM: 0,
+        });
+      }
+
+      const current = grouped.get(key)!;
+      current.netGexM += Number(row.net_gex || 0) / 1000000;
+      current.callOi += Number(row.call_oi || 0);
+      current.putOi += Number(row.put_oi || 0);
+      current.callVolume += Number(row.call_volume || 0);
+      current.putVolume += Number(row.put_volume || 0);
+      current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
+      current.charmM += Number(row.charm_exposure || 0) / 1000000;
+      current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
+  }, [gexByStrike, selectedExpirations, expirationOptions]);
+
+  const sortedRows = useMemo(() => {
+    const cloned = [...strikeData];
+    cloned.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const comparison = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === 'asc' ? comparison : -comparison;
+    });
+    return cloned;
+  }, [strikeData, sortKey, sortDir]);
 
   if (gexLoading && !gexData) {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
   }
 
-  const strikeChart = Object.values(
-    (gexByStrike || []).reduce<Record<string, { strike: number; netGexM: number }>>((acc, row) => {
-      const strike = Number(row.strike);
-      const key = strike.toFixed(2);
-      if (!acc[key]) {
-        acc[key] = { strike, netGexM: 0 };
-      }
-      acc[key].netGexM += row.net_gex / 1000000;
-      return acc;
-    }, {})
-  ).sort((a, b) => a.strike - b.strike);
   const quoteVolume = quoteData?.volume ?? 0;
   const formatLarge = (value: number) => {
     const abs = Math.abs(value);
@@ -42,6 +115,33 @@ export default function GammaExposurePage() {
     if (abs >= 1) return `${value.toFixed(1)}M`;
     return `${(value * 1000).toFixed(0)}K`;
   };
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('desc');
+  };
+
+
+  const renderLegend = () => (
+    <div className="flex flex-wrap items-center gap-5 text-sm text-gray-200">
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-3 w-5 rounded-sm" style={{ background: 'linear-gradient(to right, #f45854 0%, #f45854 50%, #10b981 50%, #10b981 100%)' }} />
+        Net GEX
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-0.5 w-5 bg-[#60a5fa]" />
+        Vanna
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-0.5 w-5 bg-[#facc15]" />
+        Charm
+      </div>
+    </div>
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -63,9 +163,83 @@ export default function GammaExposurePage() {
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
-        <SectionTitle title="Gamma Exposure by Strike" tooltip="Strike-by-strike net gamma bars from /api/gex/by-strike. Values above zero indicate positive net gamma; below zero indicate negative net gamma. Clusters reveal potential hedging pressure zones around key strikes." />
-        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeChart.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" barSize={10}>{strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}</Bar></BarChart></ResponsiveContainer>
+        <SectionTitle title="Gamma Exposure by Strike" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
+          <>
+            <div className="mb-5 flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-gray-300">Expirations:</span>
+              <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">All</button>
+              {expirationOptions.map((exp) => {
+                const active = selectedExpirations === null || selectedExpirations.includes(exp);
+                return (
+                  <button
+                    key={exp}
+                    onClick={() => setSelectedExpirations((current) => {
+                      const base = current === null ? [...expirationOptions] : [...current];
+                      const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
+                      return updated.length === 0 ? null : updated;
+                    })}
+                    className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                  >
+                    {exp}
+                  </button>
+                );
+              })}
+            </div>
+
+            <ResponsiveContainer width="100%" height={390}>
+              <ComposedChart data={sortedRows}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
+                <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+                <YAxis yAxisId="greeks" stroke="#f2f2f2" tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
+                <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
+                <Legend content={renderLegend} />
+                <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
+                {quoteData && <ReferenceLine x={quoteData.close} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Price $${quoteData.close.toFixed(2)}`, position: "top", fill: "#cbd5e1", fontSize: 11 }} />}
+                <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
+                  {sortedRows.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />
+                  ))}
+                </Bar>
+                <Line yAxisId="greeks" type="monotone" dataKey="vannaM" name="Vanna" stroke="#60a5fa" dot={false} strokeWidth={2} />
+                <Line yAxisId="greeks" type="monotone" dataKey="charmM" name="Charm" stroke="#facc15" dot={false} strokeWidth={2} />
+              </ComposedChart>
+            </ResponsiveContainer>
+
+            <div className="overflow-x-auto mt-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700 text-gray-300">
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('netGexM')}>Net GEX</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('vannaM')}>Vanna</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('charmM')}>Charm</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callOi')}>Call OI</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putOi')}>Put OI</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callVolume')}>Call Vol</th>
+                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putVolume')}>Put Vol</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedRows.map((row) => (
+                    <tr key={row.strike} className="border-b border-gray-800">
+                      <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
+                      <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
+                      <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">${row.vannaM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">${row.charmM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>
