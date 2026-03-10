@@ -53,8 +53,8 @@ export default function GammaExposurePage() {
   }, [gexByStrike]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>('netGexM');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortKey, setSortKey] = useState<SortKey>('strike');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const strikeData = useMemo(() => {
     const selected = selectedExpirations && selectedExpirations.length > 0 ? selectedExpirations : expirationOptions;
@@ -192,10 +192,11 @@ export default function GammaExposurePage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
                 <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
                 <YAxis yAxisId="greeks" stroke="#f2f2f2" tickFormatter={(value) => formatLarge(Number(value))} />
-                <YAxis yAxisId="net" orientation="right" stroke="#10b981" domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
+                <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
                 <Legend content={renderLegend} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
+                {quoteData && <ReferenceLine x={quoteData.close} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Price $${quoteData.close.toFixed(2)}`, position: "top", fill: "#cbd5e1", fontSize: 11 }} />}
                 <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
                   {sortedRows.map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />

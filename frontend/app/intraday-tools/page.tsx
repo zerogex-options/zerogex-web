@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -70,6 +70,14 @@ interface SmartMoneyRow {
 
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 
+const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
+
+function classRank(value: string): number {
+  const normalized = (value || '').toLowerCase();
+  const idx = CLASS_RANKING.findIndex((entry) => normalized.includes(entry));
+  return idx === -1 ? 0 : idx;
+}
+
 function extractDivergenceRows(payload: unknown): DivergenceRow[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as DivergenceRow[];
@@ -102,6 +110,7 @@ export default function IntradayToolsPage() {
   const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1min');
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('timestamp');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
+  const [minClass, setMinClass] = useState('all');
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -149,30 +158,38 @@ export default function IntradayToolsPage() {
   const orb = orbData?.[0];
   const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '');
 
+  const classOptions = useMemo(() => {
+    const unique = Array.from(new Set((smartMoneyData || []).map((row) => row.notional_class))).filter(Boolean);
+    return unique.sort((a, b) => classRank(a) - classRank(b));
+  }, [smartMoneyData]);
+
+  const filteredSmartMoneyData = useMemo(() => {
+    if (minClass === 'all') return smartMoneyData || [];
+    const threshold = classRank(minClass);
+    return (smartMoneyData || []).filter((row) => classRank(row.notional_class) >= threshold);
+  }, [smartMoneyData, minClass]);
+
   const smartMoneyOrderShare = useMemo(() => {
-    const rows = (smartMoneyData || [])
+    const rows = filteredSmartMoneyData
       .map((row) => ({
         id: `${row.contract}-${row.timestamp}`,
-        contract: row.contract,
-        strike: Number(row.strike || 0),
+        label: `${String(row.option_type).toUpperCase().includes('CALL') ? 'C' : 'P'} ${Number(row.strike).toFixed(0)} ${row.expiration.slice(5)}`,
         optionType: String(row.option_type || '').toUpperCase(),
         notionalM: Math.abs(Number(row.notional || 0)) / 1000000,
       }))
       .sort((a, b) => b.notionalM - a.notionalM)
-      .slice(0, 10);
+      .slice(0, 12);
 
     const total = rows.reduce((sum, row) => sum + row.notionalM, 0);
-    return rows.map((row, idx) => ({
+    return rows.map((row) => ({
       ...row,
       pct: total > 0 ? (row.notionalM / total) * 100 : 0,
-      color: row.optionType.includes('CALL')
-        ? ['#34d399', '#10b981', '#059669'][idx % 3]
-        : ['#fda4af', '#f87171', '#ef4444'][idx % 3],
+      color: row.optionType.includes('CALL') ? '#34d399' : '#f87171',
     }));
-  }, [smartMoneyData]);
+  }, [filteredSmartMoneyData]);
 
   const sortedSmartMoneyRows = useMemo(() => {
-    const rows = [...(smartMoneyData || [])];
+    const rows = [...filteredSmartMoneyData];
     rows.sort((a, b) => {
       const valueA = a[smartMoneySortKey];
       const valueB = b[smartMoneySortKey];
@@ -182,7 +199,7 @@ export default function IntradayToolsPage() {
       return smartMoneySortDir === 'asc' ? comparison : -comparison;
     });
     return rows;
-  }, [smartMoneyData, smartMoneySortDir, smartMoneySortKey]);
+  }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
 
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
@@ -246,12 +263,21 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Tracks unusual options flow from /api/flow/smart-money. Chart highlights top strikes by total notional, while the table lists raw prints with sortable columns for contract context." >
+          <TooltipWrapper text="Shows which individual order blocks dominate total smart-money notional in the selected window. Bar length = share of total notional for each block." >
             <Info size={14} />
           </TooltipWrapper>
         </h2>
         <div className="bg-[#423d3f] rounded-lg p-6">
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+            <label className="text-sm text-gray-300">
+              Min Class
+              <select className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" value={minClass} onChange={(e) => setMinClass(e.target.value)}>
+                <option value="all">All</option>
+                {classOptions.map((cls) => (
+                  <option key={cls} value={cls}>{cls} +</option>
+                ))}
+              </select>
+            </label>
             <label className="text-sm text-gray-300">
               Timeframe
               <select
@@ -266,35 +292,23 @@ export default function IntradayToolsPage() {
             </label>
           </div>
 
-          {smartMoneyError ? <ErrorMessage message={smartMoneyError} /> : !smartMoneyData || smartMoneyData.length === 0 ? (
+          {smartMoneyError ? <ErrorMessage message={smartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
             <div className="text-gray-400 text-center py-6">No smart money flow data available</div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={320}>
-                <PieChart>
-                  <Pie
-                    data={smartMoneyOrderShare}
-                    dataKey="pct"
-                    nameKey="contract"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={65}
-                    outerRadius={120}
-                    paddingAngle={2}
-                    label={({ payload }) => `${payload.optionType} ${payload.strike.toFixed(0)} · ${payload.pct.toFixed(1)}%`}
-                    labelLine={false}
-                  >
-                    {smartMoneyOrderShare.map((slice) => (
-                      <Cell key={slice.id} fill={slice.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value, _name, item) => {
-                      const payload = item?.payload as { notionalM: number; pct: number } | undefined;
-                      return [`${Number(value ?? 0).toFixed(2)}% of total · $${Number(payload?.notionalM ?? 0).toFixed(2)}M`, 'Order Share'];
-                    }}
-                  />
-                </PieChart>
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={smartMoneyOrderShare} layout="vertical" margin={{ left: 24, right: 24, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
+                  <XAxis type="number" stroke="#f2f2f2" tickFormatter={(v) => `${Number(v).toFixed(1)}%`} />
+                  <YAxis dataKey="label" type="category" stroke="#f2f2f2" width={130} />
+                  <Tooltip formatter={(value, _name, item) => {
+                    const payload = item?.payload as { notionalM?: number } | undefined;
+                    return [`${Number(value ?? 0).toFixed(2)}% of total · $${Number(payload?.notionalM ?? 0).toFixed(2)}M`, 'Order Share'];
+                  }} />
+                  <Bar dataKey="pct" name="Order Share %">
+                    {smartMoneyOrderShare.map((row) => <Cell key={row.id} fill={row.color} />)}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
 
               <div className="overflow-x-auto mt-4">
@@ -313,19 +327,22 @@ export default function IntradayToolsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedSmartMoneyRows.map((row) => (
-                      <tr key={`${row.timestamp}-${row.contract}`} className="border-b border-gray-800">
-                        <td className="py-2 px-2">{new Date(row.timestamp).toLocaleTimeString()}</td>
-                        <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
-                        <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
-                        <td className="py-2 px-2">{row.expiration}</td>
-                        <td className="text-right py-2 px-2">{row.dte}</td>
-                        <td className={`py-2 px-2 ${row.option_type.toLowerCase().includes('call') ? 'text-green-300' : 'text-red-300'}`}>{row.option_type}</td>
-                        <td className="text-right py-2 px-2">{Number(row.flow).toLocaleString()}</td>
-                        <td className="text-right py-2 px-2">${(Number(row.notional) / 1000000).toFixed(2)}M</td>
-                        <td className="py-2 px-2">{row.notional_class} / {row.size_class}</td>
-                      </tr>
-                    ))}
+                    {sortedSmartMoneyRows.map((row) => {
+                      const isCall = String(row.option_type).toLowerCase().includes('call');
+                      return (
+                        <tr key={`${row.timestamp}-${row.contract}`} className="border-b border-gray-800">
+                          <td className="py-2 px-2">{new Date(row.timestamp).toLocaleTimeString()}</td>
+                          <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
+                          <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
+                          <td className="py-2 px-2">{row.expiration}</td>
+                          <td className="text-right py-2 px-2">{row.dte}</td>
+                          <td className={`py-2 px-2 font-semibold ${isCall ? 'text-green-300' : 'text-red-300'}`}>{isCall ? 'C' : 'P'}</td>
+                          <td className="text-right py-2 px-2">{Number(row.flow).toLocaleString()}</td>
+                          <td className="text-right py-2 px-2">${(Number(row.notional) / 1000000).toFixed(2)}M</td>
+                          <td className="py-2 px-2">{row.notional_class} / {row.size_class}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
