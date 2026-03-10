@@ -245,7 +245,7 @@ export default function IntradayToolsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
                   <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
                   <YAxis stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(1)}M`} />
-                  <Tooltip formatter={(value: number) => `$${Number(value).toFixed(2)}M`} />
+                  <Tooltip formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`} />
                   <Bar dataKey="totalNotional" name="Total Notional (M)">
                     {smartMoneyByStrike.map((row) => (
                       <Cell key={row.strike} fill={row.callNotional >= row.putNotional ? '#34d399' : '#f87171'} />
