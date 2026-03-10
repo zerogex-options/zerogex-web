@@ -379,8 +379,8 @@ function attachUnderlyingPrice(
 
 function getUnderlyingDomain(rows: TimeseriesRow[]) {
   const prices = rows
-    .map((r) => Number(r.underlyingPrice))
-    .filter((v) => Number.isFinite(v));
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
 
   if (prices.length === 0) return ['auto', 'auto'] as const;
 
@@ -462,8 +462,8 @@ function getDateMarkerMeta(timestamps: string[]) {
 
 function getDynamicLeftMargin(rows: TimeseriesRow[]) {
   const prices = rows
-    .map((r) => Number(r.underlyingPrice))
-    .filter((v) => Number.isFinite(v));
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
 
   if (prices.length === 0) return 86;
 
