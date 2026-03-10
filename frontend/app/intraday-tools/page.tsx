@@ -29,11 +29,6 @@ interface OpeningRangeRow {
   orb_status: string;
 }
 
-interface GammaLevelRow {
-  strike: number;
-  net_gex: number;
-  gex_level: string;
-}
 
 interface VolumeSpikeRow {
   time_et: string;
@@ -97,10 +92,6 @@ export default function IntradayToolsPage() {
     { refreshInterval: 5000 }
   );
 
-  const { data: gammaLevels } = useApiData<GammaLevelRow[]>(
-    `/api/trading/gamma-levels?symbol=${symbol}&limit=10`,
-    { refreshInterval: 30000 }
-  );
 
   const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
     `/api/trading/volume-spikes?symbol=${symbol}&limit=5`,
@@ -229,47 +220,6 @@ export default function IntradayToolsPage() {
               </div>
             </div>
           </>
-        )}
-      </section>
-
-      {/* Gamma Support/Resistance Levels */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Gamma Exposure Levels</h2>
-        {!gammaLevels || gammaLevels.length === 0 ? (
-          <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
-            No gamma levels available
-          </div>
-        ) : (
-          <div className="bg-[#423d3f] rounded-lg p-6">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-right py-3 px-4">Strike</th>
-                    <th className="text-right py-3 px-4">Net GEX</th>
-                    <th className="text-left py-3 px-4">Level Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gammaLevels.slice(0, 10).map((level, idx) => (
-                    <tr key={idx} className="border-b border-gray-800">
-                      <td className="text-right py-2 px-4 font-mono">
-                        ${level.strike.toFixed(2)}
-                      </td>
-                      <td className={`text-right py-2 px-4 ${
-                        level.net_gex > 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        ${(level.net_gex / 1000000).toFixed(2)}M
-                      </td>
-                      <td className="text-left py-2 px-4 text-sm">
-                        {level.gex_level}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         )}
       </section>
 

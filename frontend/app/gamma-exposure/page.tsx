@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useGEXSummary, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
@@ -14,27 +15,77 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return <div className="flex items-center gap-2 mb-4"><h2 className="text-2xl font-semibold">{title}</h2><TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper></div>;
 }
 
+type StrikeAggregate = {
+  strike: number;
+  spotPrice: number;
+  distanceFromSpot: number;
+  callGexM: number;
+  putGexM: number;
+  netGexM: number;
+  callOi: number;
+  putOi: number;
+  callVolume: number;
+  putVolume: number;
+  vannaM: number;
+  charmM: number;
+  expirations: number;
+};
+
 export default function GammaExposurePage() {
   const { symbol } = useTimeframe();
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 40, 10000);
+  const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
+
+  const strikeData = useMemo(() => {
+    const grouped = new Map<string, StrikeAggregate>();
+
+    (gexByStrike || []).forEach((row) => {
+      const strike = Number(row.strike);
+      const key = strike.toFixed(2);
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          strike,
+          spotPrice: Number(row.spot_price),
+          distanceFromSpot: Number(row.distance_from_spot),
+          callGexM: 0,
+          putGexM: 0,
+          netGexM: 0,
+          callOi: 0,
+          putOi: 0,
+          callVolume: 0,
+          putVolume: 0,
+          vannaM: 0,
+          charmM: 0,
+          expirations: 0,
+        });
+      }
+
+      const current = grouped.get(key)!;
+      current.callGexM += Number(row.call_gex || 0) / 1000000;
+      current.putGexM += Number(row.put_gex || 0) / 1000000;
+      current.netGexM += Number(row.net_gex || 0) / 1000000;
+      current.callOi += Number(row.call_oi || 0);
+      current.putOi += Number(row.put_oi || 0);
+      current.callVolume += Number(row.call_volume || 0);
+      current.putVolume += Number(row.put_volume || 0);
+      current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
+      current.charmM += Number(row.charm_exposure || 0) / 1000000;
+      current.expirations += 1;
+      current.spotPrice = Number(row.spot_price || current.spotPrice);
+      current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
+  }, [gexByStrike]);
+
+  const topRows = [...strikeData].sort((a, b) => Math.abs(b.netGexM) - Math.abs(a.netGexM)).slice(0, 12);
+
 
   if (gexLoading && !gexData) {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
   }
 
-  const strikeChart = Object.values(
-    (gexByStrike || []).reduce<Record<string, { strike: number; netGexM: number }>>((acc, row) => {
-      const strike = Number(row.strike);
-      const key = strike.toFixed(2);
-      if (!acc[key]) {
-        acc[key] = { strike, netGexM: 0 };
-      }
-      acc[key].netGexM += row.net_gex / 1000000;
-      return acc;
-    }, {})
-  ).sort((a, b) => a.strike - b.strike);
   const quoteVolume = quoteData?.volume ?? 0;
   const formatLarge = (value: number) => {
     const abs = Math.abs(value);
@@ -63,9 +114,72 @@ export default function GammaExposurePage() {
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
-        <SectionTitle title="Gamma Exposure by Strike" tooltip="Strike-by-strike net gamma bars from /api/gex/by-strike. Values above zero indicate positive net gamma; below zero indicate negative net gamma. Clusters reveal potential hedging pressure zones around key strikes." />
-        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeChart.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" barSize={10}>{strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}</Bar></BarChart></ResponsiveContainer>
+        <SectionTitle title="Gamma Exposure by Strike" tooltip="Expanded view of /api/gex/by-strike using strike, OI, volume, call/put/net GEX, and vanna/charm exposure across expirations." />
+        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
+          <>
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart data={strikeData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
+                <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+                <YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} />
+                <Tooltip
+                  formatter={(value, name) => {
+                    const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+                    const label = String(name);
+                    if (label.includes('Oi') || label.includes('Volume')) return numeric.toLocaleString();
+                    return `$${numeric.toFixed(2)}M`;
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#f2f2f2" />
+                <Bar dataKey="callGexM" name="Call GEX" fill="#34d399" barSize={6} />
+                <Bar dataKey="putGexM" name="Put GEX" fill="#f87171" barSize={6} />
+                <Bar dataKey="netGexM" name="Net GEX" barSize={10}>
+                  {strikeData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+
+            <div className="overflow-x-auto mt-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700 text-gray-300">
+                    <th className="text-right py-2 px-2">Strike</th>
+                    <th className="text-right py-2 px-2">Dist.</th>
+                    <th className="text-right py-2 px-2">Call GEX</th>
+                    <th className="text-right py-2 px-2">Put GEX</th>
+                    <th className="text-right py-2 px-2">Net GEX</th>
+                    <th className="text-right py-2 px-2">Vanna</th>
+                    <th className="text-right py-2 px-2">Charm</th>
+                    <th className="text-right py-2 px-2">Call OI</th>
+                    <th className="text-right py-2 px-2">Put OI</th>
+                    <th className="text-right py-2 px-2">Call Vol</th>
+                    <th className="text-right py-2 px-2">Put Vol</th>
+                    <th className="text-right py-2 px-2">Exp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topRows.map((row) => (
+                    <tr key={row.strike} className="border-b border-gray-800">
+                      <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
+                      <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
+                      <td className="text-right py-2 px-2 text-green-300">${row.callGexM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2 text-red-300">${row.putGexM.toFixed(2)}M</td>
+                      <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">${row.vannaM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">${row.charmM.toFixed(2)}M</td>
+                      <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{row.expirations}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>
