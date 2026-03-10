@@ -60,6 +60,23 @@ interface UnderlyingPoint {
 
 const getWindowUnitsForTimeframe = (maxPoints: number) => Math.max(1, Math.min(90, maxPoints));
 
+function timeframeToBucketMs(timeframe: ChartTimeframe): number {
+  switch (timeframe) {
+    case "1min":
+      return 60 * 1000;
+    case "5min":
+      return 5 * 60 * 1000;
+    case "15min":
+      return 15 * 60 * 1000;
+    case "1hr":
+      return 60 * 60 * 1000;
+    case "1day":
+      return 24 * 60 * 60 * 1000;
+    default:
+      return 5 * 60 * 1000;
+  }
+}
+
 interface PutCallRatioRow {
   timestamp: string;
   ratio: number;
@@ -295,66 +312,41 @@ function buildTimeseriesFromNetRows(
   return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
 }
 
-function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: UnderlyingPoint[]): TimeseriesRow[] {
+function attachUnderlyingPrice(
+  rows: TimeseriesRow[],
+  underlyingRows: UnderlyingPoint[],
+  timeframe: ChartTimeframe,
+): TimeseriesRow[] {
   if (rows.length === 0 || underlyingRows.length === 0) return rows;
 
-  const sortedUnderlying = [...underlyingRows]
+  const bucketMs = timeframeToBucketMs(timeframe);
+  const aggregateByBucket = new Map<number, { sum: number; count: number }>();
+
+  underlyingRows
     .filter((r) => Boolean(r.timestamp))
-    .map((r) => ({
-      timestamp: r.timestamp,
-      timeMs: new Date(r.timestamp).getTime(),
-      price: Number(r.close ?? r.price ?? NaN),
-    }))
-    .filter((r) => Number.isFinite(r.timeMs) && Number.isFinite(r.price))
-    .sort((a, b) => a.timeMs - b.timeMs);
+    .forEach((r) => {
+      const ts = new Date(r.timestamp).getTime();
+      const price = Number(r.close ?? r.price ?? NaN);
+      if (!Number.isFinite(ts) || !Number.isFinite(price)) return;
+      const bucket = Math.floor(ts / bucketMs) * bucketMs;
+      const current = aggregateByBucket.get(bucket) || { sum: 0, count: 0 };
+      current.sum += price;
+      current.count += 1;
+      aggregateByBucket.set(bucket, current);
+    });
 
-  if (sortedUnderlying.length === 0) return rows;
-
-  const exactPriceByTs = new Map(sortedUnderlying.map((r) => [r.timestamp, r.price]));
-  const gapsMs: number[] = [];
-  for (let i = 1; i < sortedUnderlying.length; i += 1) {
-    const gap = sortedUnderlying[i].timeMs - sortedUnderlying[i - 1].timeMs;
-    if (gap > 0) gapsMs.push(gap);
-  }
-  const medianGapMs =
-    gapsMs.length === 0
-      ? 5 * 60 * 1000
-      : [...gapsMs].sort((a, b) => a - b)[Math.floor(gapsMs.length / 2)];
-  const maxDistanceMs = Math.max(60 * 1000, Math.round(medianGapMs * 1.5));
-
-  let idx = 0;
   return rows.map((row) => {
-    const exact = exactPriceByTs.get(row.timestamp);
-    if (Number.isFinite(exact)) {
-      return {
-        ...row,
-        underlyingPrice: Number(exact),
-      };
-    }
-
-    const t = new Date(row.timestamp).getTime();
-    while (idx + 1 < sortedUnderlying.length && sortedUnderlying[idx + 1].timeMs <= t) {
-      idx += 1;
-    }
-
-    const current = sortedUnderlying[idx];
-    const next = idx + 1 < sortedUnderlying.length ? sortedUnderlying[idx + 1] : null;
-    const chosen =
-      next && Math.abs(next.timeMs - t) < Math.abs(current.timeMs - t) ? next : current;
-
-    if (Math.abs(chosen.timeMs - t) > maxDistanceMs) {
-      return {
-        ...row,
-        underlyingPrice: null,
-      };
-    }
-
+    const rowTs = new Date(row.timestamp).getTime();
+    if (!Number.isFinite(rowTs)) return row;
+    const bucket = Math.floor(rowTs / bucketMs) * bucketMs;
+    const aggregate = aggregateByBucket.get(bucket);
     return {
       ...row,
-      underlyingPrice: chosen.price,
+      underlyingPrice: aggregate && aggregate.count > 0 ? aggregate.sum / aggregate.count : null,
     };
   });
 }
+
 
 function getUnderlyingDomain(rows: TimeseriesRow[]) {
   const prices = rows
@@ -679,8 +671,8 @@ export default function FlowAnalysisPage() {
 
   const mainSeries = useMemo(() => {
     const aligned = alignSeriesToTimeline(mainBaseSeries, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [mainBaseSeries, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(aligned, underlyingHistory || [], optionsFlowTimeframe);
+  }, [mainBaseSeries, timelineTimestamps, underlyingHistory, optionsFlowTimeframe]);
 
   const expirationOptions = useMemo(
     () =>
@@ -714,13 +706,13 @@ export default function FlowAnalysisPage() {
 
   const expirationSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints);
-    return attachUnderlyingPrice(base, expirationUnderlyingHistory || []);
-  }, [expirationRowsFiltered, maxPoints, expirationUnderlyingHistory]);
+    return attachUnderlyingPrice(base, expirationUnderlyingHistory || [], expirationTimeframe);
+  }, [expirationRowsFiltered, maxPoints, expirationUnderlyingHistory, expirationTimeframe]);
 
   const strikeSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints);
-    return attachUnderlyingPrice(base, strikeUnderlyingHistory || []);
-  }, [strikeRowsFiltered, maxPoints, strikeUnderlyingHistory]);
+    return attachUnderlyingPrice(base, strikeUnderlyingHistory || [], strikeTimeframe);
+  }, [strikeRowsFiltered, maxPoints, strikeUnderlyingHistory, strikeTimeframe]);
 
   const putCallRatioSeries = useMemo(
     () => buildPutCallRatioSeries(ratioFlowByType || [], maxPoints),
