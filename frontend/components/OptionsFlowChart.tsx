@@ -10,8 +10,9 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { omitClosedMarketTimes } from '@/core/utils';
+import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 
 function toTime(ts: string) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -19,7 +20,8 @@ function toTime(ts: string) {
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
-  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
+  const { getMaxDataPoints, symbol } = useTimeframe();
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const maxPoints = getMaxDataPoints();
 
   const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, maxPoints, 5000);
@@ -55,12 +57,14 @@ export default function OptionsFlowChart() {
   }
 
   return (
-    <ExpandableCard>
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
           <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
         </div>
+
+        <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-4 flex justify-end" />
 
         <div className="overflow-x-auto">
           <div className="min-w-[760px]">

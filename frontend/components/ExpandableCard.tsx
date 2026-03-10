@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, createContext, useContext, useState } from 'react';
-import { X } from 'lucide-react';
+import { Expand, X } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 
@@ -9,18 +9,44 @@ interface ExpandableCardProps {
   children: ReactNode;
   className?: string;
   expandClassName?: string;
+  expandTrigger?: 'card' | 'button';
+  expandButtonLabel?: string;
 }
 
 const ExpandedCardContext = createContext(false);
 export const useExpandedCard = () => useContext(ExpandedCardContext);
 
-export default function ExpandableCard({ children, className = '', expandClassName = '' }: ExpandableCardProps) {
+export default function ExpandableCard({
+  children,
+  className = '',
+  expandClassName = '',
+  expandTrigger = 'card',
+  expandButtonLabel = 'Expand chart',
+}: ExpandableCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { theme } = useTheme();
 
   return (
     <>
-      <div className={`relative cursor-zoom-in ${className}`} onClick={() => setExpanded(true)}>
+      <div
+        className={`relative ${expandTrigger === 'card' ? 'cursor-zoom-in' : ''} ${className}`}
+        onClick={expandTrigger === 'card' ? () => setExpanded(true) : undefined}
+      >
+        {expandTrigger === 'button' ? (
+          <button
+            type="button"
+            aria-label={expandButtonLabel}
+            onClick={() => setExpanded(true)}
+            className="absolute right-3 top-3 z-20 p-2 rounded-md border"
+            style={{
+              color: theme === 'dark' ? colors.light : colors.dark,
+              backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+              borderColor: colors.muted,
+            }}
+          >
+            <Expand size={16} />
+          </button>
+        ) : null}
         <ExpandedCardContext.Provider value={false}>{children}</ExpandedCardContext.Provider>
       </div>
 

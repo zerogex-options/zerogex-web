@@ -11,6 +11,7 @@ import { colors } from "@/core/colors";
 import { useTheme } from "@/core/ThemeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
+import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 
 interface PriceBar {
   timestamp: string;
@@ -75,12 +76,12 @@ function aggregateBars(
 
 export default function UnderlyingCandlesChart() {
   const { theme } = useTheme();
-  const { timeframe, getIntervalMinutes, getMaxDataPoints, symbol } =
-    useTimeframe();
+  const { getMaxDataPoints, symbol } = useTimeframe();
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const intervalMinutes = getIntervalMinutes();
+  const intervalMinutes = timeframe === "1min" ? 1 : timeframe === "5min" ? 5 : timeframe === "15min" ? 15 : timeframe === "1hr" ? 60 : 1440;
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
@@ -172,7 +173,7 @@ export default function UnderlyingCandlesChart() {
   };
 
   return (
-    <ExpandableCard>
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
@@ -183,6 +184,7 @@ export default function UnderlyingCandlesChart() {
             <Info size={14} />
           </TooltipWrapper>
           </div>
+          <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-0 flex justify-end" />
           {hovered && (
             <div className="text-xs rounded px-3 py-2 bg-black/50 text-white font-mono pointer-events-none whitespace-nowrap">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>

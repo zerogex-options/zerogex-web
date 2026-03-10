@@ -21,6 +21,7 @@ import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
+import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 
 interface FlowByTypePoint {
   timestamp: string;
@@ -56,6 +57,49 @@ interface UnderlyingPoint {
   price?: number;
 }
 
+
+const getWindowUnitsForTimeframe = (maxPoints: number) => Math.max(1, Math.min(90, maxPoints));
+
+function parseTimestampMs(value?: string): number | null {
+  if (!value) return null;
+
+  const direct = new Date(value).getTime();
+  if (Number.isFinite(direct)) return direct;
+
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const retry = new Date(normalized).getTime();
+  if (Number.isFinite(retry)) return retry;
+
+  const bareMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!bareMatch) return null;
+
+  const [, y, m, d, hh, mm, ss] = bareMatch;
+  return Date.UTC(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Number(hh),
+    Number(mm),
+    Number(ss ?? "0"),
+  );
+}
+
+function timeframeToBucketMs(timeframe: ChartTimeframe): number {
+  switch (timeframe) {
+    case "1min":
+      return 60 * 1000;
+    case "5min":
+      return 5 * 60 * 1000;
+    case "15min":
+      return 15 * 60 * 1000;
+    case "1hr":
+      return 60 * 60 * 1000;
+    case "1day":
+      return 24 * 60 * 60 * 1000;
+    default:
+      return 5 * 60 * 1000;
+  }
+}
 
 interface PutCallRatioRow {
   timestamp: string;
@@ -154,14 +198,25 @@ function MultiSelectChips({
 function normalizeSignedFlow(totalPremium: number, netPremium: number, totalVolume: number, netVolume: number) {
   const callPremium = Math.max(0, (totalPremium + netPremium) / 2);
   const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
-  const derivedNetVolume = Number.isFinite(netVolume)
-    ? netVolume
-    : Math.max(-totalVolume, Math.min(totalVolume, totalVolume));
+
+  const derivedFromPremium = Math.round(
+    Math.max(
+      -totalVolume,
+      Math.min(totalVolume, totalVolume * ((netPremium || 0) / Math.max(1, totalPremium || 0))),
+    ),
+  );
+
+  const boundedRawNet = Number.isFinite(netVolume)
+    ? Math.max(-totalVolume, Math.min(totalVolume, Math.round(netVolume)))
+    : derivedFromPremium;
+
+  const hasSignMismatch =
+    Math.sign(netPremium || 0) !== 0 && Math.sign(boundedRawNet || 0) !== 0 && Math.sign(netPremium || 0) !== Math.sign(boundedRawNet || 0);
 
   return {
     callPremium,
     putPremium,
-    netVolume: derivedNetVolume,
+    netVolume: hasSignMismatch ? derivedFromPremium : boundedRawNet,
   };
 }
 
@@ -281,45 +336,51 @@ function buildTimeseriesFromNetRows(
   return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
 }
 
-function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: UnderlyingPoint[]): TimeseriesRow[] {
+function attachUnderlyingPrice(
+  rows: TimeseriesRow[],
+  underlyingRows: UnderlyingPoint[],
+  timeframe: ChartTimeframe,
+): TimeseriesRow[] {
   if (rows.length === 0 || underlyingRows.length === 0) return rows;
 
-  const sortedUnderlying = [...underlyingRows]
-    .filter((r) => Boolean(r.timestamp))
-    .map((r) => ({
-      timestamp: r.timestamp,
-      timeMs: new Date(r.timestamp).getTime(),
-      price: Number(r.close ?? r.price ?? NaN),
-    }))
-    .filter((r) => Number.isFinite(r.timeMs) && Number.isFinite(r.price))
-    .sort((a, b) => a.timeMs - b.timeMs);
+  const bucketMs = timeframeToBucketMs(timeframe);
+  const aggregated = new Map<number, { sum: number; count: number }>();
 
-  if (sortedUnderlying.length === 0) return rows;
+  underlyingRows.forEach((row) => {
+    const ts = parseTimestampMs(row.timestamp);
+    const price = Number(row.close ?? row.price ?? NaN);
+    if (ts === null || !Number.isFinite(price)) return;
 
-  let idx = 0;
+    const bucket = Math.floor(ts / bucketMs) * bucketMs;
+    const current = aggregated.get(bucket) || { sum: 0, count: 0 };
+    current.sum += price;
+    current.count += 1;
+    aggregated.set(bucket, current);
+  });
+
   return rows.map((row) => {
-    const t = new Date(row.timestamp).getTime();
-    while (idx + 1 < sortedUnderlying.length && sortedUnderlying[idx + 1].timeMs <= t) {
-      idx += 1;
+    const ts = parseTimestampMs(row.timestamp);
+    if (ts === null) {
+      return {
+        ...row,
+        underlyingPrice: null,
+      };
     }
 
-    const current = sortedUnderlying[idx];
-    const next = idx + 1 < sortedUnderlying.length ? sortedUnderlying[idx + 1] : null;
-
-    const chosen =
-      next && Math.abs(next.timeMs - t) < Math.abs(current.timeMs - t) ? next.price : current.price;
-
+    const bucket = Math.floor(ts / bucketMs) * bucketMs;
+    const value = aggregated.get(bucket);
     return {
       ...row,
-      underlyingPrice: chosen,
+      underlyingPrice: value && value.count > 0 ? value.sum / value.count : null,
     };
   });
 }
 
+
 function getUnderlyingDomain(rows: TimeseriesRow[]) {
   const prices = rows
-    .map((r) => Number(r.underlyingPrice))
-    .filter((v) => Number.isFinite(v));
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
 
   if (prices.length === 0) return ['auto', 'auto'] as const;
 
@@ -330,13 +391,6 @@ function getUnderlyingDomain(rows: TimeseriesRow[]) {
 
   return [minPrice - padding, maxPrice + padding] as const;
 }
-
-function getZeroOffset(minValue: number, maxValue: number) {
-  if (maxValue <= 0) return 0;
-  if (minValue >= 0) return 1;
-  return maxValue / (maxValue - minValue);
-}
-
 
 function roundToStep(value: number, step: number, mode: 'up' | 'down') {
   if (!Number.isFinite(value)) return 0;
@@ -404,6 +458,20 @@ function getDateMarkerMeta(timestamps: string[]) {
   return indexToLabel;
 }
 
+
+
+function getDynamicLeftMargin(rows: TimeseriesRow[]) {
+  const prices = rows
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+
+  if (prices.length === 0) return 86;
+
+  const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
+  const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
+  return Math.max(86, Math.min(120, 52 + digits * 10));
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
@@ -415,19 +483,20 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const volumeStep = 10_000;
   const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
   const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
-  const volumeZeroOffset = getZeroOffset(minVolume, maxVolume);
   const underlyingDomain = getUnderlyingDomain(rows);
   const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
   const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
+  const leftChartMargin = getDynamicLeftMargin(rows);
+  const rightChartMargin = 70;
 
   return (
     <div className="h-[540px]">
       <ResponsiveContainer width="100%" height="75%">
-        <ComposedChart data={rows} margin={{ top: 10, right: 70, left: 70, bottom: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} padding={{ left: 0, right: 0 }} hide />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={72} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 10 }} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
@@ -440,6 +509,9 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             label={{ value: "Notional Value", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
           />
           <Tooltip
+            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
+            labelStyle={{ color: "#374151", fontWeight: 600 }}
+            itemStyle={{ color: "#111827" }}
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
@@ -480,21 +552,14 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       </ResponsiveContainer>
 
       <ResponsiveContainer width="100%" height="25%">
-        <ComposedChart data={rows} margin={{ top: 0, right: 70, left: 70, bottom: 28 }}>
-          <defs>
-            <linearGradient id="netVolumeSplit" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity={0.55} />
-              <stop offset={`${Math.max(0, Math.min(1, volumeZeroOffset)) * 100}%`} stopColor="#22c55e" stopOpacity={0.55} />
-              <stop offset={`${Math.max(0, Math.min(1, volumeZeroOffset)) * 100}%`} stopColor="#ef4444" stopOpacity={0.55} />
-              <stop offset="100%" stopColor="#ef4444" stopOpacity={0.55} />
-            </linearGradient>
-          </defs>
+        <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
           <XAxis
             dataKey="timestamp"
             stroke="#f2f2f2"
             interval={0}
             minTickGap={24}
+            padding={{ left: 0, right: 0 }}
             tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
               const x = Number(props?.x ?? 0);
               const y = Number(props?.y ?? 0);
@@ -513,17 +578,36 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               );
             }}
           />
+          <YAxis yAxisId="volumeSpacer" orientation="left" domain={[0, 1]} width={72} axisLine={false} tickLine={false} tick={false} />
           <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
-          <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
+          <Tooltip
+            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
+            labelStyle={{ color: "#374151", fontWeight: 600 }}
+            itemStyle={{ color: "#111827" }}
+            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+            formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]}
+          />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
             yAxisId="volume"
-            type="monotone"
-            dataKey="netVolume"
-            name="Net Volume"
-            stroke="#f2f2f2"
-            strokeOpacity={0.5}
-            fill="url(#netVolumeSplit)"
+            type="linear"
+            dataKey="positiveNetVolume"
+            name="Positive Net Volume"
+            stroke="#22c55e"
+            fill="#22c55e"
+            fillOpacity={0.45}
+            baseValue={0}
+            isAnimationActive={false}
+          />
+          <Area
+            yAxisId="volume"
+            type="linear"
+            dataKey="negativeNetVolume"
+            name="Negative Net Volume"
+            stroke="#ef4444"
+            fill="#ef4444"
+            fillOpacity={0.45}
+            baseValue={0}
             isAnimationActive={false}
           />
         </ComposedChart>
@@ -533,31 +617,55 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
 }
 
 export default function FlowAnalysisPage() {
-  const { timeframe, getMaxDataPoints, symbol } = useTimeframe();
+  const { getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
-  const windowUnits = Math.max(1, Math.min(90, maxPoints));
+
+  const [optionsFlowTimeframe, setOptionsFlowTimeframe] = useState<ChartTimeframe>("5min");
+  const [expirationTimeframe, setExpirationTimeframe] = useState<ChartTimeframe>("5min");
+  const [strikeTimeframe, setStrikeTimeframe] = useState<ChartTimeframe>("5min");
+  const [ratioTimeframe, setRatioTimeframe] = useState<ChartTimeframe>("5min");
+
+  const optionsWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const expirationWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const strikeWindowUnits = getWindowUnitsForTimeframe(maxPoints);
+  const ratioWindowUnits = getWindowUnitsForTimeframe(maxPoints);
 
   const {
     data: flowByType,
     loading: flowLoading,
     error: flowError,
   } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
+    `/api/flow/by-type?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
     { refreshInterval: 5000 },
   );
 
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${expirationTimeframe}&window_units=${expirationWindowUnits}&limit=50000`,
     { refreshInterval: 5000 },
   );
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=500`,
+    `/api/flow/by-strike?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}&limit=50000`,
     { refreshInterval: 5000 },
   );
 
   const { data: underlyingHistory } = useApiData<UnderlyingPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`,
+    `/api/market/historical?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
+    { refreshInterval: 5000 },
+  );
+
+  const { data: ratioFlowByType } = useApiData<FlowByTypePoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&timeframe=${ratioTimeframe}&window_units=${ratioWindowUnits}`,
+    { refreshInterval: 5000 },
+  );
+
+  const { data: expirationUnderlyingHistory } = useApiData<UnderlyingPoint[]>(
+    `/api/market/historical?symbol=${symbol}&timeframe=${expirationTimeframe}&window_units=${expirationWindowUnits}`,
+    { refreshInterval: 5000 },
+  );
+
+  const { data: strikeUnderlyingHistory } = useApiData<UnderlyingPoint[]>(
+    `/api/market/historical?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}`,
     { refreshInterval: 5000 },
   );
 
@@ -592,8 +700,8 @@ export default function FlowAnalysisPage() {
 
   const mainSeries = useMemo(() => {
     const aligned = alignSeriesToTimeline(mainBaseSeries, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [mainBaseSeries, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(aligned, underlyingHistory || [], optionsFlowTimeframe);
+  }, [mainBaseSeries, timelineTimestamps, underlyingHistory, optionsFlowTimeframe]);
 
   const expirationOptions = useMemo(
     () =>
@@ -627,24 +735,18 @@ export default function FlowAnalysisPage() {
 
   const expirationSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints);
-    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [expirationRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(base, expirationUnderlyingHistory || [], expirationTimeframe);
+  }, [expirationRowsFiltered, maxPoints, expirationUnderlyingHistory, expirationTimeframe]);
 
   const strikeSeries = useMemo(() => {
     const base = buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints);
-    const aligned = alignSeriesToTimeline(base, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || []);
-  }, [strikeRowsFiltered, maxPoints, timelineTimestamps, underlyingHistory]);
+    return attachUnderlyingPrice(base, strikeUnderlyingHistory || [], strikeTimeframe);
+  }, [strikeRowsFiltered, maxPoints, strikeUnderlyingHistory, strikeTimeframe]);
 
-  const putCallRatioSeries = useMemo(() => {
-    const base = buildPutCallRatioSeries(flowByType || [], maxPoints);
-    const byTs = new Map(base.map((r) => [r.timestamp, r.ratio]));
-    return timelineTimestamps.map((timestamp) => ({
-      timestamp,
-      ratio: byTs.get(timestamp) ?? 0,
-    }));
-  }, [flowByType, maxPoints, timelineTimestamps]);
+  const putCallRatioSeries = useMemo(
+    () => buildPutCallRatioSeries(ratioFlowByType || [], maxPoints),
+    [ratioFlowByType, maxPoints],
+  );
 
 
   const ratioDateMarkerMeta = useMemo(
@@ -732,6 +834,7 @@ export default function FlowAnalysisPage() {
           title="Options Flow"
           tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero."
         />
+        <ChartTimeframeSelect value={optionsFlowTimeframe} onChange={setOptionsFlowTimeframe} />
         <FullWidthFlowChart rows={mainSeries} />
       </section>
 
@@ -747,6 +850,7 @@ export default function FlowAnalysisPage() {
           label="Expirations"
         />
         {expirationError && <ErrorMessage message={expirationError} />}
+        <ChartTimeframeSelect value={expirationTimeframe} onChange={setExpirationTimeframe} />
         <FullWidthFlowChart rows={expirationSeries} />
       </section>
 
@@ -762,6 +866,7 @@ export default function FlowAnalysisPage() {
           label="Strikes"
         />
         {strikeError && <ErrorMessage message={strikeError} />}
+        <ChartTimeframeSelect value={strikeTimeframe} onChange={setStrikeTimeframe} />
         <FullWidthFlowChart rows={strikeSeries} />
       </section>
 
@@ -770,6 +875,7 @@ export default function FlowAnalysisPage() {
           title="Put/Call Ratio"
           tooltip="Put/call volume ratio over time using the selected timeframe."
         />
+        <ChartTimeframeSelect value={ratioTimeframe} onChange={setRatioTimeframe} />
         {putCallRatioSeries.length === 0 ? (
           <div className="text-gray-400 text-center py-8">No put/call ratio data available</div>
         ) : (
@@ -804,7 +910,6 @@ export default function FlowAnalysisPage() {
                 labelFormatter={(value) => new Date(String(value)).toLocaleString()}
                 formatter={(value) => [Number(value ?? 0).toFixed(2), "Put/Call Ratio"]}
               />
-              <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
               <Line
                 type="monotone"
                 dataKey="ratio"
