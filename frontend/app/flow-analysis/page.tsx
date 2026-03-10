@@ -412,6 +412,19 @@ function getDateMarkerMeta(timestamps: string[]) {
 }
 
 
+
+function getDynamicLeftMargin(rows: TimeseriesRow[]) {
+  const prices = rows
+    .map((r) => Number(r.underlyingPrice))
+    .filter((v) => Number.isFinite(v));
+
+  if (prices.length === 0) return 86;
+
+  const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
+  const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
+  return Math.max(86, Math.min(120, 52 + digits * 10));
+}
+
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   if (rows.length === 0) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
@@ -427,14 +440,16 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
   const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
+  const leftChartMargin = getDynamicLeftMargin(rows);
+  const rightChartMargin = 70;
 
   return (
     <div className="h-[540px]">
       <ResponsiveContainer width="100%" height="75%">
-        <ComposedChart data={rows} margin={{ top: 10, right: 70, left: 70, bottom: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} padding={{ left: 0, right: 0 }} hide />
+          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={72} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 10 }} />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
@@ -487,13 +502,14 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       </ResponsiveContainer>
 
       <ResponsiveContainer width="100%" height="25%">
-        <ComposedChart data={rows} margin={{ top: 0, right: 70, left: 70, bottom: 28 }}>
+        <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
           <XAxis
             dataKey="timestamp"
             stroke="#f2f2f2"
             interval={0}
             minTickGap={24}
+            padding={{ left: 0, right: 0 }}
             tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
               const x = Number(props?.x ?? 0);
               const y = Number(props?.y ?? 0);

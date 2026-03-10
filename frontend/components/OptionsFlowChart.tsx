@@ -57,7 +57,7 @@ export default function OptionsFlowChart() {
   }
 
   return (
-    <ExpandableCard>
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>

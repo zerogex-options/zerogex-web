@@ -173,7 +173,7 @@ export default function UnderlyingCandlesChart() {
   };
 
   return (
-    <ExpandableCard>
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
