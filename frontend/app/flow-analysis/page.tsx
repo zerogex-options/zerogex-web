@@ -22,6 +22,7 @@ import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
+import { useSmartMoneyFlow } from "@/hooks/useApiData";
 
 interface FlowByTypePoint {
   timestamp: string;
@@ -624,6 +625,7 @@ export default function FlowAnalysisPage() {
   const [expirationTimeframe, setExpirationTimeframe] = useState<ChartTimeframe>("5min");
   const [strikeTimeframe, setStrikeTimeframe] = useState<ChartTimeframe>("5min");
   const [ratioTimeframe, setRatioTimeframe] = useState<ChartTimeframe>("5min");
+  const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState<ChartTimeframe>("1day");
 
   const optionsWindowUnits = getWindowUnitsForTimeframe(maxPoints);
   const expirationWindowUnits = getWindowUnitsForTimeframe(maxPoints);
@@ -667,6 +669,14 @@ export default function FlowAnalysisPage() {
   const { data: strikeUnderlyingHistory } = useApiData<UnderlyingPoint[]>(
     `/api/market/historical?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}`,
     { refreshInterval: 5000 },
+  );
+
+  const { data: smartMoneyRows, error: smartMoneyError } = useSmartMoneyFlow(
+    symbol,
+    100,
+    smartMoneyTimeframe,
+    getWindowUnitsForTimeframe(maxPoints),
+    10000,
   );
 
   const latestSnapshot = useMemo(() => {
@@ -747,6 +757,20 @@ export default function FlowAnalysisPage() {
     () => buildPutCallRatioSeries(ratioFlowByType || [], maxPoints),
     [ratioFlowByType, maxPoints],
   );
+
+  const smartMoneyTable = useMemo(() => {
+    return [...(smartMoneyRows || [])]
+      .map((row) => ({
+        timestamp: row.interval_timestamp || row.time_window_end || row.time_window_start,
+        optionType: (row.option_type || "").toUpperCase() || "--",
+        strike: Number(row.strike || 0),
+        totalVolume: Number(row.total_volume || 0),
+        totalPremium: Number(row.total_premium || 0),
+        notional: Number(row.total_premium || 0),
+        sentiment: row.sentiment || "--",
+      }))
+      .sort((a, b) => b.notional - a.notional);
+  }, [smartMoneyRows]);
 
 
   const ratioDateMarkerMeta = useMemo(
@@ -868,6 +892,45 @@ export default function FlowAnalysisPage() {
         {strikeError && <ErrorMessage message={strikeError} />}
         <ChartTimeframeSelect value={strikeTimeframe} onChange={setStrikeTimeframe} />
         <FullWidthFlowChart rows={strikeSeries} />
+      </section>
+
+      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+        <SectionTitle
+          title="Smart Money Flow"
+          tooltip="Unusual options flow ranked by notional value (largest to smallest)."
+        />
+        <ChartTimeframeSelect value={smartMoneyTimeframe} onChange={setSmartMoneyTimeframe} />
+        {smartMoneyError && <ErrorMessage message={smartMoneyError} />}
+        {smartMoneyTable.length === 0 ? (
+          <div className="text-gray-400 text-center py-8">No smart-money flow available</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700 text-gray-300">
+                  <th className="text-left py-2 px-3">Time</th>
+                  <th className="text-left py-2 px-3">Type</th>
+                  <th className="text-right py-2 px-3">Strike</th>
+                  <th className="text-right py-2 px-3">Volume</th>
+                  <th className="text-right py-2 px-3">Notional</th>
+                  <th className="text-left py-2 px-3">Sentiment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {smartMoneyTable.map((row, idx) => (
+                  <tr key={`${row.timestamp}-${row.strike}-${idx}`} className="border-b border-gray-800">
+                    <td className="py-2 px-3">{row.timestamp ? new Date(row.timestamp).toLocaleString() : "--"}</td>
+                    <td className="py-2 px-3">{row.optionType}</td>
+                    <td className="py-2 px-3 text-right">{row.strike > 0 ? `$${row.strike.toFixed(2)}` : "--"}</td>
+                    <td className="py-2 px-3 text-right">{row.totalVolume.toLocaleString()}</td>
+                    <td className="py-2 px-3 text-right font-mono">${row.notional.toLocaleString()}</td>
+                    <td className="py-2 px-3">{row.sentiment}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">

@@ -23,6 +23,29 @@ interface HeaderProps {
   theme: Theme;
 }
 
+function getEtDateKey(date: Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function isAfterRegularCloseEt(date: Date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  const second = Number(parts.find((p) => p.type === "second")?.value ?? "0");
+  return hour > 16 || (hour === 16 && (minute > 0 || second >= 0));
+}
+
 export default function Header({ theme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,6 +71,7 @@ export default function Header({ theme }: HeaderProps) {
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
+    { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
     { id: "/about", label: "ABOUT" },
   ];
 
@@ -104,16 +128,26 @@ export default function Header({ theme }: HeaderProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const previousCloseDate = previousCloseData?.timestamp
+    ? getEtDateKey(new Date(previousCloseData.timestamp))
+    : "";
+  const shouldIgnoreRolledPreviousClose = Boolean(
+    previousCloseData && !isAfterRegularCloseEt() && previousCloseDate === getEtDateKey(),
+  );
+  const effectivePreviousClose = shouldIgnoreRolledPreviousClose
+    ? Number(quoteData?.open || previousCloseData?.previous_close || 0)
+    : previousCloseData?.previous_close;
+
   // Calculate change from previous close
   const livePrice =
-    quoteData && previousCloseData
+    quoteData && effectivePreviousClose
       ? {
           symbol,
           price: quoteData.close,
-          change: quoteData.close - previousCloseData.previous_close,
+          change: quoteData.close - effectivePreviousClose,
           changePercent:
-            ((quoteData.close - previousCloseData.previous_close) /
-              previousCloseData.previous_close) *
+            ((quoteData.close - effectivePreviousClose) /
+              effectivePreviousClose) *
             100,
         }
       : null;

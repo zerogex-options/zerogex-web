@@ -1,7 +1,7 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useGEXSummary, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -65,7 +65,29 @@ export default function GammaExposurePage() {
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Strike-by-strike net gamma bars from /api/gex/by-strike. Values above zero indicate positive net gamma; below zero indicate negative net gamma. Clusters reveal potential hedging pressure zones around key strikes." />
         {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeChart.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
-          <ResponsiveContainer width="100%" height={360}><BarChart data={strikeChart}><CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} /><XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} /><YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} /><Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} /><ReferenceLine y={0} stroke="#f2f2f2" /><Bar dataKey="netGexM" barSize={10}>{strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}</Bar></BarChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={360}>
+            <BarChart data={strikeChart} margin={{ top: 24, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
+              <XAxis
+                dataKey="strike"
+                stroke="#f2f2f2"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
+              />
+              <YAxis
+                stroke="#f2f2f2"
+                domain={['auto', 'auto']}
+                tick={{ fontSize: 11 }}
+                tickFormatter={(value) => formatLarge(Number(value))}
+              />
+              <Tooltip formatter={(value) => { const numeric = typeof value === 'number' ? value : Number(value ?? 0); return `$${numeric.toFixed(2)}M`; }} />
+              <ReferenceLine y={0} stroke="#f2f2f2" />
+              <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 8, fontSize: 11 }} />
+              <Bar dataKey="netGexM" name="Net GEX ($M)" barSize={10}>
+                {strikeChart.map((entry, idx) => (<Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </section>
     </div>
