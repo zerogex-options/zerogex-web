@@ -528,6 +528,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               );
             }}
           />
+          <YAxis yAxisId="volumeSpacer" orientation="left" domain={[0, 1]} width={72} axisLine={false} tickLine={false} tick={false} />
           <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
@@ -728,7 +729,7 @@ export default function FlowAnalysisPage() {
           title="Flow Snapshot"
           tooltip="Most recent snapshot from the latest row returned for the selected interval."
         />
-        <div className="text-gray-400 text-sm mb-3">
+        <div className="text-gray-700 text-sm mb-3">
           Latest timestamp: {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
