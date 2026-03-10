@@ -190,11 +190,11 @@ export default function GammaExposurePage() {
             <ResponsiveContainer width="100%" height={390}>
               <ComposedChart data={sortedRows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
-                <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-                <YAxis yAxisId="greeks" stroke="#f2f2f2" tickFormatter={(value) => formatLarge(Number(value))} />
-                <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
+                <XAxis dataKey="strike" stroke="#f2f2f2" tick={{ fontSize: 10 }} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+                <YAxis yAxisId="greeks" stroke="#f2f2f2" tick={{ fontSize: 10 }} tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" tick={{ fontSize: 10 }} domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
-                <Legend content={renderLegend} />
+                <Legend content={renderLegend} align="right" verticalAlign="top" wrapperStyle={{ right: 0, top: 0 }} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
                 {quoteData && <ReferenceLine x={quoteData.close} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Price $${quoteData.close.toFixed(2)}`, position: "top", fill: "#cbd5e1", fontSize: 11 }} />}
                 <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>

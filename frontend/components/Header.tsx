@@ -48,12 +48,26 @@ export default function Header({ theme }: HeaderProps) {
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
+    { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
     { id: "/about", label: "ABOUT" },
   ];
 
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: previousCloseData } = usePreviousClose(symbol, 60000);
+  const [effectivePreviousClose, setEffectivePreviousClose] = useState(previousCloseData);
+
+  useEffect(() => {
+    if (!previousCloseData?.timestamp) return;
+    const previousCloseTs = new Date(previousCloseData.timestamp).getTime();
+    if (!Number.isFinite(previousCloseTs)) return;
+
+    const delayMs = Math.max(0, previousCloseTs - Date.now() + 250);
+    const timeout = setTimeout(() => setEffectivePreviousClose(previousCloseData), delayMs);
+    return () => clearTimeout(timeout);
+  }, [previousCloseData]);
+
+  const previousCloseForDisplay = effectivePreviousClose ?? previousCloseData;
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {
@@ -106,14 +120,14 @@ export default function Header({ theme }: HeaderProps) {
 
   // Calculate change from previous close
   const livePrice =
-    quoteData && previousCloseData
+    quoteData && previousCloseForDisplay
       ? {
           symbol,
           price: quoteData.close,
-          change: quoteData.close - previousCloseData.previous_close,
+          change: quoteData.close - previousCloseForDisplay.previous_close,
           changePercent:
-            ((quoteData.close - previousCloseData.previous_close) /
-              previousCloseData.previous_close) *
+            ((quoteData.close - previousCloseForDisplay.previous_close) /
+              previousCloseForDisplay.previous_close) *
             100,
         }
       : null;
@@ -122,8 +136,8 @@ export default function Header({ theme }: HeaderProps) {
   const quoteTimestampLabel = quoteData?.timestamp
     ? `as of ${new Date(quoteData.timestamp).toLocaleString()}`
     : "latest quote";
-  const prevCloseLabel = previousCloseData?.timestamp
-    ? `since ${new Date(previousCloseData.timestamp).toLocaleString()}`
+  const prevCloseLabel = previousCloseForDisplay?.timestamp
+    ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
     : "since previous close";
 
   return (

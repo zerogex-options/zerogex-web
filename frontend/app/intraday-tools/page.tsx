@@ -107,8 +107,8 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
 
 export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
-  const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1min');
-  const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('timestamp');
+  const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1day');
+  const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState('all');
   const maxPoints = getMaxDataPoints();

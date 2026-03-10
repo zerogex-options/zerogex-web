@@ -1,0 +1,166 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { Line, LineChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useApiData, useMarketQuote } from '@/hooks/useApiData';
+import { useTimeframe } from '@/core/TimeframeContext';
+import ErrorMessage from '@/components/ErrorMessage';
+
+type StrategyType = 'long_put' | 'long_call' | 'bear_put_spread';
+type LegRole = 'long' | 'short';
+type OptionRight = 'call' | 'put';
+
+interface SmartMoneyRow {
+  contract: string;
+  strike: number;
+  expiration: string;
+  option_type: string;
+  flow: number;
+  notional: number;
+}
+
+interface StrategyLegTemplate {
+  id: string;
+  role: LegRole;
+  right: OptionRight;
+  label: string;
+}
+
+const STRATEGIES: Record<StrategyType, { label: string; legs: StrategyLegTemplate[] }> = {
+  long_put: { label: 'Single Leg Long Put', legs: [{ id: 'lp', role: 'long', right: 'put', label: 'Long Put' }] },
+  long_call: { label: 'Single Leg Long Call', legs: [{ id: 'lc', role: 'long', right: 'call', label: 'Long Call' }] },
+  bear_put_spread: {
+    label: 'Bear Put Spread',
+    legs: [
+      { id: 'bp_long', role: 'long', right: 'put', label: 'Long Put (higher strike)' },
+      { id: 'bp_short', role: 'short', right: 'put', label: 'Short Put (lower strike)' },
+    ],
+  },
+};
+
+function inferredPremium(row: SmartMoneyRow | undefined): number {
+  if (!row) return 0;
+  const contracts = Math.max(Math.abs(Number(row.flow || 0)), 1);
+  return Math.abs(Number(row.notional || 0)) / (contracts * 100);
+}
+
+export default function OptionsCalculatorPage() {
+  const { symbol } = useTimeframe();
+  const [strategy, setStrategy] = useState<StrategyType>('long_put');
+  const [contracts, setContracts] = useState(1);
+  const [legExpiration, setLegExpiration] = useState<Record<string, string>>({});
+  const [legStrike, setLegStrike] = useState<Record<string, string>>({});
+
+  const { data: quoteData } = useMarketQuote(symbol, 3000);
+  const { data: smartMoneyData, error } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=500`, { refreshInterval: 15000 });
+
+  const strategyConfig = STRATEGIES[strategy];
+
+  const normalizedRows = useMemo(() => (smartMoneyData || []).map((row) => ({
+    ...row,
+    optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' : 'put',
+    strikeNum: Number(row.strike),
+  })).filter((row) => Number.isFinite(row.strikeNum) && row.expiration), [smartMoneyData]);
+
+  const expirationChoices = useMemo(() => {
+    const map: Record<OptionRight, string[]> = { call: [], put: [] };
+    (['call', 'put'] as OptionRight[]).forEach((right) => {
+      map[right] = Array.from(new Set(normalizedRows.filter((r) => r.optionType === right).map((r) => r.expiration))).sort((a, b) => a.localeCompare(b));
+    });
+    return map;
+  }, [normalizedRows]);
+
+  const strikeChoices = useMemo(() => {
+    const out: Record<string, number[]> = {};
+    strategyConfig.legs.forEach((leg) => {
+      const selectedExp = legExpiration[leg.id] || expirationChoices[leg.right][0] || '';
+      out[leg.id] = Array.from(new Set(normalizedRows.filter((r) => r.optionType === leg.right && r.expiration === selectedExp).map((r) => r.strikeNum))).sort((a, b) => a - b);
+    });
+    return out;
+  }, [strategyConfig.legs, legExpiration, expirationChoices, normalizedRows]);
+
+  const selectedLegs = useMemo(() => strategyConfig.legs.map((leg) => {
+    const expiration = legExpiration[leg.id] || expirationChoices[leg.right][0] || '';
+    const strike = Number(legStrike[leg.id] || strikeChoices[leg.id]?.[0] || 0);
+    const selected = normalizedRows
+      .filter((r) => r.optionType === leg.right && r.expiration === expiration && Number(r.strikeNum) === strike)
+      .sort((a, b) => Math.abs(Number(b.notional || 0)) - Math.abs(Number(a.notional || 0)))[0] as SmartMoneyRow | undefined;
+
+    return { ...leg, expiration, strike, premium: inferredPremium(selected) };
+  }), [strategyConfig.legs, legExpiration, legStrike, expirationChoices, strikeChoices, normalizedRows]);
+
+  const totalEntry = selectedLegs.reduce((sum, leg) => sum + (leg.role === 'long' ? leg.premium : -leg.premium), 0);
+  const spot = Number(quoteData?.close || 0);
+
+  const payoffData = useMemo(() => {
+    const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
+    const minP = Math.max(1, center * 0.8);
+    const maxP = center * 1.2;
+    return Array.from({ length: 81 }).map((_, i) => {
+      const underlyingAtExp = minP + ((maxP - minP) * i) / 80;
+      const oneContractPL = selectedLegs.reduce((sum, leg) => {
+        const intrinsic = leg.right === 'call' ? Math.max(underlyingAtExp - leg.strike, 0) : Math.max(leg.strike - underlyingAtExp, 0);
+        return leg.role === 'long' ? sum + intrinsic - leg.premium : sum + leg.premium - intrinsic;
+      }, 0);
+      return { price: Number(underlyingAtExp.toFixed(2)), pl: Number((oneContractPL * contracts * 100).toFixed(2)) };
+    });
+  }, [spot, selectedLegs, contracts]);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Options Calculator</h1>
+
+      <div className="bg-[#423d3f] rounded-lg p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <label className="text-sm text-gray-300">Strategy
+            <select className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" value={strategy} onChange={(e) => setStrategy(e.target.value as StrategyType)}>
+              {Object.entries(STRATEGIES).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
+            </select>
+          </label>
+          <label className="text-sm text-gray-300">Contracts
+            <input className="ml-2 w-24 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" type="number" min={1} value={contracts} onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))} />
+          </label>
+          <div className="text-sm text-gray-300">Underlying: <span className="font-semibold text-white">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span></div>
+        </div>
+
+        {error && <ErrorMessage message={error} />}
+
+        <div className="space-y-3 mb-5">
+          {selectedLegs.map((leg) => (
+            <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[#2f2b2c] p-3 rounded">
+              <div className="text-sm font-semibold">{leg.label}</div>
+              <label className="text-sm text-gray-300">Exp
+                <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={leg.expiration} onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
+                  {(expirationChoices[leg.right] || []).map((exp) => <option key={exp} value={exp}>{exp}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-gray-300">Strike
+                <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={String(leg.strike)} onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
+                  {(strikeChoices[leg.id] || []).map((strike) => <option key={strike} value={String(strike)}>{strike.toFixed(2)}</option>)}
+                </select>
+              </label>
+              <div className="text-sm text-gray-300">Leg quote: <span className="text-white font-semibold">${leg.premium.toFixed(2)}</span></div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-sm text-gray-300">Net entry (1 strategy set): <span className="text-white font-semibold">${totalEntry.toFixed(2)}</span></div>
+      </div>
+
+      <div className="bg-[#423d3f] rounded-lg p-4">
+        <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
+        <ResponsiveContainer width="100%" height={420}>
+          <LineChart data={payoffData} margin={{ left: 10, right: 24, top: 10, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
+            <XAxis dataKey="price" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} labelFormatter={(label) => `Underlying: $${Number(label).toFixed(2)}`} />
+            <ReferenceLine y={0} stroke="#f2f2f2" />
+            {spot > 0 && <ReferenceLine x={spot} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Spot $${spot.toFixed(2)}`, position: 'top', fill: '#cbd5e1', fontSize: 11 }} />}
+            <Line type="monotone" dataKey="pl" stroke="#2dd4bf" strokeWidth={3} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
