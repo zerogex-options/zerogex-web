@@ -60,47 +60,45 @@ interface UnderlyingPoint {
 
 const getWindowUnitsForTimeframe = (maxPoints: number) => Math.max(1, Math.min(90, maxPoints));
 
-const etBucketFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/New_York",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+function parseTimestampMs(value?: string): number | null {
+  if (!value) return null;
 
-function parseTimestampMs(value: string): number | null {
   const direct = new Date(value).getTime();
   if (Number.isFinite(direct)) return direct;
 
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const withUtc = normalized.endsWith("Z") || /[+-]\d\d:\d\d$/.test(normalized)
-    ? normalized
-    : `${normalized}Z`;
-  const retry = new Date(withUtc).getTime();
-  return Number.isFinite(retry) ? retry : null;
+  const retry = new Date(normalized).getTime();
+  if (Number.isFinite(retry)) return retry;
+
+  const bareMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!bareMatch) return null;
+
+  const [, y, m, d, hh, mm, ss] = bareMatch;
+  return Date.UTC(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Number(hh),
+    Number(mm),
+    Number(ss ?? "0"),
+  );
 }
 
-function getEtBucketKey(timestamp: string, timeframe: ChartTimeframe): string | null {
-  const ms = parseTimestampMs(timestamp);
-  if (ms === null) return null;
-
-  const parts = etBucketFormatter.formatToParts(new Date(ms));
-  const year = parts.find((p) => p.type === "year")?.value;
-  const month = parts.find((p) => p.type === "month")?.value;
-  const day = parts.find((p) => p.type === "day")?.value;
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-
-  if (!year || !month || !day) return null;
-
-  if (timeframe === "1day") return `${year}-${month}-${day}`;
-  if (timeframe === "1hr") return `${year}-${month}-${day} ${String(hour).padStart(2, "0")}:00`;
-
-  const interval = timeframe === "15min" ? 15 : timeframe === "5min" ? 5 : 1;
-  const bucketMinute = Math.floor(minute / interval) * interval;
-  return `${year}-${month}-${day} ${String(hour).padStart(2, "0")}:${String(bucketMinute).padStart(2, "0")}`;
+function timeframeToBucketMs(timeframe: ChartTimeframe): number {
+  switch (timeframe) {
+    case "1min":
+      return 60 * 1000;
+    case "5min":
+      return 5 * 60 * 1000;
+    case "15min":
+      return 15 * 60 * 1000;
+    case "1hr":
+      return 60 * 60 * 1000;
+    case "1day":
+      return 24 * 60 * 60 * 1000;
+    default:
+      return 5 * 60 * 1000;
+  }
 }
 
 interface PutCallRatioRow {
@@ -345,26 +343,35 @@ function attachUnderlyingPrice(
 ): TimeseriesRow[] {
   if (rows.length === 0 || underlyingRows.length === 0) return rows;
 
-  const aggregateByBucket = new Map<string, { sum: number; count: number }>();
+  const bucketMs = timeframeToBucketMs(timeframe);
+  const aggregated = new Map<number, { sum: number; count: number }>();
 
-  underlyingRows
-    .filter((r) => Boolean(r.timestamp))
-    .forEach((r) => {
-      const key = getEtBucketKey(r.timestamp, timeframe);
-      const price = Number(r.close ?? r.price ?? NaN);
-      if (!key || !Number.isFinite(price)) return;
-      const current = aggregateByBucket.get(key) || { sum: 0, count: 0 };
-      current.sum += price;
-      current.count += 1;
-      aggregateByBucket.set(key, current);
-    });
+  underlyingRows.forEach((row) => {
+    const ts = parseTimestampMs(row.timestamp);
+    const price = Number(row.close ?? row.price ?? NaN);
+    if (ts === null || !Number.isFinite(price)) return;
+
+    const bucket = Math.floor(ts / bucketMs) * bucketMs;
+    const current = aggregated.get(bucket) || { sum: 0, count: 0 };
+    current.sum += price;
+    current.count += 1;
+    aggregated.set(bucket, current);
+  });
 
   return rows.map((row) => {
-    const key = getEtBucketKey(row.timestamp, timeframe);
-    const aggregate = key ? aggregateByBucket.get(key) : undefined;
+    const ts = parseTimestampMs(row.timestamp);
+    if (ts === null) {
+      return {
+        ...row,
+        underlyingPrice: null,
+      };
+    }
+
+    const bucket = Math.floor(ts / bucketMs) * bucketMs;
+    const value = aggregated.get(bucket);
     return {
       ...row,
-      underlyingPrice: aggregate && aggregate.count > 0 ? aggregate.sum / aggregate.count : null,
+      underlyingPrice: value && value.count > 0 ? value.sum / value.count : null,
     };
   });
 }
