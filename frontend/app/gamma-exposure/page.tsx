@@ -37,7 +37,6 @@ type StrikeAggregate = {
   putVolume: number;
   vannaM: number;
   charmM: number;
-  expirations: number;
 };
 
 type SortKey = keyof StrikeAggregate;
@@ -54,13 +53,12 @@ export default function GammaExposurePage() {
   }, [gexByStrike]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
-  const [strikeFilter, setStrikeFilter] = useState('');
-  const [minAbsNetGexM, setMinAbsNetGexM] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>('netGexM');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const strikeData = useMemo(() => {
-    const activeExpirations = new Set(selectedExpirations ?? expirationOptions);
+    const selected = selectedExpirations && selectedExpirations.length > 0 ? selectedExpirations : expirationOptions;
+    const activeExpirations = new Set(selected);
     const filteredSource = (gexByStrike || []).filter((row) => activeExpirations.has(String(row.expiration)));
 
     const grouped = new Map<string, StrikeAggregate>();
@@ -78,7 +76,6 @@ export default function GammaExposurePage() {
           putVolume: 0,
           vannaM: 0,
           charmM: 0,
-          expirations: 0,
         });
       }
 
@@ -90,30 +87,22 @@ export default function GammaExposurePage() {
       current.putVolume += Number(row.put_volume || 0);
       current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
       current.charmM += Number(row.charm_exposure || 0) / 1000000;
-      current.expirations += 1;
       current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
     });
 
     return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
   }, [gexByStrike, selectedExpirations, expirationOptions]);
 
-  const filteredAndSortedRows = useMemo(() => {
-    const filterText = strikeFilter.trim();
-    const filtered = strikeData.filter((row) => {
-      const matchesStrike = filterText === '' || row.strike.toFixed(2).includes(filterText);
-      const matchesAbsNet = Math.abs(row.netGexM) >= minAbsNetGexM;
-      return matchesStrike && matchesAbsNet;
-    });
-
-    filtered.sort((a, b) => {
+  const sortedRows = useMemo(() => {
+    const cloned = [...strikeData];
+    cloned.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       const comparison = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === 'asc' ? comparison : -comparison;
     });
-
-    return filtered;
-  }, [strikeData, strikeFilter, minAbsNetGexM, sortKey, sortDir]);
+    return cloned;
+  }, [strikeData, sortKey, sortDir]);
 
   if (gexLoading && !gexData) {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
@@ -159,67 +148,43 @@ export default function GammaExposurePage() {
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
         {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
           <>
-            <div className="mb-5 flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-sm text-gray-300">Expirations:</span>
-                <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">All</button>
-                <button onClick={() => setSelectedExpirations([])} className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">None</button>
-                {expirationOptions.map((exp) => {
-                  const active = selectedExpirations === null || selectedExpirations.includes(exp);
-                  return (
-                    <button
-                      key={exp}
-                      onClick={() => setSelectedExpirations((current) => {
-                        const base = current === null ? [...expirationOptions] : [...current];
-                        return active ? base.filter((v) => v !== exp) : [...base, exp];
-                      })}
-                      className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
-                    >
-                      {exp}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="text-sm text-gray-300">
-                  Strike filter
-                  <input
-                    className="mt-1 w-full rounded bg-[#2f2b2c] border border-gray-600 px-3 py-2 text-sm"
-                    placeholder="e.g. 550"
-                    value={strikeFilter}
-                    onChange={(e) => setStrikeFilter(e.target.value)}
-                  />
-                </label>
-                <label className="text-sm text-gray-300">
-                  Min |Net GEX| (M)
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    className="mt-1 w-full rounded bg-[#2f2b2c] border border-gray-600 px-3 py-2 text-sm"
-                    value={minAbsNetGexM}
-                    onChange={(e) => setMinAbsNetGexM(Number(e.target.value || 0))}
-                  />
-                </label>
-              </div>
+            <div className="mb-5 flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-gray-300">Expirations:</span>
+              <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">All</button>
+              {expirationOptions.map((exp) => {
+                const active = selectedExpirations === null || selectedExpirations.includes(exp);
+                return (
+                  <button
+                    key={exp}
+                    onClick={() => setSelectedExpirations((current) => {
+                      const base = current === null ? [...expirationOptions] : [...current];
+                      const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
+                      return updated.length === 0 ? null : updated;
+                    })}
+                    className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                  >
+                    {exp}
+                  </button>
+                );
+              })}
             </div>
 
             <ResponsiveContainer width="100%" height={390}>
-              <ComposedChart data={filteredAndSortedRows}>
+              <ComposedChart data={sortedRows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
                 <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-                <YAxis stroke="#f2f2f2" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="greeks" stroke="#f2f2f2" tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="net" orientation="right" stroke="#10b981" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} />
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
                 <Legend />
-                <ReferenceLine y={0} stroke="#f2f2f2" />
-                <Bar dataKey="netGexM" name="Net GEX" barSize={12}>
-                  {filteredAndSortedRows.map((entry, idx) => (
+                <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
+                <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
+                  {sortedRows.map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />
                   ))}
                 </Bar>
-                <Line type="monotone" dataKey="vannaM" name="Vanna" stroke="#60a5fa" dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey="charmM" name="Charm" stroke="#facc15" dot={false} strokeWidth={2} />
+                <Line yAxisId="greeks" type="monotone" dataKey="vannaM" name="Vanna" stroke="#60a5fa" dot={false} strokeWidth={2} />
+                <Line yAxisId="greeks" type="monotone" dataKey="charmM" name="Charm" stroke="#facc15" dot={false} strokeWidth={2} />
               </ComposedChart>
             </ResponsiveContainer>
 
@@ -236,11 +201,10 @@ export default function GammaExposurePage() {
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putOi')}>Put OI</th>
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callVolume')}>Call Vol</th>
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putVolume')}>Put Vol</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('expirations')}>Exp</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAndSortedRows.map((row) => (
+                  {sortedRows.map((row) => (
                     <tr key={row.strike} className="border-b border-gray-800">
                       <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
                       <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
@@ -251,7 +215,6 @@ export default function GammaExposurePage() {
                       <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
                       <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
                       <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
-                      <td className="text-right py-2 px-2">{row.expirations}</td>
                     </tr>
                   ))}
                 </tbody>

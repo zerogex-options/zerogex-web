@@ -6,11 +6,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Info } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 
@@ -66,6 +68,8 @@ interface SmartMoneyRow {
   size_class: string;
 }
 
+type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
+
 function extractDivergenceRows(payload: unknown): DivergenceRow[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as DivergenceRow[];
@@ -96,6 +100,8 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
 export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
   const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1min');
+  const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('timestamp');
+  const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -166,6 +172,28 @@ export default function IntradayToolsPage() {
       .slice(0, 12);
   }, [smartMoneyData]);
 
+  const sortedSmartMoneyRows = useMemo(() => {
+    const rows = [...(smartMoneyData || [])];
+    rows.sort((a, b) => {
+      const valueA = a[smartMoneySortKey];
+      const valueB = b[smartMoneySortKey];
+      const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : valueA;
+      const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : valueB;
+      const comparison = normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
+      return smartMoneySortDir === 'asc' ? comparison : -comparison;
+    });
+    return rows;
+  }, [smartMoneyData, smartMoneySortDir, smartMoneySortKey]);
+
+  const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
+    if (smartMoneySortKey === key) {
+      setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSmartMoneySortKey(key);
+    setSmartMoneySortDir('desc');
+  };
+
   if ((vwapLoading || orbLoading) && !vwapData && !orbData) {
     return <LoadingSpinner size="lg" />;
   }
@@ -218,10 +246,13 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Smart Money Flow</h2>
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
+          <TooltipWrapper text="Tracks unusual options flow from /api/flow/smart-money. Chart highlights top strikes by total notional, while the table lists raw prints with sortable columns for contract context." >
+            <Info size={14} />
+          </TooltipWrapper>
+        </h2>
         <div className="bg-[#423d3f] rounded-lg p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <p className="text-sm text-gray-300">Unusual option flow from <code>/api/flow/smart-money</code>, aggregated by strike notional.</p>
+          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
             <label className="text-sm text-gray-300">
               Timeframe
               <select
@@ -258,19 +289,19 @@ export default function IntradayToolsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-700 text-gray-300">
-                      <th className="text-left py-2 px-2">Time</th>
-                      <th className="text-left py-2 px-2">Contract</th>
-                      <th className="text-right py-2 px-2">Strike</th>
-                      <th className="text-left py-2 px-2">Expiry</th>
-                      <th className="text-right py-2 px-2">DTE</th>
-                      <th className="text-left py-2 px-2">Type</th>
-                      <th className="text-right py-2 px-2">Flow</th>
-                      <th className="text-right py-2 px-2">Notional</th>
-                      <th className="text-left py-2 px-2">Class</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiry</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {smartMoneyData.map((row) => (
+                    {sortedSmartMoneyRows.map((row) => (
                       <tr key={`${row.timestamp}-${row.contract}`} className="border-b border-gray-800">
                         <td className="py-2 px-2">{new Date(row.timestamp).toLocaleTimeString()}</td>
                         <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
