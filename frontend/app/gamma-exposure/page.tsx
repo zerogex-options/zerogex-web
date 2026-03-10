@@ -125,6 +125,24 @@ export default function GammaExposurePage() {
     setSortDir('desc');
   };
 
+
+  const renderLegend = () => (
+    <div className="flex flex-wrap items-center gap-5 text-sm text-gray-200">
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-3 w-5 rounded-sm" style={{ background: 'linear-gradient(to right, #f45854 0%, #f45854 50%, #10b981 50%, #10b981 100%)' }} />
+        Net GEX
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-0.5 w-5 bg-[#60a5fa]" />
+        Vanna
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block h-0.5 w-5 bg-[#facc15]" />
+        Charm
+      </div>
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1>
@@ -174,9 +192,9 @@ export default function GammaExposurePage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
                 <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
                 <YAxis yAxisId="greeks" stroke="#f2f2f2" tickFormatter={(value) => formatLarge(Number(value))} />
-                <YAxis yAxisId="net" orientation="right" stroke="#10b981" domain={['auto', 'auto']} tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="net" orientation="right" stroke="#10b981" domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
-                <Legend />
+                <Legend content={renderLegend} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
                 <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
                   {sortedRows.map((entry, idx) => (

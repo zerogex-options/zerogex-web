@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -149,27 +149,26 @@ export default function IntradayToolsPage() {
   const orb = orbData?.[0];
   const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '');
 
-  const smartMoneyByStrike = useMemo(() => {
-    const grouped = new Map<string, { strike: number; callNotional: number; putNotional: number; totalNotional: number }>();
-    (smartMoneyData || []).forEach((row) => {
-      const strike = Number(row.strike || 0);
-      const key = strike.toFixed(2);
-      if (!grouped.has(key)) {
-        grouped.set(key, { strike, callNotional: 0, putNotional: 0, totalNotional: 0 });
-      }
-      const current = grouped.get(key)!;
-      const notional = Number(row.notional || 0) / 1000000;
-      if ((row.option_type || '').toLowerCase().includes('call')) {
-        current.callNotional += notional;
-      } else {
-        current.putNotional += notional;
-      }
-      current.totalNotional += notional;
-    });
+  const smartMoneyOrderShare = useMemo(() => {
+    const rows = (smartMoneyData || [])
+      .map((row) => ({
+        id: `${row.contract}-${row.timestamp}`,
+        contract: row.contract,
+        strike: Number(row.strike || 0),
+        optionType: String(row.option_type || '').toUpperCase(),
+        notionalM: Math.abs(Number(row.notional || 0)) / 1000000,
+      }))
+      .sort((a, b) => b.notionalM - a.notionalM)
+      .slice(0, 10);
 
-    return Array.from(grouped.values())
-      .sort((a, b) => b.totalNotional - a.totalNotional)
-      .slice(0, 12);
+    const total = rows.reduce((sum, row) => sum + row.notionalM, 0);
+    return rows.map((row, idx) => ({
+      ...row,
+      pct: total > 0 ? (row.notionalM / total) * 100 : 0,
+      color: row.optionType.includes('CALL')
+        ? ['#34d399', '#10b981', '#059669'][idx % 3]
+        : ['#fda4af', '#f87171', '#ef4444'][idx % 3],
+    }));
   }, [smartMoneyData]);
 
   const sortedSmartMoneyRows = useMemo(() => {
@@ -271,18 +270,31 @@ export default function IntradayToolsPage() {
             <div className="text-gray-400 text-center py-6">No smart money flow data available</div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={smartMoneyByStrike}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-                  <XAxis dataKey="strike" stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-                  <YAxis stroke="#f2f2f2" tickFormatter={(value) => `$${Number(value).toFixed(1)}M`} />
-                  <Tooltip formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`} />
-                  <Bar dataKey="totalNotional" name="Total Notional (M)">
-                    {smartMoneyByStrike.map((row) => (
-                      <Cell key={row.strike} fill={row.callNotional >= row.putNotional ? '#34d399' : '#f87171'} />
+              <ResponsiveContainer width="100%" height={320}>
+                <PieChart>
+                  <Pie
+                    data={smartMoneyOrderShare}
+                    dataKey="pct"
+                    nameKey="contract"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={120}
+                    paddingAngle={2}
+                    label={({ payload }) => `${payload.optionType} ${payload.strike.toFixed(0)} · ${payload.pct.toFixed(1)}%`}
+                    labelLine={false}
+                  >
+                    {smartMoneyOrderShare.map((slice) => (
+                      <Cell key={slice.id} fill={slice.color} />
                     ))}
-                  </Bar>
-                </BarChart>
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, _name, item) => {
+                      const payload = item?.payload as { notionalM: number; pct: number } | undefined;
+                      return [`${Number(value ?? 0).toFixed(2)}% of total · $${Number(payload?.notionalM ?? 0).toFixed(2)}M`, 'Order Share'];
+                    }}
+                  />
+                </PieChart>
               </ResponsiveContainer>
 
               <div className="overflow-x-auto mt-4">
