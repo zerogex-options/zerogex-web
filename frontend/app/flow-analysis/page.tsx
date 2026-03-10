@@ -310,8 +310,28 @@ function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: Underlying
 
   if (sortedUnderlying.length === 0) return rows;
 
+  const exactPriceByTs = new Map(sortedUnderlying.map((r) => [r.timestamp, r.price]));
+  const gapsMs: number[] = [];
+  for (let i = 1; i < sortedUnderlying.length; i += 1) {
+    const gap = sortedUnderlying[i].timeMs - sortedUnderlying[i - 1].timeMs;
+    if (gap > 0) gapsMs.push(gap);
+  }
+  const medianGapMs =
+    gapsMs.length === 0
+      ? 5 * 60 * 1000
+      : [...gapsMs].sort((a, b) => a - b)[Math.floor(gapsMs.length / 2)];
+  const maxDistanceMs = Math.max(60 * 1000, Math.round(medianGapMs * 1.5));
+
   let idx = 0;
   return rows.map((row) => {
+    const exact = exactPriceByTs.get(row.timestamp);
+    if (Number.isFinite(exact)) {
+      return {
+        ...row,
+        underlyingPrice: Number(exact),
+      };
+    }
+
     const t = new Date(row.timestamp).getTime();
     while (idx + 1 < sortedUnderlying.length && sortedUnderlying[idx + 1].timeMs <= t) {
       idx += 1;
@@ -319,13 +339,19 @@ function attachUnderlyingPrice(rows: TimeseriesRow[], underlyingRows: Underlying
 
     const current = sortedUnderlying[idx];
     const next = idx + 1 < sortedUnderlying.length ? sortedUnderlying[idx + 1] : null;
-
     const chosen =
-      next && Math.abs(next.timeMs - t) < Math.abs(current.timeMs - t) ? next.price : current.price;
+      next && Math.abs(next.timeMs - t) < Math.abs(current.timeMs - t) ? next : current;
+
+    if (Math.abs(chosen.timeMs - t) > maxDistanceMs) {
+      return {
+        ...row,
+        underlyingPrice: null,
+      };
+    }
 
     return {
       ...row,
-      underlyingPrice: chosen,
+      underlyingPrice: chosen.price,
     };
   });
 }
@@ -462,6 +488,9 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             label={{ value: "Notional Value", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
           />
           <Tooltip
+            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
+            labelStyle={{ color: "#374151", fontWeight: 600 }}
+            itemStyle={{ color: "#111827" }}
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
@@ -530,7 +559,13 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
           />
           <YAxis yAxisId="volumeSpacer" orientation="left" domain={[0, 1]} width={72} axisLine={false} tickLine={false} tick={false} />
           <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
-          <Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]} />
+          <Tooltip
+            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
+            labelStyle={{ color: "#374151", fontWeight: 600 }}
+            itemStyle={{ color: "#111827" }}
+            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+            formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]}
+          />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
             yAxisId="volume"
@@ -729,7 +764,7 @@ export default function FlowAnalysisPage() {
           title="Flow Snapshot"
           tooltip="Most recent snapshot from the latest row returned for the selected interval."
         />
-        <div className="text-gray-700 text-sm mb-3">
+        <div className="text-gray-400 text-sm mb-3">
           Latest timestamp: {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
