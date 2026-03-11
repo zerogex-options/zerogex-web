@@ -9,6 +9,8 @@ import {
   TrendingDown,
   ChevronUp,
   ChevronDown,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { Theme } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
@@ -17,7 +19,7 @@ import { getMarketSession } from "@/core/utils";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
-import { useMarketQuote, usePreviousClose } from "@/hooks/useApiData";
+import { useMarketQuote, usePreviousClose, useSessionCloses } from "@/hooks/useApiData";
 
 interface HeaderProps {
   theme: Theme;
@@ -55,6 +57,7 @@ export default function Header({ theme }: HeaderProps) {
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: previousCloseData } = usePreviousClose(symbol, 60000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
   const [effectivePreviousClose, setEffectivePreviousClose] = useState(previousCloseData);
 
   useEffect(() => {
@@ -118,27 +121,74 @@ export default function Header({ theme }: HeaderProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate change from previous close
-  const livePrice =
-    quoteData && previousCloseForDisplay
-      ? {
-          symbol,
-          price: quoteData.close,
-          change: quoteData.close - previousCloseForDisplay.previous_close,
-          changePercent:
-            ((quoteData.close - previousCloseForDisplay.previous_close) /
-              previousCloseForDisplay.previous_close) *
-            100,
-        }
-      : null;
+  const isMarketOpen = session === "open";
+  // During extended hours we have two price rows; otherwise one row as normal.
+  const showExtendedRow =
+    (session === "after-hours" || session === "pre-market") && !!sessionClosesData && !!quoteData;
 
-  const isPositive = livePrice ? livePrice.change >= 0 : false;
-  const quoteTimestampLabel = quoteData?.timestamp
-    ? `as of ${new Date(quoteData.timestamp).toLocaleString()}`
-    : "latest quote";
-  const prevCloseLabel = previousCloseForDisplay?.timestamp
-    ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
-    : "since previous close";
+  // ── Row 1 ────────────────────────────────────────────────────────────────
+  // Market open  → live quote vs prior regular-session close (same as before)
+  // Market closed → current_session_close vs prior_session_close
+  const row1Price = isMarketOpen
+    ? quoteData?.close ?? null
+    : sessionClosesData?.current_session_close ?? null;
+
+  const row1BaseClose = isMarketOpen
+    ? (sessionClosesData?.prior_session_close ?? previousCloseForDisplay?.previous_close ?? null)
+    : (sessionClosesData?.prior_session_close ?? null);
+
+  const row1Change =
+    row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
+  const row1ChangePercent =
+    row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
+  const row1Positive = row1Change !== null ? row1Change >= 0 : false;
+
+  // ── Row 2 (off-hours only) ────────────────────────────────────────────────
+  // Live off-hours quote vs current_session_close
+  const row2Price = quoteData?.close ?? null;
+  const row2BaseClose = sessionClosesData?.current_session_close ?? null;
+  const row2Change =
+    row2Price !== null && row2BaseClose !== null ? row2Price - row2BaseClose : null;
+  const row2ChangePercent =
+    row2Change !== null && row2BaseClose ? (row2Change / row2BaseClose) * 100 : null;
+  const row2Positive = row2Change !== null ? row2Change >= 0 : false;
+
+  // ── Labels / tooltips ────────────────────────────────────────────────────
+  const formatEtDateTime = (ts: string) => {
+    try {
+      return new Date(ts).toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }) + " ET";
+    } catch {
+      return ts;
+    }
+  };
+
+  const row1PriceLabel = isMarketOpen
+    ? (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote")
+    : (sessionClosesData?.current_session_close_ts
+        ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
+        : "regular session close");
+
+  const row1ChangeLabel = isMarketOpen
+    ? (sessionClosesData?.prior_session_close_ts
+        ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+        : previousCloseForDisplay?.timestamp
+          ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
+          : "since previous close")
+    : (sessionClosesData?.prior_session_close_ts
+        ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+        : "vs prior session close");
+
+  const row2Label = quoteData?.timestamp
+    ? `${session === "after-hours" ? "After-hours" : "Pre-market"} price as of ${formatEtDateTime(quoteData.timestamp)}`
+    : `${session === "after-hours" ? "After-hours" : "Pre-market"} price`;
 
   return (
     <header
@@ -194,34 +244,65 @@ export default function Header({ theme }: HeaderProps) {
                   </select>
                 </div>
 
-                {livePrice && (
+                {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
                   <div className="flex flex-col gap-1">
+                    {/* Row 1: regular-session price + change */}
                     <span
                       className="font-bold text-xl"
-                      title={quoteTimestampLabel}
+                      title={row1PriceLabel}
                     >
-                      ${livePrice.price.toFixed(2)}
+                      ${row1Price.toFixed(2)}
                     </span>
                     <div
                       className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
-                      title={prevCloseLabel}
+                      title={row1ChangeLabel}
                       style={{
                         backgroundColor:
                           theme === "dark"
-                            ? `${isPositive ? colors.bullish : colors.bearish}15`
-                            : `${isPositive ? colors.bullish : colors.bearish}10`,
-                        color: isPositive ? colors.bullish : colors.bearish,
+                            ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                            : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                        color: row1Positive ? colors.bullish : colors.bearish,
                       }}
                     >
-                      {isPositive ? (
+                      {row1Positive ? (
                         <TrendingUp size={12} strokeWidth={2.5} />
                       ) : (
                         <TrendingDown size={12} strokeWidth={2.5} />
                       )}
-                      {isPositive ? "+" : ""}
-                      {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
-                      {livePrice.changePercent.toFixed(2)}%)
+                      {row1Positive ? "+" : ""}
+                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                      {row1ChangePercent.toFixed(2)}%)
                     </div>
+                    {/* Row 2: extended-hours price (after-hours / pre-market only) */}
+                    {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
+                      <div
+                        className="flex items-center gap-1.5 mt-0.5"
+                        title={row2Label}
+                      >
+                        {session === "after-hours" ? (
+                          <Moon size={11} style={{ color: colors.muted }} />
+                        ) : (
+                          <Sun size={11} style={{ color: colors.muted }} />
+                        )}
+                        <span
+                          className="text-xs font-semibold"
+                          style={{
+                            color: theme === "dark" ? colors.light : colors.dark,
+                            opacity: 0.8,
+                          }}
+                        >
+                          ${row2Price.toFixed(2)}
+                        </span>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: row2Positive ? colors.bullish : colors.bearish }}
+                        >
+                          {row2Positive ? "+" : ""}
+                          {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
+                          {row2ChangePercent.toFixed(2)}%)
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -356,34 +437,65 @@ export default function Header({ theme }: HeaderProps) {
                     </select>
                   </div>
 
-                  {livePrice && (
+                  {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
                     <div className="flex flex-col gap-1">
+                      {/* Row 1: regular-session price + change */}
                       <span
                         className="font-bold text-2xl"
-                        title={quoteTimestampLabel}
+                        title={row1PriceLabel}
                       >
-                        ${livePrice.price.toFixed(2)}
+                        ${row1Price.toFixed(2)}
                       </span>
                       <div
                         className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
-                        title={prevCloseLabel}
+                        title={row1ChangeLabel}
                         style={{
                           backgroundColor:
                             theme === "dark"
-                              ? `${isPositive ? colors.bullish : colors.bearish}15`
-                              : `${isPositive ? colors.bullish : colors.bearish}10`,
-                          color: isPositive ? colors.bullish : colors.bearish,
+                              ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                              : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                          color: row1Positive ? colors.bullish : colors.bearish,
                         }}
                       >
-                        {isPositive ? (
+                        {row1Positive ? (
                           <TrendingUp size={14} strokeWidth={2.5} />
                         ) : (
                           <TrendingDown size={14} strokeWidth={2.5} />
                         )}
-                        {isPositive ? "+" : ""}
-                        {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
-                        {livePrice.changePercent.toFixed(2)}%)
+                        {row1Positive ? "+" : ""}
+                        {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                        {row1ChangePercent.toFixed(2)}%)
                       </div>
+                      {/* Row 2: extended-hours price (after-hours / pre-market only) */}
+                      {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
+                        <div
+                          className="flex items-center gap-1.5 mt-1"
+                          title={row2Label}
+                        >
+                          {session === "after-hours" ? (
+                            <Moon size={13} style={{ color: colors.muted }} />
+                          ) : (
+                            <Sun size={13} style={{ color: colors.muted }} />
+                          )}
+                          <span
+                            className="text-sm font-semibold"
+                            style={{
+                              color: theme === "dark" ? colors.light : colors.dark,
+                              opacity: 0.8,
+                            }}
+                          >
+                            ${row2Price.toFixed(2)}
+                          </span>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: row2Positive ? colors.bullish : colors.bearish }}
+                          >
+                            {row2Positive ? "+" : ""}
+                            {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
+                            {row2ChangePercent.toFixed(2)}%)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -525,34 +637,64 @@ export default function Header({ theme }: HeaderProps) {
                 </select>
               </div>
 
-              {livePrice && (
-                <div className="flex items-center gap-4 flex-wrap">
-                  <span
-                    className="font-bold text-2xl"
-                    title={quoteTimestampLabel}
-                  >
-                    ${livePrice.price.toFixed(2)}
-                  </span>
-                  <div
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
-                    title={prevCloseLabel}
-                    style={{
-                      backgroundColor:
-                        theme === "dark"
-                          ? `${isPositive ? colors.bullish : colors.bearish}15`
-                          : `${isPositive ? colors.bullish : colors.bearish}10`,
-                      color: isPositive ? colors.bullish : colors.bearish,
-                    }}
-                  >
-                    {isPositive ? (
-                      <TrendingUp size={14} strokeWidth={2.5} />
-                    ) : (
-                      <TrendingDown size={14} strokeWidth={2.5} />
-                    )}
-                    {isPositive ? "+" : ""}
-                    {livePrice.change.toFixed(2)} ({isPositive ? "+" : ""}
-                    {livePrice.changePercent.toFixed(2)}%)
+              {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
+                <div className="flex flex-col gap-1.5">
+                  {/* Row 1 */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span
+                      className="font-bold text-2xl"
+                      title={row1PriceLabel}
+                    >
+                      ${row1Price.toFixed(2)}
+                    </span>
+                    <div
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
+                      title={row1ChangeLabel}
+                      style={{
+                        backgroundColor:
+                          theme === "dark"
+                            ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                            : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                        color: row1Positive ? colors.bullish : colors.bearish,
+                      }}
+                    >
+                      {row1Positive ? (
+                        <TrendingUp size={14} strokeWidth={2.5} />
+                      ) : (
+                        <TrendingDown size={14} strokeWidth={2.5} />
+                      )}
+                      {row1Positive ? "+" : ""}
+                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                      {row1ChangePercent.toFixed(2)}%)
+                    </div>
                   </div>
+                  {/* Row 2: extended-hours */}
+                  {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
+                    <div className="flex items-center gap-1.5" title={row2Label}>
+                      {session === "after-hours" ? (
+                        <Moon size={13} style={{ color: colors.muted }} />
+                      ) : (
+                        <Sun size={13} style={{ color: colors.muted }} />
+                      )}
+                      <span
+                        className="text-sm font-semibold"
+                        style={{
+                          color: theme === "dark" ? colors.light : colors.dark,
+                          opacity: 0.8,
+                        }}
+                      >
+                        ${row2Price.toFixed(2)}
+                      </span>
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: row2Positive ? colors.bullish : colors.bearish }}
+                      >
+                        {row2Positive ? "+" : ""}
+                        {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
+                        {row2ChangePercent.toFixed(2)}%)
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -236,6 +236,23 @@ export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
   );
 }
 
+export interface SessionClosesData {
+  symbol: string;
+  /** Most recent completed regular-session close (4 PM ET). During market hours this is yesterday's close; during AH/PM it is today's close. */
+  current_session_close: number;
+  current_session_close_ts: string;
+  /** The regular-session close that precedes current_session_close (used for the row-1 change calculation). */
+  prior_session_close: number;
+  prior_session_close_ts: string;
+}
+
+export function useSessionCloses(symbol = 'SPY', refreshInterval = 60000) {
+  return useApiData<SessionClosesData>(
+    `/api/market/session-closes?symbol=${symbol}`,
+    { refreshInterval }
+  );
+}
+
 export function useTradeSignal(symbol = 'SPY', timeframe: SignalTimeframe = 'intraday', refreshInterval = 15000) {
   return useApiData<TradeSignalResponse>(`/api/signals/trade?symbol=${symbol}&timeframe=${timeframe}`, { refreshInterval });
 }
