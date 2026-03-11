@@ -247,32 +247,37 @@ export default function Header({ theme }: HeaderProps) {
 
                 {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
                   <div className="flex flex-col gap-1">
-                    {/* Row 1: regular-session price + change */}
-                    <span
-                      className="font-bold text-xl"
-                      title={row1PriceLabel}
-                    >
-                      ${row1Price.toFixed(2)}
-                    </span>
+                    {/* Row 1: regular-session price + change (inline when market closed) */}
                     <div
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
-                      title={row1ChangeLabel}
-                      style={{
-                        backgroundColor:
-                          theme === "dark"
-                            ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                            : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                        color: row1Positive ? colors.bullish : colors.bearish,
-                      }}
+                      className={isMarketOpen ? undefined : "flex items-center gap-2"}
+                      style={isMarketOpen ? { display: "contents" } : undefined}
                     >
-                      {row1Positive ? (
-                        <TrendingUp size={12} strokeWidth={2.5} />
-                      ) : (
-                        <TrendingDown size={12} strokeWidth={2.5} />
-                      )}
-                      {row1Positive ? "+" : ""}
-                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                      {row1ChangePercent.toFixed(2)}%)
+                      <span
+                        className="font-bold text-xl"
+                        title={row1PriceLabel}
+                      >
+                        ${row1Price.toFixed(2)}
+                      </span>
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
+                        title={row1ChangeLabel}
+                        style={{
+                          backgroundColor:
+                            theme === "dark"
+                              ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                              : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                          color: row1Positive ? colors.bullish : colors.bearish,
+                        }}
+                      >
+                        {row1Positive ? (
+                          <TrendingUp size={12} strokeWidth={2.5} />
+                        ) : (
+                          <TrendingDown size={12} strokeWidth={2.5} />
+                        )}
+                        {row1Positive ? "+" : ""}
+                        {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                        {row1ChangePercent.toFixed(2)}%)
+                      </div>
                     </div>
                     {/* Row 2: extended-hours price (after-hours / pre-market only) */}
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
@@ -440,32 +445,37 @@ export default function Header({ theme }: HeaderProps) {
 
                   {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
                     <div className="flex flex-col gap-1">
-                      {/* Row 1: regular-session price + change */}
-                      <span
-                        className="font-bold text-2xl"
-                        title={row1PriceLabel}
-                      >
-                        ${row1Price.toFixed(2)}
-                      </span>
+                      {/* Row 1: regular-session price + change (inline when market closed) */}
                       <div
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
-                        title={row1ChangeLabel}
-                        style={{
-                          backgroundColor:
-                            theme === "dark"
-                              ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                              : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                          color: row1Positive ? colors.bullish : colors.bearish,
-                        }}
+                        className={isMarketOpen ? undefined : "flex items-center gap-2"}
+                        style={isMarketOpen ? { display: "contents" } : undefined}
                       >
-                        {row1Positive ? (
-                          <TrendingUp size={14} strokeWidth={2.5} />
-                        ) : (
-                          <TrendingDown size={14} strokeWidth={2.5} />
-                        )}
-                        {row1Positive ? "+" : ""}
-                        {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                        {row1ChangePercent.toFixed(2)}%)
+                        <span
+                          className="font-bold text-2xl"
+                          title={row1PriceLabel}
+                        >
+                          ${row1Price.toFixed(2)}
+                        </span>
+                        <div
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
+                          title={row1ChangeLabel}
+                          style={{
+                            backgroundColor:
+                              theme === "dark"
+                                ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                                : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                            color: row1Positive ? colors.bullish : colors.bearish,
+                          }}
+                        >
+                          {row1Positive ? (
+                            <TrendingUp size={14} strokeWidth={2.5} />
+                          ) : (
+                            <TrendingDown size={14} strokeWidth={2.5} />
+                          )}
+                          {row1Positive ? "+" : ""}
+                          {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                          {row1ChangePercent.toFixed(2)}%)
+                        </div>
                       </div>
                       {/* Row 2: extended-hours price (after-hours / pre-market only) */}
                       {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
