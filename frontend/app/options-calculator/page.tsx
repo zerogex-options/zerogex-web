@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Line, LineChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -17,6 +17,19 @@ interface SmartMoneyRow {
   option_type: string;
   flow: number;
   notional: number;
+}
+
+interface MaxPainPoint {
+  settlement_price: number;
+}
+
+interface MaxPainExpiration {
+  expiration: string;
+  strikes: MaxPainPoint[];
+}
+
+interface MaxPainCurrentResponse {
+  expirations: MaxPainExpiration[];
 }
 
 interface StrategyLegTemplate {
@@ -52,42 +65,59 @@ export default function OptionsCalculatorPage() {
   const [legStrike, setLegStrike] = useState<Record<string, string>>({});
 
   const { data: quoteData } = useMarketQuote(symbol, 3000);
-  const { data: smartMoneyData, error } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=500`, { refreshInterval: 15000 });
+  const { data: maxPainData, error: chainError } = useApiData<MaxPainCurrentResponse>(
+    `/api/max-pain/current?symbol=${symbol}&strike_limit=500`,
+    { refreshInterval: 30000 }
+  );
+  const { data: smartMoneyData } = useApiData<SmartMoneyRow[]>(
+    `/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=30`,
+    { refreshInterval: 15000 }
+  );
 
   const strategyConfig = STRATEGIES[strategy];
 
-  const normalizedRows = useMemo(() => (smartMoneyData || []).map((row) => ({
-    ...row,
-    optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' : 'put',
-    strikeNum: Number(row.strike),
-  })).filter((row) => Number.isFinite(row.strikeNum) && row.expiration), [smartMoneyData]);
-
   const expirationChoices = useMemo(() => {
-    const map: Record<OptionRight, string[]> = { call: [], put: [] };
-    (['call', 'put'] as OptionRight[]).forEach((right) => {
-      map[right] = Array.from(new Set(normalizedRows.filter((r) => r.optionType === right).map((r) => r.expiration))).sort((a, b) => a.localeCompare(b));
-    });
-    return map;
-  }, [normalizedRows]);
+    return (maxPainData?.expirations || []).map((exp) => exp.expiration).sort((a, b) => a.localeCompare(b));
+  }, [maxPainData]);
 
-  const strikeChoices = useMemo(() => {
+  const strikeMapByExpiration = useMemo(() => {
     const out: Record<string, number[]> = {};
-    strategyConfig.legs.forEach((leg) => {
-      const selectedExp = legExpiration[leg.id] || expirationChoices[leg.right][0] || '';
-      out[leg.id] = Array.from(new Set(normalizedRows.filter((r) => r.optionType === leg.right && r.expiration === selectedExp).map((r) => r.strikeNum))).sort((a, b) => a - b);
+    (maxPainData?.expirations || []).forEach((exp) => {
+      out[exp.expiration] = Array.from(
+        new Set((exp.strikes || []).map((row) => Number(row.settlement_price)).filter((n) => Number.isFinite(n) && n > 0))
+      ).sort((a, b) => a - b);
     });
     return out;
-  }, [strategyConfig.legs, legExpiration, expirationChoices, normalizedRows]);
+  }, [maxPainData]);
 
-  const selectedLegs = useMemo(() => strategyConfig.legs.map((leg) => {
-    const expiration = legExpiration[leg.id] || expirationChoices[leg.right][0] || '';
-    const strike = Number(legStrike[leg.id] || strikeChoices[leg.id]?.[0] || 0);
-    const selected = normalizedRows
-      .filter((r) => r.optionType === leg.right && r.expiration === expiration && Number(r.strikeNum) === strike)
-      .sort((a, b) => Math.abs(Number(b.notional || 0)) - Math.abs(Number(a.notional || 0)))[0] as SmartMoneyRow | undefined;
+  const normalizedQuotes = useMemo(
+    () =>
+      (smartMoneyData || []).map((row) => ({
+        ...row,
+        optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' : 'put',
+        strikeNum: Number(row.strike),
+      })),
+    [smartMoneyData]
+  );
 
-    return { ...leg, expiration, strike, premium: inferredPremium(selected) };
-  }), [strategyConfig.legs, legExpiration, legStrike, expirationChoices, strikeChoices, normalizedRows]);
+  const selectedLegs = useMemo(
+    () =>
+      strategyConfig.legs.map((leg) => {
+        const expiration = legExpiration[leg.id] || expirationChoices[0] || '';
+        const strike = Number(legStrike[leg.id] || strikeMapByExpiration[expiration]?.[0] || 0);
+        const quote = normalizedQuotes
+          .filter((row) => row.optionType === leg.right && row.expiration === expiration && Number(row.strikeNum) === strike)
+          .sort((a, b) => Math.abs(Number(b.notional || 0)) - Math.abs(Number(a.notional || 0)))[0] as SmartMoneyRow | undefined;
+
+        return {
+          ...leg,
+          expiration,
+          strike,
+          premium: inferredPremium(quote),
+        };
+      }),
+    [strategyConfig.legs, legExpiration, expirationChoices, legStrike, strikeMapByExpiration, normalizedQuotes]
+  );
 
   const totalEntry = selectedLegs.reduce((sum, leg) => sum + (leg.role === 'long' ? leg.premium : -leg.premium), 0);
   const spot = Number(quoteData?.close || 0);
@@ -112,36 +142,43 @@ export default function OptionsCalculatorPage() {
 
       <div className="bg-[#423d3f] rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <label className="text-sm text-gray-300">Strategy
+          <label className="text-sm text-gray-300">
+            Strategy
             <select className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" value={strategy} onChange={(e) => setStrategy(e.target.value as StrategyType)}>
-              {Object.entries(STRATEGIES).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
+              {Object.entries(STRATEGIES).map(([key, cfg]) => (
+                <option key={key} value={key}>{cfg.label}</option>
+              ))}
             </select>
           </label>
-          <label className="text-sm text-gray-300">Contracts
+          <label className="text-sm text-gray-300">
+            Contracts
             <input className="ml-2 w-24 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" type="number" min={1} value={contracts} onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))} />
           </label>
           <div className="text-sm text-gray-300">Underlying: <span className="font-semibold text-white">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span></div>
         </div>
 
-        {error && <ErrorMessage message={error} />}
+        {chainError && <ErrorMessage message={chainError} />}
 
         <div className="space-y-3 mb-5">
-          {selectedLegs.map((leg) => (
-            <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[#2f2b2c] p-3 rounded">
-              <div className="text-sm font-semibold">{leg.label}</div>
-              <label className="text-sm text-gray-300">Exp
-                <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={leg.expiration} onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
-                  {(expirationChoices[leg.right] || []).map((exp) => <option key={exp} value={exp}>{exp}</option>)}
-                </select>
-              </label>
-              <label className="text-sm text-gray-300">Strike
-                <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={String(leg.strike)} onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
-                  {(strikeChoices[leg.id] || []).map((strike) => <option key={strike} value={String(strike)}>{strike.toFixed(2)}</option>)}
-                </select>
-              </label>
-              <div className="text-sm text-gray-300">Leg quote: <span className="text-white font-semibold">${leg.premium.toFixed(2)}</span></div>
-            </div>
-          ))}
+          {selectedLegs.map((leg) => {
+            const legStrikes = strikeMapByExpiration[leg.expiration] || [];
+            return (
+              <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[#2f2b2c] p-3 rounded">
+                <div className="text-sm font-semibold">{leg.label}</div>
+                <label className="text-sm text-gray-300">Exp
+                  <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={leg.expiration} onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
+                    {expirationChoices.map((exp) => <option key={exp} value={exp}>{exp}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm text-gray-300">Strike
+                  <select className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1" value={String(leg.strike)} onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}>
+                    {legStrikes.map((strike) => <option key={strike} value={String(strike)}>{strike.toFixed(2)}</option>)}
+                  </select>
+                </label>
+                <div className="text-sm text-gray-300">Leg quote: <span className="text-white font-semibold">${leg.premium.toFixed(2)}</span></div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="text-sm text-gray-300">Net entry (1 strategy set): <span className="text-white font-semibold">${totalEntry.toFixed(2)}</span></div>

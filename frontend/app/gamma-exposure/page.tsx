@@ -194,9 +194,21 @@ export default function GammaExposurePage() {
                 <YAxis yAxisId="greeks" stroke="#f2f2f2" tick={{ fontSize: 10 }} tickFormatter={(value) => formatLarge(Number(value))} />
                 <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" tick={{ fontSize: 10 }} domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
-                <Legend content={renderLegend} align="right" verticalAlign="top" wrapperStyle={{ right: 0, top: 0 }} />
+                <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
-                {quoteData && <ReferenceLine x={quoteData.close} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Price $${quoteData.close.toFixed(2)}`, position: "top", fill: "#cbd5e1", fontSize: 11 }} />}
+                {quoteData && <ReferenceLine
+                  ifOverflow="extendDomain"
+                  x={quoteData.close}
+                  stroke="#60a5fa"
+                  strokeDasharray="6 4"
+                  strokeWidth={2}
+                  label={{
+                    value: `Underlying $${quoteData.close.toFixed(2)}`,
+                    fill: "#f2f2f2",
+                    position: "insideTopRight",
+                    dy: 8,
+                  }}
+                />}
                 <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
                   {sortedRows.map((entry, idx) => (
                     <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />

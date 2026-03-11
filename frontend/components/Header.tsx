@@ -411,6 +411,31 @@ export default function Header({ theme }: HeaderProps) {
                 </div>
               </div>
 
+              <div className="mt-4 flex flex-wrap gap-2">
+                {pages.map((page) => {
+                  const active = pathname === page.id;
+                  return (
+                    <button
+                      key={`desktop-${page.id}`}
+                      onClick={() => router.push(page.id)}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-semibold"
+                      style={{
+                        backgroundColor:
+                          theme === "dark" ? colors.cardDark : colors.cardLight,
+                        borderColor: active ? colors.bearish : colors.muted,
+                        color: active
+                          ? colors.bearish
+                          : theme === "dark"
+                            ? colors.light
+                            : colors.dark,
+                      }}
+                    >
+                      {page.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Absolutely centered logo */}
               <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
