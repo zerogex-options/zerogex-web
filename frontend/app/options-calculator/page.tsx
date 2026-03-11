@@ -104,6 +104,20 @@ function formatOptionTicker(symbol: string, expiration: string, right: OptionRig
   return `${symbol} ${exp}${right === 'call' ? 'C' : 'P'}${strikeText}`;
 }
 
+function fmtDollar(v: number, decimals = 2): string {
+  const sign = v < 0 ? '-' : '';
+  return sign + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function niceStep(rawStep: number): number {
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const n = rawStep / mag;
+  if (n < 1.5) return mag;
+  if (n < 3.5) return 2 * mag;
+  if (n < 7.5) return 5 * mag;
+  return 10 * mag;
+}
+
 interface TooltipPayloadItem { value: number }
 interface TooltipProps { active?: boolean; payload?: TooltipPayloadItem[]; label?: number }
 
@@ -117,7 +131,7 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
         Underlying: <span style={{ color: '#cbd5e1' }}>${Number(label).toFixed(2)}</span>
       </div>
       <div style={{ color: positive ? '#10b981' : '#ef4444', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
-        {positive ? '+' : ''}${pl.toFixed(2)}
+        {positive ? '+' : ''}{fmtDollar(pl)}
       </div>
     </div>
   );
@@ -256,6 +270,19 @@ export default function OptionsCalculatorPage() {
   const range = maxPL - minPL;
   const zeroOffset = range > 0 ? Math.round((maxPL / range) * 100) : 50;
 
+  const xTicks = useMemo(() => {
+    if (payoffData.length < 2) return [];
+    const minX = payoffData[0].price;
+    const maxX = payoffData[payoffData.length - 1].price;
+    const step = niceStep((maxX - minX) / 7);
+    const start = Math.ceil(minX / step) * step;
+    const ticks: number[] = [];
+    for (let t = start; t <= maxX + step * 0.01; t += step) {
+      ticks.push(Math.round(t * 100) / 100);
+    }
+    return ticks;
+  }, [payoffData]);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Options Calculator</h1>
@@ -333,7 +360,7 @@ export default function OptionsCalculatorPage() {
         <div className="text-sm text-gray-300">
           Total position:{' '}
           <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
-            ${Math.abs(totalPosition).toFixed(2)}
+            {fmtDollar(Math.abs(totalPosition))}
           </span>{' '}
           <span className="text-gray-400">
             ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
@@ -360,16 +387,19 @@ export default function OptionsCalculatorPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="#3f3a3c" />
             <XAxis
               dataKey="price"
+              ticks={xTicks}
+              interval={0}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               tickLine={false}
               axisLine={{ stroke: '#3f3a3c' }}
-              tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
+              tickFormatter={(v) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}
             />
             <YAxis
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               tickLine={false}
               axisLine={{ stroke: '#3f3a3c' }}
-              tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
+              tickFormatter={(v) => fmtDollar(Number(v), 0)}
+              width={70}
             />
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine y={0} stroke="#475569" strokeWidth={1.5} />
