@@ -218,7 +218,7 @@ export default function OptionsCalculatorPage() {
             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
             <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} labelFormatter={(label) => `Underlying: $${Number(label).toFixed(2)}`} />
             <ReferenceLine y={0} stroke="#f2f2f2" />
-            {spot > 0 && <ReferenceLine x={spot} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Spot $${spot.toFixed(2)}`, position: 'top', fill: '#cbd5e1', fontSize: 11 }} />}
+            {spot > 0 && <ReferenceLine x={spot} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: `Spot $${spot.toFixed(2)}`, position: 'insideTopRight', dy: 8, fill: '#cbd5e1', fontSize: 11 }} />}
             <Line type="monotone" dataKey="pl" stroke="#2dd4bf" strokeWidth={3} dot={false} />
           </LineChart>
         </ResponsiveContainer>

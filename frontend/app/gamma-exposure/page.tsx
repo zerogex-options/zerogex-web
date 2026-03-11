@@ -209,6 +209,7 @@ export default function GammaExposurePage() {
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
                 {quoteData && underlyingStrikeMarker !== null && <ReferenceLine
+                  yAxisId="net"
                   ifOverflow="extendDomain"
                   x={underlyingStrikeMarker}
                   stroke="#60a5fa"
