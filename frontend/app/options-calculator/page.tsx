@@ -11,12 +11,14 @@ type LegRole = 'long' | 'short';
 type OptionRight = 'call' | 'put';
 
 interface SmartMoneyRow {
-  contract: string;
+  contract?: string;
   strike: number;
   expiration: string;
   option_type: string;
   flow: number;
   notional: number;
+  bid?: number | null;
+  ask?: number | null;
 }
 
 interface MaxPainPoint {
@@ -57,6 +59,12 @@ function inferredPremium(row: SmartMoneyRow | undefined): number {
   return Math.abs(Number(row.notional || 0)) / (contracts * 100);
 }
 
+function formatOptionTicker(symbol: string, expiration: string, right: OptionRight, strike: number): string {
+  const exp = expiration ? expiration.replace(/-/g, '').slice(2) : '------';
+  const strikeText = Number(strike).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+  return `${symbol} ${exp}${right === 'call' ? 'C' : 'P'}${strikeText}`;
+}
+
 export default function OptionsCalculatorPage() {
   const { symbol } = useTimeframe();
   const [strategy, setStrategy] = useState<StrategyType>('long_put');
@@ -76,9 +84,10 @@ export default function OptionsCalculatorPage() {
 
   const strategyConfig = STRATEGIES[strategy];
 
-  const expirationChoices = useMemo(() => {
-    return (maxPainData?.expirations || []).map((exp) => exp.expiration).sort((a, b) => a.localeCompare(b));
-  }, [maxPainData]);
+  const expirationChoices = useMemo(
+    () => (maxPainData?.expirations || []).map((exp) => exp.expiration).sort((a, b) => a.localeCompare(b)),
+    [maxPainData]
+  );
 
   const strikeMapByExpiration = useMemo(() => {
     const out: Record<string, number[]> = {};
@@ -94,8 +103,10 @@ export default function OptionsCalculatorPage() {
     () =>
       (smartMoneyData || []).map((row) => ({
         ...row,
-        optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' : 'put',
+        optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' as const : 'put' as const,
         strikeNum: Number(row.strike),
+        bid: Number(row.bid),
+        ask: Number(row.ask),
       })),
     [smartMoneyData]
   );
@@ -105,23 +116,35 @@ export default function OptionsCalculatorPage() {
       strategyConfig.legs.map((leg) => {
         const expiration = legExpiration[leg.id] || expirationChoices[0] || '';
         const strike = Number(legStrike[leg.id] || strikeMapByExpiration[expiration]?.[0] || 0);
-        const quote = normalizedQuotes
+        const quoteRow = normalizedQuotes
           .filter((row) => row.optionType === leg.right && row.expiration === expiration && Number(row.strikeNum) === strike)
           .sort((a, b) => Math.abs(Number(b.notional || 0)) - Math.abs(Number(a.notional || 0)))[0] as SmartMoneyRow | undefined;
+
+        const fallback = inferredPremium(quoteRow);
+        const bid = Number(quoteRow?.bid);
+        const ask = Number(quoteRow?.ask);
+        const quotePerContract = leg.role === 'long'
+          ? (Number.isFinite(ask) && ask > 0 ? ask : fallback)
+          : (Number.isFinite(bid) && bid > 0 ? bid : fallback);
 
         return {
           ...leg,
           expiration,
           strike,
-          premium: inferredPremium(quote),
+          ticker: formatOptionTicker(symbol, expiration, leg.right, strike),
+          quotePerContract,
+          quoteSide: leg.role === 'long' ? 'ask' : 'bid',
         };
       }),
-    [strategyConfig.legs, legExpiration, expirationChoices, legStrike, strikeMapByExpiration, normalizedQuotes]
+    [strategyConfig.legs, legExpiration, expirationChoices, legStrike, strikeMapByExpiration, normalizedQuotes, symbol]
   );
 
-  const totalEntry = selectedLegs.reduce((sum, leg) => sum + (leg.role === 'long' ? leg.premium : -leg.premium), 0);
-  const spot = Number(quoteData?.close || 0);
+  const totalPosition = selectedLegs.reduce((sum, leg) => {
+    const signed = leg.role === 'long' ? 1 : -1;
+    return sum + signed * leg.quotePerContract * contracts * 100;
+  }, 0);
 
+  const spot = Number(quoteData?.close || 0);
   const payoffData = useMemo(() => {
     const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
     const minP = Math.max(1, center * 0.8);
@@ -130,7 +153,7 @@ export default function OptionsCalculatorPage() {
       const underlyingAtExp = minP + ((maxP - minP) * i) / 80;
       const oneContractPL = selectedLegs.reduce((sum, leg) => {
         const intrinsic = leg.right === 'call' ? Math.max(underlyingAtExp - leg.strike, 0) : Math.max(leg.strike - underlyingAtExp, 0);
-        return leg.role === 'long' ? sum + intrinsic - leg.premium : sum + leg.premium - intrinsic;
+        return leg.role === 'long' ? sum + intrinsic - leg.quotePerContract : sum + leg.quotePerContract - intrinsic;
       }, 0);
       return { price: Number(underlyingAtExp.toFixed(2)), pl: Number((oneContractPL * contracts * 100).toFixed(2)) };
     });
@@ -145,9 +168,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-gray-300">
             Strategy
             <select className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" value={strategy} onChange={(e) => setStrategy(e.target.value as StrategyType)}>
-              {Object.entries(STRATEGIES).map(([key, cfg]) => (
-                <option key={key} value={key}>{cfg.label}</option>
-              ))}
+              {Object.entries(STRATEGIES).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
             </select>
           </label>
           <label className="text-sm text-gray-300">
@@ -175,13 +196,17 @@ export default function OptionsCalculatorPage() {
                     {legStrikes.map((strike) => <option key={strike} value={String(strike)}>{strike.toFixed(2)}</option>)}
                   </select>
                 </label>
-                <div className="text-sm text-gray-300">Leg quote: <span className="text-white font-semibold">${leg.premium.toFixed(2)}</span></div>
+                <div className="text-sm text-gray-300">
+                  {leg.ticker} · <span className="text-white font-semibold">${leg.quotePerContract.toFixed(2)}</span> {leg.quoteSide}
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div className="text-sm text-gray-300">Net entry (1 strategy set): <span className="text-white font-semibold">${totalEntry.toFixed(2)}</span></div>
+        <div className="text-sm text-gray-300">
+          Total position: <span className="text-white font-semibold">${Math.abs(totalPosition).toFixed(2)}</span>{totalPosition < 0 ? ' (credit)' : ''}
+        </div>
       </div>
 
       <div className="bg-[#423d3f] rounded-lg p-4">

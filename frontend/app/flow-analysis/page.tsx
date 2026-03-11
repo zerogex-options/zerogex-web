@@ -581,11 +581,16 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
           <YAxis yAxisId="volumeSpacer" orientation="left" domain={[0, 1]} width={72} axisLine={false} tickLine={false} tick={false} />
           <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
           <Tooltip
-            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
-            labelStyle={{ color: "#374151", fontWeight: 600 }}
-            itemStyle={{ color: "#111827" }}
-            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
-            formatter={(value) => [Number(value ?? 0).toLocaleString(), "Net Volume"]}
+            content={({ active, label, payload }) => {
+              if (!active || !payload || payload.length === 0) return null;
+              const point = payload[0]?.payload as { netVolume?: number } | undefined;
+              return (
+                <div className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                  <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                  <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
+                </div>
+              );
+            }}
           />
           <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
           <Area
@@ -615,6 +620,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     </div>
   );
 }
+
 
 export default function FlowAnalysisPage() {
   const { getMaxDataPoints, symbol } = useTimeframe();

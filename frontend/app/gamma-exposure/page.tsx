@@ -116,6 +116,14 @@ export default function GammaExposurePage() {
     return `${(value * 1000).toFixed(0)}K`;
   };
 
+
+  const underlyingStrikeMarker = quoteData && sortedRows.length
+    ? sortedRows.reduce((closest, row) =>
+        Math.abs(row.strike - quoteData.close) < Math.abs(closest - quoteData.close)
+          ? row.strike
+          : closest,
+      sortedRows[0].strike)
+    : null;
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -127,7 +135,7 @@ export default function GammaExposurePage() {
 
 
   const renderLegend = () => (
-    <div className="flex flex-wrap items-center gap-5 text-sm text-gray-200">
+    <div className="w-full flex flex-wrap justify-end items-center gap-5 text-sm text-gray-200">
       <div className="flex items-center gap-2">
         <span className="inline-block h-3 w-5 rounded-sm" style={{ background: 'linear-gradient(to right, #f45854 0%, #f45854 50%, #10b981 50%, #10b981 100%)' }} />
         Net GEX
@@ -196,14 +204,14 @@ export default function GammaExposurePage() {
                 <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
-                {quoteData && <ReferenceLine
+                {quoteData && underlyingStrikeMarker !== null && <ReferenceLine
                   ifOverflow="extendDomain"
-                  x={quoteData.close}
+                  x={underlyingStrikeMarker}
                   stroke="#60a5fa"
                   strokeDasharray="6 4"
                   strokeWidth={2}
                   label={{
-                    value: `Underlying $${quoteData.close.toFixed(2)}`,
+                    value: `Underlying $${quoteData.close.toFixed(2)}` ,
                     fill: "#f2f2f2",
                     position: "insideTopRight",
                     dy: 8,
