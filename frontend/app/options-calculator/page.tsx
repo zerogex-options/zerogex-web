@@ -10,15 +10,16 @@ type StrategyType = 'long_put' | 'long_call' | 'bear_put_spread';
 type LegRole = 'long' | 'short';
 type OptionRight = 'call' | 'put';
 
-interface SmartMoneyRow {
-  contract?: string;
-  strike: number;
+interface OptionQuote {
+  timestamp: string;
+  underlying: string;
+  strike: string;
   expiration: string;
   option_type: string;
-  flow: number;
-  notional: number;
-  bid?: number | null;
-  ask?: number | null;
+  bid?: string | null;
+  ask?: string | null;
+  volume?: number | null;
+  open_interest?: number | null;
 }
 
 interface MaxPainPoint {
@@ -53,12 +54,6 @@ const STRATEGIES: Record<StrategyType, { label: string; legs: StrategyLegTemplat
   },
 };
 
-function inferredPremium(row: SmartMoneyRow | undefined): number {
-  if (!row) return 0;
-  const contracts = Math.max(Math.abs(Number(row.flow || 0)), 1);
-  return Math.abs(Number(row.notional || 0)) / (contracts * 100);
-}
-
 function formatOptionTicker(symbol: string, expiration: string, right: OptionRight, strike: number): string {
   const exp = expiration ? expiration.replace(/-/g, '').slice(2) : '------';
   const strikeText = Number(strike).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
@@ -76,10 +71,6 @@ export default function OptionsCalculatorPage() {
   const { data: maxPainData, error: chainError } = useApiData<MaxPainCurrentResponse>(
     `/api/max-pain/current?symbol=${symbol}&strike_limit=500`,
     { refreshInterval: 30000 }
-  );
-  const { data: smartMoneyData } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=30`,
-    { refreshInterval: 15000 }
   );
 
   const strategyConfig = STRATEGIES[strategy];
@@ -99,34 +90,35 @@ export default function OptionsCalculatorPage() {
     return out;
   }, [maxPainData]);
 
-  const normalizedQuotes = useMemo(
-    () =>
-      (smartMoneyData || []).map((row) => ({
-        ...row,
-        optionType: String(row.option_type || '').toLowerCase().includes('call') ? 'call' as const : 'put' as const,
-        strikeNum: Number(row.strike),
-        bid: Number(row.bid),
-        ask: Number(row.ask),
-      })),
-    [smartMoneyData]
+  const leg0Template = strategyConfig.legs[0];
+  const leg1Template = strategyConfig.legs[1];
+
+  const leg0Exp = legExpiration[leg0Template?.id ?? ''] || expirationChoices[0] || '';
+  const leg0Strike = Number(legStrike[leg0Template?.id ?? ''] || strikeMapByExpiration[leg0Exp]?.[0] || 0);
+  const leg1Exp = legExpiration[leg1Template?.id ?? ''] || expirationChoices[0] || '';
+  const leg1Strike = Number(legStrike[leg1Template?.id ?? ''] || strikeMapByExpiration[leg1Exp]?.[0] || 0);
+
+  const { data: leg0Quote } = useApiData<OptionQuote>(
+    `/api/option/quote?underlying=${symbol}&strike=${leg0Strike}&expiration=${leg0Exp}&type=${leg0Template?.right === 'call' ? 'C' : 'P'}`,
+    { refreshInterval: 5000, enabled: !!leg0Template && !!leg0Exp && leg0Strike > 0 }
+  );
+  const { data: leg1Quote } = useApiData<OptionQuote>(
+    `/api/option/quote?underlying=${symbol}&strike=${leg1Strike}&expiration=${leg1Exp}&type=${leg1Template?.right === 'call' ? 'C' : 'P'}`,
+    { refreshInterval: 5000, enabled: !!leg1Template && !!leg1Exp && leg1Strike > 0 }
   );
 
   const selectedLegs = useMemo(
-    () =>
-      strategyConfig.legs.map((leg) => {
-        const expiration = legExpiration[leg.id] || expirationChoices[0] || '';
-        const strike = Number(legStrike[leg.id] || strikeMapByExpiration[expiration]?.[0] || 0);
-        const quoteRow = normalizedQuotes
-          .filter((row) => row.optionType === leg.right && row.expiration === expiration && Number(row.strikeNum) === strike)
-          .sort((a, b) => Math.abs(Number(b.notional || 0)) - Math.abs(Number(a.notional || 0)))[0] as SmartMoneyRow | undefined;
-
-        const fallback = inferredPremium(quoteRow);
-        const bid = Number(quoteRow?.bid);
-        const ask = Number(quoteRow?.ask);
+    () => {
+      const quotes = [leg0Quote, leg1Quote];
+      return strategyConfig.legs.map((leg, idx) => {
+        const expiration = idx === 0 ? leg0Exp : leg1Exp;
+        const strike = idx === 0 ? leg0Strike : leg1Strike;
+        const quote = quotes[idx];
+        const bid = Number(quote?.bid ?? 0);
+        const ask = Number(quote?.ask ?? 0);
         const quotePerContract = leg.role === 'long'
-          ? (Number.isFinite(ask) && ask > 0 ? ask : fallback)
-          : (Number.isFinite(bid) && bid > 0 ? bid : fallback);
-
+          ? (Number.isFinite(ask) && ask > 0 ? ask : 0)
+          : (Number.isFinite(bid) && bid > 0 ? bid : 0);
         return {
           ...leg,
           expiration,
@@ -135,8 +127,9 @@ export default function OptionsCalculatorPage() {
           quotePerContract,
           quoteSide: leg.role === 'long' ? 'ask' : 'bid',
         };
-      }),
-    [strategyConfig.legs, legExpiration, expirationChoices, legStrike, strikeMapByExpiration, normalizedQuotes, symbol]
+      });
+    },
+    [strategyConfig.legs, leg0Exp, leg1Exp, leg0Strike, leg1Strike, leg0Quote, leg1Quote, symbol]
   );
 
   const totalPosition = selectedLegs.reduce((sum, leg) => {
