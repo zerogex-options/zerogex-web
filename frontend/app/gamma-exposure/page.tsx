@@ -22,6 +22,8 @@ import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmap from '@/components/GammaHeatmap';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useTheme } from '@/core/ThemeContext';
+import { colors } from '@/core/colors';
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return <div className="flex items-center gap-2 mb-4"><h2 className="text-2xl font-semibold">{title}</h2><TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper></div>;
@@ -43,6 +45,8 @@ type SortKey = keyof StrikeAggregate;
 
 export default function GammaExposurePage() {
   const { symbol } = useTimeframe();
+  const { theme } = useTheme();
+  const textColor = theme === 'dark' ? colors.light : colors.dark;
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
@@ -117,12 +121,12 @@ export default function GammaExposurePage() {
   };
 
 
-  const underlyingStrikeMarker = quoteData && sortedRows.length
-    ? sortedRows.reduce((closest, row) =>
+  const underlyingStrikeMarker = quoteData && strikeData.length
+    ? strikeData.reduce((closest, row) =>
         Math.abs(row.strike - quoteData.close) < Math.abs(closest - quoteData.close)
           ? row.strike
           : closest,
-      sortedRows[0].strike)
+      strikeData[0].strike)
     : null;
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -211,8 +215,8 @@ export default function GammaExposurePage() {
                   strokeDasharray="6 4"
                   strokeWidth={2}
                   label={{
-                    value: `Underlying $${quoteData.close.toFixed(2)}` ,
-                    fill: "#f2f2f2",
+                    value: `Underlying $${quoteData.close.toFixed(2)}`,
+                    fill: textColor,
                     position: "insideTopRight",
                     dy: 8,
                   }}
