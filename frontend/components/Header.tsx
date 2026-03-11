@@ -122,20 +122,25 @@ export default function Header({ theme }: HeaderProps) {
   }, []);
 
   const isMarketOpen = session === "open";
-  // During extended hours we have two price rows; otherwise one row as normal.
+  // Two-row display only when session-closes data is available AND we're in extended hours.
   const showExtendedRow =
     (session === "after-hours" || session === "pre-market") && !!sessionClosesData && !!quoteData;
 
   // ── Row 1 ────────────────────────────────────────────────────────────────
-  // Market open  → live quote vs prior regular-session close (same as before)
-  // Market closed → current_session_close vs prior_session_close
-  const row1Price = isMarketOpen
-    ? quoteData?.close ?? null
-    : sessionClosesData?.current_session_close ?? null;
+  // When session-closes data is available:
+  //   Market open  → live quote vs prior_session_close
+  //   Extended hrs → current_session_close vs prior_session_close
+  // When session-closes data is NOT available (endpoint not yet live):
+  //   Fall back to original behavior: live quote vs previousCloseForDisplay
+  const row1Price = sessionClosesData
+    ? (isMarketOpen
+        ? quoteData?.close ?? null
+        : sessionClosesData.current_session_close)
+    : quoteData?.close ?? null;
 
-  const row1BaseClose = isMarketOpen
-    ? (sessionClosesData?.prior_session_close ?? previousCloseForDisplay?.previous_close ?? null)
-    : (sessionClosesData?.prior_session_close ?? null);
+  const row1BaseClose = sessionClosesData
+    ? sessionClosesData.prior_session_close
+    : previousCloseForDisplay?.previous_close ?? null;
 
   const row1Change =
     row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
@@ -170,21 +175,17 @@ export default function Header({ theme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = isMarketOpen
-    ? (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote")
-    : (sessionClosesData?.current_session_close_ts
+  const row1PriceLabel = (sessionClosesData && !isMarketOpen)
+    ? (sessionClosesData.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
-        : "regular session close");
+        : "regular session close")
+    : (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote");
 
-  const row1ChangeLabel = isMarketOpen
-    ? (sessionClosesData?.prior_session_close_ts
-        ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
-        : previousCloseForDisplay?.timestamp
-          ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
-          : "since previous close")
-    : (sessionClosesData?.prior_session_close_ts
-        ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
-        : "vs prior session close");
+  const row1ChangeLabel = sessionClosesData?.prior_session_close_ts
+    ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+    : (previousCloseForDisplay?.timestamp
+        ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
+        : "since previous close");
 
   const row2Label = quoteData?.timestamp
     ? `${session === "after-hours" ? "After-hours" : "Pre-market"} price as of ${formatEtDateTime(quoteData.timestamp)}`
