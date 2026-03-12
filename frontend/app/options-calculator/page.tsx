@@ -121,6 +121,40 @@ function niceStep(rawStep: number): number {
 interface TooltipPayloadItem { value: number }
 interface TooltipProps { active?: boolean; payload?: TooltipPayloadItem[]; label?: number }
 
+// Returns the smart default expiration for a leg.
+// Legs whose label contains "(far…)" get the 2nd available expiration (calendar/diagonal spreads).
+function smartDefaultExp(label: string, expirationChoices: string[]): string {
+  if (expirationChoices.length === 0) return '';
+  const match = label.match(/\(([^)]+)\)/);
+  const hint = match ? match[1].toLowerCase() : '';
+  if (hint.includes('far') && expirationChoices.length > 1) return expirationChoices[1];
+  return expirationChoices[0];
+}
+
+// Returns the smart default strike for a leg by reading the parenthetical hint in the label.
+// Mapping: lowest→0%, lower→25%, atm/middle→closest to spot, otm lower→20%,
+//          otm upper/higher→80%, otm (call)→65% (put)→35%, upper/higher→75%, highest→100%.
+// No hint (single-leg) → closest to spot / middle of list.
+function smartDefaultStrike(label: string, right: OptionRight, strikes: number[], spot: number): number {
+  if (strikes.length === 0) return 0;
+  const match = label.match(/\(([^)]+)\)/);
+  const hint = match ? match[1].toLowerCase() : '';
+  const pick = (pct: number) =>
+    strikes[Math.max(0, Math.min(strikes.length - 1, Math.round(pct * (strikes.length - 1))))];
+  const atm = () =>
+    spot > 0 ? strikes.reduce((p, c) => (Math.abs(c - spot) < Math.abs(p - spot) ? c : p)) : pick(0.5);
+  if (hint.includes('lowest')) return pick(0);
+  if (hint.includes('highest')) return pick(1);
+  if (hint.includes('atm') || hint.includes('middle')) return atm();
+  if (hint.includes('otm') && (hint.includes('lower') || hint.includes('low'))) return pick(0.2);
+  if (hint.includes('otm') && (hint.includes('upper') || hint.includes('higher'))) return pick(0.8);
+  if (hint.includes('otm')) return right === 'call' ? pick(0.65) : pick(0.35);
+  if (hint.includes('lower')) return pick(0.25);
+  if (hint.includes('upper') || hint.includes('higher')) return pick(0.75);
+  // No directional hint → single-leg style: closest to spot (or middle of list)
+  return atm();
+}
+
 function CustomTooltip({ active, payload, label }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const pl = payload[0].value;
@@ -182,11 +216,17 @@ export default function OptionsCalculatorPage() {
     return out;
   }, [maxPainData]);
 
+  const spot = Number(quoteData?.close || 0);
+
   // Up to 4 option leg hooks (fixed count required by React rules)
   const getOptLegExp = (idx: number) =>
-    optLegs[idx] ? (legExpiration[optLegs[idx].id] || expirationChoices[0] || '') : '';
-  const getOptLegStrike = (idx: number, exp: string) =>
-    optLegs[idx] ? Number(legStrike[optLegs[idx].id] || strikeMapByExpiration[exp]?.[0] || 0) : 0;
+    optLegs[idx] ? (legExpiration[optLegs[idx].id] || smartDefaultExp(optLegs[idx].label, expirationChoices)) : '';
+  const getOptLegStrike = (idx: number, exp: string) => {
+    if (!optLegs[idx]) return 0;
+    const leg = optLegs[idx];
+    if (legStrike[leg.id]) return Number(legStrike[leg.id]);
+    return smartDefaultStrike(leg.label, leg.right, strikeMapByExpiration[exp] || [], spot);
+  };
 
   const opt0Exp = getOptLegExp(0);
   const opt0Strike = getOptLegStrike(0, opt0Exp);
@@ -208,8 +248,6 @@ export default function OptionsCalculatorPage() {
   const { data: quote2 } = useApiData<OptionQuote>(mkUrl(2, opt2Exp, opt2Strike), { refreshInterval: 5000, enabled: !!optLegs[2] && !!opt2Exp && opt2Strike > 0 });
   const { data: quote3 } = useApiData<OptionQuote>(mkUrl(3, opt3Exp, opt3Strike), { refreshInterval: 5000, enabled: !!optLegs[3] && !!opt3Exp && opt3Strike > 0 });
 
-  const spot = Number(quoteData?.close || 0);
-
   const selectedLegs = useMemo(() => {
     const optQuotes = [quote0, quote1, quote2, quote3];
     let optIdx = 0;
@@ -218,8 +256,11 @@ export default function OptionsCalculatorPage() {
         return { ...leg, expiration: '', strike: spot, ticker: symbol, quotePerContract: 0, quoteSide: '' };
       }
       const idx = optIdx++;
-      const expiration = legExpiration[leg.id] || expirationChoices[0] || '';
-      const strike = Number(legStrike[leg.id] || strikeMapByExpiration[expiration]?.[0] || 0);
+      const expiration = legExpiration[leg.id] || smartDefaultExp(leg.label, expirationChoices);
+      const strikes = strikeMapByExpiration[expiration] || [];
+      const strike = legStrike[leg.id]
+        ? Number(legStrike[leg.id])
+        : smartDefaultStrike(leg.label, leg.right, strikes, spot);
       const quote = optQuotes[idx];
       const bid = Number(quote?.bid ?? 0);
       const ask = Number(quote?.ask ?? 0);
