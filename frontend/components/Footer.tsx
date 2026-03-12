@@ -26,31 +26,18 @@ export default function Footer({ theme }: FooterProps) {
       }}
     >
       <div className="container mx-auto px-6 py-12">
-        {/* Top row: logo + nav columns */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 32,
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: 36,
-          }}
-        >
-          {/* Brand */}
-          <div style={{ maxWidth: 280 }}>
-            <img
-              src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
-              alt="ZeroGEX"
-              style={{ height: '160px', width: 'auto', objectFit: 'contain', marginBottom: 12 }}
-            />
-            <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
-              Real-time gamma exposure analytics for options traders who want the institutional edge.
-            </p>
-          </div>
+        {/* Centered large logo */}
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <img
+            src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+            alt="ZeroGEX"
+            style={{ height: '480px', width: 'auto', objectFit: 'contain', display: 'inline-block' }}
+          />
+        </div>
 
-          {/* Link columns */}
-          <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
+        {/* Link columns — centered */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 36 }}>
+          <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap', justifyContent: 'center' }}>
             {/* Platform */}
             <div>
               <div

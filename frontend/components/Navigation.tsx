@@ -13,6 +13,7 @@ export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const navRef = useRef<HTMLElement | null>(null);
+  const [hoveredPage, setHoveredPage] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -80,15 +81,23 @@ export default function Navigation({ theme }: NavigationProps) {
               <button
                 key={page.id}
                 onClick={() => router.push(page.id)}
-                className="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-all duration-200 relative group"
+                onMouseEnter={() => setHoveredPage(page.id)}
+                onMouseLeave={() => setHoveredPage(null)}
+                className="px-4 py-2 my-2 font-semibold text-sm whitespace-nowrap transition-all duration-200 relative"
                 style={{
-                  color: isActive ? colors.primary : theme === "dark" ? colors.light : colors.dark,
-                  opacity: isActive ? 1 : 0.6,
+                  color: isActive || hoveredPage === page.id ? colors.primary : theme === "dark" ? colors.light : colors.dark,
+                  opacity: isActive || hoveredPage === page.id ? 1 : 0.6,
                   cursor: "pointer",
+                  borderRadius: 8,
+                  background: hoveredPage === page.id && !isActive
+                    ? `${colors.primary}18`
+                    : isActive
+                      ? `${colors.primary}14`
+                      : "transparent",
+                  border: `1px solid ${isActive || hoveredPage === page.id ? colors.primary + "40" : "transparent"}`,
                 }}
               >
                 {page.label}
-                {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: colors.primary }} />}
               </button>
             );
           })}
