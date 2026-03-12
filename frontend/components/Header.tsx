@@ -122,9 +122,10 @@ export default function Header({ theme }: HeaderProps) {
   }, []);
 
   const isMarketOpen = session === "open";
-  // Two-row display only when session-closes data is available AND we're in extended hours.
-  const showExtendedRow =
-    (session === "after-hours" || session === "pre-market") && !!sessionClosesData && !!quoteData;
+  // Two-row display whenever market is NOT in a live open session.
+  const showExtendedRow = !isMarketOpen && !!sessionClosesData && !!quoteData;
+  // Sun for pre-market, moon for everything else (after-hours, closed, weekend, etc.)
+  const extendedHoursIcon = session === "pre-market" ? "sun" : "moon";
 
   // ── Row 1 ────────────────────────────────────────────────────────────────
   // When session-closes data is available:
@@ -187,9 +188,10 @@ export default function Header({ theme }: HeaderProps) {
         ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
         : "since previous close");
 
+  const row2SessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
   const row2Label = quoteData?.timestamp
-    ? `${session === "after-hours" ? "After-hours" : "Pre-market"} price as of ${formatEtDateTime(quoteData.timestamp)}`
-    : `${session === "after-hours" ? "After-hours" : "Pre-market"} price`;
+    ? `${row2SessionLabel} price as of ${formatEtDateTime(quoteData.timestamp)}`
+    : `${row2SessionLabel} price`;
 
   return (
     <header
@@ -285,7 +287,7 @@ export default function Header({ theme }: HeaderProps) {
                         className="flex items-center gap-1.5 mt-0.5"
                         title={row2Label}
                       >
-                        {session === "after-hours" ? (
+                        {extendedHoursIcon === "moon" ? (
                           <Moon size={11} style={{ color: colors.muted }} />
                         ) : (
                           <Sun size={11} style={{ color: colors.muted }} />
@@ -483,7 +485,7 @@ export default function Header({ theme }: HeaderProps) {
                           className="flex items-center gap-1.5 mt-1"
                           title={row2Label}
                         >
-                          {session === "after-hours" ? (
+                          {extendedHoursIcon === "moon" ? (
                             <Moon size={13} style={{ color: colors.muted }} />
                           ) : (
                             <Sun size={13} style={{ color: colors.muted }} />
