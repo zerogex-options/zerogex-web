@@ -29,7 +29,7 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-function interpolateColor(value: number): string {
+export function interpolateGaugeColor(value: number): string {
   const v = Math.max(0, Math.min(10, value));
   for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
     const a = COLOR_STOPS[i];
@@ -57,12 +57,6 @@ function polarXY(
   return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
 }
 
-/**
- * Builds an SVG path for a donut-arc segment.
- * startAngle > endAngle (both in standard math degrees: 0=right, 90=up, 180=left).
- * Arc sweeps clockwise through the top of the half-circle (sweep=1 on outer,
- * sweep=0 on inner return).
- */
 function buildArcSegment(
   cx: number,
   cy: number,
@@ -87,48 +81,47 @@ function buildArcSegment(
 
 // ── Single gauge ──────────────────────────────────────────────────────────────
 
-const NUM_SEGS = 20;          // segments across 180°
+const NUM_SEGS = 20;
 const SEG_ANGLE = 180 / NUM_SEGS; // 9° per segment
-const GAP = 0.45;             // angular gap (degrees) between segments
+const GAP = 0.45;
 
-interface SingleGaugeProps {
-  value: number;       // 0–10
-  title: string;       // e.g. "SPEED"
-  zoneLabel: string;   // e.g. "High Speed"
+export interface SingleGaugeProps {
+  value: number;
+  title: string;
+  zoneLabel: string;
   vix?: number;
   theme: Theme;
   gaugeId: string;
-  compact?: boolean;
+  /** Rendered pixel width of the SVG. Height is computed proportionally. */
+  sizePx?: number;
 }
 
-function SingleGauge({
+export function SingleGauge({
   value,
   title,
   zoneLabel,
   vix,
   theme,
   gaugeId,
-  compact,
+  sizePx,
 }: SingleGaugeProps) {
   const [hovered, setHovered] = useState(false);
 
   const v = Math.max(0, Math.min(10, isFinite(value) ? value : 0));
   const isDark = theme === "dark";
 
-  // Layout constants
-  const cx = 50;
-  const cy = compact ? 48 : 51;
-  const outerR = compact ? 38 : 41;
-  const innerR = compact ? 27 : 29;
+  // SVG geometry — fixed in viewBox space (0 0 100 62)
+  const cx = 50, cy = 51;
+  const outerR = 41, innerR = 29;
   const needleLen = outerR - 4;
-  const svgW = compact ? 76 : 88;
-  const svgH = compact ? 52 : 60;
-  const viewH = compact ? 54 : 62;
+  const VIEW_W = 100, VIEW_H = 62;
 
-  // Needle CSS rotation: value=0 → −90°, value=5 → 0°, value=10 → +90°
+  // Rendered pixel dimensions
+  const pxW = sizePx ?? 88;
+  const pxH = Math.round(pxW * (VIEW_H / VIEW_W));
+
   const needleAngle = (v / 10) * 180 - 90;
-  const needleColor = interpolateColor(v);
-  const valueColor = needleColor;
+  const needleColor = interpolateGaugeColor(v);
 
   const trackColor = isDark ? "rgba(242,242,242,0.07)" : "rgba(23,23,23,0.07)";
   const mutedColor = isDark ? "rgba(242,242,242,0.32)" : "rgba(23,23,23,0.32)";
@@ -140,13 +133,11 @@ function SingleGauge({
     ? "rgba(150,143,146,0.18)"
     : "rgba(150,143,146,0.28)";
 
-  // Arc segments
   const segments = Array.from({ length: NUM_SEGS }, (_, i) => {
     const segStart = 180 - i * SEG_ANGLE;
     const segEnd = 180 - (i + 1) * SEG_ANGLE;
     const midValue = ((i + 0.5) / NUM_SEGS) * 10;
-    const color = interpolateColor(midValue);
-    // A segment is "lit" if its start boundary is below current value
+    const color = interpolateGaugeColor(midValue);
     const isActive = (i / NUM_SEGS) * 10 < v;
     return (
       <path
@@ -162,7 +153,6 @@ function SingleGauge({
     );
   });
 
-  // Tick marks: 11 ticks at 0°, 18°, 36°, …, 180°
   const ticks = Array.from({ length: 11 }, (_, i) => {
     const tickAngle = 180 - i * 18;
     const isMajor = i % 5 === 0;
@@ -181,7 +171,6 @@ function SingleGauge({
     );
   });
 
-  // Numeric labels at 0, 5, 10
   const scaleLabels = [0, 5, 10].map((lv) => {
     const angle = 180 - lv * 18;
     const [lx, ly] = polarXY(cx, cy, outerR + 15, angle);
@@ -209,13 +198,12 @@ function SingleGauge({
       onMouseLeave={() => setHovered(false)}
       style={{ cursor: "default" }}
     >
-      {/* Gauge panel */}
       <div
         style={{
           background: bgPanelColor,
           border: `1px solid ${borderColor}`,
           borderRadius: "10px",
-          padding: compact ? "3px 5px 1px" : "4px 6px 2px",
+          padding: "4px 6px 2px",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           boxShadow: isDark
@@ -224,41 +212,19 @@ function SingleGauge({
         }}
       >
         <svg
-          viewBox={`0 0 100 ${viewH}`}
-          style={{ width: svgW, height: svgH, display: "block" }}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          style={{ width: pxW, height: pxH, display: "block" }}
         >
           <defs>
-            {/* Needle glow filter */}
-            <filter
-              id={`ngl-${gaugeId}`}
-              x="-120%"
-              y="-120%"
-              width="340%"
-              height="340%"
-            >
-              <feGaussianBlur
-                in="SourceGraphic"
-                stdDeviation="1.8"
-                result="blur"
-              />
+            <filter id={`ngl-${gaugeId}`} x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            {/* Hub glow */}
-            <filter
-              id={`hgl-${gaugeId}`}
-              x="-80%"
-              y="-80%"
-              width="260%"
-              height="260%"
-            >
-              <feGaussianBlur
-                in="SourceGraphic"
-                stdDeviation="2.5"
-                result="blur"
-              />
+            <filter id={`hgl-${gaugeId}`} x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -266,28 +232,15 @@ function SingleGauge({
             </filter>
           </defs>
 
-          {/* Background track (dim full arc) */}
-          <path
-            d={buildArcSegment(cx, cy, outerR, innerR, 180, 0)}
-            fill={trackColor}
-          />
-
-          {/* Colored arc segments */}
+          <path d={buildArcSegment(cx, cy, outerR, innerR, 180, 0)} fill={trackColor} />
           {segments}
-
-          {/* Outer ring accent */}
           <path
             d={buildArcSegment(cx, cy, outerR + 1.5, outerR + 0.5, 180, 0)}
             fill={isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
           />
-
-          {/* Tick marks */}
           {ticks}
-
-          {/* Scale labels at 0, 5, 10 */}
           {scaleLabels}
 
-          {/* Needle (drawn pointing up, rotated via CSS transform) */}
           <g
             style={{
               transform: `rotate(${needleAngle}deg)`,
@@ -296,59 +249,34 @@ function SingleGauge({
             }}
             filter={`url(#ngl-${gaugeId})`}
           >
-            {/* Main needle shaft */}
             <line
-              x1={cx}
-              y1={cy + 5}
-              x2={cx}
-              y2={cy - needleLen}
+              x1={cx} y1={cy + 5}
+              x2={cx} y2={cy - needleLen}
               stroke={needleColor}
               strokeWidth={1.7}
               strokeLinecap="round"
             />
-            {/* Needle tip glow cap */}
-            <circle
-              cx={cx}
-              cy={cy - needleLen}
-              r={1.2}
-              fill={needleColor}
-              opacity={0.9}
-            />
+            <circle cx={cx} cy={cy - needleLen} r={1.2} fill={needleColor} opacity={0.9} />
           </g>
 
-          {/* Hub: outer glow ring */}
-          <circle
-            cx={cx}
-            cy={cy}
-            r={5.5}
-            fill={needleColor}
-            opacity={0.18}
-            filter={`url(#hgl-${gaugeId})`}
-          />
-          {/* Hub: color ring */}
+          <circle cx={cx} cy={cy} r={5.5} fill={needleColor} opacity={0.18} filter={`url(#hgl-${gaugeId})`} />
           <circle cx={cx} cy={cy} r={4} fill={needleColor} opacity={0.5} />
-          {/* Hub: solid center */}
           <circle cx={cx} cy={cy} r={2.8} fill={needleColor} />
-          {/* Hub: reflective inner dot */}
           <circle cx={cx} cy={cy} r={1.2} fill={hubBg} opacity={0.8} />
 
-          {/* Value readout */}
           <text
-            x={cx}
-            y={cy - 14}
+            x={cx} y={cy - 14}
             textAnchor="middle"
-            fill={valueColor}
-            fontSize={compact ? 9.5 : 10.5}
+            fill={needleColor}
+            fontSize={10.5}
             fontWeight="800"
             fontFamily="DM Sans, sans-serif"
           >
             {v.toFixed(1)}
           </text>
 
-          {/* Title label */}
           <text
-            x={cx}
-            y={viewH - 2}
+            x={cx} y={VIEW_H - 2}
             textAnchor="middle"
             fill={mutedColor}
             fontSize={5.8}
@@ -361,15 +289,11 @@ function SingleGauge({
         </svg>
       </div>
 
-      {/* Hover tooltip */}
-      {hovered && (
+      {/* Hover tooltip (only shown at small sizes where zone label isn't visible nearby) */}
+      {hovered && vix !== undefined && !sizePx && (
         <div
           className="absolute z-50 pointer-events-none"
-          style={{
-            bottom: "calc(100% + 8px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
+          style={{ bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)" }}
         >
           <div
             style={{
@@ -385,65 +309,26 @@ function SingleGauge({
               whiteSpace: "nowrap",
             }}
           >
-            {vix !== undefined && (
-              <div
-                style={{
-                  color: isDark
-                    ? "rgba(242,242,242,0.55)"
-                    : "rgba(23,23,23,0.55)",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  marginBottom: "3px",
-                }}
-              >
-                VIX:{" "}
-                <span style={{ color: valueColor, fontWeight: 800 }}>
-                  {vix.toFixed(2)}
-                </span>
-              </div>
-            )}
-            <div
-              style={{
-                color: valueColor,
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.2px",
-              }}
-            >
-              {zoneLabel}
+            <div style={{ color: isDark ? "rgba(242,242,242,0.55)" : "rgba(23,23,23,0.55)", fontSize: "11px", fontWeight: 600, marginBottom: "3px" }}>
+              VIX: <span style={{ color: needleColor, fontWeight: 800 }}>{vix.toFixed(2)}</span>
             </div>
+            <div style={{ color: needleColor, fontSize: "12px", fontWeight: 700 }}>{zoneLabel}</div>
           </div>
-          {/* Tooltip arrow */}
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 0,
-              height: 0,
-              borderLeft: "6px solid transparent",
-              borderRight: "6px solid transparent",
-              borderTop: `6px solid ${isDark ? "rgba(66,61,63,0.98)" : "rgba(255,255,255,0.98)"}`,
-            }}
-          />
+          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: `6px solid ${isDark ? "rgba(66,61,63,0.98)" : "rgba(255,255,255,0.98)"}` }} />
         </div>
       )}
     </div>
   );
 }
 
-// ── Public component ──────────────────────────────────────────────────────────
+// ── Public composite (compact, for embedding) ─────────────────────────────────
 
 interface VolatilityGaugesProps {
   theme: Theme;
   compact?: boolean;
 }
 
-export default function VolatilityGauges({
-  theme,
-  compact,
-}: VolatilityGaugesProps) {
+export default function VolatilityGauges({ theme, compact }: VolatilityGaugesProps) {
   const { data } = useApiData<VolatilityGaugeData>("/api/volatility/gauge", {
     refreshInterval: 30000,
   });
@@ -451,10 +336,10 @@ export default function VolatilityGauges({
   if (!data) return null;
 
   const isDark = theme === "dark";
+  const sizePx = compact ? 72 : 88;
 
   return (
     <div className="flex items-center gap-2">
-      {/* Speedometer */}
       <SingleGauge
         value={data.speedometer}
         title="SPEED"
@@ -462,22 +347,9 @@ export default function VolatilityGauges({
         vix={data.vix}
         theme={theme}
         gaugeId="spd"
-        compact={compact}
+        sizePx={sizePx}
       />
-
-      {/* Divider */}
-      <div
-        style={{
-          width: "1px",
-          height: compact ? "34px" : "44px",
-          background: isDark
-            ? "rgba(150,143,146,0.18)"
-            : "rgba(150,143,146,0.22)",
-          flexShrink: 0,
-        }}
-      />
-
-      {/* Tachometer */}
+      <div style={{ width: "1px", height: compact ? "34px" : "44px", background: isDark ? "rgba(150,143,146,0.18)" : "rgba(150,143,146,0.22)", flexShrink: 0 }} />
       <SingleGauge
         value={data.tachometer}
         title="ACCEL"
@@ -485,7 +357,7 @@ export default function VolatilityGauges({
         vix={data.vix}
         theme={theme}
         gaugeId="tch"
-        compact={compact}
+        sizePx={sizePx}
       />
     </div>
   );

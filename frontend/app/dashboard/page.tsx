@@ -86,6 +86,10 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Volatility Monitor — full width, right under Market Overview */}
+      <section className="mb-8">
+        <VolatilityCard />
+      </section>
 
       <section className="mb-8">
         <UnderlyingCandlesChart />
@@ -116,16 +120,6 @@ export default function DashboardPage() {
             tooltip="Ratio of put option volume to call option volume. Calculation: Total put volume divided by total call volume over the last hour. Values > 1.0 indicate more put buying (bearish sentiment). Values < 1.0 indicate more call buying (bullish sentiment). Extreme readings can signal reversals."
             theme={theme}
           />
-        </div>
-      </section>
-
-      {/* Volatility Monitor */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-          <div className="md:col-span-1">
-            <VolatilityCard />
-          </div>
         </div>
       </section>
 
