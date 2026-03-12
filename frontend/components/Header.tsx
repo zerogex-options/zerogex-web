@@ -196,13 +196,17 @@ export default function Header({ theme }: HeaderProps) {
     ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
     : "vs regular session close";
 
+  const border = "rgba(150,143,146,0.25)";
+
   return (
     <header
       ref={headerRef}
       className="border-b sticky top-0 z-40"
       style={{
-        backgroundColor: theme === "dark" ? colors.bgDark : colors.bgLight,
-        borderColor: colors.muted,
+        backgroundColor: theme === "dark" ? `${colors.bgDark}f2` : `${colors.bgLight}f2`,
+        borderColor: border,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
@@ -236,11 +240,14 @@ export default function Header({ theme }: HeaderProps) {
                     onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                     className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
-                      backgroundColor:
-                        theme === "dark" ? colors.cardDark : colors.cardLight,
-                      borderColor: colors.muted,
+                      background:
+                        theme === "dark"
+                          ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                          : colors.cardLight,
+                      borderColor: border,
                       color: theme === "dark" ? colors.light : colors.dark,
                       width: "90px",
+                      backdropFilter: "blur(8px)",
                     }}
                   >
                     <option>SPY</option>
@@ -365,9 +372,14 @@ export default function Header({ theme }: HeaderProps) {
                 <div
                   className="absolute left-0 top-full mt-2 rounded-lg border p-2 z-30 min-w-[220px]"
                   style={{
-                    backgroundColor:
-                      theme === "dark" ? colors.cardDark : colors.cardLight,
-                    borderColor: colors.muted,
+                    background:
+                      theme === "dark"
+                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(42,38,40,0.95) 100%)`
+                        : colors.cardLight,
+                    borderColor: border,
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    boxShadow: "0 16px 40px rgba(0,0,0,0.4)",
                   }}
                 >
                   {pages.map((page) => {
@@ -378,7 +390,7 @@ export default function Header({ theme }: HeaderProps) {
                         className="w-full text-left px-3 py-2 rounded text-sm"
                         style={{
                           color: active
-                            ? colors.bearish
+                            ? colors.primary
                             : theme === "dark"
                               ? colors.light
                               : colors.dark,
@@ -436,11 +448,14 @@ export default function Header({ theme }: HeaderProps) {
                       onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                       className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
-                        backgroundColor:
-                          theme === "dark" ? colors.cardDark : colors.cardLight,
-                        borderColor: colors.muted,
+                        background:
+                          theme === "dark"
+                            ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                            : colors.cardLight,
+                        borderColor: border,
                         color: theme === "dark" ? colors.light : colors.dark,
                         width: "120px",
+                        backdropFilter: "blur(8px)",
                       }}
                     >
                       <option>SPY</option>
@@ -624,11 +639,13 @@ export default function Header({ theme }: HeaderProps) {
                       }}
                       className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                       style={{
-                        backgroundColor:
-                          theme === "dark" ? colors.cardDark : colors.cardLight,
-                        borderColor: active ? colors.bearish : colors.muted,
+                        background:
+                          theme === "dark"
+                            ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                            : colors.cardLight,
+                        borderColor: active ? `${colors.primary}60` : border,
                         color: active
-                          ? colors.bearish
+                          ? colors.primary
                           : theme === "dark"
                             ? colors.light
                             : colors.dark,
@@ -646,9 +663,11 @@ export default function Header({ theme }: HeaderProps) {
                   onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
-                    backgroundColor:
-                      theme === "dark" ? colors.cardDark : colors.cardLight,
-                    borderColor: colors.muted,
+                    background:
+                      theme === "dark"
+                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                        : colors.cardLight,
+                    borderColor: border,
                     color: theme === "dark" ? colors.light : colors.dark,
                   }}
                 >

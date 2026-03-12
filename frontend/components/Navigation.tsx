@@ -58,13 +58,17 @@ export default function Navigation({ theme }: NavigationProps) {
 
   if (isCollapsed) return null;
 
+  const border = "rgba(150,143,146,0.25)";
+
   return (
     <nav
       ref={navRef}
       className="border-b hidden md:block fixed left-0 right-0 z-30"
       style={{
-        backgroundColor: theme === "dark" ? colors.bgDark : colors.bgLight,
-        borderColor: colors.muted,
+        backgroundColor: theme === "dark" ? `${colors.bgDark}f2` : `${colors.bgLight}f2`,
+        borderColor: border,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
         top: "var(--zgx-header-height, 0px)",
       }}
     >
@@ -78,13 +82,13 @@ export default function Navigation({ theme }: NavigationProps) {
                 onClick={() => router.push(page.id)}
                 className="px-6 py-4 font-semibold text-sm whitespace-nowrap transition-all duration-200 relative group"
                 style={{
-                  color: isActive ? colors.bearish : theme === "dark" ? colors.light : colors.dark,
+                  color: isActive ? colors.primary : theme === "dark" ? colors.light : colors.dark,
                   opacity: isActive ? 1 : 0.6,
                   cursor: "pointer",
                 }}
               >
                 {page.label}
-                {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: colors.bearish }} />}
+                {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: colors.primary }} />}
               </button>
             );
           })}
