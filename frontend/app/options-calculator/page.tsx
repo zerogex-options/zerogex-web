@@ -305,19 +305,47 @@ export default function OptionsCalculatorPage() {
     });
   }, [spot, selectedLegs, contracts]);
 
-  // Find zero-crossing breakeven prices via linear interpolation
+  // Compute breakevens analytically from the piecewise-linear P/L function.
+  // The only kink points are the leg strike prices; the function is linear between them,
+  // so linear interpolation between adjacent kinks is exact — and works at any price range.
   const breakevens = useMemo(() => {
+    // Skip when no quotes are loaded yet (all premiums are 0 → no real breakeven)
+    if (!selectedLegs.some((l) => l.right !== 'stock' && l.quotePerContract > 0)) return [];
+
+    const evalPL = (S: number): number =>
+      selectedLegs.reduce((sum, leg) => {
+        const qty = leg.qty ?? 1;
+        let intrinsic: number;
+        if (leg.right === 'stock') intrinsic = S - spot;
+        else if (leg.right === 'call') intrinsic = Math.max(S - leg.strike, 0);
+        else intrinsic = Math.max(leg.strike - S, 0);
+        const legPL = leg.role === 'long' ? intrinsic - leg.quotePerContract : leg.quotePerContract - intrinsic;
+        return sum + legPL * qty;
+      }, 0);
+
+    const kinks = Array.from(
+      new Set(selectedLegs.filter((l) => l.right !== 'stock' && l.strike > 0).map((l) => l.strike))
+    ).sort((a, b) => a - b);
+
+    if (kinks.length === 0) return [];
+
+    // Add boundaries well outside the kink range to catch BEs above/below all strikes
+    const pad = Math.max((kinks[kinks.length - 1] - kinks[0]) * 0.75, kinks[0] * 0.4, 50);
+    const pts = [Math.max(0.01, kinks[0] - pad), ...kinks, kinks[kinks.length - 1] + pad];
+
     const bps: number[] = [];
-    for (let i = 1; i < payoffData.length; i++) {
-      const prev = payoffData[i - 1];
-      const curr = payoffData[i];
-      if ((prev.pl < 0 && curr.pl >= 0) || (prev.pl >= 0 && curr.pl < 0)) {
-        const t = Math.abs(prev.pl) / (Math.abs(prev.pl) + Math.abs(curr.pl));
-        bps.push(Number((prev.price + t * (curr.price - prev.price)).toFixed(2)));
+    for (let i = 1; i < pts.length; i++) {
+      const s0 = pts[i - 1];
+      const s1 = pts[i];
+      const pl0 = evalPL(s0);
+      const pl1 = evalPL(s1);
+      if ((pl0 < 0 && pl1 > 0) || (pl0 > 0 && pl1 < 0)) {
+        const t = Math.abs(pl0) / (Math.abs(pl0) + Math.abs(pl1));
+        bps.push(Number((s0 + t * (s1 - s0)).toFixed(2)));
       }
     }
     return bps;
-  }, [payoffData]);
+  }, [selectedLegs, spot]);
 
   // Detect strategies with legs on different expirations (e.g. calendar/diagonal spreads)
   const hasMultipleExpirations = useMemo(() => {
@@ -418,14 +446,29 @@ export default function OptionsCalculatorPage() {
           })}
         </div>
 
-        <div className="text-sm text-gray-300">
-          Total position:{' '}
-          <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
-            {fmtDollar(Math.abs(totalPosition))}
-          </span>{' '}
-          <span className="text-gray-400">
-            ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
-          </span>
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-300">
+          <div>
+            Total position:{' '}
+            <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
+              {fmtDollar(Math.abs(totalPosition))}
+            </span>{' '}
+            <span className="text-gray-400">
+              ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
+            </span>
+          </div>
+          {breakevens.length > 0 ? (
+            <div>
+              Breakeven{breakevens.length > 1 ? 's' : ''}:{' '}
+              {breakevens.map((be, i) => (
+                <span key={be}>
+                  {i > 0 && <span className="text-gray-500"> / </span>}
+                  <span className="font-semibold text-amber-400">${be.toFixed(2)}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-500 italic">No breakeven</div>
+          )}
         </div>
       </div>
 
@@ -484,22 +527,28 @@ export default function OptionsCalculatorPage() {
                 }}
               />
             )}
-            {breakevens.map((be) => (
-              <ReferenceLine
-                key={`be-${be}`}
-                x={be}
-                stroke="#f59e0b"
-                strokeDasharray="5 3"
-                label={{
-                  value: `BE $${be.toFixed(2)}`,
-                  position: 'insideTop',
-                  dy: -26,
-                  fill: '#fbbf24',
-                  fontSize: 11,
-                  fontWeight: 500,
-                }}
-              />
-            ))}
+            {breakevens
+              .filter((be) => {
+                const minP = payoffData[0]?.price ?? 0;
+                const maxP = payoffData[payoffData.length - 1]?.price ?? 0;
+                return be >= minP && be <= maxP;
+              })
+              .map((be) => (
+                <ReferenceLine
+                  key={`be-${be}`}
+                  x={be}
+                  stroke="#f59e0b"
+                  strokeDasharray="5 3"
+                  label={{
+                    value: `BE $${be.toFixed(2)}`,
+                    position: 'insideTop',
+                    dy: -26,
+                    fill: '#fbbf24',
+                    fontSize: 11,
+                    fontWeight: 500,
+                  }}
+                />
+              ))}
             <Area
               type="monotone"
               dataKey="pl"
