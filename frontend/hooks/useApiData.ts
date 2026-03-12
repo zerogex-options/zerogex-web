@@ -263,3 +263,18 @@ export function useSignalAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInte
     { refreshInterval }
   );
 }
+
+export interface VolatilityGaugeData {
+  timestamp: string;
+  vix: number;
+  speedometer: number;
+  speedometer_label: string;
+  tachometer: number;
+  tachometer_label: string;
+  cache_bars: number;
+  latest_bars: Array<{ timestamp: string; close: number }>;
+}
+
+export function useVolatilityGauge(refreshInterval = 30000) {
+  return useApiData<VolatilityGaugeData>('/api/volatility/gauge', { refreshInterval });
+}
