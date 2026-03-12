@@ -26,114 +26,111 @@ export default function Footer({ theme }: FooterProps) {
       }}
     >
       <div className="container mx-auto px-6 py-12">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
 
-          {/* Left: links + copyright/disclaimer */}
-          <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 36 }}>
-            {/* Link columns */}
-            <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
-              {/* Platform */}
-              <div>
-                <div
-                  style={{
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
-                    textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
-                  }}
-                >
-                  Platform
-                </div>
-                {[
-                  ['/dashboard', 'Dashboard'],
-                  ['/gamma-exposure', 'Gamma Exposure'],
-                  ['/flow-analysis', 'Flow Analysis'],
-                  ['/trading-signals', 'Trading Signals'],
-                ].map(([href, label]) => (
-                  <div key={href} style={{ marginBottom: 8 }}>
-                    <Link
-                      href={href}
-                      style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
-                    >
-                      {label}
-                    </Link>
-                  </div>
-                ))}
+          {/* Left: link columns */}
+          <div style={{ flex: 1, display: 'flex', gap: 48, flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+            {/* Platform */}
+            <div>
+              <div
+                style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
+                  textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
+                }}
+              >
+                Platform
               </div>
-
-              {/* Tools */}
-              <div>
-                <div
-                  style={{
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
-                    textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
-                  }}
-                >
-                  Tools
-                </div>
-                {[
-                  ['/intraday-tools', 'Intraday Tools'],
-                  ['/max-pain', 'Max Pain'],
-                  ['/options-calculator', 'Options Calc'],
-                  ['/about', 'About'],
-                ].map(([href, label]) => (
-                  <div key={href} style={{ marginBottom: 8 }}>
-                    <Link
-                      href={href}
-                      style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
-                    >
-                      {label}
-                    </Link>
-                  </div>
-                ))}
-              </div>
-
-              {/* More */}
-              <div>
-                <div
-                  style={{
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
-                    textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
-                  }}
-                >
-                  More
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                  <a
-                    href="https://api.zerogex.io/docs"
-                    target="_blank"
-                    rel="noreferrer"
+              {[
+                ['/dashboard', 'Dashboard'],
+                ['/gamma-exposure', 'Gamma Exposure'],
+                ['/flow-analysis', 'Flow Analysis'],
+                ['/trading-signals', 'Trading Signals'],
+              ].map(([href, label]) => (
+                <div key={href} style={{ marginBottom: 8 }}>
+                  <Link
+                    href={href}
                     style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
                   >
-                    API Docs
-                  </a>
+                    {label}
+                  </Link>
                 </div>
-              </div>
+              ))}
             </div>
 
-            {/* Copyright + disclaimer */}
-            <div style={{ borderTop: `1px solid ${border}`, paddingTop: 20 }}>
-              <p style={{ fontSize: 12, color: subtext, margin: '0 0 6px' }}>
-                © 2026 ZeroGEX, LLC. All rights reserved.
-              </p>
-              <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6 }}>
-                Trading involves substantial risk. Past performance is not indicative of future results.
-                This platform is for informational purposes only, not investment advice.
-              </p>
+            {/* Tools */}
+            <div>
+              <div
+                style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
+                  textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
+                }}
+              >
+                Tools
+              </div>
+              {[
+                ['/intraday-tools', 'Intraday Tools'],
+                ['/max-pain', 'Max Pain'],
+                ['/options-calculator', 'Options Calc'],
+                ['/about', 'About'],
+              ].map(([href, label]) => (
+                <div key={href} style={{ marginBottom: 8 }}>
+                  <Link
+                    href={href}
+                    style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
+                  >
+                    {label}
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            {/* More */}
+            <div>
+              <div
+                style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
+                  textTransform: 'uppercase', color: colors.primary, marginBottom: 14,
+                }}
+              >
+                More
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <a
+                  href="https://api.zerogex.io/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
+                >
+                  API Docs
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* Right: large logo */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          {/* Center: large logo */}
+          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
               style={{ height: '480px', width: 'auto', objectFit: 'contain' }}
             />
+          </div>
+
+          {/* Right: copyright + disclaimer */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
+              © 2026 ZeroGEX, LLC. All rights reserved.
+            </p>
+            <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right', maxWidth: 260 }}>
+              Trading involves substantial risk. Past performance is not indicative of future results.
+              This platform is for informational purposes only, not investment advice.
+            </p>
           </div>
 
         </div>
