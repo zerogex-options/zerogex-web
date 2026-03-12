@@ -529,7 +529,7 @@ export default function OptionsCalculatorPage() {
                   label={{
                     value: `BE $${be.toFixed(2)}`,
                     position: 'insideTop',
-                    dy: -26,
+                    dy: -12,
                     fill: '#fbbf24',
                     fontSize: 11,
                     fontWeight: 500,
