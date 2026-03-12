@@ -305,6 +305,26 @@ export default function OptionsCalculatorPage() {
     });
   }, [spot, selectedLegs, contracts]);
 
+  // Find zero-crossing breakeven prices via linear interpolation
+  const breakevens = useMemo(() => {
+    const bps: number[] = [];
+    for (let i = 1; i < payoffData.length; i++) {
+      const prev = payoffData[i - 1];
+      const curr = payoffData[i];
+      if ((prev.pl < 0 && curr.pl >= 0) || (prev.pl >= 0 && curr.pl < 0)) {
+        const t = Math.abs(prev.pl) / (Math.abs(prev.pl) + Math.abs(curr.pl));
+        bps.push(Number((prev.price + t * (curr.price - prev.price)).toFixed(2)));
+      }
+    }
+    return bps;
+  }, [payoffData]);
+
+  // Detect strategies with legs on different expirations (e.g. calendar/diagonal spreads)
+  const hasMultipleExpirations = useMemo(() => {
+    const exps = new Set(selectedLegs.filter((l) => l.right !== 'stock').map((l) => l.expiration));
+    return exps.size > 1;
+  }, [selectedLegs]);
+
   const plValues = payoffData.map((d) => d.pl);
   const maxPL = Math.max(...plValues, 0);
   const minPL = Math.min(...plValues, 0);
@@ -411,6 +431,11 @@ export default function OptionsCalculatorPage() {
 
       <div className="bg-[#423d3f] rounded-lg p-4">
         <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
+        {hasMultipleExpirations && (
+          <p className="text-xs text-amber-400/80 mb-3">
+            ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
+          </p>
+        )}
         <ResponsiveContainer width="100%" height={420}>
           <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 10 }}>
             <defs>
@@ -459,6 +484,22 @@ export default function OptionsCalculatorPage() {
                 }}
               />
             )}
+            {breakevens.map((be) => (
+              <ReferenceLine
+                key={`be-${be}`}
+                x={be}
+                stroke="#f59e0b"
+                strokeDasharray="5 3"
+                label={{
+                  value: `BE $${be.toFixed(2)}`,
+                  position: 'insideTop',
+                  dy: -26,
+                  fill: '#fbbf24',
+                  fontSize: 11,
+                  fontWeight: 500,
+                }}
+              />
+            ))}
             <Area
               type="monotone"
               dataKey="pl"
