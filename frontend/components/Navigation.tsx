@@ -47,14 +47,13 @@ export default function Navigation({ theme }: NavigationProps) {
   }, [isCollapsed]);
 
   const pages = [
-    { id: "/", label: "DASHBOARD" },
+    { id: "/dashboard", label: "DASHBOARD" },
     { id: "/trading-signals", label: "TRADING SIGNALS" },
     { id: "/flow-analysis", label: "FLOW ANALYSIS" },
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
     { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
-    { id: "/about", label: "ABOUT" },
   ];
 
   if (isCollapsed) return null;

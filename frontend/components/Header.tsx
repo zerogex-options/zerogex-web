@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Menu,
   X,
@@ -44,14 +45,13 @@ export default function Header({ theme }: HeaderProps) {
   const pathname = usePathname();
 
   const pages = [
-    { id: "/", label: "DASHBOARD" },
+    { id: "/dashboard", label: "DASHBOARD" },
     { id: "/trading-signals", label: "TRADING SIGNALS" },
     { id: "/flow-analysis", label: "FLOW ANALYSIS" },
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
     { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
-    { id: "/about", label: "ABOUT" },
   ];
 
   // Fetch real market data
@@ -326,19 +326,20 @@ export default function Header({ theme }: HeaderProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <img
-                  src={
-                    theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
-                  }
-                  alt="ZeroGEX"
-                  style={{
-                    height: "100px",
-                    width: "auto",
-                    objectFit: "contain",
-                    transition: "height 0.3s ease",
-                    pointerEvents: "auto",
-                  }}
-                />
+                <Link href="/" style={{ pointerEvents: "auto" }}>
+                  <img
+                    src={
+                      theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
+                    }
+                    alt="ZeroGEX"
+                    style={{
+                      height: "100px",
+                      width: "auto",
+                      objectFit: "contain",
+                      transition: "height 0.3s ease",
+                    }}
+                  />
+                </Link>
               </div>
 
               {/* Right: Text Times + Session Circle (pulled in from right) */}
@@ -547,19 +548,20 @@ export default function Header({ theme }: HeaderProps) {
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 style={{ top: 0, bottom: 0 }}
               >
-                <img
-                  src={
-                    theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
-                  }
-                  alt="ZeroGEX"
-                  style={{
-                    height: "200px",
-                    width: "auto",
-                    objectFit: "contain",
-                    pointerEvents: "auto",
-                    transition: "height 0.3s ease",
-                  }}
-                />
+                <Link href="/" style={{ pointerEvents: "auto" }}>
+                  <img
+                    src={
+                      theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
+                    }
+                    alt="ZeroGEX"
+                    style={{
+                      height: "200px",
+                      width: "auto",
+                      objectFit: "contain",
+                      transition: "height 0.3s ease",
+                    }}
+                  />
+                </Link>
               </div>
 
               {/* Collapse Toggle Button - Top Right */}
@@ -587,15 +589,17 @@ export default function Header({ theme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
-            <img
-              src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
-              alt="ZeroGEX"
-              style={{
-                height: "48px",
-                width: "auto",
-                objectFit: "contain",
-              }}
-            />
+            <Link href="/">
+              <img
+                src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                alt="ZeroGEX"
+                style={{
+                  height: "48px",
+                  width: "auto",
+                  objectFit: "contain",
+                }}
+              />
+            </Link>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
