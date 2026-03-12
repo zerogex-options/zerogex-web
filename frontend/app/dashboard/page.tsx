@@ -86,8 +86,9 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Volatility Monitor — full width, right under Market Overview */}
+      {/* Volatility Monitor */}
       <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
         <VolatilityCard />
       </section>
 

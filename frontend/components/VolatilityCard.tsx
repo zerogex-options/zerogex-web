@@ -5,7 +5,7 @@ import { Info, X } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
-import { SingleGauge, interpolateGaugeColor } from "./VolatilityGauges";
+import { interpolateGaugeColor } from "./VolatilityGauges";
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
 
@@ -33,91 +33,57 @@ const TACHOMETER_ZONES: ZoneRow[] = [
   { range: "8–10", label: "Full Throttle", desc: "Fear spiking hard. VIX is surging across multiple time scales simultaneously.", color: "#ef4444" },
 ];
 
-// ── Info panel ────────────────────────────────────────────────────────────────
+// ── Inline info panel ─────────────────────────────────────────────────────────
 
 interface InfoPanelProps {
   type: "speedometer" | "tachometer";
-  onClose: () => void;
   isDark: boolean;
 }
 
-function InfoPanel({ type, onClose, isDark }: InfoPanelProps) {
+function InfoPanel({ type, isDark }: InfoPanelProps) {
   const isSpeed = type === "speedometer";
   const zones = isSpeed ? SPEEDOMETER_ZONES : TACHOMETER_ZONES;
   const textColor = isDark ? colors.light : colors.dark;
   const mutedColor = isDark ? "rgba(242,242,242,0.5)" : "rgba(23,23,23,0.5)";
   const dividerColor = isDark ? "rgba(150,143,146,0.15)" : "rgba(150,143,146,0.18)";
-  const panelBg = isDark ? "rgba(42,38,40,0.7)" : "rgba(248,246,248,0.85)";
-  const panelBorder = isDark ? "rgba(150,143,146,0.2)" : "rgba(150,143,146,0.25)";
 
   return (
-    <div
-      style={{
-        background: panelBg,
-        border: `1px solid ${panelBorder}`,
-        borderRadius: "12px",
-        padding: "16px 18px",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-      }}
-    >
-      {/* Panel header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <div className="text-sm font-bold tracking-wide mb-0.5" style={{ color: textColor }}>
-            {isSpeed ? "Speedometer" : "Tachometer"}
-          </div>
-          <div className="text-xs font-semibold" style={{ color: mutedColor }}>
-            {isSpeed ? "How fast is the market moving?" : "How fast is volatility accelerating?"}
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="flex-shrink-0 p-1 rounded opacity-40 hover:opacity-100 transition-opacity"
-          style={{ color: textColor }}
-        >
-          <X size={13} />
-        </button>
-      </div>
+    <div className="mt-4 flex flex-col gap-3">
+      <div style={{ borderTop: `1px solid ${dividerColor}` }} />
 
       {/* Derivation */}
-      <p className="text-xs leading-relaxed mb-3" style={{ color: mutedColor }}>
+      <p className="text-xs leading-relaxed" style={{ color: mutedColor }}>
         {isSpeed ? (
           <>
-            Maps the current{" "}
-            <strong style={{ color: textColor }}>$VIX.X</strong> level to a 0–10 scale
-            using a logarithmic curve fitted to the historical distribution of VIX readings.
-            The log transform means equal steps on the gauge represent proportionally equal
-            changes in realised fear, not raw VIX points.
+            Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0–10 scale
+            via a log curve fitted to the historical VIX distribution. Equal gauge steps
+            represent proportionally equal changes in realised fear, not raw VIX points.
           </>
         ) : (
           <>
-            Measures the{" "}
-            <strong style={{ color: textColor }}>rate of change</strong> of VIX across
-            five time scales (5&nbsp;min → 2&nbsp;hrs), each weighted toward the most
-            recent moves. The composite score is then normalised by the realised per-bar
-            volatility of VIX itself, so that <strong style={{ color: textColor }}>+1σ → 10</strong>{" "}
-            and <strong style={{ color: textColor }}>−1σ → 0</strong>. A reading of 5
-            means VIX acceleration is exactly neutral.
+            Rate of change of VIX across five time scales (5&nbsp;min → 2&nbsp;hrs),
+            weighted toward recent moves. Normalised by realised per-bar VIX vol so
+            that <strong style={{ color: textColor }}>+1σ → 10</strong> and{" "}
+            <strong style={{ color: textColor }}>−1σ → 0</strong>. Reading of 5 = neutral.
           </>
         )}
       </p>
 
-      <div style={{ borderTop: `1px solid ${dividerColor}`, marginBottom: "12px" }} />
+      <div style={{ borderTop: `1px solid ${dividerColor}` }} />
 
       {/* Zone rows */}
       <div className="flex flex-col gap-2">
         {zones.map((z) => (
-          <div key={z.range} className="flex items-start gap-3">
+          <div key={z.range} className="flex items-start gap-2.5">
             <div
               style={{
-                width: 9,
-                height: 9,
+                width: 8,
+                height: 8,
                 borderRadius: "50%",
                 background: z.color,
                 flexShrink: 0,
                 marginTop: 3,
-                boxShadow: `0 0 6px ${z.color}70`,
+                boxShadow: `0 0 5px ${z.color}70`,
               }}
             />
             <div className="flex-1 min-w-0">
@@ -137,186 +103,164 @@ function InfoPanel({ type, onClose, isDark }: InfoPanelProps) {
   );
 }
 
-// ── Gauge column ──────────────────────────────────────────────────────────────
+// ── Gauge card (Speedometer or Tachometer) ────────────────────────────────────
 
-interface GaugeColumnProps {
+interface GaugeCardProps {
   type: "speedometer" | "tachometer";
   value: number;
-  label: string;
-  vix: number;
+  zoneLabel: string;
   isDark: boolean;
-  theme: "light" | "dark";
-  gaugeSize: number;
 }
 
-function GaugeColumn({ type, value, label, vix, isDark, theme, gaugeSize }: GaugeColumnProps) {
+function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const isSpeed = type === "speedometer";
   const valueColor = interpolateGaugeColor(value);
-  const textColor = isDark ? colors.light : colors.dark;
-  const mutedColor = isDark ? "rgba(242,242,242,0.45)" : "rgba(23,23,23,0.45)";
-  const divider = isDark ? "rgba(150,143,146,0.15)" : "rgba(150,143,146,0.18)";
+
+  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const shadowBase = isDark
+    ? "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
+    : "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)";
+  const shadowHover = isDark
+    ? "0 8px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3)"
+    : "0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)";
 
   return (
-    <div className="flex flex-col gap-4 flex-1 min-w-0">
-      {/* Gauge SVG */}
-      <div className="flex justify-center">
-        <SingleGauge
-          value={value}
-          title={isSpeed ? "SPEED" : "ACCEL"}
-          zoneLabel={label}
-          vix={vix}
-          theme={theme}
-          gaugeId={isSpeed ? "spd-card" : "tch-card"}
-          sizePx={gaugeSize}
-        />
+    <div
+      className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+      style={{
+        backgroundColor: cardBg,
+        border: `1px solid ${colors.muted}`,
+        boxShadow: shadowBase,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
+    >
+      {/* Title row */}
+      <div className="flex justify-between items-start mb-3">
+        <h3
+          className="text-xs font-semibold tracking-wider uppercase"
+          style={{ color: colors.muted }}
+        >
+          {isSpeed ? "Speedometer" : "Tachometer"}
+        </h3>
+        <button
+          onClick={() => setPanelOpen((v) => !v)}
+          className={`inline-flex items-center transition-opacity ${panelOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+          style={{ color: panelOpen ? valueColor : colors.muted }}
+          type="button"
+          title={panelOpen ? "Close" : `What is the ${isSpeed ? "speedometer" : "tachometer"}?`}
+        >
+          {panelOpen ? <X size={14} /> : <Info size={14} />}
+        </button>
       </div>
 
-      {/* Label row */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span
-            className="text-xs font-bold tracking-widest uppercase"
-            style={{ color: mutedColor }}
-          >
-            {isSpeed ? "Speedometer" : "Tachometer"}
-          </span>
-          <button
-            onClick={() => setPanelOpen((v) => !v)}
-            className={`inline-flex items-center transition-opacity ${panelOpen ? "opacity-100" : "opacity-40 hover:opacity-90"}`}
-            style={{ color: panelOpen ? valueColor : (isDark ? colors.light : colors.dark) }}
-            type="button"
-            title={panelOpen ? "Close explanation" : `What is the ${isSpeed ? "speedometer" : "tachometer"}?`}
-          >
-            {panelOpen ? <X size={13} /> : <Info size={13} />}
-          </button>
-        </div>
-
-        <div className="text-2xl font-bold mb-0.5" style={{ color: valueColor }}>
-          {label}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold" style={{ color: mutedColor }}>
-            {value.toFixed(1)} / 10
-          </span>
-          <span style={{ color: divider }}>·</span>
-          <span className="text-sm font-semibold" style={{ color: mutedColor }}>
-            VIX{" "}
-            <span style={{ color: textColor, fontWeight: 700 }}>{vix.toFixed(2)}</span>
-          </span>
-        </div>
+      {/* Zone label — the only value shown */}
+      <div
+        className="text-4xl font-bold"
+        style={{ color: valueColor }}
+      >
+        {zoneLabel}
       </div>
 
       {/* Expandable info panel */}
-      {panelOpen && (
-        <InfoPanel
-          type={type}
-          onClose={() => setPanelOpen(false)}
-          isDark={isDark}
-        />
-      )}
+      {panelOpen && <InfoPanel type={type} isDark={isDark} />}
     </div>
   );
 }
 
-// ── Main card ─────────────────────────────────────────────────────────────────
+// ── VIX card ──────────────────────────────────────────────────────────────────
 
-export default function VolatilityCard() {
-  const { theme } = useTheme();
-  const { data } = useVolatilityGauge(30000);
+interface VixCardProps {
+  vix: number;
+  timestamp: string;
+  isDark: boolean;
+}
 
-  const isDark = theme === "dark";
-  const border = "rgba(150,143,146,0.25)";
-  const mutedColor = isDark ? "rgba(242,242,242,0.4)" : "rgba(23,23,23,0.4)";
-  const cardBg = isDark
-    ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(42,38,40,0.6) 100%)`
-    : colors.cardLight;
-  const dividerColor = isDark ? "rgba(150,143,146,0.15)" : "rgba(150,143,146,0.2)";
+function VixCard({ vix, timestamp, isDark }: VixCardProps) {
+  const textColor = isDark ? colors.light : colors.dark;
+  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const shadowBase = isDark
+    ? "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
+    : "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)";
+  const shadowHover = isDark
+    ? "0 8px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3)"
+    : "0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)";
 
   const formatEt = (ts: string) => {
     try {
-      return (
-        new Date(ts).toLocaleTimeString("en-US", {
-          timeZone: "America/New_York",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }) + " ET"
-      );
+      return new Date(ts).toLocaleTimeString("en-US", {
+        timeZone: "America/New_York",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }) + " ET";
     } catch {
       return "";
     }
   };
 
-  // Gauge size: scales with viewport via CSS, but we set a generous px value
-  // and let the SVG viewBox do the rest. 280px is the "target" on large screens.
-  const GAUGE_SIZE = 280;
-
   return (
     <div
-      className="p-6 rounded-2xl"
+      className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
       style={{
-        background: cardBg,
-        border: `1px solid ${border}`,
-        boxShadow: isDark
-          ? "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
-          : "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)",
+        backgroundColor: cardBg,
+        border: `1px solid ${colors.muted}`,
+        boxShadow: shadowBase,
       }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
     >
-      {/* Card header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex justify-between items-start mb-3">
         <h3
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: colors.muted }}
         >
-          Volatility Monitor
+          VIX
         </h3>
-        {data && (
-          <span className="text-xs font-semibold" style={{ color: mutedColor }}>
-            {data.timestamp && formatEt(data.timestamp)}
-          </span>
-        )}
       </div>
 
-      {data ? (
-        /* Two-column gauge layout */
-        <div className="flex flex-col md:flex-row gap-8 md:gap-10">
-          {/* Speedometer column */}
-          <GaugeColumn
-            type="speedometer"
-            value={data.speedometer}
-            label={data.speedometer_label}
-            vix={data.vix}
-            isDark={isDark}
-            theme={theme}
-            gaugeSize={GAUGE_SIZE}
-          />
+      <div className="text-4xl font-bold mb-2" style={{ color: textColor }}>
+        {vix.toFixed(2)}
+      </div>
 
-          {/* Vertical divider (desktop only) */}
-          <div
-            className="hidden md:block flex-shrink-0"
-            style={{ width: "1px", background: dividerColor, alignSelf: "stretch" }}
-          />
-
-          {/* Tachometer column */}
-          <GaugeColumn
-            type="tachometer"
-            value={data.tachometer}
-            label={data.tachometer_label}
-            vix={data.vix}
-            isDark={isDark}
-            theme={theme}
-            gaugeSize={GAUGE_SIZE}
-          />
-        </div>
-      ) : (
-        <div
-          className="flex items-center justify-center py-12 text-sm font-semibold"
-          style={{ color: mutedColor }}
-        >
-          Loading volatility data…
+      {timestamp && (
+        <div className="text-sm font-semibold" style={{ color: colors.muted }}>
+          as of {formatEt(timestamp)}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Public export — three cards in a row ──────────────────────────────────────
+
+export default function VolatilityCard() {
+  const { theme } = useTheme();
+  const { data } = useVolatilityGauge(30000);
+  const isDark = theme === "dark";
+
+  if (!data) return null;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <GaugeCard
+        type="speedometer"
+        value={data.speedometer}
+        zoneLabel={data.speedometer_label}
+        isDark={isDark}
+      />
+      <GaugeCard
+        type="tachometer"
+        value={data.tachometer}
+        zoneLabel={data.tachometer_label}
+        isDark={isDark}
+      />
+      <VixCard
+        vix={data.vix}
+        timestamp={data.timestamp}
+        isDark={isDark}
+      />
     </div>
   );
 }
