@@ -11,6 +11,7 @@ import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
+import VolatilityCard from '@/components/VolatilityCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 
 export default function DashboardPage() {
@@ -50,7 +51,7 @@ export default function DashboardPage() {
       {/* Market Overview */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
           <MetricCard
             title="SPY Price"
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
@@ -115,6 +116,16 @@ export default function DashboardPage() {
             tooltip="Ratio of put option volume to call option volume. Calculation: Total put volume divided by total call volume over the last hour. Values > 1.0 indicate more put buying (bearish sentiment). Values < 1.0 indicate more call buying (bullish sentiment). Extreme readings can signal reversals."
             theme={theme}
           />
+        </div>
+      </section>
+
+      {/* Volatility Monitor */}
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+          <div className="md:col-span-1">
+            <VolatilityCard />
+          </div>
         </div>
       </section>
 

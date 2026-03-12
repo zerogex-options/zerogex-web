@@ -20,7 +20,6 @@ import { getMarketSession } from "@/core/utils";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
-import VolatilityGauges from "./VolatilityGauges";
 import { useMarketQuote, usePreviousClose, useSessionCloses } from "@/hooks/useApiData";
 
 interface HeaderProps {
@@ -358,12 +357,11 @@ export default function Header({ theme }: HeaderProps) {
                 </Link>
               </div>
 
-              {/* Right: Gauges + Times + Session Circle (pulled in from right) */}
+              {/* Right: Text Times + Session Circle (pulled in from right) */}
               <div
                 className="flex items-center gap-4"
                 style={{ marginRight: "24px" }}
               >
-                <VolatilityGauges theme={theme} compact />
                 <WorldClocks theme={theme} session={session} compact={true} />
                 <div
                   onClick={() => setShowCountdown(!showCountdown)}
@@ -546,26 +544,23 @@ export default function Header({ theme }: HeaderProps) {
 
                 {/* Right Column - with padding to avoid toggle button */}
                 <div className="flex flex-col gap-2 items-end">
-                  <VolatilityGauges theme={theme} />
+                  <div
+                    onClick={() => setShowCountdown(!showCountdown)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <SessionBadge
+                      session={session}
+                      theme={theme}
+                      showCountdown={showCountdown}
+                    />
+                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="scale-90 origin-right">
-                      <WorldClocks
-                        theme={theme}
-                        session={session}
-                        hideCountdown={true}
-                      />
-                    </div>
-                    <div
-                      onClick={() => setShowCountdown(!showCountdown)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <SessionBadge
-                        session={session}
-                        theme={theme}
-                        showCountdown={showCountdown}
-                      />
-                    </div>
+                  <div className="scale-90 origin-right">
+                    <WorldClocks
+                      theme={theme}
+                      session={session}
+                      hideCountdown={true}
+                    />
                   </div>
                 </div>
               </div>
