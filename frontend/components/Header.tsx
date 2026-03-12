@@ -45,7 +45,7 @@ export default function Header({ theme }: HeaderProps) {
   const pathname = usePathname();
 
   const pages = [
-    { id: "/", label: "DASHBOARD" },
+    { id: "/dashboard", label: "DASHBOARD" },
     { id: "/trading-signals", label: "TRADING SIGNALS" },
     { id: "/flow-analysis", label: "FLOW ANALYSIS" },
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
@@ -327,7 +327,7 @@ export default function Header({ theme }: HeaderProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <Link href="/landing" style={{ pointerEvents: "auto" }}>
+                <Link href="/" style={{ pointerEvents: "auto" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
@@ -549,7 +549,7 @@ export default function Header({ theme }: HeaderProps) {
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 style={{ top: 0, bottom: 0 }}
               >
-                <Link href="/landing" style={{ pointerEvents: "auto" }}>
+                <Link href="/" style={{ pointerEvents: "auto" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
@@ -590,7 +590,7 @@ export default function Header({ theme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/landing">
+            <Link href="/">
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"
