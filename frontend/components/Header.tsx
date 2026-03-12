@@ -129,7 +129,7 @@ export default function Header({ theme }: HeaderProps) {
 
   // ── Row 1 ────────────────────────────────────────────────────────────────
   // When session-closes data is available:
-  //   Market open  → live quote vs prior_session_close
+  //   Market open  → live quote vs current_session_close (most recent 4 PM ET close)
   //   Extended hrs → current_session_close vs prior_session_close
   // When session-closes data is NOT available (endpoint not yet live):
   //   Fall back to original behavior: live quote vs previousCloseForDisplay
@@ -140,7 +140,9 @@ export default function Header({ theme }: HeaderProps) {
     : quoteData?.close ?? null;
 
   const row1BaseClose = sessionClosesData
-    ? sessionClosesData.prior_session_close
+    ? (isMarketOpen
+        ? sessionClosesData.current_session_close
+        : sessionClosesData.prior_session_close)
     : previousCloseForDisplay?.previous_close ?? null;
 
   const row1Change =
@@ -182,8 +184,14 @@ export default function Header({ theme }: HeaderProps) {
         : "regular session close")
     : (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote");
 
-  const row1ChangeLabel = sessionClosesData?.prior_session_close_ts
-    ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+  const row1ChangeLabel = sessionClosesData
+    ? (isMarketOpen
+        ? (sessionClosesData.current_session_close_ts
+            ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
+            : "vs previous close")
+        : (sessionClosesData.prior_session_close_ts
+            ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+            : "vs previous close"))
     : (previousCloseForDisplay?.timestamp
         ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
         : "since previous close");
