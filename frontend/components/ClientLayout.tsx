@@ -9,7 +9,7 @@ import Footer from './Footer';
 import ThemeToggle from './ThemeToggle';
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/'];
+const STANDALONE_ROUTES = ['/', '/about'];
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();

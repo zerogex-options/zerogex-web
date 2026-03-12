@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 
@@ -29,6 +30,30 @@ export default function Footer({ theme }: FooterProps) {
             }}
           />
           
+          {/* Nav links */}
+          <div className="flex items-center gap-6 flex-wrap justify-center">
+            <Link
+              href="/about"
+              className="text-sm font-medium transition-colors"
+              style={{ color: colors.muted }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = theme === 'dark' ? colors.light : colors.dark; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = colors.muted; }}
+            >
+              About
+            </Link>
+            <a
+              href="https://api.zerogex.io/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium transition-colors"
+              style={{ color: colors.muted }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = theme === 'dark' ? colors.light : colors.dark; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = colors.muted; }}
+            >
+              API Docs
+            </a>
+          </div>
+
           {/* Disclaimer and Copyright */}
           <div className="text-center text-sm" style={{ color: colors.muted }}>
             <p className="mb-2">

@@ -54,7 +54,6 @@ export default function Navigation({ theme }: NavigationProps) {
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
     { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
-    { id: "/about", label: "ABOUT" },
   ];
 
   if (isCollapsed) return null;
