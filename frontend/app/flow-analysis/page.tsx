@@ -913,8 +913,15 @@ export default function FlowAnalysisPage() {
               />
               <YAxis stroke="#f2f2f2" tick={{ fontSize: 10 }} tickMargin={8} width={62} />
               <Tooltip
-                labelFormatter={(value) => new Date(String(value)).toLocaleString()}
-                formatter={(value) => [Number(value ?? 0).toFixed(2), "Put/Call Ratio"]}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  return (
+                    <div className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                      <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                      <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
+                    </div>
+                  );
+                }}
               />
               <Line
                 type="monotone"

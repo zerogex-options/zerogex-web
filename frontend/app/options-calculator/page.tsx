@@ -284,8 +284,8 @@ export default function OptionsCalculatorPage() {
 
   const payoffData = useMemo(() => {
     const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
-    const minP = Math.max(1, center * 0.8);
-    const maxP = center * 1.2;
+    const minP = Math.max(1, center * 0.95);
+    const maxP = center * 1.05;
     return Array.from({ length: 81 }).map((_, i) => {
       const S = minP + ((maxP - minP) * i) / 80;
       const oneContractPL = selectedLegs.reduce((sum, leg) => {
