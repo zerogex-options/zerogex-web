@@ -192,6 +192,9 @@ export default function Header({ theme }: HeaderProps) {
   const row2Label = quoteData?.timestamp
     ? `${row2SessionLabel} price as of ${formatEtDateTime(quoteData.timestamp)}`
     : `${row2SessionLabel} price`;
+  const row2ChangeLabel = sessionClosesData?.current_session_close_ts
+    ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
+    : "vs regular session close";
 
   return (
     <header
@@ -303,6 +306,7 @@ export default function Header({ theme }: HeaderProps) {
                         </span>
                         <span
                           className="text-xs font-semibold"
+                          title={row2ChangeLabel}
                           style={{ color: row2Positive ? colors.bullish : colors.bearish }}
                         >
                           {row2Positive ? "+" : ""}
@@ -501,6 +505,7 @@ export default function Header({ theme }: HeaderProps) {
                           </span>
                           <span
                             className="text-sm font-semibold"
+                            title={row2ChangeLabel}
                             style={{ color: row2Positive ? colors.bullish : colors.bearish }}
                           >
                             {row2Positive ? "+" : ""}
@@ -700,6 +705,7 @@ export default function Header({ theme }: HeaderProps) {
                       </span>
                       <span
                         className="text-sm font-semibold"
+                        title={row2ChangeLabel}
                         style={{ color: row2Positive ? colors.bullish : colors.bearish }}
                       >
                         {row2Positive ? "+" : ""}
