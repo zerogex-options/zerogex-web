@@ -446,29 +446,14 @@ export default function OptionsCalculatorPage() {
           })}
         </div>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-300">
-          <div>
-            Total position:{' '}
-            <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
-              {fmtDollar(Math.abs(totalPosition))}
-            </span>{' '}
-            <span className="text-gray-400">
-              ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
-            </span>
-          </div>
-          {breakevens.length > 0 ? (
-            <div>
-              Breakeven{breakevens.length > 1 ? 's' : ''}:{' '}
-              {breakevens.map((be, i) => (
-                <span key={be}>
-                  {i > 0 && <span className="text-gray-500"> / </span>}
-                  <span className="font-semibold text-amber-400">${be.toFixed(2)}</span>
-                </span>
-              ))}
-            </div>
-          ) : (
-            <div className="text-gray-500 italic">No breakeven</div>
-          )}
+        <div className="text-sm text-gray-300">
+          Total position:{' '}
+          <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
+            {fmtDollar(Math.abs(totalPosition))}
+          </span>{' '}
+          <span className="text-gray-400">
+            ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
+          </span>
         </div>
       </div>
 
@@ -495,7 +480,9 @@ export default function OptionsCalculatorPage() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#3f3a3c" />
             <XAxis
+              type="number"
               dataKey="price"
+              domain={['dataMin', 'dataMax']}
               ticks={xTicks}
               interval={0}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
