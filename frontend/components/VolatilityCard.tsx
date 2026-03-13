@@ -5,7 +5,7 @@ import { Info, X } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
-import { interpolateGaugeColor } from "./VolatilityGauges";
+import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
 
@@ -155,12 +155,24 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
         </button>
       </div>
 
-      {/* Zone label — the only value shown */}
+      {/* Zone label */}
       <div
-        className="text-4xl font-bold"
+        className="text-4xl font-bold mb-4"
         style={{ color: valueColor }}
       >
         {zoneLabel}
+      </div>
+
+      {/* Gauge icon */}
+      <div className="flex justify-center">
+        <SingleGauge
+          value={value}
+          title={isSpeed ? "SPEED" : "ACCEL"}
+          zoneLabel={zoneLabel}
+          theme={isDark ? "dark" : "light"}
+          gaugeId={isSpeed ? "spd-card" : "tch-card"}
+          sizePx={160}
+        />
       </div>
 
       {/* Expandable info panel */}
