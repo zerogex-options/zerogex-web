@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Info, X } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
@@ -205,6 +205,7 @@ function VixCard({ vix, timestamp, isDark }: VixCardProps) {
         timeZone: "America/New_York",
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
         hour12: false,
       }) + " ET";
     } catch {
@@ -251,6 +252,15 @@ export default function VolatilityCard() {
   const { theme } = useTheme();
   const { data } = useVolatilityGauge(30000);
   const isDark = theme === "dark";
+  const [fetchedAt, setFetchedAt] = useState<string>("");
+  const prevDataRef = useRef<typeof data>(null);
+
+  useEffect(() => {
+    if (data && data !== prevDataRef.current) {
+      prevDataRef.current = data;
+      setFetchedAt(new Date().toISOString());
+    }
+  }, [data]);
 
   if (!data) return null;
 
@@ -270,7 +280,7 @@ export default function VolatilityCard() {
       />
       <VixCard
         vix={data.vix}
-        timestamp={data.timestamp}
+        timestamp={fetchedAt}
         isDark={isDark}
       />
     </div>
