@@ -10,38 +10,29 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { omitClosedMarketTimes } from '@/core/utils';
-import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 
 function toTime(ts: string) {
-  return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' });
 }
 
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const maxPoints = getMaxDataPoints();
 
-  const { data: flowData, loading, error } = useOptionFlow(symbol, timeframe, maxPoints, 5000);
+  // Fetch one full trading session (390 min) at 1-min resolution.
+  const { data: flowData, loading, error } = useOptionFlow(symbol, 390, 5000);
 
   const chartData = useMemo(() => {
-    const grouped = new Map<string, { calls: number; puts: number }>();
-
-    (flowData || []).forEach((row) => {
-      const ts = row.interval_timestamp || row.time_window_end;
-      if (!ts) return;
-      const key = String(ts);
-      const current = grouped.get(key) || { calls: 0, puts: 0 };
-      const premium = Number(row.total_premium || 0) / 1_000_000;
-      if ((row.option_type || '').toUpperCase() === 'CALL') current.calls += premium;
-      if ((row.option_type || '').toUpperCase() === 'PUT') current.puts += premium;
-      grouped.set(key, current);
-    });
-
-    const rows = Array.from(grouped.entries())
-      .map(([timestamp, v]) => ({ timestamp, time: toTime(timestamp), calls: v.calls, puts: v.puts }))
+    const rows = (flowData || [])
+      .map((row) => ({
+        timestamp: row.timestamp,
+        time: toTime(row.timestamp),
+        calls: Number(row.call_premium || 0) / 1_000_000,
+        puts: Number(row.put_premium || 0) / 1_000_000,
+      }))
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
@@ -63,8 +54,6 @@ export default function OptionsFlowChart() {
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
           <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
         </div>
-
-        <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-4 flex justify-end" />
 
         <div className="overflow-x-auto">
           <div className="min-w-[760px]">

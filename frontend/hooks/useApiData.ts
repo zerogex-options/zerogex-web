@@ -221,8 +221,20 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   return useApiData<MarketQuoteRow>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
 }
 
+export interface FlowByTypePoint {
+  timestamp: string;
+  symbol: string;
+  call_volume: number;
+  call_premium: number;
+  put_volume: number;
+  put_premium: number;
+  net_volume: number;
+  net_premium: number;
+  underlying_price?: number | null;
+}
+
 export function useOptionFlow(symbol = 'SPY', windowMinutes = 60, refreshInterval = 5000) {
-  return useApiData<OptionFlowRow[]>(`/api/flow/by-type?symbol=${symbol}&window_minutes=${windowMinutes}`, { refreshInterval });
+  return useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&window_minutes=${windowMinutes}`, { refreshInterval });
 }
 
 export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, windowMinutes = 60, refreshInterval = 10000) {
