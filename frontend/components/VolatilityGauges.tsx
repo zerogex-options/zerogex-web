@@ -7,12 +7,12 @@ import { Theme } from "@/core/types";
 interface VolatilityGaugeData {
   timestamp: string;
   vix: number;
-  speedometer: number;
-  speedometer_label: string;
-  tachometer: number;
-  tachometer_label: string;
+  level: number;
+  level_label: string;
+  momentum: number;
+  momentum_label: string;
   cache_bars: number;
-  latest_bars: Array<{ timestamp: string; close: number }>;
+  latest_bars?: Array<{ timestamp: string; close: number }>;
 }
 
 // ── Color interpolation ───────────────────────────────────────────────────────
@@ -275,17 +275,6 @@ export function SingleGauge({
             {v.toFixed(1)}
           </text>
 
-          <text
-            x={cx} y={VIEW_H - 2}
-            textAnchor="middle"
-            fill={mutedColor}
-            fontSize={5.8}
-            fontWeight="700"
-            fontFamily="DM Sans, sans-serif"
-            letterSpacing="0.9"
-          >
-            {title}
-          </text>
         </svg>
       </div>
 
@@ -341,9 +330,9 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
   return (
     <div className="flex items-center gap-2">
       <SingleGauge
-        value={data.speedometer}
-        title="SPEED"
-        zoneLabel={data.speedometer_label}
+        value={data.level}
+        title=""
+        zoneLabel={data.level_label}
         vix={data.vix}
         theme={theme}
         gaugeId="spd"
@@ -351,9 +340,9 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
       />
       <div style={{ width: "1px", height: compact ? "34px" : "44px", background: isDark ? "rgba(150,143,146,0.18)" : "rgba(150,143,146,0.22)", flexShrink: 0 }} />
       <SingleGauge
-        value={data.tachometer}
-        title="ACCEL"
-        zoneLabel={data.tachometer_label}
+        value={data.momentum}
+        title=""
+        zoneLabel={data.momentum_label}
         vix={data.vix}
         theme={theme}
         gaugeId="tch"

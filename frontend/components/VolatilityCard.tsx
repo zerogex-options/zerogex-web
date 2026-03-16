@@ -143,7 +143,7 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: colors.muted }}
         >
-          {isSpeed ? "Speedometer" : "Tachometer"}
+          {isSpeed ? "Level" : "Momentum"}
         </h3>
         <button
           onClick={() => setPanelOpen((v) => !v)}
