@@ -99,21 +99,28 @@ export default function DashboardPage() {
       {/* GEX Metrics */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Gamma Exposure</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
             title="Call GEX"
             value={gexData ? `$${(gexData.total_call_gex / 1000000).toFixed(1)}M` : '--'}
-            trend="bullish"
+            trend="neutral"
             tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
             theme={theme}
           />
           <MetricCard
             title="Put GEX"
             value={gexData ? `$${(gexData.total_put_gex / 1000000).toFixed(1)}M` : '--'}
-            trend="bearish"
+            trend="neutral"
             tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
             theme={theme}
           />
+        </div>
+      </section>
+
+      {/* Options Sentiment */}
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Options Sentiment</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
             title="Put/Call Ratio"
             value={gexData?.put_call_ratio ? gexData.put_call_ratio.toFixed(2) : '--'}
@@ -131,7 +138,11 @@ export default function DashboardPage() {
           <MetricCard
             title="Call Wall (Resistance)"
             value={gexData?.call_wall ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
-            subtitle="Heavy call open interest"
+            subtitle={
+              gexData?.call_wall && quoteData?.close
+                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                : 'Heavy call open interest'
+            }
             tooltip="Strike with the highest concentration of call open interest, acting as resistance. Calculation: Strike with maximum total call OI weighted by gamma. As price approaches this level, dealers must sell shares to hedge their short gamma exposure, creating selling pressure. Price often struggles to break through this level."
             theme={theme}
             trend="bearish"
@@ -139,7 +150,11 @@ export default function DashboardPage() {
           <MetricCard
             title="Put Wall (Support)"
             value={gexData?.put_wall ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
-            subtitle="Heavy put open interest"
+            subtitle={
+              gexData?.put_wall && quoteData?.close
+                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                : 'Heavy put open interest'
+            }
             tooltip="Strike with the highest concentration of put open interest, acting as support. Calculation: Strike with maximum total put OI weighted by gamma. As price approaches this level, dealers must buy shares to hedge their short gamma exposure, creating buying pressure. Price often bounces off this level."
             theme={theme}
             trend="bullish"
