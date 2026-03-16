@@ -58,17 +58,17 @@ interface FlowByStrikePoint {
 
 interface PutCallRatioRow {
   timestamp: string;
-  ratio: number;
+  ratio: number | null;
 }
 
 interface TimeseriesRow {
   timestamp: string;
   time: string;
-  callPremium: number;
-  putPremium: number;
-  netVolume: number;
-  positiveNetVolume: number;
-  negativeNetVolume: number;
+  callPremium: number | null;
+  putPremium: number | null;
+  netVolume: number | null;
+  positiveNetVolume: number | null;
+  negativeNetVolume: number | null;
   underlyingPrice: number | null;
 }
 
@@ -94,6 +94,75 @@ function normalizeToMinute(ts: string): string {
   const ms = new Date(ts).getTime();
   if (!Number.isFinite(ms)) return ts;
   return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+/**
+ * Generates 1-min ISO timestamps from 09:30 ET to 16:00 ET for the given YYYY-MM-DD dateKey.
+ * Handles EDT (UTC-4) and EST (UTC-5) automatically.
+ */
+function getSessionTimestamps(dateKey: string): string[] {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return [];
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  // 09:30 ET = 13:30 UTC (EDT) or 14:30 UTC (EST)
+  let startMs: number | null = null;
+  for (const utcH of [13, 14]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === 9 && min === 30) { startMs = candidate; break; }
+  }
+
+  // 16:00 ET = 20:00 UTC (EDT) or 21:00 UTC (EST)
+  let endMs: number | null = null;
+  for (const utcH of [20, 21]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === 16 && min === 0) { endMs = candidate; break; }
+  }
+
+  if (startMs === null || endMs === null) return [];
+
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
+
+/** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
+function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): TimeseriesRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => {
+    const row = byTs.get(timestamp);
+    if (row) return row;
+    return {
+      timestamp,
+      time: safeTimeLabel(timestamp),
+      callPremium: null,
+      putPremium: null,
+      netVolume: null,
+      positiveNetVolume: null,
+      negativeNetVolume: null,
+      underlyingPrice: null,
+    } satisfies TimeseriesRow;
+  });
+}
+
+/** Aligns a put/call ratio series to the session timeline, filling missing slots with null. */
+function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => byTs.get(timestamp) ?? { timestamp, ratio: null });
 }
 
 /**
@@ -460,9 +529,9 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
-  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium), ...rows.map((r) => r.putPremium));
-  const minVolumeRaw = Math.min(0, ...rows.map((r) => r.netVolume));
-  const maxVolumeRaw = Math.max(0, ...rows.map((r) => r.netVolume));
+  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium ?? 0), ...rows.map((r) => r.putPremium ?? 0));
+  const minVolumeRaw = Math.min(0, ...rows.map((r) => r.netVolume ?? 0));
+  const maxVolumeRaw = Math.max(0, ...rows.map((r) => r.netVolume ?? 0));
   const volumeStep = getDynamicStep(minVolumeRaw, maxVolumeRaw);
   const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
   const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
@@ -542,6 +611,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             stroke="#10b981"
             strokeWidth={2}
             dot={false}
+            connectNulls={false}
           />
           <Line
             yAxisId="premium"
@@ -551,6 +621,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             stroke="#ef4444"
             strokeWidth={2}
             dot={false}
+            connectNulls={false}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -709,6 +780,13 @@ export default function FlowAnalysisPage() {
     setSelectedDate(getDefaultDate(availableDates));
   }, [availableDates]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Session timeline (fixed 09:30–16:00 ET for selected date) ──────────────
+
+  const sessionTimeline = useMemo(() => {
+    if (!selectedDate) return [];
+    return getSessionTimestamps(selectedDate);
+  }, [selectedDate]);
+
   // ── Snapshot (latest row for selected date) ─────────────────────────────────
 
   const latestSnapshot = useMemo(() => {
@@ -740,10 +818,11 @@ export default function FlowAnalysisPage() {
   // ── Main options flow series ────────────────────────────────────────────────
 
   const mainSeries = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || sessionTimeline.length === 0) return [];
     const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    return buildTimeseriesFromByType(dateRows);
-  }, [selectedDate, flowByType]);
+    const base = buildTimeseriesFromByType(dateRows);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByType, sessionTimeline]);
 
   // ── By-expiration ───────────────────────────────────────────────────────────
 
@@ -759,7 +838,7 @@ export default function FlowAnalysisPage() {
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
 
   const expirationSeries = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || sessionTimeline.length === 0) return [];
     const dateRows = (flowByExpiration ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
     const available = new Set(expirationOptions);
     const activeSelection = new Set(Array.from(selectedExpirations).filter((v) => available.has(v)));
@@ -767,8 +846,9 @@ export default function FlowAnalysisPage() {
       activeSelection.size > 0
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
-    return buildTimeseriesFromNetRows(filtered);
-  }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions]);
+    const base = buildTimeseriesFromNetRows(filtered);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
 
@@ -783,20 +863,22 @@ export default function FlowAnalysisPage() {
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
 
   const strikeSeries = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || sessionTimeline.length === 0) return [];
     const dateRows = (flowByStrike ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
     const filtered =
       selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
-    return buildTimeseriesFromNetRows(filtered);
-  }, [selectedDate, flowByStrike, selectedStrikes]);
+    const base = buildTimeseriesFromNetRows(filtered);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
 
   const putCallRatioSeries = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || sessionTimeline.length === 0) return [];
     const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    return buildPutCallRatioSeries(dateRows);
-  }, [selectedDate, flowByType]);
+    const base = buildPutCallRatioSeries(dateRows);
+    return alignRatioToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByType, sessionTimeline]);
 
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
@@ -998,6 +1080,7 @@ export default function FlowAnalysisPage() {
                 stroke="#f59e0b"
                 strokeWidth={2}
                 dot={false}
+                connectNulls={false}
               />
             </ComposedChart>
           </ResponsiveContainer>
