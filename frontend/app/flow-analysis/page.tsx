@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -20,8 +20,8 @@ import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
-import { omitClosedMarketTimes } from "@/core/utils";
-import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
+
+// ── API shape ─────────────────────────────────────────────────────────────────
 
 interface FlowByTypePoint {
   timestamp: string;
@@ -31,6 +31,7 @@ interface FlowByTypePoint {
   put_premium: number;
   net_volume: number;
   net_premium: number;
+  underlying_price?: number | null;
 }
 
 interface FlowByExpirationPoint {
@@ -40,6 +41,7 @@ interface FlowByExpirationPoint {
   premium: number;
   net_volume: number;
   net_premium: number;
+  underlying_price?: number | null;
 }
 
 interface FlowByStrikePoint {
@@ -49,57 +51,10 @@ interface FlowByStrikePoint {
   premium: number;
   net_volume: number;
   net_premium: number;
+  underlying_price?: number | null;
 }
 
-interface UnderlyingPoint {
-  timestamp: string;
-  close?: number;
-  price?: number;
-}
-
-
-const getWindowUnitsForTimeframe = (maxPoints: number) => Math.max(1, Math.min(90, maxPoints));
-
-function parseTimestampMs(value?: string): number | null {
-  if (!value) return null;
-
-  const direct = new Date(value).getTime();
-  if (Number.isFinite(direct)) return direct;
-
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const retry = new Date(normalized).getTime();
-  if (Number.isFinite(retry)) return retry;
-
-  const bareMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!bareMatch) return null;
-
-  const [, y, m, d, hh, mm, ss] = bareMatch;
-  return Date.UTC(
-    Number(y),
-    Number(m) - 1,
-    Number(d),
-    Number(hh),
-    Number(mm),
-    Number(ss ?? "0"),
-  );
-}
-
-function timeframeToBucketMs(timeframe: ChartTimeframe): number {
-  switch (timeframe) {
-    case "1min":
-      return 60 * 1000;
-    case "5min":
-      return 5 * 60 * 1000;
-    case "15min":
-      return 15 * 60 * 1000;
-    case "1hr":
-      return 60 * 60 * 1000;
-    case "1day":
-      return 24 * 60 * 60 * 1000;
-    default:
-      return 5 * 60 * 1000;
-  }
-}
+// ── Chart row shape ───────────────────────────────────────────────────────────
 
 interface PutCallRatioRow {
   timestamp: string;
@@ -117,6 +72,97 @@ interface TimeseriesRow {
   underlyingPrice: number | null;
 }
 
+// ── Date / session helpers ────────────────────────────────────────────────────
+
+function getETDateKey(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function getCurrentETDateKey(): string {
+  return getETDateKey(new Date().toISOString());
+}
+
+/** Returns the UTC ms timestamp for 16:15 ET on the given YYYY-MM-DD dateKey. */
+function getSessionEndMs(dateKey: string): number {
+  // Try UTC-4 (EDT) and UTC-5 (EST) candidates.
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const candidates = [
+    Date.UTC(y, m - 1, d, 20, 15), // 16:15 + 4h (EDT)
+    Date.UTC(y, m - 1, d, 21, 15), // 16:15 + 5h (EST)
+  ];
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  for (const candidate of candidates) {
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+    if (h === 16 && min === 15) return candidate;
+  }
+  return candidates[0]; // fallback
+}
+
+/** Generates 1-min ISO timestamps from startMs (rounded down to minute) through 16:15 ET. */
+function generateSessionTimeline(dateKey: string, startMs: number): string[] {
+  const endMs = getSessionEndMs(dateKey);
+  const step = 60_000;
+  const alignedStart = Math.floor(startMs / step) * step;
+  if (alignedStart > endMs) return [new Date(alignedStart).toISOString()];
+  const result: string[] = [];
+  for (let t = alignedStart; t <= endMs; t += step) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
+
+/** Normalises a timestamp to minute precision (truncates seconds/ms). */
+function normalizeToMinute(ts: string): string {
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return ts;
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+/**
+ * Determines the default selected date.
+ * If the market is currently open (≥ 09:30 ET on a weekday) and today is in availableDates → today.
+ * Otherwise → the most recent available date.
+ */
+function getDefaultDate(availableDates: string[]): string {
+  if (availableDates.length === 0) return getCurrentETDateKey();
+
+  const now = new Date();
+  const etParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const weekday = etParts.find((p) => p.type === "weekday")?.value ?? "";
+  const etHour = Number(etParts.find((p) => p.type === "hour")?.value ?? 0);
+  const etMin = Number(etParts.find((p) => p.type === "minute")?.value ?? 0);
+  const isWeekday = weekday !== "Sat" && weekday !== "Sun";
+  const isMarketOpen = isWeekday && etHour * 60 + etMin >= 9 * 60 + 30;
+  const todayKey = getCurrentETDateKey();
+
+  if (isMarketOpen && availableDates.includes(todayKey)) return todayKey;
+  // Most recent available date (dates are sorted descending)
+  return availableDates[0];
+}
+
+// ── Label / axis helpers ──────────────────────────────────────────────────────
+
 function safeTimeLabel(value?: string) {
   if (!value) return "--:--";
   const d = new Date(value);
@@ -126,25 +172,256 @@ function safeTimeLabel(value?: string) {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
+        timeZone: "America/New_York",
       });
 }
 
-function getNewYorkDateKey(date: Date = new Date()) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(date);
-}
-
-function isActiveExpiration(expiration?: string, todayKey: string = getNewYorkDateKey()) {
+function isActiveExpiration(expiration?: string, todayKey: string = getCurrentETDateKey()) {
   if (!expiration) return false;
   const normalized = expiration.trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return true;
   return normalized >= todayKey;
 }
+
+// ── Series builders ───────────────────────────────────────────────────────────
+
+function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
+  const grouped = new Map<
+    string,
+    { callPremium: number; putPremium: number; callVolume: number; putVolume: number; underlyingPrice: number | null }
+  >();
+
+  rows.forEach((row) => {
+    const ts = normalizeToMinute(row.timestamp);
+    if (!ts) return;
+
+    const current = grouped.get(ts) ?? {
+      callPremium: 0,
+      putPremium: 0,
+      callVolume: 0,
+      putVolume: 0,
+      underlyingPrice: null,
+    };
+
+    current.callPremium += Number(row.call_premium || 0);
+    current.putPremium += Number(row.put_premium || 0);
+    current.callVolume += Number(row.call_volume || 0);
+    current.putVolume += Number(row.put_volume || 0);
+    if (current.underlyingPrice === null && row.underlying_price != null) {
+      current.underlyingPrice = Number(row.underlying_price);
+    }
+
+    grouped.set(ts, current);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([timestamp, value]) => {
+      const netVolume = value.callVolume - value.putVolume;
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium: value.callPremium,
+        putPremium: value.putPremium,
+        netVolume,
+        positiveNetVolume: netVolume > 0 ? netVolume : 0,
+        negativeNetVolume: netVolume < 0 ? netVolume : 0,
+        underlyingPrice: value.underlyingPrice,
+      };
+    })
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
+  const grouped = new Map<string, { callVolume: number; putVolume: number }>();
+
+  rows.forEach((row) => {
+    const ts = normalizeToMinute(row.timestamp);
+    if (!ts) return;
+    const current = grouped.get(ts) ?? { callVolume: 0, putVolume: 0 };
+    current.callVolume += Number(row.call_volume || 0);
+    current.putVolume += Number(row.put_volume || 0);
+    grouped.set(ts, current);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([timestamp, value]) => ({
+      timestamp,
+      ratio: value.callVolume > 0 ? value.putVolume / value.callVolume : 0,
+    }))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function normalizeSignedFlow(
+  totalPremium: number,
+  netPremium: number,
+  totalVolume: number,
+  netVolume: number,
+) {
+  const callPremium = Math.max(0, (totalPremium + netPremium) / 2);
+  const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
+
+  const derivedFromPremium = Math.round(
+    Math.max(
+      -totalVolume,
+      Math.min(totalVolume, totalVolume * ((netPremium || 0) / Math.max(1, totalPremium || 0))),
+    ),
+  );
+
+  const boundedRawNet = Number.isFinite(netVolume)
+    ? Math.max(-totalVolume, Math.min(totalVolume, Math.round(netVolume)))
+    : derivedFromPremium;
+
+  const hasSignMismatch =
+    Math.sign(netPremium || 0) !== 0 &&
+    Math.sign(boundedRawNet || 0) !== 0 &&
+    Math.sign(netPremium || 0) !== Math.sign(boundedRawNet || 0);
+
+  return {
+    callPremium,
+    putPremium,
+    netVolume: hasSignMismatch ? derivedFromPremium : boundedRawNet,
+  };
+}
+
+function buildTimeseriesFromNetRows(
+  rows: Array<{
+    timestamp: string;
+    premium: number;
+    net_premium: number;
+    volume: number;
+    net_volume: number;
+    underlying_price?: number | null;
+  }>,
+): TimeseriesRow[] {
+  const grouped = new Map<
+    string,
+    { totalPremium: number; netPremium: number; totalVolume: number; netVolume: number; underlyingPrice: number | null }
+  >();
+
+  rows.forEach((row) => {
+    const ts = normalizeToMinute(row.timestamp);
+    if (!ts) return;
+
+    const current = grouped.get(ts) ?? {
+      totalPremium: 0,
+      netPremium: 0,
+      totalVolume: 0,
+      netVolume: 0,
+      underlyingPrice: null,
+    };
+
+    current.totalPremium += Number(row.premium || 0);
+    current.netPremium += Number(row.net_premium || 0);
+    current.totalVolume += Number(row.volume || 0);
+    current.netVolume += Number(row.net_volume || 0);
+    if (current.underlyingPrice === null && row.underlying_price != null) {
+      current.underlyingPrice = Number(row.underlying_price);
+    }
+
+    grouped.set(ts, current);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([timestamp, value]) => {
+      const normalized = normalizeSignedFlow(
+        value.totalPremium,
+        value.netPremium,
+        value.totalVolume,
+        value.netVolume,
+      );
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium: normalized.callPremium,
+        putPremium: normalized.putPremium,
+        netVolume: normalized.netVolume,
+        positiveNetVolume: normalized.netVolume > 0 ? normalized.netVolume : 0,
+        negativeNetVolume: normalized.netVolume < 0 ? normalized.netVolume : 0,
+        underlyingPrice: value.underlyingPrice,
+      };
+    })
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): TimeseriesRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => {
+    const row = byTs.get(timestamp);
+    if (row) return row;
+    return {
+      timestamp,
+      time: safeTimeLabel(timestamp),
+      callPremium: 0,
+      putPremium: 0,
+      netVolume: 0,
+      positiveNetVolume: 0,
+      negativeNetVolume: 0,
+      underlyingPrice: null,
+    } satisfies TimeseriesRow;
+  });
+}
+
+function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => byTs.get(timestamp) ?? { timestamp, ratio: 0 });
+}
+
+// ── Chart layout helpers ──────────────────────────────────────────────────────
+
+function getUnderlyingDomain(rows: TimeseriesRow[]) {
+  const prices = rows
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+
+  if (prices.length === 0) return ["auto", "auto"] as const;
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const span = Math.max(0.01, maxPrice - minPrice);
+  const padding = span * 0.03;
+
+  return [minPrice - padding, maxPrice + padding] as const;
+}
+
+function roundToStep(value: number, step: number, mode: "up" | "down") {
+  if (!Number.isFinite(value)) return 0;
+  if (mode === "down") return Math.floor(value / step) * step;
+  return Math.ceil(value / step) * step;
+}
+
+function getDynamicLeftMargin(rows: TimeseriesRow[]) {
+  const prices = rows
+    .map((r) => r.underlyingPrice)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+
+  if (prices.length === 0) return 86;
+
+  const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
+  const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
+  return Math.max(86, Math.min(120, 52 + digits * 10));
+}
+
+function getDateMarkerMeta(timestamps: string[]) {
+  const groups = new Map<string, { first: number; last: number }>();
+
+  timestamps.forEach((ts, idx) => {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return;
+    const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const current = groups.get(key);
+    if (!current) groups.set(key, { first: idx, last: idx });
+    else groups.set(key, { first: current.first, last: idx });
+  });
+
+  const indexToLabel = new Map<number, string>();
+  groups.forEach((g, label) => {
+    indexToLabel.set(g.first, label);
+  });
+
+  return indexToLabel;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -195,281 +472,32 @@ function MultiSelectChips({
   );
 }
 
-function normalizeSignedFlow(totalPremium: number, netPremium: number, totalVolume: number, netVolume: number) {
-  const callPremium = Math.max(0, (totalPremium + netPremium) / 2);
-  const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
-
-  const derivedFromPremium = Math.round(
-    Math.max(
-      -totalVolume,
-      Math.min(totalVolume, totalVolume * ((netPremium || 0) / Math.max(1, totalPremium || 0))),
-    ),
+function DateSelect({
+  dates,
+  value,
+  onChange,
+}: {
+  dates: string[];
+  value: string;
+  onChange: (d: string) => void;
+}) {
+  if (dates.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <span className="text-sm text-gray-400">Date</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-1.5 text-sm rounded-md border border-gray-600 bg-[#2a2628] text-gray-200 focus:outline-none focus:border-gray-400 cursor-pointer"
+      >
+        {dates.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+    </div>
   );
-
-  const boundedRawNet = Number.isFinite(netVolume)
-    ? Math.max(-totalVolume, Math.min(totalVolume, Math.round(netVolume)))
-    : derivedFromPremium;
-
-  const hasSignMismatch =
-    Math.sign(netPremium || 0) !== 0 && Math.sign(boundedRawNet || 0) !== 0 && Math.sign(netPremium || 0) !== Math.sign(boundedRawNet || 0);
-
-  return {
-    callPremium,
-    putPremium,
-    netVolume: hasSignMismatch ? derivedFromPremium : boundedRawNet,
-  };
-}
-
-function buildTimeseriesFromByType(rows: FlowByTypePoint[], maxPoints: number): TimeseriesRow[] {
-  const grouped = new Map<
-    string,
-    { callPremium: number; putPremium: number; callVolume: number; putVolume: number }
-  >();
-
-  rows.forEach((row) => {
-    const ts = row.timestamp;
-    if (!ts) return;
-
-    const current = grouped.get(ts) || {
-      callPremium: 0,
-      putPremium: 0,
-      callVolume: 0,
-      putVolume: 0,
-    };
-
-    current.callPremium += Number(row.call_premium || 0);
-    current.putPremium += Number(row.put_premium || 0);
-    current.callVolume += Number(row.call_volume || 0);
-    current.putVolume += Number(row.put_volume || 0);
-
-    grouped.set(ts, current);
-  });
-
-  const chartRows = Array.from(grouped.entries())
-    .map(([timestamp, value]) => {
-      const netVolume = value.callVolume - value.putVolume;
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium: value.callPremium,
-        putPremium: value.putPremium,
-        netVolume,
-        positiveNetVolume: netVolume > 0 ? netVolume : 0,
-        negativeNetVolume: netVolume < 0 ? netVolume : 0,
-        underlyingPrice: null,
-      };
-    })
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
-}
-
-
-function buildPutCallRatioSeries(rows: FlowByTypePoint[], maxPoints: number): PutCallRatioRow[] {
-  const grouped = new Map<string, { callVolume: number; putVolume: number }>();
-
-  rows.forEach((row) => {
-    const ts = row.timestamp;
-    if (!ts) return;
-    const current = grouped.get(ts) || { callVolume: 0, putVolume: 0 };
-    current.callVolume += Number(row.call_volume || 0);
-    current.putVolume += Number(row.put_volume || 0);
-    grouped.set(ts, current);
-  });
-
-  const points = Array.from(grouped.entries())
-    .map(([timestamp, value]) => ({
-      timestamp,
-      ratio: value.callVolume > 0 ? value.putVolume / value.callVolume : 0,
-    }))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  return omitClosedMarketTimes(points, (row) => row.timestamp).slice(-maxPoints);
-}
-
-function buildTimeseriesFromNetRows(
-  rows: Array<{ timestamp: string; premium: number; net_premium: number; volume: number; net_volume: number }>,
-  maxPoints: number,
-): TimeseriesRow[] {
-  const grouped = new Map<string, { totalPremium: number; netPremium: number; totalVolume: number; netVolume: number }>();
-
-  rows.forEach((row) => {
-    const ts = row.timestamp;
-    if (!ts) return;
-
-    const current = grouped.get(ts) || {
-      totalPremium: 0,
-      netPremium: 0,
-      totalVolume: 0,
-      netVolume: 0,
-    };
-
-    current.totalPremium += Number(row.premium || 0);
-    current.netPremium += Number(row.net_premium || 0);
-    current.totalVolume += Number(row.volume || 0);
-    current.netVolume += Number(row.net_volume || 0);
-
-    grouped.set(ts, current);
-  });
-
-  const chartRows = Array.from(grouped.entries())
-    .map(([timestamp, value]) => {
-      const normalized = normalizeSignedFlow(
-        value.totalPremium,
-        value.netPremium,
-        value.totalVolume,
-        value.netVolume,
-      );
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium: normalized.callPremium,
-        putPremium: normalized.putPremium,
-        netVolume: normalized.netVolume,
-        positiveNetVolume: normalized.netVolume > 0 ? normalized.netVolume : 0,
-        negativeNetVolume: normalized.netVolume < 0 ? normalized.netVolume : 0,
-        underlyingPrice: null,
-      };
-    })
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  return omitClosedMarketTimes(chartRows, (r) => r.timestamp).slice(-maxPoints);
-}
-
-function attachUnderlyingPrice(
-  rows: TimeseriesRow[],
-  underlyingRows: UnderlyingPoint[],
-  timeframe: ChartTimeframe,
-): TimeseriesRow[] {
-  if (rows.length === 0 || underlyingRows.length === 0) return rows;
-
-  const bucketMs = timeframeToBucketMs(timeframe);
-  const aggregated = new Map<number, { sum: number; count: number }>();
-
-  underlyingRows.forEach((row) => {
-    const ts = parseTimestampMs(row.timestamp);
-    const price = Number(row.close ?? row.price ?? NaN);
-    if (ts === null || !Number.isFinite(price)) return;
-
-    const bucket = Math.floor(ts / bucketMs) * bucketMs;
-    const current = aggregated.get(bucket) || { sum: 0, count: 0 };
-    current.sum += price;
-    current.count += 1;
-    aggregated.set(bucket, current);
-  });
-
-  return rows.map((row) => {
-    const ts = parseTimestampMs(row.timestamp);
-    if (ts === null) {
-      return {
-        ...row,
-        underlyingPrice: null,
-      };
-    }
-
-    const bucket = Math.floor(ts / bucketMs) * bucketMs;
-    const value = aggregated.get(bucket);
-    return {
-      ...row,
-      underlyingPrice: value && value.count > 0 ? value.sum / value.count : null,
-    };
-  });
-}
-
-
-function getUnderlyingDomain(rows: TimeseriesRow[]) {
-  const prices = rows
-    .map((r) => r.underlyingPrice)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-  if (prices.length === 0) return ['auto', 'auto'] as const;
-
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
-  const span = Math.max(0.01, maxPrice - minPrice);
-  const padding = span * 0.03;
-
-  return [minPrice - padding, maxPrice + padding] as const;
-}
-
-function roundToStep(value: number, step: number, mode: 'up' | 'down') {
-  if (!Number.isFinite(value)) return 0;
-  if (mode === 'down') return Math.floor(value / step) * step;
-  return Math.ceil(value / step) * step;
-}
-
-function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]) {
-  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  return timeline.map((timestamp) => {
-    const row = byTs.get(timestamp);
-    if (row) return row;
-    return {
-      timestamp,
-      time: safeTimeLabel(timestamp),
-      callPremium: 0,
-      putPremium: 0,
-      netVolume: 0,
-      positiveNetVolume: 0,
-      negativeNetVolume: 0,
-      underlyingPrice: null,
-    } satisfies TimeseriesRow;
-  });
-}
-
-
-function formatFlowXAxisLabel(timestamp: string, includeDate: boolean) {
-  const d = new Date(timestamp);
-  if (Number.isNaN(d.getTime())) return '--:--';
-
-  const time = d.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  if (!includeDate) return time;
-
-  const day = d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-
-  return `${day} ${time}`;
-}
-
-
-function getDateMarkerMeta(timestamps: string[]) {
-  const groups = new Map<string, { first: number; last: number }>();
-
-  timestamps.forEach((ts, idx) => {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return;
-    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const current = groups.get(key);
-    if (!current) groups.set(key, { first: idx, last: idx });
-    else groups.set(key, { first: current.first, last: idx });
-  });
-
-  const indexToLabel = new Map<number, string>();
-  groups.forEach((g, label) => {
-    indexToLabel.set(g.first, label);
-  });
-
-  return indexToLabel;
-}
-
-
-
-function getDynamicLeftMargin(rows: TimeseriesRow[]) {
-  const prices = rows
-    .map((r) => r.underlyingPrice)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-  if (prices.length === 0) return 86;
-
-  const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
-  const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
-  return Math.max(86, Math.min(120, 52 + digits * 10));
 }
 
 function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
@@ -484,7 +512,6 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
   const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
   const underlyingDomain = getUnderlyingDomain(rows);
-  const includeDateOnXAxis = new Set(rows.map((r) => new Date(r.timestamp).toDateString())).size > 1;
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
   const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
   const leftChartMargin = getDynamicLeftMargin(rows);
@@ -495,8 +522,24 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
       <ResponsiveContainer width="100%" height="75%">
         <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-          <XAxis dataKey="timestamp" tickFormatter={(value) => formatFlowXAxisLabel(String(value), includeDateOnXAxis)} stroke="#f2f2f2" minTickGap={24} padding={{ left: 0, right: 0 }} hide />
-          <YAxis yAxisId="price" stroke="#f2f2f2" orientation="left" domain={underlyingDomain} tickFormatter={(v) => `$${Math.round(Number(v))}`} tick={{ fontSize: 10 }} tickMargin={8} width={72} label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 10 }} />
+          <XAxis
+            dataKey="timestamp"
+            stroke="#f2f2f2"
+            minTickGap={24}
+            padding={{ left: 0, right: 0 }}
+            hide
+          />
+          <YAxis
+            yAxisId="price"
+            stroke="#f2f2f2"
+            orientation="left"
+            domain={underlyingDomain}
+            tickFormatter={(v) => `$${Math.round(Number(v))}`}
+            tick={{ fontSize: 10 }}
+            tickMargin={8}
+            width={72}
+            label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 10 }}
+          />
           <YAxis
             yAxisId="premium"
             stroke="#f2f2f2"
@@ -529,6 +572,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             stroke="#facc15"
             strokeWidth={2}
             dot={false}
+            connectNulls
           />
           <Line
             yAxisId="premium"
@@ -560,26 +604,57 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             interval={0}
             minTickGap={24}
             padding={{ left: 0, right: 0 }}
-            tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+            tick={(props: {
+              x?: number | string;
+              y?: number | string;
+              payload?: { value?: string | number };
+              index?: number;
+            }) => {
               const x = Number(props?.x ?? 0);
               const y = Number(props?.y ?? 0);
               const payload = props?.payload;
               const index = Number(props?.index ?? -1);
               const ts = String(payload?.value || "");
-              const timeLabel = formatFlowXAxisLabel(ts, false);
+              const timeLabel = safeTimeLabel(ts);
               const dateLabel = dateMarkerMeta.get(index);
               const showTime = index % timeTickStep === 0 || Boolean(dateLabel);
               if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
-                  {showTime ? <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text> : null}
-                  {dateLabel ? <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>{dateLabel}</text> : null}
+                  {showTime ? (
+                    <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                      {timeLabel}
+                    </text>
+                  ) : null}
+                  {dateLabel ? (
+                    <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                      {dateLabel}
+                    </text>
+                  ) : null}
                 </g>
               );
             }}
           />
-          <YAxis yAxisId="volumeSpacer" orientation="left" domain={[0, 1]} width={72} axisLine={false} tickLine={false} tick={false} />
-          <YAxis yAxisId="volume" orientation="right" stroke="#f2f2f2" domain={[minVolume, maxVolume]} tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()} tick={{ fontSize: 10 }} tickMargin={8} width={62} label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }} />
+          <YAxis
+            yAxisId="volumeSpacer"
+            orientation="left"
+            domain={[0, 1]}
+            width={72}
+            axisLine={false}
+            tickLine={false}
+            tick={false}
+          />
+          <YAxis
+            yAxisId="volume"
+            orientation="right"
+            stroke="#f2f2f2"
+            domain={[minVolume, maxVolume]}
+            tickFormatter={(v) => (Math.round(Number(v) / 10_000) * 10_000).toLocaleString()}
+            tick={{ fontSize: 10 }}
+            tickMargin={8}
+            width={62}
+            label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
+          />
           <Tooltip
             content={({ active, label, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
@@ -621,65 +696,72 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FlowAnalysisPage() {
-  const { getMaxDataPoints, symbol } = useTimeframe();
-  const maxPoints = getMaxDataPoints();
+  const { symbol } = useTimeframe();
 
-  const [optionsFlowTimeframe, setOptionsFlowTimeframe] = useState<ChartTimeframe>("5min");
-  const [expirationTimeframe, setExpirationTimeframe] = useState<ChartTimeframe>("5min");
-  const [strikeTimeframe, setStrikeTimeframe] = useState<ChartTimeframe>("5min");
-  const [ratioTimeframe, setRatioTimeframe] = useState<ChartTimeframe>("5min");
-
-  const optionsWindowUnits = getWindowUnitsForTimeframe(maxPoints);
-  const expirationWindowUnits = getWindowUnitsForTimeframe(maxPoints);
-  const strikeWindowUnits = getWindowUnitsForTimeframe(maxPoints);
-  const ratioWindowUnits = getWindowUnitsForTimeframe(maxPoints);
-
+  // Fetch all data with maximum window to cover all available dates
   const {
     data: flowByType,
     loading: flowLoading,
     error: flowError,
   } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
-    { refreshInterval: 5000 },
+    `/api/flow/by-type?symbol=${symbol}&window_minutes=1440`,
+    { refreshInterval: 30000 },
   );
 
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&timeframe=${expirationTimeframe}&window_units=${expirationWindowUnits}&limit=50000`,
-    { refreshInterval: 5000 },
+    `/api/flow/by-expiration?symbol=${symbol}&window_minutes=1440&limit=50000`,
+    { refreshInterval: 30000 },
   );
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}&limit=50000`,
-    { refreshInterval: 5000 },
+    `/api/flow/by-strike?symbol=${symbol}&window_minutes=1440&limit=50000`,
+    { refreshInterval: 30000 },
   );
 
-  const { data: underlyingHistory } = useApiData<UnderlyingPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${optionsFlowTimeframe}&window_units=${optionsWindowUnits}`,
-    { refreshInterval: 5000 },
-  );
+  // ── Date selection ──────────────────────────────────────────────────────────
 
-  const { data: ratioFlowByType } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&timeframe=${ratioTimeframe}&window_units=${ratioWindowUnits}`,
-    { refreshInterval: 5000 },
-  );
+  /** All unique ET dates present in the data, sorted descending (most recent first). */
+  const availableDates = useMemo(() => {
+    if (!flowByType || flowByType.length === 0) return [];
+    const dates = new Set<string>();
+    flowByType.forEach((row) => {
+      const key = getETDateKey(row.timestamp);
+      if (key) dates.add(key);
+    });
+    return Array.from(dates).sort().reverse();
+  }, [flowByType]);
 
-  const { data: expirationUnderlyingHistory } = useApiData<UnderlyingPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${expirationTimeframe}&window_units=${expirationWindowUnits}`,
-    { refreshInterval: 5000 },
-  );
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
-  const { data: strikeUnderlyingHistory } = useApiData<UnderlyingPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${strikeTimeframe}&window_units=${strikeWindowUnits}`,
-    { refreshInterval: 5000 },
-  );
+  // Auto-select default date once data arrives (or when symbol changes).
+  useEffect(() => {
+    if (availableDates.length === 0) return;
+    // Keep current selection if it's still valid.
+    if (selectedDate && availableDates.includes(selectedDate)) return;
+    setSelectedDate(getDefaultDate(availableDates));
+  }, [availableDates]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Session timeline (static x-axis for the selected date) ─────────────────
+
+  const sessionTimeline = useMemo(() => {
+    if (!selectedDate || !flowByType || flowByType.length === 0) return [];
+    const dateRows = flowByType.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    if (dateRows.length === 0) return [];
+    const earliest = Math.min(...dateRows.map((r) => new Date(r.timestamp).getTime()));
+    return generateSessionTimeline(selectedDate, earliest);
+  }, [selectedDate, flowByType]);
+
+  // ── Snapshot (latest row for selected date) ─────────────────────────────────
 
   const latestSnapshot = useMemo(() => {
-    const rows = flowByType || [];
-    if (rows.length === 0) return null;
+    if (!selectedDate || !flowByType || flowByType.length === 0) return null;
+    const dateRows = flowByType.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    if (dateRows.length === 0) return null;
 
-    const latest = [...rows].sort(
+    const latest = [...dateRows].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     )[0];
 
@@ -698,68 +780,80 @@ export default function FlowAnalysisPage() {
       netPremium: Number(latest.net_premium || callPremium - putPremium),
       putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
     };
-  }, [flowByType]);
+  }, [selectedDate, flowByType]);
 
-  const mainBaseSeries = useMemo(() => buildTimeseriesFromByType(flowByType || [], maxPoints), [flowByType, maxPoints]);
-
-  const timelineTimestamps = useMemo(() => mainBaseSeries.map((r) => r.timestamp), [mainBaseSeries]);
+  // ── Main options flow series ────────────────────────────────────────────────
 
   const mainSeries = useMemo(() => {
-    const aligned = alignSeriesToTimeline(mainBaseSeries, timelineTimestamps);
-    return attachUnderlyingPrice(aligned, underlyingHistory || [], optionsFlowTimeframe);
-  }, [mainBaseSeries, timelineTimestamps, underlyingHistory, optionsFlowTimeframe]);
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const base = buildTimeseriesFromByType(dateRows);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByType, sessionTimeline]);
 
-  const expirationOptions = useMemo(
-    () =>
-      Array.from(new Set((flowByExpiration || []).map((r) => r.expiration).filter((value) => isActiveExpiration(value)))).sort(),
-    [flowByExpiration],
-  );
+  // ── By-expiration ───────────────────────────────────────────────────────────
+
+  const expirationOptions = useMemo(() => {
+    if (!selectedDate || !flowByExpiration) return [];
+    const dateRows = flowByExpiration.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const todayKey = getCurrentETDateKey();
+    return Array.from(
+      new Set(dateRows.map((r) => r.expiration).filter((exp) => isActiveExpiration(exp, todayKey))),
+    ).sort();
+  }, [selectedDate, flowByExpiration]);
+
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
 
-  const strikeOptions = useMemo(
-    () =>
-      Array.from(new Set((flowByStrike || []).map((r) => String(r.strike)).filter(Boolean))).sort(
-        (a, b) => Number(a) - Number(b),
-      ),
-    [flowByStrike],
-  );
+  const expirationSeries = useMemo(() => {
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const dateRows = (flowByExpiration ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const available = new Set(expirationOptions);
+    const activeSelection = new Set(Array.from(selectedExpirations).filter((v) => available.has(v)));
+    const filtered =
+      activeSelection.size > 0
+        ? dateRows.filter((r) => activeSelection.has(r.expiration))
+        : dateRows.filter((r) => available.has(r.expiration));
+    const base = buildTimeseriesFromNetRows(filtered);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
+
+  // ── By-strike ───────────────────────────────────────────────────────────────
+
+  const strikeOptions = useMemo(() => {
+    if (!selectedDate || !flowByStrike) return [];
+    const dateRows = flowByStrike.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    return Array.from(new Set(dateRows.map((r) => String(r.strike)).filter(Boolean))).sort(
+      (a, b) => Number(a) - Number(b),
+    );
+  }, [selectedDate, flowByStrike]);
+
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
 
-  const expirationRowsFiltered = useMemo(() => {
-    const source = flowByExpiration || [];
-    const available = new Set(expirationOptions);
-    const activeSelection = new Set(Array.from(selectedExpirations).filter((value) => available.has(value)));
-    if (activeSelection.size === 0) return source.filter((r) => available.has(r.expiration));
-    return source.filter((r) => activeSelection.has(r.expiration));
-  }, [flowByExpiration, selectedExpirations, expirationOptions]);
-
-  const strikeRowsFiltered = useMemo(() => {
-    const source = flowByStrike || [];
-    if (selectedStrikes.size === 0) return source;
-    return source.filter((r) => selectedStrikes.has(String(r.strike)));
-  }, [flowByStrike, selectedStrikes]);
-
-  const expirationSeries = useMemo(() => {
-    const base = buildTimeseriesFromNetRows(expirationRowsFiltered, maxPoints);
-    return attachUnderlyingPrice(base, expirationUnderlyingHistory || [], expirationTimeframe);
-  }, [expirationRowsFiltered, maxPoints, expirationUnderlyingHistory, expirationTimeframe]);
-
   const strikeSeries = useMemo(() => {
-    const base = buildTimeseriesFromNetRows(strikeRowsFiltered, maxPoints);
-    return attachUnderlyingPrice(base, strikeUnderlyingHistory || [], strikeTimeframe);
-  }, [strikeRowsFiltered, maxPoints, strikeUnderlyingHistory, strikeTimeframe]);
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const dateRows = (flowByStrike ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const filtered =
+      selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
+    const base = buildTimeseriesFromNetRows(filtered);
+    return alignSeriesToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
 
-  const putCallRatioSeries = useMemo(
-    () => buildPutCallRatioSeries(ratioFlowByType || [], maxPoints),
-    [ratioFlowByType, maxPoints],
-  );
+  // ── Put/Call ratio ──────────────────────────────────────────────────────────
 
+  const putCallRatioSeries = useMemo(() => {
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const base = buildPutCallRatioSeries(dateRows);
+    return alignRatioToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByType, sessionTimeline]);
 
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
   );
   const ratioTimeTickStep = Math.max(1, Math.ceil(Math.max(1, putCallRatioSeries.length) / 10));
+
+  // ── Chip toggles ────────────────────────────────────────────────────────────
 
   const toggleExpirations = (value: string) => {
     setSelectedExpirations((prev) => {
@@ -786,13 +880,20 @@ export default function FlowAnalysisPage() {
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && <ErrorMessage message={flowError} />}
 
+      {/* Date selector — shared across all sections */}
+      <div className="mb-6">
+        <DateSelect dates={availableDates} value={selectedDate} onChange={setSelectedDate} />
+      </div>
+
+      {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
-          tooltip="Most recent snapshot from the latest row returned for the selected interval."
+          tooltip="Most recent snapshot from the latest row for the selected date."
         />
         <div className="text-gray-400 text-sm mb-3">
-          Latest timestamp: {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
+          Latest timestamp:{" "}
+          {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
@@ -800,7 +901,7 @@ export default function FlowAnalysisPage() {
             value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
             subtitle={`$${(Number(latestSnapshot?.callPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bullish"
-            tooltip="Latest call contracts traded in the selected interval."
+            tooltip="Latest call contracts traded for the selected date."
             theme="dark"
           />
           <MetricCard
@@ -808,7 +909,7 @@ export default function FlowAnalysisPage() {
             value={Number(latestSnapshot?.putVolume || 0).toLocaleString()}
             subtitle={`$${(Number(latestSnapshot?.putPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bearish"
-            tooltip="Latest put contracts traded in the selected interval."
+            tooltip="Latest put contracts traded for the selected date."
             theme="dark"
           />
           <MetricCard
@@ -835,15 +936,16 @@ export default function FlowAnalysisPage() {
         </div>
       </section>
 
+      {/* ── Options Flow ──────────────────────────────────────────────── */}
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Options Flow"
-          tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero."
+          tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero. X-axis spans the full session from first bar to 16:15 ET."
         />
-        <ChartTimeframeSelect value={optionsFlowTimeframe} onChange={setOptionsFlowTimeframe} />
         <FullWidthFlowChart rows={mainSeries} />
       </section>
 
+      {/* ── Flow by Expiration ────────────────────────────────────────── */}
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Flow by Expiration"
@@ -856,10 +958,10 @@ export default function FlowAnalysisPage() {
           label="Expirations"
         />
         {expirationError && <ErrorMessage message={expirationError} />}
-        <ChartTimeframeSelect value={expirationTimeframe} onChange={setExpirationTimeframe} />
         <FullWidthFlowChart rows={expirationSeries} />
       </section>
 
+      {/* ── Flow by Strike ────────────────────────────────────────────── */}
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Flow by Strike"
@@ -872,41 +974,56 @@ export default function FlowAnalysisPage() {
           label="Strikes"
         />
         {strikeError && <ErrorMessage message={strikeError} />}
-        <ChartTimeframeSelect value={strikeTimeframe} onChange={setStrikeTimeframe} />
         <FullWidthFlowChart rows={strikeSeries} />
       </section>
 
+      {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
       <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
         <SectionTitle
           title="Put/Call Ratio"
-          tooltip="Put/call volume ratio over time using the selected timeframe."
+          tooltip="Put/call volume ratio over time for the selected date."
         />
-        <ChartTimeframeSelect value={ratioTimeframe} onChange={setRatioTimeframe} />
         {putCallRatioSeries.length === 0 ? (
           <div className="text-gray-400 text-center py-8">No put/call ratio data available</div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <ComposedChart data={putCallRatioSeries} margin={{ top: 10, right: 70, left: 70, bottom: 28 }}>
+            <ComposedChart
+              data={putCallRatioSeries}
+              margin={{ top: 10, right: 70, left: 70, bottom: 28 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} />
               <XAxis
                 dataKey="timestamp"
                 stroke="#f2f2f2"
                 interval={0}
                 minTickGap={24}
-                tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                tick={(props: {
+                  x?: number | string;
+                  y?: number | string;
+                  payload?: { value?: string | number };
+                  index?: number;
+                }) => {
                   const x = Number(props?.x ?? 0);
                   const y = Number(props?.y ?? 0);
                   const payload = props?.payload;
                   const index = Number(props?.index ?? -1);
                   const ts = String(payload?.value || "");
-                  const timeLabel = formatFlowXAxisLabel(ts, false);
+                  const timeLabel = safeTimeLabel(ts);
                   const dateLabel = ratioDateMarkerMeta.get(index);
                   const showTime = index % ratioTimeTickStep === 0 || Boolean(dateLabel);
                   if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                   return (
                     <g transform={`translate(${x},${y})`}>
-                      {showTime ? <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>{timeLabel}</text> : null}
-                      {dateLabel ? <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>{dateLabel}</text> : null}
+                      {showTime ? (
+                        <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                          {timeLabel}
+                        </text>
+                      ) : null}
+                      {dateLabel ? (
+                        <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                          {dateLabel}
+                        </text>
+                      ) : null}
                     </g>
                   );
                 }}

@@ -18,19 +18,19 @@ interface ZoneRow {
 }
 
 const SPEEDOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Idle",       vix: "VIX ~10–14", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "#22c55e" },
-  { range: "2–4",  label: "Cruising",   vix: "VIX ~14–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "#84cc16" },
-  { range: "4–6",  label: "Elevated",   vix: "VIX ~19–27", desc: "Above-average vol. Some nervousness; traders are actively buying protection.", color: "#f59e0b" },
-  { range: "6–8",  label: "High Speed", vix: "VIX ~27–38", desc: "High fear. Significant market stress — corrections or sharp selloffs in progress.", color: "#f97316" },
-  { range: "8–10", label: "Redline",    vix: "VIX 38+",    desc: "Extreme panic. Crisis or crash conditions. Rare but highly dangerous; tail risk is elevated.", color: "#ef4444" },
+  { range: "0–2",  label: "Subdued",  vix: "VIX ~10–15", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "#22c55e" },
+  { range: "2–4",  label: "Low",      vix: "VIX ~15–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "#84cc16" },
+  { range: "4–6",  label: "Moderate", vix: "VIX ~19–27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "#f59e0b" },
+  { range: "6–8",  label: "Elevated", vix: "VIX ~27–38", desc: "Above-average fear. Significant market stress — corrections or sharp selloffs in progress.", color: "#f97316" },
+  { range: "8–10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "#ef4444" },
 ];
 
 const TACHOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Hard Braking",  desc: "Fear collapsing rapidly. VIX spiked and is now falling hard — the panic is unwinding fast.", color: "#22c55e" },
-  { range: "2–4",  label: "Decelerating",  desc: "Volatility trending lower. Conditions are improving; fear is slowly draining out of the market.", color: "#84cc16" },
-  { range: "4–6",  label: "Steady",        desc: "No meaningful acceleration in either direction. VIX is range-bound; trend is neutral.", color: "#f59e0b" },
-  { range: "6–8",  label: "Accelerating",  desc: "VIX climbing at a notable pace. Conditions are deteriorating; hedge accordingly.", color: "#f97316" },
-  { range: "8–10", label: "Full Throttle", desc: "Fear spiking hard. VIX is surging across multiple time scales simultaneously.", color: "#ef4444" },
+  { range: "0–2",  label: "Collapsing", desc: "Fear unwinding sharply (–2σ). VIX spiked and is now falling hard — the panic is reversing fast.", color: "#22c55e" },
+  { range: "2–4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "#84cc16" },
+  { range: "4–6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "#f59e0b" },
+  { range: "6–8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "#f97316" },
+  { range: "8–10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "#ef4444" },
 ];
 
 // ── Inline info panel ─────────────────────────────────────────────────────────
@@ -55,16 +55,17 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
       <p className="text-xs leading-relaxed" style={{ color: mutedColor }}>
         {isSpeed ? (
           <>
-            Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0–10 scale
-            via a log curve fitted to the historical VIX distribution. Equal gauge steps
-            represent proportionally equal changes in realised fear, not raw VIX points.
+            Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0–10 log scale
+            anchored to historical percentiles. Equal gauge steps represent proportionally
+            equal changes in realised fear, not raw VIX points.
           </>
         ) : (
           <>
-            Rate of change of VIX across five time scales (5&nbsp;min → 2&nbsp;hrs),
-            weighted toward recent moves. Normalised by realised per-bar VIX vol so
-            that <strong style={{ color: textColor }}>+1σ → 10</strong> and{" "}
-            <strong style={{ color: textColor }}>−1σ → 0</strong>. Reading of 5 = neutral.
+            Weighted composite rate-of-change of VIX across five time scales (5&nbsp;min → 2&nbsp;hrs),
+            normalised against realised per-bar VIX volatility. Scaled so that{" "}
+            <strong style={{ color: textColor }}>±2σ maps to the full 0–10 range</strong> —
+            routine intraday moves stay in the middle band; only genuine trend moves reach the extremes.
+            Reading of 5 = neutral.
           </>
         )}
       </p>
@@ -268,14 +269,14 @@ export default function VolatilityCard() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <GaugeCard
         type="speedometer"
-        value={data.speedometer}
-        zoneLabel={data.speedometer_label}
+        value={data.level}
+        zoneLabel={data.level_label}
         isDark={isDark}
       />
       <GaugeCard
         type="tachometer"
-        value={data.tachometer}
-        zoneLabel={data.tachometer_label}
+        value={data.momentum}
+        zoneLabel={data.momentum_label}
         isDark={isDark}
       />
       <VixCard

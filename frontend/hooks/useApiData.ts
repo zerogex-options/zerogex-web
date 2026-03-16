@@ -221,12 +221,12 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   return useApiData<MarketQuoteRow>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
 }
 
-export function useOptionFlow(symbol = 'SPY', timeframe = '1min', windowUnits = 60, refreshInterval = 5000) {
-  return useApiData<OptionFlowRow[]>(`/api/flow/by-type?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}`, { refreshInterval });
+export function useOptionFlow(symbol = 'SPY', windowMinutes = 60, refreshInterval = 5000) {
+  return useApiData<OptionFlowRow[]>(`/api/flow/by-type?symbol=${symbol}&window_minutes=${windowMinutes}`, { refreshInterval });
 }
 
-export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, timeframe = '1min', windowUnits = 60, refreshInterval = 10000) {
-  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&timeframe=${timeframe}&window_units=${windowUnits}&limit=${limit}`, { refreshInterval });
+export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, windowMinutes = 60, refreshInterval = 10000) {
+  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&window_minutes=${windowMinutes}&limit=${limit}`, { refreshInterval });
 }
 
 export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
@@ -267,12 +267,12 @@ export function useSignalAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInte
 export interface VolatilityGaugeData {
   timestamp: string;
   vix: number;
-  speedometer: number;
-  speedometer_label: string;
-  tachometer: number;
-  tachometer_label: string;
+  level: number;
+  level_label: string;
+  momentum: number;
+  momentum_label: string;
   cache_bars: number;
-  latest_bars: Array<{ timestamp: string; close: number }>;
+  latest_bars?: Array<{ timestamp: string; close: number }>;
 }
 
 export function useVolatilityGauge(refreshInterval = 30000) {
