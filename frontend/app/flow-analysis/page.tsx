@@ -536,6 +536,9 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
   const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
   const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
   const underlyingDomain = getUnderlyingDomain(rows);
+  const [domainMin, domainMax] = underlyingDomain;
+  const priceRange = typeof domainMin === "number" && typeof domainMax === "number" ? domainMax - domainMin : 0;
+  const priceDecimals = priceRange / 5 < 1 ? 2 : 0;
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
   const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
   const leftChartMargin = getDynamicLeftMargin(rows);
@@ -558,7 +561,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             stroke="#f2f2f2"
             orientation="left"
             domain={underlyingDomain}
-            tickFormatter={(v) => `$${Math.round(Number(v))}`}
+            tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
             tick={{ fontSize: 10 }}
             tickMargin={8}
             width={72}
