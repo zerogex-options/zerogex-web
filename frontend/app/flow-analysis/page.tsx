@@ -413,14 +413,6 @@ function roundToStep(value: number, step: number, mode: "up" | "down") {
   return Math.ceil(value / step) * step;
 }
 
-/** Returns the p-th percentile (0–1) of a numeric array. */
-function getPercentile(values: number[], p: number): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const idx = Math.min(Math.floor(sorted.length * p), sorted.length - 1);
-  return sorted[idx];
-}
-
 /**
  * Generates an array of evenly-spaced, human-readable tick values spanning
  * [min, max].  Uses getDynamicStep to pick a clean interval.
@@ -436,6 +428,16 @@ function generateNiceTicks(min: number, max: number): number[] {
     if (t >= max) break;
   }
   return ticks;
+}
+
+/** True when the timestamp falls on a :00 or :30 UTC minute boundary.
+ *  Because ET market times are always at :30 offset (DST-safe), UTC :00/:30
+ *  maps exactly to each half-hour boundary in ET. */
+function is30MinBoundary(ts: string): boolean {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return false;
+  const m = d.getUTCMinutes();
+  return m === 0 || m === 30;
 }
 
 function getDynamicLeftMargin(rows: TimeseriesRow[]) {
@@ -554,53 +556,40 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
-  // ── Premium axis: use 95th-percentile cap to prevent spikes from distorting the scale ──
-  const allPremiumValues = rows
-    .flatMap((r) => [r.callPremium ?? 0, r.putPremium ?? 0])
-    .filter((v) => Number.isFinite(v) && v > 0);
-  const p95Premium = getPercentile(allPremiumValues, 0.95);
-  const premiumAxisMax = Math.max(1, p95Premium * 1.1);
-  const premiumStep = getDynamicStep(0, premiumAxisMax);
-  const premiumDomainMax = roundToStep(premiumAxisMax, premiumStep, "up");
+  // ── Premium axis: use actual max rounded to a clean step ──────────────────
+  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium ?? 0), ...rows.map((r) => r.putPremium ?? 0));
+  const premiumStep = getDynamicStep(0, Math.max(1, maxPremium));
+  const premiumDomainMax = roundToStep(Math.max(1, maxPremium), premiumStep, "up");
   const premiumTicks = generateNiceTicks(0, premiumDomainMax);
 
-  // ── Volume axis: use 95th-percentile cap on absolute values ──
-  const allVolumeValues = rows.map((r) => r.netVolume ?? 0).filter(Number.isFinite);
-  const absVolumeValues = allVolumeValues.map(Math.abs).filter((v) => v > 0);
-  const p95Volume = getPercentile(absVolumeValues, 0.95);
-  const rawMinVolume = Math.min(0, ...rows.map((r) => r.netVolume ?? 0));
-  const rawMaxVolume = Math.max(0, ...rows.map((r) => r.netVolume ?? 0));
-  const cappedMinVolume = p95Volume > 0 ? Math.max(rawMinVolume, -(p95Volume * 1.1)) : rawMinVolume;
-  const cappedMaxVolume = p95Volume > 0 ? Math.min(rawMaxVolume, p95Volume * 1.1) : rawMaxVolume;
-  const volumeStep = getDynamicStep(cappedMinVolume, cappedMaxVolume);
-  const minVolume = roundToStep(cappedMinVolume, volumeStep, "down");
-  const maxVolume = roundToStep(cappedMaxVolume, volumeStep, "up");
+  // ── Volume axis: actual min/max with nice step ─────────────────────────────
+  const rawVolumeValues = rows.map((r) => r.netVolume ?? 0).filter(Number.isFinite);
+  const rawMinVolume = rawVolumeValues.length > 0 ? Math.min(0, ...rawVolumeValues) : 0;
+  const rawMaxVolume = rawVolumeValues.length > 0 ? Math.max(0, ...rawVolumeValues) : 0;
+  const volumeStep = getDynamicStep(rawMinVolume, rawMaxVolume);
+  const minVolume = roundToStep(rawMinVolume, volumeStep, "down");
+  // Ensure the domain never collapses to [x, x] which hides the chart
+  const rawMaxVolumeRounded = roundToStep(rawMaxVolume, volumeStep, "up");
+  const maxVolume = rawMaxVolumeRounded > minVolume ? rawMaxVolumeRounded : minVolume + volumeStep;
   const volumeTicks = generateNiceTicks(minVolume, maxVolume);
 
-  // ── Price axis: snap domain and ticks to clean step values ──
+  // ── Price axis: padded domain with nice explicit ticks ─────────────────────
   const underlyingDomain = getUnderlyingDomain(rows);
   const [domainMin, domainMax] = underlyingDomain;
   const priceRange = typeof domainMin === "number" && typeof domainMax === "number" ? domainMax - domainMin : 0;
   const priceDecimals = priceRange / 5 < 1 ? 2 : 0;
-  const priceStep =
-    typeof domainMin === "number" && typeof domainMax === "number" ? getDynamicStep(domainMin, domainMax) : 1;
-  const priceDomainMin =
-    typeof domainMin === "number" ? roundToStep(domainMin, priceStep, "down") : domainMin;
-  const priceDomainMax =
-    typeof domainMax === "number" ? roundToStep(domainMax, priceStep, "up") : domainMax;
   const priceTicks =
-    typeof priceDomainMin === "number" && typeof priceDomainMax === "number"
-      ? generateNiceTicks(priceDomainMin, priceDomainMax)
+    typeof domainMin === "number" && typeof domainMax === "number"
+      ? generateNiceTicks(domainMin, domainMax)
       : undefined;
 
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
-  const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
   const leftChartMargin = getDynamicLeftMargin(rows);
   const rightChartMargin = 70;
 
   return (
-    <div className="h-[540px]">
-      <ResponsiveContainer width="100%" height="75%">
+    <div className="h-[580px]">
+      <ResponsiveContainer width="100%" height="62%">
         <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
           <XAxis
@@ -614,7 +603,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             yAxisId="price"
             stroke="#f2f2f2"
             orientation="left"
-            domain={[priceDomainMin, priceDomainMax]}
+            domain={underlyingDomain}
             ticks={priceTicks}
             tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
             tick={{ fontSize: 10 }}
@@ -685,7 +674,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
         </ComposedChart>
       </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height="25%">
+      <ResponsiveContainer width="100%" height="38%">
         <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
           <XAxis
@@ -707,7 +696,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               const ts = String(payload?.value || "");
               const timeLabel = safeTimeLabel(ts);
               const dateLabel = dateMarkerMeta.get(index);
-              const showTime = index % timeTickStep === 0 || Boolean(dateLabel);
+              const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
               if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
@@ -1103,7 +1092,7 @@ export default function FlowAnalysisPage() {
                   const ts = String(payload?.value || "");
                   const timeLabel = safeTimeLabel(ts);
                   const dateLabel = ratioDateMarkerMeta.get(index);
-                  const showTime = index % ratioTimeTickStep === 0 || Boolean(dateLabel);
+                  const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
                   if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                   return (
                     <g transform={`translate(${x},${y})`}>
