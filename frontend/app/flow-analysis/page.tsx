@@ -413,6 +413,31 @@ function roundToStep(value: number, step: number, mode: "up" | "down") {
   return Math.ceil(value / step) * step;
 }
 
+/** Returns the p-th percentile (0–1) of a numeric array. */
+function getPercentile(values: number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = Math.min(Math.floor(sorted.length * p), sorted.length - 1);
+  return sorted[idx];
+}
+
+/**
+ * Generates an array of evenly-spaced, human-readable tick values spanning
+ * [min, max].  Uses getDynamicStep to pick a clean interval.
+ */
+function generateNiceTicks(min: number, max: number): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) return [min];
+  const step = getDynamicStep(min, max);
+  const start = roundToStep(min, step, "down");
+  const ticks: number[] = [];
+  for (let i = 0; i < 20; i++) {
+    const t = parseFloat((start + i * step).toPrecision(12));
+    ticks.push(t);
+    if (t >= max) break;
+  }
+  return ticks;
+}
+
 function getDynamicLeftMargin(rows: TimeseriesRow[]) {
   const prices = rows
     .map((r) => r.underlyingPrice)
@@ -529,16 +554,45 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     return <div className="text-gray-400 text-center py-8">No chart data available</div>;
   }
 
-  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium ?? 0), ...rows.map((r) => r.putPremium ?? 0));
-  const minVolumeRaw = Math.min(0, ...rows.map((r) => r.netVolume ?? 0));
-  const maxVolumeRaw = Math.max(0, ...rows.map((r) => r.netVolume ?? 0));
-  const volumeStep = getDynamicStep(minVolumeRaw, maxVolumeRaw);
-  const minVolume = roundToStep(minVolumeRaw, volumeStep, "down");
-  const maxVolume = roundToStep(maxVolumeRaw, volumeStep, "up");
+  // ── Premium axis: use 95th-percentile cap to prevent spikes from distorting the scale ──
+  const allPremiumValues = rows
+    .flatMap((r) => [r.callPremium ?? 0, r.putPremium ?? 0])
+    .filter((v) => Number.isFinite(v) && v > 0);
+  const p95Premium = getPercentile(allPremiumValues, 0.95);
+  const premiumAxisMax = Math.max(1, p95Premium * 1.1);
+  const premiumStep = getDynamicStep(0, premiumAxisMax);
+  const premiumDomainMax = roundToStep(premiumAxisMax, premiumStep, "up");
+  const premiumTicks = generateNiceTicks(0, premiumDomainMax);
+
+  // ── Volume axis: use 95th-percentile cap on absolute values ──
+  const allVolumeValues = rows.map((r) => r.netVolume ?? 0).filter(Number.isFinite);
+  const absVolumeValues = allVolumeValues.map(Math.abs).filter((v) => v > 0);
+  const p95Volume = getPercentile(absVolumeValues, 0.95);
+  const rawMinVolume = Math.min(0, ...rows.map((r) => r.netVolume ?? 0));
+  const rawMaxVolume = Math.max(0, ...rows.map((r) => r.netVolume ?? 0));
+  const cappedMinVolume = p95Volume > 0 ? Math.max(rawMinVolume, -(p95Volume * 1.1)) : rawMinVolume;
+  const cappedMaxVolume = p95Volume > 0 ? Math.min(rawMaxVolume, p95Volume * 1.1) : rawMaxVolume;
+  const volumeStep = getDynamicStep(cappedMinVolume, cappedMaxVolume);
+  const minVolume = roundToStep(cappedMinVolume, volumeStep, "down");
+  const maxVolume = roundToStep(cappedMaxVolume, volumeStep, "up");
+  const volumeTicks = generateNiceTicks(minVolume, maxVolume);
+
+  // ── Price axis: snap domain and ticks to clean step values ──
   const underlyingDomain = getUnderlyingDomain(rows);
   const [domainMin, domainMax] = underlyingDomain;
   const priceRange = typeof domainMin === "number" && typeof domainMax === "number" ? domainMax - domainMin : 0;
   const priceDecimals = priceRange / 5 < 1 ? 2 : 0;
+  const priceStep =
+    typeof domainMin === "number" && typeof domainMax === "number" ? getDynamicStep(domainMin, domainMax) : 1;
+  const priceDomainMin =
+    typeof domainMin === "number" ? roundToStep(domainMin, priceStep, "down") : domainMin;
+  const priceDomainMax =
+    typeof domainMax === "number" ? roundToStep(domainMax, priceStep, "up") : domainMax;
+  const priceTicks =
+    typeof priceDomainMin === "number" && typeof priceDomainMax === "number"
+      ? generateNiceTicks(priceDomainMin, priceDomainMax)
+      : undefined;
+
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
   const timeTickStep = Math.max(1, Math.ceil(rows.length / 10));
   const leftChartMargin = getDynamicLeftMargin(rows);
@@ -560,7 +614,8 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             yAxisId="price"
             stroke="#f2f2f2"
             orientation="left"
-            domain={underlyingDomain}
+            domain={[priceDomainMin, priceDomainMax]}
+            ticks={priceTicks}
             tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
             tick={{ fontSize: 10 }}
             tickMargin={8}
@@ -571,7 +626,8 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             yAxisId="premium"
             stroke="#f2f2f2"
             orientation="right"
-            domain={[0, Math.max(1, maxPremium * 1.05)]}
+            domain={[0, premiumDomainMax]}
+            ticks={premiumTicks}
             tickFormatter={(v) => {
               const n = Number(v);
               if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -581,7 +637,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             tick={{ fontSize: 10 }}
             tickMargin={8}
             width={62}
-            label={{ value: "Notional Value", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
+            label={{ value: "Net Put/Call Premiums", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
           />
           <Tooltip
             contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
@@ -683,6 +739,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             orientation="right"
             stroke="#f2f2f2"
             domain={[minVolume, maxVolume]}
+            ticks={volumeTicks}
             tickFormatter={(v) => {
               const n = Number(v);
               if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
