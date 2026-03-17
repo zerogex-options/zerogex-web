@@ -46,7 +46,14 @@ type SortKey = keyof StrikeAggregate;
 export default function GammaExposurePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
-  const textColor = theme === 'dark' ? colors.light : colors.dark;
+  const isDark = theme === 'dark';
+  const textColor = isDark ? colors.light : colors.dark;
+  const cardBg = isDark ? '#423d3f' : '#ffffff';
+  const inputBg = isDark ? '#2a2628' : '#f3f4f6';
+  const axisStroke = isDark ? '#f2f2f2' : '#374151';
+  const gridStroke = isDark ? '#968f92' : '#d1d5db';
+  const mutedText = isDark ? '#9ca3af' : '#6b7280';
+  const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
@@ -139,7 +146,7 @@ export default function GammaExposurePage() {
 
 
   const renderLegend = () => (
-    <div className="w-full flex flex-wrap justify-end items-center gap-5 text-sm text-gray-200">
+    <div className="w-full flex flex-wrap justify-end items-center gap-5 text-sm" style={{ color: textColor }}>
       <div className="flex items-center gap-2">
         <span className="inline-block h-3 w-5 rounded-sm" style={{ background: 'linear-gradient(to right, #f45854 0%, #f45854 50%, #10b981 50%, #10b981 100%)' }} />
         Net GEX
@@ -163,10 +170,10 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <SectionTitle title="GEX Snapshot" tooltip="Core gamma regime metrics from /api/gex/summary and /api/market/quote. Together they show where dealer hedging flows may dampen or amplify volatility and where expiry-related pinning pressure may form." />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MetricCard title="SPY Price" value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'} subtitle={quoteData ? `Vol: ${(quoteVolume / 1000000).toFixed(1)}M` : ''} tooltip="Latest underlying quote. Calculation: most recent close/last price from /api/market/quote; subtitle shows traded share volume (millions). Use this as reference against gamma levels." theme="dark" />
-          <MetricCard title="Net GEX" value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'} trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'} tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Sign and magnitude indicate whether dealer hedging likely absorbs or amplifies moves." theme="dark" />
-          <MetricCard title="Gamma Flip" value={gexData?.gamma_flip ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'} subtitle="Dealer positioning" tooltip="Price where aggregate net gamma changes sign. Above/below this level, dealer hedge behavior can invert (buying/selling into moves), often changing intraday volatility characteristics." theme="dark" />
-          <MetricCard title="Max Pain" value={gexData?.max_pain ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'} subtitle="Options expiry target" tooltip="Estimated strike where option-holder payout is minimized at expiry. This level can act as a late-cycle magnet, especially into expiration with high open interest concentration." theme="dark" />
+          <MetricCard title="SPY Price" value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'} subtitle={quoteData ? `Vol: ${(quoteVolume / 1000000).toFixed(1)}M` : ''} tooltip="Latest underlying quote. Calculation: most recent close/last price from /api/market/quote; subtitle shows traded share volume (millions). Use this as reference against gamma levels." />
+          <MetricCard title="Net GEX" value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'} trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'} tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Sign and magnitude indicate whether dealer hedging likely absorbs or amplifies moves." />
+          <MetricCard title="Gamma Flip" value={gexData?.gamma_flip ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'} subtitle="Dealer positioning" tooltip="Price where aggregate net gamma changes sign. Above/below this level, dealer hedge behavior can invert (buying/selling into moves), often changing intraday volatility characteristics." />
+          <MetricCard title="Max Pain" value={gexData?.max_pain ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'} subtitle="Options expiry target" tooltip="Estimated strike where option-holder payout is minimized at expiry. This level can act as a late-cycle magnet, especially into expiration with high open interest concentration." />
         </div>
       </section>
 
@@ -174,13 +181,13 @@ export default function GammaExposurePage() {
         <GammaHeatmap />
       </section>
 
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
-        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-gray-400 text-center py-8">No strike-level gamma data available</div> : (
+        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div> : (
           <>
             <div className="mb-5 flex flex-wrap gap-2 items-center">
-              <span className="text-sm text-gray-300">Expirations:</span>
-              <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">All</button>
+              <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
+              <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs rounded" style={{ backgroundColor: inputBg, color: textColor }}>All</button>
               {expirationOptions.map((exp) => {
                 const active = selectedExpirations === null || selectedExpirations.includes(exp);
                 return (
@@ -191,7 +198,8 @@ export default function GammaExposurePage() {
                       const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
                       return updated.length === 0 ? null : updated;
                     })}
-                    className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                    style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
+                    className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : ''}`}
                   >
                     {exp}
                   </button>
@@ -201,13 +209,13 @@ export default function GammaExposurePage() {
 
             <ResponsiveContainer width="100%" height={390}>
               <ComposedChart data={sortedRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.3} />
-                <XAxis dataKey="strike" stroke="#f2f2f2" tick={{ fontSize: 10 }} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-                <YAxis yAxisId="greeks" stroke="#f2f2f2" tick={{ fontSize: 10 }} tickFormatter={(value) => formatLarge(Number(value))} />
-                <YAxis yAxisId="net" orientation="right" stroke="#f2f2f2" tick={{ fontSize: 10 }} domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
-                <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}M`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
+                <XAxis dataKey="strike" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+                <YAxis yAxisId="greeks" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickFormatter={(value) => formatLarge(Number(value))} />
+                <YAxis yAxisId="net" orientation="right" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
+                <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db', borderRadius: 6 }} labelStyle={{ color: textColor }} itemStyle={{ color: isDark ? '#d1d5db' : '#374151' }} formatter={(value) => `$${Number(value).toFixed(2)}M`} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <ReferenceLine yAxisId="net" y={0} stroke="#f2f2f2" />
+                <ReferenceLine yAxisId="net" y={0} stroke={axisStroke} />
                 {quoteData && underlyingStrikeMarker !== null && <ReferenceLine
                   yAxisId="net"
                   ifOverflow="extendDomain"
@@ -235,7 +243,7 @@ export default function GammaExposurePage() {
             <div className="overflow-x-auto mt-6">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-700 text-gray-300">
+                  <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
                     <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('netGexM')}>Net GEX</th>
@@ -249,7 +257,7 @@ export default function GammaExposurePage() {
                 </thead>
                 <tbody>
                   {sortedRows.map((row) => (
-                    <tr key={row.strike} className="border-b border-gray-800">
+                    <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
                       <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
                       <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
                       <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>

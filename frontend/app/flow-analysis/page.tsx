@@ -20,6 +20,7 @@ import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { useTheme } from "@/core/ThemeContext";
 
 // ── API shape ─────────────────────────────────────────────────────────────────
 
@@ -490,14 +491,16 @@ function MultiSelectChips({
   selected,
   onToggle,
   label,
+  isDark,
 }: {
   options: string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
   label: string;
+  isDark: boolean;
 }) {
   if (options.length === 0) {
-    return <div className="text-gray-400 text-sm">No {label.toLowerCase()} available</div>;
+    return <div className="text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>No {label.toLowerCase()} available</div>;
   }
 
   return (
@@ -508,10 +511,15 @@ function MultiSelectChips({
           <button
             key={option}
             onClick={() => onToggle(option)}
+            style={active ? undefined : {
+              backgroundColor: isDark ? "#2f2b2d" : "#f3f4f6",
+              borderColor: isDark ? "#6b7280" : "#d1d5db",
+              color: isDark ? "#d1d5db" : "#374151",
+            }}
             className={`px-3 py-1.5 text-sm rounded-md border transition ${
               active
                 ? "bg-blue-500/20 border-blue-400 text-blue-200"
-                : "bg-[#2f2b2d] border-gray-600 text-gray-300 hover:border-gray-400"
+                : "hover:border-gray-400"
             }`}
             type="button"
           >
@@ -527,19 +535,26 @@ function DateSelect({
   dates,
   value,
   onChange,
+  isDark,
 }: {
   dates: string[];
   value: string;
   onChange: (d: string) => void;
+  isDark: boolean;
 }) {
   if (dates.length === 0) return null;
   return (
     <div className="flex items-center gap-2 mb-4">
-      <span className="text-sm text-gray-400">Date</span>
+      <span className="text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>Date</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-gray-600 bg-[#2a2628] text-gray-200 focus:outline-none focus:border-gray-400 cursor-pointer"
+        className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
+        style={{
+          backgroundColor: isDark ? "#2a2628" : "#f3f4f6",
+          borderColor: isDark ? "#6b7280" : "#d1d5db",
+          color: isDark ? "#e5e7eb" : "#374151",
+        }}
       >
         {dates.map((d) => (
           <option key={d} value={d}>
@@ -551,9 +566,12 @@ function DateSelect({
   );
 }
 
-function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
+function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: boolean }) {
+  const gridStroke = isDark ? "#968f92" : "#d1d5db";
+  const axisStroke = isDark ? "#f2f2f2" : "#374151";
+
   if (rows.length === 0) {
-    return <div className="text-gray-400 text-center py-8">No chart data available</div>;
+    return <div className="text-center py-8" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>No chart data available</div>;
   }
 
   // ── Premium axis: use actual max rounded to a clean step ──────────────────
@@ -591,29 +609,29 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
     <div className="h-[580px]">
       <ResponsiveContainer width="100%" height="62%">
         <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
           <XAxis
             dataKey="timestamp"
-            stroke="#f2f2f2"
+            stroke={axisStroke}
             minTickGap={24}
             padding={{ left: 0, right: 0 }}
             hide
           />
           <YAxis
             yAxisId="price"
-            stroke="#f2f2f2"
+            stroke={axisStroke}
             orientation="left"
             domain={underlyingDomain}
             ticks={priceTicks}
             tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 10, fill: axisStroke }}
             tickMargin={8}
             width={72}
-            label={{ value: "Underlying Price", angle: -90, position: "left", fill: "#f2f2f2", fontSize: 10, offset: 10 }}
+            label={{ value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
           />
           <YAxis
             yAxisId="premium"
-            stroke="#f2f2f2"
+            stroke={axisStroke}
             orientation="right"
             domain={[0, premiumDomainMax]}
             ticks={premiumTicks}
@@ -623,15 +641,15 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
               return `$${Math.round(n)}`;
             }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 10, fill: axisStroke }}
             tickMargin={8}
             width={62}
-            label={{ value: "Net Put/Call Premiums", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
+            label={{ value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
-            contentStyle={{ backgroundColor: "#ffffff", borderColor: "#d1d5db" }}
-            labelStyle={{ color: "#374151", fontWeight: 600 }}
-            itemStyle={{ color: "#111827" }}
+            contentStyle={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", borderRadius: 6 }}
+            labelStyle={{ color: isDark ? "#f2f2f2" : "#374151", fontWeight: 600 }}
+            itemStyle={{ color: isDark ? "#d1d5db" : "#374151" }}
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
@@ -639,8 +657,8 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               return [`$${n.toLocaleString()}`, name];
             }}
           />
-          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
-          <ReferenceLine yAxisId="premium" y={0} stroke="#f2f2f2" opacity={0.6} />
+          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "#d1d5db" : "#374151" }} />
+          <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
           <Line
             yAxisId="price"
             type="monotone"
@@ -676,10 +694,10 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
 
       <ResponsiveContainer width="100%" height="38%">
         <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} vertical={false} />
           <XAxis
             dataKey="timestamp"
-            stroke="#f2f2f2"
+            stroke={axisStroke}
             interval={0}
             minTickGap={24}
             padding={{ left: 0, right: 0 }}
@@ -701,14 +719,14 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
-                  <line x1={0} y1={0} x2={0} y2={5} stroke="#f2f2f2" strokeWidth={1} opacity={0.6} />
+                  <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
                   {showTime ? (
-                    <text dy={14} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                    <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
                       {timeLabel}
                     </text>
                   ) : null}
                   {dateLabel ? (
-                    <text dy={26} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                    <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
                       {dateLabel}
                     </text>
                   ) : null}
@@ -728,7 +746,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
           <YAxis
             yAxisId="volume"
             orientation="right"
-            stroke="#f2f2f2"
+            stroke={axisStroke}
             domain={[minVolume, maxVolume]}
             ticks={volumeTicks}
             tickFormatter={(v) => {
@@ -737,24 +755,24 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
               return String(Math.round(n));
             }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 10, fill: axisStroke }}
             tickMargin={8}
             width={62}
-            label={{ value: "Net Volume", angle: 90, position: "right", fill: "#f2f2f2", fontSize: 10, offset: 16 }}
+            label={{ value: "Net Volume", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
             content={({ active, label, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
               const point = payload[0]?.payload as { netVolume?: number } | undefined;
               return (
-                <div className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                <div style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }} className="rounded border px-3 py-2 text-sm">
                   <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                   <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>
               );
             }}
           />
-          <ReferenceLine yAxisId="volume" y={0} stroke="#f2f2f2" opacity={0.6} />
+          <ReferenceLine yAxisId="volume" y={0} stroke={axisStroke} opacity={0.6} />
           <Area
             yAxisId="volume"
             type="linear"
@@ -787,6 +805,15 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
 
 export default function FlowAnalysisPage() {
   const { symbol } = useTimeframe();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const cardBg = isDark ? "#423d3f" : "#ffffff";
+  const inputBg = isDark ? "#2a2628" : "#f3f4f6";
+  const inputBorder = isDark ? "#6b7280" : "#d1d5db";
+  const inputColor = isDark ? "#e5e7eb" : "#374151";
+  const mutedText = isDark ? "#9ca3af" : "#6b7280";
+  const axisStroke = isDark ? "#f2f2f2" : "#374151";
+  const gridStroke = isDark ? "#968f92" : "#d1d5db";
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
@@ -958,17 +985,18 @@ export default function FlowAnalysisPage() {
 
       {/* Session selector — shared across all sections */}
       <div className="mb-6 flex items-center gap-3">
-        <span className="text-sm text-gray-400">Session</span>
+        <span className="text-sm" style={{ color: mutedText }}>Session</span>
         <select
           value={flowSession}
           onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
-          className="px-3 py-1.5 text-sm rounded-md border border-gray-600 bg-[#2a2628] text-gray-200 focus:outline-none focus:border-gray-400 cursor-pointer"
+          className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
+          style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
         >
           <option value="current">Current</option>
           <option value="prior">Prior</option>
         </select>
         {selectedDate && (
-          <span className="text-sm text-gray-500">{selectedDate}</span>
+          <span className="text-sm" style={{ color: mutedText }}>{selectedDate}</span>
         )}
       </div>
 
@@ -978,7 +1006,7 @@ export default function FlowAnalysisPage() {
           title="Flow Snapshot"
           tooltip="Most recent snapshot from the latest row for the selected date."
         />
-        <div className="text-gray-400 text-sm mb-3">
+        <div className="text-sm mb-3" style={{ color: mutedText }}>
           Latest timestamp:{" "}
           {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
@@ -1024,16 +1052,16 @@ export default function FlowAnalysisPage() {
       </section>
 
       {/* ── Options Flow ──────────────────────────────────────────────── */}
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Options Flow"
           tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero. X-axis spans the full session from first bar to 16:15 ET."
         />
-        <FullWidthFlowChart rows={mainSeries} />
+        <FullWidthFlowChart rows={mainSeries} isDark={isDark} />
       </section>
 
       {/* ── Flow by Expiration ────────────────────────────────────────── */}
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Flow by Expiration"
           tooltip="Same chart format, filtered by one or more expiration dates."
@@ -1043,13 +1071,14 @@ export default function FlowAnalysisPage() {
           selected={selectedExpirations}
           onToggle={toggleExpirations}
           label="Expirations"
+          isDark={isDark}
         />
         {expirationError && <ErrorMessage message={expirationError} />}
-        <FullWidthFlowChart rows={expirationSeries} />
+        <FullWidthFlowChart rows={expirationSeries} isDark={isDark} />
       </section>
 
       {/* ── Flow by Strike ────────────────────────────────────────────── */}
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Flow by Strike"
           tooltip="Same chart format, filtered by one or more strikes."
@@ -1059,29 +1088,30 @@ export default function FlowAnalysisPage() {
           selected={selectedStrikes}
           onToggle={toggleStrikes}
           label="Strikes"
+          isDark={isDark}
         />
         {strikeError && <ErrorMessage message={strikeError} />}
-        <FullWidthFlowChart rows={strikeSeries} />
+        <FullWidthFlowChart rows={strikeSeries} isDark={isDark} />
       </section>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6">
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Put/Call Ratio"
           tooltip="Put/call volume ratio over time for the selected date."
         />
         {putCallRatioSeries.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">No put/call ratio data available</div>
+          <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart
               data={putCallRatioSeries}
               margin={{ top: 10, right: 70, left: 70, bottom: 28 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.2} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
               <XAxis
                 dataKey="timestamp"
-                stroke="#f2f2f2"
+                stroke={axisStroke}
                 interval={0}
                 minTickGap={24}
                 tickLine={false}
@@ -1102,14 +1132,14 @@ export default function FlowAnalysisPage() {
                   if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                   return (
                     <g transform={`translate(${x},${y})`}>
-                      <line x1={0} y1={0} x2={0} y2={5} stroke="#f2f2f2" strokeWidth={1} opacity={0.6} />
+                      <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
                       {showTime ? (
-                        <text dy={14} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                        <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
                           {timeLabel}
                         </text>
                       ) : null}
                       {dateLabel ? (
-                        <text dy={26} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                        <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
                           {dateLabel}
                         </text>
                       ) : null}
@@ -1117,12 +1147,12 @@ export default function FlowAnalysisPage() {
                   );
                 }}
               />
-              <YAxis stroke="#f2f2f2" tick={{ fontSize: 10 }} tickMargin={8} width={62} />
+              <YAxis stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickMargin={8} width={62} />
               <Tooltip
                 content={({ active, label, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;
                   return (
-                    <div className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                    <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }}>
                       <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                       <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                     </div>

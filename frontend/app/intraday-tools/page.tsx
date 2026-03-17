@@ -15,6 +15,7 @@ import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useTheme } from '@/core/ThemeContext';
 
 interface VwapDeviationRow {
   price: number;
@@ -107,6 +108,16 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
 
 export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const cardBg = isDark ? '#423d3f' : '#ffffff';
+  const inputBg = isDark ? '#2f2b2c' : '#f3f4f6';
+  const inputBorder = isDark ? '#6b7280' : '#d1d5db';
+  const inputColor = isDark ? '#e5e7eb' : '#374151';
+  const axisStroke = isDark ? '#f2f2f2' : '#374151';
+  const gridStroke = isDark ? '#968f92' : '#d1d5db';
+  const mutedText = isDark ? '#9ca3af' : '#6b7280';
+  const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1day');
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
@@ -223,15 +234,15 @@ export default function IntradayToolsPage() {
         {vwapError ? (
           <ErrorMessage message={vwapError} />
         ) : !vwap ? (
-          <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No VWAP data available (market may be closed)
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <MetricCard title="Current Price" value={`$${vwap.price.toFixed(2)}`} tooltip="Current market price" theme="dark" />
-            <MetricCard title="VWAP" value={`$${vwap.vwap.toFixed(2)}`} tooltip="Volume weighted average price" theme="dark" />
-            <MetricCard title="Deviation" value={`${vwap.vwap_deviation_pct.toFixed(2)}%`} trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" theme="dark" />
-            <MetricCard title="Position" value={vwap.vwap_position} tooltip="Price position relative to VWAP" theme="dark" />
+            <MetricCard title="Current Price" value={`$${vwap.price.toFixed(2)}`} tooltip="Current market price" />
+            <MetricCard title="VWAP" value={`$${vwap.vwap.toFixed(2)}`} tooltip="Volume weighted average price" />
+            <MetricCard title="Deviation" value={`${vwap.vwap_deviation_pct.toFixed(2)}%`} trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
+            <MetricCard title="Position" value={vwap.vwap_position} tooltip="Price position relative to VWAP" />
           </div>
         )}
       </section>
@@ -241,18 +252,18 @@ export default function IntradayToolsPage() {
         {orbError ? (
           <ErrorMessage message={orbError} />
         ) : !orb ? (
-          <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No ORB data available (market may be closed)
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${orb.current_price.toFixed(2)}`} tooltip="Current market price" theme="dark" />
-              <MetricCard title="ORB High" value={`$${orb.orb_high.toFixed(2)}`} subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`} tooltip="Opening range high" theme="dark" />
-              <MetricCard title="ORB Low" value={`$${orb.orb_low.toFixed(2)}`} subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`} tooltip="Opening range low" theme="dark" />
-              <MetricCard title="ORB Range" value={`$${orb.orb_range.toFixed(2)}`} tooltip="Opening range size" theme="dark" />
+              <MetricCard title="Current Price" value={`$${orb.current_price.toFixed(2)}`} tooltip="Current market price" />
+              <MetricCard title="ORB High" value={`$${orb.orb_high.toFixed(2)}`} subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`} tooltip="Opening range high" />
+              <MetricCard title="ORB Low" value={`$${orb.orb_low.toFixed(2)}`} subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`} tooltip="Opening range low" />
+              <MetricCard title="ORB Range" value={`$${orb.orb_range.toFixed(2)}`} tooltip="Opening range size" />
             </div>
-            <div className="bg-[#423d3f] rounded-lg p-6">
+            <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
               <div className="text-xl font-semibold text-center">
                 Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-green-400' : orb.orb_status.includes('💥') ? 'text-red-400' : 'text-yellow-400'}`}>{orb.orb_status}</span>
               </div>
@@ -267,21 +278,22 @@ export default function IntradayToolsPage() {
             <Info size={14} />
           </TooltipWrapper>
         </h2>
-        <div className="bg-[#423d3f] rounded-lg p-6">
+        <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            <label className="text-sm text-gray-300">
+            <label className="text-sm" style={{ color: mutedText }}>
               Min Class
-              <select className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1" value={minClass} onChange={(e) => setMinClass(e.target.value)}>
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
                 <option value="all">All</option>
                 {classOptions.map((cls) => (
                   <option key={cls} value={cls}>{cls} +</option>
                 ))}
               </select>
             </label>
-            <label className="text-sm text-gray-300">
+            <label className="text-sm" style={{ color: mutedText }}>
               Timeframe
               <select
-                className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1"
+                className="ml-2 rounded px-2 py-1"
+                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
                 value={smartMoneyTimeframe}
                 onChange={(e) => setSmartMoneyTimeframe(e.target.value)}
               >
@@ -293,14 +305,14 @@ export default function IntradayToolsPage() {
           </div>
 
           {smartMoneyError ? <ErrorMessage message={smartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
-            <div className="text-gray-400 text-center py-6">No smart money flow data available</div>
+            <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={smartMoneyOrderShare} layout="vertical" margin={{ left: 24, right: 24, top: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#968f92" opacity={0.25} />
-                  <XAxis type="number" stroke="#f2f2f2" tickFormatter={(v) => `${Number(v).toFixed(1)}%`} />
-                  <YAxis dataKey="label" type="category" stroke="#f2f2f2" width={130} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
+                  <XAxis type="number" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickFormatter={(v) => `${Number(v).toFixed(1)}%`} />
+                  <YAxis dataKey="label" type="category" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} width={130} />
                   <Tooltip formatter={(value, _name, item) => {
                     const payload = item?.payload as { notionalM?: number } | undefined;
                     return [`${Number(value ?? 0).toFixed(2)}% of total · $${Number(payload?.notionalM ?? 0).toFixed(2)}M`, 'Order Share'];
@@ -314,7 +326,7 @@ export default function IntradayToolsPage() {
               <div className="overflow-x-auto mt-4">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-700 text-gray-300">
+                    <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
                       <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th>
                       <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th>
                       <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th>
@@ -330,7 +342,7 @@ export default function IntradayToolsPage() {
                     {sortedSmartMoneyRows.map((row) => {
                       const isCall = String(row.option_type).toLowerCase().includes('call');
                       return (
-                        <tr key={`${row.timestamp}-${row.contract}`} className="border-b border-gray-800">
+                        <tr key={`${row.timestamp}-${row.contract}`} className="border-b" style={{ borderColor: borderColor }}>
                           <td className="py-2 px-2">{new Date(row.timestamp).toLocaleTimeString()}</td>
                           <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
                           <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
@@ -354,17 +366,17 @@ export default function IntradayToolsPage() {
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
         {!volumeSpikes || volumeSpikes.length === 0 ? (
-          <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No unusual volume detected
           </div>
         ) : (
-          <div className="bg-[#423d3f] rounded-lg p-6">
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {volumeSpikes.map((spike, idx) => (
-                <div key={idx} className="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div key={idx} className="flex items-center justify-between border-b pb-3" style={{ borderColor: borderColor }}>
                   <div>
                     <div className="font-semibold">{new Date(spike.time_et).toLocaleTimeString()}</div>
-                    <div className="text-sm text-gray-400">Volume: {spike.current_volume.toLocaleString()} ({spike.volume_ratio.toFixed(1)}x avg)</div>
+                    <div className="text-sm" style={{ color: mutedText }}>Volume: {spike.current_volume.toLocaleString()} ({spike.volume_ratio.toFixed(1)}x avg)</div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold">{spike.volume_sigma.toFixed(1)}σ</div>
@@ -380,16 +392,16 @@ export default function IntradayToolsPage() {
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
         {!divergenceMarketRows || divergenceMarketRows.length === 0 ? (
-          <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">No divergence signals</div>
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>No divergence signals</div>
         ) : (
-          <div className="bg-[#423d3f] rounded-lg p-6">
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {divergenceMarketRows.map((signal, idx) => {
                 const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
                 const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
                 const price = Number(signal.price || 0);
                 return (
-                  <div key={idx} className="border-b border-gray-800 pb-3">
+                  <div key={idx} className="border-b pb-3" style={{ borderColor: borderColor }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-semibold">{timestamp ? new Date(timestamp).toLocaleTimeString() : '--:--'}</div>
                       <div className={`px-3 py-1 rounded text-sm font-semibold ${
@@ -401,7 +413,7 @@ export default function IntradayToolsPage() {
                         {divergenceSignal}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-400">Price: ${price.toFixed(2)}</div>
+                    <div className="text-sm" style={{ color: mutedText }}>Price: ${price.toFixed(2)}</div>
                   </div>
                 );
               })}

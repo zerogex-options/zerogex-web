@@ -2,6 +2,8 @@
  * Loading spinner component
  */
 
+import { useTheme } from '@/core/ThemeContext';
+
 export default function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
     sm: 'h-6 w-6',
@@ -17,10 +19,12 @@ export default function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | '
 }
 
 export function LoadingCard() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   return (
-    <div className="bg-[#423d3f] rounded-lg p-6 animate-pulse">
-      <div className="h-4 bg-gray-700 rounded w-1/2 mb-4"></div>
-      <div className="h-8 bg-gray-700 rounded w-3/4"></div>
+    <div className="rounded-lg p-6 animate-pulse" style={{ backgroundColor: isDark ? '#423d3f' : '#f3f4f6' }}>
+      <div className="h-4 rounded w-1/2 mb-4" style={{ backgroundColor: isDark ? '#6b7280' : '#e5e7eb' }}></div>
+      <div className="h-8 rounded w-3/4" style={{ backgroundColor: isDark ? '#6b7280' : '#e5e7eb' }}></div>
     </div>
   );
 }

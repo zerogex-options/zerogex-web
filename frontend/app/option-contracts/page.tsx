@@ -16,6 +16,7 @@ import { useApiData, useOptionContract, type OptionContractRow } from "@/hooks/u
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { useTheme } from "@/core/ThemeContext";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -103,22 +104,18 @@ function computeDTE(expiration: string): number | null {
 
 function ContractStatsHeader({
   rows,
-  theme,
+  isDark,
 }: {
   rows: OptionContractRow[];
-  theme?: "dark" | "light";
+  isDark: boolean;
 }) {
-  const isDark = theme !== "light";
-
   const stats = useMemo(() => {
     if (rows.length === 0) return null;
     const latest = rows[rows.length - 1];
 
-    // Cumulative volume from the last row
     const vol = latest.volume ?? 0;
     const oi = latest.open_interest ?? 0;
 
-    // VWAP of last prices weighted by volume_delta
     let weightedSum = 0;
     let totalDelta = 0;
     for (const r of rows) {
@@ -129,14 +126,10 @@ function ContractStatsHeader({
       }
     }
     const avg = totalDelta > 0 ? weightedSum / totalDelta : (latest.last ?? 0);
-
-    // Notional premium (contracts × avg fill × 100 shares)
     const prem = vol * avg * 100;
-
     const iv = latest.implied_volatility;
     const delta = latest.delta;
     const theta = latest.theta;
-
     const dateKey = getETDateKey(latest.timestamp);
     return { dateKey, vol, oi, avg, prem, iv, delta, theta };
   }, [rows]);
@@ -193,13 +186,11 @@ function ContractStatsHeader({
 
 function ContractLegend({
   latest,
-  theme,
+  isDark,
 }: {
   latest: OptionContractRow | null;
-  theme?: "dark" | "light";
+  isDark: boolean;
 }) {
-  const isDark = theme !== "light";
-
   const items = [
     { label: "Bid", value: latest?.bid != null ? `$${Number(latest.bid).toFixed(2)}` : "--", color: "#f45854" },
     { label: "Ask", value: latest?.ask != null ? `$${Number(latest.ask).toFixed(2)}` : "--", color: "#3b82f6" },
@@ -232,13 +223,12 @@ function ContractLegend({
 function ContractChart({
   rows,
   rawRows,
-  theme,
+  isDark,
 }: {
   rows: ChartRow[];
   rawRows: OptionContractRow[];
-  theme?: "dark" | "light";
+  isDark: boolean;
 }) {
-  const isDark = theme !== "light";
   const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
 
   if (rows.length === 0) {
@@ -252,11 +242,9 @@ function ContractChart({
     );
   }
 
-  // Volume axis
   const maxVol = Math.max(0, ...rows.map((r) => (r.bullishVol ?? 0) + (r.bearishVol ?? 0)));
   const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.2));
 
-  // Price axis
   const prices = rows
     .flatMap((r) => [r.last, r.bid, r.ask])
     .filter((v): v is number => v != null && Number.isFinite(v));
@@ -272,8 +260,8 @@ function ContractChart({
 
   return (
     <div>
-      <ContractStatsHeader rows={rawRows} theme={theme} />
-      <ContractLegend latest={latestRaw} theme={theme} />
+      <ContractStatsHeader rows={rawRows} isDark={isDark} />
+      <ContractLegend latest={latestRaw} isDark={isDark} />
       <div className="h-[480px] mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
@@ -281,12 +269,7 @@ function ContractChart({
             margin={{ top: 10, right: 72, left: 72, bottom: 32 }}
             barCategoryGap="15%"
           >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={gridStroke}
-              opacity={0.25}
-              vertical={false}
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} vertical={false} />
             <XAxis
               dataKey="timestamp"
               stroke={axisStroke}
@@ -377,66 +360,16 @@ function ContractChart({
               }}
             />
 
-            {/* Volume bars: bullish = green, bearish = red */}
-            <Bar
-              yAxisId="volume"
-              dataKey="bullishVol"
-              name="Bull Vol"
-              stackId="vol"
-              isAnimationActive={false}
-            >
-              {rows.map((_, i) => (
-                <Cell key={i} fill="#22c55e" />
-              ))}
+            <Bar yAxisId="volume" dataKey="bullishVol" name="Bull Vol" stackId="vol" isAnimationActive={false}>
+              {rows.map((_, i) => <Cell key={i} fill="#22c55e" />)}
             </Bar>
-            <Bar
-              yAxisId="volume"
-              dataKey="bearishVol"
-              name="Bear Vol"
-              stackId="vol"
-              isAnimationActive={false}
-            >
-              {rows.map((_, i) => (
-                <Cell key={i} fill="#f45854" />
-              ))}
+            <Bar yAxisId="volume" dataKey="bearishVol" name="Bear Vol" stackId="vol" isAnimationActive={false}>
+              {rows.map((_, i) => <Cell key={i} fill="#f45854" />)}
             </Bar>
 
-            {/* Price lines */}
-            <Line
-              yAxisId="price"
-              type="monotone"
-              dataKey="bid"
-              name="Bid"
-              stroke="#f45854"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-              dot={false}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="price"
-              type="monotone"
-              dataKey="ask"
-              name="Ask"
-              stroke="#3b82f6"
-              strokeWidth={1}
-              strokeDasharray="4 3"
-              dot={false}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="price"
-              type="monotone"
-              dataKey="last"
-              name="Last"
-              stroke="#facc15"
-              strokeWidth={2}
-              dot={false}
-              connectNulls
-              isAnimationActive={false}
-            />
+            <Line yAxisId="price" type="monotone" dataKey="bid" name="Bid" stroke="#f45854" strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+            <Line yAxisId="price" type="monotone" dataKey="ask" name="Ask" stroke="#3b82f6" strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+            <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="#facc15" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -448,29 +381,27 @@ function ContractChart({
 
 export default function OptionContractsPage() {
   const { symbol } = useTimeframe();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
-  const [session, setSession] = useState<"current" | "prior">("current");
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [selectedStrike, setSelectedStrike] = useState<string>("");
   const [optionType, setOptionType] = useState<"C" | "P">("C");
 
-  // ── Fetch available expirations from flow data
+  // ── Fetch available expirations / strikes from current session flow data
   const { data: expirationData, error: expirationError, loading: expirationLoading } =
     useApiData<FlowByExpirationPoint[]>(
-      `/api/flow/by-expiration?symbol=${symbol}&session=${session}&limit=50000`,
+      `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=50000`,
       { refreshInterval: 60000 },
     );
 
-  // ── Fetch available strikes from flow data
   const { data: strikeData, error: strikeError, loading: strikeLoading } =
     useApiData<FlowByStrikePoint[]>(
-      `/api/flow/by-strike?symbol=${symbol}&session=${session}&limit=50000`,
+      `/api/flow/by-strike?symbol=${symbol}&session=current&limit=50000`,
       { refreshInterval: 60000 },
     );
 
-  // ── Derive available expirations
-  // For "current" session, hide already-expired expirations.
-  // For "prior" session, show all (they may have expired by now).
+  // ── Derive available expirations (active only — expire today or later)
   const expirationOptions = useMemo(() => {
     if (!expirationData) return [];
     const todayKey = getCurrentETDateKey();
@@ -481,14 +412,12 @@ export default function OptionContractsPage() {
           .filter((exp) => {
             if (!exp) return false;
             const normalized = exp.trim().slice(0, 10);
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return false;
-            return session === "prior" ? true : normalized >= todayKey;
+            return /^\d{4}-\d{2}-\d{2}$/.test(normalized) && normalized >= todayKey;
           }),
       ),
     ).sort();
-  }, [expirationData, session]);
+  }, [expirationData]);
 
-  // ── Derive available strikes
   const strikeOptions = useMemo(() => {
     if (!strikeData) return [];
     return Array.from(
@@ -496,7 +425,6 @@ export default function OptionContractsPage() {
     ).sort((a, b) => Number(a) - Number(b));
   }, [strikeData]);
 
-  // ── Resolved selections (fall back to first option when nothing chosen)
   const resolvedExpiration = selectedExpiration || expirationOptions[0] || "";
   const resolvedStrike = selectedStrike || strikeOptions[0] || "";
 
@@ -504,7 +432,7 @@ export default function OptionContractsPage() {
   const { data: contractRows, loading: contractLoading, error: contractError } =
     useOptionContract(symbol, resolvedExpiration, resolvedStrike, optionType, 30000);
 
-  // ── Chart rows (pre-computed bar directions and sorted by time)
+  // ── Chart rows
   const chartRows = useMemo((): ChartRow[] => {
     if (!contractRows) return [];
     return [...contractRows]
@@ -515,7 +443,6 @@ export default function OptionContractsPage() {
         const ask = r.ask ?? null;
         const delta = r.volume_delta ?? 0;
 
-        // Classify bar: bullish if last >= mid-price (bought at ask side)
         let bullishVol = 0;
         let bearishVol = 0;
         if (delta > 0) {
@@ -524,7 +451,7 @@ export default function OptionContractsPage() {
             if (last >= mid) bullishVol = delta;
             else bearishVol = delta;
           } else {
-            bullishVol = delta; // default to green if no bid/ask
+            bullishVol = delta;
           }
         }
 
@@ -554,14 +481,19 @@ export default function OptionContractsPage() {
 
   const dte = resolvedExpiration ? computeDTE(resolvedExpiration) : null;
 
-  // ── Shared select style
+  const cardBg = isDark ? "#423d3f" : "#ffffff";
+  const inputBg = isDark ? "#2a2628" : "#f3f4f6";
+  const inputBorder = isDark ? "rgba(150,143,146,0.4)" : "rgba(0,0,0,0.15)";
+  const inputColor = isDark ? "#f2f2f2" : "#374151";
+  const mutedText = isDark ? "#9ca3af" : "#6b7280";
+
   const selectStyle: React.CSSProperties = {
     padding: "6px 10px",
     fontSize: 13,
     borderRadius: 6,
-    border: "1px solid rgba(150,143,146,0.4)",
-    backgroundColor: "#2a2628",
-    color: "#f2f2f2",
+    border: `1px solid ${inputBorder}`,
+    backgroundColor: inputBg,
+    color: inputColor,
     cursor: "pointer",
     outline: "none",
     minWidth: 120,
@@ -586,26 +518,9 @@ export default function OptionContractsPage() {
 
       {/* ── Controls ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Date / Session */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: "#9ca3af" }}>Date</span>
-          <select
-            value={session}
-            onChange={(e) => {
-              setSession(e.target.value as "current" | "prior");
-              setSelectedExpiration("");
-              setSelectedStrike("");
-            }}
-            style={selectStyle}
-          >
-            <option value="current">Current</option>
-            <option value="prior">Prior</option>
-          </select>
-        </div>
-
         {/* Expiration */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: "#9ca3af" }}>Expiration</span>
+          <span className="text-sm" style={{ color: mutedText }}>Expiration</span>
           <select
             value={resolvedExpiration}
             onChange={(e) => setSelectedExpiration(e.target.value)}
@@ -617,9 +532,7 @@ export default function OptionContractsPage() {
               </option>
             ) : (
               expirationOptions.map((exp) => (
-                <option key={exp} value={exp}>
-                  {exp}
-                </option>
+                <option key={exp} value={exp}>{exp}</option>
               ))
             )}
           </select>
@@ -627,7 +540,7 @@ export default function OptionContractsPage() {
 
         {/* Strike */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: "#9ca3af" }}>Strike</span>
+          <span className="text-sm" style={{ color: mutedText }}>Strike</span>
           <select
             value={resolvedStrike}
             onChange={(e) => setSelectedStrike(e.target.value)}
@@ -639,9 +552,7 @@ export default function OptionContractsPage() {
               </option>
             ) : (
               strikeOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+                <option key={s} value={s}>{s}</option>
               ))
             )}
           </select>
@@ -649,7 +560,7 @@ export default function OptionContractsPage() {
 
         {/* Type */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: "#9ca3af" }}>Type</span>
+          <span className="text-sm" style={{ color: mutedText }}>Type</span>
           <select
             value={optionType}
             onChange={(e) => setOptionType(e.target.value as "C" | "P")}
@@ -668,7 +579,7 @@ export default function OptionContractsPage() {
             {contractLabel}
           </span>
           {dte != null && (
-            <span className="text-sm font-medium" style={{ color: "#9ca3af" }}>
+            <span className="text-sm font-medium" style={{ color: mutedText }}>
               ({dte}D)
             </span>
           )}
@@ -678,7 +589,7 @@ export default function OptionContractsPage() {
       {/* ── Chart Card ─────────────────────────────────────────────── */}
       <section
         className="rounded-lg overflow-hidden"
-        style={{ backgroundColor: "#423d3f" }}
+        style={{ backgroundColor: cardBg }}
       >
         {contractLoading && !contractRows ? (
           <div className="flex items-center justify-center py-16">
@@ -692,7 +603,7 @@ export default function OptionContractsPage() {
           <ContractChart
             rows={chartRows}
             rawRows={contractRows ?? []}
-            theme="dark"
+            isDark={isDark}
           />
         )}
       </section>
