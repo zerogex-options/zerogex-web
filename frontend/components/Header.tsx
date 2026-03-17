@@ -250,7 +250,7 @@ export default function Header({ theme }: HeaderProps) {
                   </select>
                 </div>
 
-                {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
+                {row1Price !== null && (
                   <div className="flex flex-col gap-1">
                     {/* Row 1: regular-session price + change (inline when market closed) */}
                     <div
@@ -263,26 +263,28 @@ export default function Header({ theme }: HeaderProps) {
                       >
                         ${row1Price.toFixed(2)}
                       </span>
-                      <div
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
-                        title={row1ChangeLabel}
-                        style={{
-                          backgroundColor:
-                            theme === "dark"
-                              ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                              : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                          color: row1Positive ? colors.bullish : colors.bearish,
-                        }}
-                      >
-                        {row1Positive ? (
-                          <TrendingUp size={12} strokeWidth={2.5} />
-                        ) : (
-                          <TrendingDown size={12} strokeWidth={2.5} />
-                        )}
-                        {row1Positive ? "+" : ""}
-                        {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                        {row1ChangePercent.toFixed(2)}%)
-                      </div>
+                      {row1Change !== null && row1ChangePercent !== null && (
+                        <div
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
+                          title={row1ChangeLabel}
+                          style={{
+                            backgroundColor:
+                              theme === "dark"
+                                ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                                : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                            color: row1Positive ? colors.bullish : colors.bearish,
+                          }}
+                        >
+                          {row1Positive ? (
+                            <TrendingUp size={12} strokeWidth={2.5} />
+                          ) : (
+                            <TrendingDown size={12} strokeWidth={2.5} />
+                          )}
+                          {row1Positive ? "+" : ""}
+                          {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                          {row1ChangePercent.toFixed(2)}%)
+                        </div>
+                      )}
                     </div>
                     {/* Row 2: extended-hours price (after-hours / pre-market only) */}
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
@@ -458,7 +460,7 @@ export default function Header({ theme }: HeaderProps) {
                     </select>
                   </div>
 
-                  {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
+                  {row1Price !== null && (
                     <div className="flex flex-col gap-1">
                       {/* Row 1: regular-session price + change (inline when market closed) */}
                       <div
@@ -471,26 +473,28 @@ export default function Header({ theme }: HeaderProps) {
                         >
                           ${row1Price.toFixed(2)}
                         </span>
-                        <div
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
-                          title={row1ChangeLabel}
-                          style={{
-                            backgroundColor:
-                              theme === "dark"
-                                ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                                : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                            color: row1Positive ? colors.bullish : colors.bearish,
-                          }}
-                        >
-                          {row1Positive ? (
-                            <TrendingUp size={14} strokeWidth={2.5} />
-                          ) : (
-                            <TrendingDown size={14} strokeWidth={2.5} />
-                          )}
-                          {row1Positive ? "+" : ""}
-                          {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                          {row1ChangePercent.toFixed(2)}%)
-                        </div>
+                        {row1Change !== null && row1ChangePercent !== null && (
+                          <div
+                            className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
+                            title={row1ChangeLabel}
+                            style={{
+                              backgroundColor:
+                                theme === "dark"
+                                  ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                                  : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                              color: row1Positive ? colors.bullish : colors.bearish,
+                            }}
+                          >
+                            {row1Positive ? (
+                              <TrendingUp size={14} strokeWidth={2.5} />
+                            ) : (
+                              <TrendingDown size={14} strokeWidth={2.5} />
+                            )}
+                            {row1Positive ? "+" : ""}
+                            {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                            {row1ChangePercent.toFixed(2)}%)
+                          </div>
+                        )}
                       </div>
                       {/* Row 2: extended-hours price (after-hours / pre-market only) */}
                       {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
@@ -671,7 +675,7 @@ export default function Header({ theme }: HeaderProps) {
                 </select>
               </div>
 
-              {row1Price !== null && row1Change !== null && row1ChangePercent !== null && (
+              {row1Price !== null && (
                 <div className="flex flex-col gap-1.5">
                   {/* Row 1 */}
                   <div className="flex items-center gap-3 flex-wrap">
@@ -681,26 +685,28 @@ export default function Header({ theme }: HeaderProps) {
                     >
                       ${row1Price.toFixed(2)}
                     </span>
-                    <div
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
-                      title={row1ChangeLabel}
-                      style={{
-                        backgroundColor:
-                          theme === "dark"
-                            ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                            : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                        color: row1Positive ? colors.bullish : colors.bearish,
-                      }}
-                    >
-                      {row1Positive ? (
-                        <TrendingUp size={14} strokeWidth={2.5} />
-                      ) : (
-                        <TrendingDown size={14} strokeWidth={2.5} />
-                      )}
-                      {row1Positive ? "+" : ""}
-                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                      {row1ChangePercent.toFixed(2)}%)
-                    </div>
+                    {row1Change !== null && row1ChangePercent !== null && (
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
+                        title={row1ChangeLabel}
+                        style={{
+                          backgroundColor:
+                            theme === "dark"
+                              ? `${row1Positive ? colors.bullish : colors.bearish}15`
+                              : `${row1Positive ? colors.bullish : colors.bearish}10`,
+                          color: row1Positive ? colors.bullish : colors.bearish,
+                        }}
+                      >
+                        {row1Positive ? (
+                          <TrendingUp size={14} strokeWidth={2.5} />
+                        ) : (
+                          <TrendingDown size={14} strokeWidth={2.5} />
+                        )}
+                        {row1Positive ? "+" : ""}
+                        {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                        {row1ChangePercent.toFixed(2)}%)
+                      </div>
+                    )}
                   </div>
                   {/* Row 2: extended-hours */}
                   {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
