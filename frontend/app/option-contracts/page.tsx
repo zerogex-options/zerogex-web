@@ -477,13 +477,13 @@ export default function OptionContractsPage() {
   const [optionType, setOptionType] = useState<"call" | "put">("call");
 
   // ── Fetch available expirations using flow/by-expiration
-  const { data: expirationData } = useApiData<FlowByExpirationPoint[]>(
+  const { data: expirationData, error: expirationError, loading: expirationLoading } = useApiData<FlowByExpirationPoint[]>(
     `/api/flow/by-expiration?symbol=${symbol}&session=${session}&limit=50000`,
     { refreshInterval: 60000 },
   );
 
   // ── Fetch available strikes using flow/by-strike
-  const { data: strikeData } = useApiData<FlowByStrikePoint[]>(
+  const { data: strikeData, error: strikeError, loading: strikeLoading } = useApiData<FlowByStrikePoint[]>(
     `/api/flow/by-strike?symbol=${symbol}&session=${session}&limit=50000`,
     { refreshInterval: 60000 },
   );
@@ -594,9 +594,21 @@ export default function OptionContractsPage() {
     minWidth: 120,
   };
 
+  const dropdownLoadError = (expirationError && expirationError !== "No data available yet")
+    ? expirationError
+    : (strikeError && strikeError !== "No data available yet")
+      ? strikeError
+      : null;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Option Contracts</h1>
+
+      {dropdownLoadError && (
+        <div className="mb-4">
+          <ErrorMessage message={dropdownLoadError} />
+        </div>
+      )}
 
       {/* ── Controls ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -622,7 +634,7 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {expirationOptions.length === 0 ? (
-              <option value="">Loading…</option>
+              <option value="">{expirationLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}</option>
             ) : (
               expirationOptions.map((exp) => (
                 <option key={exp} value={exp}>
@@ -642,7 +654,7 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {strikeOptions.length === 0 ? (
-              <option value="">Loading…</option>
+              <option value="">{strikeLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}</option>
             ) : (
               strikeOptions.map((s) => (
                 <option key={s} value={s}>
@@ -693,7 +705,7 @@ export default function OptionContractsPage() {
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner size="lg" />
           </div>
-        ) : contractError ? (
+        ) : contractError && contractError !== "No data available yet" ? (
           <div className="p-6">
             <ErrorMessage message={contractError} />
           </div>
