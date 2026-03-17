@@ -249,8 +249,8 @@ export default function Header({ theme }: HeaderProps) {
                   <div className="flex flex-col gap-1">
                     {/* Row 1: regular-session price + change (inline when market closed) */}
                     <div
-                      className={quoteSession === "open" ? undefined : "flex items-center gap-2"}
-                      style={quoteSession === "open" ? { display: "contents" } : undefined}
+                      className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"}
+                      style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}
                     >
                       <span
                         className="font-bold text-xl"
@@ -459,8 +459,8 @@ export default function Header({ theme }: HeaderProps) {
                     <div className="flex flex-col gap-1">
                       {/* Row 1: regular-session price + change (inline when market closed) */}
                       <div
-                        className={quoteSession === "open" ? undefined : "flex items-center gap-2"}
-                        style={quoteSession === "open" ? { display: "contents" } : undefined}
+                        className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"}
+                        style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}
                       >
                         <span
                           className="font-bold text-2xl"
