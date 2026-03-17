@@ -24,7 +24,7 @@ export interface MetricCardProps {
   trend?: 'bullish' | 'bearish' | 'neutral';
   tooltip: string;
   icon?: React.ReactNode;
-  theme: Theme;
+  theme?: Theme;
 }
 
 export interface GEXStrikeData {
