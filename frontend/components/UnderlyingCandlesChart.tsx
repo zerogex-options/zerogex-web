@@ -130,7 +130,7 @@ export default function UnderlyingCandlesChart() {
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
     return (
-      <div className="bg-[#423d3f] rounded-lg p-6 text-center text-gray-400">
+      <div className="rounded-lg p-6 text-center text-gray-400" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
         No underlying timeseries data available
       </div>
     );
@@ -174,7 +174,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="bg-[#423d3f] rounded-lg p-6 mb-8">
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
