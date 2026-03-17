@@ -4,16 +4,15 @@ import { useMemo, useState } from "react";
 import {
   Bar,
   CartesianGrid,
+  Cell,
   ComposedChart,
-  Legend,
   Line,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { useApiData } from "@/hooks/useApiData";
+import { useApiData, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -23,51 +22,27 @@ import { useTimeframe } from "@/core/TimeframeContext";
 interface FlowByExpirationPoint {
   timestamp: string;
   expiration: string;
+  dte: number;
   volume: number;
-  premium: number;
-  net_volume: number;
-  net_premium: number;
-  underlying_price?: number | null;
 }
 
 interface FlowByStrikePoint {
   timestamp: string;
   strike: number | string;
   volume: number;
-  premium: number;
-  net_volume: number;
-  net_premium: number;
-  underlying_price?: number | null;
 }
 
-interface ContractDataPoint {
+interface ChartRow {
   timestamp: string;
-  bid_volume: number;
-  mid_volume: number;
-  ask_volume: number;
-  no_side_volume: number;
-  avg_fill: number | null;
-  underlying_price?: number | null;
+  time: string;
+  bullishVol: number;
+  bearishVol: number;
+  last: number | null;
+  bid: number | null;
+  ask: number | null;
 }
 
-interface ContractSummary {
-  date: string;
-  volume: number;
-  open_interest: number;
-  avg_price: number;
-  premium: number;
-  multi_pct: number;
-  otm_pct: number;
-}
-
-interface ContractResponse {
-  contract: string;
-  days_to_expiry: number;
-  summary: ContractSummary;
-  data: ContractDataPoint[];
-}
-
-// ── Date / session helpers ────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function getETDateKey(ts: string): string {
   const d = new Date(ts);
@@ -109,122 +84,88 @@ function is30MinBoundary(ts: string): boolean {
   return minutes % 30 === 0;
 }
 
-function formatDateLabel(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function getDateMarkerMeta(timestamps: string[]): Map<number, string> {
-  const meta = new Map<number, string>();
-  let prevDate = "";
-  timestamps.forEach((ts, i) => {
-    const dateKey = getETDateKey(ts);
-    if (dateKey && dateKey !== prevDate) {
-      meta.set(i, formatDateLabel(ts));
-      prevDate = dateKey;
-    }
-  });
-  return meta;
-}
-
-/** Format a session date as MM/DD/YYYY */
 function formatSessionDate(dateKey: string): string {
   if (!dateKey || !dateKey.includes("-")) return dateKey;
   const [y, m, d] = dateKey.split("-");
   return `${m}/${d}/${y}`;
 }
 
-function isActiveExpiration(expiration?: string, todayKey: string = getCurrentETDateKey()) {
-  if (!expiration) return false;
-  const normalized = expiration.trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return true;
-  return normalized >= todayKey;
-}
-
-// ── Custom Legend ─────────────────────────────────────────────────────────────
-
-function ContractLegend({
-  latestPoint,
-  theme,
-}: {
-  latestPoint: ContractDataPoint | null;
-  theme?: "dark" | "light";
-}) {
-  const isDark = theme !== "light";
-  const bidVol = latestPoint?.bid_volume ?? 0;
-  const midVol = latestPoint?.mid_volume ?? 0;
-  const askVol = latestPoint?.ask_volume ?? 0;
-  const noSideVol = latestPoint?.no_side_volume ?? 0;
-
-  const items = [
-    { label: "Bid", value: `${Number(bidVol).toLocaleString()} Vol`, color: "#f45854" },
-    { label: "Mid", value: `${Number(midVol).toLocaleString()} Vol`, color: "#22c55e" },
-    { label: "Ask", value: `${Number(askVol).toLocaleString()} Vol`, color: "#3b82f6" },
-    { label: "No Side", value: `${Number(noSideVol).toLocaleString()} Vol`, color: "#9ca3af" },
-    { label: "Avg Fill", value: latestPoint?.avg_fill != null ? `$${Number(latestPoint.avg_fill).toFixed(2)}` : "--", color: "#facc15" },
-  ];
-
-  return (
-    <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm"
-      style={{ color: isDark ? "#f2f2f2" : "#374151" }}
-    >
-      {items.map((item, i) => (
-        <span key={item.label} className="flex items-center gap-1.5">
-          <span
-            className="inline-block w-2.5 h-2.5 rounded-sm"
-            style={{ backgroundColor: item.color }}
-          />
-          <span style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>{item.label}:</span>
-          <span className="font-semibold">{item.value}</span>
-          {i < items.length - 1 && (
-            <span style={{ color: isDark ? "#4b5563" : "#d1d5db", marginLeft: 4 }}>|</span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
+function computeDTE(expiration: string): number | null {
+  if (!expiration) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiration + "T00:00:00");
+  if (Number.isNaN(exp.getTime())) return null;
+  return Math.max(0, Math.floor((exp.getTime() - today.getTime()) / 86_400_000));
 }
 
 // ── Stats Header ──────────────────────────────────────────────────────────────
 
 function ContractStatsHeader({
-  summary,
-  sessionDateKey,
+  rows,
   theme,
 }: {
-  summary: ContractSummary | null;
-  sessionDateKey: string;
+  rows: OptionContractRow[];
   theme?: "dark" | "light";
 }) {
   const isDark = theme !== "light";
-  const dateLabel = summary?.date
-    ? formatSessionDate(summary.date)
-    : formatSessionDate(sessionDateKey);
 
-  if (!summary) {
+  const stats = useMemo(() => {
+    if (rows.length === 0) return null;
+    const latest = rows[rows.length - 1];
+
+    // Cumulative volume from the last row
+    const vol = latest.volume ?? 0;
+    const oi = latest.open_interest ?? 0;
+
+    // VWAP of last prices weighted by volume_delta
+    let weightedSum = 0;
+    let totalDelta = 0;
+    for (const r of rows) {
+      const delta = r.volume_delta ?? 0;
+      if (delta > 0 && r.last != null) {
+        weightedSum += r.last * delta;
+        totalDelta += delta;
+      }
+    }
+    const avg = totalDelta > 0 ? weightedSum / totalDelta : (latest.last ?? 0);
+
+    // Notional premium (contracts × avg fill × 100 shares)
+    const prem = vol * avg * 100;
+
+    const iv = latest.implied_volatility;
+    const delta = latest.delta;
+    const theta = latest.theta;
+
+    const dateKey = getETDateKey(latest.timestamp);
+    return { dateKey, vol, oi, avg, prem, iv, delta, theta };
+  }, [rows]);
+
+  const labelStyle: React.CSSProperties = { color: isDark ? "#9ca3af" : "#6b7280" };
+  const valueStyle: React.CSSProperties = { fontWeight: 600 };
+
+  if (!stats) {
     return (
-      <div
-        className="px-4 py-2 text-sm"
-        style={{ color: isDark ? "#9ca3af" : "#6b7280" }}
-      >
-        No summary data
+      <div className="px-4 py-2 text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>
+        No data
       </div>
     );
   }
 
-  const stats = [
-    { label: "Vol", value: Number(summary.volume).toLocaleString() },
-    { label: "OI", value: Number(summary.open_interest).toLocaleString() },
-    { label: "Avg", value: `$${Number(summary.avg_price).toFixed(2)}` },
-    { label: "Prem", value: `$${Number(summary.premium).toLocaleString()}` },
-    { label: "Multi", value: `${Number(summary.multi_pct).toFixed(0)}%` },
-    { label: "%OTM", value: `${Number(summary.otm_pct).toFixed(0)}%` },
+  const items: Array<{ label: string; value: string }> = [
+    { label: "Vol", value: stats.vol.toLocaleString() },
+    { label: "OI", value: stats.oi.toLocaleString() },
+    { label: "Avg", value: `$${stats.avg.toFixed(2)}` },
+    {
+      label: "Prem",
+      value:
+        stats.prem >= 1_000_000
+          ? `$${(stats.prem / 1_000_000).toFixed(2)}M`
+          : `$${Math.round(stats.prem).toLocaleString()}`,
+    },
+    ...(stats.iv != null ? [{ label: "IV", value: `${(stats.iv * 100).toFixed(1)}%` }] : []),
+    ...(stats.delta != null ? [{ label: "Δ", value: stats.delta.toFixed(3) }] : []),
+    ...(stats.theta != null ? [{ label: "Θ", value: stats.theta.toFixed(3) }] : []),
   ];
 
   return (
@@ -236,38 +177,69 @@ function ContractStatsHeader({
       }}
     >
       <span className="font-semibold" style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>
-        {dateLabel}:
+        {formatSessionDate(stats.dateKey)}:
       </span>
-      {stats.map((s) => (
+      {items.map((s) => (
         <span key={s.label} className="flex items-center gap-1">
-          <span style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>{s.label}:</span>
-          <span className="font-semibold">{s.value}</span>
+          <span style={labelStyle}>{s.label}:</span>
+          <span style={valueStyle}>{s.value}</span>
         </span>
       ))}
     </div>
   );
 }
 
-// ── Contract Chart ────────────────────────────────────────────────────────────
+// ── Legend ─────────────────────────────────────────────────────────────────────
 
-interface ChartRow extends ContractDataPoint {
-  time: string;
-}
-
-function ContractChart({
-  rows,
-  latestPoint,
-  summary,
-  sessionDateKey,
+function ContractLegend({
+  latest,
   theme,
 }: {
-  rows: ChartRow[];
-  latestPoint: ContractDataPoint | null;
-  summary: ContractSummary | null;
-  sessionDateKey: string;
+  latest: OptionContractRow | null;
   theme?: "dark" | "light";
 }) {
   const isDark = theme !== "light";
+
+  const items = [
+    { label: "Bid", value: latest?.bid != null ? `$${Number(latest.bid).toFixed(2)}` : "--", color: "#f45854" },
+    { label: "Ask", value: latest?.ask != null ? `$${Number(latest.ask).toFixed(2)}` : "--", color: "#3b82f6" },
+    { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "#facc15" },
+    { label: "Vol Δ", value: latest?.volume_delta != null ? Number(latest.volume_delta).toLocaleString() : "--", color: "#22c55e" },
+    { label: "OI", value: latest?.open_interest != null ? Number(latest.open_interest).toLocaleString() : "--", color: "#9ca3af" },
+  ];
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm"
+      style={{ color: isDark ? "#f2f2f2" : "#374151" }}
+    >
+      {items.map((item, i) => (
+        <span key={item.label} className="flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
+          <span style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>{item.label}:</span>
+          <span style={{ fontWeight: 600 }}>{item.value}</span>
+          {i < items.length - 1 && (
+            <span style={{ color: isDark ? "#4b5563" : "#d1d5db", marginLeft: 4 }}>|</span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────────
+
+function ContractChart({
+  rows,
+  rawRows,
+  theme,
+}: {
+  rows: ChartRow[];
+  rawRows: OptionContractRow[];
+  theme?: "dark" | "light";
+}) {
+  const isDark = theme !== "light";
+  const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
 
   if (rows.length === 0) {
     return (
@@ -280,22 +252,19 @@ function ContractChart({
     );
   }
 
-  const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
-
   // Volume axis
-  const maxVol = Math.max(
-    0,
-    ...rows.map((r) => (r.bid_volume ?? 0) + (r.mid_volume ?? 0) + (r.ask_volume ?? 0) + (r.no_side_volume ?? 0)),
-  );
-  const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.15));
+  const maxVol = Math.max(0, ...rows.map((r) => (r.bullishVol ?? 0) + (r.bearishVol ?? 0)));
+  const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.2));
 
-  // Price axis for avg fill
-  const fillPrices = rows.map((r) => r.avg_fill).filter((v): v is number => v != null && Number.isFinite(v));
-  const minFill = fillPrices.length > 0 ? Math.min(...fillPrices) : 0;
-  const maxFill = fillPrices.length > 0 ? Math.max(...fillPrices) : 1;
-  const fillPad = Math.max(0.1, (maxFill - minFill) * 0.15);
-  const fillDomainMin = Math.max(0, minFill - fillPad);
-  const fillDomainMax = maxFill + fillPad;
+  // Price axis
+  const prices = rows
+    .flatMap((r) => [r.last, r.bid, r.ask])
+    .filter((v): v is number => v != null && Number.isFinite(v));
+  const minP = prices.length > 0 ? Math.min(...prices) : 0;
+  const maxP = prices.length > 0 ? Math.max(...prices) : 1;
+  const pad = Math.max(0.05, (maxP - minP) * 0.15);
+  const priceDomainMin = Math.max(0, minP - pad);
+  const priceDomainMax = maxP + pad;
 
   const gridStroke = isDark ? "#968f92" : "#d1d5db";
   const axisStroke = isDark ? "#f2f2f2" : "#374151";
@@ -303,16 +272,21 @@ function ContractChart({
 
   return (
     <div>
-      <ContractStatsHeader summary={summary} sessionDateKey={sessionDateKey} theme={theme} />
-      <ContractLegend latestPoint={latestPoint} theme={theme} />
+      <ContractStatsHeader rows={rawRows} theme={theme} />
+      <ContractLegend latest={latestRaw} theme={theme} />
       <div className="h-[480px] mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={rows}
             margin={{ top: 10, right: 72, left: 72, bottom: 32 }}
-            barCategoryGap="10%"
+            barCategoryGap="15%"
           >
-            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} vertical={false} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={gridStroke}
+              opacity={0.25}
+              vertical={false}
+            />
             <XAxis
               dataKey="timestamp"
               stroke={axisStroke}
@@ -328,26 +302,16 @@ function ContractChart({
               }) => {
                 const x = Number(props?.x ?? 0);
                 const y = Number(props?.y ?? 0);
-                const payload = props?.payload;
-                const index = Number(props?.index ?? -1);
-                const ts = String(payload?.value || "");
+                const ts = String(props?.payload?.value || "");
                 const timeLabel = safeTimeLabel(ts);
-                const dateLabel = dateMarkerMeta.get(index);
-                const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
-                if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                const show = is30MinBoundary(ts);
+                if (!show) return <g transform={`translate(${x},${y})`} />;
                 return (
                   <g transform={`translate(${x},${y})`}>
                     <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                    {showTime ? (
-                      <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                        {timeLabel}
-                      </text>
-                    ) : null}
-                    {dateLabel ? (
-                      <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
-                        {dateLabel}
-                      </text>
-                    ) : null}
+                    <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                      {timeLabel}
+                    </text>
                   </g>
                 );
               }}
@@ -367,7 +331,7 @@ function ContractChart({
               tickMargin={6}
               width={64}
               label={{
-                value: "Volume",
+                value: "Vol Δ",
                 angle: -90,
                 position: "insideLeft",
                 fill: axisStroke,
@@ -380,13 +344,13 @@ function ContractChart({
               yAxisId="price"
               orientation="right"
               stroke={axisStroke}
-              domain={[fillDomainMin, fillDomainMax]}
+              domain={[priceDomainMin, priceDomainMax]}
               tickFormatter={(v) => `$${Number(v).toFixed(2)}`}
               tick={axisTickStyle}
               tickMargin={6}
               width={64}
               label={{
-                value: "Avg Fill ($)",
+                value: "Price ($)",
                 angle: 90,
                 position: "insideRight",
                 fill: axisStroke,
@@ -406,52 +370,67 @@ function ContractChart({
               labelFormatter={(value) => safeTimeLabel(String(value))}
               formatter={(value, name) => {
                 const n = Number(value ?? 0);
-                if (name === "Avg Fill") return [`$${n.toFixed(2)}`, name];
+                if (name === "Last" || name === "Bid" || name === "Ask")
+                  return n > 0 ? [`$${n.toFixed(2)}`, name] : [null, name];
+                if (n === 0) return [null, name];
                 return [n.toLocaleString(), name];
               }}
             />
-            <ReferenceLine yAxisId="volume" y={0} stroke={gridStroke} opacity={0.5} />
 
-            {/* Stacked volume bars */}
+            {/* Volume bars: bullish = green, bearish = red */}
             <Bar
               yAxisId="volume"
-              dataKey="bid_volume"
-              name="Bid"
+              dataKey="bullishVol"
+              name="Bull Vol"
               stackId="vol"
-              fill="#f45854"
               isAnimationActive={false}
-            />
+            >
+              {rows.map((_, i) => (
+                <Cell key={i} fill="#22c55e" />
+              ))}
+            </Bar>
             <Bar
               yAxisId="volume"
-              dataKey="mid_volume"
-              name="Mid"
+              dataKey="bearishVol"
+              name="Bear Vol"
               stackId="vol"
-              fill="#22c55e"
               isAnimationActive={false}
-            />
-            <Bar
-              yAxisId="volume"
-              dataKey="ask_volume"
-              name="Ask"
-              stackId="vol"
-              fill="#3b82f6"
-              isAnimationActive={false}
-            />
-            <Bar
-              yAxisId="volume"
-              dataKey="no_side_volume"
-              name="No Side"
-              stackId="vol"
-              fill="#9ca3af"
-              isAnimationActive={false}
-            />
+            >
+              {rows.map((_, i) => (
+                <Cell key={i} fill="#f45854" />
+              ))}
+            </Bar>
 
-            {/* Avg fill price line */}
+            {/* Price lines */}
             <Line
               yAxisId="price"
               type="monotone"
-              dataKey="avg_fill"
-              name="Avg Fill"
+              dataKey="bid"
+              name="Bid"
+              stroke="#f45854"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+            <Line
+              yAxisId="price"
+              type="monotone"
+              dataKey="ask"
+              name="Ask"
+              stroke="#3b82f6"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+            <Line
+              yAxisId="price"
+              type="monotone"
+              dataKey="last"
+              name="Last"
               stroke="#facc15"
               strokeWidth={2}
               dot={false}
@@ -470,25 +449,28 @@ function ContractChart({
 export default function OptionContractsPage() {
   const { symbol } = useTimeframe();
 
-  // ── Selectors
   const [session, setSession] = useState<"current" | "prior">("current");
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [selectedStrike, setSelectedStrike] = useState<string>("");
-  const [optionType, setOptionType] = useState<"call" | "put">("call");
+  const [optionType, setOptionType] = useState<"C" | "P">("C");
 
-  // ── Fetch available expirations using flow/by-expiration
-  const { data: expirationData, error: expirationError, loading: expirationLoading } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&session=${session}&limit=50000`,
-    { refreshInterval: 60000 },
-  );
+  // ── Fetch available expirations from flow data
+  const { data: expirationData, error: expirationError, loading: expirationLoading } =
+    useApiData<FlowByExpirationPoint[]>(
+      `/api/flow/by-expiration?symbol=${symbol}&session=${session}&limit=50000`,
+      { refreshInterval: 60000 },
+    );
 
-  // ── Fetch available strikes using flow/by-strike
-  const { data: strikeData, error: strikeError, loading: strikeLoading } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&session=${session}&limit=50000`,
-    { refreshInterval: 60000 },
-  );
+  // ── Fetch available strikes from flow data
+  const { data: strikeData, error: strikeError, loading: strikeLoading } =
+    useApiData<FlowByStrikePoint[]>(
+      `/api/flow/by-strike?symbol=${symbol}&session=${session}&limit=50000`,
+      { refreshInterval: 60000 },
+    );
 
   // ── Derive available expirations
+  // For "current" session, hide already-expired expirations.
+  // For "prior" session, show all (they may have expired by now).
   const expirationOptions = useMemo(() => {
     if (!expirationData) return [];
     const todayKey = getCurrentETDateKey();
@@ -496,10 +478,15 @@ export default function OptionContractsPage() {
       new Set(
         expirationData
           .map((r) => r.expiration)
-          .filter((exp) => isActiveExpiration(exp, todayKey)),
+          .filter((exp) => {
+            if (!exp) return false;
+            const normalized = exp.trim().slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return false;
+            return session === "prior" ? true : normalized >= todayKey;
+          }),
       ),
     ).sort();
-  }, [expirationData]);
+  }, [expirationData, session]);
 
   // ── Derive available strikes
   const strikeOptions = useMemo(() => {
@@ -509,77 +496,63 @@ export default function OptionContractsPage() {
     ).sort((a, b) => Number(a) - Number(b));
   }, [strikeData]);
 
-  // ── Auto-select first expiration / strike when options load
+  // ── Resolved selections (fall back to first option when nothing chosen)
   const resolvedExpiration = selectedExpiration || expirationOptions[0] || "";
   const resolvedStrike = selectedStrike || strikeOptions[0] || "";
 
-  // ── Derive the session date label from expiration data
-  const sessionDateKey = useMemo(() => {
-    if (!expirationData || expirationData.length === 0) return getCurrentETDateKey();
-    const sorted = [...expirationData].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-    return getETDateKey(sorted[0].timestamp) || getCurrentETDateKey();
-  }, [expirationData]);
+  // ── Fetch contract time-series
+  const { data: contractRows, loading: contractLoading, error: contractError } =
+    useOptionContract(symbol, resolvedExpiration, resolvedStrike, optionType, 30000);
 
-  // ── Build contract endpoint URL
-  const contractEndpoint = useMemo(() => {
-    if (!resolvedExpiration || !resolvedStrike) return null;
-    const params = new URLSearchParams({
-      symbol,
-      expiration: resolvedExpiration,
-      strike: resolvedStrike,
-      option_type: optionType,
-      session,
-    });
-    return `/api/option/contract?${params.toString()}`;
-  }, [symbol, resolvedExpiration, resolvedStrike, optionType, session]);
-
-  // ── Fetch contract data
-  const {
-    data: contractData,
-    loading: contractLoading,
-    error: contractError,
-  } = useApiData<ContractResponse>(
-    contractEndpoint ?? "/api/option/contract",
-    {
-      enabled: contractEndpoint !== null,
-      refreshInterval: 30000,
-    },
-  );
-
-  // ── Build chart rows
+  // ── Chart rows (pre-computed bar directions and sorted by time)
   const chartRows = useMemo((): ChartRow[] => {
-    if (!contractData?.data) return [];
-    return contractData.data
-      .map((p) => ({
-        ...p,
-        time: safeTimeLabel(p.timestamp),
-      }))
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [contractData]);
+    if (!contractRows) return [];
+    return [...contractRows]
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map((r) => {
+        const last = r.last ?? null;
+        const bid = r.bid ?? null;
+        const ask = r.ask ?? null;
+        const delta = r.volume_delta ?? 0;
 
-  // ── Latest data point for legend
-  const latestPoint = useMemo((): ContractDataPoint | null => {
-    if (chartRows.length === 0) return null;
-    return chartRows[chartRows.length - 1];
-  }, [chartRows]);
+        // Classify bar: bullish if last >= mid-price (bought at ask side)
+        let bullishVol = 0;
+        let bearishVol = 0;
+        if (delta > 0) {
+          const mid = bid != null && ask != null ? (bid + ask) / 2 : null;
+          if (mid != null && last != null) {
+            if (last >= mid) bullishVol = delta;
+            else bearishVol = delta;
+          } else {
+            bullishVol = delta; // default to green if no bid/ask
+          }
+        }
 
-  // ── Contract display label (e.g. "AVGO 340 C 03/20/2026")
+        return {
+          timestamp: r.timestamp,
+          time: safeTimeLabel(r.timestamp),
+          bullishVol,
+          bearishVol,
+          last,
+          bid,
+          ask,
+        };
+      });
+  }, [contractRows]);
+
+  // ── Contract display label
   const contractLabel = useMemo(() => {
-    if (contractData?.contract) return contractData.contract;
     if (!resolvedExpiration || !resolvedStrike) return symbol;
-    const typeChar = optionType === "call" ? "C" : "P";
     const expFormatted = resolvedExpiration.includes("-")
       ? (() => {
           const [y, m, d] = resolvedExpiration.split("-");
           return `${m}/${d}/${y}`;
         })()
       : resolvedExpiration;
-    return `${symbol} ${resolvedStrike} ${typeChar} ${expFormatted}`;
-  }, [contractData, resolvedExpiration, resolvedStrike, optionType, symbol]);
+    return `${symbol} ${resolvedStrike} ${optionType} ${expFormatted}`;
+  }, [resolvedExpiration, resolvedStrike, optionType, symbol]);
 
-  const daysToExpiry = contractData?.days_to_expiry ?? null;
+  const dte = resolvedExpiration ? computeDTE(resolvedExpiration) : null;
 
   // ── Shared select style
   const selectStyle: React.CSSProperties = {
@@ -594,11 +567,12 @@ export default function OptionContractsPage() {
     minWidth: 120,
   };
 
-  const dropdownLoadError = (expirationError && expirationError !== "No data available yet")
-    ? expirationError
-    : (strikeError && strikeError !== "No data available yet")
-      ? strikeError
-      : null;
+  const dropdownLoadError =
+    (expirationError && expirationError !== "No data available yet")
+      ? expirationError
+      : strikeError && strikeError !== "No data available yet"
+        ? strikeError
+        : null;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -610,14 +584,18 @@ export default function OptionContractsPage() {
         </div>
       )}
 
-      {/* ── Controls ─────────────────────────────────────────────────── */}
+      {/* ── Controls ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {/* Session */}
+        {/* Date / Session */}
         <div className="flex items-center gap-2">
           <span className="text-sm" style={{ color: "#9ca3af" }}>Date</span>
           <select
             value={session}
-            onChange={(e) => setSession(e.target.value as "current" | "prior")}
+            onChange={(e) => {
+              setSession(e.target.value as "current" | "prior");
+              setSelectedExpiration("");
+              setSelectedStrike("");
+            }}
             style={selectStyle}
           >
             <option value="current">Current</option>
@@ -634,7 +612,9 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {expirationOptions.length === 0 ? (
-              <option value="">{expirationLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}</option>
+              <option value="">
+                {expirationLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}
+              </option>
             ) : (
               expirationOptions.map((exp) => (
                 <option key={exp} value={exp}>
@@ -654,7 +634,9 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {strikeOptions.length === 0 ? (
-              <option value="">{strikeLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}</option>
+              <option value="">
+                {strikeLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}
+              </option>
             ) : (
               strikeOptions.map((s) => (
                 <option key={s} value={s}>
@@ -670,38 +652,35 @@ export default function OptionContractsPage() {
           <span className="text-sm" style={{ color: "#9ca3af" }}>Type</span>
           <select
             value={optionType}
-            onChange={(e) => setOptionType(e.target.value as "call" | "put")}
+            onChange={(e) => setOptionType(e.target.value as "C" | "P")}
             style={selectStyle}
           >
-            <option value="call">Call</option>
-            <option value="put">Put</option>
+            <option value="C">Call</option>
+            <option value="P">Put</option>
           </select>
         </div>
       </div>
 
-      {/* ── Contract Title ────────────────────────────────────────────── */}
+      {/* ── Contract Title ──────────────────────────────────────────── */}
       {resolvedExpiration && resolvedStrike && (
         <div className="mb-4 flex items-baseline gap-2">
-          <span
-            className="text-xl font-semibold"
-            style={{ color: "#f59e0b" }}
-          >
+          <span className="text-xl font-semibold" style={{ color: "#f59e0b" }}>
             {contractLabel}
           </span>
-          {daysToExpiry != null && (
+          {dte != null && (
             <span className="text-sm font-medium" style={{ color: "#9ca3af" }}>
-              ({daysToExpiry}D)
+              ({dte}D)
             </span>
           )}
         </div>
       )}
 
-      {/* ── Chart Card ───────────────────────────────────────────────── */}
+      {/* ── Chart Card ─────────────────────────────────────────────── */}
       <section
         className="rounded-lg overflow-hidden"
         style={{ backgroundColor: "#423d3f" }}
       >
-        {contractLoading && !contractData ? (
+        {contractLoading && !contractRows ? (
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner size="lg" />
           </div>
@@ -712,9 +691,7 @@ export default function OptionContractsPage() {
         ) : (
           <ContractChart
             rows={chartRows}
-            latestPoint={latestPoint}
-            summary={contractData?.summary ?? null}
-            sessionDateKey={sessionDateKey}
+            rawRows={contractRows ?? []}
             theme="dark"
           />
         )}

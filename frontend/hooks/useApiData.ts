@@ -295,44 +295,36 @@ export function useVolatilityGauge(refreshInterval = 30000) {
   return useApiData<VolatilityGaugeData>('/api/volatility/gauge', { refreshInterval });
 }
 
-export interface OptionContractDataPoint {
+export interface OptionContractRow {
   timestamp: string;
-  bid_volume: number;
-  mid_volume: number;
-  ask_volume: number;
-  no_side_volume: number;
-  avg_fill: number | null;
-  underlying_price?: number | null;
-}
-
-export interface OptionContractSummary {
-  date: string;
-  volume: number;
-  open_interest: number;
-  avg_price: number;
-  premium: number;
-  multi_pct: number;
-  otm_pct: number;
-}
-
-export interface OptionContractResponse {
-  contract: string;
-  days_to_expiry: number;
-  summary: OptionContractSummary;
-  data: OptionContractDataPoint[];
+  underlying: string;
+  strike: number;
+  expiration: string;
+  option_type: string;
+  last: number | null;
+  bid: number | null;
+  ask: number | null;
+  volume: number | null;
+  volume_delta: number | null;
+  open_interest: number | null;
+  implied_volatility: number | null;
+  delta: number | null;
+  gamma: number | null;
+  theta: number | null;
+  vega: number | null;
+  updated_at: string | null;
 }
 
 export function useOptionContract(
-  symbol: string,
+  underlying: string,
   expiration: string,
   strike: string,
-  optionType: 'call' | 'put',
-  session: 'current' | 'prior' = 'current',
+  optionType: 'C' | 'P',
   refreshInterval = 30000,
 ) {
-  const enabled = Boolean(symbol && expiration && strike);
-  const params = new URLSearchParams({ symbol, expiration, strike, option_type: optionType, session });
-  return useApiData<OptionContractResponse>(
+  const enabled = Boolean(underlying && expiration && strike);
+  const params = new URLSearchParams({ underlying, expiration, strike, option_type: optionType });
+  return useApiData<OptionContractRow[]>(
     `/api/option/contract?${params.toString()}`,
     { refreshInterval, enabled },
   );
