@@ -13,7 +13,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { Theme } from "@/core/types";
+import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { getMarketSession } from "@/core/utils";
@@ -107,18 +107,23 @@ export default function Header({ theme }: HeaderProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const isMarketOpen = session === "open";
-  // Sun for pre-market, moon for everything else (after-hours, closed, weekend, etc.)
-  const extendedHoursIcon = session === "pre-market" ? "sun" : "moon";
+  // Session from the API is the authoritative source; fall back to locally
+  // computed value only while the first quote response is still in-flight.
+  const quoteSession = quoteData?.session ?? null;
+  const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
 
-  // ── Row 1 (always shown when data is available) ───────────────────────────
-  // Market open  → live quote vs current_session_close (most recent 4 PM ET close)
-  // Extended hrs → current_session_close vs prior_session_close
-  const row1Price = isMarketOpen
-    ? (quoteData?.close ?? null)
-    : (sessionClosesData?.current_session_close ?? quoteData?.close ?? null);
+  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
+  const extendedHoursIcon = quoteSession === "pre-market" ? "sun" : "moon";
 
-  const row1BaseClose = isMarketOpen
+  // ── Row 1 ─────────────────────────────────────────────────────────────────
+  // open     → live quote close  vs  current_session_close
+  // closed   → live quote close  vs  prior_session_close
+  // pre/ah   → current_session_close  vs  prior_session_close
+  const row1Price = isExtendedHours
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (quoteData?.close ?? null);
+
+  const row1BaseClose = quoteSession === "open"
     ? (sessionClosesData?.current_session_close ?? null)
     : (sessionClosesData?.prior_session_close ?? null);
 
@@ -128,17 +133,9 @@ export default function Header({ theme }: HeaderProps) {
     row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
   const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
-  // ── Row 2 (extended hours) ────────────────────────────────────────────────
-  // Only show when: not market-open, session-closes data is available, AND the
-  // quote's timestamp is strictly after the last cash-session close (meaning a
-  // real pre-market or after-hours feed is active for this symbol).
-  const quoteIsExtendedHours = (() => {
-    if (!quoteData?.timestamp || !sessionClosesData?.current_session_close_ts) return false;
-    const quoteMs = new Date(quoteData.timestamp).getTime();
-    const closeMs = new Date(sessionClosesData.current_session_close_ts).getTime();
-    return Number.isFinite(quoteMs) && Number.isFinite(closeMs) && quoteMs > closeMs;
-  })();
-  const showExtendedRow = !isMarketOpen && !!sessionClosesData && quoteIsExtendedHours;
+  // ── Row 2 (pre-market / after-hours only) ────────────────────────────────
+  // pre/ah → icon + live quote close  vs  current_session_close
+  const showExtendedRow = isExtendedHours && !!quoteData && !!sessionClosesData;
 
   const row2Price = quoteData?.close ?? null;
   const row2BaseClose = sessionClosesData?.current_session_close ?? null;
@@ -165,21 +162,19 @@ export default function Header({ theme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = (!isMarketOpen && sessionClosesData)
-    ? (sessionClosesData.current_session_close_ts
+  const row1PriceLabel = isExtendedHours
+    ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
     : (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote");
 
-  const row1ChangeLabel = sessionClosesData
-    ? (isMarketOpen
-        ? (sessionClosesData.current_session_close_ts
-            ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
-            : "vs previous close")
-        : (sessionClosesData.prior_session_close_ts
-            ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
-            : "vs previous close"))
-    : "vs previous close";
+  const row1ChangeLabel = quoteSession === "open"
+    ? (sessionClosesData?.current_session_close_ts
+        ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
+        : "vs previous close")
+    : (sessionClosesData?.prior_session_close_ts
+        ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
+        : "vs previous close");
 
   const row2SessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
   const row2Label = quoteData?.timestamp
@@ -254,8 +249,8 @@ export default function Header({ theme }: HeaderProps) {
                   <div className="flex flex-col gap-1">
                     {/* Row 1: regular-session price + change (inline when market closed) */}
                     <div
-                      className={isMarketOpen ? undefined : "flex items-center gap-2"}
-                      style={isMarketOpen ? { display: "contents" } : undefined}
+                      className={quoteSession === "open" ? undefined : "flex items-center gap-2"}
+                      style={quoteSession === "open" ? { display: "contents" } : undefined}
                     >
                       <span
                         className="font-bold text-xl"
@@ -355,7 +350,7 @@ export default function Header({ theme }: HeaderProps) {
                   style={{ cursor: "pointer" }}
                 >
                   <SessionBadge
-                    session={session}
+                    session={sessionForBadge}
                     theme={theme}
                     showCountdown={showCountdown}
                     compact={true}
@@ -464,8 +459,8 @@ export default function Header({ theme }: HeaderProps) {
                     <div className="flex flex-col gap-1">
                       {/* Row 1: regular-session price + change (inline when market closed) */}
                       <div
-                        className={isMarketOpen ? undefined : "flex items-center gap-2"}
-                        style={isMarketOpen ? { display: "contents" } : undefined}
+                        className={quoteSession === "open" ? undefined : "flex items-center gap-2"}
+                        style={quoteSession === "open" ? { display: "contents" } : undefined}
                       >
                         <span
                           className="font-bold text-2xl"
@@ -538,7 +533,7 @@ export default function Header({ theme }: HeaderProps) {
                     style={{ cursor: "pointer" }}
                   >
                     <SessionBadge
-                      session={session}
+                      session={sessionForBadge}
                       theme={theme}
                       showCountdown={showCountdown}
                     />
@@ -711,7 +706,7 @@ export default function Header({ theme }: HeaderProps) {
                   {/* Row 2: extended-hours */}
                   {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
                     <div className="flex items-center gap-1.5" title={row2Label}>
-                      {session === "after-hours" ? (
+                      {extendedHoursIcon === "moon" ? (
                         <Moon size={13} style={{ color: colors.muted }} />
                       ) : (
                         <Sun size={13} style={{ color: colors.muted }} />

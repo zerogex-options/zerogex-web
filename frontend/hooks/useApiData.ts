@@ -64,6 +64,7 @@ interface MarketQuoteRow {
   volume?: number | null;
   up_volume?: number | null;
   down_volume?: number | null;
+  session?: string | null;
 }
 
 interface UseApiDataOptions {
