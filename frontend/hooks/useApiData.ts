@@ -294,3 +294,46 @@ export interface VolatilityGaugeData {
 export function useVolatilityGauge(refreshInterval = 30000) {
   return useApiData<VolatilityGaugeData>('/api/volatility/gauge', { refreshInterval });
 }
+
+export interface OptionContractDataPoint {
+  timestamp: string;
+  bid_volume: number;
+  mid_volume: number;
+  ask_volume: number;
+  no_side_volume: number;
+  avg_fill: number | null;
+  underlying_price?: number | null;
+}
+
+export interface OptionContractSummary {
+  date: string;
+  volume: number;
+  open_interest: number;
+  avg_price: number;
+  premium: number;
+  multi_pct: number;
+  otm_pct: number;
+}
+
+export interface OptionContractResponse {
+  contract: string;
+  days_to_expiry: number;
+  summary: OptionContractSummary;
+  data: OptionContractDataPoint[];
+}
+
+export function useOptionContract(
+  symbol: string,
+  expiration: string,
+  strike: string,
+  optionType: 'call' | 'put',
+  session: 'current' | 'prior' = 'current',
+  refreshInterval = 30000,
+) {
+  const enabled = Boolean(symbol && expiration && strike);
+  const params = new URLSearchParams({ symbol, expiration, strike, option_type: optionType, session });
+  return useApiData<OptionContractResponse>(
+    `/api/option/contract?${params.toString()}`,
+    { refreshInterval, enabled },
+  );
+}

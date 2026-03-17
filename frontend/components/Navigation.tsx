@@ -55,6 +55,7 @@ export default function Navigation({ theme }: NavigationProps) {
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },
     { id: "/max-pain", label: "MAX PAIN" },
     { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
+    { id: "/option-contracts", label: "OPTION CONTRACTS" },
   ];
 
   if (isCollapsed) return null;
