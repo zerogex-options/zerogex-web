@@ -701,13 +701,14 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
               if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
+                  <line x1={0} y1={0} x2={0} y2={5} stroke="#f2f2f2" strokeWidth={1} opacity={0.6} />
                   {showTime ? (
-                    <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                    <text dy={14} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
                       {timeLabel}
                     </text>
                   ) : null}
                   {dateLabel ? (
-                    <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                    <text dy={26} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
                       {dateLabel}
                     </text>
                   ) : null}
@@ -1101,13 +1102,14 @@ export default function FlowAnalysisPage() {
                   if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                   return (
                     <g transform={`translate(${x},${y})`}>
+                      <line x1={0} y1={0} x2={0} y2={5} stroke="#f2f2f2" strokeWidth={1} opacity={0.6} />
                       {showTime ? (
-                        <text dy={12} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
+                        <text dy={14} textAnchor="middle" fill="#f2f2f2" fontSize={10}>
                           {timeLabel}
                         </text>
                       ) : null}
                       {dateLabel ? (
-                        <text dy={24} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
+                        <text dy={26} textAnchor="middle" fill="#cfcfcf" fontSize={9}>
                           {dateLabel}
                         </text>
                       ) : null}
