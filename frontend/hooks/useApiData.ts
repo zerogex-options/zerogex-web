@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface OptionFlowRow {
   time_window_start: string;
@@ -154,6 +154,16 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset state synchronously when the endpoint changes so stale data from the
+  // previous symbol is never displayed while the new request is in-flight.
+  const prevEndpoint = useRef(endpoint);
+  if (prevEndpoint.current !== endpoint) {
+    prevEndpoint.current = endpoint;
+    setData(null);
+    setLoading(true);
+    setError(null);
+  }
 
   const fetchData = useCallback(async () => {
     if (!enabled) return;

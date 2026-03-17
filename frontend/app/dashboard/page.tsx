@@ -53,10 +53,10 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
           <MetricCard
-            title="SPY Price"
+            title={`${symbol} Price`}
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
             subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
-            tooltip="Current SPY closing price. Calculation: Latest market price from real-time quote feed. Volume shows total shares traded today in millions. This is the most recent price at which SPY traded."
+            tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
             theme={theme}
             trend="neutral"
           />
