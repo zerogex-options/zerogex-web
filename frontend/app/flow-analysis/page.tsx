@@ -683,6 +683,7 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
             interval={0}
             minTickGap={24}
             padding={{ left: 0, right: 0 }}
+            tickLine={false}
             tick={(props: {
               x?: number | string;
               y?: number | string;
@@ -1082,6 +1083,7 @@ export default function FlowAnalysisPage() {
                 stroke="#f2f2f2"
                 interval={0}
                 minTickGap={24}
+                tickLine={false}
                 tick={(props: {
                   x?: number | string;
                   y?: number | string;
