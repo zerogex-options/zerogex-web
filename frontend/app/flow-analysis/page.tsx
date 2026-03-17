@@ -786,48 +786,40 @@ function FullWidthFlowChart({ rows }: { rows: TimeseriesRow[] }) {
 export default function FlowAnalysisPage() {
   const { symbol } = useTimeframe();
 
-  // Fetch all data with maximum window to cover all available dates
+  // ── Session selector (current = most recent session, prior = previous full session)
+  const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
+
+  // Fetch all data for the selected session
   const {
     data: flowByType,
     loading: flowLoading,
     error: flowError,
   } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&window_minutes=1440`,
+    `/api/flow/by-type?symbol=${symbol}&session=${flowSession}`,
     { refreshInterval: 30000 },
   );
 
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&window_minutes=1440&limit=50000`,
+    `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=50000`,
     { refreshInterval: 30000 },
   );
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&window_minutes=1440&limit=50000`,
+    `/api/flow/by-strike?symbol=${symbol}&session=${flowSession}&limit=50000`,
     { refreshInterval: 30000 },
   );
 
-  // ── Date selection ──────────────────────────────────────────────────────────
+  // ── Derive the session date from the returned data ──────────────────────────
 
-  /** All unique ET dates present in the data, sorted descending (most recent first). */
-  const availableDates = useMemo(() => {
-    if (!flowByType || flowByType.length === 0) return [];
-    const dates = new Set<string>();
-    flowByType.forEach((row) => {
-      const key = getETDateKey(row.timestamp);
-      if (key) dates.add(key);
-    });
-    return Array.from(dates).sort().reverse();
+  /** ET date key for the session returned by the API (e.g. "2026-03-17"). */
+  const selectedDate = useMemo(() => {
+    if (!flowByType || flowByType.length === 0) return getCurrentETDateKey();
+    // Use the latest row's date as the canonical session date.
+    const sorted = [...flowByType].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+    return getETDateKey(sorted[0].timestamp) || getCurrentETDateKey();
   }, [flowByType]);
-
-  const [selectedDate, setSelectedDate] = useState<string>("");
-
-  // Auto-select default date once data arrives (or when symbol changes).
-  useEffect(() => {
-    if (availableDates.length === 0) return;
-    // Keep current selection if it's still valid.
-    if (selectedDate && availableDates.includes(selectedDate)) return;
-    setSelectedDate(getDefaultDate(availableDates));
-  }, [availableDates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Session timeline (fixed 09:30–16:00 ET for selected date) ──────────────
 
@@ -962,9 +954,20 @@ export default function FlowAnalysisPage() {
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && <ErrorMessage message={flowError} />}
 
-      {/* Date selector — shared across all sections */}
-      <div className="mb-6">
-        <DateSelect dates={availableDates} value={selectedDate} onChange={setSelectedDate} />
+      {/* Session selector — shared across all sections */}
+      <div className="mb-6 flex items-center gap-3">
+        <span className="text-sm text-gray-400">Session</span>
+        <select
+          value={flowSession}
+          onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
+          className="px-3 py-1.5 text-sm rounded-md border border-gray-600 bg-[#2a2628] text-gray-200 focus:outline-none focus:border-gray-400 cursor-pointer"
+        >
+          <option value="current">Current</option>
+          <option value="prior">Prior</option>
+        </select>
+        {selectedDate && (
+          <span className="text-sm text-gray-500">{selectedDate}</span>
+        )}
       </div>
 
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}

@@ -83,10 +83,16 @@ export const marketAPI = {
   },
 
   /**
-   * Get previous day's closing price
+   * Get the two most recently completed regular session closes (4:00 PM ET bars).
    */
-  getPreviousClose: async (symbol: string = 'SPY'): Promise<{ symbol: string; previous_close: number; timestamp: string }> => {
-    return apiClient.get<{ symbol: string; previous_close: number; timestamp: string }>(`/api/market/previous-close?symbol=${symbol}`);
+  getSessionCloses: async (symbol: string = 'SPY'): Promise<{
+    symbol: string;
+    current_session_close: number;
+    current_session_close_ts: string;
+    prior_session_close: number;
+    prior_session_close_ts: string;
+  }> => {
+    return apiClient.get(`/api/market/session-closes?symbol=${symbol}`);
   },
 
   /**

@@ -233,19 +233,12 @@ export interface FlowByTypePoint {
   underlying_price?: number | null;
 }
 
-export function useOptionFlow(symbol = 'SPY', windowMinutes = 60, refreshInterval = 5000) {
-  return useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&window_minutes=${windowMinutes}`, { refreshInterval });
+export function useOptionFlow(symbol = 'SPY', session: 'current' | 'prior' = 'current', refreshInterval = 5000) {
+  return useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${session}`, { refreshInterval });
 }
 
-export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, windowMinutes = 60, refreshInterval = 10000) {
-  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&window_minutes=${windowMinutes}&limit=${limit}`, { refreshInterval });
-}
-
-export function usePreviousClose(symbol = 'SPY', refreshInterval = 60000) {
-  return useApiData<{ symbol: string; previous_close: number; timestamp: string }>(
-    `/api/market/previous-close?symbol=${symbol}`,
-    { refreshInterval }
-  );
+export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current' | 'prior' = 'current', refreshInterval = 10000) {
+  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${session}&limit=${limit}`, { refreshInterval });
 }
 
 export interface SessionClosesData {

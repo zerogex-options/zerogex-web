@@ -22,8 +22,8 @@ export default function OptionsFlowChart() {
   const { getMaxDataPoints, symbol } = useTimeframe();
   const maxPoints = getMaxDataPoints();
 
-  // Fetch one full trading session (390 min) at 1-min resolution.
-  const { data: flowData, loading, error } = useOptionFlow(symbol, 390, 5000);
+  // Fetch the current trading session.
+  const { data: flowData, loading, error } = useOptionFlow(symbol, 'current', 5000);
 
   const chartData = useMemo(() => {
     const rows = (flowData || [])

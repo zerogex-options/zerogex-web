@@ -20,7 +20,7 @@ import { getMarketSession } from "@/core/utils";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
-import { useMarketQuote, usePreviousClose, useSessionCloses } from "@/hooks/useApiData";
+import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 
 interface HeaderProps {
   theme: Theme;
@@ -56,21 +56,7 @@ export default function Header({ theme }: HeaderProps) {
 
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: previousCloseData } = usePreviousClose(symbol, 60000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
-  const [effectivePreviousClose, setEffectivePreviousClose] = useState(previousCloseData);
-
-  useEffect(() => {
-    if (!previousCloseData?.timestamp) return;
-    const previousCloseTs = new Date(previousCloseData.timestamp).getTime();
-    if (!Number.isFinite(previousCloseTs)) return;
-
-    const delayMs = Math.max(0, previousCloseTs - Date.now() + 250);
-    const timeout = setTimeout(() => setEffectivePreviousClose(previousCloseData), delayMs);
-    return () => clearTimeout(timeout);
-  }, [previousCloseData]);
-
-  const previousCloseForDisplay = effectivePreviousClose ?? previousCloseData;
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {
@@ -122,28 +108,19 @@ export default function Header({ theme }: HeaderProps) {
   }, []);
 
   const isMarketOpen = session === "open";
-  // Two-row display whenever market is NOT in a live open session.
-  const showExtendedRow = !isMarketOpen && !!sessionClosesData && !!quoteData;
   // Sun for pre-market, moon for everything else (after-hours, closed, weekend, etc.)
   const extendedHoursIcon = session === "pre-market" ? "sun" : "moon";
 
-  // ── Row 1 ────────────────────────────────────────────────────────────────
-  // When session-closes data is available:
-  //   Market open  → live quote vs current_session_close (most recent 4 PM ET close)
-  //   Extended hrs → current_session_close vs prior_session_close
-  // When session-closes data is NOT available (endpoint not yet live):
-  //   Fall back to original behavior: live quote vs previousCloseForDisplay
-  const row1Price = sessionClosesData
-    ? (isMarketOpen
-        ? quoteData?.close ?? null
-        : sessionClosesData.current_session_close)
-    : quoteData?.close ?? null;
+  // ── Row 1 (always shown when data is available) ───────────────────────────
+  // Market open  → live quote vs current_session_close (most recent 4 PM ET close)
+  // Extended hrs → current_session_close vs prior_session_close
+  const row1Price = isMarketOpen
+    ? (quoteData?.close ?? null)
+    : (sessionClosesData?.current_session_close ?? quoteData?.close ?? null);
 
-  const row1BaseClose = sessionClosesData
-    ? (isMarketOpen
-        ? sessionClosesData.current_session_close
-        : sessionClosesData.prior_session_close)
-    : previousCloseForDisplay?.previous_close ?? null;
+  const row1BaseClose = isMarketOpen
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (sessionClosesData?.prior_session_close ?? null);
 
   const row1Change =
     row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
@@ -151,8 +128,18 @@ export default function Header({ theme }: HeaderProps) {
     row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
   const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
-  // ── Row 2 (off-hours only) ────────────────────────────────────────────────
-  // Live off-hours quote vs current_session_close
+  // ── Row 2 (extended hours) ────────────────────────────────────────────────
+  // Only show when: not market-open, session-closes data is available, AND the
+  // quote's timestamp is strictly after the last cash-session close (meaning a
+  // real pre-market or after-hours feed is active for this symbol).
+  const quoteIsExtendedHours = (() => {
+    if (!quoteData?.timestamp || !sessionClosesData?.current_session_close_ts) return false;
+    const quoteMs = new Date(quoteData.timestamp).getTime();
+    const closeMs = new Date(sessionClosesData.current_session_close_ts).getTime();
+    return Number.isFinite(quoteMs) && Number.isFinite(closeMs) && quoteMs > closeMs;
+  })();
+  const showExtendedRow = !isMarketOpen && !!sessionClosesData && quoteIsExtendedHours;
+
   const row2Price = quoteData?.close ?? null;
   const row2BaseClose = sessionClosesData?.current_session_close ?? null;
   const row2Change =
@@ -178,7 +165,7 @@ export default function Header({ theme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = (sessionClosesData && !isMarketOpen)
+  const row1PriceLabel = (!isMarketOpen && sessionClosesData)
     ? (sessionClosesData.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
@@ -192,9 +179,7 @@ export default function Header({ theme }: HeaderProps) {
         : (sessionClosesData.prior_session_close_ts
             ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
             : "vs previous close"))
-    : (previousCloseForDisplay?.timestamp
-        ? `since ${new Date(previousCloseForDisplay.timestamp).toLocaleString()}`
-        : "since previous close");
+    : "vs previous close";
 
   const row2SessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
   const row2Label = quoteData?.timestamp
