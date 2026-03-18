@@ -190,7 +190,7 @@ export default function AboutPage() {
           <img
             src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
             alt="ZeroGEX"
-            style={{ height: 80, width: 'auto' }}
+            style={{ height: 160, width: 'auto' }}
           />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -696,7 +696,7 @@ export default function AboutPage() {
               <Link href="/">
                 <img
                   src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
-                  alt="ZeroGEX" style={{ height: 54, width: 'auto', marginBottom: 12 }}
+                  alt="ZeroGEX" style={{ height: 108, width: 'auto', marginBottom: 12 }}
                 />
               </Link>
               <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
