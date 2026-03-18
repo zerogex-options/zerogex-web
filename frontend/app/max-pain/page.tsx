@@ -213,6 +213,16 @@ export default function MaxPainPage() {
   const xStep = (tsWidth - padLeft - padRight) / Math.max(1, seriesChart.length - 1);
   const candleWidth = Math.max(4, Math.min(10, xStep * 0.45));
 
+  const priceRange = maxPrice - minPrice;
+  const rawStep = priceRange / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 1e-9))));
+  const norm = rawStep / mag;
+  const niceStep = norm < 1.5 ? mag : norm < 3 ? 2 * mag : norm < 7 ? 5 * mag : 10 * mag;
+  const yTicks: number[] = [];
+  for (let v = Math.ceil(minPrice / niceStep) * niceStep; v <= maxPrice + 1e-9; v += niceStep) {
+    yTicks.push(Math.round(v / niceStep) * niceStep);
+  }
+
   const maxPainPath = svgPath(
     seriesChart.map((r, i) => ({
       x: padLeft + i * xStep,
@@ -328,13 +338,13 @@ export default function MaxPainPage() {
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
         ) : (
           <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`}>
-            {[0, 0.25, 0.5, 0.75, 1].map((p) => {
-              const yPos = padTop + p * (tsHeight - padTop - padBottom);
-              const val = maxPrice - p * (maxPrice - minPrice);
+            {yTicks.map((val) => {
+              const yPos = y(val);
+              const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
               return (
-                <g key={p}>
+                <g key={val}>
                   <line x1={padLeft} x2={tsWidth - padRight} y1={yPos} y2={yPos} stroke={colors.muted} opacity={0.25} />
-                  <text x={padLeft - 8} y={yPos + 4} textAnchor="end" fontSize="10" fill={textColor}>${val.toFixed(2)}</text>
+                  <text x={padLeft - 8} y={yPos + 4} textAnchor="end" fontSize="10" fill={textColor}>{label}</text>
                 </g>
               );
             })}
