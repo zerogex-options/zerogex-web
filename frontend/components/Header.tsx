@@ -323,17 +323,16 @@ export default function Header({ theme }: HeaderProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <Link href="/" style={{ pointerEvents: "auto" }}>
+                <Link href="/" style={{ pointerEvents: "auto", display: "block", height: "100px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
                     }
                     alt="ZeroGEX"
                     style={{
-                      height: "100px",
                       width: "auto",
-                      objectFit: "contain",
-                      transition: "height 0.3s ease",
+                      height: "100%",
+                      objectFit: "cover",
                     }}
                   />
                 </Link>
@@ -555,17 +554,16 @@ export default function Header({ theme }: HeaderProps) {
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 style={{ top: 0, bottom: 0 }}
               >
-                <Link href="/" style={{ pointerEvents: "auto" }}>
+                <Link href="/" style={{ pointerEvents: "auto", display: "block", height: "200px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
                     }
                     alt="ZeroGEX"
                     style={{
-                      height: "200px",
                       width: "auto",
-                      objectFit: "contain",
-                      transition: "height 0.3s ease",
+                      height: "100%",
+                      objectFit: "cover",
                     }}
                   />
                 </Link>
@@ -596,14 +594,14 @@ export default function Header({ theme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/">
+            <Link href="/" style={{ display: "block", height: "48px", overflow: "hidden" }}>
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"
                 style={{
-                  height: "48px",
                   width: "auto",
-                  objectFit: "contain",
+                  height: "100%",
+                  objectFit: "cover",
                 }}
               />
             </Link>
