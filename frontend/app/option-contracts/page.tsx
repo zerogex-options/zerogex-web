@@ -399,6 +399,11 @@ function ContractChart({
                 if (n === 0) return [null, name];
                 return [n.toLocaleString(), name];
               }}
+              itemSorter={(item) => {
+                // Define custom order: Last, Bid Vol, Mid Vol, Ask Vol
+                const order = { "Last": 0, "Bid Vol": 1, "Mid Vol": 2, "Ask Vol": 3 };
+                return order[item.name as keyof typeof order] ?? 99;
+              }}
             />
 
             <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="#22c55e" isAnimationActive={false} />
