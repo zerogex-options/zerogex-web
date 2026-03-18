@@ -828,6 +828,20 @@ export default function FlowAnalysisPage() {
     { refreshInterval: 30000 },
   );
 
+  // Probe the other session to get its date for the dropdown label
+  const otherSession = flowSession === "current" ? "prior" : "current";
+  const { data: otherSessionProbe } = useApiData<FlowByTypePoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&session=${otherSession}`,
+    { refreshInterval: 60000 },
+  );
+  const otherSessionDate = useMemo(() => {
+    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
+    const sorted = [...otherSessionProbe].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+    return getETDateKey(sorted[0].timestamp) || null;
+  }, [otherSessionProbe]);
+
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
     `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=50000`,
     { refreshInterval: 30000 },
@@ -849,6 +863,9 @@ export default function FlowAnalysisPage() {
     );
     return getETDateKey(sorted[0].timestamp) || getCurrentETDateKey();
   }, [flowByType]);
+
+  const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
+  const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
 
   // ── Session timeline (fixed 09:30–16:00 ET for selected date) ──────────────
 
@@ -992,12 +1009,9 @@ export default function FlowAnalysisPage() {
           className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
           style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
         >
-          <option value="current">Current</option>
-          <option value="prior">Prior</option>
+          <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
+          <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
         </select>
-        {selectedDate && (
-          <span className="text-sm" style={{ color: mutedText }}>{selectedDate}</span>
-        )}
       </div>
 
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
