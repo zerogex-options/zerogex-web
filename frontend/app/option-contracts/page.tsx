@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import {
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Line,
   ResponsiveContainer,
@@ -83,6 +82,41 @@ function is30MinBoundary(ts: string): boolean {
     }).format(d),
   );
   return minutes % 30 === 0;
+}
+
+function isAtOrAfterMarketOpen(ts: string): boolean {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour > 9 || (hour === 9 && minute >= 30);
+}
+
+function computeRoundTicks(min: number, max: number): number[] {
+  const range = max - min;
+  if (range <= 0) return [min, max];
+  const steps = [0.05, 0.10, 0.25, 0.50, 1.00, 2.00, 5.00, 10.00, 25.00, 50.00, 100.00];
+  const targetTickCount = 7;
+  let step = steps[steps.length - 1];
+  for (const s of steps) {
+    if (range / s <= targetTickCount) {
+      step = s;
+      break;
+    }
+  }
+  const start = Math.floor(min / step) * step;
+  const end = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let t = start; t <= end + step * 0.001; t += step) {
+    ticks.push(Math.round(t * 10000) / 10000);
+  }
+  return ticks;
 }
 
 function formatSessionDate(dateKey: string): string {
@@ -192,11 +226,9 @@ function ContractLegend({
   isDark: boolean;
 }) {
   const items = [
-    { label: "Bid", value: latest?.bid != null ? `$${Number(latest.bid).toFixed(2)}` : "--", color: "#f45854" },
-    { label: "Ask", value: latest?.ask != null ? `$${Number(latest.ask).toFixed(2)}` : "--", color: "#3b82f6" },
     { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "#facc15" },
-    { label: "Vol Δ", value: latest?.volume_delta != null ? Number(latest.volume_delta).toLocaleString() : "--", color: "#22c55e" },
-    { label: "OI", value: latest?.open_interest != null ? Number(latest.open_interest).toLocaleString() : "--", color: "#9ca3af" },
+    { label: "Ask Vol", value: null, color: "#22c55e" },
+    { label: "Bid Vol", value: null, color: "#f45854" },
   ];
 
   return (
@@ -207,8 +239,8 @@ function ContractLegend({
       {items.map((item, i) => (
         <span key={item.label} className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
-          <span style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>{item.label}:</span>
-          <span style={{ fontWeight: 600 }}>{item.value}</span>
+          <span style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>{item.label}{item.value != null ? ":" : ""}</span>
+          {item.value != null && <span style={{ fontWeight: 600 }}>{item.value}</span>}
           {i < items.length - 1 && (
             <span style={{ color: isDark ? "#4b5563" : "#d1d5db", marginLeft: 4 }}>|</span>
           )}
@@ -246,13 +278,14 @@ function ContractChart({
   const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.2));
 
   const prices = rows
-    .flatMap((r) => [r.last, r.bid, r.ask])
+    .map((r) => r.last)
     .filter((v): v is number => v != null && Number.isFinite(v));
   const minP = prices.length > 0 ? Math.min(...prices) : 0;
   const maxP = prices.length > 0 ? Math.max(...prices) : 1;
   const pad = Math.max(0.05, (maxP - minP) * 0.15);
   const priceDomainMin = Math.max(0, minP - pad);
   const priceDomainMax = maxP + pad;
+  const priceTicks = computeRoundTicks(priceDomainMin, priceDomainMax);
 
   const gridStroke = isDark ? "#968f92" : "#d1d5db";
   const axisStroke = isDark ? "#f2f2f2" : "#374151";
@@ -314,7 +347,7 @@ function ContractChart({
               tickMargin={6}
               width={64}
               label={{
-                value: "Vol Δ",
+                value: "Volume",
                 angle: -90,
                 position: "insideLeft",
                 fill: axisStroke,
@@ -327,8 +360,14 @@ function ContractChart({
               yAxisId="price"
               orientation="right"
               stroke={axisStroke}
-              domain={[priceDomainMin, priceDomainMax]}
-              tickFormatter={(v) => `$${Number(v).toFixed(2)}`}
+              domain={[priceTicks[0] ?? priceDomainMin, priceTicks[priceTicks.length - 1] ?? priceDomainMax]}
+              ticks={priceTicks}
+              tickFormatter={(v) => {
+                const n = Number(v);
+                const step = priceTicks.length > 1 ? priceTicks[1] - priceTicks[0] : 1;
+                const decimals = step < 0.10 ? 2 : step < 1.00 ? 2 : 0;
+                return `$${n.toFixed(decimals)}`;
+              }}
               tick={axisTickStyle}
               tickMargin={6}
               width={64}
@@ -353,22 +392,16 @@ function ContractChart({
               labelFormatter={(value) => safeTimeLabel(String(value))}
               formatter={(value, name) => {
                 const n = Number(value ?? 0);
-                if (name === "Last" || name === "Bid" || name === "Ask")
+                if (name === "Last")
                   return n > 0 ? [`$${n.toFixed(2)}`, name] : [null, name];
                 if (n === 0) return [null, name];
                 return [n.toLocaleString(), name];
               }}
             />
 
-            <Bar yAxisId="volume" dataKey="bullishVol" name="Bull Vol" stackId="vol" isAnimationActive={false}>
-              {rows.map((_, i) => <Cell key={i} fill="#22c55e" />)}
-            </Bar>
-            <Bar yAxisId="volume" dataKey="bearishVol" name="Bear Vol" stackId="vol" isAnimationActive={false}>
-              {rows.map((_, i) => <Cell key={i} fill="#f45854" />)}
-            </Bar>
+            <Bar yAxisId="volume" dataKey="bullishVol" name="Ask Vol" stackId="vol" fill="#22c55e" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="bearishVol" name="Bid Vol" stackId="vol" fill="#f45854" isAnimationActive={false} />
 
-            <Line yAxisId="price" type="monotone" dataKey="bid" name="Bid" stroke="#f45854" strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
-            <Line yAxisId="price" type="monotone" dataKey="ask" name="Ask" stroke="#3b82f6" strokeWidth={1} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
             <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="#facc15" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -437,6 +470,7 @@ export default function OptionContractsPage() {
     if (!contractRows) return [];
     return [...contractRows]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .filter((r) => isAtOrAfterMarketOpen(r.timestamp))
       .map((r) => {
         const last = r.last ?? null;
         const bid = r.bid ?? null;
