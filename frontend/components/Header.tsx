@@ -323,7 +323,7 @@ export default function Header({ theme }: HeaderProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <Link href="/" style={{ pointerEvents: "auto", display: "block", height: "100px", overflow: "hidden", transition: "height 0.3s ease" }}>
+                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
@@ -331,8 +331,7 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "100%",
-                      objectFit: "cover",
+                      height: "300%",
                     }}
                   />
                 </Link>
@@ -554,7 +553,7 @@ export default function Header({ theme }: HeaderProps) {
                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 style={{ top: 0, bottom: 0 }}
               >
-                <Link href="/" style={{ pointerEvents: "auto", display: "block", height: "200px", overflow: "hidden", transition: "height 0.3s ease" }}>
+                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "200px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
@@ -562,8 +561,7 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "100%",
-                      objectFit: "cover",
+                      height: "300%",
                     }}
                   />
                 </Link>
@@ -594,14 +592,13 @@ export default function Header({ theme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/" style={{ display: "block", height: "48px", overflow: "hidden" }}>
+            <Link href="/" style={{ display: "flex", alignItems: "center", height: "48px", overflow: "hidden" }}>
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
-                  height: "100%",
-                  objectFit: "cover",
+                  height: "300%",
                 }}
               />
             </Link>
