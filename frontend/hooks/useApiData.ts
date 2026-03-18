@@ -304,9 +304,13 @@ export interface OptionContractRow {
   last: number | null;
   bid: number | null;
   ask: number | null;
+  mid: number | null;
   volume: number | null;
   volume_delta: number | null;
   open_interest: number | null;
+  ask_volume: number | null;
+  mid_volume: number | null;
+  bid_volume: number | null;
   implied_volatility: number | null;
   delta: number | null;
   gamma: number | null;

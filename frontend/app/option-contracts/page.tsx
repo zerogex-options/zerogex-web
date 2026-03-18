@@ -35,8 +35,9 @@ interface FlowByStrikePoint {
 interface ChartRow {
   timestamp: string;
   time: string;
-  bullishVol: number;
-  bearishVol: number;
+  askVol: number;
+  midVol: number;
+  bidVol: number;
   last: number | null;
   bid: number | null;
   ask: number | null;
@@ -228,6 +229,7 @@ function ContractLegend({
   const items = [
     { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "#facc15" },
     { label: "Ask Vol", value: null, color: "#22c55e" },
+    { label: "Mid Vol", value: null, color: "#60a5fa" },
     { label: "Bid Vol", value: null, color: "#f45854" },
   ];
 
@@ -274,7 +276,7 @@ function ContractChart({
     );
   }
 
-  const maxVol = Math.max(0, ...rows.map((r) => (r.bullishVol ?? 0) + (r.bearishVol ?? 0)));
+  const maxVol = Math.max(0, ...rows.map((r) => (r.askVol ?? 0) + (r.midVol ?? 0) + (r.bidVol ?? 0)));
   const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.2));
 
   const prices = rows
@@ -399,8 +401,9 @@ function ContractChart({
               }}
             />
 
-            <Bar yAxisId="volume" dataKey="bullishVol" name="Ask Vol" stackId="vol" fill="#22c55e" isAnimationActive={false} />
-            <Bar yAxisId="volume" dataKey="bearishVol" name="Bid Vol" stackId="vol" fill="#f45854" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="#22c55e" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="midVol" name="Mid Vol" stackId="vol" fill="#60a5fa" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="bidVol" name="Bid Vol" stackId="vol" fill="#f45854" isAnimationActive={false} />
 
             <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="#facc15" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
@@ -471,34 +474,16 @@ export default function OptionContractsPage() {
     return [...contractRows]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .filter((r) => isAtOrAfterMarketOpen(r.timestamp))
-      .map((r) => {
-        const last = r.last ?? null;
-        const bid = r.bid ?? null;
-        const ask = r.ask ?? null;
-        const delta = r.volume_delta ?? 0;
-
-        let bullishVol = 0;
-        let bearishVol = 0;
-        if (delta > 0) {
-          const mid = bid != null && ask != null ? (bid + ask) / 2 : null;
-          if (mid != null && last != null) {
-            if (last >= mid) bullishVol = delta;
-            else bearishVol = delta;
-          } else {
-            bullishVol = delta;
-          }
-        }
-
-        return {
-          timestamp: r.timestamp,
-          time: safeTimeLabel(r.timestamp),
-          bullishVol,
-          bearishVol,
-          last,
-          bid,
-          ask,
-        };
-      });
+      .map((r) => ({
+        timestamp: r.timestamp,
+        time: safeTimeLabel(r.timestamp),
+        askVol: r.ask_volume ?? 0,
+        midVol: r.mid_volume ?? 0,
+        bidVol: r.bid_volume ?? 0,
+        last: r.last ?? null,
+        bid: r.bid ?? null,
+        ask: r.ask ?? null,
+      }));
   }, [contractRows]);
 
   // ── Contract display label
