@@ -188,9 +188,9 @@ export default function AboutPage() {
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img
-            src={isDark ? '/title-dark.svg' : '/title-light.svg'}
+            src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
             alt="ZeroGEX"
-            style={{ height: 40, width: 'auto' }}
+            style={{ height: 80, width: 'auto' }}
           />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -695,8 +695,8 @@ export default function AboutPage() {
             <div style={{ maxWidth: 280 }}>
               <Link href="/">
                 <img
-                  src={isDark ? '/title-dark.svg' : '/title-light.svg'}
-                  alt="ZeroGEX" style={{ height: 36, width: 'auto', marginBottom: 12 }}
+                  src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+                  alt="ZeroGEX" style={{ height: 54, width: 'auto', marginBottom: 12 }}
                 />
               </Link>
               <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
