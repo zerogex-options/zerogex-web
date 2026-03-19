@@ -12,6 +12,7 @@ import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { useMemo } from 'react';
 import { omitClosedMarketTimes } from '@/core/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 function toTime(ts: string) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' });
@@ -20,6 +21,7 @@ function toTime(ts: string) {
 export default function OptionsFlowChart() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
+  const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
 
   // Fetch the current trading session.
@@ -60,7 +62,7 @@ export default function OptionsFlowChart() {
             <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
-            <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} minTickGap={20} />
+            <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark, fontSize: isMobile ? 9 : 12 }} minTickGap={isMobile ? 50 : 20} angle={isMobile ? -45 : 0} textAnchor={isMobile ? 'end' : 'middle'} height={isMobile ? 50 : 30} />
             <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={['auto', 'auto']} />
             <Tooltip />
             <Legend />

@@ -12,6 +12,7 @@ import { useTheme } from "@/core/ThemeContext";
 import { omitClosedMarketTimes } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface PriceBar {
   timestamp: string;
@@ -77,6 +78,7 @@ function aggregateBars(
 export default function UnderlyingCandlesChart() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
+  const isMobile = useIsMobile();
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -334,11 +336,11 @@ export default function UnderlyingCandlesChart() {
                       opacity={0.75}
                     />
                   )}
-                  {i % Math.ceil(bars.length / 8) === 0 && (
+                  {i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
                     <text
                       x={x}
                       y={height - 12}
-                      fontSize="10"
+                      fontSize={isMobile ? "8" : "10"}
                       textAnchor="middle"
                       fill={theme === "dark" ? colors.light : colors.dark}
                     >

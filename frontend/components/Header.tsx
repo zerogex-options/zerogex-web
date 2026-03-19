@@ -594,7 +594,7 @@ export default function Header({ theme }: HeaderProps) {
           <div className="flex items-center justify-between mb-4">
             <Link href="/" style={{ display: "flex", alignItems: "center", height: "48px", overflow: "hidden" }}>
               <img
-                src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                src={theme === "dark" ? "/title-subtitle-dark-small.svg" : "/title-subtitle-light-small.svg"}
                 alt="ZeroGEX"
                 style={{
                   width: "auto",

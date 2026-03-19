@@ -12,6 +12,7 @@ import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { omitClosedMarketTimes } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
@@ -20,6 +21,7 @@ interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?
 export default function GammaHeatmap() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
+  const isMobile = useIsMobile();
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
@@ -219,10 +221,11 @@ export default function GammaHeatmap() {
           </g>
 
           {derived.timestamps.map((timestamp, idx) => {
-            const spacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
+            const baseSpacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
+            const spacing = isMobile ? Math.max(baseSpacing, Math.ceil(derived.timestamps.length / 6)) : baseSpacing;
             if (idx % spacing !== 0) return null;
             const time = new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
+            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: isMobile ? '8px' : '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
           })}
         </svg>
       </div>
