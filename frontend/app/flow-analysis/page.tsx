@@ -21,6 +21,7 @@ import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── API shape ─────────────────────────────────────────────────────────────────
 
@@ -566,7 +567,7 @@ function DateSelect({
   );
 }
 
-function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: boolean }) {
+function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[]; isDark: boolean; isMobile: boolean }) {
   const gridStroke = isDark ? "#968f92" : "#d1d5db";
   const axisStroke = isDark ? "#f2f2f2" : "#374151";
 
@@ -602,11 +603,13 @@ function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: b
       : undefined;
 
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
-  const leftChartMargin = getDynamicLeftMargin(rows);
-  const rightChartMargin = 70;
+  const leftChartMargin = isMobile ? 8 : getDynamicLeftMargin(rows);
+  const rightChartMargin = isMobile ? 8 : 70;
+  const yAxisWidth = isMobile ? 40 : 72;
+  const yAxisWidthRight = isMobile ? 38 : 62;
 
   return (
-    <div className="h-[580px]">
+    <div className="h-[400px] md:h-[580px]">
       <ResponsiveContainer width="100%" height="62%">
         <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
@@ -624,10 +627,10 @@ function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: b
             domain={underlyingDomain}
             ticks={priceTicks}
             tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
-            tick={{ fontSize: 10, fill: axisStroke }}
-            tickMargin={8}
-            width={72}
-            label={{ value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+            tickMargin={isMobile ? 2 : 8}
+            width={yAxisWidth}
+            label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
           />
           <YAxis
             yAxisId="premium"
@@ -641,10 +644,10 @@ function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: b
               if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
               return `$${Math.round(n)}`;
             }}
-            tick={{ fontSize: 10, fill: axisStroke }}
-            tickMargin={8}
-            width={62}
-            label={{ value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+            tickMargin={isMobile ? 2 : 8}
+            width={yAxisWidthRight}
+            label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
             contentStyle={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", borderRadius: 6 }}
@@ -738,7 +741,7 @@ function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: b
             yAxisId="volumeSpacer"
             orientation="left"
             domain={[0, 1]}
-            width={72}
+            width={yAxisWidth}
             axisLine={false}
             tickLine={false}
             tick={false}
@@ -755,10 +758,10 @@ function FullWidthFlowChart({ rows, isDark }: { rows: TimeseriesRow[]; isDark: b
               if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
               return String(Math.round(n));
             }}
-            tick={{ fontSize: 10, fill: axisStroke }}
-            tickMargin={8}
-            width={62}
-            label={{ value: "Net Volume", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
+            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+            tickMargin={isMobile ? 2 : 8}
+            width={yAxisWidthRight}
+            label={isMobile ? undefined : { value: "Net Volume", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
             content={({ active, label, payload }) => {
@@ -807,6 +810,7 @@ export default function FlowAnalysisPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const isMobile = useIsMobile();
   const cardBg = isDark ? "#423d3f" : "#ffffff";
   const inputBg = isDark ? "#2a2628" : "#f3f4f6";
   const inputBorder = isDark ? "#6b7280" : "#d1d5db";
@@ -1071,7 +1075,7 @@ export default function FlowAnalysisPage() {
           title="Options Flow"
           tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero. X-axis spans the full session from first bar to 16:15 ET."
         />
-        <FullWidthFlowChart rows={mainSeries} isDark={isDark} />
+        <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
       {/* ── Flow by Expiration ────────────────────────────────────────── */}
@@ -1088,7 +1092,7 @@ export default function FlowAnalysisPage() {
           isDark={isDark}
         />
         {expirationError && <ErrorMessage message={expirationError} />}
-        <FullWidthFlowChart rows={expirationSeries} isDark={isDark} />
+        <FullWidthFlowChart rows={expirationSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
       {/* ── Flow by Strike ────────────────────────────────────────────── */}
@@ -1105,7 +1109,7 @@ export default function FlowAnalysisPage() {
           isDark={isDark}
         />
         {strikeError && <ErrorMessage message={strikeError} />}
-        <FullWidthFlowChart rows={strikeSeries} isDark={isDark} />
+        <FullWidthFlowChart rows={strikeSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
@@ -1117,10 +1121,10 @@ export default function FlowAnalysisPage() {
         {putCallRatioSeries.length === 0 ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={isMobile ? 200 : 240}>
             <ComposedChart
               data={putCallRatioSeries}
-              margin={{ top: 10, right: 70, left: 70, bottom: 28 }}
+              margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
               <XAxis
@@ -1161,7 +1165,7 @@ export default function FlowAnalysisPage() {
                   );
                 }}
               />
-              <YAxis stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickMargin={8} width={62} />
+              <YAxis stroke={axisStroke} tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }} tickMargin={isMobile ? 2 : 8} width={isMobile ? 38 : 62} />
               <Tooltip
                 content={({ active, label, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;

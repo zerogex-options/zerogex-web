@@ -16,6 +16,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,20 @@ function isAtOrAfterMarketOpen(ts: string): boolean {
   const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
   const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
   return hour > 9 || (hour === 9 && minute >= 30);
+}
+
+function isAtOrBeforeMarketClose(ts: string): boolean {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour < 16 || (hour === 16 && minute <= 15);
 }
 
 function computeRoundTicks(min: number, max: number): number[] {
@@ -258,10 +273,12 @@ function ContractChart({
   rows,
   rawRows,
   isDark,
+  isMobile,
 }: {
   rows: ChartRow[];
   rawRows: OptionContractRow[];
   isDark: boolean;
+  isMobile: boolean;
 }) {
   const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
 
@@ -291,17 +308,22 @@ function ContractChart({
 
   const gridStroke = isDark ? "#968f92" : "#d1d5db";
   const axisStroke = isDark ? "#f2f2f2" : "#374151";
-  const axisTickStyle = { fontSize: 10, fill: axisStroke };
+  const axisTickStyle = { fontSize: isMobile ? 9 : 10, fill: axisStroke };
+
+  const chartMargin = isMobile
+    ? { top: 8, right: 8, left: 8, bottom: 28 }
+    : { top: 10, right: 72, left: 72, bottom: 32 };
+  const yAxisWidth = isMobile ? 40 : 64;
 
   return (
     <div>
       <ContractStatsHeader rows={rawRows} isDark={isDark} />
       <ContractLegend latest={latestRaw} isDark={isDark} />
-      <div className="h-[480px] mt-2">
+      <div className="h-[320px] md:h-[480px] mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={rows}
-            margin={{ top: 10, right: 72, left: 72, bottom: 32 }}
+            margin={chartMargin}
             barCategoryGap="15%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} vertical={false} />
@@ -346,9 +368,9 @@ function ContractChart({
                 return String(Math.round(n));
               }}
               tick={axisTickStyle}
-              tickMargin={6}
-              width={64}
-              label={{
+              tickMargin={isMobile ? 2 : 6}
+              width={yAxisWidth}
+              label={isMobile ? undefined : {
                 value: "Volume",
                 angle: -90,
                 position: "insideLeft",
@@ -371,9 +393,9 @@ function ContractChart({
                 return `$${n.toFixed(decimals)}`;
               }}
               tick={axisTickStyle}
-              tickMargin={6}
-              width={64}
-              label={{
+              tickMargin={isMobile ? 2 : 6}
+              width={yAxisWidth}
+              label={isMobile ? undefined : {
                 value: "Price ($)",
                 angle: 90,
                 position: "insideRight",
@@ -424,6 +446,7 @@ export default function OptionContractsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const isMobile = useIsMobile();
 
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [selectedStrike, setSelectedStrike] = useState<string>("");
@@ -478,7 +501,7 @@ export default function OptionContractsPage() {
     if (!contractRows) return [];
     return [...contractRows]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .filter((r) => isAtOrAfterMarketOpen(r.timestamp))
+      .filter((r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp))
       .map((r) => ({
         timestamp: r.timestamp,
         time: safeTimeLabel(r.timestamp),
@@ -604,7 +627,7 @@ export default function OptionContractsPage() {
           </span>
           {dte != null && (
             <span className="text-sm font-medium" style={{ color: mutedText }}>
-              ({dte}D)
+              ({dte} DTE)
             </span>
           )}
         </div>
@@ -628,6 +651,7 @@ export default function OptionContractsPage() {
             rows={chartRows}
             rawRows={contractRows ?? []}
             isDark={isDark}
+            isMobile={isMobile}
           />
         )}
       </section>
