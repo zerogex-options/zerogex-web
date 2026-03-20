@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Footer from '@/components/Footer';
 import {
   TrendingUp,
   TrendingDown,
@@ -938,97 +939,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────────────────── */}
-      <footer
-        style={{
-          borderTop: `1px solid ${C.border}`,
-          padding: '48px 32px 32px',
-          background: isDark ? `${C.card}66` : 'rgba(200,195,200,0.2)',
-        }}
-      >
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div
-            style={{
-              display: 'flex', flexWrap: 'wrap', gap: 32,
-              justifyContent: 'space-between', alignItems: 'flex-start',
-              marginBottom: 36,
-            }}
-          >
-            {/* Brand */}
-            <div style={{ maxWidth: 280 }}>
-              <img
-                src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
-                alt="ZeroGEX"
-                style={{ height: 324, width: 'auto', marginBottom: 12 }}
-              />
-              <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
-                Real-time gamma exposure analytics for options traders who want the institutional edge.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.amber, marginBottom: 14 }}>
-                  Platform
-                </div>
-                {[
-                  ['/dashboard', 'Dashboard'],
-                  ['/gamma-exposure', 'Gamma Exposure'],
-                  ['/flow-analysis', 'Flow Analysis'],
-                  ['/trading-signals', 'Trading Signals'],
-                ].map(([href, label]) => (
-                  <div key={href} style={{ marginBottom: 8 }}>
-                    <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.light; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
-                    >
-                      {label}
-                    </Link>
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: C.amber, marginBottom: 14 }}>
-                  Tools
-                </div>
-                {[
-                  ['/intraday-tools', 'Intraday Tools'],
-                  ['/max-pain', 'Max Pain'],
-                  ['/options-calculator', 'Options Calc'],
-                  ['/about', 'About & API'],
-                ].map(([href, label]) => (
-                  <div key={href} style={{ marginBottom: 8 }}>
-                    <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.light; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
-                    >
-                      {label}
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              borderTop: `1px solid ${C.border}`,
-              paddingTop: 20,
-              display: 'flex', flexWrap: 'wrap', gap: 12,
-              justifyContent: 'space-between', alignItems: 'center',
-            }}
-          >
-            <p style={{ fontSize: 12, color: subtext, margin: 0 }}>
-              © 2026 ZeroGEX, LLC. All rights reserved.
-            </p>
-            <p style={{ fontSize: 12, color: subtext, margin: 0, maxWidth: 500, textAlign: 'right' }}>
-              Trading involves substantial risk. Past performance is not indicative of future results.
-              This platform is for informational purposes only, not investment advice.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer theme={theme} />
     </div>
   );
 }

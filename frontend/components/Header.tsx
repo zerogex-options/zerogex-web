@@ -324,7 +324,7 @@ export default function Header({ theme }: HeaderProps) {
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", transition: "height 0.3s ease" }}>
+                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
                       theme === "dark" ? "/title-subtitle-dark-small.svg" : "/title-subtitle-light-small.svg"
@@ -332,7 +332,7 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "100px",
+                      height: "300%",
                     }}
                   />
                 </Link>
