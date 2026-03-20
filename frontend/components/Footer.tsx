@@ -188,7 +188,7 @@ export default function Footer({ theme }: FooterProps) {
             <img
               src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
               alt="ZeroGEX"
-              style={{ height: '360px', width: 'auto', maxWidth: 'none' }}
+              style={{ width: '100%', height: 'auto' }}
             />
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, LLC. All rights reserved.

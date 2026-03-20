@@ -599,7 +599,8 @@ export default function Header({ theme }: HeaderProps) {
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
-                  height: "768px",
+                  height: "144px",
+                  marginTop: "-24px",
                 }}
               />
             </Link>

@@ -72,11 +72,13 @@ function AnimatedNumber({ target, prefix = '', suffix = '', decimals = 0 }: {
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+function StatCard({ label, value, sub, isDark = true }: { label: string; value: React.ReactNode; sub?: string; isDark?: boolean }) {
   return (
     <div
       style={{
-        background: `linear-gradient(135deg, ${C.card} 0%, rgba(66,61,63,0.6) 100%)`,
+        background: isDark
+          ? `linear-gradient(135deg, ${C.card} 0%, rgba(66,61,63,0.6) 100%)`
+          : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(240,235,240,0.6) 100%)',
         border: `1px solid ${C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
@@ -95,9 +97,9 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
 
 // ── Feature card ──────────────────────────────────────────────────────────────
 function FeatureCard({
-  icon: Icon, title, description, color = C.amber,
+  icon: Icon, title, description, color = C.amber, isDark = true,
 }: {
-  icon: React.ElementType; title: string; description: string; color?: string;
+  icon: React.ElementType; title: string; description: string; color?: string; isDark?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -106,8 +108,8 @@ function FeatureCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         background: hovered
-          ? `linear-gradient(135deg, ${C.cardHover} 0%, rgba(66,61,63,0.8) 100%)`
-          : `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)`,
+          ? (isDark ? `linear-gradient(135deg, ${C.cardHover} 0%, rgba(66,61,63,0.8) 100%)` : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,240,245,0.8) 100%)')
+          : (isDark ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)` : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(245,240,245,0.5) 100%)'),
         border: `1px solid ${hovered ? color + '55' : C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
@@ -137,8 +139,8 @@ function FeatureCard({
 }
 
 // ── Tool pill ─────────────────────────────────────────────────────────────────
-function ToolPill({ href, icon: Icon, label, color = C.amber }: {
-  href: string; icon: React.ElementType; label: string; color?: string;
+function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
+  href: string; icon: React.ElementType; label: string; color?: string; isDark?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -150,7 +152,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber }: {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 20px',
           borderRadius: 12,
-          background: hovered ? `${color}18` : `${C.card}cc`,
+          background: hovered ? `${color}18` : (isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)'),
           border: `1px solid ${hovered ? color + '60' : C.border}`,
           transition: 'all 0.2s ease',
           cursor: 'pointer',
@@ -264,7 +266,7 @@ export default function LandingPage() {
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             style={{
-              background: `${C.card}cc`,
+              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
               border: `1px solid ${C.border}`,
               borderRadius: 10,
               width: 38, height: 38,
@@ -592,10 +594,10 @@ export default function LandingPage() {
             gap: 20,
           }}
         >
-          <StatCard label="Analytics Modules" value={<AnimatedNumber target={8} suffix="+" />} sub="Gamma, Flow, Signals & more" />
-          <StatCard label="Data Refresh Rate" value={<AnimatedNumber target={1} suffix="s" />} sub="Real-time market updates" />
-          <StatCard label="Options Greeks" value={<AnimatedNumber target={5} />} sub="Delta, Gamma, Theta, Vega, Charm" />
-          <StatCard label="Supported Symbols" value={<AnimatedNumber target={4} suffix="+" />} sub="SPY, SPX, QQQ, IWM" />
+          <StatCard isDark={isDark} label="Analytics Modules" value={<AnimatedNumber target={8} suffix="+" />} sub="Gamma, Flow, Signals & more" />
+          <StatCard isDark={isDark} label="Data Refresh Rate" value={<AnimatedNumber target={1} suffix="s" />} sub="Real-time market updates" />
+          <StatCard isDark={isDark} label="Options Greeks" value={<AnimatedNumber target={5} />} sub="Delta, Gamma, Theta, Vega, Charm" />
+          <StatCard isDark={isDark} label="Supported Symbols" value={<AnimatedNumber target={4} suffix="+" />} sub="SPY, SPX, QQQ, IWM" />
         </div>
       </section>
 
@@ -728,37 +730,37 @@ export default function LandingPage() {
               gap: 20,
             }}
           >
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={Activity}
               title="Real-Time GEX Analysis"
               description="Monitor live gamma exposure by strike across all expirations. See exactly where dealer hedging pressure accumulates and where price is most likely to pin or repel."
               color={C.amber}
             />
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={BarChart2}
               title="Options Flow Tracking"
               description="Track smart money in real-time. Filter unusual options activity by expiration, strike, or premium size to spot institutional positioning before price moves."
               color={C.green}
             />
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={Zap}
               title="Intraday Trading Tools"
               description="VWAP deviation signals, Opening Range Breakout levels, volume spike detection, and momentum divergence — the tactical edge for day traders."
               color={C.amber}
             />
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={Target}
               title="Trading Signals"
               description="Composite signals synthesized from GEX, flow, and technical factors across intraday, swing, and multi-day timeframes with backtested accuracy metrics."
               color={C.green}
             />
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={Eye}
               title="Max Pain Analysis"
               description="Know exactly where options market makers want price to settle at each expiration. Max pain levels act as magnetic targets for 0DTE and weekly option expiries."
               color={C.red}
             />
-            <FeatureCard
+            <FeatureCard isDark={isDark}
               icon={Calculator}
               title="Options Calculator"
               description="Price any option in seconds. Calculate theoretical value, all five Greeks, and break-even zones with our built-in Black-Scholes and implied volatility engine."
@@ -858,14 +860,14 @@ export default function LandingPage() {
               gap: 12,
             }}
           >
-            <ToolPill href="/dashboard"            icon={BarChart2}    label="Dashboard — Market Overview"         color={C.amber} />
-            <ToolPill href="/trading-signals"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
-            <ToolPill href="/flow-analysis"        icon={Activity}     label="Flow Analysis — Smart Money Tracker" color={C.amber} />
-            <ToolPill href="/gamma-exposure"       icon={BarChart}     label="Gamma Exposure — GEX Heatmap"        color={C.green} />
-            <ToolPill href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
-            <ToolPill href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
-            <ToolPill href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
-            <ToolPill href="/greeks-gex"           icon={Layers}       label="Greeks & GEX — Deep Dive"            color={C.green} />
+            <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label="Dashboard — Market Overview"         color={C.amber} />
+            <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
+            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label="Flow Analysis — Smart Money Tracker" color={C.amber} />
+            <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label="Gamma Exposure — GEX Heatmap"        color={C.green} />
+            <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
+            <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
+            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
+            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="Greeks & GEX — Deep Dive"            color={C.green} />
           </div>
         </div>
       </section>

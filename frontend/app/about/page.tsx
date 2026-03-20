@@ -73,12 +73,14 @@ function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
 }
 
 // ── Info card ─────────────────────────────────────────────────────────────────
-function InfoCard({ icon: Icon, title, body, color = C.amber }: {
-  icon: React.ElementType; title: string; body: string; color?: string;
+function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
+  icon: React.ElementType; title: string; body: string; color?: string; isDark?: boolean;
 }) {
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)`,
+      background: isDark
+        ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)`
+        : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(245,240,245,0.5) 100%)',
       border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
     }}>
       <div style={{
@@ -95,7 +97,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber }: {
 }
 
 // ── FAQ item ──────────────────────────────────────────────────────────────────
-function FAQItem({ q, a }: { q: string; a: string }) {
+function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{
@@ -107,7 +109,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         onClick={() => setOpen(!open)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', background: open ? `${C.amber}08` : `${C.card}99`,
+          padding: '20px 24px', background: open ? `${C.amber}08` : (isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)'),
           border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16,
           transition: 'background 0.2s',
         }}
@@ -127,7 +129,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 // ── API link row ──────────────────────────────────────────────────────────────
-function APILink({ href, label, desc }: { href: string; label: string; desc: string }) {
+function APILink({ href, label, desc, isDark = true }: { href: string; label: string; desc: string; isDark?: boolean }) {
   return (
     <a
       href={href}
@@ -138,7 +140,7 @@ function APILink({ href, label, desc }: { href: string; label: string; desc: str
       <div style={{
         display: 'flex', alignItems: 'center', gap: 16,
         padding: '18px 22px', borderRadius: 14,
-        background: `${C.card}cc`, border: `1px solid ${C.border}`,
+        background: isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)', border: `1px solid ${C.border}`,
         transition: 'all 0.2s', cursor: 'pointer',
       }}
         onMouseEnter={e => {
@@ -147,7 +149,7 @@ function APILink({ href, label, desc }: { href: string; label: string; desc: str
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.borderColor = C.border;
-          (e.currentTarget as HTMLElement).style.background = `${C.card}cc`;
+          (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)';
         }}
       >
         <div style={{
@@ -198,7 +200,7 @@ export default function AboutPage() {
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             style={{
-              background: `${C.card}cc`, border: `1px solid ${C.border}`,
+              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)', border: `1px solid ${C.border}`,
               borderRadius: 10, width: 38, height: 38,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: C.muted,
@@ -342,7 +344,7 @@ export default function AboutPage() {
           </div>
 
           <div style={{
-            background: `${C.card}aa`, border: `1px solid ${C.border}`,
+            background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.75)', border: `1px solid ${C.border}`,
             borderRadius: 20, padding: 28, backdropFilter: 'blur(12px)',
           }}>
             {[
@@ -375,7 +377,9 @@ export default function AboutPage() {
       {/* ── How It Works ─────────────────────────────────────────────────────── */}
       <section style={{
         padding: '80px 32px',
-        background: `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`,
+        background: isDark
+          ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
+          : 'linear-gradient(180deg, transparent 0%, rgba(200,195,200,0.15) 50%, transparent 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
@@ -386,37 +390,37 @@ export default function AboutPage() {
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={Database}
               title="Options Chain Ingestion"
               body="We ingest live options chain data across all strikes and expirations for SPY, SPX, QQQ, and IWM. Open interest, volume, bid/ask spreads, and Greeks are captured tick-by-tick during market hours."
               color={C.amber}
             />
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={Cpu}
               title="Gamma Exposure Calculation"
               body="For each strike, we compute GEX as: Gamma × Open Interest × Contract Multiplier × Spot Price². Call GEX is positive (dealers short gamma); Put GEX is negative. Net GEX is the aggregate sum across all strikes."
               color={C.green}
             />
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={TrendingUp}
               title="Key Level Detection"
               body="Gamma Flip is identified as the strike where net GEX crosses zero. Call Wall and Put Wall are the strikes with maximum gamma-weighted open interest on each side. Max Pain is computed as the expiry price minimizing total option holder value."
               color={C.amber}
             />
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={Activity}
               title="Flow & Signal Synthesis"
               body="Unusual options activity is flagged by comparing volume to open interest ratios and premium size versus average. Trading signals synthesize GEX regime, flow direction, and technical factors into composite scores with directional conviction levels."
               color={C.green}
             />
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={Zap}
               title="Real-Time Delivery"
               body="All computed metrics are pushed to the frontend every second via an optimized API layer. The platform auto-refreshes without page reloads, so you always see current positioning without any manual intervention."
               color={C.amber}
             />
-            <InfoCard
+            <InfoCard isDark={isDark}
               icon={BarChart2}
               title="Greeks Engine"
               body="Our built-in Black-Scholes engine calculates theoretical option prices and all five Greeks — Delta, Gamma, Theta, Vega, and Charm — using live implied volatility surfaces. The Options Calculator lets you model any scenario in real time."
@@ -471,7 +475,7 @@ export default function AboutPage() {
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div style={{
-                background: `${C.card}99`, border: `1px solid ${C.border}`,
+                background: isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)', border: `1px solid ${C.border}`,
                 borderRadius: 16, padding: '22px 20px',
                 display: 'flex', gap: 16, alignItems: 'flex-start',
                 transition: 'all 0.2s', cursor: 'pointer',
@@ -482,7 +486,7 @@ export default function AboutPage() {
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = C.border;
-                  (e.currentTarget as HTMLElement).style.background = `${C.card}99`;
+                  (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)';
                 }}
               >
                 <div style={{
@@ -508,7 +512,9 @@ export default function AboutPage() {
       {/* ── API Documentation ────────────────────────────────────────────────── */}
       <section style={{
         padding: '80px 32px',
-        background: `linear-gradient(180deg, transparent 0%, ${C.card}22 100%)`,
+        background: isDark
+          ? `linear-gradient(180deg, transparent 0%, ${C.card}22 100%)`
+          : 'linear-gradient(180deg, transparent 0%, rgba(200,195,200,0.1) 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
@@ -519,17 +525,17 @@ export default function AboutPage() {
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 40 }}>
-            <APILink
+            <APILink isDark={isDark}
               href="https://api.zerogex.io/docs"
               label="Swagger UI — Interactive API Explorer"
               desc="Browse all endpoints, inspect request/response schemas, and execute live API calls from your browser"
             />
-            <APILink
+            <APILink isDark={isDark}
               href="https://api.zerogex.io/redoc"
               label="ReDoc — Full API Reference"
               desc="Clean, searchable reference documentation for every endpoint, parameter, and data model"
             />
-            <APILink
+            <APILink isDark={isDark}
               href="https://api.zerogex.io/openapi.json"
               label="OpenAPI JSON Schema"
               desc="Machine-readable OpenAPI 3.0 specification for code generation, SDK building, or integration testing"
@@ -537,7 +543,7 @@ export default function AboutPage() {
           </div>
 
           <div style={{
-            background: `${C.card}aa`, border: `1px solid ${C.border}`,
+            background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.75)', border: `1px solid ${C.border}`,
             borderRadius: 20, padding: '32px 36px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -565,7 +571,7 @@ export default function AboutPage() {
                 { method: 'GET', path: '/intraday/levels', desc: 'VWAP, ORB, and intraday levels' },
               ].map((ep) => (
                 <div key={ep.path} style={{
-                  background: `${C.bgDark}cc`, border: `1px solid ${C.border}`,
+                  background: isDark ? `${C.bgDark}cc` : 'rgba(245,240,245,0.9)', border: `1px solid ${C.border}`,
                   borderRadius: 10, padding: '12px 14px',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -595,35 +601,35 @@ export default function AboutPage() {
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="What is Gamma Exposure (GEX) and why does it matter?"
             a="Gamma Exposure is the aggregate sensitivity of options dealers' delta hedges to price moves in the underlying. When dealers are short gamma (positive GEX), they must buy when price rises and sell when it falls — creating a dampening effect on volatility and strong intraday support/resistance. When they're long gamma (negative GEX), they amplify moves in both directions. Knowing the GEX regime helps you understand whether the market is likely to trend or mean-revert on any given day."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="How is the Gamma Flip level calculated?"
             a="The Gamma Flip is the strike price at which net GEX transitions from positive to negative (or vice versa). We calculate it by summing call GEX minus put GEX across all strikes and identifying the zero-crossing point. This level is significant because above it, dealer hedging is stabilizing; below it, dealer hedging amplifies moves. It often acts as a pivot between trending and mean-reverting market regimes."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="What is Max Pain, and how reliable is it?"
             a="Max Pain is the price at expiration where the total dollar value of options held by buyers is minimized — i.e., where option sellers (market makers) make the most money. It's calculated by summing the intrinsic value of all calls and puts at each possible expiry price and finding the minimum. Max Pain is most reliable in the final 24–48 hours before expiration, especially for 0DTE options, where market maker incentives to pin price near that level are strongest."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="What symbols are currently supported?"
             a="ZeroGEX currently provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and IWM (Russell 2000 ETF). These four instruments represent the most liquid and most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest impact on intraday price dynamics."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="How often does the data refresh?"
             a="Key GEX metrics, flow data, and price quotes refresh every 1 second during regular market hours (9:30 AM – 4:00 PM ET). The platform streams updates automatically — there's no need to manually refresh the page. During pre-market and after-hours sessions, we show extended-hours quotes alongside the prior regular-session close for context."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="Can I access ZeroGEX data programmatically via API?"
             a="Yes. The full ZeroGEX data API is publicly accessible and documented at api.zerogex.io/docs. The API is OpenAPI 3.0 compliant, supports JSON responses, and exposes all the same data powering the web platform — including GEX summaries, strike-by-strike breakdowns, real-time quotes, flow data, trading signals, and more. Both Swagger UI and ReDoc documentation are available."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="Is ZeroGEX suitable for 0DTE trading?"
             a="Absolutely — in fact, 0DTE traders often get the most value from GEX analytics. On expiration days, the gamma of 0DTE options is extremely high, meaning dealer hedging flows are at their most intense. Max Pain becomes particularly reliable as a price magnet, Call Wall and Put Wall define the intraday trading range with high accuracy, and the GEX regime (positive vs. negative) predicts whether the market is likely to pin or break out. The 1-second data refresh is also critical for 0DTE timeframes."
           />
-          <FAQItem
+          <FAQItem isDark={isDark}
             q="How does the Options Calculator work?"
             a="The Options Calculator uses the Black-Scholes pricing model with live implied volatility surfaces fetched from our data pipeline. Enter any symbol, strike, expiration, and option type, and we calculate the theoretical price, Delta, Gamma, Theta, Vega, and Charm in real time. You can also model P&L scenarios at different price levels and time horizons to see how your position performs under various market conditions."
           />
