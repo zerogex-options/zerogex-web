@@ -116,9 +116,16 @@ export default function Footer({ theme }: FooterProps) {
           {/* Center: large logo */}
           <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
+              className="hidden md:block"
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
               style={{ height: '480px', width: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              className="block md:hidden"
+              src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
+              alt="ZeroGEX"
+              style={{ height: '120px', width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
