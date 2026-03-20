@@ -959,7 +959,7 @@ export default function LandingPage() {
               <img
                 src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
                 alt="ZeroGEX"
-                style={{ height: 108, width: 'auto', marginBottom: 12 }}
+                style={{ height: 324, width: 'auto', marginBottom: 12 }}
               />
               <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
                 Real-time gamma exposure analytics for options traders who want the institutional edge.

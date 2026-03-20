@@ -696,7 +696,7 @@ export default function AboutPage() {
               <Link href="/">
                 <img
                   src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
-                  alt="ZeroGEX" style={{ height: 108, width: 'auto', marginBottom: 12 }}
+                  alt="ZeroGEX" style={{ height: 324, width: 'auto', marginBottom: 12 }}
                 />
               </Link>
               <p style={{ fontSize: 13, color: subtext, lineHeight: 1.65, margin: 0 }}>
