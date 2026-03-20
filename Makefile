@@ -91,6 +91,8 @@ logo:
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/Dark_Full_Small.svg frontend/public/logo-dark-small.svg
 	cp assets/branding/Light_Full_Small.svg frontend/public/logo-light-small.svg
+	cp assets/branding/Dark_Title_Small.svg frontend/public/title-dark-small.svg
+	cp assets/branding/Light_Title_Small.svg frontend/public/title-light-small.svg
 	cp assets/branding/Dark_Title_Subtitle_Small.svg frontend/public/title-subtitle-dark-small.svg
 	cp assets/branding/Light_Title_Subtitle_Small.svg frontend/public/title-subtitle-light-small.svg
 	@echo "Logos copied successfully!"
