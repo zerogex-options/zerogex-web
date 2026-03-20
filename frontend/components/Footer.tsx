@@ -184,11 +184,11 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           {/* Right column: logo + copyright + disclaimer */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
             <img
               src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
               alt="ZeroGEX"
-              style={{ height: '360px', width: 'auto', objectFit: 'contain' }}
+              style={{ height: '360px', width: 'auto', maxWidth: 'none' }}
             />
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, LLC. All rights reserved.
