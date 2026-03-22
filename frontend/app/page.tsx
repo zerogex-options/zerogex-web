@@ -258,7 +258,7 @@ export default function LandingPage() {
         <img
           src={isDark ? '/title-subtitle-dark-small.svg' : '/title-subtitle-light-small.svg'}
           alt="ZeroGEX"
-          style={{ height: 360, width: 'auto' }}
+          style={{ height: 400, width: 'auto' }}
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

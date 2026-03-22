@@ -51,8 +51,8 @@ export default function Footer({ theme }: FooterProps) {
                   <Link
                     href={href}
                     style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
+                    onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = textLight; }}
+                    onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = subtext; }}
                   >
                     {label}
                   </Link>
@@ -80,8 +80,8 @@ export default function Footer({ theme }: FooterProps) {
                   <Link
                     href={href}
                     style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
+                    onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = textLight; }}
+                    onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = subtext; }}
                   >
                     {label}
                   </Link>
@@ -105,8 +105,8 @@ export default function Footer({ theme }: FooterProps) {
                   target="_blank"
                   rel="noreferrer"
                   style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = textLight; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subtext; }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = textLight; }}
+                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { (e.currentTarget as HTMLElement).style.color = subtext; }}
                 >
                   API Docs
                 </a>
@@ -186,7 +186,7 @@ export default function Footer({ theme }: FooterProps) {
           {/* Right column: logo + copyright + disclaimer */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
             <img
-              src={isDark ? '/logo-dark-small.svg' : '/logo-light-small.svg'}
+              src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
               style={{ width: '100%', height: 'auto' }}
             />

@@ -12,9 +12,32 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: 'ZeroGEX™ | Real-Time Options Analytics',
-  description: 'Professional options analytics platform featuring real-time gamma exposure, dealer positioning, and options flow analysis',
+  description: 'Professional options analytics platform featuring real-time gamma exposure, dealer positioning, and options flow analysis for retail traders.',
   icons: {
     icon: '/favicon.ico',
+  },
+  metadataBase: new URL('https://zerogex.io'),
+  openGraph: {
+    title: 'ZeroGEX™ | Real-Time Options Analytics',
+    description: 'Real-time gamma exposure, dealer positioning, and options flow analysis for retail traders.',
+    url: 'https://zerogex.io',
+    siteName: 'ZeroGEX',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'ZeroGEX Options Analytics Platform',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ZeroGEX™ | Real-Time Options Analytics',
+    description: 'Real-time gamma exposure, dealer positioning, and options flow analysis for retail traders.',
+    images: ['/og-image.png'],
   },
 };
 
