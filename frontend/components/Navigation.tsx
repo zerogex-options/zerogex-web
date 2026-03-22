@@ -50,6 +50,8 @@ export default function Navigation({ theme }: NavigationProps) {
   const pages = [
     { id: "/dashboard", label: "DASHBOARD" },
     { id: "/trading-signals", label: "TRADING SIGNALS" },
+    { id: "/volatility-expansion", label: "VOL EXPANSION" },
+    { id: "/position-optimizer", label: "POSITION OPTIMIZER" },
     { id: "/flow-analysis", label: "FLOW ANALYSIS" },
     { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
     { id: "/intraday-tools", label: "INTRADAY TOOLS" },

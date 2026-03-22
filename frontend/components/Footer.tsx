@@ -46,6 +46,8 @@ export default function Footer({ theme }: FooterProps) {
                 ['/gamma-exposure', 'Gamma Exposure'],
                 ['/flow-analysis', 'Flow Analysis'],
                 ['/trading-signals', 'Trading Signals'],
+                ['/volatility-expansion', 'Volatility Expansion'],
+                ['/position-optimizer', 'Position Optimizer'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
                   <Link
@@ -150,6 +152,8 @@ export default function Footer({ theme }: FooterProps) {
                 ['/gamma-exposure', 'Gamma Exposure'],
                 ['/flow-analysis', 'Flow Analysis'],
                 ['/trading-signals', 'Trading Signals'],
+                ['/volatility-expansion', 'Volatility Expansion'],
+                ['/position-optimizer', 'Position Optimizer'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
                   <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}>{label}</Link>

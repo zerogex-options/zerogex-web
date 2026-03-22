@@ -117,6 +117,133 @@ export interface TradeSignalResponse {
   orb_breakout_direction?: 'bullish' | 'bearish' | 'neutral' | null;
 }
 
+
+export interface GenericAccuracyPoint {
+  strength?: string;
+  timeframe?: SignalTimeframe | string;
+  win_rate?: number;
+  hit_rate?: number;
+  accuracy?: number;
+  rate?: number;
+  profitability?: number;
+  total_signals?: number;
+  samples?: number;
+  count?: number;
+  bucket?: string;
+  confidence?: string;
+  label?: string;
+}
+
+export interface VolExpansionComponent {
+  name: string;
+  weight: number;
+  raw_score: number;
+  weighted_score: number;
+  description: string;
+  value?: number | null;
+}
+
+export interface VolExpansionSignalResponse {
+  symbol: string;
+  timestamp: string;
+  composite_score: number;
+  max_possible_score: number;
+  normalized_score: number;
+  move_probability: number;
+  expected_direction: 'up' | 'down' | 'neutral';
+  expected_magnitude_pct: number;
+  confidence: 'high' | 'medium' | 'low';
+  catalyst_type: string;
+  time_horizon: string;
+  strategy_type: string;
+  entry_window?: string | null;
+  current_price?: number | null;
+  net_gex?: number | null;
+  gamma_flip?: number | null;
+  max_pain?: number | null;
+  put_call_ratio?: number | null;
+  dealer_net_delta?: number | null;
+  smart_money_direction?: 'up' | 'down' | 'neutral' | null;
+  vwap_deviation_pct?: number | null;
+  hours_to_next_expiry?: number | null;
+  components: VolExpansionComponent[];
+}
+
+export interface PositionOptimizerSizingProfile {
+  profile: string;
+  contracts: number;
+  max_risk_dollars: number;
+  expected_value_dollars: number;
+  constrained_by: string;
+}
+
+export interface PositionOptimizerCandidateComponent {
+  name: string;
+  weight: number;
+  raw_score: number;
+  weighted_score: number;
+  description: string;
+  value?: number | null;
+}
+
+export interface PositionOptimizerCandidate {
+  rank: number;
+  strategy_type: string;
+  expiry: string;
+  dte: number;
+  strikes: string;
+  option_type: string;
+  entry_debit: number;
+  entry_credit: number;
+  width: number;
+  max_profit: number;
+  max_loss: number;
+  risk_reward_ratio: number;
+  probability_of_profit: number;
+  expected_value: number;
+  sharpe_like_ratio: number;
+  liquidity_score: number;
+  net_delta: number;
+  net_gamma: number;
+  net_theta: number;
+  premium_efficiency: number;
+  market_structure_fit: number;
+  greek_alignment_score: number;
+  edge_score: number;
+  kelly_fraction: number;
+  sizing_profiles: PositionOptimizerSizingProfile[];
+  components: PositionOptimizerCandidateComponent[];
+  reasoning: string[];
+}
+
+export interface PositionOptimizerSignalResponse {
+  symbol: string;
+  timestamp: string;
+  signal_timestamp: string;
+  signal_timeframe: SignalTimeframe;
+  signal_direction: 'bullish' | 'bearish' | 'neutral';
+  signal_strength: 'high' | 'medium' | 'low';
+  trade_type: string;
+  current_price: number;
+  composite_score: number;
+  max_possible_score: number;
+  normalized_score: number;
+  top_strategy_type: string;
+  top_expiry: string;
+  top_dte: number;
+  top_strikes: string;
+  top_probability_of_profit: number;
+  top_expected_value: number;
+  top_max_profit: number;
+  top_max_loss: number;
+  top_kelly_fraction: number;
+  top_sharpe_like_ratio?: number | null;
+  top_liquidity_score?: number | null;
+  top_market_structure_fit?: number | null;
+  top_reasoning: string[];
+  candidates: PositionOptimizerCandidate[];
+}
+
 export interface SignalAccuracyPoint {
   strength: string;
   timeframe: SignalTimeframe;
@@ -331,5 +458,28 @@ export function useOptionContract(
   return useApiData<OptionContractRow[]>(
     `/api/option/contract?${params.toString()}`,
     { refreshInterval, enabled },
+  );
+}
+
+
+export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<VolExpansionSignalResponse>(`/api/signals/vol-expansion?symbol=${symbol}`, { refreshInterval });
+}
+
+export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
+  return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
+    `/api/signals/vol-expansion/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    { refreshInterval }
+  );
+}
+
+export function usePositionOptimizerSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<PositionOptimizerSignalResponse>(`/api/signals/position-optimizer?symbol=${symbol}`, { refreshInterval });
+}
+
+export function usePositionOptimizerAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
+  return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
+    `/api/signals/position-optimizer/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    { refreshInterval }
   );
 }
