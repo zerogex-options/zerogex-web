@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
+import { NAV_GROUPS } from "@/core/navigation";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -39,23 +40,10 @@ export default function Header({ theme }: HeaderProps) {
       return false;
     }
   });
-  const [collapsedNavOpen, setCollapsedNavOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  const pages = [
-    { id: "/dashboard", label: "DASHBOARD" },
-    { id: "/trading-signals", label: "TRADING SIGNALS" },
-    { id: "/volatility-expansion", label: "VOL EXPANSION" },
-    { id: "/position-optimizer", label: "POSITION OPTIMIZER" },
-    { id: "/flow-analysis", label: "FLOW ANALYSIS" },
-    { id: "/gamma-exposure", label: "GAMMA EXPOSURE" },
-    { id: "/intraday-tools", label: "INTRADAY TOOLS" },
-    { id: "/max-pain", label: "MAX PAIN" },
-    { id: "/options-calculator", label: "OPTIONS CALCULATOR" },
-    { id: "/option-contracts", label: "OPTION CONTRACTS" },
-  ];
 
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
@@ -71,11 +59,6 @@ export default function Header({ theme }: HeaderProps) {
     );
   };
 
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("header:collapse-changed", { detail: isCollapsed }),
-    );
-  }, [isCollapsed]);
 
   useEffect(() => {
     const setHeaderHeight = () => {
@@ -218,13 +201,6 @@ export default function Header({ theme }: HeaderProps) {
             >
               {/* Left: Dropdowns + Live Price */}
               <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setCollapsedNavOpen((v) => !v)}
-                  className="p-2 rounded-lg"
-                  aria-label="Toggle navigation"
-                >
-                  {collapsedNavOpen ? <X size={18} /> : <Menu size={18} />}
-                </button>
                 <div className="flex flex-col gap-2">
                   <select
                     value={symbol}
@@ -358,46 +334,6 @@ export default function Header({ theme }: HeaderProps) {
                   />
                 </div>
               </div>
-
-              {collapsedNavOpen && (
-                <div
-                  className="absolute left-0 top-full mt-2 rounded-lg border p-2 z-30 min-w-[220px]"
-                  style={{
-                    background:
-                      theme === "dark"
-                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(42,38,40,0.95) 100%)`
-                        : colors.cardLight,
-                    borderColor: border,
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    boxShadow: "0 16px 40px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  {pages.map((page) => {
-                    const active = pathname === page.id;
-                    return (
-                      <button
-                        key={page.id}
-                        className="w-full text-left px-3 py-2 rounded text-sm"
-                        style={{
-                          color: active
-                            ? colors.primary
-                            : theme === "dark"
-                              ? colors.light
-                              : colors.dark,
-                          opacity: active ? 1 : 0.85,
-                        }}
-                        onClick={() => {
-                          router.push(page.id);
-                          setCollapsedNavOpen(false);
-                        }}
-                      >
-                        {page.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
 
               {/* Collapse Toggle Button - Rightmost */}
               <button
@@ -618,34 +554,43 @@ export default function Header({ theme }: HeaderProps) {
 
           {mobileMenuOpen && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                {pages.map((page) => {
-                  const active = pathname === page.id;
-                  return (
-                    <button
-                      key={page.id}
-                      onClick={() => {
-                        router.push(page.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                      style={{
-                        background:
-                          theme === "dark"
-                            ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
-                            : colors.cardLight,
-                        borderColor: active ? `${colors.primary}60` : border,
-                        color: active
-                          ? colors.primary
-                          : theme === "dark"
-                            ? colors.light
-                            : colors.dark,
-                      }}
-                    >
-                      {page.label}
-                    </button>
-                  );
-                })}
+              <div className="space-y-4">
+                {NAV_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
+                      {group.label}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.items.map((page) => {
+                        const active = pathname === page.id;
+                        return (
+                          <button
+                            key={page.id}
+                            onClick={() => {
+                              router.push(page.id);
+                              setMobileMenuOpen(false);
+                            }}
+                            className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                            style={{
+                              background:
+                                theme === "dark"
+                                  ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                                  : colors.cardLight,
+                              borderColor: active ? `${colors.primary}60` : border,
+                              color: active
+                                ? colors.primary
+                                : theme === "dark"
+                                  ? colors.light
+                                  : colors.dark,
+                            }}
+                          >
+                            {page.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="flex gap-2">

@@ -126,8 +126,7 @@ export default function PositionOptimizerPage() {
     const numeric = Number(portfolioValueInput.replace(/[^\d]/g, ''));
     return Number.isFinite(numeric) && numeric > 0 ? numeric : 100000;
   }, [portfolioValueInput]);
-  const debouncedPortfolioValue = useDebouncedNumber(portfolioValue, 600);
-  const portfolioValueIsPending = portfolioValue !== debouncedPortfolioValue;
+  const debouncedPortfolioValue = useDebouncedNumber(portfolioValue, 2000);
 
   const { data: signal, loading: signalLoading, error: signalError, refetch } = usePositionOptimizerSignal(symbol, debouncedPortfolioValue);
   const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = usePositionOptimizerAccuracy(symbol, lookbackDays, 60000);
@@ -230,7 +229,7 @@ export default function PositionOptimizerPage() {
           <p className="text-gray-400">Spread-ranking and sizing intelligence for translating directional context into executable options structures.</p>
         </div>
         <div className="flex flex-col items-start gap-2 lg:items-end">
-          <label className="text-sm font-medium text-gray-300 flex items-center gap-2" htmlFor="portfolio-value-input">Position Size<TooltipWrapper text="Position sizing and optimizer recommendations are calibrated off this portfolio value input." inlineInExpanded={false}><span className="text-gray-400">ⓘ</span></TooltipWrapper></label>
+          <label className="text-sm font-medium text-gray-300 flex items-center gap-2" htmlFor="portfolio-value-input">Portfolio Size<TooltipWrapper text="Position sizing and optimizer recommendations are calibrated off this portfolio value input." inlineInExpanded={false}><span className="text-gray-400">ⓘ</span></TooltipWrapper></label>
           <div className="flex items-center rounded-lg border border-gray-700 bg-[#302c2d] px-3 py-2 focus-within:border-amber-400 transition-colors">
             <span className="mr-2 text-gray-400">$</span>
             <input
@@ -243,7 +242,7 @@ export default function PositionOptimizerPage() {
               placeholder="100,000"
             />
           </div>
-          <div className="text-xs text-gray-400">{portfolioValueIsPending ? 'Updating after you pause typing…' : <>Default: <span className="font-semibold text-slate-200">$100,000</span></>}</div>
+          
         </div>
       </div>
 
