@@ -7,6 +7,7 @@
 
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
+import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
@@ -67,21 +68,19 @@ export default function DashboardPage() {
             tooltip="Net Gamma Exposure across all strikes. Calculation: Sum of all call gamma minus put gamma, scaled by notional value. Positive GEX means dealers are net short gamma (bullish - creates resistance to price movement). Negative GEX means dealers are net long gamma (bearish - amplifies price swings)."
             theme={theme}
           />
-          <MetricCard
+          <PriceDistanceMetricCard
             title="Gamma Flip"
-            value={gexData?.gamma_flip ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'}
-            subtitle="Dealer positioning"
-            tooltip="Price level where dealer gamma exposure flips from positive to negative. Calculation: Strike where net GEX crosses zero. Above this level, dealers hedge by buying rallies and selling dips (dampening volatility). Below it, dealers sell rallies and buy dips (increasing volatility)."
+            level={gexData?.gamma_flip}
+            spotPrice={quoteData?.close}
+            tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
             theme={theme}
-            trend="neutral"
           />
-          <MetricCard
+          <PriceDistanceMetricCard
             title="Max Pain"
-            value={gexData?.max_pain ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'}
-            subtitle="Options expiry target"
-            tooltip="Strike price where option holders lose the most value at expiration. Calculation: Price point where the sum of dollar value of all options (calls + puts) is minimized. Market makers may push price toward this level as expiration approaches to maximize their profits. Acts as a magnet for price."
+            level={gexData?.max_pain}
+            spotPrice={quoteData?.close}
+            tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
             theme={theme}
-            trend="neutral"
           />
         </div>
       </section>

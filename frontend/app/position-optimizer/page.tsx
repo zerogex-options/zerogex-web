@@ -89,10 +89,28 @@ type IndicatorRow = {
   interpretation: string;
 };
 
+function formatWholeDollarInput(value: string) {
+  const digitsOnly = value.replace(/\D/g, '');
+  if (!digitsOnly) return '';
+  return Number(digitsOnly).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function humanizeStrategyText(value: string, strategyLabels: string[]) {
+  return strategyLabels.reduce((output, strategy) => {
+    const humanized = titleCase(strategy);
+    return output.replaceAll(strategy, humanized);
+  }, value);
+}
+
 export default function PositionOptimizerPage() {
   const { symbol } = useTimeframe();
   const [lookbackDays, setLookbackDays] = useState(30);
-  const [portfolioValue, setPortfolioValue] = useState(100000);
+  const [portfolioValueInput, setPortfolioValueInput] = useState('100,000');
+
+  const portfolioValue = useMemo(() => {
+    const numeric = Number(portfolioValueInput.replace(/[^\d]/g, ''));
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 100000;
+  }, [portfolioValueInput]);
 
   const { data: signal, loading: signalLoading, error: signalError, refetch } = usePositionOptimizerSignal(symbol, portfolioValue);
   const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = usePositionOptimizerAccuracy(symbol, lookbackDays, 60000);
@@ -100,6 +118,13 @@ export default function PositionOptimizerPage() {
   const accuracyRows = useMemo(() => parseAccuracyRows(accuracyPayload ?? null), [accuracyPayload]);
 
   const topCandidate = signal?.candidates?.[0] ?? null;
+
+  const strategyLabels = useMemo(() => {
+    const values = new Set<string>();
+    if (signal?.top_strategy_type) values.add(signal.top_strategy_type);
+    (signal?.candidates || []).forEach((candidate) => values.add(candidate.strategy_type));
+    return Array.from(values);
+  }, [signal]);
 
   const componentRadarData = useMemo(() => {
     return (topCandidate?.components || []).map((component) => ({
@@ -188,21 +213,20 @@ export default function PositionOptimizerPage() {
           <p className="text-gray-400">Spread-ranking and sizing intelligence for translating directional context into executable options structures.</p>
         </div>
         <div className="flex flex-col items-start gap-2 lg:items-end">
-          <label className="text-sm font-medium text-gray-300" htmlFor="portfolio-value-input">Portfolio size</label>
-          <select
-            id="portfolio-value-input"
-            value={portfolioValue}
-            onChange={(e) => setPortfolioValue(Number(e.target.value))}
-            className="min-w-[220px] rounded-lg border border-gray-700 bg-[#302c2d] px-3 py-2 text-slate-100 outline-none"
-          >
-            <option value={25000}>$25.00K</option>
-            <option value={50000}>$50.00K</option>
-            <option value={100000}>$100.00K</option>
-            <option value={250000}>$250.00K</option>
-            <option value={500000}>$500.00K</option>
-            <option value={1000000}>$1.00M</option>
-          </select>
-          <div className="text-xs text-gray-400">Default: <span className="font-semibold text-slate-200">$100.00K</span></div>
+          <label className="text-sm font-medium text-gray-300 flex items-center gap-2" htmlFor="portfolio-value-input">Position Size<TooltipWrapper text="Position sizing and optimizer recommendations are calibrated off this portfolio value input." inlineInExpanded={false}><span className="text-gray-400">ⓘ</span></TooltipWrapper></label>
+          <div className="flex items-center rounded-lg border border-gray-700 bg-[#302c2d] px-3 py-2 focus-within:border-amber-400 transition-colors">
+            <span className="mr-2 text-gray-400">$</span>
+            <input
+              id="portfolio-value-input"
+              type="text"
+              inputMode="numeric"
+              value={portfolioValueInput}
+              onChange={(e) => setPortfolioValueInput(formatWholeDollarInput(e.target.value))}
+              className="min-w-[220px] bg-transparent text-slate-100 outline-none"
+              placeholder="100,000"
+            />
+          </div>
+          <div className="text-xs text-gray-400">Default: <span className="font-semibold text-slate-200">$100,000</span></div>
         </div>
       </div>
 
@@ -248,7 +272,7 @@ export default function PositionOptimizerPage() {
             <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">Why the optimizer prefers it</div>
             <ul className="list-disc pl-5 space-y-2 text-sm leading-relaxed text-gray-200">
               {signal.top_reasoning.map((reason) => (
-                <li key={reason}>{reason}</li>
+                <li key={reason}>{humanizeStrategyText(reason, strategyLabels)}</li>
               ))}
             </ul>
           </div>

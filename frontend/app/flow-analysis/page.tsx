@@ -1055,7 +1055,8 @@ export default function FlowAnalysisPage() {
           />
           <MetricCard
             title="Net Flow"
-            value={`${Number(latestSnapshot?.netFlow || 0).toLocaleString()} contracts`}
+            value={Number(latestSnapshot?.netFlow || 0).toLocaleString()}
+            subtitle="contracts"
             trend={Number(latestSnapshot?.netFlow || 0) > 0 ? "bullish" : "bearish"}
             tooltip="Cumulative call volume minus put volume across the selected date."
             theme="dark"

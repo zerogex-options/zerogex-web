@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Info, TrendingDown, TrendingUp } from 'lucide-react';
+import { Info } from 'lucide-react';
 import {
   Bar,
   CartesianGrid,
@@ -21,6 +21,7 @@ import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmap from '@/components/GammaHeatmap';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -150,24 +151,6 @@ export default function GammaExposurePage() {
     setSortKey(key);
     setSortDir('desc');
   };
-
-
-
-  const formatSignedDelta = (target: number | null | undefined) => {
-    if (target == null || !quoteData?.close) return null;
-    const delta = target - quoteData.close;
-    const pct = (delta / quoteData.close) * 100;
-    const isAbove = delta >= 0;
-    return {
-      deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
-      pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
-      color: isAbove ? colors.bullish : colors.bearish,
-      isAbove,
-    };
-  };
-
-  const gammaFlipDelta = formatSignedDelta(gexData?.gamma_flip);
-  const maxPainDelta = formatSignedDelta(gexData?.max_pain);
   const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
 
   const renderLegend = () => (
@@ -208,25 +191,17 @@ export default function GammaExposurePage() {
             trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
             tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Subtitle shows whether the aggregate regime is positive or negative."
           />
-          <MetricCard
+          <PriceDistanceMetricCard
             title="Gamma Flip"
-            value={gexData?.gamma_flip && gammaFlipDelta ? (
-              <span className="inline-flex flex-wrap items-baseline gap-2">
-                <span>{`$${gexData.gamma_flip.toFixed(2)}`}</span>
-                <span className="inline-flex items-center gap-1" style={{ color: gammaFlipDelta.color, fontSize: '1rem' }}>{gammaFlipDelta.isAbove ? <TrendingUp size={16} strokeWidth={2.5} /> : <TrendingDown size={16} strokeWidth={2.5} />}<span>{`${gammaFlipDelta.deltaLabel} / ${gammaFlipDelta.pctLabel}`}</span></span>
-              </span>
-            ) : 'N/A'}
-            tooltip="Price where aggregate net gamma changes sign. Supplemental text shows the dollar and percent distance from the current underlying price."
+            level={gexData?.gamma_flip}
+            spotPrice={quoteData?.close}
+            tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
           />
-          <MetricCard
+          <PriceDistanceMetricCard
             title="Max Pain"
-            value={gexData?.max_pain && maxPainDelta ? (
-              <span className="inline-flex flex-wrap items-baseline gap-2">
-                <span>{`$${gexData.max_pain.toFixed(2)}`}</span>
-                <span className="inline-flex items-center gap-1" style={{ color: maxPainDelta.color, fontSize: '1rem' }}>{maxPainDelta.isAbove ? <TrendingUp size={16} strokeWidth={2.5} /> : <TrendingDown size={16} strokeWidth={2.5} />}<span>{`${maxPainDelta.deltaLabel} / ${maxPainDelta.pctLabel}`}</span></span>
-              </span>
-            ) : 'N/A'}
-            tooltip="Estimated strike where option-holder payout is minimized at expiry. Supplemental text shows the dollar and percent distance from the current underlying price."
+            level={gexData?.max_pain}
+            spotPrice={quoteData?.close}
+            tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
           />
         </div>
       </section>
