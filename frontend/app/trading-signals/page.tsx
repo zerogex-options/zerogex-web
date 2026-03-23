@@ -182,8 +182,8 @@ export default function TradingSignalsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Trading Signals</h1>
-      <p className="text-gray-400 mb-8">Actionable options trade signals powered by composite analytics.</p>
+      <h1 className="text-3xl font-bold mb-2">Trade Ideas</h1>
+      <p className="text-gray-400 mb-8">Actionable options trade ideas powered by composite analytics.</p>
 
       <section className="mb-6">
         <div className="inline-flex rounded-xl border border-gray-700 bg-[#423d3f] p-1">

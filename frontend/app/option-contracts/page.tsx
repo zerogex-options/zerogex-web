@@ -555,7 +555,7 @@ export default function OptionContractsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Option Contracts</h1>
+      <h1 className="text-3xl font-bold mb-6">Real-Time Contract Viewer</h1>
 
       {dropdownLoadError && (
         <div className="mb-4">

@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useGEXSummary, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
+import { useGEXSummary, useGEXByStrike, useMarketQuote, useApiData } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -56,6 +56,7 @@ export default function GammaExposurePage() {
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: intradayQuotes } = useApiData<Array<{ volume?: number | null }>>(`/api/market/historical?symbol=${symbol}&timeframe=1min&window_units=1`, { refreshInterval: 60000 });
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
 
   const expirationOptions = useMemo(() => {
@@ -115,11 +116,17 @@ export default function GammaExposurePage() {
     return cloned;
   }, [strikeData, sortKey, sortDir]);
 
+  const quoteVolume = quoteData?.volume ?? 0;
+  const cumulativeDayVolume = useMemo(() => {
+    const series = intradayQuotes || [];
+    if (!series.length) return quoteVolume;
+    return series.reduce((maxVolume, row) => Math.max(maxVolume, Number(row.volume || 0)), quoteVolume);
+  }, [intradayQuotes, quoteVolume]);
+
   if (gexLoading && !gexData) {
     return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
   }
 
-  const quoteVolume = quoteData?.volume ?? 0;
   const formatLarge = (value: number) => {
     const abs = Math.abs(value);
     if (abs >= 1000) return `${value.toFixed(0)}M`;
@@ -144,6 +151,25 @@ export default function GammaExposurePage() {
     setSortDir('desc');
   };
 
+
+
+  const formatSignedDelta = (target: number | null | undefined) => {
+    if (target == null || !quoteData?.close) return null;
+    const delta = target - quoteData.close;
+    const pct = (delta / quoteData.close) * 100;
+    const isAbove = delta >= 0;
+    return {
+      deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
+      pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
+      label: isAbove ? 'Above' : 'Below',
+      tone: isAbove ? 'bullish' : 'bearish' as const,
+      color: isAbove ? colors.bullish : colors.bearish,
+    };
+  };
+
+  const gammaFlipDelta = formatSignedDelta(gexData?.gamma_flip);
+  const maxPainDelta = formatSignedDelta(gexData?.max_pain);
+  const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
 
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-5 text-sm" style={{ color: textColor }}>
@@ -170,10 +196,39 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <SectionTitle title="GEX Snapshot" tooltip="Core gamma regime metrics from /api/gex/summary and /api/market/quote. Together they show where dealer hedging flows may dampen or amplify volatility and where expiry-related pinning pressure may form." />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MetricCard title="SPY Price" value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'} subtitle={quoteData ? `Vol: ${(quoteVolume / 1000000).toFixed(1)}M` : ''} tooltip="Latest underlying quote. Calculation: most recent close/last price from /api/market/quote; subtitle shows traded share volume (millions). Use this as reference against gamma levels." />
-          <MetricCard title="Net GEX" value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'} trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'} tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Sign and magnitude indicate whether dealer hedging likely absorbs or amplifies moves." />
-          <MetricCard title="Gamma Flip" value={gexData?.gamma_flip ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'} subtitle="Dealer positioning" tooltip="Price where aggregate net gamma changes sign. Above/below this level, dealer hedge behavior can invert (buying/selling into moves), often changing intraday volatility characteristics." />
-          <MetricCard title="Max Pain" value={gexData?.max_pain ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'} subtitle="Options expiry target" tooltip="Estimated strike where option-holder payout is minimized at expiry. This level can act as a late-cycle magnet, especially into expiration with high open interest concentration." />
+          <MetricCard
+            title={`${symbol} Price`}
+            value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
+            subtitle={quoteData ? `Day Vol: ${(cumulativeDayVolume / 1000000).toFixed(1)}M` : ''}
+            tooltip="Latest underlying quote. Calculation: most recent close/last price from /api/market/quote. Subtitle uses the highest observed cumulative session volume from the intraday market series so the card reflects total day volume."
+          />
+          <MetricCard
+            title="Net GEX"
+            value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'}
+            subtitle={<span style={{ color: netGexPositive ? colors.bullish : colors.bearish }}>{netGexPositive ? 'Positive' : 'Negative'}</span>}
+            trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
+            tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Subtitle shows whether the aggregate regime is positive or negative."
+          />
+          <MetricCard
+            title="Gamma Flip"
+            value={gexData?.gamma_flip && gammaFlipDelta ? (
+              <span className="inline-flex flex-wrap items-baseline gap-2">
+                <span>{`$${gexData.gamma_flip.toFixed(2)}`}</span>
+                <span style={{ color: gammaFlipDelta.color, fontSize: '1rem' }}>{`${gammaFlipDelta.label} ${gammaFlipDelta.deltaLabel} / ${gammaFlipDelta.pctLabel}`}</span>
+              </span>
+            ) : 'N/A'}
+            tooltip="Price where aggregate net gamma changes sign. Supplemental text shows the dollar and percent distance from the current underlying price."
+          />
+          <MetricCard
+            title="Max Pain"
+            value={gexData?.max_pain && maxPainDelta ? (
+              <span className="inline-flex flex-wrap items-baseline gap-2">
+                <span>{`$${gexData.max_pain.toFixed(2)}`}</span>
+                <span style={{ color: maxPainDelta.color, fontSize: '1rem' }}>{`${maxPainDelta.label} ${maxPainDelta.deltaLabel} / ${maxPainDelta.pctLabel}`}</span>
+              </span>
+            ) : 'N/A'}
+            tooltip="Estimated strike where option-holder payout is minimized at expiry. Supplemental text shows the dollar and percent distance from the current underlying price."
+          />
         </div>
       </section>
 

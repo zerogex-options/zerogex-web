@@ -19,8 +19,8 @@ export interface LivePrice {
 
 export interface MetricCardProps {
   title: string;
-  value: string;
-  subtitle?: string;
+  value: React.ReactNode;
+  subtitle?: React.ReactNode;
   trend?: 'bullish' | 'bearish' | 'neutral';
   tooltip: string;
   icon?: React.ReactNode;

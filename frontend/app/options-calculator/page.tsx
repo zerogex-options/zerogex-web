@@ -202,7 +202,6 @@ export default function OptionsCalculatorPage() {
         .map((exp) => exp.expiration)
         .filter((exp) => exp >= today)
         .sort((a, b) => a.localeCompare(b)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [maxPainData, today]
   );
 
@@ -374,7 +373,7 @@ export default function OptionsCalculatorPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Options Calculator</h1>
+      <h1 className="text-3xl font-bold mb-8">Live Strategy Lab</h1>
 
       <div className="bg-[#423d3f] rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

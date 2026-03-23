@@ -45,7 +45,7 @@ export default function Footer({ theme }: FooterProps) {
                 ['/dashboard', 'Dashboard'],
                 ['/gamma-exposure', 'Gamma Exposure'],
                 ['/flow-analysis', 'Flow Analysis'],
-                ['/trading-signals', 'Trading Signals'],
+                ['/trading-signals', 'Trade Ideas'],
                 ['/volatility-expansion', 'Volatility Expansion'],
                 ['/position-optimizer', 'Position Optimizer'],
               ].map(([href, label]) => (
@@ -73,9 +73,9 @@ export default function Footer({ theme }: FooterProps) {
                 Tools
               </div>
               {[
-                ['/intraday-tools', 'Intraday Tools'],
+                ['/intraday-tools', 'Other'],
                 ['/max-pain', 'Max Pain'],
-                ['/options-calculator', 'Options Calc'],
+                ['/options-calculator', 'Live Strategy Lab'],
                 ['/about', 'About'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
@@ -151,7 +151,7 @@ export default function Footer({ theme }: FooterProps) {
                 ['/dashboard', 'Dashboard'],
                 ['/gamma-exposure', 'Gamma Exposure'],
                 ['/flow-analysis', 'Flow Analysis'],
-                ['/trading-signals', 'Trading Signals'],
+                ['/trading-signals', 'Trade Ideas'],
                 ['/volatility-expansion', 'Volatility Expansion'],
                 ['/position-optimizer', 'Position Optimizer'],
               ].map(([href, label]) => (
@@ -165,9 +165,9 @@ export default function Footer({ theme }: FooterProps) {
                 Tools
               </div>
               {[
-                ['/intraday-tools', 'Intraday Tools'],
+                ['/intraday-tools', 'Other'],
                 ['/max-pain', 'Max Pain'],
-                ['/options-calculator', 'Options Calc'],
+                ['/options-calculator', 'Live Strategy Lab'],
                 ['/about', 'About'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
