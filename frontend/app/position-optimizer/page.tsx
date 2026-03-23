@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   usePositionOptimizerAccuracy,
   usePositionOptimizerSignal,
@@ -102,6 +102,21 @@ function humanizeStrategyText(value: string, strategyLabels: string[]) {
   }, value);
 }
 
+
+function useDebouncedNumber(value: number, delayMs = 500) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [value, delayMs]);
+
+  return debouncedValue;
+}
+
 export default function PositionOptimizerPage() {
   const { symbol } = useTimeframe();
   const [lookbackDays, setLookbackDays] = useState(30);
@@ -111,8 +126,10 @@ export default function PositionOptimizerPage() {
     const numeric = Number(portfolioValueInput.replace(/[^\d]/g, ''));
     return Number.isFinite(numeric) && numeric > 0 ? numeric : 100000;
   }, [portfolioValueInput]);
+  const debouncedPortfolioValue = useDebouncedNumber(portfolioValue, 600);
+  const portfolioValueIsPending = portfolioValue !== debouncedPortfolioValue;
 
-  const { data: signal, loading: signalLoading, error: signalError, refetch } = usePositionOptimizerSignal(symbol, portfolioValue);
+  const { data: signal, loading: signalLoading, error: signalError, refetch } = usePositionOptimizerSignal(symbol, debouncedPortfolioValue);
   const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = usePositionOptimizerAccuracy(symbol, lookbackDays, 60000);
 
   const accuracyRows = useMemo(() => parseAccuracyRows(accuracyPayload ?? null), [accuracyPayload]);
@@ -226,7 +243,7 @@ export default function PositionOptimizerPage() {
               placeholder="100,000"
             />
           </div>
-          <div className="text-xs text-gray-400">Default: <span className="font-semibold text-slate-200">$100,000</span></div>
+          <div className="text-xs text-gray-400">{portfolioValueIsPending ? 'Updating after you pause typing…' : <>Default: <span className="font-semibold text-slate-200">$100,000</span></>}</div>
         </div>
       </div>
 
