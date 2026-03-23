@@ -473,8 +473,20 @@ export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refre
   );
 }
 
-export function usePositionOptimizerSignal(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<PositionOptimizerSignalResponse>(`/api/signals/position-optimizer?symbol=${symbol}`, { refreshInterval });
+export function usePositionOptimizerSignal(
+  symbol = 'SPY',
+  portfolioValue = 100000,
+  refreshInterval = 15000,
+) {
+  const params = new URLSearchParams({
+    symbol,
+    portfolio_value: String(portfolioValue),
+  });
+
+  return useApiData<PositionOptimizerSignalResponse>(
+    `/api/signals/position-optimizer?${params.toString()}`,
+    { refreshInterval }
+  );
 }
 
 export function usePositionOptimizerAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
