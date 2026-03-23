@@ -25,9 +25,9 @@ export default function MetricCard({
   };
 
   return (
-    <ExpandableCard>
+    <ExpandableCard className="h-full">
       <div
-      className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+      className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
       style={{
         backgroundColor: resolvedTheme === 'dark' ? colors.cardDark : colors.cardLight,
         border: `1px solid ${colors.muted}`,

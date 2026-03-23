@@ -92,12 +92,7 @@ type IndicatorRow = {
 export default function PositionOptimizerPage() {
   const { symbol } = useTimeframe();
   const [lookbackDays, setLookbackDays] = useState(30);
-  const [portfolioValueInput, setPortfolioValueInput] = useState('100000');
-
-  const portfolioValue = useMemo(() => {
-    const numeric = Number(portfolioValueInput.replace(/[^\d.]/g, ''));
-    return Number.isFinite(numeric) && numeric > 0 ? numeric : 100000;
-  }, [portfolioValueInput]);
+  const [portfolioValue, setPortfolioValue] = useState(100000);
 
   const { data: signal, loading: signalLoading, error: signalError, refetch } = usePositionOptimizerSignal(symbol, portfolioValue);
   const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = usePositionOptimizerAccuracy(symbol, lookbackDays, 60000);
@@ -187,35 +182,29 @@ export default function PositionOptimizerPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Position Optimizer</h1>
-      <p className="text-gray-400 mb-6">Spread-ranking and sizing intelligence for translating directional context into executable options structures.</p>
-
-      <section className="mb-8 bg-[#423d3f] rounded-lg border border-gray-700 p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">Portfolio Value</h2>
-            <p className="text-sm text-gray-400">Used to populate the <span className="font-mono">portfolio_value</span> query param sent to <span className="font-mono">/api/signals/position-optimizer</span>.</p>
-          </div>
-          <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="portfolio-value-input">
-              Portfolio size
-            </label>
-            <div className="flex items-center rounded-lg border border-gray-700 bg-[#302c2d] px-3 py-2 focus-within:border-amber-400 transition-colors">
-              <span className="mr-2 text-gray-400">$</span>
-              <input
-                id="portfolio-value-input"
-                type="text"
-                inputMode="decimal"
-                value={portfolioValueInput}
-                onChange={(e) => setPortfolioValueInput(e.target.value)}
-                className="w-full min-w-[220px] bg-transparent text-slate-100 outline-none"
-                placeholder="100000"
-              />
-            </div>
-            <div className="mt-2 text-xs text-gray-400">Current request value: <span className="font-semibold text-slate-200">{formatCompact(portfolioValue, { currency: true })}</span></div>
-          </div>
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Position Optimizer</h1>
+          <p className="text-gray-400">Spread-ranking and sizing intelligence for translating directional context into executable options structures.</p>
         </div>
-      </section>
+        <div className="flex flex-col items-start gap-2 lg:items-end">
+          <label className="text-sm font-medium text-gray-300" htmlFor="portfolio-value-input">Portfolio size</label>
+          <select
+            id="portfolio-value-input"
+            value={portfolioValue}
+            onChange={(e) => setPortfolioValue(Number(e.target.value))}
+            className="min-w-[220px] rounded-lg border border-gray-700 bg-[#302c2d] px-3 py-2 text-slate-100 outline-none"
+          >
+            <option value={25000}>$25.00K</option>
+            <option value={50000}>$50.00K</option>
+            <option value={100000}>$100.00K</option>
+            <option value={250000}>$250.00K</option>
+            <option value={500000}>$500.00K</option>
+            <option value={1000000}>$1.00M</option>
+          </select>
+          <div className="text-xs text-gray-400">Default: <span className="font-semibold text-slate-200">$100.00K</span></div>
+        </div>
+      </div>
 
       {signalError && <ErrorMessage message={signalError} onRetry={refetch} />}
       {accuracyError && <ErrorMessage message={accuracyError} />}

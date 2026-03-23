@@ -878,31 +878,39 @@ export default function FlowAnalysisPage() {
     return getSessionTimestamps(selectedDate);
   }, [selectedDate]);
 
-  // ── Snapshot (latest row for selected date) ─────────────────────────────────
+  // ── Snapshot (daily cumulative totals for selected date) ────────────────────
 
   const latestSnapshot = useMemo(() => {
     if (!selectedDate || !flowByType || flowByType.length === 0) return null;
     const dateRows = flowByType.filter((r) => getETDateKey(r.timestamp) === selectedDate);
     if (dateRows.length === 0) return null;
 
-    const latest = [...dateRows].sort(
+    const sortedRows = [...dateRows].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    )[0];
+    );
+    const latest = sortedRows[0];
 
-    const callVolume = Number(latest.call_volume || 0);
-    const putVolume = Number(latest.put_volume || 0);
-    const callPremium = Number(latest.call_premium || 0);
-    const putPremium = Number(latest.put_premium || 0);
+    const totals = dateRows.reduce((acc, row) => {
+      acc.callVolume += Number(row.call_volume || 0);
+      acc.putVolume += Number(row.put_volume || 0);
+      acc.callPremium += Number(row.call_premium || 0);
+      acc.putPremium += Number(row.put_premium || 0);
+      acc.netFlow += Number(row.net_volume || Number(row.call_volume || 0) - Number(row.put_volume || 0));
+      acc.netPremium += Number(row.net_premium || Number(row.call_premium || 0) - Number(row.put_premium || 0));
+      return acc;
+    }, {
+      callVolume: 0,
+      putVolume: 0,
+      callPremium: 0,
+      putPremium: 0,
+      netFlow: 0,
+      netPremium: 0,
+    });
 
     return {
       timestamp: latest.timestamp,
-      callVolume,
-      putVolume,
-      callPremium,
-      putPremium,
-      netFlow: Number(latest.net_volume || callVolume - putVolume),
-      netPremium: Number(latest.net_premium || callPremium - putPremium),
-      putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
+      ...totals,
+      putCallRatio: totals.callVolume > 0 ? totals.putVolume / totals.callVolume : 0,
     };
   }, [selectedDate, flowByType]);
 
@@ -1022,10 +1030,10 @@ export default function FlowAnalysisPage() {
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
-          tooltip="Most recent snapshot from the latest row for the selected date."
+          tooltip="Daily cumulative snapshot summed across the selected trading session."
         />
         <div className="text-sm mb-3" style={{ color: mutedText }}>
-          Latest timestamp:{" "}
+          Daily Totals as of:{" "}
           {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -1034,7 +1042,7 @@ export default function FlowAnalysisPage() {
             value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
             subtitle={`$${(Number(latestSnapshot?.callPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bullish"
-            tooltip="Latest call contracts traded for the selected date."
+            tooltip="Cumulative call contracts traded across the selected date."
             theme="dark"
           />
           <MetricCard
@@ -1042,28 +1050,28 @@ export default function FlowAnalysisPage() {
             value={Number(latestSnapshot?.putVolume || 0).toLocaleString()}
             subtitle={`$${(Number(latestSnapshot?.putPremium || 0) / 1_000_000).toFixed(2)}M premium`}
             trend="bearish"
-            tooltip="Latest put contracts traded for the selected date."
+            tooltip="Cumulative put contracts traded across the selected date."
             theme="dark"
           />
           <MetricCard
             title="Net Flow"
-            value={Number(latestSnapshot?.netFlow || 0).toLocaleString()}
+            value={`${Number(latestSnapshot?.netFlow || 0).toLocaleString()} contracts`}
             trend={Number(latestSnapshot?.netFlow || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Latest call volume minus put volume."
+            tooltip="Cumulative call volume minus put volume across the selected date."
             theme="dark"
           />
           <MetricCard
             title="Net Premium"
             value={`$${(Number(latestSnapshot?.netPremium || 0) / 1_000_000).toFixed(2)}M`}
             trend={Number(latestSnapshot?.netPremium || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Latest call premium minus put premium."
+            tooltip="Cumulative call premium minus put premium across the selected date."
             theme="dark"
           />
           <MetricCard
             title="Put/Call Ratio"
             value={Number(latestSnapshot?.putCallRatio || 0).toFixed(2)}
             trend={Number(latestSnapshot?.putCallRatio || 0) > 1 ? "bearish" : "bullish"}
-            tooltip="Latest put volume divided by call volume."
+            tooltip="Cumulative put volume divided by cumulative call volume across the selected date."
             theme="dark"
           />
         </div>

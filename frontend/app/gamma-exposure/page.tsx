@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import { Info, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   Bar,
   CartesianGrid,
@@ -161,9 +161,8 @@ export default function GammaExposurePage() {
     return {
       deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
       pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
-      label: isAbove ? 'Above' : 'Below',
-      tone: isAbove ? 'bullish' : 'bearish' as const,
       color: isAbove ? colors.bullish : colors.bearish,
+      isAbove,
     };
   };
 
@@ -214,7 +213,7 @@ export default function GammaExposurePage() {
             value={gexData?.gamma_flip && gammaFlipDelta ? (
               <span className="inline-flex flex-wrap items-baseline gap-2">
                 <span>{`$${gexData.gamma_flip.toFixed(2)}`}</span>
-                <span style={{ color: gammaFlipDelta.color, fontSize: '1rem' }}>{`${gammaFlipDelta.label} ${gammaFlipDelta.deltaLabel} / ${gammaFlipDelta.pctLabel}`}</span>
+                <span className="inline-flex items-center gap-1" style={{ color: gammaFlipDelta.color, fontSize: '1rem' }}>{gammaFlipDelta.isAbove ? <TrendingUp size={16} strokeWidth={2.5} /> : <TrendingDown size={16} strokeWidth={2.5} />}<span>{`${gammaFlipDelta.deltaLabel} / ${gammaFlipDelta.pctLabel}`}</span></span>
               </span>
             ) : 'N/A'}
             tooltip="Price where aggregate net gamma changes sign. Supplemental text shows the dollar and percent distance from the current underlying price."
@@ -224,7 +223,7 @@ export default function GammaExposurePage() {
             value={gexData?.max_pain && maxPainDelta ? (
               <span className="inline-flex flex-wrap items-baseline gap-2">
                 <span>{`$${gexData.max_pain.toFixed(2)}`}</span>
-                <span style={{ color: maxPainDelta.color, fontSize: '1rem' }}>{`${maxPainDelta.label} ${maxPainDelta.deltaLabel} / ${maxPainDelta.pctLabel}`}</span>
+                <span className="inline-flex items-center gap-1" style={{ color: maxPainDelta.color, fontSize: '1rem' }}>{maxPainDelta.isAbove ? <TrendingUp size={16} strokeWidth={2.5} /> : <TrendingDown size={16} strokeWidth={2.5} />}<span>{`${maxPainDelta.deltaLabel} / ${maxPainDelta.pctLabel}`}</span></span>
               </span>
             ) : 'N/A'}
             tooltip="Estimated strike where option-holder payout is minimized at expiry. Supplemental text shows the dollar and percent distance from the current underlying price."
