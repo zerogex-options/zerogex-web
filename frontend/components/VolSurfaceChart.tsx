@@ -17,10 +17,22 @@ import { colors } from '@/core/colors';
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
 
+interface NestedIvPoint {
+  strike?: number;
+  call_iv?: number | null;
+  put_iv?: number | null;
+}
+
+interface NestedSurfaceEntry {
+  dte?: number;
+  expiration?: string;
+  ivs?: NestedIvPoint[];
+}
+
 interface VolSurfaceResponse {
   symbol?: string;
   timestamp?: string;
-  surface?: VolSurfaceRawPoint[];
+  surface?: VolSurfaceRawPoint[] | NestedSurfaceEntry[];
   points?: VolSurfaceRawPoint[];
   data?: VolSurfaceRawPoint[];
   rows?: VolSurfaceRawPoint[];
@@ -40,12 +52,19 @@ interface VolSurfaceChartPoint {
   iv30dte: number | null;
 }
 
+interface NormalizedSurface {
+  points: VolSurfaceChartPoint[];
+  labels: [string, string, string];
+  emptyReason?: string;
+}
+
 const labelCandidates = ['label', 'bucket', 'moneyness', 'delta_bucket', 'x_label', 'x', 'strike'];
 const dte0Candidates = ['iv_0dte', 'iv0dte', 'dte_0', '0dte', 'dte0', 'iv_0_dte'];
 const dte7Candidates = ['iv_7dte', 'iv7dte', 'dte_7', '7dte', 'dte7', 'iv_7_dte'];
 const dte30Candidates = ['iv_30dte', 'iv30dte', 'dte_30', '30dte', 'dte30', 'iv_30_dte'];
 const tenorCandidates = ['tenor', 'dte_bucket', 'expiry_bucket', 'horizon'];
 const ivValueCandidates = ['iv', 'implied_vol', 'implied_volatility', 'volatility', 'value'];
+const seriesKeys: Array<keyof Pick<VolSurfaceChartPoint, 'iv0dte' | 'iv7dte' | 'iv30dte'>> = ['iv0dte', 'iv7dte', 'iv30dte'];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -96,6 +115,64 @@ function normalizeTenor(raw: Scalar): '0dte' | '7dte' | '30dte' | null {
   return null;
 }
 
+function averageIv(callIv: number | null | undefined, putIv: number | null | undefined): number | null {
+  const call = toNum(callIv);
+  const put = toNum(putIv);
+  if (call != null && put != null) return (call + put) / 2;
+  return call ?? put ?? null;
+}
+
+function normalizeNestedSurface(response: VolSurfaceResponse): NormalizedSurface | null {
+  if (!Array.isArray(response.surface) || response.surface.length === 0) return null;
+  const entries = response.surface as NestedSurfaceEntry[];
+  if (!entries.every((entry) => Array.isArray(entry.ivs))) return null;
+
+  const sorted = [...entries].sort((a, b) => Number(a.dte ?? 999) - Number(b.dte ?? 999)).slice(0, 3);
+  const labels: [string, string, string] = [
+    `${sorted[0]?.dte ?? 0}DTE`,
+    `${sorted[1]?.dte ?? 7}DTE`,
+    `${sorted[2]?.dte ?? 30}DTE`,
+  ];
+
+  const byStrike = new Map<number, VolSurfaceChartPoint>();
+
+  sorted.forEach((entry, entryIndex) => {
+    const key = seriesKeys[entryIndex];
+    (entry.ivs ?? []).forEach((ivPoint) => {
+      const strike = Number(ivPoint.strike);
+      if (!Number.isFinite(strike)) return;
+
+      const existing = byStrike.get(strike) ?? {
+        xLabel: String(strike),
+        iv0dte: null,
+        iv7dte: null,
+        iv30dte: null,
+      };
+
+      existing[key] = averageIv(ivPoint.call_iv, ivPoint.put_iv);
+      byStrike.set(strike, existing);
+    });
+  });
+
+  const points = Array.from(byStrike.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map((entry) => entry[1])
+    .filter((row) => row.iv0dte != null || row.iv7dte != null || row.iv30dte != null);
+
+  const anyIvRows = sorted.some((entry) => (entry.ivs ?? []).length > 0);
+  const emptyReason = points.length === 0 && anyIvRows
+    ? 'API returned strikes, but all IV values are null for the selected tenors.'
+    : undefined;
+
+  return { points, labels, emptyReason };
+}
+
+
+function coerceRows(source: unknown): VolSurfaceRawPoint[] {
+  if (!Array.isArray(source)) return [];
+  return source.filter(isRecord) as VolSurfaceRawPoint[];
+}
+
 function normalizeLongForm(rows: VolSurfaceRawPoint[]): VolSurfaceChartPoint[] {
   const grouped = new Map<string, VolSurfaceChartPoint>();
 
@@ -117,12 +194,16 @@ function normalizeLongForm(rows: VolSurfaceRawPoint[]): VolSurfaceChartPoint[] {
   return Array.from(grouped.values());
 }
 
-function normalizeSurface(response: VolSurfaceResponse | VolSurfaceRawPoint[] | null): VolSurfaceChartPoint[] {
-  if (!response) return [];
-
+function normalizeWideForm(response: VolSurfaceResponse | VolSurfaceRawPoint[]): VolSurfaceChartPoint[] {
   const rows = Array.isArray(response)
     ? response
-    : response.surface ?? response.points ?? response.data ?? response.rows ?? response.vol_surface ?? response.curve ?? response.result ?? [];
+    : coerceRows(response.points)
+      .concat(coerceRows(response.data))
+      .concat(coerceRows(response.rows))
+      .concat(coerceRows(response.vol_surface))
+      .concat(coerceRows(response.curve))
+      .concat(coerceRows(response.result))
+      .concat(coerceRows(response.surface));
 
   const hasLongForm = rows.some((row) => normalizeTenor(lookupDeep(row, tenorCandidates)) != null);
   if (hasLongForm) {
@@ -144,6 +225,22 @@ function normalizeSurface(response: VolSurfaceResponse | VolSurfaceRawPoint[] | 
     .filter((row) => row.iv0dte != null || row.iv7dte != null || row.iv30dte != null);
 }
 
+function normalizeSurface(response: VolSurfaceResponse | VolSurfaceRawPoint[] | null): NormalizedSurface {
+  if (!response) {
+    return { points: [], labels: ['0DTE', '7DTE', '30DTE'] };
+  }
+
+  if (!Array.isArray(response)) {
+    const nested = normalizeNestedSurface(response);
+    if (nested) return nested;
+  }
+
+  return {
+    points: normalizeWideForm(response),
+    labels: ['0DTE', '7DTE', '30DTE'],
+  };
+}
+
 function formatPct(value: unknown): string {
   const raw = Array.isArray(value) ? value[0] : value;
   const num = Number(raw);
@@ -151,12 +248,12 @@ function formatPct(value: unknown): string {
   return `${(num * 100).toFixed(0)}%`;
 }
 
-function renderLegend() {
+function renderLegend(labels: [string, string, string]) {
   return (
     <div className="flex items-center gap-6 text-sm pt-2">
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#3b93d9' }} />0DTE IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#7c7ad4' }} />7DTE IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#8e8f8b' }} />30DTE IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#3b93d9' }} />{labels[0]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#7c7ad4' }} />{labels[1]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#8e8f8b' }} />{labels[2]} IV</span>
     </div>
   );
 }
@@ -173,7 +270,9 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
     { refreshInterval: 30000 },
   );
 
-  const surface = normalizeSurface(data);
+  const normalized = normalizeSurface(data);
+  const surface = normalized.points;
+  const labels = normalized.labels;
 
   return (
     <div
@@ -196,8 +295,9 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           {error}
         </div>
       ) : surface.length === 0 ? (
-        <div className="flex items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>
-          No vol surface data available
+        <div className="flex flex-col items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>
+          <span>No vol surface data available</span>
+          {normalized.emptyReason && <span className="text-xs mt-2 opacity-80">{normalized.emptyReason}</span>}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={340}>
@@ -230,13 +330,13 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
               labelStyle={{ color: textColor }}
               formatter={(value, name) => [formatPct(value), String(name ?? '')]}
             />
-            <Legend verticalAlign="bottom" align="left" content={renderLegend} />
+            <Legend verticalAlign="bottom" align="left" content={() => renderLegend(labels)} />
 
             <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
 
-            <Area type="monotone" dataKey="iv0dte" name="0DTE" stroke="#3b93d9" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
-            <Area type="monotone" dataKey="iv7dte" name="7DTE" stroke="#7c7ad4" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#7c7ad4' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name="30DTE" stroke="#8e8f8b" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
+            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#3b93d9" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
+            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#7c7ad4" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#7c7ad4' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#8e8f8b" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
       )}
