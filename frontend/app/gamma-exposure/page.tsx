@@ -18,7 +18,7 @@ import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexStrikeChart from '@/components/GexStrikeChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
-import VolSurfacePlaceholder from '@/components/VolSurfacePlaceholder';
+import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -237,7 +237,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
-          <VolSurfacePlaceholder />
+          <VolSurfaceChart symbol={symbol} />
         </div>
       </section>
 
