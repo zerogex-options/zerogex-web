@@ -3,31 +3,34 @@
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import {
-  Bar,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  Legend,
-  Line,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { useGEXSummary, useGEXByStrike, useMarketQuote, useApiData } from '@/hooks/useApiData';
+  useGEXSummary,
+  useGEXByStrike,
+  useMarketQuote,
+  useVolatilityGauge,
+  useApiData,
+} from '@/hooks/useApiData';
+import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmap from '@/components/GammaHeatmap';
+import GexRegimeHeader from '@/components/GexRegimeHeader';
+import GexStrikeChart from '@/components/GexStrikeChart';
+import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
+import CharmVannaFlows from '@/components/CharmVannaFlows';
+import VolSurfacePlaceholder from '@/components/VolSurfacePlaceholder';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
-  return <div className="flex items-center gap-2 mb-4"><h2 className="text-2xl font-semibold">{title}</h2><TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper></div>;
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <h2 className="text-2xl font-semibold">{title}</h2>
+      <TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper>
+    </div>
+  );
 }
 
 type StrikeAggregate = {
@@ -51,15 +54,20 @@ export default function GammaExposurePage() {
   const textColor = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? '#423d3f' : '#ffffff';
   const inputBg = isDark ? '#2a2628' : '#f3f4f6';
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
+
+  // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: intradayQuotes } = useApiData<Array<{ volume?: number | null }>>(`/api/market/historical?symbol=${symbol}&timeframe=1min&window_units=1`, { refreshInterval: 60000 });
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: volGauge } = useVolatilityGauge(30000);
+  const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
+    `/api/signals/vol-expansion?symbol=${symbol}`,
+    { refreshInterval: 30000 },
+  );
 
+  // Expiration filter state for strike table
   const expirationOptions = useMemo(() => {
     const unique = new Set((gexByStrike || []).map((row) => String(row.expiration)));
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
@@ -69,6 +77,7 @@ export default function GammaExposurePage() {
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Aggregate by-strike data for the chart and table
   const strikeData = useMemo(() => {
     const selected = selectedExpirations && selectedExpirations.length > 0 ? selectedExpirations : expirationOptions;
     const activeExpirations = new Set(selected);
@@ -91,7 +100,6 @@ export default function GammaExposurePage() {
           charmM: 0,
         });
       }
-
       const current = grouped.get(key)!;
       current.netGexM += Number(row.net_gex || 0) / 1000000;
       current.callOi += Number(row.call_oi || 0);
@@ -117,32 +125,37 @@ export default function GammaExposurePage() {
     return cloned;
   }, [strikeData, sortKey, sortDir]);
 
-  const quoteVolume = quoteData?.volume ?? 0;
-  const cumulativeDayVolume = useMemo(() => {
-    const series = intradayQuotes || [];
-    if (!series.length) return quoteVolume;
-    return series.reduce((maxVolume, row) => Math.max(maxVolume, Number(row.volume || 0)), quoteVolume);
-  }, [intradayQuotes, quoteVolume]);
+  // Prepare chart data (in $B for the strike chart)
+  const chartStrikeData = useMemo(
+    () => strikeData.map((row) => ({ strike: row.strike, netGexB: row.netGexM / 1000 })),
+    [strikeData],
+  );
 
-  if (gexLoading && !gexData) {
-    return <div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1><div className="grid grid-cols-1 md:grid-cols-4 gap-4"><LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard /></div></div>;
-  }
+  // Metric computations
+  const netGexB = gexData ? gexData.net_gex / 1e9 : null;
+  const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
+  const ivRankPct = volGauge ? Math.round(volGauge.level * 10) : null;
 
-  const formatLarge = (value: number) => {
+  const totalVanna = useMemo(
+    () => (gexByStrike || []).reduce((sum, r) => sum + Number(r.vanna_exposure || 0), 0),
+    [gexByStrike],
+  );
+  const vannaLabel = totalVanna > 1e8 ? '+Tailwind' : totalVanna < -1e8 ? '-Headwind' : 'Neutral';
+  const vannaTrend: 'bullish' | 'bearish' | 'neutral' = totalVanna > 1e8 ? 'bullish' : totalVanna < -1e8 ? 'bearish' : 'neutral';
+
+  const totalCharm = useMemo(
+    () => (gexByStrike || []).reduce((sum, r) => sum + Number(r.charm_exposure || 0), 0),
+    [gexByStrike],
+  );
+  const charmLabel = Math.abs(totalCharm) < 1e8 ? 'Neutral' : totalCharm > 0 ? 'Bullish' : 'Bearish';
+
+  const formatLargeM = (value: number) => {
     const abs = Math.abs(value);
     if (abs >= 1000) return `${value.toFixed(0)}M`;
     if (abs >= 1) return `${value.toFixed(1)}M`;
     return `${(value * 1000).toFixed(0)}K`;
   };
 
-
-  const underlyingStrikeMarker = quoteData && strikeData.length
-    ? strikeData.reduce((closest, row) =>
-        Math.abs(row.strike - quoteData.close) < Math.abs(closest - quoteData.close)
-          ? row.strike
-          : closest,
-      strikeData[0].strike)
-    : null;
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -151,68 +164,81 @@ export default function GammaExposurePage() {
     setSortKey(key);
     setSortDir('desc');
   };
-  const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
 
-  const renderLegend = () => (
-    <div className="w-full flex flex-wrap justify-end items-center gap-5 text-sm" style={{ color: textColor }}>
-      <div className="flex items-center gap-2">
-        <span className="inline-block h-3 w-5 rounded-sm" style={{ background: 'linear-gradient(to right, #f45854 0%, #f45854 50%, #10b981 50%, #10b981 100%)' }} />
-        Net GEX
+  if (gexLoading && !gexData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-8">Gamma Exposure Analysis</h1>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="inline-block h-0.5 w-5 bg-[#60a5fa]" />
-        Vanna
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="inline-block h-0.5 w-5 bg-[#facc15]" />
-        Charm
-      </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Gamma Exposure</h1>
+      <h1 className="text-3xl font-bold mb-6">Gamma Exposure Analysis</h1>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
 
+      {/* Section 1: Regime Header */}
+      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
+
+      {/* Section 2: Metric Cards */}
       <section className="mb-8">
-        <SectionTitle title="GEX Snapshot" tooltip="Core gamma regime metrics from /api/gex/summary and /api/market/quote. Together they show where dealer hedging flows may dampen or amplify volatility and where expiry-related pinning pressure may form." />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
-            title={`${symbol} Price`}
-            value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Day Vol: ${(cumulativeDayVolume / 1000000).toFixed(1)}M` : ''}
-            tooltip="Latest underlying quote. Calculation: most recent close/last price from /api/market/quote. Subtitle uses the highest observed cumulative session volume from the intraday market series so the card reflects total day volume."
+            title="Net GEX ($B)"
+            value={netGexB != null ? `${netGexB >= 0 ? '+' : ''}$${netGexB.toFixed(1)}B` : '--'}
+            trend={netGexPositive ? 'bullish' : 'bearish'}
+            tooltip="Net gamma exposure across all strikes. Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
           />
           <MetricCard
-            title="Net GEX"
-            value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'}
-            subtitle={<span style={{ color: netGexPositive ? colors.bullish : colors.bearish }}>{netGexPositive ? 'Positive' : 'Negative'}</span>}
-            trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
-            tooltip="Net gamma exposure across strikes. Calculation: total_call_gex - total_put_gex, normalized to notional dollars. Subtitle shows whether the aggregate regime is positive or negative."
+            title="IV Rank"
+            value={ivRankPct != null ? `${ivRankPct}%` : '--'}
+            subtitle={volGauge?.level_label}
+            tooltip="Implied volatility rank derived from VIX level. 0% = historically calm, 100% = extreme fear. Maps VIX to a 0-100 percentile scale."
           />
-          <PriceDistanceMetricCard
-            title="Gamma Flip"
-            level={gexData?.gamma_flip}
-            spotPrice={quoteData?.close}
-            tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
+          <MetricCard
+            title="Vanna Flow"
+            value={vannaLabel}
+            trend={vannaTrend}
+            tooltip="Net vanna exposure across all strikes. Positive vanna = vol crush supports upside (tailwind). Negative vanna = vol crush pressures downside (headwind)."
           />
-          <PriceDistanceMetricCard
-            title="Max Pain"
-            level={gexData?.max_pain}
-            spotPrice={quoteData?.close}
-            tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
+          <MetricCard
+            title="Charm Decay"
+            value={charmLabel}
+            tooltip="Net charm (delta decay over time) across all strikes. Shows whether time decay is systematically adding or removing directional delta pressure."
           />
         </div>
       </section>
 
+      {/* Section 3: GEX by Strike + Strike×DTE Heatmap */}
       <section className="mb-8">
-        <GammaHeatmap />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GexStrikeChart
+            strikeData={chartStrikeData}
+            gammaFlip={gexData?.gamma_flip}
+            spotPrice={quoteData?.close}
+          />
+          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+        </div>
       </section>
 
+      {/* Section 4: Charm/Vanna Flows + Vol Surface */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+          <VolSurfacePlaceholder />
+        </div>
+      </section>
+
+      {/* Section 5: Strike Data Table */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle title="Gamma Exposure by Strike" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
-        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div> : (
+        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
+          <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
+        ) : (
           <>
             <div className="mb-5 flex flex-wrap gap-2 items-center">
               <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
@@ -236,40 +262,7 @@ export default function GammaExposurePage() {
               })}
             </div>
 
-            <ResponsiveContainer width="100%" height={390}>
-              <ComposedChart data={sortedRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strike" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-                <YAxis yAxisId="greeks" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickFormatter={(value) => formatLarge(Number(value))} />
-                <YAxis yAxisId="net" orientation="right" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} domain={['auto', 'auto']} tickFormatter={(value) => `$${formatLarge(Number(value))}`} />
-                <Tooltip contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db', borderRadius: 6 }} labelStyle={{ color: textColor }} itemStyle={{ color: isDark ? '#d1d5db' : '#374151' }} formatter={(value) => `$${Number(value).toFixed(2)}M`} />
-                <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <ReferenceLine yAxisId="net" y={0} stroke={axisStroke} />
-                {quoteData && underlyingStrikeMarker !== null && <ReferenceLine
-                  yAxisId="net"
-                  ifOverflow="extendDomain"
-                  x={underlyingStrikeMarker}
-                  stroke="#60a5fa"
-                  strokeDasharray="6 4"
-                  strokeWidth={2}
-                  label={{
-                    value: `Underlying $${quoteData.close.toFixed(2)}`,
-                    fill: textColor,
-                    position: "insideTopRight",
-                    dy: 8,
-                  }}
-                />}
-                <Bar yAxisId="net" dataKey="netGexM" name="Net GEX" barSize={12}>
-                  {sortedRows.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.netGexM >= 0 ? '#10b981' : '#f45854'} />
-                  ))}
-                </Bar>
-                <Line yAxisId="greeks" type="monotone" dataKey="vannaM" name="Vanna" stroke="#60a5fa" dot={false} strokeWidth={2} />
-                <Line yAxisId="greeks" type="monotone" dataKey="charmM" name="Charm" stroke="#facc15" dot={false} strokeWidth={2} />
-              </ComposedChart>
-            </ResponsiveContainer>
-
-            <div className="overflow-x-auto mt-6">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
@@ -303,6 +296,11 @@ export default function GammaExposurePage() {
             </div>
           </>
         )}
+      </section>
+
+      {/* Section 6: Existing Time-Series Heatmap */}
+      <section className="mb-8">
+        <GammaHeatmap />
       </section>
     </div>
   );
