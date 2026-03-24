@@ -20,6 +20,7 @@ import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmap from '@/components/GammaHeatmap';
+import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -208,6 +209,10 @@ export default function GammaExposurePage() {
 
       <section className="mb-8">
         <GammaHeatmap />
+      </section>
+
+      <section className="mb-8">
+        <VolSurfaceChart />
       </section>
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>

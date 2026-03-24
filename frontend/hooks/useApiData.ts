@@ -489,6 +489,44 @@ export function usePositionOptimizerSignal(
   );
 }
 
+export interface StrikeIV {
+  strike: number;
+  call_iv: number | null;
+  put_iv: number | null;
+}
+
+export interface ExpirationSlice {
+  expiration: string;
+  dte: number;
+  ivs: StrikeIV[];
+}
+
+export interface ATMTermPoint {
+  dte: number;
+  atm_iv: number | null;
+}
+
+export interface Skew25dPoint {
+  dte: number;
+  skew: number | null;
+}
+
+export interface VolSurfaceResponse {
+  symbol: string;
+  spot_price: number;
+  timestamp: string;
+  expirations: string[];
+  strikes: number[];
+  surface: ExpirationSlice[];
+  atm_term_structure: ATMTermPoint[];
+  skew_25d: Skew25dPoint[];
+}
+
+export function useVolSurface(symbol = 'SPY', dteMax = 60, strikeCount = 30, refreshInterval = 30000) {
+  const params = new URLSearchParams({ symbol, dte_max: String(dteMax), strike_count: String(strikeCount) });
+  return useApiData<VolSurfaceResponse>(`/api/vol-surface?${params.toString()}`, { refreshInterval });
+}
+
 export function usePositionOptimizerAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
     `/api/signals/position-optimizer/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
