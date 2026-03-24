@@ -109,7 +109,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
               }}
               labelStyle={{ color: textColor }}
               labelFormatter={(v) => `Strike $${Number(v).toFixed(0)}`}
-              formatter={(value: number, name) => [formatPct(value), name]}
+              formatter={(value, name) => [formatPct(Number(value ?? 0)), String(name ?? '')]}
             />
             <Legend />
             <Line type="monotone" dataKey="iv_0dte" name="0DTE" stroke="#22c55e" strokeWidth={2} dot={false} connectNulls />
