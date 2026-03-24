@@ -132,7 +132,6 @@ export default function GammaExposurePage() {
   );
 
   // Metric computations
-  const netGexB = gexData ? gexData.net_gex / 1e9 : null;
   const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
   const ivRankPct = volGauge ? Math.round(volGauge.level * 10) : null;
 
@@ -148,6 +147,15 @@ export default function GammaExposurePage() {
     [gexByStrike],
   );
   const charmLabel = Math.abs(totalCharm) < 1e8 ? 'Neutral' : totalCharm > 0 ? 'Bullish' : 'Bearish';
+
+  const formatGexValue = (value: number): string => {
+    const abs = Math.abs(value);
+    const sign = value >= 0 ? '+' : '';
+    if (abs >= 1e9) return `${sign}$${(value / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `${sign}$${(value / 1e6).toFixed(1)}M`;
+    if (abs >= 1e3) return `${sign}$${(value / 1e3).toFixed(0)}K`;
+    return `${sign}$${value.toFixed(0)}`;
+  };
 
   const formatLargeM = (value: number) => {
     const abs = Math.abs(value);
@@ -188,8 +196,8 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
-            title="Net GEX ($B)"
-            value={netGexB != null ? `${netGexB >= 0 ? '+' : ''}$${netGexB.toFixed(1)}B` : '--'}
+            title="Net GEX"
+            value={gexData?.net_gex != null ? formatGexValue(gexData.net_gex) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
             tooltip="Net gamma exposure across all strikes. Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
           />
