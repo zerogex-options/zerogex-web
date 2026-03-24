@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
   ResponsiveContainer,
@@ -14,48 +14,103 @@ import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 
-interface VolSurfacePoint {
-  strike: number;
-  iv_0dte?: number | null;
-  iv_7dte?: number | null;
-  iv_30dte?: number | null;
-}
+type Scalar = number | string | null | undefined;
+type VolSurfaceRawPoint = Record<string, Scalar>;
 
 interface VolSurfaceResponse {
   symbol?: string;
   timestamp?: string;
-  surface?: VolSurfacePoint[];
-  points?: VolSurfacePoint[];
-  data?: VolSurfacePoint[];
+  surface?: VolSurfaceRawPoint[];
+  points?: VolSurfaceRawPoint[];
+  data?: VolSurfaceRawPoint[];
+  rows?: VolSurfaceRawPoint[];
 }
 
 interface VolSurfaceChartProps {
   symbol: string;
 }
 
-function normalizeSurface(response: VolSurfaceResponse | VolSurfacePoint[] | null): VolSurfacePoint[] {
-  if (!response) return [];
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response.surface)) return response.surface;
-  if (Array.isArray(response.points)) return response.points;
-  if (Array.isArray(response.data)) return response.data;
-  return [];
+interface VolSurfaceChartPoint {
+  xLabel: string;
+  iv0dte: number | null;
+  iv7dte: number | null;
+  iv30dte: number | null;
 }
 
-function formatPct(value: number | string): string {
-  const num = Number(value);
+const labelCandidates = ['label', 'bucket', 'moneyness', 'delta_bucket', 'x_label', 'x', 'strike'];
+const dte0Candidates = ['iv_0dte', 'iv0dte', 'dte_0', '0dte', 'dte0', 'iv_0_dte'];
+const dte7Candidates = ['iv_7dte', 'iv7dte', 'dte_7', '7dte', 'dte7', 'iv_7_dte'];
+const dte30Candidates = ['iv_30dte', 'iv30dte', 'dte_30', '30dte', 'dte30', 'iv_30_dte'];
+
+function toNum(v: Scalar): number | null {
+  if (v == null || v === '') return null;
+  const parsed = typeof v === 'number' ? v : Number(v);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed > 1 ? parsed / 100 : parsed;
+}
+
+function lookup(obj: VolSurfaceRawPoint, candidates: string[]): Scalar {
+  for (const key of candidates) {
+    if (key in obj) return obj[key];
+  }
+
+  for (const [key, value] of Object.entries(obj)) {
+    const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (candidates.some((candidate) => normalized.includes(candidate.toLowerCase().replace(/[^a-z0-9]/g, '')))) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeSurface(response: VolSurfaceResponse | VolSurfaceRawPoint[] | null): VolSurfaceChartPoint[] {
+  if (!response) return [];
+
+  const rows = Array.isArray(response)
+    ? response
+    : response.surface ?? response.points ?? response.data ?? response.rows ?? [];
+
+  return rows
+    .map((row, idx) => {
+      const labelRaw = lookup(row, labelCandidates);
+      const label = labelRaw != null && String(labelRaw).trim() !== '' ? String(labelRaw) : `P${idx + 1}`;
+
+      return {
+        xLabel: label,
+        iv0dte: toNum(lookup(row, dte0Candidates)),
+        iv7dte: toNum(lookup(row, dte7Candidates)),
+        iv30dte: toNum(lookup(row, dte30Candidates)),
+      };
+    })
+    .filter((row) => row.iv0dte != null || row.iv7dte != null || row.iv30dte != null);
+}
+
+function formatPct(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const num = Number(raw);
   if (!Number.isFinite(num)) return '--';
-  return `${(num * 100).toFixed(1)}%`;
+  return `${(num * 100).toFixed(0)}%`;
+}
+
+function renderLegend() {
+  return (
+    <div className="flex items-center gap-6 text-sm pt-2">
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#3b93d9' }} />0DTE IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#7c7ad4' }} />7DTE IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#8e8f8b' }} />30DTE IV</span>
+    </div>
+  );
 }
 
 export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
+  const axisStroke = isDark ? '#f2f2f2' : '#8e8e8e';
+  const gridStroke = isDark ? '#968f92' : '#e5e7eb';
 
-  const { data, loading, error } = useApiData<VolSurfaceResponse | VolSurfacePoint[]>(
+  const { data, loading, error } = useApiData<VolSurfaceResponse | VolSurfaceRawPoint[]>(
     `/api/vol-surface?symbol=${symbol}`,
     { refreshInterval: 30000 },
   );
@@ -88,13 +143,20 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={340}>
-          <LineChart data={surface} margin={{ top: 5, right: 8, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
+          <AreaChart data={surface} margin={{ top: 8, right: 8, left: 0, bottom: 14 }}>
+            <defs>
+              <linearGradient id="surfaceFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#c7d2df" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#c7d2df" stopOpacity={0.15} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.45} />
             <XAxis
-              dataKey="strike"
+              dataKey="xLabel"
               stroke={axisStroke}
               tick={{ fontSize: 10, fill: axisStroke }}
-              tickFormatter={(v) => Number(v).toFixed(0)}
+              interval={0}
+              tickMargin={10}
             />
             <YAxis
               stroke={axisStroke}
@@ -108,14 +170,16 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
                 borderRadius: 6,
               }}
               labelStyle={{ color: textColor }}
-              labelFormatter={(v) => `Strike $${Number(v).toFixed(0)}`}
-              formatter={(value, name) => [formatPct(Number(value ?? 0)), String(name ?? '')]}
+              formatter={(value, name) => [formatPct(value), String(name ?? '')]}
             />
-            <Legend />
-            <Line type="monotone" dataKey="iv_0dte" name="0DTE" stroke="#22c55e" strokeWidth={2} dot={false} connectNulls />
-            <Line type="monotone" dataKey="iv_7dte" name="7DTE" stroke="#3b82f6" strokeWidth={2} dot={false} connectNulls />
-            <Line type="monotone" dataKey="iv_30dte" name="30DTE" stroke="#f97316" strokeWidth={2} dot={false} connectNulls />
-          </LineChart>
+            <Legend verticalAlign="bottom" align="left" content={renderLegend} />
+
+            <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
+
+            <Area type="monotone" dataKey="iv0dte" name="0DTE" stroke="#3b93d9" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
+            <Area type="monotone" dataKey="iv7dte" name="7DTE" stroke="#7c7ad4" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#7c7ad4' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name="30DTE" stroke="#8e8f8b" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
+          </AreaChart>
         </ResponsiveContainer>
       )}
     </div>
