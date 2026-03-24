@@ -24,6 +24,9 @@ interface VolSurfaceResponse {
   points?: VolSurfaceRawPoint[];
   data?: VolSurfaceRawPoint[];
   rows?: VolSurfaceRawPoint[];
+  vol_surface?: VolSurfaceRawPoint[];
+  curve?: VolSurfaceRawPoint[];
+  result?: VolSurfaceRawPoint[];
 }
 
 interface VolSurfaceChartProps {
@@ -41,6 +44,12 @@ const labelCandidates = ['label', 'bucket', 'moneyness', 'delta_bucket', 'x_labe
 const dte0Candidates = ['iv_0dte', 'iv0dte', 'dte_0', '0dte', 'dte0', 'iv_0_dte'];
 const dte7Candidates = ['iv_7dte', 'iv7dte', 'dte_7', '7dte', 'dte7', 'iv_7_dte'];
 const dte30Candidates = ['iv_30dte', 'iv30dte', 'dte_30', '30dte', 'dte30', 'iv_30_dte'];
+const tenorCandidates = ['tenor', 'dte_bucket', 'expiry_bucket', 'horizon'];
+const ivValueCandidates = ['iv', 'implied_vol', 'implied_volatility', 'volatility', 'value'];
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+}
 
 function toNum(v: Scalar): number | null {
   if (v == null || v === '') return null;
@@ -64,23 +73,72 @@ function lookup(obj: VolSurfaceRawPoint, candidates: string[]): Scalar {
   return undefined;
 }
 
+function lookupDeep(obj: VolSurfaceRawPoint, candidates: string[]): Scalar {
+  const direct = lookup(obj, candidates);
+  if (direct != null) return direct;
+
+  for (const value of Object.values(obj)) {
+    if (isRecord(value)) {
+      const nested = lookup(value as VolSurfaceRawPoint, candidates);
+      if (nested != null) return nested;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeTenor(raw: Scalar): '0dte' | '7dte' | '30dte' | null {
+  if (raw == null) return null;
+  const normalized = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (normalized.includes('0dte') || normalized === '0') return '0dte';
+  if (normalized.includes('7dte') || normalized === '7') return '7dte';
+  if (normalized.includes('30dte') || normalized === '30') return '30dte';
+  return null;
+}
+
+function normalizeLongForm(rows: VolSurfaceRawPoint[]): VolSurfaceChartPoint[] {
+  const grouped = new Map<string, VolSurfaceChartPoint>();
+
+  rows.forEach((row, idx) => {
+    const tenor = normalizeTenor(lookupDeep(row, tenorCandidates));
+    const iv = toNum(lookupDeep(row, ivValueCandidates));
+    if (!tenor || iv == null) return;
+
+    const labelRaw = lookupDeep(row, labelCandidates);
+    const label = labelRaw != null && String(labelRaw).trim() !== '' ? String(labelRaw) : `P${idx + 1}`;
+
+    const existing = grouped.get(label) ?? { xLabel: label, iv0dte: null, iv7dte: null, iv30dte: null };
+    if (tenor === '0dte') existing.iv0dte = iv;
+    if (tenor === '7dte') existing.iv7dte = iv;
+    if (tenor === '30dte') existing.iv30dte = iv;
+    grouped.set(label, existing);
+  });
+
+  return Array.from(grouped.values());
+}
+
 function normalizeSurface(response: VolSurfaceResponse | VolSurfaceRawPoint[] | null): VolSurfaceChartPoint[] {
   if (!response) return [];
 
   const rows = Array.isArray(response)
     ? response
-    : response.surface ?? response.points ?? response.data ?? response.rows ?? [];
+    : response.surface ?? response.points ?? response.data ?? response.rows ?? response.vol_surface ?? response.curve ?? response.result ?? [];
+
+  const hasLongForm = rows.some((row) => normalizeTenor(lookupDeep(row, tenorCandidates)) != null);
+  if (hasLongForm) {
+    return normalizeLongForm(rows).filter((row) => row.iv0dte != null || row.iv7dte != null || row.iv30dte != null);
+  }
 
   return rows
     .map((row, idx) => {
-      const labelRaw = lookup(row, labelCandidates);
+      const labelRaw = lookupDeep(row, labelCandidates);
       const label = labelRaw != null && String(labelRaw).trim() !== '' ? String(labelRaw) : `P${idx + 1}`;
 
       return {
         xLabel: label,
-        iv0dte: toNum(lookup(row, dte0Candidates)),
-        iv7dte: toNum(lookup(row, dte7Candidates)),
-        iv30dte: toNum(lookup(row, dte30Candidates)),
+        iv0dte: toNum(lookupDeep(row, dte0Candidates)),
+        iv7dte: toNum(lookupDeep(row, dte7Candidates)),
+        iv30dte: toNum(lookupDeep(row, dte30Candidates)),
       };
     })
     .filter((row) => row.iv0dte != null || row.iv7dte != null || row.iv30dte != null);
