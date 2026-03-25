@@ -1,8 +1,10 @@
 'use client';
 
+import { Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import TooltipWrapper from './TooltipWrapper';
 
 interface ByStrikeRow {
   strike: number;
@@ -122,12 +124,17 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
         border: `1px solid ${colors.muted}`,
       }}
     >
-      <h3
-        className="text-sm font-bold tracking-wider uppercase mb-4"
-        style={{ color: textColor }}
-      >
-        GEX HEATMAP (STRIKE &times; DTE)
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3
+          className="text-sm font-bold tracking-wider uppercase"
+          style={{ color: textColor }}
+        >
+          GEX HEATMAP (STRIKE &times; DTE)
+        </h3>
+        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX.">
+          <Info size={14} />
+        </TooltipWrapper>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs">

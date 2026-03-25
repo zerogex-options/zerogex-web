@@ -134,7 +134,7 @@ export default function GammaHeatmap() {
       <div className="rounded-lg overflow-hidden" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>GEX Time Series Heatmap</h3>
-          <TooltipWrapper text="Relative heatmap scale for net GEX in the currently visible window."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Time-series heatmap of net GEX by strike over time, with overlaid underlying candles to show how price moved relative to evolving gamma concentration zones."><Info size={14} /></TooltipWrapper>
         </div>
 
         <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />

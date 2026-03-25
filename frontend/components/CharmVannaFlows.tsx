@@ -1,7 +1,9 @@
 'use client';
 
+import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import TooltipWrapper from './TooltipWrapper';
 
 interface ByStrikeRow {
   vanna_exposure?: number | null;
@@ -111,12 +113,17 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
         border: `1px solid ${colors.muted}`,
       }}
     >
-      <h3
-        className="text-sm font-bold tracking-wider uppercase mb-5"
-        style={{ color: textColor }}
-      >
-        CHARM &amp; VANNA FLOWS
-      </h3>
+      <div className="flex items-center gap-2 mb-5">
+        <h3
+          className="text-sm font-bold tracking-wider uppercase"
+          style={{ color: textColor }}
+        >
+          CHARM &amp; VANNA FLOWS
+        </h3>
+        <TooltipWrapper text="Shows aggregate vanna and charm exposures across the chain, plus an end-of-day charm estimate to indicate potential hedging pressure into the close.">
+          <Info size={14} />
+        </TooltipWrapper>
+      </div>
 
       <div className="flex flex-col gap-5">
         {flowItems.map((item) => (

@@ -1,5 +1,6 @@
 'use client';
 
+import { Info } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -13,6 +14,7 @@ import {
 import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import TooltipWrapper from './TooltipWrapper';
 
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
@@ -282,9 +284,14 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
         border: `1px solid ${colors.muted}`,
       }}
     >
-      <h3 className="text-sm font-bold tracking-wider uppercase mb-4" style={{ color: textColor }}>
-        VOL SURFACE
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
+          VOL SURFACE
+        </h3>
+        <TooltipWrapper text="Implied volatility curves across tenor buckets, showing how IV changes by strike/moneyness for near-term versus longer-dated expirations.">
+          <Info size={14} />
+        </TooltipWrapper>
+      </div>
 
       {loading && surface.length === 0 ? (
         <div className="flex items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>

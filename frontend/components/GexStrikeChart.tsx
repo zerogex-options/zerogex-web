@@ -12,9 +12,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import ExpandableCard from './ExpandableCard';
+import TooltipWrapper from './TooltipWrapper';
 
 interface StrikeRow {
   strike: number;
@@ -73,12 +75,17 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
           border: `1px solid ${colors.muted}`,
         }}
       >
-        <h3
-          className="text-sm font-bold tracking-wider uppercase mb-4"
-          style={{ color: textColor }}
-        >
-          GEX BY STRIKE
-        </h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3
+            className="text-sm font-bold tracking-wider uppercase"
+            style={{ color: textColor }}
+          >
+            GEX BY STRIKE
+          </h3>
+          <TooltipWrapper text="Net gamma exposure by strike for the selected symbol. Bars above zero indicate positive dealer gamma (pinning/mean-reversion); below zero indicate negative gamma (trend acceleration).">
+            <Info size={14} />
+          </TooltipWrapper>
+        </div>
 
         {strikeData.length === 0 ? (
           <div className="flex items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>

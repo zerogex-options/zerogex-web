@@ -243,7 +243,7 @@ export default function GammaExposurePage() {
 
       {/* Section 5: Strike Data Table */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionTitle title="GEX Snapshot by Strike" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+        <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
         {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
         ) : (
@@ -291,8 +291,8 @@ export default function GammaExposurePage() {
                       <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
                       <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
                       <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
-                      <td className="text-right py-2 px-2">${row.vannaM.toFixed(2)}M</td>
-                      <td className="text-right py-2 px-2">${row.charmM.toFixed(2)}M</td>
+                      <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.vannaM.toFixed(2)}M</td>
+                      <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.charmM.toFixed(2)}M</td>
                       <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
                       <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
                       <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
