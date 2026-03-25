@@ -269,11 +269,11 @@ export default function IntradayToolsPage() {
   );
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=500`,
+    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`,
     { refreshInterval: 10000 }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=200`,
+    `/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`,
     { refreshInterval: 10000 }
   );
   const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(
