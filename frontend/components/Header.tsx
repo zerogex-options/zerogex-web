@@ -105,7 +105,7 @@ export default function Header({ theme }: HeaderProps) {
   // open     → live quote close  vs  current_session_close
   // closed   → live quote close  vs  prior_session_close
   // pre/ah   → current_session_close  vs  prior_session_close
-  const row1Price = isExtendedHours
+  const row1Price = (isExtendedHours || quoteSession === "closed")
     ? (sessionClosesData?.current_session_close ?? null)
     : (quoteData?.close ?? null);
 
@@ -148,7 +148,7 @@ export default function Header({ theme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = isExtendedHours
+  const row1PriceLabel = (isExtendedHours || quoteSession === "closed")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")

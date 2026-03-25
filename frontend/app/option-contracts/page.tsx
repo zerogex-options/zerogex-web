@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useApiData, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
+import { useApiData, useMarketQuote, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -452,6 +452,8 @@ export default function OptionContractsPage() {
   const [selectedStrike, setSelectedStrike] = useState<string>("");
   const [optionType, setOptionType] = useState<"C" | "P">("C");
 
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+
   // ── Fetch available expirations / strikes from current session flow data
   const { data: expirationData, error: expirationError, loading: expirationLoading } =
     useApiData<FlowByExpirationPoint[]>(
@@ -489,8 +491,23 @@ export default function OptionContractsPage() {
     ).sort((a, b) => Number(a) - Number(b));
   }, [strikeData]);
 
-  const resolvedExpiration = selectedExpiration || expirationOptions[0] || "";
-  const resolvedStrike = selectedStrike || strikeOptions[0] || "";
+  const defaultExpiration = useMemo(() => {
+    const todayKey = getCurrentETDateKey();
+    return expirationOptions.find((exp) => exp === todayKey) || expirationOptions[0] || "";
+  }, [expirationOptions]);
+
+  const defaultStrike = useMemo(() => {
+    if (strikeOptions.length === 0) return "";
+    const spot = quoteData?.close;
+    if (spot == null || Number.isNaN(Number(spot))) return strikeOptions[0];
+
+    return strikeOptions.reduce((closest, current) =>
+      Math.abs(Number(current) - spot) < Math.abs(Number(closest) - spot) ? current : closest,
+    strikeOptions[0]);
+  }, [quoteData?.close, strikeOptions]);
+
+  const resolvedExpiration = selectedExpiration || defaultExpiration || "";
+  const resolvedStrike = selectedStrike || defaultStrike || "";
 
   // ── Fetch contract time-series
   const { data: contractRows, loading: contractLoading, error: contractError } =
