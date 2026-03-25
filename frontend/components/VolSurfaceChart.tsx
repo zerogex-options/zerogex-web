@@ -15,6 +15,7 @@ import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
@@ -23,6 +24,7 @@ interface NestedIvPoint {
   strike?: number;
   call_iv?: number | null;
   put_iv?: number | null;
+  iv?: number | null;
 }
 
 interface NestedSurfaceEntry {
@@ -66,6 +68,8 @@ const dte7Candidates = ['iv_7dte', 'iv7dte', 'dte_7', '7dte', 'dte7', 'iv_7_dte'
 const dte30Candidates = ['iv_30dte', 'iv30dte', 'dte_30', '30dte', 'dte30', 'iv_30_dte'];
 const tenorCandidates = ['tenor', 'dte_bucket', 'expiry_bucket', 'horizon'];
 const ivValueCandidates = ['iv', 'implied_vol', 'implied_volatility', 'volatility', 'value'];
+const callIvCandidates = ['call_iv', 'calliv', 'call_implied_vol', 'call_vol', 'call_volatility'];
+const putIvCandidates = ['put_iv', 'putiv', 'put_implied_vol', 'put_vol', 'put_volatility'];
 const seriesKeys: Array<keyof Pick<VolSurfaceChartPoint, 'iv0dte' | 'iv7dte' | 'iv30dte'>> = ['iv0dte', 'iv7dte', 'iv30dte'];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -124,6 +128,20 @@ function averageIv(callIv: number | null | undefined, putIv: number | null | und
   return call ?? put ?? null;
 }
 
+function extractNestedIv(ivPoint: NestedIvPoint): number | null {
+  const direct = averageIv(ivPoint.call_iv, ivPoint.put_iv);
+  if (direct != null) return direct;
+  if (ivPoint.iv != null) return toNum(ivPoint.iv);
+
+  const raw = ivPoint as VolSurfaceRawPoint;
+  const call = toNum(lookupDeep(raw, callIvCandidates));
+  const put = toNum(lookupDeep(raw, putIvCandidates));
+  const avg = averageIv(call, put);
+  if (avg != null) return avg;
+
+  return toNum(lookupDeep(raw, ivValueCandidates));
+}
+
 function normalizeNestedSurface(response: VolSurfaceResponse): NormalizedSurface | null {
   if (!Array.isArray(response.surface) || response.surface.length === 0) return null;
   const entries = response.surface as NestedSurfaceEntry[];
@@ -151,7 +169,7 @@ function normalizeNestedSurface(response: VolSurfaceResponse): NormalizedSurface
         iv30dte: null,
       };
 
-      existing[key] = averageIv(ivPoint.call_iv, ivPoint.put_iv);
+      existing[key] = extractNestedIv(ivPoint);
       byStrike.set(strike, existing);
     });
   });
@@ -253,9 +271,9 @@ function formatPct(value: unknown): string {
 function renderLegend(labels: [string, string, string]) {
   return (
     <div className="flex items-center gap-6 text-sm pt-2">
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#3b93d9' }} />{labels[0]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#7c7ad4' }} />{labels[1]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#8e8f8b' }} />{labels[2]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#5db9ff' }} />{labels[0]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#9b8bff' }} />{labels[1]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#c0c4be' }} />{labels[2]} IV</span>
     </div>
   );
 }
@@ -277,13 +295,14 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const labels = normalized.labels;
 
   return (
-    <div
-      className="rounded-2xl p-6 h-full"
-      style={{
-        backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-      }}
-    >
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div
+        className="rounded-2xl p-6 h-full"
+        style={{
+          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          border: `1px solid ${colors.muted}`,
+        }}
+      >
       <div className="flex items-center gap-2 mb-4">
         <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
           VOL SURFACE
@@ -341,12 +360,13 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
 
             <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
 
-            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#3b93d9" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
-            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#7c7ad4" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#7c7ad4' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#8e8f8b" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
+            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#5db9ff" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
+            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#9b8bff" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#9b8bff' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#c0c4be" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
       )}
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }
