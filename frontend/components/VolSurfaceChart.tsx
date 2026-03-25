@@ -266,7 +266,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const gridStroke = isDark ? '#968f92' : '#e5e7eb';
 
   const { data, loading, error } = useApiData<VolSurfaceResponse | VolSurfaceRawPoint[]>(
-    `/api/vol-surface?symbol=${symbol}`,
+    `/api/volatility/surface?symbol=${symbol}`,
     { refreshInterval: 30000 },
   );
 
