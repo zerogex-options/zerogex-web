@@ -126,6 +126,84 @@ function smartMoneyTimestamp(row: SmartMoneyRow): string | null {
   return normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 }
 
+function getETDateKey(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+function getSessionTimestamps(dateKey: string): string[] {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return [];
+
+  const etFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  let startMs: number | null = null;
+  for (const utcH of [13, 14]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 9 && min === 30) { startMs = candidate; break; }
+  }
+
+  let endMs: number | null = null;
+  for (const utcH of [20, 21]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 16 && min === 0) { endMs = candidate; break; }
+  }
+
+  if (startMs === null || endMs === null) return [];
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) result.push(new Date(t).toISOString());
+  return result;
+}
+
+function is30MinBoundary(ts: string): boolean {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const m = d.getUTCMinutes();
+  return m === 0 || m === 30;
+}
+
+function getDynamicStep(min: number, max: number): number {
+  const range = Math.max(1e-9, Math.abs(max - min));
+  const rawStep = range / 6;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / magnitude;
+  if (normalized < 1.5) return 1 * magnitude;
+  if (normalized < 3.5) return 2 * magnitude;
+  if (normalized < 7.5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+function generateNiceTicks(min: number, max: number): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+  if (min === max) return [min];
+  const step = getDynamicStep(min, max);
+  const start = Math.floor(min / step) * step;
+  const ticks: number[] = [];
+  for (let i = 0; i < 24; i++) {
+    const t = Number((start + i * step).toPrecision(12));
+    ticks.push(t);
+    if (t >= max) break;
+  }
+  return ticks;
+}
+
 export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
@@ -138,7 +216,6 @@ export default function IntradayToolsPage() {
   const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
-  const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1day');
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState('all');
@@ -177,10 +254,6 @@ export default function IntradayToolsPage() {
   );
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&timeframe=${smartMoneyTimeframe}&window_units=30&limit=30`,
-    { refreshInterval: 10000 }
-  );
-  const { data: smartMoneySessionData } = useApiData<SmartMoneyRow[]>(
     `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=50000`,
     { refreshInterval: 10000 }
   );
@@ -223,16 +296,17 @@ export default function IntradayToolsPage() {
   }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
 
   const smartMoneySessionChart = useMemo(() => {
-    const rows = smartMoneySessionData || [];
+    const rows = smartMoneyData || [];
     const priceRows = sessionPriceData || [];
     if (rows.length === 0 && priceRows.length === 0) return [];
 
-    const notionalByTs = new Map<string, number>();
+    const blocksByTs = new Map<string, number[]>();
     rows.forEach((row) => {
       const ts = smartMoneyTimestamp(row);
       if (!ts) return;
-      const prev = notionalByTs.get(ts) || 0;
-      notionalByTs.set(ts, prev + Math.abs(Number(row.notional || 0)) / 1_000_000);
+      const blocks = blocksByTs.get(ts) ?? [];
+      blocks.push(Math.abs(Number(row.notional || 0)) / 1_000_000);
+      blocksByTs.set(ts, blocks);
     });
 
     const priceByTs = new Map<string, number>();
@@ -242,19 +316,54 @@ export default function IntradayToolsPage() {
       priceByTs.set(ts, Number(row.underlying_price));
     });
 
-    const allTs = Array.from(new Set([...notionalByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
+    const allTsFromData = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
+    const sessionDate = allTsFromData.length > 0 ? getETDateKey(allTsFromData[allTsFromData.length - 1]) : '';
+    const sessionTimeline = sessionDate ? getSessionTimestamps(sessionDate) : allTsFromData;
+    const allTs = sessionTimeline.length > 0 ? sessionTimeline : allTsFromData;
+    const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
+
     let cumulative = 0;
     return allTs.map((ts) => {
-      cumulative += notionalByTs.get(ts) || 0;
-      return {
+      const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b - a);
+      const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value, 0);
+      cumulative += totalMinuteNotional;
+
+      const row: Record<string, number | string | null> = {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
-        blockNotionalM: notionalByTs.get(ts) || 0,
+        blockNotionalM: totalMinuteNotional,
         cumulativeNotionalM: cumulative,
         underlyingPrice: priceByTs.get(ts) ?? null,
       };
+
+      for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
+        row[`block${idx + 1}`] = minuteBlocks[idx] ?? 0;
+      }
+      return row;
     });
-  }, [sessionPriceData, smartMoneySessionData]);
+  }, [sessionPriceData, smartMoneyData]);
+
+  const maxStackSegments = useMemo(() => {
+    return smartMoneySessionChart.reduce((max, row) => {
+      const keys = Object.keys(row).filter((key) => key.startsWith('block') && Number(row[key] || 0) > 0);
+      return Math.max(max, keys.length);
+    }, 1);
+  }, [smartMoneySessionChart]);
+
+  const notionalTicks = useMemo(() => {
+    const max = Math.max(0, ...smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)));
+    return generateNiceTicks(0, max);
+  }, [smartMoneySessionChart]);
+
+  const priceTicks = useMemo(() => {
+    const values = smartMoneySessionChart
+      .map((row) => Number(row.underlyingPrice))
+      .filter((value) => Number.isFinite(value));
+    if (values.length === 0) return [];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return generateNiceTicks(min, max);
+  }, [smartMoneySessionChart]);
 
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
@@ -345,19 +454,6 @@ export default function IntradayToolsPage() {
                 ))}
               </select>
             </label>
-            <label className="text-sm" style={{ color: mutedText }}>
-              Timeframe
-              <select
-                className="ml-2 rounded px-2 py-1"
-                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
-                value={smartMoneyTimeframe}
-                onChange={(e) => setSmartMoneyTimeframe(e.target.value)}
-              >
-                {['1min', '5min', '15min', '1hr', '1day'].map((tf) => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
-              </select>
-            </label>
           </div>
 
           {smartMoneyError ? <ErrorMessage message={smartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
@@ -376,11 +472,29 @@ export default function IntradayToolsPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                      <XAxis dataKey="time" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} minTickGap={20} />
+                      <XAxis
+                        dataKey="timestamp"
+                        stroke={axisStroke}
+                        tick={{ fill: axisStroke, fontSize: 11 }}
+                        interval={0}
+                        minTickGap={20}
+                        tickFormatter={(value) => {
+                          const ts = String(value || '');
+                          if (!is30MinBoundary(ts)) return '';
+                          return new Date(ts).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'America/New_York',
+                          });
+                        }}
+                      />
                       <YAxis
                         yAxisId="notional"
                         stroke={axisStroke}
                         tick={{ fill: axisStroke, fontSize: 11 }}
+                        domain={[0, 'auto']}
+                        ticks={notionalTicks}
                         tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
                       />
                       <YAxis
@@ -388,6 +502,8 @@ export default function IntradayToolsPage() {
                         orientation="right"
                         stroke={axisStroke}
                         tick={{ fill: axisStroke, fontSize: 11 }}
+                        domain={priceTicks.length > 1 ? [priceTicks[0], priceTicks[priceTicks.length - 1]] : ['auto', 'auto']}
+                        ticks={priceTicks}
                         tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
                       />
                       <Tooltip
@@ -397,7 +513,18 @@ export default function IntradayToolsPage() {
                           return [`$${Number(value).toFixed(2)}M`, name];
                         }}
                       />
-                      <Bar yAxisId="notional" dataKey="blockNotionalM" name="Block Notional" fill="#f59e0b" opacity={0.7} />
+                      {Array.from({ length: maxStackSegments }, (_, idx) => (
+                        <Bar
+                          key={`block${idx + 1}`}
+                          yAxisId="notional"
+                          dataKey={`block${idx + 1}`}
+                          name={idx === 0 ? 'Block Notional' : undefined}
+                          stackId="smartMoneyBlocks"
+                          fill={idx % 2 === 0 ? '#f59e0b' : '#fbbf24'}
+                          opacity={0.8}
+                          isAnimationActive={false}
+                        />
+                      ))}
                       <Line yAxisId="notional" type="monotone" dataKey="cumulativeNotionalM" name="Cumulative Smart Money" stroke="#22c55e" strokeWidth={2} dot={false} />
                       <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#60a5fa" strokeWidth={2} dot={false} connectNulls />
                     </ComposedChart>

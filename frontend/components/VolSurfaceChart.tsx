@@ -271,9 +271,9 @@ function formatPct(value: unknown): string {
 function renderLegend(labels: [string, string, string]) {
   return (
     <div className="flex items-center gap-6 text-sm pt-2">
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#3b93d9' }} />{labels[0]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#7c7ad4' }} />{labels[1]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#8e8f8b' }} />{labels[2]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#5db9ff' }} />{labels[0]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#9b8bff' }} />{labels[1]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#c0c4be' }} />{labels[2]} IV</span>
     </div>
   );
 }
@@ -360,9 +360,9 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
 
             <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
 
-            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#3b93d9" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
-            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#7c7ad4" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#7c7ad4' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#8e8f8b" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
+            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#5db9ff" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
+            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#9b8bff" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#9b8bff' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#c0c4be" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
       )}
