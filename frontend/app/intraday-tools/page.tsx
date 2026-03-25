@@ -405,8 +405,9 @@ export default function IntradayToolsPage() {
 
   const priceTicks = useMemo(() => {
     const values = smartMoneySessionChart
-      .map((row) => Number(row.underlyingPrice))
-      .filter((value) => Number.isFinite(value));
+      .map((row) => row.underlyingPrice)
+      .filter((v): v is number => v != null && Number.isFinite(v as number) && (v as number) > 0)
+      .map(Number);
     if (values.length === 0) return [];
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -573,7 +574,7 @@ export default function IntradayToolsPage() {
                             if (!(`block${i}` in row)) break;
                             if (val <= 0) continue;
                             const optType = String(row[`block${i}Type`] || '');
-                            const isCall = optType.includes('call');
+                            const isCall = optType.includes('call') || optType === 'c';
                             blockItems.push({
                               label: isCall ? 'Call Block' : 'Put Block',
                               value: `$${val.toFixed(2)}M`,
@@ -614,7 +615,7 @@ export default function IntradayToolsPage() {
                             const height = Number(chartProps.height || 0);
                             const payload = chartProps.payload as Record<string, unknown>;
                             const optType = String(payload?.[`block${idx + 1}Type`] || '');
-                            const isCall = optType.includes('call');
+                            const isCall = optType.includes('call') || optType === 'c';
                             const baseFill = isCall ? '#22c55e' : '#ef4444';
                             return (
                               <rect
