@@ -474,6 +474,7 @@ export default function IntradayToolsPage() {
                           const row = payload[0]?.payload as Record<string, unknown> | undefined;
                           if (!row) return null;
                           const price = Number(row.underlyingPrice);
+                          const timeLabel = String(row.time || '');
                           const priceLabel = Number.isFinite(price) ? `${symbol} $${price.toFixed(2)}` : symbol;
                           const blockItems: Array<{ label: string; value: string; color: string }> = [];
                           for (let i = 1; ; i++) {
@@ -490,6 +491,7 @@ export default function IntradayToolsPage() {
                           }
                           return (
                             <div style={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', border: `1px solid ${isDark ? '#423d3f' : '#d1d5db'}`, borderRadius: 4, padding: '8px 12px', fontSize: 12 }}>
+                              {timeLabel && <div style={{ color: isDark ? '#9ca3af' : '#6b7280', marginBottom: 2 }}>{timeLabel}</div>}
                               <div style={{ fontWeight: 600, marginBottom: blockItems.length > 0 ? 4 : 0 }}>{priceLabel}</div>
                               {blockItems.map((item, i) => (
                                 <div key={i} style={{ color: item.color }}>{item.label}: {item.value}</div>
