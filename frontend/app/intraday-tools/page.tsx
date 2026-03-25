@@ -7,7 +7,6 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -114,8 +113,6 @@ export default function IntradayToolsPage() {
   const inputBg = isDark ? '#2f2b2c' : '#f3f4f6';
   const inputBorder = isDark ? '#6b7280' : '#d1d5db';
   const inputColor = isDark ? '#e5e7eb' : '#374151';
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1day');
@@ -179,25 +176,6 @@ export default function IntradayToolsPage() {
     const threshold = classRank(minClass);
     return (smartMoneyData || []).filter((row) => classRank(row.notional_class) >= threshold);
   }, [smartMoneyData, minClass]);
-
-  const smartMoneyOrderShare = useMemo(() => {
-    const rows = filteredSmartMoneyData
-      .map((row) => ({
-        id: `${row.contract}-${row.timestamp}`,
-        label: `${String(row.option_type).toUpperCase().includes('CALL') ? 'C' : 'P'} ${Number(row.strike).toFixed(0)} ${row.expiration.slice(5)}`,
-        optionType: String(row.option_type || '').toUpperCase(),
-        notionalM: Math.abs(Number(row.notional || 0)) / 1000000,
-      }))
-      .sort((a, b) => b.notionalM - a.notionalM)
-      .slice(0, 12);
-
-    const total = rows.reduce((sum, row) => sum + row.notionalM, 0);
-    return rows.map((row) => ({
-      ...row,
-      pct: total > 0 ? (row.notionalM / total) * 100 : 0,
-      color: row.optionType.includes('CALL') ? '#34d399' : '#f87171',
-    }));
-  }, [filteredSmartMoneyData]);
 
   const sortedSmartMoneyRows = useMemo(() => {
     const rows = [...filteredSmartMoneyData];
@@ -308,22 +286,7 @@ export default function IntradayToolsPage() {
             <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={smartMoneyOrderShare} layout="vertical" margin={{ left: 24, right: 24, top: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
-                  <XAxis type="number" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickFormatter={(v) => `${Number(v).toFixed(1)}%`} />
-                  <YAxis dataKey="label" type="category" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} width={130} />
-                  <Tooltip formatter={(value, _name, item) => {
-                    const payload = item?.payload as { notionalM?: number } | undefined;
-                    return [`${Number(value ?? 0).toFixed(2)}% of total · $${Number(payload?.notionalM ?? 0).toFixed(2)}M`, 'Order Share'];
-                  }} />
-                  <Bar dataKey="pct" name="Order Share %">
-                    {smartMoneyOrderShare.map((row) => <Cell key={row.id} fill={row.color} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-
-              <div className="overflow-x-auto mt-4">
+              <div className="overflow-x-auto mt-2">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>

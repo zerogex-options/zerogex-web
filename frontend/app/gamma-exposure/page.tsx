@@ -184,9 +184,7 @@ export default function GammaExposurePage() {
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
 
       {/* Section 1: Regime Header */}
-      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
-        <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
-      </ExpandableCard>
+      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">

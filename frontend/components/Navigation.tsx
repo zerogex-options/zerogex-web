@@ -51,26 +51,32 @@ export default function Navigation({ theme }: NavigationProps) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={toggleSidebar}
-        className="hidden md:flex fixed z-30 items-center justify-center rounded-r-xl border border-l-0"
+      <div
+        className="group hidden md:block fixed z-30"
         style={{
           left: sidebarVisible ? `${SIDEBAR_WIDTH}px` : 0,
           top: "calc(var(--zgx-header-height, 0px) + 18px)",
           width: "36px",
           height: "56px",
-          backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
-          borderColor: border,
-          color: colors.muted,
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
           transition: "left 0.2s ease",
         }}
-        aria-label={sidebarVisible ? "Hide left navigation" : "Show left navigation"}
       >
-        {sidebarVisible ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-      </button>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="flex h-full w-full items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100"
+          style={{
+            backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+            borderColor: border,
+            color: colors.muted,
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+          }}
+          aria-label={sidebarVisible ? "Hide left navigation" : "Show left navigation"}
+        >
+          {sidebarVisible ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        </button>
+      </div>
 
       {sidebarVisible ? (
         <nav
