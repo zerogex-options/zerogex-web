@@ -653,7 +653,8 @@ export default function IntradayToolsPage() {
                   </thead>
                   <tbody>
                     {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
-                      const isCall = String(row.option_type).toLowerCase().includes('call');
+                      const optType = String(row.option_type).toLowerCase();
+                      const isCall = optType.includes('call') || optType === 'c';
                       return (
                         <tr
                           key={row.rowKey}
