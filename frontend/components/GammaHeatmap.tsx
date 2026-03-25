@@ -133,7 +133,7 @@ export default function GammaHeatmap() {
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div className="rounded-lg overflow-hidden" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Gamma Exposure Heatmap</h3>
+          <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>GEX Time Series Heatmap</h3>
           <TooltipWrapper text="Relative heatmap scale for net GEX in the currently visible window."><Info size={14} /></TooltipWrapper>
         </div>
 
