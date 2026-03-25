@@ -474,7 +474,8 @@ export default function IntradayToolsPage() {
                           const row = payload[0]?.payload as Record<string, unknown> | undefined;
                           if (!row) return null;
                           const price = Number(row.underlyingPrice);
-                          const timeLabel = String(row.time || '');
+                          const ts = row.timestamp ? new Date(String(row.timestamp)) : null;
+                          const timeLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '';
                           const priceLabel = Number.isFinite(price) ? `${symbol} $${price.toFixed(2)}` : symbol;
                           const blockItems: Array<{ label: string; value: string; color: string }> = [];
                           for (let i = 1; ; i++) {
