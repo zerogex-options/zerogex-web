@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 
 interface ByStrikeRow {
   strike: number;
@@ -107,23 +108,26 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
 
   if (strikes.length === 0) {
     return (
-      <div
-        className="rounded-2xl p-6 h-full flex items-center justify-center"
-        style={{ backgroundColor: isDark ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}
-      >
-        <span className="text-sm" style={{ color: colors.muted }}>No heatmap data available</span>
-      </div>
+      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+        <div
+          className="rounded-2xl p-6 h-full flex items-center justify-center"
+          style={{ backgroundColor: isDark ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}
+        >
+          <span className="text-sm" style={{ color: colors.muted }}>No heatmap data available</span>
+        </div>
+      </ExpandableCard>
     );
   }
 
   return (
-    <div
-      className="rounded-2xl p-6 h-full"
-      style={{
-        backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-      }}
-    >
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div
+        className="rounded-2xl p-6 h-full"
+        style={{
+          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          border: `1px solid ${colors.muted}`,
+        }}
+      >
       <div className="flex items-center gap-2 mb-4">
         <h3
           className="text-sm font-bold tracking-wider uppercase"
@@ -197,6 +201,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
           Neutral
         </div>
       </div>
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }

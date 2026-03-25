@@ -15,6 +15,7 @@ import { useApiData } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
@@ -23,6 +24,7 @@ interface NestedIvPoint {
   strike?: number;
   call_iv?: number | null;
   put_iv?: number | null;
+  iv?: number | null;
 }
 
 interface NestedSurfaceEntry {
@@ -66,6 +68,8 @@ const dte7Candidates = ['iv_7dte', 'iv7dte', 'dte_7', '7dte', 'dte7', 'iv_7_dte'
 const dte30Candidates = ['iv_30dte', 'iv30dte', 'dte_30', '30dte', 'dte30', 'iv_30_dte'];
 const tenorCandidates = ['tenor', 'dte_bucket', 'expiry_bucket', 'horizon'];
 const ivValueCandidates = ['iv', 'implied_vol', 'implied_volatility', 'volatility', 'value'];
+const callIvCandidates = ['call_iv', 'calliv', 'call_implied_vol', 'call_vol', 'call_volatility'];
+const putIvCandidates = ['put_iv', 'putiv', 'put_implied_vol', 'put_vol', 'put_volatility'];
 const seriesKeys: Array<keyof Pick<VolSurfaceChartPoint, 'iv0dte' | 'iv7dte' | 'iv30dte'>> = ['iv0dte', 'iv7dte', 'iv30dte'];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -124,6 +128,20 @@ function averageIv(callIv: number | null | undefined, putIv: number | null | und
   return call ?? put ?? null;
 }
 
+function extractNestedIv(ivPoint: NestedIvPoint): number | null {
+  const direct = averageIv(ivPoint.call_iv, ivPoint.put_iv);
+  if (direct != null) return direct;
+  if (ivPoint.iv != null) return toNum(ivPoint.iv);
+
+  const raw = ivPoint as VolSurfaceRawPoint;
+  const call = toNum(lookupDeep(raw, callIvCandidates));
+  const put = toNum(lookupDeep(raw, putIvCandidates));
+  const avg = averageIv(call, put);
+  if (avg != null) return avg;
+
+  return toNum(lookupDeep(raw, ivValueCandidates));
+}
+
 function normalizeNestedSurface(response: VolSurfaceResponse): NormalizedSurface | null {
   if (!Array.isArray(response.surface) || response.surface.length === 0) return null;
   const entries = response.surface as NestedSurfaceEntry[];
@@ -151,7 +169,7 @@ function normalizeNestedSurface(response: VolSurfaceResponse): NormalizedSurface
         iv30dte: null,
       };
 
-      existing[key] = averageIv(ivPoint.call_iv, ivPoint.put_iv);
+      existing[key] = extractNestedIv(ivPoint);
       byStrike.set(strike, existing);
     });
   });
@@ -277,13 +295,14 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const labels = normalized.labels;
 
   return (
-    <div
-      className="rounded-2xl p-6 h-full"
-      style={{
-        backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-      }}
-    >
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div
+        className="rounded-2xl p-6 h-full"
+        style={{
+          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          border: `1px solid ${colors.muted}`,
+        }}
+      >
       <div className="flex items-center gap-2 mb-4">
         <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
           VOL SURFACE
@@ -347,6 +366,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       )}
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }

@@ -4,6 +4,7 @@ import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
+import ExpandableCard from './ExpandableCard';
 
 interface ByStrikeRow {
   vanna_exposure?: number | null;
@@ -106,13 +107,14 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
   ];
 
   return (
-    <div
-      className="rounded-2xl p-6 h-full"
-      style={{
-        backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-      }}
-    >
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div
+        className="rounded-2xl p-6 h-full"
+        style={{
+          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          border: `1px solid ${colors.muted}`,
+        }}
+      >
       <div className="flex items-center gap-2 mb-5">
         <h3
           className="text-sm font-bold tracking-wider uppercase"
@@ -168,6 +170,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ExpandableCard>
   );
 }

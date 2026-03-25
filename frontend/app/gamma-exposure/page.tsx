@@ -20,6 +20,7 @@ import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import ExpandableCard from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -157,13 +158,6 @@ export default function GammaExposurePage() {
     return `${sign}$${value.toFixed(0)}`;
   };
 
-  const formatLargeM = (value: number) => {
-    const abs = Math.abs(value);
-    if (abs >= 1000) return `${value.toFixed(0)}M`;
-    if (abs >= 1) return `${value.toFixed(1)}M`;
-    return `${(value * 1000).toFixed(0)}K`;
-  };
-
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -190,7 +184,9 @@ export default function GammaExposurePage() {
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
 
       {/* Section 1: Regime Header */}
-      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
+      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
+        <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
+      </ExpandableCard>
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">
@@ -242,68 +238,72 @@ export default function GammaExposurePage() {
       </section>
 
       {/* Section 5: Strike Data Table */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
-        {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
-          <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
-        ) : (
-          <>
-            <div className="mb-5 flex flex-wrap gap-2 items-center">
-              <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
-              <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs rounded" style={{ backgroundColor: inputBg, color: textColor }}>All</button>
-              {expirationOptions.map((exp) => {
-                const active = selectedExpirations === null || selectedExpirations.includes(exp);
-                return (
-                  <button
-                    key={exp}
-                    onClick={() => setSelectedExpirations((current) => {
-                      const base = current === null ? [...expirationOptions] : [...current];
-                      const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
-                      return updated.length === 0 ? null : updated;
-                    })}
-                    style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
-                    className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : ''}`}
-                  >
-                    {exp}
-                  </button>
-                );
-              })}
-            </div>
+      <section className="mb-8">
+        <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+            <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+            {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
+              <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
+            ) : (
+              <>
+                <div className="mb-5 flex flex-wrap gap-2 items-center">
+                  <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
+                  <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs rounded" style={{ backgroundColor: inputBg, color: textColor }}>All</button>
+                  {expirationOptions.map((exp) => {
+                    const active = selectedExpirations === null || selectedExpirations.includes(exp);
+                    return (
+                      <button
+                        key={exp}
+                        onClick={() => setSelectedExpirations((current) => {
+                          const base = current === null ? [...expirationOptions] : [...current];
+                          const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
+                          return updated.length === 0 ? null : updated;
+                        })}
+                        style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
+                        className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : ''}`}
+                      >
+                        {exp}
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('netGexM')}>Net GEX</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('vannaM')}>Vanna</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('charmM')}>Charm</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callOi')}>Call OI</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putOi')}>Put OI</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callVolume')}>Call Vol</th>
-                    <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putVolume')}>Put Vol</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRows.map((row) => (
-                    <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
-                      <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
-                      <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
-                      <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
-                      <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.vannaM.toFixed(2)}M</td>
-                      <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.charmM.toFixed(2)}M</td>
-                      <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
-                      <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
-                      <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
-                      <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('netGexM')}>Net GEX</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('vannaM')}>Vanna</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('charmM')}>Charm</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callOi')}>Call OI</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putOi')}>Put OI</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callVolume')}>Call Vol</th>
+                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putVolume')}>Put Vol</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedRows.map((row) => (
+                        <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
+                          <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.vannaM.toFixed(2)}M</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.charmM.toFixed(2)}M</td>
+                          <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
+                          <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
+                          <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
+                          <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </ExpandableCard>
       </section>
 
       {/* Section 6: Existing Time-Series Heatmap */}
