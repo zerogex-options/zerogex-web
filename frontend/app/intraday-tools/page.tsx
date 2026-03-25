@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -151,39 +151,21 @@ function getETDateKey(ts: string): string {
   }).format(d);
 }
 
-function getSessionTimestamps(dateKey: string): string[] {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return [];
-
-  const etFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
+function getDateMarkerMeta(timestamps: string[]) {
+  const groups = new Map<string, { first: number; last: number }>();
+  timestamps.forEach((ts, idx) => {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return;
+    const key = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
+    const current = groups.get(key);
+    if (!current) groups.set(key, { first: idx, last: idx });
+    else groups.set(key, { first: current.first, last: idx });
   });
-
-  let startMs: number | null = null;
-  for (const utcH of [13, 14]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 9 && min === 30) { startMs = candidate; break; }
-  }
-
-  let endMs: number | null = null;
-  for (const utcH of [20, 21]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 16 && min === 0) { endMs = candidate; break; }
-  }
-
-  if (startMs === null || endMs === null) return [];
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) result.push(new Date(t).toISOString());
-  return result;
+  const indexToLabel = new Map<number, string>();
+  groups.forEach((g, label) => {
+    indexToLabel.set(g.first, label);
+  });
+  return indexToLabel;
 }
 
 function is30MinBoundary(ts: string): boolean {
@@ -227,14 +209,14 @@ export default function IntradayToolsPage() {
   const inputBorder = isDark ? '#6b7280' : '#d1d5db';
   const inputColor = isDark ? '#e5e7eb' : '#374151';
   const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
+  const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState('all');
+  const [minClass, setMinClass] = useState('__default__');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
-  const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null);
+  const [tableRowLimit, setTableRowLimit] = useState(50);
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -269,17 +251,37 @@ export default function IntradayToolsPage() {
   );
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=500`,
+    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`,
     { refreshInterval: 10000 }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=200`,
+    `/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`,
     { refreshInterval: 10000 }
   );
   const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(
     `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
     { refreshInterval: 10000 }
   );
+  const otherSession = sessionView === 'current' ? 'prior' : 'current';
+  const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&session=${otherSession}`,
+    { refreshInterval: 60000 }
+  );
+
+  const sessionDateLabel = useMemo(() => {
+    if (!sessionPriceData || sessionPriceData.length === 0) return null;
+    const sorted = [...sessionPriceData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return getETDateKey(sorted[0].timestamp) || null;
+  }, [sessionPriceData]);
+
+  const otherSessionDateLabel = useMemo(() => {
+    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
+    const sorted = [...otherSessionProbe].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return getETDateKey(sorted[0].timestamp) || null;
+  }, [otherSessionProbe]);
+
+  const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
+  const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
   const primaryDivergence = extractDivergenceRows(divergenceResponse);
   const fallbackDivergence = extractDivergenceRows(divergenceFallback);
@@ -315,8 +317,14 @@ export default function IntradayToolsPage() {
     return unique.sort((a, b) => classRank(a) - classRank(b));
   }, [normalizedSmartMoneyRows]);
 
+  useEffect(() => {
+    if (minClass !== '__default__' || classOptions.length === 0) return;
+    const match = classOptions.find((cls) => cls.toLowerCase().includes('500'));
+    setMinClass(match || classOptions[Math.max(0, classOptions.length - 4)] || 'all');
+  }, [minClass, classOptions]);
+
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    if (minClass === 'all') return normalizedSmartMoneyRows;
+    if (minClass === 'all' || minClass === '__default__') return normalizedSmartMoneyRows;
     const threshold = classRank(minClass);
     return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
   }, [normalizedSmartMoneyRows, minClass]);
@@ -339,12 +347,12 @@ export default function IntradayToolsPage() {
     const priceRows = sessionPriceData || [];
     if (rows.length === 0 && priceRows.length === 0) return [];
 
-    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string }>>();
+    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string; optionType: string }>>();
     rows.forEach((row) => {
       const ts = row.minuteTimestamp;
       if (!ts) return;
       const blocks = blocksByTs.get(ts) ?? [];
-      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey });
+      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey, optionType: String(row.option_type || '').toLowerCase() });
       blocksByTs.set(ts, blocks);
     });
 
@@ -355,54 +363,58 @@ export default function IntradayToolsPage() {
       priceByTs.set(ts, Number(row.underlying_price));
     });
 
-    const allTsFromData = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
-    const sessionDate = allTsFromData.length > 0 ? getETDateKey(allTsFromData[allTsFromData.length - 1]) : '';
-    const sessionTimeline = sessionDate ? getSessionTimestamps(sessionDate) : allTsFromData;
-    const allTs = sessionTimeline.length > 0 ? sessionTimeline : allTsFromData;
+    const allTs = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
 
-    let cumulative = 0;
     return allTs.map((ts) => {
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
       const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value.notionalM, 0);
-      cumulative += totalMinuteNotional;
 
       const row: Record<string, number | string | null> = {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
         blockNotionalM: totalMinuteNotional,
-        cumulativeNotionalM: cumulative,
         underlyingPrice: priceByTs.get(ts) ?? null,
       };
 
       for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
         row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
         row[`block${idx + 1}Key`] = minuteBlocks[idx]?.rowKey ?? '';
+        row[`block${idx + 1}Type`] = minuteBlocks[idx]?.optionType ?? '';
       }
       return row;
     });
   }, [sessionPriceData, filteredSmartMoneyData]);
 
   const maxStackSegments = useMemo(() => {
-    return smartMoneySessionChart.reduce((max, row) => {
-      const keys = Object.keys(row).filter((key) => key.startsWith('block') && Number(row[key] || 0) > 0);
+    const raw = smartMoneySessionChart.reduce((max, row) => {
+      const keys = Object.keys(row).filter((key) => key.startsWith('block') && !key.includes('Key') && !key.includes('Type') && Number(row[key] || 0) > 0);
       return Math.max(max, keys.length);
     }, 1);
+    return Math.min(raw, 10);
   }, [smartMoneySessionChart]);
 
   const notionalTicks = useMemo(() => {
-    const max = Math.max(0, ...smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)));
-    return generateNiceTicks(0, max);
+    const values = smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)).filter((v) => v > 0);
+    if (values.length === 0) return [0];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return generateNiceTicks(min, max);
   }, [smartMoneySessionChart]);
 
   const priceTicks = useMemo(() => {
     const values = smartMoneySessionChart
-      .map((row) => Number(row.underlyingPrice))
-      .filter((value) => Number.isFinite(value));
+      .map((row) => row.underlyingPrice)
+      .filter((v): v is number => v != null && Number.isFinite(v as number) && (v as number) > 0)
+      .map(Number);
     if (values.length === 0) return [];
     const min = Math.min(...values);
     const max = Math.max(...values);
     return generateNiceTicks(min, max);
+  }, [smartMoneySessionChart]);
+
+  const dateMarkerMeta = useMemo(() => {
+    return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
   }, [smartMoneySessionChart]);
 
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
@@ -420,7 +432,235 @@ export default function IntradayToolsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Intraday Trading Tools</h1>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
+          <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below." >
+            <Info size={14} />
+          </TooltipWrapper>
+        </h2>
+        <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+            <label className="text-sm" style={{ color: mutedText }}>
+              Session
+              <select
+                className="ml-2 rounded px-2 py-1"
+                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
+                value={sessionView}
+                onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}
+              >
+                <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
+                <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
+              </select>
+            </label>
+            <label className="text-sm" style={{ color: mutedText }}>
+              Min Class
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
+                <option value="all">All</option>
+                {classOptions.map((cls) => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
+            <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div>
+          ) : (
+            <>
+              <div className="mb-5">
+                <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>
+                  SMART MONEY BLOCKS VS UNDERLYING PRICE
+                </h3>
+                {smartMoneySessionChart.length === 0 ? (
+                  <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
+                    Loading...
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart
+                      data={smartMoneySessionChart}
+                      margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+                    >
+                      <XAxis
+                        dataKey="timestamp"
+                        stroke={axisStroke}
+                        tickLine={false}
+                        interval={0}
+                        minTickGap={20}
+                        tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                          const x = Number(props?.x ?? 0);
+                          const y = Number(props?.y ?? 0);
+                          const index = Number(props?.index ?? -1);
+                          const ts = String(props?.payload?.value || '');
+                          const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+                          const dateLabel = dateMarkerMeta.get(index);
+                          const showTime = Boolean(timeLabel) || Boolean(dateLabel);
+                          if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                              {timeLabel ? (
+                                <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text>
+                              ) : null}
+                              {dateLabel ? (
+                                <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text>
+                              ) : null}
+                            </g>
+                          );
+                        }}
+                      />
+                      <YAxis
+                        yAxisId="notional"
+                        stroke={axisStroke}
+                        tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickLine={false}
+                        domain={notionalTicks.length > 1 ? [notionalTicks[0], notionalTicks[notionalTicks.length - 1]] : ['auto', 'auto']}
+                        ticks={notionalTicks}
+                        tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
+                      />
+                      <YAxis
+                        yAxisId="price"
+                        orientation="right"
+                        stroke={axisStroke}
+                        tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickLine={false}
+                        domain={priceTicks.length > 1 ? [priceTicks[0], priceTicks[priceTicks.length - 1]] : ['auto', 'auto']}
+                        ticks={priceTicks}
+                        tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db' }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload || payload.length === 0) return null;
+                          const row = payload[0]?.payload as Record<string, unknown> | undefined;
+                          if (!row) return null;
+                          const price = Number(row.underlyingPrice);
+                          const ts = row.timestamp ? new Date(String(row.timestamp)) : null;
+                          const timeLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '';
+                          const priceLabel = Number.isFinite(price) ? `${symbol} $${price.toFixed(2)}` : symbol;
+                          const blockItems: Array<{ label: string; value: string; color: string }> = [];
+                          for (let i = 1; ; i++) {
+                            const val = Number(row[`block${i}`] || 0);
+                            if (!(`block${i}` in row)) break;
+                            if (val <= 0) continue;
+                            const optType = String(row[`block${i}Type`] || '');
+                            const isCall = optType.includes('call') || optType === 'c';
+                            blockItems.push({
+                              label: isCall ? 'Call Block' : 'Put Block',
+                              value: `$${val.toFixed(2)}M`,
+                              color: isCall ? '#22c55e' : '#ef4444',
+                            });
+                          }
+                          return (
+                            <div style={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', border: `1px solid ${isDark ? '#423d3f' : '#d1d5db'}`, borderRadius: 4, padding: '8px 12px', fontSize: 12 }}>
+                              {timeLabel && <div style={{ color: isDark ? '#9ca3af' : '#6b7280', marginBottom: 2 }}>{timeLabel}</div>}
+                              <div style={{ fontWeight: 600, marginBottom: blockItems.length > 0 ? 4 : 0 }}>{priceLabel}</div>
+                              {blockItems.map((item, i) => (
+                                <div key={i} style={{ color: item.color }}>{item.label}: {item.value}</div>
+                              ))}
+                            </div>
+                          );
+                        }}
+                      />
+                      {Array.from({ length: maxStackSegments }, (_, idx) => (
+                        <Bar
+                          key={`block${idx + 1}`}
+                          yAxisId="notional"
+                          dataKey={`block${idx + 1}`}
+                          name={idx === 0 ? 'Block Notional' : undefined}
+                          stackId="smartMoneyBlocks"
+                          fill="#22c55e"
+                          opacity={0.8}
+                          isAnimationActive={false}
+                          shape={(props) => {
+                            const chartProps = props as unknown as {
+                              x?: number;
+                              y?: number;
+                              width?: number;
+                              height?: number;
+                              payload?: Record<string, unknown>;
+                            };
+                            const x = Number(chartProps.x || 0);
+                            const y = Number(chartProps.y || 0);
+                            const width = Number(chartProps.width || 0);
+                            const height = Number(chartProps.height || 0);
+                            const payload = chartProps.payload as Record<string, unknown>;
+                            const optType = String(payload?.[`block${idx + 1}Type`] || '');
+                            const isCall = optType.includes('call') || optType === 'c';
+                            const baseFill = isCall ? '#22c55e' : '#ef4444';
+                            return (
+                              <rect
+                                x={x}
+                                y={y}
+                                width={width}
+                                height={height}
+                                fill={baseFill}
+                                opacity={0.8}
+                              />
+                            );
+                          }}
+                        />
+                      ))}
+                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#facc15" strokeWidth={2} dot={false} connectNulls />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="overflow-x-auto mt-2">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiry</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th>
+                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th>
+                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
+                      const optType = String(row.option_type).toLowerCase();
+                      const isCall = optType.includes('call') || optType === 'c';
+                      return (
+                        <tr
+                          key={row.rowKey}
+                          className="border-b"
+                          style={{ borderColor: borderColor }}
+                        >
+                          <td className="py-2 px-2">{row.effectiveTimestamp ? new Date(row.effectiveTimestamp).toLocaleTimeString() : '--:--'}</td>
+                          <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
+                          <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
+                          <td className="py-2 px-2">{row.expiration}</td>
+                          <td className="text-right py-2 px-2">{row.dte}</td>
+                          <td className={`py-2 px-2 font-semibold ${isCall ? 'text-green-300' : 'text-red-300'}`}>{isCall ? 'C' : 'P'}</td>
+                          <td className="text-right py-2 px-2">{Number(row.flow).toLocaleString()}</td>
+                          <td className="text-right py-2 px-2">${(Number(row.notional) / 1000000).toFixed(2)}M</td>
+                          <td className="py-2 px-2">{row.notional_class} / {row.size_class}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {sortedSmartMoneyRows.length > tableRowLimit && (
+                  <button
+                    className="mt-2 text-sm underline"
+                    style={{ color: mutedText }}
+                    onClick={() => setTableRowLimit((prev) => prev + 50)}
+                  >
+                    Show more ({sortedSmartMoneyRows.length - tableRowLimit} remaining)
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
@@ -463,207 +703,6 @@ export default function IntradayToolsPage() {
             </div>
           </>
         )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Session view overlays smart-money block notional and cumulative block flow versus underlying price, with a sortable detail table below." >
-            <Info size={14} />
-          </TooltipWrapper>
-        </h2>
-        <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            <label className="text-sm" style={{ color: mutedText }}>
-              Session
-              <select
-                className="ml-2 rounded px-2 py-1"
-                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
-                value={sessionView}
-                onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}
-              >
-                <option value="current">Current session</option>
-                <option value="prior">Previous session</option>
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>
-              Min Class
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
-                <option value="all">All</option>
-                {classOptions.map((cls) => (
-                  <option key={cls} value={cls}>{cls} +</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
-            <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
-          ) : (
-            <>
-              <div className="mb-5">
-                <h3 className="text-sm font-semibold mb-2" style={{ color: mutedText }}>
-                  Smart Money Blocks vs Underlying Price ({sessionView === 'current' ? 'Current Session' : 'Previous Session'})
-                </h3>
-                {smartMoneySessionChart.length === 0 ? (
-                  <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
-                    No session chart data available
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart
-                      data={smartMoneySessionChart}
-                      margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                      onMouseMove={(state) => {
-                        const chartState = state as unknown as {
-                          activePayload?: Array<{ dataKey?: string | number; payload?: Record<string, unknown> }>;
-                        };
-                        const payload = chartState.activePayload?.[0]?.payload;
-                        if (!payload || !chartState.activePayload || chartState.activePayload.length === 0) return;
-                        const firstBar = chartState.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
-                        const dataKey = String(firstBar?.dataKey || '');
-                        if (!dataKey) return;
-                        const rowKey = String(payload[`${dataKey}Key`] || '');
-                        setHoveredBlockKey(rowKey || null);
-                      }}
-                      onMouseLeave={() => setHoveredBlockKey(null)}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                      <XAxis
-                        dataKey="timestamp"
-                        stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
-                        interval={0}
-                        minTickGap={20}
-                        tickFormatter={(value) => {
-                          const ts = String(value || '');
-                          if (!is30MinBoundary(ts)) return '';
-                          return new Date(ts).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                            timeZone: 'America/New_York',
-                          });
-                        }}
-                      />
-                      <YAxis
-                        yAxisId="notional"
-                        stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
-                        domain={[0, 'auto']}
-                        ticks={notionalTicks}
-                        tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
-                      />
-                      <YAxis
-                        yAxisId="price"
-                        orientation="right"
-                        stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
-                        domain={priceTicks.length > 1 ? [priceTicks[0], priceTicks[priceTicks.length - 1]] : ['auto', 'auto']}
-                        ticks={priceTicks}
-                        tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db' }}
-                        formatter={(value, name) => {
-                          if (String(name).includes('Price')) return [`$${Number(value).toFixed(2)}`, name];
-                          return [`$${Number(value).toFixed(2)}M`, name];
-                        }}
-                      />
-                      {Array.from({ length: maxStackSegments }, (_, idx) => (
-                        <Bar
-                          key={`block${idx + 1}`}
-                          yAxisId="notional"
-                          dataKey={`block${idx + 1}`}
-                          name={idx === 0 ? 'Block Notional' : undefined}
-                          stackId="smartMoneyBlocks"
-                          fill={idx % 2 === 0 ? '#f59e0b' : '#fbbf24'}
-                          opacity={0.8}
-                          isAnimationActive={false}
-                          shape={(props) => {
-                            const chartProps = props as unknown as {
-                              x?: number;
-                              y?: number;
-                              width?: number;
-                              height?: number;
-                              payload?: Record<string, unknown>;
-                            };
-                            const x = Number(chartProps.x || 0);
-                            const y = Number(chartProps.y || 0);
-                            const width = Number(chartProps.width || 0);
-                            const height = Number(chartProps.height || 0);
-                            const payload = chartProps.payload as Record<string, unknown>;
-                            const rowKey = String(payload?.[`block${idx + 1}Key`] || '');
-                            const isHighlighted = hoveredBlockKey != null && rowKey === hoveredBlockKey;
-                            return (
-                              <rect
-                                x={x}
-                                y={y}
-                                width={width}
-                                height={height}
-                                fill={isHighlighted ? '#fde047' : (idx % 2 === 0 ? '#f59e0b' : '#fbbf24')}
-                                opacity={isHighlighted ? 1 : 0.8}
-                                stroke={isHighlighted ? '#fff7cc' : 'none'}
-                                strokeWidth={isHighlighted ? 1 : 0}
-                              />
-                            );
-                          }}
-                        />
-                      ))}
-                      <Line yAxisId="notional" type="monotone" dataKey="cumulativeNotionalM" name="Cumulative Smart Money" stroke="#22c55e" strokeWidth={2} dot={false} />
-                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#60a5fa" strokeWidth={2} dot={false} connectNulls />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiry</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedSmartMoneyRows.map((row) => {
-                      const isCall = String(row.option_type).toLowerCase().includes('call');
-                      const isHighlighted = hoveredBlockKey != null && row.rowKey === hoveredBlockKey;
-                      return (
-                        <tr
-                          key={row.rowKey}
-                          className="border-b"
-                          style={{
-                            borderColor: borderColor,
-                            backgroundColor: isHighlighted ? (isDark ? 'rgba(253,224,71,0.16)' : 'rgba(245,158,11,0.12)') : 'transparent',
-                          }}
-                          onMouseEnter={() => setHoveredBlockKey(row.rowKey)}
-                          onMouseLeave={() => setHoveredBlockKey(null)}
-                        >
-                          <td className="py-2 px-2">{row.effectiveTimestamp ? new Date(row.effectiveTimestamp).toLocaleTimeString() : '--:--'}</td>
-                          <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
-                          <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
-                          <td className="py-2 px-2">{row.expiration}</td>
-                          <td className="text-right py-2 px-2">{row.dte}</td>
-                          <td className={`py-2 px-2 font-semibold ${isCall ? 'text-green-300' : 'text-red-300'}`}>{isCall ? 'C' : 'P'}</td>
-                          <td className="text-right py-2 px-2">{Number(row.flow).toLocaleString()}</td>
-                          <td className="text-right py-2 px-2">${(Number(row.notional) / 1000000).toFixed(2)}M</td>
-                          <td className="py-2 px-2">{row.notional_class} / {row.size_class}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
       </section>
 
       <section className="mb-8">
