@@ -579,12 +579,19 @@ export default function IntradayToolsPage() {
                           fill={idx % 2 === 0 ? '#f59e0b' : '#fbbf24'}
                           opacity={0.8}
                           isAnimationActive={false}
-                          shape={(props: Record<string, unknown>) => {
-                            const x = Number(props.x || 0);
-                            const y = Number(props.y || 0);
-                            const width = Number(props.width || 0);
-                            const height = Number(props.height || 0);
-                            const payload = props.payload as Record<string, unknown>;
+                          shape={(props) => {
+                            const chartProps = props as unknown as {
+                              x?: number;
+                              y?: number;
+                              width?: number;
+                              height?: number;
+                              payload?: Record<string, unknown>;
+                            };
+                            const x = Number(chartProps.x || 0);
+                            const y = Number(chartProps.y || 0);
+                            const width = Number(chartProps.width || 0);
+                            const height = Number(chartProps.height || 0);
+                            const payload = chartProps.payload as Record<string, unknown>;
                             const rowKey = String(payload?.[`block${idx + 1}Key`] || '');
                             const isHighlighted = hoveredBlockKey != null && rowKey === hoveredBlockKey;
                             return (
