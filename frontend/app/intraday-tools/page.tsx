@@ -140,52 +140,6 @@ function smartMoneyEffectiveTimestamp(row: SmartMoneyRow): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function getETDateKey(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d);
-}
-
-function getSessionTimestamps(dateKey: string): string[] {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return [];
-
-  const etFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  let startMs: number | null = null;
-  for (const utcH of [13, 14]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 9 && min === 30) { startMs = candidate; break; }
-  }
-
-  let endMs: number | null = null;
-  for (const utcH of [20, 21]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 16 && min === 0) { endMs = candidate; break; }
-  }
-
-  if (startMs === null || endMs === null) return [];
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) result.push(new Date(t).toISOString());
-  return result;
-}
-
 function is30MinBoundary(ts: string): boolean {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return false;
@@ -361,10 +315,7 @@ export default function IntradayToolsPage() {
       priceByTs.set(ts, Number(row.underlying_price));
     });
 
-    const allTsFromData = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
-    const sessionDate = allTsFromData.length > 0 ? getETDateKey(allTsFromData[allTsFromData.length - 1]) : '';
-    const sessionTimeline = sessionDate ? getSessionTimestamps(sessionDate) : allTsFromData;
-    const allTs = sessionTimeline.length > 0 ? sessionTimeline : allTsFromData;
+    const allTs = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
 
     return allTs.map((ts) => {
@@ -429,50 +380,6 @@ export default function IntradayToolsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Intraday Trading Tools</h1>
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
-        {vwapError ? (
-          <ErrorMessage message={vwapError} />
-        ) : !vwap ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            No VWAP data available (market may be closed)
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <MetricCard title="Current Price" value={`$${vwap.price.toFixed(2)}`} tooltip="Current market price" />
-            <MetricCard title="VWAP" value={`$${vwap.vwap.toFixed(2)}`} tooltip="Volume weighted average price" />
-            <MetricCard title="Deviation" value={`${vwap.vwap_deviation_pct.toFixed(2)}%`} trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-            <MetricCard title="Position" value={vwap.vwap_position} tooltip="Price position relative to VWAP" />
-          </div>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
-        {orbError ? (
-          <ErrorMessage message={orbError} />
-        ) : !orb ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            No ORB data available (market may be closed)
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${orb.current_price.toFixed(2)}`} tooltip="Current market price" />
-              <MetricCard title="ORB High" value={`$${orb.orb_high.toFixed(2)}`} subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`} tooltip="Opening range high" />
-              <MetricCard title="ORB Low" value={`$${orb.orb_low.toFixed(2)}`} subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`} tooltip="Opening range low" />
-              <MetricCard title="ORB Range" value={`$${orb.orb_range.toFixed(2)}`} tooltip="Opening range size" />
-            </div>
-            <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-              <div className="text-xl font-semibold text-center">
-                Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-green-400' : orb.orb_status.includes('💥') ? 'text-red-400' : 'text-yellow-400'}`}>{orb.orb_status}</span>
-              </div>
-            </div>
-          </>
-        )}
-      </section>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
@@ -688,6 +595,49 @@ export default function IntradayToolsPage() {
             </>
           )}
         </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
+        {vwapError ? (
+          <ErrorMessage message={vwapError} />
+        ) : !vwap ? (
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+            No VWAP data available (market may be closed)
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <MetricCard title="Current Price" value={`$${vwap.price.toFixed(2)}`} tooltip="Current market price" />
+            <MetricCard title="VWAP" value={`$${vwap.vwap.toFixed(2)}`} tooltip="Volume weighted average price" />
+            <MetricCard title="Deviation" value={`${vwap.vwap_deviation_pct.toFixed(2)}%`} trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
+            <MetricCard title="Position" value={vwap.vwap_position} tooltip="Price position relative to VWAP" />
+          </div>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
+        {orbError ? (
+          <ErrorMessage message={orbError} />
+        ) : !orb ? (
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+            No ORB data available (market may be closed)
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <MetricCard title="Current Price" value={`$${orb.current_price.toFixed(2)}`} tooltip="Current market price" />
+              <MetricCard title="ORB High" value={`$${orb.orb_high.toFixed(2)}`} subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`} tooltip="Opening range high" />
+              <MetricCard title="ORB Low" value={`$${orb.orb_low.toFixed(2)}`} subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`} tooltip="Opening range low" />
+              <MetricCard title="ORB Range" value={`$${orb.orb_range.toFixed(2)}`} tooltip="Opening range size" />
+            </div>
+            <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+              <div className="text-xl font-semibold text-center">
+                Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-green-400' : orb.orb_status.includes('💥') ? 'text-red-400' : 'text-yellow-400'}`}>{orb.orb_status}</span>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="mb-8">
