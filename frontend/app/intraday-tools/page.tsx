@@ -85,10 +85,6 @@ interface SessionFlowPoint {
   underlying_price?: number | null;
 }
 
-interface SmartMoneyChartMouseState {
-  activePayload?: Array<{ dataKey?: string | number; payload?: Record<string, unknown> }>;
-}
-
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 
 const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
@@ -517,10 +513,13 @@ export default function IntradayToolsPage() {
                     <ComposedChart
                       data={smartMoneySessionChart}
                       margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                      onMouseMove={(state: SmartMoneyChartMouseState) => {
-                        const payload = state?.activePayload?.[0]?.payload as Record<string, unknown> | undefined;
-                        if (!payload || !state?.activePayload || state.activePayload.length === 0) return;
-                        const firstBar = state.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
+                      onMouseMove={(state) => {
+                        const chartState = state as unknown as {
+                          activePayload?: Array<{ dataKey?: string | number; payload?: Record<string, unknown> }>;
+                        };
+                        const payload = chartState.activePayload?.[0]?.payload;
+                        if (!payload || !chartState.activePayload || chartState.activePayload.length === 0) return;
+                        const firstBar = chartState.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
                         const dataKey = String(firstBar?.dataKey || '');
                         if (!dataKey) return;
                         const rowKey = String(payload[`${dataKey}Key`] || '');
