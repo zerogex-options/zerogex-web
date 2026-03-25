@@ -602,7 +602,7 @@ export default function IntradayToolsPage() {
                           }}
                         />
                       ))}
-                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#60a5fa" strokeWidth={2} dot={false} connectNulls />
+                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#facc15" strokeWidth={2} dot={false} connectNulls />
                     </ComposedChart>
                   </ResponsiveContainer>
                 )}
