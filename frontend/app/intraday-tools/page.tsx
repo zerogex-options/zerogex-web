@@ -229,6 +229,7 @@ export default function IntradayToolsPage() {
   const axisStroke = isDark ? '#f2f2f2' : '#374151';
   const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
+  const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
@@ -361,17 +362,14 @@ export default function IntradayToolsPage() {
     const allTs = sessionTimeline.length > 0 ? sessionTimeline : allTsFromData;
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
 
-    let cumulative = 0;
     return allTs.map((ts) => {
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
       const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value.notionalM, 0);
-      cumulative += totalMinuteNotional;
 
       const row: Record<string, number | string | null> = {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
         blockNotionalM: totalMinuteNotional,
-        cumulativeNotionalM: cumulative,
         underlyingPrice: priceByTs.get(ts) ?? null,
       };
 
@@ -391,8 +389,11 @@ export default function IntradayToolsPage() {
   }, [smartMoneySessionChart]);
 
   const notionalTicks = useMemo(() => {
-    const max = Math.max(0, ...smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)));
-    return generateNiceTicks(0, max);
+    const values = smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)).filter((v) => v > 0);
+    if (values.length === 0) return [0];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return generateNiceTicks(min, max);
   }, [smartMoneySessionChart]);
 
   const priceTicks = useMemo(() => {
@@ -467,7 +468,7 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Session view overlays smart-money block notional and cumulative block flow versus underlying price, with a sortable detail table below." >
+          <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below." >
             <Info size={14} />
           </TooltipWrapper>
         </h2>
@@ -501,8 +502,8 @@ export default function IntradayToolsPage() {
           ) : (
             <>
               <div className="mb-5">
-                <h3 className="text-sm font-semibold mb-2" style={{ color: mutedText }}>
-                  Smart Money Blocks vs Underlying Price ({sessionView === 'current' ? 'Current Session' : 'Previous Session'})
+                <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>
+                  SMART MONEY BLOCKS VS UNDERLYING PRICE
                 </h3>
                 {smartMoneySessionChart.length === 0 ? (
                   <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
@@ -527,11 +528,11 @@ export default function IntradayToolsPage() {
                       }}
                       onMouseLeave={() => setHoveredBlockKey(null)}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
                       <XAxis
                         dataKey="timestamp"
                         stroke={axisStroke}
                         tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickLine={false}
                         interval={0}
                         minTickGap={20}
                         tickFormatter={(value) => {
@@ -549,7 +550,8 @@ export default function IntradayToolsPage() {
                         yAxisId="notional"
                         stroke={axisStroke}
                         tick={{ fill: axisStroke, fontSize: 11 }}
-                        domain={[0, 'auto']}
+                        tickLine={false}
+                        domain={notionalTicks.length > 1 ? [notionalTicks[0], notionalTicks[notionalTicks.length - 1]] : ['auto', 'auto']}
                         ticks={notionalTicks}
                         tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
                       />
@@ -558,6 +560,7 @@ export default function IntradayToolsPage() {
                         orientation="right"
                         stroke={axisStroke}
                         tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickLine={false}
                         domain={priceTicks.length > 1 ? [priceTicks[0], priceTicks[priceTicks.length - 1]] : ['auto', 'auto']}
                         ticks={priceTicks}
                         tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
@@ -609,7 +612,6 @@ export default function IntradayToolsPage() {
                           }}
                         />
                       ))}
-                      <Line yAxisId="notional" type="monotone" dataKey="cumulativeNotionalM" name="Cumulative Smart Money" stroke="#22c55e" strokeWidth={2} dot={false} />
                       <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#60a5fa" strokeWidth={2} dot={false} connectNulls />
                     </ComposedChart>
                   </ResponsiveContainer>
