@@ -413,7 +413,7 @@ export default function IntradayToolsPage() {
           </div>
 
           {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
-            <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
+            <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div>
           ) : (
             <>
               <div className="mb-5">
@@ -422,7 +422,7 @@ export default function IntradayToolsPage() {
                 </h3>
                 {smartMoneySessionChart.length === 0 ? (
                   <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
-                    No session chart data available
+                    Loading...
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
