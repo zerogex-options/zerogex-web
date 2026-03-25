@@ -85,6 +85,10 @@ interface SessionFlowPoint {
   underlying_price?: number | null;
 }
 
+interface SmartMoneyChartMouseState {
+  activePayload?: Array<{ dataKey?: string | number; payload?: Record<string, unknown> }>;
+}
+
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 
 const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
@@ -513,7 +517,7 @@ export default function IntradayToolsPage() {
                     <ComposedChart
                       data={smartMoneySessionChart}
                       margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                      onMouseMove={(state) => {
+                      onMouseMove={(state: SmartMoneyChartMouseState) => {
                         const payload = state?.activePayload?.[0]?.payload as Record<string, unknown> | undefined;
                         if (!payload || !state?.activePayload || state.activePayload.length === 0) return;
                         const firstBar = state.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
