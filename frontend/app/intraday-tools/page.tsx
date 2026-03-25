@@ -326,8 +326,8 @@ export default function IntradayToolsPage() {
     rows.sort((a, b) => {
       const valueA = a[smartMoneySortKey];
       const valueB = b[smartMoneySortKey];
-      const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : valueA;
-      const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : valueB;
+      const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : (valueA ?? 0);
+      const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : (valueB ?? 0);
       const comparison = normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
       return smartMoneySortDir === 'asc' ? comparison : -comparison;
     });
