@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -227,15 +227,14 @@ export default function IntradayToolsPage() {
   const inputBorder = isDark ? '#6b7280' : '#d1d5db';
   const inputColor = isDark ? '#e5e7eb' : '#374151';
   const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
   const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState('all');
+  const [minClass, setMinClass] = useState('__default__');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
-  const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null);
+  const [tableRowLimit, setTableRowLimit] = useState(50);
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -316,8 +315,14 @@ export default function IntradayToolsPage() {
     return unique.sort((a, b) => classRank(a) - classRank(b));
   }, [normalizedSmartMoneyRows]);
 
+  useEffect(() => {
+    if (minClass !== '__default__' || classOptions.length === 0) return;
+    const match = classOptions.find((cls) => cls.toLowerCase().includes('500'));
+    setMinClass(match || classOptions[Math.max(0, classOptions.length - 4)] || 'all');
+  }, [minClass, classOptions]);
+
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    if (minClass === 'all') return normalizedSmartMoneyRows;
+    if (minClass === 'all' || minClass === '__default__') return normalizedSmartMoneyRows;
     const threshold = classRank(minClass);
     return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
   }, [normalizedSmartMoneyRows, minClass]);
@@ -340,12 +345,12 @@ export default function IntradayToolsPage() {
     const priceRows = sessionPriceData || [];
     if (rows.length === 0 && priceRows.length === 0) return [];
 
-    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string }>>();
+    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string; optionType: string }>>();
     rows.forEach((row) => {
       const ts = row.minuteTimestamp;
       if (!ts) return;
       const blocks = blocksByTs.get(ts) ?? [];
-      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey });
+      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey, optionType: String(row.option_type || '').toLowerCase() });
       blocksByTs.set(ts, blocks);
     });
 
@@ -376,16 +381,18 @@ export default function IntradayToolsPage() {
       for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
         row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
         row[`block${idx + 1}Key`] = minuteBlocks[idx]?.rowKey ?? '';
+        row[`block${idx + 1}Type`] = minuteBlocks[idx]?.optionType ?? '';
       }
       return row;
     });
   }, [sessionPriceData, filteredSmartMoneyData]);
 
   const maxStackSegments = useMemo(() => {
-    return smartMoneySessionChart.reduce((max, row) => {
-      const keys = Object.keys(row).filter((key) => key.startsWith('block') && Number(row[key] || 0) > 0);
+    const raw = smartMoneySessionChart.reduce((max, row) => {
+      const keys = Object.keys(row).filter((key) => key.startsWith('block') && !key.includes('Key') && !key.includes('Type') && Number(row[key] || 0) > 0);
       return Math.max(max, keys.length);
     }, 1);
+    return Math.min(raw, 10);
   }, [smartMoneySessionChart]);
 
   const notionalTicks = useMemo(() => {
@@ -491,7 +498,7 @@ export default function IntradayToolsPage() {
               <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
                 <option value="all">All</option>
                 {classOptions.map((cls) => (
-                  <option key={cls} value={cls}>{cls} +</option>
+                  <option key={cls} value={cls}>{cls}</option>
                 ))}
               </select>
             </label>
@@ -514,19 +521,6 @@ export default function IntradayToolsPage() {
                     <ComposedChart
                       data={smartMoneySessionChart}
                       margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                      onMouseMove={(state) => {
-                        const chartState = state as unknown as {
-                          activePayload?: Array<{ dataKey?: string | number; payload?: Record<string, unknown> }>;
-                        };
-                        const payload = chartState.activePayload?.[0]?.payload;
-                        if (!payload || !chartState.activePayload || chartState.activePayload.length === 0) return;
-                        const firstBar = chartState.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
-                        const dataKey = String(firstBar?.dataKey || '');
-                        if (!dataKey) return;
-                        const rowKey = String(payload[`${dataKey}Key`] || '');
-                        setHoveredBlockKey(rowKey || null);
-                      }}
-                      onMouseLeave={() => setHoveredBlockKey(null)}
                     >
                       <XAxis
                         dataKey="timestamp"
@@ -567,9 +561,33 @@ export default function IntradayToolsPage() {
                       />
                       <Tooltip
                         contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db' }}
-                        formatter={(value, name) => {
-                          if (String(name).includes('Price')) return [`$${Number(value).toFixed(2)}`, name];
-                          return [`$${Number(value).toFixed(2)}M`, name];
+                        content={({ active, payload }) => {
+                          if (!active || !payload || payload.length === 0) return null;
+                          const row = payload[0]?.payload as Record<string, unknown> | undefined;
+                          if (!row) return null;
+                          const price = Number(row.underlyingPrice);
+                          const priceLabel = Number.isFinite(price) ? `${symbol} $${price.toFixed(2)}` : symbol;
+                          const blockItems: Array<{ label: string; value: string; color: string }> = [];
+                          for (let i = 1; ; i++) {
+                            const val = Number(row[`block${i}`] || 0);
+                            if (!(`block${i}` in row)) break;
+                            if (val <= 0) continue;
+                            const optType = String(row[`block${i}Type`] || '');
+                            const isCall = optType.includes('call');
+                            blockItems.push({
+                              label: isCall ? 'Call Block' : 'Put Block',
+                              value: `$${val.toFixed(2)}M`,
+                              color: isCall ? '#22c55e' : '#ef4444',
+                            });
+                          }
+                          return (
+                            <div style={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', border: `1px solid ${isDark ? '#423d3f' : '#d1d5db'}`, borderRadius: 4, padding: '8px 12px', fontSize: 12 }}>
+                              <div style={{ fontWeight: 600, marginBottom: blockItems.length > 0 ? 4 : 0 }}>{priceLabel}</div>
+                              {blockItems.map((item, i) => (
+                                <div key={i} style={{ color: item.color }}>{item.label}: {item.value}</div>
+                              ))}
+                            </div>
+                          );
                         }}
                       />
                       {Array.from({ length: maxStackSegments }, (_, idx) => (
@@ -579,7 +597,7 @@ export default function IntradayToolsPage() {
                           dataKey={`block${idx + 1}`}
                           name={idx === 0 ? 'Block Notional' : undefined}
                           stackId="smartMoneyBlocks"
-                          fill={idx % 2 === 0 ? '#f59e0b' : '#fbbf24'}
+                          fill="#22c55e"
                           opacity={0.8}
                           isAnimationActive={false}
                           shape={(props) => {
@@ -595,18 +613,17 @@ export default function IntradayToolsPage() {
                             const width = Number(chartProps.width || 0);
                             const height = Number(chartProps.height || 0);
                             const payload = chartProps.payload as Record<string, unknown>;
-                            const rowKey = String(payload?.[`block${idx + 1}Key`] || '');
-                            const isHighlighted = hoveredBlockKey != null && rowKey === hoveredBlockKey;
+                            const optType = String(payload?.[`block${idx + 1}Type`] || '');
+                            const isCall = optType.includes('call');
+                            const baseFill = isCall ? '#22c55e' : '#ef4444';
                             return (
                               <rect
                                 x={x}
                                 y={y}
                                 width={width}
                                 height={height}
-                                fill={isHighlighted ? '#fde047' : (idx % 2 === 0 ? '#f59e0b' : '#fbbf24')}
-                                opacity={isHighlighted ? 1 : 0.8}
-                                stroke={isHighlighted ? '#fff7cc' : 'none'}
-                                strokeWidth={isHighlighted ? 1 : 0}
+                                fill={baseFill}
+                                opacity={0.8}
                               />
                             );
                           }}
@@ -634,19 +651,13 @@ export default function IntradayToolsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedSmartMoneyRows.map((row) => {
+                    {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
                       const isCall = String(row.option_type).toLowerCase().includes('call');
-                      const isHighlighted = hoveredBlockKey != null && row.rowKey === hoveredBlockKey;
                       return (
                         <tr
                           key={row.rowKey}
                           className="border-b"
-                          style={{
-                            borderColor: borderColor,
-                            backgroundColor: isHighlighted ? (isDark ? 'rgba(253,224,71,0.16)' : 'rgba(245,158,11,0.12)') : 'transparent',
-                          }}
-                          onMouseEnter={() => setHoveredBlockKey(row.rowKey)}
-                          onMouseLeave={() => setHoveredBlockKey(null)}
+                          style={{ borderColor: borderColor }}
                         >
                           <td className="py-2 px-2">{row.effectiveTimestamp ? new Date(row.effectiveTimestamp).toLocaleTimeString() : '--:--'}</td>
                           <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
@@ -662,6 +673,15 @@ export default function IntradayToolsPage() {
                     })}
                   </tbody>
                 </table>
+                {sortedSmartMoneyRows.length > tableRowLimit && (
+                  <button
+                    className="mt-2 text-sm underline"
+                    style={{ color: mutedText }}
+                    onClick={() => setTableRowLimit((prev) => prev + 50)}
+                  >
+                    Show more ({sortedSmartMoneyRows.length - tableRowLimit} remaining)
+                  </button>
+                )}
               </div>
             </>
           )}
