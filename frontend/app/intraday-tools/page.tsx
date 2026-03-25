@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
+import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -66,6 +67,15 @@ interface SmartMoneyRow {
   score?: number | null;
   notional_class: string;
   size_class: string;
+  underlying_price?: number | null;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
+}
+
+interface SessionFlowPoint {
+  timestamp: string;
+  underlying_price?: number | null;
 }
 
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
@@ -105,6 +115,17 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
   return [];
 }
 
+function normalizeToMinute(ts?: string): string | null {
+  if (!ts) return null;
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+function smartMoneyTimestamp(row: SmartMoneyRow): string | null {
+  return normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
+}
+
 export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
@@ -113,12 +134,15 @@ export default function IntradayToolsPage() {
   const inputBg = isDark ? '#2f2b2c' : '#f3f4f6';
   const inputBorder = isDark ? '#6b7280' : '#d1d5db';
   const inputColor = isDark ? '#e5e7eb' : '#374151';
+  const axisStroke = isDark ? '#f2f2f2' : '#374151';
+  const gridStroke = isDark ? '#968f92' : '#d1d5db';
   const mutedText = isDark ? '#9ca3af' : '#6b7280';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneyTimeframe, setSmartMoneyTimeframe] = useState('1day');
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState('all');
+  const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -156,6 +180,14 @@ export default function IntradayToolsPage() {
     `/api/flow/smart-money?symbol=${symbol}&timeframe=${smartMoneyTimeframe}&window_units=30&limit=30`,
     { refreshInterval: 10000 }
   );
+  const { data: smartMoneySessionData } = useApiData<SmartMoneyRow[]>(
+    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=50000`,
+    { refreshInterval: 10000 }
+  );
+  const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
+    { refreshInterval: 10000 }
+  );
 
   const primaryDivergence = extractDivergenceRows(divergenceResponse);
   const fallbackDivergence = extractDivergenceRows(divergenceFallback);
@@ -189,6 +221,40 @@ export default function IntradayToolsPage() {
     });
     return rows;
   }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
+
+  const smartMoneySessionChart = useMemo(() => {
+    const rows = smartMoneySessionData || [];
+    const priceRows = sessionPriceData || [];
+    if (rows.length === 0 && priceRows.length === 0) return [];
+
+    const notionalByTs = new Map<string, number>();
+    rows.forEach((row) => {
+      const ts = smartMoneyTimestamp(row);
+      if (!ts) return;
+      const prev = notionalByTs.get(ts) || 0;
+      notionalByTs.set(ts, prev + Math.abs(Number(row.notional || 0)) / 1_000_000);
+    });
+
+    const priceByTs = new Map<string, number>();
+    priceRows.forEach((row) => {
+      const ts = normalizeToMinute(row.timestamp);
+      if (!ts || row.underlying_price == null) return;
+      priceByTs.set(ts, Number(row.underlying_price));
+    });
+
+    const allTs = Array.from(new Set([...notionalByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
+    let cumulative = 0;
+    return allTs.map((ts) => {
+      cumulative += notionalByTs.get(ts) || 0;
+      return {
+        timestamp: ts,
+        time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
+        blockNotionalM: notionalByTs.get(ts) || 0,
+        cumulativeNotionalM: cumulative,
+        underlyingPrice: priceByTs.get(ts) ?? null,
+      };
+    });
+  }, [sessionPriceData, smartMoneySessionData]);
 
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
@@ -252,12 +318,24 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Shows which individual order blocks dominate total smart-money notional in the selected window. Bar length = share of total notional for each block." >
+          <TooltipWrapper text="Session view overlays smart-money block notional and cumulative block flow versus underlying price, with a sortable detail table below." >
             <Info size={14} />
           </TooltipWrapper>
         </h2>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+            <label className="text-sm" style={{ color: mutedText }}>
+              Session
+              <select
+                className="ml-2 rounded px-2 py-1"
+                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
+                value={sessionView}
+                onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}
+              >
+                <option value="current">Current session</option>
+                <option value="prior">Previous session</option>
+              </select>
+            </label>
             <label className="text-sm" style={{ color: mutedText }}>
               Min Class
               <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
@@ -286,6 +364,47 @@ export default function IntradayToolsPage() {
             <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
           ) : (
             <>
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold mb-2" style={{ color: mutedText }}>
+                  Smart Money Blocks vs Underlying Price ({sessionView === 'current' ? 'Current Session' : 'Previous Session'})
+                </h3>
+                {smartMoneySessionChart.length === 0 ? (
+                  <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
+                    No session chart data available
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
+                      <XAxis dataKey="time" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} minTickGap={20} />
+                      <YAxis
+                        yAxisId="notional"
+                        stroke={axisStroke}
+                        tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
+                      />
+                      <YAxis
+                        yAxisId="price"
+                        orientation="right"
+                        stroke={axisStroke}
+                        tick={{ fill: axisStroke, fontSize: 11 }}
+                        tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db' }}
+                        formatter={(value, name) => {
+                          if (String(name).includes('Price')) return [`$${Number(value).toFixed(2)}`, name];
+                          return [`$${Number(value).toFixed(2)}M`, name];
+                        }}
+                      />
+                      <Bar yAxisId="notional" dataKey="blockNotionalM" name="Block Notional" fill="#f59e0b" opacity={0.7} />
+                      <Line yAxisId="notional" type="monotone" dataKey="cumulativeNotionalM" name="Cumulative Smart Money" stroke="#22c55e" strokeWidth={2} dot={false} />
+                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#60a5fa" strokeWidth={2} dot={false} connectNulls />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
               <div className="overflow-x-auto mt-2">
                 <table className="w-full text-sm">
                   <thead>

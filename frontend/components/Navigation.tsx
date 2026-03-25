@@ -51,36 +51,9 @@ export default function Navigation({ theme }: NavigationProps) {
 
   return (
     <>
-      <div
-        className="group hidden md:block fixed z-30"
-        style={{
-          left: sidebarVisible ? `${SIDEBAR_WIDTH}px` : 0,
-          top: "calc(var(--zgx-header-height, 0px) + 18px)",
-          width: "36px",
-          height: "56px",
-          transition: "left 0.2s ease",
-        }}
-      >
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          className="flex h-full w-full items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100"
-          style={{
-            backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
-            borderColor: border,
-            color: colors.muted,
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-          }}
-          aria-label={sidebarVisible ? "Hide left navigation" : "Show left navigation"}
-        >
-          {sidebarVisible ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-        </button>
-      </div>
-
       {sidebarVisible ? (
         <nav
-          className="hidden md:block fixed left-0 z-30 border-r"
+          className="group/sidebar hidden md:block fixed left-0 z-30 border-r"
           style={{
             width: `${SIDEBAR_WIDTH}px`,
             top: "var(--zgx-header-height, 0px)",
@@ -131,8 +104,43 @@ export default function Navigation({ theme }: NavigationProps) {
               </div>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="absolute -right-9 top-4 flex h-14 w-9 items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
+            style={{
+              backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+              borderColor: border,
+              color: colors.muted,
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+            }}
+            aria-label="Hide left navigation"
+          >
+            <ChevronLeft size={18} />
+          </button>
         </nav>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="hidden md:flex fixed z-30 items-center gap-1 rounded-r-xl border border-l-0 px-2"
+          style={{
+            left: 0,
+            top: "calc(var(--zgx-header-height, 0px) + 18px)",
+            height: "56px",
+            backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+            borderColor: border,
+            color: colors.muted,
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+          }}
+          aria-label="Show left navigation"
+        >
+          <ChevronRight size={18} />
+          <span className="text-[10px] font-semibold uppercase tracking-wide">menu</span>
+        </button>
+      )}
     </>
   );
 }
