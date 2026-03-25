@@ -140,6 +140,34 @@ function smartMoneyEffectiveTimestamp(row: SmartMoneyRow): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+function getETDateKey(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+function getDateMarkerMeta(timestamps: string[]) {
+  const groups = new Map<string, { first: number; last: number }>();
+  timestamps.forEach((ts, idx) => {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return;
+    const key = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
+    const current = groups.get(key);
+    if (!current) groups.set(key, { first: idx, last: idx });
+    else groups.set(key, { first: current.first, last: idx });
+  });
+  const indexToLabel = new Map<number, string>();
+  groups.forEach((g, label) => {
+    indexToLabel.set(g.first, label);
+  });
+  return indexToLabel;
+}
+
 function is30MinBoundary(ts: string): boolean {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return false;
@@ -234,6 +262,26 @@ export default function IntradayToolsPage() {
     `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
     { refreshInterval: 10000 }
   );
+  const otherSession = sessionView === 'current' ? 'prior' : 'current';
+  const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(
+    `/api/flow/by-type?symbol=${symbol}&session=${otherSession}`,
+    { refreshInterval: 60000 }
+  );
+
+  const sessionDateLabel = useMemo(() => {
+    if (!sessionPriceData || sessionPriceData.length === 0) return null;
+    const sorted = [...sessionPriceData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return getETDateKey(sorted[0].timestamp) || null;
+  }, [sessionPriceData]);
+
+  const otherSessionDateLabel = useMemo(() => {
+    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
+    const sorted = [...otherSessionProbe].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return getETDateKey(sorted[0].timestamp) || null;
+  }, [otherSessionProbe]);
+
+  const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
+  const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
   const primaryDivergence = extractDivergenceRows(divergenceResponse);
   const fallbackDivergence = extractDivergenceRows(divergenceFallback);
@@ -365,6 +413,10 @@ export default function IntradayToolsPage() {
     return generateNiceTicks(min, max);
   }, [smartMoneySessionChart]);
 
+  const dateMarkerMeta = useMemo(() => {
+    return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
+  }, [smartMoneySessionChart]);
+
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
       setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -397,8 +449,8 @@ export default function IntradayToolsPage() {
                 value={sessionView}
                 onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}
               >
-                <option value="current">Current session</option>
-                <option value="prior">Previous session</option>
+                <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
+                <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
               </select>
             </label>
             <label className="text-sm" style={{ color: mutedText }}>
@@ -433,19 +485,29 @@ export default function IntradayToolsPage() {
                       <XAxis
                         dataKey="timestamp"
                         stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
                         tickLine={false}
                         interval={0}
                         minTickGap={20}
-                        tickFormatter={(value) => {
-                          const ts = String(value || '');
-                          if (!is30MinBoundary(ts)) return '';
-                          return new Date(ts).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                            timeZone: 'America/New_York',
-                          });
+                        tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                          const x = Number(props?.x ?? 0);
+                          const y = Number(props?.y ?? 0);
+                          const index = Number(props?.index ?? -1);
+                          const ts = String(props?.payload?.value || '');
+                          const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+                          const dateLabel = dateMarkerMeta.get(index);
+                          const showTime = Boolean(timeLabel) || Boolean(dateLabel);
+                          if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                              {timeLabel ? (
+                                <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text>
+                              ) : null}
+                              {dateLabel ? (
+                                <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text>
+                              ) : null}
+                            </g>
+                          );
                         }}
                       />
                       <YAxis
