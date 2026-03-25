@@ -54,7 +54,7 @@ interface DivergenceRow {
 }
 
 interface SmartMoneyRow {
-  timestamp: string;
+  timestamp?: string;
   symbol: string;
   contract: string;
   strike: number;
@@ -71,6 +71,13 @@ interface SmartMoneyRow {
   time_window_start?: string;
   time_window_end?: string;
   interval_timestamp?: string | null;
+}
+
+interface NormalizedSmartMoneyRow extends SmartMoneyRow {
+  rowKey: string;
+  minuteTimestamp: string | null;
+  effectiveTimestamp: string | null;
+  notionalM: number;
 }
 
 interface SessionFlowPoint {
@@ -124,6 +131,13 @@ function normalizeToMinute(ts?: string): string | null {
 
 function smartMoneyTimestamp(row: SmartMoneyRow): string | null {
   return normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
+}
+
+function smartMoneyEffectiveTimestamp(row: SmartMoneyRow): string | null {
+  const raw = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function getETDateKey(ts: string): string {
@@ -220,6 +234,7 @@ export default function IntradayToolsPage() {
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState('all');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
+  const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null);
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
@@ -254,7 +269,11 @@ export default function IntradayToolsPage() {
   );
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=50000`,
+    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=500`,
+    { refreshInterval: 10000 }
+  );
+  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(
+    `/api/flow/smart-money?symbol=${symbol}&timeframe=1day&window_units=30&limit=200`,
     { refreshInterval: 10000 }
   );
   const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(
@@ -271,16 +290,36 @@ export default function IntradayToolsPage() {
   const orb = orbData?.[0];
   const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '');
 
-  const classOptions = useMemo(() => {
-    const unique = Array.from(new Set((smartMoneyData || []).map((row) => row.notional_class))).filter(Boolean);
-    return unique.sort((a, b) => classRank(a) - classRank(b));
-  }, [smartMoneyData]);
+  const effectiveSmartMoneyRows = useMemo(
+    () => (smartMoneyError ? (smartMoneyFallbackData || []) : (smartMoneyData || [])),
+    [smartMoneyError, smartMoneyFallbackData, smartMoneyData],
+  );
+  const effectiveSmartMoneyError = smartMoneyError && smartMoneyFallbackError ? smartMoneyError : null;
 
-  const filteredSmartMoneyData = useMemo(() => {
-    if (minClass === 'all') return smartMoneyData || [];
+  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => {
+    return effectiveSmartMoneyRows.map((row, idx) => {
+      const effectiveTimestamp = smartMoneyEffectiveTimestamp(row);
+      const minuteTimestamp = smartMoneyTimestamp(row);
+      return {
+        ...row,
+        rowKey: `${minuteTimestamp ?? 'na'}-${row.contract ?? 'contract'}-${idx}`,
+        minuteTimestamp,
+        effectiveTimestamp,
+        notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000,
+      };
+    });
+  }, [effectiveSmartMoneyRows]);
+
+  const classOptions = useMemo(() => {
+    const unique = Array.from(new Set(normalizedSmartMoneyRows.map((row) => row.notional_class))).filter(Boolean);
+    return unique.sort((a, b) => classRank(a) - classRank(b));
+  }, [normalizedSmartMoneyRows]);
+
+  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
+    if (minClass === 'all') return normalizedSmartMoneyRows;
     const threshold = classRank(minClass);
-    return (smartMoneyData || []).filter((row) => classRank(row.notional_class) >= threshold);
-  }, [smartMoneyData, minClass]);
+    return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
+  }, [normalizedSmartMoneyRows, minClass]);
 
   const sortedSmartMoneyRows = useMemo(() => {
     const rows = [...filteredSmartMoneyData];
@@ -296,16 +335,16 @@ export default function IntradayToolsPage() {
   }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
 
   const smartMoneySessionChart = useMemo(() => {
-    const rows = smartMoneyData || [];
+    const rows = filteredSmartMoneyData;
     const priceRows = sessionPriceData || [];
     if (rows.length === 0 && priceRows.length === 0) return [];
 
-    const blocksByTs = new Map<string, number[]>();
+    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string }>>();
     rows.forEach((row) => {
-      const ts = smartMoneyTimestamp(row);
+      const ts = row.minuteTimestamp;
       if (!ts) return;
       const blocks = blocksByTs.get(ts) ?? [];
-      blocks.push(Math.abs(Number(row.notional || 0)) / 1_000_000);
+      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey });
       blocksByTs.set(ts, blocks);
     });
 
@@ -324,8 +363,8 @@ export default function IntradayToolsPage() {
 
     let cumulative = 0;
     return allTs.map((ts) => {
-      const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b - a);
-      const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value, 0);
+      const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
+      const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value.notionalM, 0);
       cumulative += totalMinuteNotional;
 
       const row: Record<string, number | string | null> = {
@@ -337,11 +376,12 @@ export default function IntradayToolsPage() {
       };
 
       for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
-        row[`block${idx + 1}`] = minuteBlocks[idx] ?? 0;
+        row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
+        row[`block${idx + 1}Key`] = minuteBlocks[idx]?.rowKey ?? '';
       }
       return row;
     });
-  }, [sessionPriceData, smartMoneyData]);
+  }, [sessionPriceData, filteredSmartMoneyData]);
 
   const maxStackSegments = useMemo(() => {
     return smartMoneySessionChart.reduce((max, row) => {
@@ -456,7 +496,7 @@ export default function IntradayToolsPage() {
             </label>
           </div>
 
-          {smartMoneyError ? <ErrorMessage message={smartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
             <div className="text-center py-6" style={{ color: mutedText }}>No smart money flow data available</div>
           ) : (
             <>
@@ -470,7 +510,20 @@ export default function IntradayToolsPage() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                    <ComposedChart
+                      data={smartMoneySessionChart}
+                      margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+                      onMouseMove={(state) => {
+                        const payload = state?.activePayload?.[0]?.payload as Record<string, unknown> | undefined;
+                        if (!payload || !state?.activePayload || state.activePayload.length === 0) return;
+                        const firstBar = state.activePayload.find((item) => String(item.dataKey || '').startsWith('block'));
+                        const dataKey = String(firstBar?.dataKey || '');
+                        if (!dataKey) return;
+                        const rowKey = String(payload[`${dataKey}Key`] || '');
+                        setHoveredBlockKey(rowKey || null);
+                      }}
+                      onMouseLeave={() => setHoveredBlockKey(null)}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
                       <XAxis
                         dataKey="timestamp"
@@ -523,6 +576,27 @@ export default function IntradayToolsPage() {
                           fill={idx % 2 === 0 ? '#f59e0b' : '#fbbf24'}
                           opacity={0.8}
                           isAnimationActive={false}
+                          shape={(props: Record<string, unknown>) => {
+                            const x = Number(props.x || 0);
+                            const y = Number(props.y || 0);
+                            const width = Number(props.width || 0);
+                            const height = Number(props.height || 0);
+                            const payload = props.payload as Record<string, unknown>;
+                            const rowKey = String(payload?.[`block${idx + 1}Key`] || '');
+                            const isHighlighted = hoveredBlockKey != null && rowKey === hoveredBlockKey;
+                            return (
+                              <rect
+                                x={x}
+                                y={y}
+                                width={width}
+                                height={height}
+                                fill={isHighlighted ? '#fde047' : (idx % 2 === 0 ? '#f59e0b' : '#fbbf24')}
+                                opacity={isHighlighted ? 1 : 0.8}
+                                stroke={isHighlighted ? '#fff7cc' : 'none'}
+                                strokeWidth={isHighlighted ? 1 : 0}
+                              />
+                            );
+                          }}
                         />
                       ))}
                       <Line yAxisId="notional" type="monotone" dataKey="cumulativeNotionalM" name="Cumulative Smart Money" stroke="#22c55e" strokeWidth={2} dot={false} />
@@ -550,9 +624,19 @@ export default function IntradayToolsPage() {
                   <tbody>
                     {sortedSmartMoneyRows.map((row) => {
                       const isCall = String(row.option_type).toLowerCase().includes('call');
+                      const isHighlighted = hoveredBlockKey != null && row.rowKey === hoveredBlockKey;
                       return (
-                        <tr key={`${row.timestamp}-${row.contract}`} className="border-b" style={{ borderColor: borderColor }}>
-                          <td className="py-2 px-2">{new Date(row.timestamp).toLocaleTimeString()}</td>
+                        <tr
+                          key={row.rowKey}
+                          className="border-b"
+                          style={{
+                            borderColor: borderColor,
+                            backgroundColor: isHighlighted ? (isDark ? 'rgba(253,224,71,0.16)' : 'rgba(245,158,11,0.12)') : 'transparent',
+                          }}
+                          onMouseEnter={() => setHoveredBlockKey(row.rowKey)}
+                          onMouseLeave={() => setHoveredBlockKey(null)}
+                        >
+                          <td className="py-2 px-2">{row.effectiveTimestamp ? new Date(row.effectiveTimestamp).toLocaleTimeString() : '--:--'}</td>
                           <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
                           <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
                           <td className="py-2 px-2">{row.expiration}</td>
