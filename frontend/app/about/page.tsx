@@ -208,6 +208,20 @@ export default function AboutPage() {
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+          <Link href="/education/decoding-gamma-exposure" style={{ textDecoration: 'none' }}>
+            <button style={{
+              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
+              border: `1px solid ${C.border}`,
+              borderRadius: 10,
+              padding: '8px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+              color: isDark ? C.light : '#1a1618',
+              cursor: 'pointer',
+            }}>
+              Education
+            </button>
+          </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button style={{
               background: `linear-gradient(135deg, ${C.amber}, #e08800)`,
@@ -272,7 +286,7 @@ export default function AboutPage() {
             fontSize: 'clamp(16px, 2vw, 20px)', color: subtext,
             lineHeight: 1.7, maxWidth: 640, margin: '0 auto 36px',
           }}>
-            ZeroGEX was built on a simple premise: the analytics that move markets shouldn't be
+            ZeroGEX was built on a simple premise: the analytics that move markets shouldn&apos;t be
             locked behind institutional paywalls. We bring dealer-grade gamma intelligence
             directly to every options trader.
           </p>

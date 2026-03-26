@@ -38,4 +38,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/option-contracts', label: 'Real-Time Contract Viewer' },
     ],
   },
+  {
+    label: 'Education',
+    items: [{ id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' }],
+  },
 ];

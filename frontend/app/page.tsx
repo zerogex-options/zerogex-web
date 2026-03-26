@@ -277,6 +277,23 @@ export default function LandingPage() {
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
+          <Link href="/education/decoding-gamma-exposure" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: isDark ? C.light : '#1a1618',
+                cursor: 'pointer',
+              }}
+            >
+              Education
+            </button>
+          </Link>
+
           {/* Launch App CTA */}
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
@@ -869,6 +886,54 @@ export default function LandingPage() {
             <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
             <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="Greeks & GEX — Deep Dive"            color={C.green} />
           </div>
+        </div>
+      </section>
+
+
+      <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 56px' }}>
+        <div
+          style={{
+            border: `1px solid ${C.border}`,
+            borderRadius: 18,
+            padding: '26px 24px',
+            background: isDark ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.92) 100%)` : 'rgba(255,255,255,0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 18,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber, marginBottom: 8 }}>
+              Latest from Education
+            </div>
+            <div style={{ fontSize: 21, fontWeight: 800, color: C.light, marginBottom: 6 }}>
+              New: Decoding Gamma Exposure
+            </div>
+            <div style={{ fontSize: 14, color: subtext, maxWidth: 720 }}>
+              Learn how positive vs. negative gamma can shape volatility, trend persistence, and mean-reversion behavior.
+            </div>
+          </div>
+          <Link href="/education/decoding-gamma-exposure" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                borderRadius: 10,
+                border: `1px solid ${C.amber}55`,
+                background: `${C.amber}18`,
+                color: C.light,
+                padding: '10px 16px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              Read the guide <ArrowRight size={14} />
+            </button>
+          </Link>
         </div>
       </section>
 
