@@ -553,8 +553,8 @@ export default function Header({ theme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-2" style={{ minHeight: "40px" }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", height: "40px", overflow: "hidden" }}>
+          <div className="flex items-center justify-between mb-2" style={{ minHeight: "34px" }}>
+            <Link href="/" style={{ display: "flex", alignItems: "center", height: "34px", overflow: "hidden" }}>
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -12,6 +12,12 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 interface SmartMoneyRow { timestamp?: string; symbol: string; contract: string; strike: number; expiration: string; dte: number; option_type: string; flow: number; notional: number; notional_class: string; time_window_start?: string; time_window_end?: string; interval_timestamp?: string | null; }
 interface SessionFlowPoint { timestamp: string; underlying_price?: number | null; }
 interface NormalizedSmartMoneyRow extends SmartMoneyRow { rowKey: string; minuteTimestamp: string | null; notionalM: number; absNotional: number; }
+interface SmartMoneyBlockMeta {
+  rowKey: string;
+  contract: string;
+  flow: number;
+  notionalM: number;
+}
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
 
@@ -89,6 +95,7 @@ export default function SmartMoneyPage() {
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000 });
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000 });
@@ -134,11 +141,16 @@ export default function SmartMoneyPage() {
   }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
 
   const smartMoneySessionChart = useMemo(() => {
-    const blocksByTs = new Map<string, Array<{ notionalM: number; optionType: string }>>();
+    const blocksByTs = new Map<string, SmartMoneyBlockMeta[]>();
     filteredSmartMoneyData.forEach((row) => {
       if (!row.minuteTimestamp) return;
       const blocks = blocksByTs.get(row.minuteTimestamp) ?? [];
-      blocks.push({ notionalM: row.notionalM, optionType: String(row.option_type || '').toLowerCase() });
+      blocks.push({
+        rowKey: row.rowKey,
+        contract: row.contract || '--',
+        flow: Number(row.flow || 0),
+        notionalM: row.notionalM,
+      });
       blocksByTs.set(row.minuteTimestamp, blocks);
     });
     const priceByTs = new Map<string, number>();
@@ -146,8 +158,12 @@ export default function SmartMoneyPage() {
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
     return sessionTimeline.map((ts) => {
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
-      const row: Record<string, number | string | null> = { timestamp: ts, underlyingPrice: priceByTs.get(ts) ?? null };
-      for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
+      const row: Record<string, number | string | null | SmartMoneyBlockMeta> = { timestamp: ts, underlyingPrice: priceByTs.get(ts) ?? null };
+      for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
+        const block = minuteBlocks[idx];
+        row[`block${idx + 1}`] = block?.notionalM ?? 0;
+        row[`blockMeta${idx + 1}`] = block ?? { rowKey: '', contract: '--', flow: 0, notionalM: 0 };
+      }
       return row;
     });
   }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
@@ -205,15 +221,64 @@ export default function SmartMoneyPage() {
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", borderRadius: 6 }}
-                      labelStyle={{ color: isDark ? "#f2f2f2" : "#374151", fontWeight: 600 }}
-                      itemStyle={{ color: isDark ? "#d1d5db" : "#374151" }}
-                      labelFormatter={(value) => new Date(String(value)).toLocaleString()}
-                      formatter={(value, name) => String(name).toLowerCase().includes('price')
-                        ? [`$${Number(value).toFixed(2)}`, 'Underlying']
-                        : [`$${Number(value).toFixed(2)}M`, String(name)]}
+                      content={({ active, label, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const blockEntries = payload
+                          .filter((entry) => String(entry.dataKey || '').startsWith('block') && Number(entry.value || 0) > 0)
+                          .map((entry) => {
+                            const key = String(entry.dataKey || '').replace('block', 'blockMeta');
+                            const meta = (entry.payload as Record<string, SmartMoneyBlockMeta | undefined>)[key];
+                            if (!meta || !meta.rowKey) return null;
+                            return {
+                              name: `${meta.contract} (x${Number(meta.flow || 0).toLocaleString()})`,
+                              value: Number(meta.notionalM || 0),
+                            };
+                          })
+                          .filter(Boolean) as Array<{ name: string; value: number }>;
+                        const underlying = payload.find((entry) => String(entry.dataKey || '').toLowerCase().includes('underlyingprice'));
+
+                        return (
+                          <div style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }} className="rounded border px-3 py-2 text-sm">
+                            <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                            {underlying ? (
+                              <div>Underlying Price: ${Number(underlying.value || 0).toFixed(2)}</div>
+                            ) : null}
+                            {blockEntries.map((block) => (
+                              <div key={block.name}>
+                                {block.name}: ${block.value.toFixed(2)}M
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }}
                     />
-                    {Array.from({ length: maxStackSegments }).map((_, idx) => <Bar key={`block-${idx + 1}`} yAxisId="notional" dataKey={`block${idx + 1}`} stackId="notional" fill={idx % 2 === 0 ? '#22c55e' : '#ef4444'} />)}
+                    {Array.from({ length: maxStackSegments }).map((_, idx) => (
+                      <Bar
+                        key={`block-${idx + 1}`}
+                        yAxisId="notional"
+                        dataKey={`block${idx + 1}`}
+                        stackId="notional"
+                        fill={idx % 2 === 0 ? '#22c55e' : '#ef4444'}
+                        onMouseEnter={(data) => {
+                          const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];
+                          if (meta?.rowKey) setHoveredRowKey(meta.rowKey);
+                        }}
+                        onMouseLeave={() => setHoveredRowKey(null)}
+                      >
+                        {smartMoneySessionChart.map((point, pointIdx) => {
+                          const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
+                          const isHovered = hoveredRowKey && meta?.rowKey === hoveredRowKey;
+                          return (
+                            <Cell
+                              key={`cell-${idx + 1}-${pointIdx}`}
+                              fillOpacity={hoveredRowKey ? (isHovered ? 1 : 0.28) : 0.85}
+                              stroke={isHovered ? '#facc15' : 'none'}
+                              strokeWidth={isHovered ? 1.5 : 0}
+                            />
+                          );
+                        })}
+                      </Bar>
+                    ))}
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#facc15" dot={false} strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -223,8 +288,8 @@ export default function SmartMoneyPage() {
                 <TooltipWrapper text="Table rows are filtered by Session and Min Class and sorted by the selected column."><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">
-                <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiration</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th></tr></thead>
-                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; return <tr key={row.rowKey} className="border-b" style={{ borderColor: `${inputBorder}66` }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{row.option_type || '--'}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
+                <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiration</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Contracts</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th></tr></thead>
+                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const isHovered = hoveredRowKey === row.rowKey; return <tr key={row.rowKey} className="border-b" onMouseEnter={() => setHoveredRowKey(row.rowKey)} onMouseLeave={() => setHoveredRowKey(null)} style={{ borderColor: `${inputBorder}66`, backgroundColor: isHovered ? (isDark ? 'rgba(250, 204, 21, 0.16)' : 'rgba(250, 204, 21, 0.22)') : 'transparent' }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{row.option_type || '--'}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
               </div>
               {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
             </>
