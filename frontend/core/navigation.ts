@@ -11,7 +11,7 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Main',
-    items: [{ id: '/dashboard', label: 'Main Dashboard' }],
+    items: [{ id: '/dashboard', label: 'Dashboard' }],
   },
   {
     label: 'Proprietary Signals',
