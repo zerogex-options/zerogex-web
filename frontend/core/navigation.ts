@@ -26,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/gamma-exposure', label: 'Gamma Exposure' },
       { id: '/flow-analysis', label: 'Flow Analysis' },
+      { id: '/smart-money', label: 'Smart Money' },
       { id: '/max-pain', label: 'Max Pain' },
       { id: '/intraday-tools', label: 'Other' },
     ],

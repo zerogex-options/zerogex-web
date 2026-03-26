@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
@@ -214,7 +214,7 @@ export default function IntradayToolsPage() {
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState('__default__');
+  const [minClass, setMinClass] = useState('all');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const maxPoints = getMaxDataPoints();
@@ -317,14 +317,8 @@ export default function IntradayToolsPage() {
     return unique.sort((a, b) => classRank(a) - classRank(b));
   }, [normalizedSmartMoneyRows]);
 
-  useEffect(() => {
-    if (minClass !== '__default__' || classOptions.length === 0) return;
-    const match = classOptions.find((cls) => cls.toLowerCase().includes('500'));
-    setMinClass(match || classOptions[Math.max(0, classOptions.length - 4)] || 'all');
-  }, [minClass, classOptions]);
-
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    if (minClass === 'all' || minClass === '__default__') return normalizedSmartMoneyRows;
+    if (minClass === 'all') return normalizedSmartMoneyRows;
     const threshold = classRank(minClass);
     return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
   }, [normalizedSmartMoneyRows, minClass]);
@@ -432,235 +426,6 @@ export default function IntradayToolsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below." >
-            <Info size={14} />
-          </TooltipWrapper>
-        </h2>
-        <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            <label className="text-sm" style={{ color: mutedText }}>
-              Session
-              <select
-                className="ml-2 rounded px-2 py-1"
-                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
-                value={sessionView}
-                onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}
-              >
-                <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
-                <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>
-              Min Class
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
-                <option value="all">All</option>
-                {classOptions.map((cls) => (
-                  <option key={cls} value={cls}>{cls}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData || filteredSmartMoneyData.length === 0 ? (
-            <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div>
-          ) : (
-            <>
-              <div className="mb-5">
-                <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>
-                  SMART MONEY BLOCKS VS UNDERLYING PRICE
-                </h3>
-                {smartMoneySessionChart.length === 0 ? (
-                  <div className="text-center py-4 text-sm" style={{ color: mutedText }}>
-                    Loading...
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart
-                      data={smartMoneySessionChart}
-                      margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                    >
-                      <XAxis
-                        dataKey="timestamp"
-                        stroke={axisStroke}
-                        tickLine={false}
-                        interval={0}
-                        minTickGap={20}
-                        tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-                          const x = Number(props?.x ?? 0);
-                          const y = Number(props?.y ?? 0);
-                          const index = Number(props?.index ?? -1);
-                          const ts = String(props?.payload?.value || '');
-                          const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-                          const dateLabel = dateMarkerMeta.get(index);
-                          const showTime = Boolean(timeLabel) || Boolean(dateLabel);
-                          if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                          return (
-                            <g transform={`translate(${x},${y})`}>
-                              <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                              {timeLabel ? (
-                                <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text>
-                              ) : null}
-                              {dateLabel ? (
-                                <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text>
-                              ) : null}
-                            </g>
-                          );
-                        }}
-                      />
-                      <YAxis
-                        yAxisId="notional"
-                        stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
-                        tickLine={false}
-                        domain={notionalTicks.length > 1 ? [notionalTicks[0], notionalTicks[notionalTicks.length - 1]] : ['auto', 'auto']}
-                        ticks={notionalTicks}
-                        tickFormatter={(value) => `$${Number(value).toFixed(1)}M`}
-                      />
-                      <YAxis
-                        yAxisId="price"
-                        orientation="right"
-                        stroke={axisStroke}
-                        tick={{ fill: axisStroke, fontSize: 11 }}
-                        tickLine={false}
-                        domain={priceTicks.length > 1 ? [priceTicks[0], priceTicks[priceTicks.length - 1]] : ['auto', 'auto']}
-                        ticks={priceTicks}
-                        tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', borderColor: isDark ? '#423d3f' : '#d1d5db' }}
-                        content={({ active, payload }) => {
-                          if (!active || !payload || payload.length === 0) return null;
-                          const row = payload[0]?.payload as Record<string, unknown> | undefined;
-                          if (!row) return null;
-                          const price = Number(row.underlyingPrice);
-                          const ts = row.timestamp ? new Date(String(row.timestamp)) : null;
-                          const timeLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : '';
-                          const priceLabel = Number.isFinite(price) ? `${symbol} $${price.toFixed(2)}` : symbol;
-                          const blockItems: Array<{ label: string; value: string; color: string }> = [];
-                          for (let i = 1; ; i++) {
-                            const val = Number(row[`block${i}`] || 0);
-                            if (!(`block${i}` in row)) break;
-                            if (val <= 0) continue;
-                            const optType = String(row[`block${i}Type`] || '');
-                            const isCall = optType.includes('call') || optType === 'c';
-                            blockItems.push({
-                              label: isCall ? 'Call Block' : 'Put Block',
-                              value: `$${val.toFixed(2)}M`,
-                              color: isCall ? '#22c55e' : '#ef4444',
-                            });
-                          }
-                          return (
-                            <div style={{ backgroundColor: isDark ? '#1f1d1e' : '#ffffff', border: `1px solid ${isDark ? '#423d3f' : '#d1d5db'}`, borderRadius: 4, padding: '8px 12px', fontSize: 12 }}>
-                              {timeLabel && <div style={{ color: isDark ? '#9ca3af' : '#6b7280', marginBottom: 2 }}>{timeLabel}</div>}
-                              <div style={{ fontWeight: 600, marginBottom: blockItems.length > 0 ? 4 : 0 }}>{priceLabel}</div>
-                              {blockItems.map((item, i) => (
-                                <div key={i} style={{ color: item.color }}>{item.label}: {item.value}</div>
-                              ))}
-                            </div>
-                          );
-                        }}
-                      />
-                      {Array.from({ length: maxStackSegments }, (_, idx) => (
-                        <Bar
-                          key={`block${idx + 1}`}
-                          yAxisId="notional"
-                          dataKey={`block${idx + 1}`}
-                          name={idx === 0 ? 'Block Notional' : undefined}
-                          stackId="smartMoneyBlocks"
-                          fill="#22c55e"
-                          opacity={0.8}
-                          isAnimationActive={false}
-                          shape={(props) => {
-                            const chartProps = props as unknown as {
-                              x?: number;
-                              y?: number;
-                              width?: number;
-                              height?: number;
-                              payload?: Record<string, unknown>;
-                            };
-                            const x = Number(chartProps.x || 0);
-                            const y = Number(chartProps.y || 0);
-                            const width = Number(chartProps.width || 0);
-                            const height = Number(chartProps.height || 0);
-                            const payload = chartProps.payload as Record<string, unknown>;
-                            const optType = String(payload?.[`block${idx + 1}Type`] || '');
-                            const isCall = optType.includes('call') || optType === 'c';
-                            const baseFill = isCall ? '#22c55e' : '#ef4444';
-                            return (
-                              <rect
-                                x={x}
-                                y={y}
-                                width={width}
-                                height={height}
-                                fill={baseFill}
-                                opacity={0.8}
-                              />
-                            );
-                          }}
-                        />
-                      ))}
-                      <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying Price" stroke="#facc15" strokeWidth={2} dot={false} connectNulls />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiry</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th>
-                      <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th>
-                      <th className="text-left py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
-                      const optType = String(row.option_type).toLowerCase();
-                      const isCall = optType.includes('call') || optType === 'c';
-                      return (
-                        <tr
-                          key={row.rowKey}
-                          className="border-b"
-                          style={{ borderColor: borderColor }}
-                        >
-                          <td className="py-2 px-2">{row.effectiveTimestamp ? new Date(row.effectiveTimestamp).toLocaleTimeString() : '--:--'}</td>
-                          <td className="py-2 px-2 font-mono text-xs">{row.contract}</td>
-                          <td className="text-right py-2 px-2">${Number(row.strike).toFixed(2)}</td>
-                          <td className="py-2 px-2">{row.expiration}</td>
-                          <td className="text-right py-2 px-2">{row.dte}</td>
-                          <td className={`py-2 px-2 font-semibold ${isCall ? 'text-green-300' : 'text-red-300'}`}>{isCall ? 'C' : 'P'}</td>
-                          <td className="text-right py-2 px-2">{Number(row.flow).toLocaleString()}</td>
-                          <td className="text-right py-2 px-2">${(Number(row.notional) / 1000000).toFixed(2)}M</td>
-                          <td className="py-2 px-2">{row.notional_class} / {row.size_class}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {sortedSmartMoneyRows.length > tableRowLimit && (
-                  <button
-                    className="mt-2 text-sm underline"
-                    style={{ color: mutedText }}
-                    onClick={() => setTableRowLimit((prev) => prev + 50)}
-                  >
-                    Show more ({sortedSmartMoneyRows.length - tableRowLimit} remaining)
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>

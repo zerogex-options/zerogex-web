@@ -76,7 +76,6 @@ export default function Footer({ theme }: FooterProps) {
                 ['/intraday-tools', 'Other'],
                 ['/max-pain', 'Max Pain'],
                 ['/options-calculator', 'Live Strategy Lab'],
-                ['/about', 'About'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
                   <Link
@@ -168,7 +167,6 @@ export default function Footer({ theme }: FooterProps) {
                 ['/intraday-tools', 'Other'],
                 ['/max-pain', 'Max Pain'],
                 ['/options-calculator', 'Live Strategy Lab'],
-                ['/about', 'About'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
                   <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>{label}</Link>
@@ -180,6 +178,11 @@ export default function Footer({ theme }: FooterProps) {
                 More
               </div>
               <div style={{ marginBottom: 8 }}>
+                <Link href="/about" style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                  About
+                </Link>
+              </div>
+              <div style={{ marginBottom: 8 }}>
                 <a href="https://api.zerogex.io/docs" target="_blank" rel="noreferrer" style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
                   API Docs
                 </a>
@@ -188,19 +191,21 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           {/* Right column: logo + copyright + disclaimer */}
-          <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
             <img
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
-              style={{ width: '100%', height: 'auto' }}
+              style={{ width: '100%', maxWidth: 160, height: 'auto' }}
             />
-            <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
-              © 2026 ZeroGEX, LLC. All rights reserved.
-            </p>
-            <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right' }}>
-              Trading involves substantial risk. Past performance is not indicative of future results.
-              This platform is for informational purposes only, not investment advice.
-            </p>
+            <div style={{ marginTop: 'auto' }}>
+              <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
+                © 2026 ZeroGEX, LLC. All rights reserved.
+              </p>
+              <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right' }}>
+                Trading involves substantial risk. Past performance is not indicative of future results.
+                This platform is for informational purposes only, not investment advice.
+              </p>
+            </div>
           </div>
 
         </div>

@@ -12,6 +12,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   CartesianGrid,
   Line,
@@ -86,6 +87,7 @@ type IndicatorRow = {
 };
 
 export default function TradingSignalsPage() {
+  const isMobile = useIsMobile();
   const { symbol, timeframe } = useTimeframe();
   const [lookbackDays, setLookbackDays] = useState(30);
 
@@ -358,11 +360,11 @@ export default function TradingSignalsPage() {
               ))}
             </div>
           </div>
-          <div className="h-80 rounded-lg border border-gray-700 bg-[#302c2d] p-3">
+          <div className="h-[340px] sm:h-80 rounded-lg border border-gray-700 bg-[#302c2d] p-2 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={componentRadarData}>
+              <RadarChart data={componentRadarData} cx="50%" cy="52%" outerRadius={isMobile ? '66%' : '78%'}>
                 <PolarGrid stroke="#64748b" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: 12 }} />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: isMobile ? 10 : 12 }} />
                 <Radar name="Score" dataKey="scorePct" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.45} />
                 <Tooltip
                   formatter={(value, _name, item) => {
