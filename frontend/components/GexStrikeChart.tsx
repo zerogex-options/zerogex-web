@@ -17,6 +17,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface StrikeRow {
   strike: number;
@@ -38,6 +39,7 @@ function formatB(value: number): string {
 
 export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: GexStrikeChartProps) {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
   const axisStroke = isDark ? '#f2f2f2' : '#374151';
@@ -92,18 +94,19 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
             No strike data available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={strikeData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
+            <BarChart data={strikeData} margin={{ top: 5, right: isMobile ? 4 : 10, left: isMobile ? -12 : 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
               <XAxis
                 dataKey="strike"
                 stroke={axisStroke}
-                tick={{ fontSize: 10, fill: axisStroke }}
+                tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
                 tickFormatter={(v) => `${Number(v).toFixed(0)}`}
               />
               <YAxis
                 stroke={axisStroke}
-                tick={{ fontSize: 10, fill: axisStroke }}
+                width={isMobile ? 44 : 56}
+                tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
                 tickFormatter={(v) => formatB(Number(v))}
               />
               <Tooltip

@@ -58,7 +58,7 @@ export default function OptionsFlowChart() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[760px]">
+          <div className={isMobile ? 'min-w-[620px]' : 'min-w-0'}>
             <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />

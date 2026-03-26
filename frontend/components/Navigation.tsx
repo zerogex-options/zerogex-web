@@ -6,6 +6,7 @@ import { colors } from "@/core/colors";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
+import Link from "next/link";
 
 interface NavigationProps {
   theme: Theme;
@@ -103,6 +104,34 @@ export default function Navigation({ theme }: NavigationProps) {
                 </div>
               </div>
             ))}
+
+            <div className="mt-6 border-t pt-4" style={{ borderColor: border }}>
+              <div
+                className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                style={{ color: colors.primary }}
+              >
+                More
+              </div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => router.push("/about")}
+                  className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.72 }}
+                  type="button"
+                >
+                  About
+                </button>
+                <Link
+                  href="https://api.zerogex.io/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.72 }}
+                >
+                  API Specs
+                </Link>
+              </div>
+            </div>
           </div>
           <button
             type="button"

@@ -139,7 +139,14 @@ export default function GammaHeatmap() {
 
         <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />
 
-        <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="block">
+        <div className="overflow-x-auto">
+        <svg
+          width="100%"
+          height={chartHeight}
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          preserveAspectRatio="none"
+          className="block min-w-[760px] md:min-w-0"
+        >
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={getColor(minValue, maxAbsValue)} />
@@ -228,6 +235,7 @@ export default function GammaHeatmap() {
             return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: isMobile ? '8px' : '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
           })}
         </svg>
+        </div>
       </div>
     </ExpandableCard>
   );

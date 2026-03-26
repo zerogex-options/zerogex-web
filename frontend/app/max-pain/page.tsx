@@ -337,7 +337,8 @@ export default function MaxPainPage() {
         ) : seriesChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
         ) : (
-          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`}>
+          <div className="overflow-x-auto">
+          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0">
             {yTicks.map((val) => {
               const yPos = y(val);
               const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
@@ -384,6 +385,7 @@ export default function MaxPainPage() {
             <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
+          </div>
         )}
       </section>
     </div>

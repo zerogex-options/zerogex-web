@@ -139,10 +139,10 @@ export default function Footer({ theme }: FooterProps) {
         </div>
 
         {/* Mobile layout: 2-column */}
-        <div className="flex md:hidden" style={{ gap: 24 }}>
+        <div className="flex md:hidden" style={{ gap: 16 }}>
 
           {/* Left column: link groups */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ flex: '0 0 62%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.primary, marginBottom: 14 }}>
                 Platform
@@ -156,7 +156,7 @@ export default function Footer({ theme }: FooterProps) {
                 ['/position-optimizer', 'Position Optimizer'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
-                  <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}>{label}</Link>
+                  <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>{label}</Link>
                 </div>
               ))}
             </div>
@@ -171,7 +171,7 @@ export default function Footer({ theme }: FooterProps) {
                 ['/about', 'About'],
               ].map(([href, label]) => (
                 <div key={href} style={{ marginBottom: 8 }}>
-                  <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}>{label}</Link>
+                  <Link href={href} style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>{label}</Link>
                 </div>
               ))}
             </div>
@@ -180,7 +180,7 @@ export default function Footer({ theme }: FooterProps) {
                 More
               </div>
               <div style={{ marginBottom: 8 }}>
-                <a href="https://api.zerogex.io/docs" target="_blank" rel="noreferrer" style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}>
+                <a href="https://api.zerogex.io/docs" target="_blank" rel="noreferrer" style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
                   API Docs
                 </a>
               </div>
@@ -188,7 +188,7 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           {/* Right column: logo + copyright + disclaimer */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
             <img
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"

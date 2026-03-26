@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
@@ -280,6 +281,7 @@ function renderLegend(labels: [string, string, string]) {
 
 export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
   const axisStroke = isDark ? '#f2f2f2' : '#8e8e8e';
@@ -326,8 +328,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           {normalized.emptyReason && <span className="text-xs mt-2 opacity-80">{normalized.emptyReason}</span>}
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={340}>
-          <AreaChart data={surface} margin={{ top: 8, right: 8, left: 0, bottom: 14 }}>
+        <ResponsiveContainer width="100%" height={isMobile ? 280 : 340}>
+          <AreaChart data={surface} margin={{ top: 8, right: isMobile ? 2 : 8, left: isMobile ? -10 : 0, bottom: 14 }}>
             <defs>
               <linearGradient id="surfaceFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#c7d2df" stopOpacity={0.5} />
@@ -338,13 +340,14 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
             <XAxis
               dataKey="xLabel"
               stroke={axisStroke}
-              tick={{ fontSize: 10, fill: axisStroke }}
+              tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
               interval={0}
               tickMargin={10}
             />
             <YAxis
               stroke={axisStroke}
-              tick={{ fontSize: 10, fill: axisStroke }}
+              width={isMobile ? 42 : 52}
+              tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
               tickFormatter={formatPct}
             />
             <Tooltip

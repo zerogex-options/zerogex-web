@@ -530,15 +530,15 @@ export default function Header({ theme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/" style={{ display: "block", height: "96px", overflow: "hidden" }}>
+          <div className="flex items-center justify-between mb-2">
+            <Link href="/" style={{ display: "block", height: "44px", overflow: "hidden" }}>
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
-                  height: "144px",
-                  marginTop: "-24px",
+                  height: "64px",
+                  marginTop: "-10px",
                 }}
               />
             </Link>
@@ -591,6 +591,41 @@ export default function Header({ theme }: HeaderProps) {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="rounded-lg border p-3" style={{ borderColor: border }}>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
+                  More
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      router.push('/about');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                    style={{
+                      background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                      borderColor: border,
+                      color: theme === 'dark' ? colors.light : colors.dark,
+                    }}
+                  >
+                    About
+                  </button>
+                  <a
+                    href="https://api.zerogex.io/docs"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                    style={{
+                      background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                      borderColor: border,
+                      color: theme === 'dark' ? colors.light : colors.dark,
+                    }}
+                  >
+                    API Specs
+                  </a>
+                </div>
               </div>
 
               <div className="flex gap-2">
