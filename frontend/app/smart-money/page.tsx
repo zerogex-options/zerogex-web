@@ -93,7 +93,10 @@ export default function SmartMoneyPage() {
   const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => ({ ...row, rowKey: `${smartMoneyTimestamp(row) ?? 'na'}-${row.contract ?? 'contract'}-${idx}`, minuteTimestamp: smartMoneyTimestamp(row), notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000 })), [effectiveSmartMoneyRows]);
   const classOptions = useMemo(() => Array.from(new Set(normalizedSmartMoneyRows.map((row) => row.notional_class))).filter(Boolean).sort((a, b) => classRank(a) - classRank(b)), [normalizedSmartMoneyRows]);
 
-  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => minClass === 'all' ? normalizedSmartMoneyRows : normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= classRank(minClass)), [normalizedSmartMoneyRows, minClass]);
+  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
+    if (minClass === 'all') return normalizedSmartMoneyRows;
+    return normalizedSmartMoneyRows.filter((row) => (row.notional_class || '').toLowerCase() === minClass.toLowerCase());
+  }, [normalizedSmartMoneyRows, minClass]);
 
   const sessionDateKey = useMemo(() => {
     const candidates = [
@@ -156,7 +159,7 @@ export default function SmartMoneyPage() {
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
           <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."><Info size={14} /></TooltipWrapper>
         </h2>
-        <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+        <div className="flex flex-wrap items-center justify-start gap-3 mb-4">
           <label className="text-sm" style={{ color: mutedText }}>Session
             <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sessionView} onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}>
               <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
@@ -169,13 +172,16 @@ export default function SmartMoneyPage() {
             </select>
           </label>
         </div>
+        <div className="text-sm mb-3" style={{ color: mutedText }}>
+          Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
+        </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
           {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div> : (
             <>
               <div className="mb-5">
-                <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
-                <div className="text-sm mb-3" style={{ color: mutedText }}>
-                  Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
+                  <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:00 ET session timeline."><Info size={14} /></TooltipWrapper>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
@@ -193,6 +199,10 @@ export default function SmartMoneyPage() {
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#facc15" dot={false} strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY FLOW TABLE</h3>
+                <TooltipWrapper text="Table rows are filtered by Session and Min Class and sorted by the selected column."><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">
                 <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiration</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Flow</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th></tr></thead>
