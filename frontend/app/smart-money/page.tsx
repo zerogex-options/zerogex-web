@@ -19,6 +19,7 @@ const classRank = (value: string) => { const idx = CLASS_RANKING.findIndex((entr
 const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
+function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
 function getSessionTimestamps(dateKey: string): string[] {
   const [y, m, d] = dateKey.split('-').map(Number);
   if (!y || !m || !d) return [];
@@ -139,6 +140,14 @@ export default function SmartMoneyPage() {
   }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
 
   const maxStackSegments = useMemo(() => Math.min(smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1), 10), [smartMoneySessionChart]);
+  const dateMarkerMeta = useMemo(() => getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp))), [smartMoneySessionChart]);
+  const dailyTotalsTimestamp = useMemo(() => {
+    const latest = filteredSmartMoneyData
+      .map((row) => row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '')
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+    return latest || null;
+  }, [filteredSmartMoneyData]);
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => smartMoneySortKey === key ? setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc')) : (setSmartMoneySortKey(key), setSmartMoneySortDir('desc'));
 
   return (
@@ -147,31 +156,35 @@ export default function SmartMoneyPage() {
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
           <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."><Info size={14} /></TooltipWrapper>
         </h2>
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+          <label className="text-sm" style={{ color: mutedText }}>Session
+            <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sessionView} onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}>
+              <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
+              <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
+            </select>
+          </label>
+          <label className="text-sm" style={{ color: mutedText }}>Min Class
+            <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
+              <option value="all">All</option>{classOptions.map((cls) => (<option key={cls} value={cls}>{cls}</option>))}
+            </select>
+          </label>
+        </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            <label className="text-sm" style={{ color: mutedText }}>Session
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sessionView} onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}>
-                <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
-                <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>Min Class
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
-                <option value="all">All</option>{classOptions.map((cls) => (<option key={cls} value={cls}>{cls}</option>))}
-              </select>
-            </label>
-          </div>
           {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div> : (
             <>
               <div className="mb-5">
                 <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
+                <div className="text-sm mb-3" style={{ color: mutedText }}>
+                  Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
-                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || '');
+                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || ''); const index = Number(props?.index ?? -1);
                       const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-                      if (!timeLabel) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}</g>;
+                      const dateLabel = dateMarkerMeta.get(index);
+                      if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
