@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -43,6 +43,29 @@ export default function Header({ theme }: HeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+
+  const mobileNavGroups = useMemo(
+    () => [
+      ...NAV_GROUPS,
+      {
+        label: "More",
+        items: [
+          { id: "/about", label: "About" },
+          { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+        ],
+      },
+    ],
+    [],
+  );
+
+  const [mobileExpandedGroups, setMobileExpandedGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    mobileNavGroups.forEach((group) => {
+      initial[group.label] = group.items.some((item) => pathname === item.id);
+    });
+    return initial;
+  });
 
 
   // Fetch real market data
@@ -553,78 +576,68 @@ export default function Header({ theme }: HeaderProps) {
 
           {mobileMenuOpen && (
             <div className="space-y-4">
-              <div className="space-y-4">
-                {NAV_GROUPS.map((group) => (
-                  <div key={group.label}>
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
-                      {group.label}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {group.items.map((page) => {
-                        const active = pathname === page.id;
-                        return (
-                          <button
-                            key={page.id}
-                            onClick={() => {
-                              router.push(page.id);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                            style={{
-                              background:
-                                theme === "dark"
-                                  ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
-                                  : colors.cardLight,
-                              borderColor: active ? `${colors.primary}60` : border,
-                              color: active
-                                ? colors.primary
-                                : theme === "dark"
-                                  ? colors.light
-                                  : colors.dark,
-                            }}
-                          >
-                            {page.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-3">
+                {mobileNavGroups.map((group) => {
+                  const isExpanded = mobileExpandedGroups[group.label] ?? false;
+                  return (
+                    <div key={group.label} className="rounded-lg border p-3" style={{ borderColor: border }}>
+                      <button
+                        type="button"
+                        onClick={() => setMobileExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
+                        className="mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: colors.primary }}
+                      >
+                        {group.label}
+                        <ChevronDown size={14} style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                      </button>
+                      {isExpanded ? (
+                        <div className="grid grid-cols-1 gap-2">
+                          {group.items.map((page) => {
+                            const active = pathname === page.id;
+                            const isExternal = 'external' in page && page.external;
 
-              <div className="rounded-lg border p-3" style={{ borderColor: border }}>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
-                  More
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      router.push('/about');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                    style={{
-                      background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
-                      borderColor: border,
-                      color: theme === 'dark' ? colors.light : colors.dark,
-                    }}
-                  >
-                    About
-                  </button>
-                  <a
-                    href="https://api.zerogex.io/docs"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                    style={{
-                      background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
-                      borderColor: border,
-                      color: theme === 'dark' ? colors.light : colors.dark,
-                    }}
-                  >
-                    API Specs
-                  </a>
-                </div>
+                            if (isExternal) {
+                              return (
+                                <a
+                                  key={page.id}
+                                  href={page.id}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                                  style={{
+                                    background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                                    borderColor: border,
+                                    color: theme === 'dark' ? colors.light : colors.dark,
+                                  }}
+                                >
+                                  {page.label}
+                                </a>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={page.id}
+                                onClick={() => {
+                                  router.push(page.id);
+                                  setMobileMenuOpen(false);
+                                }}
+                                className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                                style={{
+                                  background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                                  borderColor: active ? `${colors.primary}60` : border,
+                                  color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
+                                }}
+                              >
+                                {page.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex gap-2">

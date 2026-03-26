@@ -3,8 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Theme } from "@/core/types";
 import { colors } from "@/core/colors";
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import Link from "next/link";
 
@@ -25,6 +25,28 @@ export default function Navigation({ theme }: NavigationProps) {
     } catch {
       return true;
     }
+  });
+
+  const navGroups = useMemo(
+    () => [
+      ...NAV_GROUPS,
+      {
+        label: "More",
+        items: [
+          { id: "/about", label: "About" },
+          { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+        ],
+      },
+    ],
+    [],
+  );
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    navGroups.forEach((group) => {
+      initial[group.label] = group.items.some((item) => pathname === item.id);
+    });
+    return initial;
   });
 
   useEffect(() => {
@@ -66,72 +88,71 @@ export default function Navigation({ theme }: NavigationProps) {
           }}
         >
           <div className="h-full overflow-y-auto px-4 py-5">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.label} className="mb-6 last:mb-0">
-                <div
-                  className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                  style={{ color: colors.primary }}
-                >
-                  {group.label}
-                </div>
-                <div className="space-y-1">
-                  {group.items.map((page) => {
-                    const isActive = pathname === page.id;
-                    const isHovered = hoveredPage === page.id;
-                    return (
-                      <button
-                        key={page.id}
-                        onClick={() => router.push(page.id)}
-                        onMouseEnter={() => setHoveredPage(page.id)}
-                        onMouseLeave={() => setHoveredPage(null)}
-                        className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
-                        style={{
+            {navGroups.map((group) => {
+              const isExpanded = expandedGroups[group.label] ?? false;
+              return (
+                <div key={group.label} className="mb-4 last:mb-0">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
+                    className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                    style={{ color: colors.primary, background: `${colors.primary}08` }}
+                  >
+                    {group.label}
+                    <ChevronDown
+                      size={14}
+                      style={{ transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                    />
+                  </button>
+                  {isExpanded ? (
+                    <div className="space-y-1">
+                      {group.items.map((page) => {
+                        const isExternal = "external" in page && page.external;
+                        const isActive = pathname === page.id;
+                        const isHovered = hoveredPage === page.id;
+                        const commonStyle = {
                           color: isActive || isHovered ? colors.primary : theme === "dark" ? colors.light : colors.dark,
                           opacity: isActive || isHovered ? 1 : 0.72,
-                          background: isHovered && !isActive
-                            ? `${colors.primary}18`
-                            : isActive
-                              ? `${colors.primary}14`
-                              : "transparent",
+                          background: isHovered && !isActive ? `${colors.primary}18` : isActive ? `${colors.primary}14` : "transparent",
                           border: `1px solid ${isActive || isHovered ? colors.primary + "40" : "transparent"}`,
-                        }}
-                        type="button"
-                      >
-                        {page.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                        };
 
-            <div className="mt-6 border-t pt-4" style={{ borderColor: border }}>
-              <div
-                className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                style={{ color: colors.primary }}
-              >
-                More
-              </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => router.push("/about")}
-                  className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
-                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.72 }}
-                  type="button"
-                >
-                  About
-                </button>
-                <Link
-                  href="https://api.zerogex.io/docs"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
-                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.72 }}
-                >
-                  API Specs
-                </Link>
-              </div>
-            </div>
+                        if (isExternal) {
+                          return (
+                            <Link
+                              key={page.id}
+                              href={page.id}
+                              target="_blank"
+                              rel="noreferrer"
+                              onMouseEnter={() => setHoveredPage(page.id)}
+                              onMouseLeave={() => setHoveredPage(null)}
+                              className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                              style={commonStyle}
+                            >
+                              {page.label}
+                            </Link>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={page.id}
+                            onClick={() => router.push(page.id)}
+                            onMouseEnter={() => setHoveredPage(page.id)}
+                            onMouseLeave={() => setHoveredPage(null)}
+                            className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                            style={commonStyle}
+                            type="button"
+                          >
+                            {page.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
           <button
             type="button"

@@ -17,7 +17,7 @@ export default function EducationPage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">Article 01</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">Published • March 26, 2026 • 16:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-white">
           ZeroGEX™ Guide: Decoding Gamma Exposure — The Hidden Force Driving Market Behavior
         </h2>

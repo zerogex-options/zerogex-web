@@ -204,7 +204,15 @@ export default function SmartMoneyPage() {
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
-                    <Tooltip formatter={(value, name) => String(name).toLowerCase().includes('price') ? [`$${Number(value).toFixed(2)}`, 'Underlying'] : [`$${Number(value).toFixed(2)}M`, String(name)]} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", borderRadius: 6 }}
+                      labelStyle={{ color: isDark ? "#f2f2f2" : "#374151", fontWeight: 600 }}
+                      itemStyle={{ color: isDark ? "#d1d5db" : "#374151" }}
+                      labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+                      formatter={(value, name) => String(name).toLowerCase().includes('price')
+                        ? [`$${Number(value).toFixed(2)}`, 'Underlying']
+                        : [`$${Number(value).toFixed(2)}M`, String(name)]}
+                    />
                     {Array.from({ length: maxStackSegments }).map((_, idx) => <Bar key={`block-${idx + 1}`} yAxisId="notional" dataKey={`block${idx + 1}`} stackId="notional" fill={idx % 2 === 0 ? '#22c55e' : '#ef4444'} />)}
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#facc15" dot={false} strokeWidth={2} />
                   </ComposedChart>

@@ -208,7 +208,7 @@ export default function AboutPage() {
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <Link href="/education/decoding-gamma-exposure" style={{ textDecoration: 'none' }}>
+          <Link href="/education" style={{ textDecoration: 'none' }}>
             <button style={{
               background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
               border: `1px solid ${C.border}`,

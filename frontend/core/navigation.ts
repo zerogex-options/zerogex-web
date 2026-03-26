@@ -40,6 +40,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Education',
-    items: [{ id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' }],
+    items: [
+      { id: '/education', label: 'Hub' },
+      { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' },
+    ],
   },
 ];
