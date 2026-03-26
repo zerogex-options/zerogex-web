@@ -11,11 +11,10 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 
 interface SmartMoneyRow { timestamp?: string; symbol: string; contract: string; strike: number; expiration: string; dte: number; option_type: string; flow: number; notional: number; notional_class: string; time_window_start?: string; time_window_end?: string; interval_timestamp?: string | null; }
 interface SessionFlowPoint { timestamp: string; underlying_price?: number | null; }
-interface NormalizedSmartMoneyRow extends SmartMoneyRow { rowKey: string; minuteTimestamp: string | null; notionalM: number; }
+interface NormalizedSmartMoneyRow extends SmartMoneyRow { rowKey: string; minuteTimestamp: string | null; notionalM: number; absNotional: number; }
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
+type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
 
-const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
-const classRank = (value: string) => { const idx = CLASS_RANKING.findIndex((entry) => (value || '').toLowerCase().includes(entry)); return idx === -1 ? 0 : idx; };
 const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
@@ -58,6 +57,21 @@ function getSessionTimestamps(dateKey: string): string[] {
   return result;
 }
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
+const minClassOptions: Array<{ value: MinClassFilter; label: string }> = [
+  { value: '500k', label: '💰 $500K+ (>= $500K)' },
+  { value: '250k', label: '💵 $250K+ (>= $250K, < $500K)' },
+  { value: '100k', label: '💸 $100K+ (>= $100K, < $250K)' },
+  { value: '50k', label: '💳 $50K+ (>= $50K, < $100K)' },
+  { value: 'under50k', label: '💴 <$50K (< $50K)' },
+];
+
+function matchesMinClass(absNotional: number, minClass: MinClassFilter): boolean {
+  if (minClass === '500k') return absNotional >= 500_000;
+  if (minClass === '250k') return absNotional >= 250_000 && absNotional < 500_000;
+  if (minClass === '100k') return absNotional >= 100_000 && absNotional < 250_000;
+  if (minClass === '50k') return absNotional >= 50_000 && absNotional < 100_000;
+  return absNotional < 50_000;
+}
 
 export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
@@ -72,7 +86,7 @@ export default function SmartMoneyPage() {
   const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState('all');
+  const [minClass, setMinClass] = useState<MinClassFilter>('500k');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
 
@@ -90,14 +104,9 @@ export default function SmartMoneyPage() {
   const effectiveSmartMoneyRows = useMemo(() => (smartMoneyError ? (smartMoneyFallbackData || []) : (smartMoneyData || [])), [smartMoneyError, smartMoneyFallbackData, smartMoneyData]);
   const effectiveSmartMoneyError = smartMoneyError && smartMoneyFallbackError ? smartMoneyError : null;
 
-  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => ({ ...row, rowKey: `${smartMoneyTimestamp(row) ?? 'na'}-${row.contract ?? 'contract'}-${idx}`, minuteTimestamp: smartMoneyTimestamp(row), notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000 })), [effectiveSmartMoneyRows]);
-  const classOptions = useMemo(() => Array.from(new Set(normalizedSmartMoneyRows.map((row) => row.notional_class))).filter(Boolean).sort((a, b) => classRank(a) - classRank(b)), [normalizedSmartMoneyRows]);
+  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => ({ ...row, rowKey: `${smartMoneyTimestamp(row) ?? 'na'}-${row.contract ?? 'contract'}-${idx}`, minuteTimestamp: smartMoneyTimestamp(row), notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000, absNotional: Math.abs(Number(row.notional || 0)) })), [effectiveSmartMoneyRows]);
 
-  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    if (minClass === 'all') return normalizedSmartMoneyRows;
-    const threshold = classRank(minClass);
-    return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
-  }, [normalizedSmartMoneyRows, minClass]);
+  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => normalizedSmartMoneyRows.filter((row) => matchesMinClass(row.absNotional, minClass)), [normalizedSmartMoneyRows, minClass]);
 
   const sessionDateKey = useMemo(() => {
     const candidates = [
@@ -167,11 +176,11 @@ export default function SmartMoneyPage() {
               <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
             </select>
           </label>
-          <label className="text-sm" style={{ color: mutedText }}>Min Class
-            <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value)}>
-              <option value="all">All</option>{classOptions.map((cls) => (<option key={cls} value={cls}>{cls}</option>))}
-            </select>
-          </label>
+            <label className="text-sm" style={{ color: mutedText }}>Min Class
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value as MinClassFilter)}>
+                {minClassOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+              </select>
+            </label>
         </div>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
