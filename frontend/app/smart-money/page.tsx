@@ -93,7 +93,7 @@ export default function SmartMoneyPage() {
   const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState<MinClassFilter>('under50k');
+  const [minClass, setMinClass] = useState<MinClassFilter>('500k');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
@@ -159,6 +159,7 @@ export default function SmartMoneyPage() {
     (sessionPriceData || []).forEach((row) => { const ts = normalizeToMinute(row.timestamp); if (ts && row.underlying_price != null) priceByTs.set(ts, Number(row.underlying_price)); });
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
     return sessionTimeline.map((ts) => {
+      // Sort largest -> smallest so any segment cap trims from the smallest tail.
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
       const row: Record<string, number | string | null | SmartMoneyBlockMeta> = { timestamp: ts, underlyingPrice: priceByTs.get(ts) ?? null };
       for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
@@ -170,7 +171,7 @@ export default function SmartMoneyPage() {
     });
   }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
 
-  const maxStackSegments = useMemo(() => Math.min(smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1), 40), [smartMoneySessionChart]);
+  const maxStackSegments = useMemo(() => Math.min(smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1), 50), [smartMoneySessionChart]);
   const dateMarkerMeta = useMemo(() => getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp))), [smartMoneySessionChart]);
   const dailyTotalsTimestamp = useMemo(() => {
     const latest = filteredSmartMoneyData
