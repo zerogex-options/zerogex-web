@@ -19,7 +19,43 @@ const classRank = (value: string) => { const idx = CLASS_RANKING.findIndex((entr
 const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
-function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
+function getSessionTimestamps(dateKey: string): string[] {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return [];
+
+  const etFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  let startMs: number | null = null;
+  for (const utcH of [13, 14]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 9 && min === 30) { startMs = candidate; break; }
+  }
+
+  let endMs: number | null = null;
+  for (const utcH of [20, 21]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 16 && min === 0) { endMs = candidate; break; }
+  }
+
+  if (startMs === null || endMs === null) return [];
+
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
 
 export default function SmartMoneyPage() {
@@ -58,6 +94,18 @@ export default function SmartMoneyPage() {
 
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => minClass === 'all' ? normalizedSmartMoneyRows : normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= classRank(minClass)), [normalizedSmartMoneyRows, minClass]);
 
+  const sessionDateKey = useMemo(() => {
+    const candidates = [
+      ...(sessionPriceData || []).map((row) => row.timestamp),
+      ...filteredSmartMoneyData.map((row) => row.minuteTimestamp || row.timestamp || ''),
+    ].filter(Boolean);
+    if (!candidates.length) return null;
+    const latest = [...candidates].sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+    return getETDateKey(latest);
+  }, [sessionPriceData, filteredSmartMoneyData]);
+
+  const sessionTimeline = useMemo(() => sessionDateKey ? getSessionTimestamps(sessionDateKey) : [], [sessionDateKey]);
+
   const sortedSmartMoneyRows = useMemo(() => {
     const rows = [...filteredSmartMoneyData];
     rows.sort((a, b) => {
@@ -81,18 +129,16 @@ export default function SmartMoneyPage() {
     });
     const priceByTs = new Map<string, number>();
     (sessionPriceData || []).forEach((row) => { const ts = normalizeToMinute(row.timestamp); if (ts && row.underlying_price != null) priceByTs.set(ts, Number(row.underlying_price)); });
-    const allTs = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
-    return allTs.map((ts) => {
+    return sessionTimeline.map((ts) => {
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
       const row: Record<string, number | string | null> = { timestamp: ts, underlyingPrice: priceByTs.get(ts) ?? null };
       for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
       return row;
     });
-  }, [sessionPriceData, filteredSmartMoneyData]);
+  }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
 
   const maxStackSegments = useMemo(() => Math.min(smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1), 10), [smartMoneySessionChart]);
-  const dateMarkerMeta = useMemo(() => getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp))), [smartMoneySessionChart]);
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => smartMoneySortKey === key ? setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc')) : (setSmartMoneySortKey(key), setSmartMoneySortDir('desc'));
 
   return (
@@ -121,17 +167,17 @@ export default function SmartMoneyPage() {
                 <h3 className="text-sm font-bold tracking-wider uppercase mb-2" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const index = Number(props?.index ?? -1); const ts = String(props?.payload?.value || '');
+                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
+                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || '');
                       const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-                      const dateLabel = dateMarkerMeta.get(index); if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text> : null}</g>;
+                      if (!timeLabel) return <g transform={`translate(${x},${y})`} />;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
                     <Tooltip formatter={(value, name) => String(name).toLowerCase().includes('price') ? [`$${Number(value).toFixed(2)}`, 'Underlying'] : [`$${Number(value).toFixed(2)}M`, String(name)]} />
                     {Array.from({ length: maxStackSegments }).map((_, idx) => <Bar key={`block-${idx + 1}`} yAxisId="notional" dataKey={`block${idx + 1}`} stackId="notional" fill={idx % 2 === 0 ? '#22c55e' : '#ef4444'} />)}
-                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#60a5fa" dot={false} strokeWidth={2} />
+                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#facc15" dot={false} strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
