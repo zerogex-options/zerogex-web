@@ -93,7 +93,7 @@ export default function SmartMoneyPage() {
   const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState<MinClassFilter>('500k');
+  const [minClass, setMinClass] = useState<MinClassFilter>('under50k');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
@@ -204,7 +204,7 @@ export default function SmartMoneyPage() {
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
         </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : 'No smart money flow data available'}</div> : (
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow data available for ${sessionView} session at the ${minClass} filter. Try a different session or Min Class.`}</div> : (
             <>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
@@ -271,13 +271,15 @@ export default function SmartMoneyPage() {
                         {smartMoneySessionChart.map((point, pointIdx) => {
                           const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
                           const isHovered = hoveredRowKey && meta?.rowKey === hoveredRowKey;
+                          const baseFill = meta?.optionType === 'P' ? '#ef4444' : '#22c55e';
+                          const popFill = meta?.optionType === 'P' ? '#fb7185' : '#4ade80';
                           return (
                             <Cell
                               key={`cell-${idx + 1}-${pointIdx}`}
-                              fill={meta?.optionType === 'P' ? '#ef4444' : '#22c55e'}
-                              fillOpacity={hoveredRowKey ? (isHovered ? 1 : 0.28) : 0.85}
+                              fill={isHovered ? popFill : baseFill}
+                              fillOpacity={hoveredRowKey ? (isHovered ? 1 : 0.18) : 0.82}
                               stroke={isHovered ? '#f59e0b' : 'none'}
-                              strokeWidth={isHovered ? 1.5 : 0}
+                              strokeWidth={isHovered ? 2.5 : 0}
                             />
                           );
                         })}

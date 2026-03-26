@@ -32,6 +32,7 @@ export default function Header({ theme }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -82,6 +83,13 @@ export default function Header({ theme }: HeaderProps) {
     );
   };
 
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 768);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
 
   useEffect(() => {
     const setHeaderHeight = () => {
@@ -209,8 +217,8 @@ export default function Header({ theme }: HeaderProps) {
       <div
         className="container mx-auto px-6"
         style={{
-          paddingTop: isCollapsed ? "8px" : "16px",
-          paddingBottom: isCollapsed ? "8px" : "16px",
+          paddingTop: isMobileViewport ? "4px" : isCollapsed ? "8px" : "16px",
+          paddingBottom: isMobileViewport ? "4px" : isCollapsed ? "8px" : "16px",
           transition: "padding 0.3s ease",
         }}
       >
@@ -553,8 +561,8 @@ export default function Header({ theme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-2" style={{ minHeight: "24px" }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", height: "24px", overflow: "hidden" }}>
+          <div className="flex items-center justify-between mb-1" style={{ minHeight: "20px" }}>
+            <Link href="/" style={{ display: "flex", alignItems: "center", height: "20px", overflow: "hidden" }}>
               <img
                 src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
                 alt="ZeroGEX"
@@ -567,9 +575,9 @@ export default function Header({ theme }: HeaderProps) {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2"
+                className="p-0"
               >
-                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
             </div>
           </div>
