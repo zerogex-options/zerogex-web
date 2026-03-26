@@ -58,19 +58,19 @@ function getSessionTimestamps(dateKey: string): string[] {
 }
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
 const minClassOptions: Array<{ value: MinClassFilter; label: string }> = [
-  { value: '500k', label: '💰 $500K+ (>= $500K)' },
-  { value: '250k', label: '💵 $250K+ (>= $250K, < $500K)' },
-  { value: '100k', label: '💸 $100K+ (>= $100K, < $250K)' },
-  { value: '50k', label: '💳 $50K+ (>= $50K, < $100K)' },
-  { value: 'under50k', label: '💴 <$50K (< $50K)' },
+  { value: '500k', label: '💰 $500K+' },
+  { value: '250k', label: '💵 $250K+' },
+  { value: '100k', label: '💸 $100K+' },
+  { value: '50k', label: '💳 $50K+' },
+  { value: 'under50k', label: '💴 <$50K' },
 ];
 
 function matchesMinClass(absNotional: number, minClass: MinClassFilter): boolean {
   if (minClass === '500k') return absNotional >= 500_000;
-  if (minClass === '250k') return absNotional >= 250_000 && absNotional < 500_000;
-  if (minClass === '100k') return absNotional >= 100_000 && absNotional < 250_000;
-  if (minClass === '50k') return absNotional >= 50_000 && absNotional < 100_000;
-  return absNotional < 50_000;
+  if (minClass === '250k') return absNotional >= 250_000;
+  if (minClass === '100k') return absNotional >= 100_000;
+  if (minClass === '50k') return absNotional >= 50_000;
+  return absNotional >= 0;
 }
 
 export default function SmartMoneyPage() {
