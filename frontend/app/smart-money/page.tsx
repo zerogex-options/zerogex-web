@@ -95,7 +95,8 @@ export default function SmartMoneyPage() {
 
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
     if (minClass === 'all') return normalizedSmartMoneyRows;
-    return normalizedSmartMoneyRows.filter((row) => (row.notional_class || '').toLowerCase() === minClass.toLowerCase());
+    const threshold = classRank(minClass);
+    return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
   }, [normalizedSmartMoneyRows, minClass]);
 
   const sessionDateKey = useMemo(() => {
