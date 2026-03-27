@@ -46,6 +46,49 @@ interface ChartRow {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): string | null {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  for (const utcHour of [hour + 4, hour + 5]) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, minute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === hour && min === minute) return new Date(candidate).toISOString();
+  }
+  return null;
+}
+
+function getSessionMinuteTimeline(dateKey: string): string[] {
+  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
+  const endIso = etWallTimeToUtcISO(dateKey, 16, 0);
+  if (!startIso || !endIso) return [];
+
+  const startMs = new Date(startIso).getTime();
+  const endMs = new Date(endIso).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return [];
+
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
+
+function normalizeToMinute(ts: string): string | null {
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
 function getETDateKey(ts: string): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "";
@@ -139,6 +182,18 @@ function formatSessionDate(dateKey: string): string {
   if (!dateKey || !dateKey.includes("-")) return dateKey;
   const [y, m, d] = dateKey.split("-");
   return `${m}/${d}/${y}`;
+}
+
+function formatSessionDateLong(dateKey: string): string {
+  if (!dateKey || !dateKey.includes("-")) return dateKey;
+  const [y, m, d] = dateKey.split("-");
+  const dt = new Date(`${y}-${m}-${d}T00:00:00`);
+  return dt.toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function computeDTE(expiration: string): number | null {
@@ -274,11 +329,13 @@ function ContractChart({
   rawRows,
   isDark,
   isMobile,
+  sessionDateLabel,
 }: {
   rows: ChartRow[];
   rawRows: OptionContractRow[];
   isDark: boolean;
   isMobile: boolean;
+  sessionDateLabel: string | null;
 }) {
   const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
 
@@ -311,8 +368,8 @@ function ContractChart({
   const axisTickStyle = { fontSize: isMobile ? 9 : 10, fill: axisStroke };
 
   const chartMargin = isMobile
-    ? { top: 8, right: 8, left: 8, bottom: 28 }
-    : { top: 10, right: 72, left: 72, bottom: 32 };
+    ? { top: 8, right: 8, left: 8, bottom: 44 }
+    : { top: 10, right: 72, left: 72, bottom: 46 };
   const yAxisWidth = isMobile ? 40 : 64;
 
   return (
@@ -436,6 +493,11 @@ function ContractChart({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      {sessionDateLabel && (
+        <div className="text-center text-xs -mt-4 pb-2" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>
+          {sessionDateLabel} (ET)
+        </div>
+      )}
     </div>
   );
 }
@@ -515,11 +577,17 @@ export default function OptionContractsPage() {
 
   // ── Chart rows
   const chartRows = useMemo((): ChartRow[] => {
-    if (!contractRows) return [];
-    return [...contractRows]
+    if (!contractRows || contractRows.length === 0) return [];
+
+    const inSessionRows = [...contractRows]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .filter((r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp))
-      .map((r) => ({
+      .filter((r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp));
+    if (inSessionRows.length === 0) return [];
+
+    const sessionDateKey = getETDateKey(inSessionRows[inSessionRows.length - 1].timestamp);
+    const minuteTimeline = getSessionMinuteTimeline(sessionDateKey);
+    if (minuteTimeline.length === 0) {
+      return inSessionRows.map((r) => ({
         timestamp: r.timestamp,
         time: safeTimeLabel(r.timestamp),
         askVol: r.ask_volume ?? 0,
@@ -529,7 +597,35 @@ export default function OptionContractsPage() {
         bid: r.bid ?? null,
         ask: r.ask ?? null,
       }));
+    }
+
+    const latestByMinute = new Map<string, OptionContractRow>();
+    inSessionRows.forEach((row) => {
+      const minuteTs = normalizeToMinute(row.timestamp);
+      if (minuteTs) latestByMinute.set(minuteTs, row);
+    });
+
+    let lastPrice: number | null = null;
+    return minuteTimeline.map((minuteTs) => {
+      const row = latestByMinute.get(minuteTs);
+      if (row?.last != null) lastPrice = row.last;
+      return {
+        timestamp: minuteTs,
+        time: safeTimeLabel(minuteTs),
+        askVol: row?.ask_volume ?? 0,
+        midVol: row?.mid_volume ?? 0,
+        bidVol: row?.bid_volume ?? 0,
+        last: row?.last ?? lastPrice,
+        bid: row?.bid ?? null,
+        ask: row?.ask ?? null,
+      };
+    });
   }, [contractRows]);
+
+  const chartSessionDateLabel = useMemo(() => {
+    if (!chartRows.length) return null;
+    return formatSessionDateLong(getETDateKey(chartRows[chartRows.length - 1].timestamp));
+  }, [chartRows]);
 
   // ── Contract display label
   const contractLabel = useMemo(() => {
@@ -669,6 +765,7 @@ export default function OptionContractsPage() {
             rawRows={contractRows ?? []}
             isDark={isDark}
             isMobile={isMobile}
+            sessionDateLabel={chartSessionDateLabel}
           />
         )}
       </section>

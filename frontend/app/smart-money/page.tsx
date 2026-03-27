@@ -25,6 +25,7 @@ type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
 const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
+const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
 function getSessionTimestamps(dateKey: string): string[] {
   const [y, m, d] = dateKey.split('-').map(Number);
@@ -99,13 +100,13 @@ export default function SmartMoneyPage() {
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000 });
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000 });
+  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) });
   const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${sessionView}`, { refreshInterval: 10000 });
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${otherSession}`, { refreshInterval: 60000 });
 
-  const sessionDateLabel = useMemo(() => sessionPriceData?.length ? getETDateKey([...sessionPriceData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0].timestamp) : null, [sessionPriceData]);
-  const otherSessionDateLabel = useMemo(() => otherSessionProbe?.length ? getETDateKey([...otherSessionProbe].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0].timestamp) : null, [otherSessionProbe]);
+  const sessionDateLabel = useMemo(() => sessionPriceData?.length ? getETDateKey(latestTimestamp(sessionPriceData.map((row) => row.timestamp))) : null, [sessionPriceData]);
+  const otherSessionDateLabel = useMemo(() => otherSessionProbe?.length ? getETDateKey(latestTimestamp(otherSessionProbe.map((row) => row.timestamp))) : null, [otherSessionProbe]);
   const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
   const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
@@ -122,8 +123,7 @@ export default function SmartMoneyPage() {
       ...filteredSmartMoneyData.map((row) => row.minuteTimestamp || row.timestamp || ''),
     ].filter(Boolean);
     if (!candidates.length) return null;
-    const latest = [...candidates].sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-    return getETDateKey(latest);
+    return getETDateKey(latestTimestamp(candidates));
   }, [sessionPriceData, filteredSmartMoneyData]);
 
   const sessionTimeline = useMemo(() => sessionDateKey ? getSessionTimestamps(sessionDateKey) : [], [sessionDateKey]);
@@ -171,14 +171,19 @@ export default function SmartMoneyPage() {
     });
   }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
 
-  const maxStackSegments = useMemo(() => Math.min(smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1), 50), [smartMoneySessionChart]);
+  const maxStackSegments = useMemo(
+    () => Math.min(
+      smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1),
+      12,
+    ),
+    [smartMoneySessionChart],
+  );
   const dateMarkerMeta = useMemo(() => getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp))), [smartMoneySessionChart]);
   const dailyTotalsTimestamp = useMemo(() => {
-    const latest = filteredSmartMoneyData
+    const timestamps = filteredSmartMoneyData
       .map((row) => row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '')
-      .filter(Boolean)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-    return latest || null;
+      .filter(Boolean);
+    return timestamps.length ? latestTimestamp(timestamps) : null;
   }, [filteredSmartMoneyData]);
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => smartMoneySortKey === key ? setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc')) : (setSmartMoneySortKey(key), setSmartMoneySortDir('desc'));
 
