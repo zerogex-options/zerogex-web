@@ -616,17 +616,15 @@ export default function OptionContractsPage() {
       if (minuteTs) latestByMinute.set(minuteTs, row);
     });
 
-    let lastPrice: number | null = null;
     return minuteTimeline.map((minuteTs) => {
       const row = latestByMinute.get(minuteTs);
-      if (row?.last != null) lastPrice = row.last;
       return {
         timestamp: minuteTs,
         time: safeTimeLabel(minuteTs),
         askVol: row ? (row.ask_volume ?? 0) : null,
         midVol: row ? (row.mid_volume ?? 0) : null,
         bidVol: row ? (row.bid_volume ?? 0) : null,
-        last: row?.last ?? lastPrice,
+        last: row?.last ?? null,
         bid: row?.bid ?? null,
         ask: row?.ask ?? null,
       };
