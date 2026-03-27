@@ -36,9 +36,9 @@ interface FlowByStrikePoint {
 interface ChartRow {
   timestamp: string;
   time: string;
-  askVol: number;
-  midVol: number;
-  bidVol: number;
+  askVol: number | null;
+  midVol: number | null;
+  bidVol: number | null;
   last: number | null;
   bid: number | null;
   ask: number | null;
@@ -612,9 +612,9 @@ export default function OptionContractsPage() {
       return {
         timestamp: minuteTs,
         time: safeTimeLabel(minuteTs),
-        askVol: row?.ask_volume ?? 0,
-        midVol: row?.mid_volume ?? 0,
-        bidVol: row?.bid_volume ?? 0,
+        askVol: row ? (row.ask_volume ?? 0) : null,
+        midVol: row ? (row.mid_volume ?? 0) : null,
+        bidVol: row ? (row.bid_volume ?? 0) : null,
         last: row?.last ?? lastPrice,
         bid: row?.bid ?? null,
         ask: row?.ask ?? null,
