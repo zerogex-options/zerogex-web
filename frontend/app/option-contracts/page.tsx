@@ -184,16 +184,21 @@ function formatSessionDate(dateKey: string): string {
   return `${m}/${d}/${y}`;
 }
 
-function formatSessionDateLong(dateKey: string): string {
-  if (!dateKey || !dateKey.includes("-")) return dateKey;
-  const [y, m, d] = dateKey.split("-");
-  const dt = new Date(`${y}-${m}-${d}T00:00:00`);
-  return dt.toLocaleDateString("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+function getDateMarkerMeta(timestamps: string[]) {
+  const markers = new Map<number, string>();
+  let prev = "";
+  timestamps.forEach((ts, idx) => {
+    const dateLabel = new Date(ts).toLocaleDateString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+    });
+    if (dateLabel !== prev) {
+      markers.set(idx, dateLabel);
+      prev = dateLabel;
+    }
   });
+  return markers;
 }
 
 function computeDTE(expiration: string): number | null {
@@ -329,15 +334,17 @@ function ContractChart({
   rawRows,
   isDark,
   isMobile,
-  sessionDateLabel,
 }: {
   rows: ChartRow[];
   rawRows: OptionContractRow[];
   isDark: boolean;
   isMobile: boolean;
-  sessionDateLabel: string | null;
 }) {
   const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
+  const dateMarkerMeta = useMemo(
+    () => getDateMarkerMeta(rows.map((row) => row.timestamp)),
+    [rows],
+  );
 
   if (rows.length === 0) {
     return (
@@ -400,15 +407,24 @@ function ContractChart({
                 const x = Number(props?.x ?? 0);
                 const y = Number(props?.y ?? 0);
                 const ts = String(props?.payload?.value || "");
+                const index = Number(props?.index ?? -1);
                 const timeLabel = safeTimeLabel(ts);
-                const show = is30MinBoundary(ts);
-                if (!show) return <g transform={`translate(${x},${y})`} />;
+                const dateLabel = dateMarkerMeta.get(index);
+                const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                 return (
                   <g transform={`translate(${x},${y})`}>
                     <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                    <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                      {timeLabel}
-                    </text>
+                    {showTime ? (
+                      <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                        {timeLabel}
+                      </text>
+                    ) : null}
+                    {dateLabel ? (
+                      <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
+                        {dateLabel}
+                      </text>
+                    ) : null}
                   </g>
                 );
               }}
@@ -493,11 +509,6 @@ function ContractChart({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      {sessionDateLabel && (
-        <div className="text-center text-xs -mt-4 pb-2" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>
-          {sessionDateLabel} (ET)
-        </div>
-      )}
     </div>
   );
 }
@@ -621,11 +632,6 @@ export default function OptionContractsPage() {
       };
     });
   }, [contractRows]);
-
-  const chartSessionDateLabel = useMemo(() => {
-    if (!chartRows.length) return null;
-    return formatSessionDateLong(getETDateKey(chartRows[chartRows.length - 1].timestamp));
-  }, [chartRows]);
 
   // ── Contract display label
   const contractLabel = useMemo(() => {
@@ -765,7 +771,6 @@ export default function OptionContractsPage() {
             rawRows={contractRows ?? []}
             isDark={isDark}
             isMobile={isMobile}
-            sessionDateLabel={chartSessionDateLabel}
           />
         )}
       </section>
