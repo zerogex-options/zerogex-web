@@ -73,6 +73,9 @@ interface UseApiDataOptions {
   onError?: (error: string) => void;
 }
 
+const REFRESH_ACCELERATION_FACTOR = 0.5;
+const MIN_REFRESH_INTERVAL_MS = 1000;
+
 export type SignalTimeframe = 'intraday' | 'swing' | 'multi_day';
 
 interface SignalComponent {
@@ -278,6 +281,9 @@ function normalizeNumbers(value: unknown): unknown {
 
 export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {}) {
   const { refreshInterval = 5000, enabled = true, onError } = options;
+  const effectiveRefreshInterval = refreshInterval > 0
+    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(refreshInterval * REFRESH_ACCELERATION_FACTOR))
+    : 0;
 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -328,11 +334,11 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
 
     fetchData();
 
-    if (refreshInterval > 0) {
-      const interval = setInterval(fetchData, refreshInterval);
+    if (effectiveRefreshInterval > 0) {
+      const interval = setInterval(fetchData, effectiveRefreshInterval);
       return () => clearInterval(interval);
     }
-  }, [fetchData, refreshInterval, enabled]);
+  }, [fetchData, effectiveRefreshInterval, enabled]);
 
   const refetch = useCallback(() => {
     setLoading(true);
