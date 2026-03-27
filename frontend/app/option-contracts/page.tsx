@@ -44,6 +44,15 @@ interface ChartRow {
   ask: number | null;
 }
 
+interface MinuteAggregate {
+  last: number | null;
+  bid: number | null;
+  ask: number | null;
+  askVol: number;
+  midVol: number;
+  bidVol: number;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): string | null {
@@ -610,20 +619,36 @@ export default function OptionContractsPage() {
       }));
     }
 
-    const latestByMinute = new Map<string, OptionContractRow>();
+    const aggregatedByMinute = new Map<string, MinuteAggregate>();
     inSessionRows.forEach((row) => {
       const minuteTs = normalizeToMinute(row.timestamp);
-      if (minuteTs) latestByMinute.set(minuteTs, row);
+      if (!minuteTs) return;
+      const prev = aggregatedByMinute.get(minuteTs) ?? {
+        last: null,
+        bid: null,
+        ask: null,
+        askVol: 0,
+        midVol: 0,
+        bidVol: 0,
+      };
+      aggregatedByMinute.set(minuteTs, {
+        last: row.last ?? prev.last,
+        bid: row.bid ?? prev.bid,
+        ask: row.ask ?? prev.ask,
+        askVol: prev.askVol + (row.ask_volume ?? 0),
+        midVol: prev.midVol + (row.mid_volume ?? 0),
+        bidVol: prev.bidVol + (row.bid_volume ?? 0),
+      });
     });
 
     return minuteTimeline.map((minuteTs) => {
-      const row = latestByMinute.get(minuteTs);
+      const row = aggregatedByMinute.get(minuteTs);
       return {
         timestamp: minuteTs,
         time: safeTimeLabel(minuteTs),
-        askVol: row ? (row.ask_volume ?? 0) : null,
-        midVol: row ? (row.mid_volume ?? 0) : null,
-        bidVol: row ? (row.bid_volume ?? 0) : null,
+        askVol: row ? row.askVol : null,
+        midVol: row ? row.midVol : null,
+        bidVol: row ? row.bidVol : null,
         last: row?.last ?? null,
         bid: row?.bid ?? null,
         ask: row?.ask ?? null,
