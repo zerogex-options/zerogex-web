@@ -537,17 +537,32 @@ export default function OptionContractsPage() {
   const { data: quoteData } = useMarketQuote(symbol, 1000);
 
   // ── Fetch available expirations / strikes from current session flow data
-  const { data: expirationData, error: expirationError, loading: expirationLoading } =
+  const { data: expirationDataSession, error: expirationErrorSession, loading: expirationLoading } =
     useApiData<FlowByExpirationPoint[]>(
       `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
+  const { data: expirationDataNoSession, error: expirationErrorNoSession } =
+    useApiData<FlowByExpirationPoint[]>(
+      `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
+      { refreshInterval: 60000, enabled: Boolean(expirationErrorSession) },
+    );
 
-  const { data: strikeData, error: strikeError, loading: strikeLoading } =
+  const { data: strikeDataSession, error: strikeErrorSession, loading: strikeLoading } =
     useApiData<FlowByStrikePoint[]>(
       `/api/flow/by-strike?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
+  const { data: strikeDataNoSession, error: strikeErrorNoSession } =
+    useApiData<FlowByStrikePoint[]>(
+      `/api/flow/by-strike?symbol=${symbol}&limit=500`,
+      { refreshInterval: 60000, enabled: Boolean(strikeErrorSession) },
+    );
+
+  const expirationData = expirationDataSession || expirationDataNoSession;
+  const strikeData = strikeDataSession || strikeDataNoSession;
+  const expirationError = expirationErrorSession && expirationErrorNoSession ? expirationErrorSession : null;
+  const strikeError = strikeErrorSession && strikeErrorNoSession ? strikeErrorSession : null;
 
   // ── Derive available expirations (active only — expire today or later)
   const expirationOptions = useMemo(() => {

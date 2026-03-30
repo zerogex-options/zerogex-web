@@ -137,8 +137,20 @@ export default function SmartMoneyPage() {
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000 });
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) });
-  const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${sessionView}`, { refreshInterval: 10000 });
+  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(
+    `/api/flow/smart-money?symbol=${symbol}&limit=100`,
+    { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
+  );
+  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
+  const { data: sessionPriceDataRaw, error: sessionPriceError } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${sessionView}`, { refreshInterval: 10000 });
+  const { data: sessionPriceDataNoSession } = useApiData<SessionFlowPoint[]>(
+    `/api/flow/by-type?symbol=${symbol}`,
+    { refreshInterval: 10000, enabled: Boolean(sessionPriceError) }
+  );
+  const sessionPriceData = useMemo(
+    () => sessionPriceDataRaw || sessionPriceDataNoSession || [],
+    [sessionPriceDataRaw, sessionPriceDataNoSession]
+  );
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${otherSession}`, { refreshInterval: 60000 });
 
@@ -147,8 +159,11 @@ export default function SmartMoneyPage() {
   const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
   const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
-  const effectiveSmartMoneyRows = useMemo(() => (smartMoneyError ? (smartMoneyFallbackData || []) : (smartMoneyData || [])), [smartMoneyError, smartMoneyFallbackData, smartMoneyData]);
-  const effectiveSmartMoneyError = smartMoneyError && smartMoneyFallbackError ? smartMoneyError : null;
+  const effectiveSmartMoneyRows = useMemo(
+    () => (smartMoneyError ? (smartMoneyNoSessionData || smartMoneyFallbackData || []) : (smartMoneyData || [])),
+    [smartMoneyError, smartMoneyNoSessionData, smartMoneyFallbackData, smartMoneyData]
+  );
+  const effectiveSmartMoneyError = smartMoneyError && smartMoneyNoSessionError && smartMoneyFallbackError ? smartMoneyError : null;
 
   const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => {
     const rowNotional = Math.abs(getRowNotional(row));

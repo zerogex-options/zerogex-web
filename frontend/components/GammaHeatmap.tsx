@@ -26,18 +26,39 @@ export default function GammaHeatmap() {
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
+  const apiTimeframe = useMemo(() => {
+    if (timeframe === '1min') return '1m';
+    if (timeframe === '5min') return '5m';
+    if (timeframe === '15min') return '15m';
+    if (timeframe === '1hr') return '1h';
+    return '1d';
+  }, [timeframe]);
+
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
     `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
+  const { data: gexDataAlt, loading: loadingAlt, error: errorAlt } = useApiData<GammaDataPoint[]>(
+    `/api/gex/heatmap?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    { refreshInterval: 5000, enabled: Boolean(error) }
+  );
 
-  const { data: priceData } = useApiData<PriceDataPoint[]>(
+  const { data: priceDataRaw, error: priceError } = useApiData<PriceDataPoint[]>(
     `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
+  const { data: priceDataAlt } = useApiData<PriceDataPoint[]>(
+    `/api/market/historical?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    { refreshInterval: 5000, enabled: Boolean(priceError) }
+  );
+
+  const activeGexData = useMemo(() => gexData || gexDataAlt || [], [gexData, gexDataAlt]);
+  const activePriceData = useMemo(() => priceDataRaw || priceDataAlt || [], [priceDataRaw, priceDataAlt]);
+  const effectiveLoading = loading || loadingAlt;
+  const effectiveError = error && errorAlt ? error : null;
 
   const derived = useMemo(() => {
-    const rows = (gexData || []).slice(-5000);
+    const rows = activeGexData.slice(-5000);
     if (rows.length === 0) return { cells: [], strikes: [] as number[], timestamps: [] as string[] };
 
     const sortedTimestamps = omitClosedMarketTimes(Array.from(new Set(rows.map((r) => r.timestamp))).sort(), (ts) => ts).slice(-maxPoints);
@@ -49,10 +70,10 @@ export default function GammaHeatmap() {
     );
 
     return { cells, strikes, timestamps: sortedTimestamps };
-  }, [gexData, maxPoints]);
+  }, [activeGexData, maxPoints]);
 
-  if (loading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
-  if (error) return <ErrorMessage message={error} />;
+  if (effectiveLoading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
+  if (effectiveError) return <ErrorMessage message={effectiveError} />;
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
   const getColor = (value: number, maxAbsValue: number) => {
@@ -85,7 +106,7 @@ export default function GammaHeatmap() {
   const plotHeight = chartHeight - 76;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
 
-  const priceRows = omitClosedMarketTimes(priceData || [], (p) => p.timestamp);
+  const priceRows = omitClosedMarketTimes(activePriceData, (p) => p.timestamp);
   const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
   const minStrike = Math.min(...derived.strikes);
   const maxStrike = Math.max(...derived.strikes);

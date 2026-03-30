@@ -872,15 +872,28 @@ export default function FlowAnalysisPage() {
     return getETDateKey(sorted[0].timestamp) || null;
   }, [otherSessionProbe]);
 
-  const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
+  const { data: flowByExpirationSession, error: expirationErrorSession } = useApiData<FlowByExpirationPoint[]>(
     `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=500`,
     { refreshInterval: 30000 },
   );
+  const { data: flowByExpirationNoSession, error: expirationErrorNoSession } = useApiData<FlowByExpirationPoint[]>(
+    `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
+    { refreshInterval: 30000, enabled: Boolean(expirationErrorSession) },
+  );
 
-  const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
+  const { data: flowByStrikeSession, error: strikeErrorSession } = useApiData<FlowByStrikePoint[]>(
     `/api/flow/by-strike?symbol=${symbol}&session=${flowSession}&limit=500`,
     { refreshInterval: 30000 },
   );
+  const { data: flowByStrikeNoSession, error: strikeErrorNoSession } = useApiData<FlowByStrikePoint[]>(
+    `/api/flow/by-strike?symbol=${symbol}&limit=500`,
+    { refreshInterval: 30000, enabled: Boolean(strikeErrorSession) },
+  );
+
+  const flowByExpiration = flowByExpirationSession || flowByExpirationNoSession;
+  const flowByStrike = flowByStrikeSession || flowByStrikeNoSession;
+  const expirationError = expirationErrorSession && expirationErrorNoSession ? expirationErrorSession : null;
+  const strikeError = strikeErrorSession && strikeErrorNoSession ? strikeErrorSession : null;
 
   // ── Derive the session date from the returned data ──────────────────────────
 
