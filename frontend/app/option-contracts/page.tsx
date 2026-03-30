@@ -539,13 +539,13 @@ export default function OptionContractsPage() {
   // ── Fetch available expirations / strikes from current session flow data
   const { data: expirationData, error: expirationError, loading: expirationLoading } =
     useApiData<FlowByExpirationPoint[]>(
-      `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=50000`,
+      `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
 
   const { data: strikeData, error: strikeError, loading: strikeLoading } =
     useApiData<FlowByStrikePoint[]>(
-      `/api/flow/by-strike?symbol=${symbol}&session=current&limit=50000`,
+      `/api/flow/by-strike?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
 

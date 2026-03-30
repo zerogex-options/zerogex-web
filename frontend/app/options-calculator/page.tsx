@@ -23,11 +23,11 @@ interface StrategyLegTemplate {
 interface OptionQuote {
   timestamp: string;
   underlying: string;
-  strike: number;
+  strike: string;
   expiration: string;
   option_type: string;
-  bid?: number | null;
-  ask?: number | null;
+  bid?: string | null;
+  ask?: string | null;
   volume?: number | null;
   open_interest?: number | null;
 }
@@ -238,22 +238,17 @@ export default function OptionsCalculatorPage() {
 
   const mkUrl = (idx: number, exp: string, strike: number) => {
     const leg = optLegs[idx];
-    if (!leg) return '/api/option/contract';
-    return `/api/option/contract?underlying=${symbol}&strike=${strike}&expiration=${exp}&option_type=${leg.right === 'call' ? 'C' : 'P'}`;
+    if (!leg) return '/api/option/quote';
+    return `/api/option/quote?underlying=${symbol}&strike=${strike}&expiration=${exp}&type=${leg.right === 'call' ? 'C' : 'P'}`;
   };
 
-  const { data: quote0Rows } = useApiData<OptionQuote[]>(mkUrl(0, opt0Exp, opt0Strike), { refreshInterval: 5000, enabled: !!optLegs[0] && !!opt0Exp && opt0Strike > 0 });
-  const { data: quote1Rows } = useApiData<OptionQuote[]>(mkUrl(1, opt1Exp, opt1Strike), { refreshInterval: 5000, enabled: !!optLegs[1] && !!opt1Exp && opt1Strike > 0 });
-  const { data: quote2Rows } = useApiData<OptionQuote[]>(mkUrl(2, opt2Exp, opt2Strike), { refreshInterval: 5000, enabled: !!optLegs[2] && !!opt2Exp && opt2Strike > 0 });
-  const { data: quote3Rows } = useApiData<OptionQuote[]>(mkUrl(3, opt3Exp, opt3Strike), { refreshInterval: 5000, enabled: !!optLegs[3] && !!opt3Exp && opt3Strike > 0 });
+  const { data: quote0 } = useApiData<OptionQuote>(mkUrl(0, opt0Exp, opt0Strike), { refreshInterval: 5000, enabled: !!optLegs[0] && !!opt0Exp && opt0Strike > 0 });
+  const { data: quote1 } = useApiData<OptionQuote>(mkUrl(1, opt1Exp, opt1Strike), { refreshInterval: 5000, enabled: !!optLegs[1] && !!opt1Exp && opt1Strike > 0 });
+  const { data: quote2 } = useApiData<OptionQuote>(mkUrl(2, opt2Exp, opt2Strike), { refreshInterval: 5000, enabled: !!optLegs[2] && !!opt2Exp && opt2Strike > 0 });
+  const { data: quote3 } = useApiData<OptionQuote>(mkUrl(3, opt3Exp, opt3Strike), { refreshInterval: 5000, enabled: !!optLegs[3] && !!opt3Exp && opt3Strike > 0 });
 
   const selectedLegs = useMemo(() => {
-    const optQuotes = [
-      quote0Rows?.[quote0Rows.length - 1],
-      quote1Rows?.[quote1Rows.length - 1],
-      quote2Rows?.[quote2Rows.length - 1],
-      quote3Rows?.[quote3Rows.length - 1],
-    ];
+    const optQuotes = [quote0, quote1, quote2, quote3];
     let optIdx = 0;
     return allLegs.map((leg) => {
       if (leg.right === 'stock') {
@@ -278,7 +273,7 @@ export default function OptionsCalculatorPage() {
         quoteSide: leg.role === 'long' ? 'ask' : 'bid',
       };
     });
-  }, [allLegs, legExpiration, legStrike, expirationChoices, strikeMapByExpiration, quote0Rows, quote1Rows, quote2Rows, quote3Rows, spot, symbol]);
+  }, [allLegs, legExpiration, legStrike, expirationChoices, strikeMapByExpiration, quote0, quote1, quote2, quote3, spot, symbol]);
 
   const totalPosition = selectedLegs.reduce((sum, leg) => {
     const qty = leg.qty ?? 1;

@@ -37,22 +37,32 @@ interface FlowByTypePoint {
 }
 
 interface FlowByExpirationPoint {
-  timestamp: string;
+  timestamp?: string;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
   expiration: string;
-  volume: number;
-  premium: number;
-  net_volume: number;
-  net_premium: number;
+  volume?: number;
+  total_volume?: number;
+  premium?: number;
+  total_premium?: number;
+  net_volume?: number;
+  net_premium?: number;
   underlying_price?: number | null;
 }
 
 interface FlowByStrikePoint {
-  timestamp: string;
+  timestamp?: string;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
   strike: number | string;
-  volume: number;
-  premium: number;
-  net_volume: number;
-  net_premium: number;
+  volume?: number;
+  total_volume?: number;
+  premium?: number;
+  total_premium?: number;
+  net_volume?: number;
+  net_premium?: number;
   underlying_price?: number | null;
 }
 
@@ -96,6 +106,15 @@ function normalizeToMinute(ts: string): string {
   const ms = new Date(ts).getTime();
   if (!Number.isFinite(ms)) return ts;
   return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+function flowRowTimestamp(row: {
+  timestamp?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
+  time_window_start?: string;
+}): string | null {
+  return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
 }
 
 /**
@@ -320,11 +339,16 @@ function normalizeSignedFlow(
 
 function buildTimeseriesFromNetRows(
   rows: Array<{
-    timestamp: string;
-    premium: number;
-    net_premium: number;
-    volume: number;
-    net_volume: number;
+    timestamp?: string;
+    time_window_start?: string;
+    time_window_end?: string;
+    interval_timestamp?: string | null;
+    premium?: number;
+    total_premium?: number;
+    net_premium?: number;
+    volume?: number;
+    total_volume?: number;
+    net_volume?: number;
     underlying_price?: number | null;
   }>,
 ): TimeseriesRow[] {
@@ -334,7 +358,9 @@ function buildTimeseriesFromNetRows(
   >();
 
   rows.forEach((row) => {
-    const ts = normalizeToMinute(row.timestamp);
+    const sourceTs = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
+    if (!sourceTs) return;
+    const ts = normalizeToMinute(sourceTs);
     if (!ts) return;
 
     const current = grouped.get(ts) ?? {
@@ -345,9 +371,9 @@ function buildTimeseriesFromNetRows(
       underlyingPrice: null,
     };
 
-    current.totalPremium += Number(row.premium || 0);
+    current.totalPremium += Number(row.total_premium ?? row.premium ?? 0);
     current.netPremium += Number(row.net_premium || 0);
-    current.totalVolume += Number(row.volume || 0);
+    current.totalVolume += Number(row.total_volume ?? row.volume ?? 0);
     current.netVolume += Number(row.net_volume || 0);
     if (current.underlyingPrice === null && row.underlying_price != null) {
       current.underlyingPrice = Number(row.underlying_price);
@@ -847,12 +873,12 @@ export default function FlowAnalysisPage() {
   }, [otherSessionProbe]);
 
   const { data: flowByExpiration, error: expirationError } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=50000`,
+    `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=500`,
     { refreshInterval: 30000 },
   );
 
   const { data: flowByStrike, error: strikeError } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&session=${flowSession}&limit=50000`,
+    `/api/flow/by-strike?symbol=${symbol}&session=${flowSession}&limit=500`,
     { refreshInterval: 30000 },
   );
 
@@ -927,7 +953,10 @@ export default function FlowAnalysisPage() {
 
   const expirationOptions = useMemo(() => {
     if (!selectedDate || !flowByExpiration) return [];
-    const dateRows = flowByExpiration.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const dateRows = flowByExpiration.filter((r) => {
+      const ts = flowRowTimestamp(r);
+      return ts ? getETDateKey(ts) === selectedDate : false;
+    });
     const todayKey = getCurrentETDateKey();
     return Array.from(
       new Set(dateRows.map((r) => r.expiration).filter((exp) => isActiveExpiration(exp, todayKey))),
@@ -938,7 +967,10 @@ export default function FlowAnalysisPage() {
 
   const expirationSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByExpiration ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const dateRows = (flowByExpiration ?? []).filter((r) => {
+      const ts = flowRowTimestamp(r);
+      return ts ? getETDateKey(ts) === selectedDate : false;
+    });
     const available = new Set(expirationOptions);
     const activeSelection = new Set(Array.from(selectedExpirations).filter((v) => available.has(v)));
     const filtered =
@@ -953,7 +985,10 @@ export default function FlowAnalysisPage() {
 
   const strikeOptions = useMemo(() => {
     if (!selectedDate || !flowByStrike) return [];
-    const dateRows = flowByStrike.filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const dateRows = flowByStrike.filter((r) => {
+      const ts = flowRowTimestamp(r);
+      return ts ? getETDateKey(ts) === selectedDate : false;
+    });
     return Array.from(new Set(dateRows.map((r) => String(r.strike)).filter(Boolean))).sort(
       (a, b) => Number(a) - Number(b),
     );
@@ -963,7 +998,10 @@ export default function FlowAnalysisPage() {
 
   const strikeSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByStrike ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const dateRows = (flowByStrike ?? []).filter((r) => {
+      const ts = flowRowTimestamp(r);
+      return ts ? getETDateKey(ts) === selectedDate : false;
+    });
     const filtered =
       selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
     const base = buildTimeseriesFromNetRows(filtered);

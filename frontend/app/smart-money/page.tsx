@@ -9,7 +9,24 @@ import { useTheme } from '@/core/ThemeContext';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 
-interface SmartMoneyRow { timestamp?: string; symbol: string; contract: string; strike: number; expiration: string; dte: number; option_type: string; flow: number; notional: number; notional_class: string; time_window_start?: string; time_window_end?: string; interval_timestamp?: string | null; }
+interface SmartMoneyRow {
+  timestamp?: string;
+  symbol?: string;
+  contract?: string;
+  strike?: number | null;
+  expiration?: string | null;
+  dte?: number | null;
+  option_type?: string | null;
+  flow?: number | null;
+  total_volume?: number | null;
+  notional?: number | null;
+  total_premium?: number | null;
+  notional_class?: string | null;
+  size_class?: string | null;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
+}
 interface SessionFlowPoint { timestamp: string; underlying_price?: number | null; }
 interface NormalizedSmartMoneyRow extends SmartMoneyRow { rowKey: string; minuteTimestamp: string | null; notionalM: number; absNotional: number; }
 interface SmartMoneyBlockMeta {
@@ -21,6 +38,26 @@ interface SmartMoneyBlockMeta {
 }
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
+
+function getRowContracts(row: SmartMoneyRow): number {
+  return Number(row.flow ?? row.total_volume ?? 0);
+}
+
+function getRowNotional(row: SmartMoneyRow): number {
+  return Number(row.notional ?? row.total_premium ?? 0);
+}
+
+function getRowClass(row: SmartMoneyRow): string {
+  return String(row.notional_class || row.size_class || '--');
+}
+
+function getRowContractLabel(row: SmartMoneyRow): string {
+  if (row.contract) return row.contract;
+  const symbol = row.symbol || '--';
+  const strike = row.strike != null ? Number(row.strike).toFixed(0) : '--';
+  const optionType = String(row.option_type || '').toUpperCase();
+  return `${symbol} ${strike}${optionType ? ` ${optionType}` : ''}`.trim();
+}
 
 const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
@@ -113,7 +150,20 @@ export default function SmartMoneyPage() {
   const effectiveSmartMoneyRows = useMemo(() => (smartMoneyError ? (smartMoneyFallbackData || []) : (smartMoneyData || [])), [smartMoneyError, smartMoneyFallbackData, smartMoneyData]);
   const effectiveSmartMoneyError = smartMoneyError && smartMoneyFallbackError ? smartMoneyError : null;
 
-  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => ({ ...row, rowKey: `${smartMoneyTimestamp(row) ?? 'na'}-${row.contract ?? 'contract'}-${idx}`, minuteTimestamp: smartMoneyTimestamp(row), notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000, absNotional: Math.abs(Number(row.notional || 0)) })), [effectiveSmartMoneyRows]);
+  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => {
+    const rowNotional = Math.abs(getRowNotional(row));
+    return {
+      ...row,
+      contract: getRowContractLabel(row),
+      flow: getRowContracts(row),
+      notional: rowNotional,
+      notional_class: getRowClass(row),
+      rowKey: `${smartMoneyTimestamp(row) ?? 'na'}-${row.contract ?? 'contract'}-${idx}`,
+      minuteTimestamp: smartMoneyTimestamp(row),
+      notionalM: rowNotional / 1_000_000,
+      absNotional: rowNotional,
+    };
+  }), [effectiveSmartMoneyRows]);
 
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => normalizedSmartMoneyRows.filter((row) => matchesMinClass(row.absNotional, minClass)), [normalizedSmartMoneyRows, minClass]);
 
