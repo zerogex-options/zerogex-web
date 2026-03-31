@@ -255,11 +255,13 @@ export default function LandingPage() {
           transition: 'all 0.3s ease',
         }}
       >
-        <img
-          src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
-          alt="ZeroGEX"
-          style={{ height: '100%', width: 'auto', maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: 0, padding: 0 }}
-        />
+        <div style={{ height: '100%', display: 'flex', alignItems: 'center', overflow: 'hidden', margin: 0, padding: 0, lineHeight: 0 }}>
+          <img
+            src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
+            alt="ZeroGEX"
+            style={{ height: '200%', width: 'auto', maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', display: 'block', margin: 0, padding: 0 }}
+          />
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Theme toggle */}

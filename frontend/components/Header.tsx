@@ -341,10 +341,11 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "100%",
-                      maxWidth: "100%",
-                      maxHeight: "100%",
+                      height: "200%",
+                      maxWidth: "none",
+                      maxHeight: "none",
                       objectFit: "contain",
+                      objectPosition: "center",
                       display: "block",
                       margin: 0,
                       padding: 0,
@@ -537,10 +538,11 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "100%",
-                      maxWidth: "100%",
-                      maxHeight: "100%",
+                      height: "200%",
+                      maxWidth: "none",
+                      maxHeight: "none",
                       objectFit: "contain",
+                      objectPosition: "center",
                       display: "block",
                       margin: 0,
                       padding: 0,
@@ -580,10 +582,11 @@ export default function Header({ theme }: HeaderProps) {
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
-                  height: "100%",
-                  maxWidth: "100%",
-                  maxHeight: "100%",
+                  height: "200%",
+                  maxWidth: "none",
+                  maxHeight: "none",
                   objectFit: "contain",
+                  objectPosition: "center",
                   display: "block",
                   margin: 0,
                   padding: 0,

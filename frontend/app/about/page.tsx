@@ -189,11 +189,11 @@ export default function AboutPage() {
         borderBottom: `1px solid ${C.border}`,
         backdropFilter: 'blur(20px)',
       }}>
-        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', height: '100%', padding: 0, margin: 0, lineHeight: 0 }}>
+        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', height: '100%', overflow: 'hidden', padding: 0, margin: 0, lineHeight: 0 }}>
           <img
             src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
             alt="ZeroGEX"
-            style={{ height: '100%', width: 'auto', maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: 0, padding: 0 }}
+            style={{ height: '200%', width: 'auto', maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', display: 'block', margin: 0, padding: 0 }}
           />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
