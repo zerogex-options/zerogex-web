@@ -209,3 +209,6 @@ __marimo__/
 
 # next.js
 .next/
+frontend/public/sitemap.xml
+frontend/public/sitemap-*.xml
+frontend/public/robots.txt

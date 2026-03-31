@@ -1,9 +1,0 @@
-# *
-User-agent: *
-Allow: /
-
-# Host
-Host: https://zerogex.io
-
-# Sitemaps
-Sitemap: https://zerogex.io/sitemap.xml
