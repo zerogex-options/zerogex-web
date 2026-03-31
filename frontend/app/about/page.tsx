@@ -191,7 +191,7 @@ export default function AboutPage() {
       }}>
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', height: '100%', overflow: 'hidden', padding: 0, margin: 0, lineHeight: 0 }}>
           <img
-            src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
+            src={isDark ? '/title-dark.svg' : '/title-light.svg'}
             alt="ZeroGEX"
             style={{ height: '200%', width: 'auto', maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', display: 'block', margin: 0, padding: 0 }}
           />
