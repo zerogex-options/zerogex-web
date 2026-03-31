@@ -95,6 +95,7 @@ logo:
 	cp assets/branding/Light_Title_Small.svg frontend/public/title-light-small.svg
 	cp assets/branding/Dark_Title_Subtitle_Small.svg frontend/public/title-subtitle-dark-small.svg
 	cp assets/branding/Light_Title_Subtitle_Small.svg frontend/public/title-subtitle-light-small.svg
+	cp assets/branding/og-image.png frontend/public/.
 	@echo "Logos copied successfully!"
 
 # Full deployment
