@@ -16,6 +16,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
+interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; }
 
 
 export default function GammaHeatmap() {
@@ -52,9 +53,21 @@ export default function GammaHeatmap() {
     `/api/market/historical?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000, enabled: Boolean(priceError) }
   );
+  const { data: gexHistoricalDataRaw } = useApiData<GexHistoricalPoint[]>(
+    `/api/gex/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    { refreshInterval: 5000 }
+  );
+  const { data: gexHistoricalDataAlt } = useApiData<GexHistoricalPoint[]>(
+    `/api/gex/historical?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    { refreshInterval: 5000, enabled: !gexHistoricalDataRaw || gexHistoricalDataRaw.length === 0 }
+  );
 
   const activeGexData = useMemo(() => gexData || gexDataAlt || [], [gexData, gexDataAlt]);
   const activePriceData = useMemo(() => priceDataRaw || priceDataAlt || [], [priceDataRaw, priceDataAlt]);
+  const activeGexHistoricalData = useMemo(
+    () => gexHistoricalDataRaw || gexHistoricalDataAlt || [],
+    [gexHistoricalDataRaw, gexHistoricalDataAlt]
+  );
   const effectiveLoading = loading || loadingAlt;
   const effectiveError = error && errorAlt ? error : null;
 
@@ -74,20 +87,26 @@ export default function GammaHeatmap() {
   }, [activeGexData, maxPoints]);
 
   const gammaFlipByTs = useMemo(() => {
-    const grouped = new Map<string, number[]>();
+    const fromHeatmap = new Map<string, number[]>();
     activeGexData.forEach((row) => {
       if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
       const key = row.timestamp;
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(Number(row.gamma_flip));
+      if (!fromHeatmap.has(key)) fromHeatmap.set(key, []);
+      fromHeatmap.get(key)!.push(Number(row.gamma_flip));
     });
     const result = new Map<string, number>();
-    grouped.forEach((vals, ts) => {
+    fromHeatmap.forEach((vals, ts) => {
       const avg = vals.reduce((sum, v) => sum + v, 0) / Math.max(1, vals.length);
       result.set(ts, avg);
     });
+    if (result.size === 0) {
+      activeGexHistoricalData.forEach((row) => {
+        if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+        result.set(row.timestamp, Number(row.gamma_flip));
+      });
+    }
     return result;
-  }, [activeGexData]);
+  }, [activeGexData, activeGexHistoricalData]);
 
   if (effectiveLoading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
   if (effectiveError) return <ErrorMessage message={effectiveError} />;
@@ -228,7 +247,7 @@ export default function GammaHeatmap() {
           width="100%"
           height={chartHeight}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
           className="block min-w-[760px] md:min-w-0"
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
@@ -256,10 +275,8 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={axisColor}>{(maxValue / 1_000_000).toFixed(1)}M</text>
           <text x={plotLeft + 228} y={18} fontSize="10" fill={axisColor}>Net GEX</text>
           <g>
-            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={14} y2={14} stroke={colors.bullish} strokeWidth={2} />
-            <text x={plotLeft + 316} y={17} fontSize="10" fill={axisColor}>Underlying Candles</text>
-            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={28} y2={28} stroke="#a855f7" strokeWidth={2.25} />
-            <text x={plotLeft + 316} y={31} fontSize="10" fill={axisColor}>Gamma Flip</text>
+            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={20} y2={20} stroke="#a855f7" strokeWidth={2.25} />
+            <text x={plotLeft + 316} y={23} fontSize="10" fill={axisColor}>Gamma Flip</text>
           </g>
 
           {yLevels.map((level, idx) => {
