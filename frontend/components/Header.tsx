@@ -341,7 +341,7 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "200%",
+                      height: "150%",
                       maxWidth: "none",
                       maxHeight: "none",
                       objectFit: "contain",
@@ -538,7 +538,7 @@ export default function Header({ theme }: HeaderProps) {
                     alt="ZeroGEX"
                     style={{
                       width: "auto",
-                      height: "200%",
+                      height: "150%",
                       maxWidth: "none",
                       maxHeight: "none",
                       objectFit: "contain",
@@ -582,7 +582,7 @@ export default function Header({ theme }: HeaderProps) {
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
-                  height: "200%",
+                  height: "150%",
                   maxWidth: "none",
                   maxHeight: "none",
                   objectFit: "contain",
