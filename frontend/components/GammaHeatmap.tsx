@@ -14,7 +14,7 @@ import { omitClosedMarketTimes } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
+interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 
 
@@ -23,6 +23,7 @@ export default function GammaHeatmap() {
   const { getMaxDataPoints, symbol } = useTimeframe();
   const isMobile = useIsMobile();
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
@@ -71,6 +72,22 @@ export default function GammaHeatmap() {
 
     return { cells, strikes, timestamps: sortedTimestamps };
   }, [activeGexData, maxPoints]);
+
+  const gammaFlipByTs = useMemo(() => {
+    const grouped = new Map<string, number[]>();
+    activeGexData.forEach((row) => {
+      if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+      const key = row.timestamp;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(Number(row.gamma_flip));
+    });
+    const result = new Map<string, number>();
+    grouped.forEach((vals, ts) => {
+      const avg = vals.reduce((sum, v) => sum + v, 0) / Math.max(1, vals.length);
+      result.set(ts, avg);
+    });
+    return result;
+  }, [activeGexData]);
 
   if (effectiveLoading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
   if (effectiveError) return <ErrorMessage message={effectiveError} />;
@@ -146,9 +163,41 @@ export default function GammaHeatmap() {
   const maxValue = maxAbsValue;
 
   const yForValue = (v: number) => {
-  const raw = plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
-  return Math.max(plotTop, Math.min(plotTop + plotHeight, raw));
-};
+    const raw = plotTop + plotHeight * (1 - (v - combinedMin) / Math.max(1e-9, combinedMax - combinedMin));
+    return Math.max(plotTop, Math.min(plotTop + plotHeight, raw));
+  };
+
+  const gammaFlipPoints = derived.timestamps
+    .map((ts, idx) => {
+      const value = gammaFlipByTs.get(ts);
+      if (value == null || !Number.isFinite(value)) return null;
+      return {
+        idx,
+        ts,
+        x: idx * cellWidth + plotLeft + cellWidth / 2,
+        y: yForValue(value),
+        value,
+      };
+    })
+    .filter((p): p is { idx: number; ts: string; x: number; y: number; value: number } => p !== null);
+
+  const gammaFlipPath = gammaFlipPoints
+    .map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ');
+
+  const hoveredIndex = hoveredIdx ?? (derived.timestamps.length - 1);
+  const hoveredTs = derived.timestamps[Math.max(0, Math.min(derived.timestamps.length - 1, hoveredIndex))];
+  const hoveredPrice = hoveredTs ? priceByTs.get(hoveredTs) : undefined;
+  const hoveredGammaFlip = hoveredTs ? gammaFlipByTs.get(hoveredTs) : undefined;
+  const hoveredStrikeValue = (() => {
+    if (!hoveredTs) return null;
+    const cell = filledCells.find((c) => c.x === hoveredIndex);
+    if (!cell) return null;
+    return { strike: cell.y, value: cell.value };
+  })();
+
+  const tooltipValueColor = theme === 'dark' ? colors.light : colors.dark;
+  const axisColor = theme === 'dark' ? '#f2f2f2' : '#374151';
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
@@ -160,13 +209,35 @@ export default function GammaHeatmap() {
 
         <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative">
+        {hoveredTs && (
+          <div className="absolute right-4 top-3 z-10 rounded-md px-3 py-2 text-xs shadow-lg pointer-events-none" style={{ backgroundColor: theme === 'dark' ? '#1f1d1e' : '#ffffff', border: `1px solid ${theme === 'dark' ? '#423d3f' : '#d1d5db'}`, color: tooltipValueColor }}>
+            <div className="font-semibold">{new Date(hoveredTs).toLocaleString()}</div>
+            {hoveredPrice && (
+              <div>Underlying O:{Number(hoveredPrice.open ?? hoveredPrice.close ?? 0).toFixed(2)} H:{Number(hoveredPrice.high ?? hoveredPrice.close ?? 0).toFixed(2)} L:{Number(hoveredPrice.low ?? hoveredPrice.close ?? 0).toFixed(2)} C:{Number(hoveredPrice.close ?? hoveredPrice.open ?? 0).toFixed(2)}</div>
+            )}
+            {hoveredStrikeValue && (
+              <div>Heatmap Net GEX (strike ${hoveredStrikeValue.strike.toFixed(0)}): {(hoveredStrikeValue.value / 1_000_000).toFixed(2)}M</div>
+            )}
+            {hoveredGammaFlip != null && (
+              <div>Gamma Flip: ${hoveredGammaFlip.toFixed(2)}</div>
+            )}
+          </div>
+        )}
         <svg
           width="100%"
           height={chartHeight}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           preserveAspectRatio="none"
           className="block min-w-[760px] md:min-w-0"
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const xPx = e.clientX - rect.left;
+            const xView = (xPx / Math.max(1, rect.width)) * chartWidth;
+            const idx = Math.round((xView - plotLeft) / Math.max(1e-9, cellWidth));
+            setHoveredIdx(Math.max(0, Math.min(derived.timestamps.length - 1, idx)));
+          }}
+          onMouseLeave={() => setHoveredIdx(null)}
         >
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -180,14 +251,21 @@ export default function GammaHeatmap() {
           </defs>
 
           <rect x={plotLeft} y={8} width="220" height="12" fill="url(#gexScale)" rx="3" />
-          <text x={plotLeft} y={32} fontSize="10" fill={theme === 'dark' ? colors.light : colors.dark}>{(minValue / 1_000_000).toFixed(1)}M</text>
-          <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={theme === 'dark' ? colors.light : colors.dark}>0</text>
-          <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={theme === 'dark' ? colors.light : colors.dark}>{(maxValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft} y={32} fontSize="10" fill={axisColor}>{(minValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft + 110} y={32} fontSize="10" textAnchor="middle" fill={axisColor}>0</text>
+          <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={axisColor}>{(maxValue / 1_000_000).toFixed(1)}M</text>
+          <text x={plotLeft + 228} y={18} fontSize="10" fill={axisColor}>Net GEX</text>
+          <g>
+            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={14} y2={14} stroke={colors.bullish} strokeWidth={2} />
+            <text x={plotLeft + 316} y={17} fontSize="10" fill={axisColor}>Underlying Candles</text>
+            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={28} y2={28} stroke="#a855f7" strokeWidth={2.25} />
+            <text x={plotLeft + 316} y={31} fontSize="10" fill={axisColor}>Gamma Flip</text>
+          </g>
 
           {yLevels.map((level, idx) => {
             if (idx % yLabelStep !== 0) return null;
             return (
-              <text key={`y-${level}`} x={plotLeft - 6} y={yForValue(level)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '11px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>${level.toFixed(0)}</text>
+              <text key={`y-${level}`} x={plotLeft - 6} y={yForValue(level)} textAnchor="end" dominantBaseline="middle" style={{ fontSize: '10px', fill: axisColor }}>${level.toFixed(0)}</text>
             );
           })}
 
@@ -248,12 +326,23 @@ export default function GammaHeatmap() {
             })}
           </g>
 
+          {gammaFlipPath && (
+            <g clipPath="url(#heatmapClip)">
+              <path d={gammaFlipPath} fill="none" stroke="#a855f7" strokeWidth={2.25} />
+              {hoveredIdx != null && gammaFlipPoints
+                .filter((p) => p.idx === hoveredIdx)
+                .map((p) => (
+                  <circle key={`gamma-flip-dot-${p.ts}`} cx={p.x} cy={p.y} r={3.5} fill="#a855f7" />
+                ))}
+            </g>
+          )}
+
           {derived.timestamps.map((timestamp, idx) => {
             const baseSpacing = cellWidth < 30 ? 6 : cellWidth < 40 ? 4 : 3;
             const spacing = isMobile ? Math.max(baseSpacing, Math.ceil(derived.timestamps.length / 6)) : baseSpacing;
             if (idx % spacing !== 0) return null;
             const time = new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: isMobile ? '8px' : '10px', fill: theme === 'dark' ? colors.light : colors.dark, fontFamily: 'monospace' }}>{time}</text>;
+            return <text key={`x-${timestamp}`} x={idx * cellWidth + plotLeft + cellWidth / 2} y={chartHeight - 14} textAnchor="middle" style={{ fontSize: isMobile ? '8px' : '10px', fill: axisColor }}>{time}</text>;
           })}
         </svg>
         </div>
