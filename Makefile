@@ -87,14 +87,8 @@ logo:
 	cp assets/branding/Light_Title.svg frontend/public/title-light.svg
 	cp assets/branding/Dark_Title_Subtitle.svg frontend/public/title-subtitle-dark.svg
 	cp assets/branding/Light_Title_Subtitle.svg frontend/public/title-subtitle-light.svg
-	cp assets/branding/Helmet.svg frontend/public/helmet.svg
+	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
-	cp assets/branding/Dark_Full_Small.svg frontend/public/logo-dark-small.svg
-	cp assets/branding/Light_Full_Small.svg frontend/public/logo-light-small.svg
-	cp assets/branding/Dark_Title_Small.svg frontend/public/title-dark-small.svg
-	cp assets/branding/Light_Title_Small.svg frontend/public/title-light-small.svg
-	cp assets/branding/Dark_Title_Subtitle_Small.svg frontend/public/title-subtitle-dark-small.svg
-	cp assets/branding/Light_Title_Subtitle_Small.svg frontend/public/title-subtitle-light-small.svg
 	cp assets/branding/og-image.png frontend/public/.
 	@echo "Logos copied successfully!"
 
