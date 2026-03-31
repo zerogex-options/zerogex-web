@@ -191,7 +191,7 @@ export default function AboutPage() {
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <img
-            src={isDark ? '/title-subtitle-dark-small.svg' : '/title-subtitle-light-small.svg'}
+            src={isDark ? '/title-subtitle-dark.svg' : '/title-subtitle-light.svg'}
             alt="ZeroGEX"
             style={{ height: 400, width: 'auto' }}
           />

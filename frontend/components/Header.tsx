@@ -336,7 +336,7 @@ export default function Header({ theme }: HeaderProps) {
                 <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", transition: "height 0.3s ease" }}>
                   <img
                     src={
-                      theme === "dark" ? "/title-dark-small.svg" : "/title-light-small.svg"
+                      theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
                     }
                     alt="ZeroGEX"
                     style={{
