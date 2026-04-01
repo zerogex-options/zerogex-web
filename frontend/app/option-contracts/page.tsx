@@ -21,16 +21,24 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface FlowByExpirationPoint {
-  timestamp: string;
+  timestamp?: string;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
   expiration: string;
-  dte: number;
-  volume: number;
+  dte?: number;
+  volume?: number;
+  total_volume?: number;
 }
 
 interface FlowByStrikePoint {
-  timestamp: string;
+  timestamp?: string;
+  time_window_start?: string;
+  time_window_end?: string;
+  interval_timestamp?: string | null;
   strike: number | string;
-  volume: number;
+  volume?: number;
+  total_volume?: number;
 }
 
 interface ChartRow {
@@ -111,6 +119,13 @@ function getETDateKey(ts: string): string {
 
 function getCurrentETDateKey(): string {
   return getETDateKey(new Date().toISOString());
+}
+
+function isActiveExpiration(expiration?: string, todayKey: string = getCurrentETDateKey()) {
+  if (!expiration) return false;
+  const normalized = expiration.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return true;
+  return normalized >= todayKey;
 }
 
 function safeTimeLabel(value?: string) {
@@ -545,7 +560,10 @@ export default function OptionContractsPage() {
   const { data: expirationDataNoSession, error: expirationErrorNoSession } =
     useApiData<FlowByExpirationPoint[]>(
       `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
-      { refreshInterval: 60000, enabled: Boolean(expirationErrorSession) },
+      {
+        refreshInterval: 60000,
+        enabled: Boolean(expirationErrorSession) || (!expirationLoading && Boolean(expirationDataSession) && expirationDataSession.length === 0),
+      },
     );
 
   const { data: strikeDataSession, error: strikeErrorSession, loading: strikeLoading } =
@@ -556,7 +574,10 @@ export default function OptionContractsPage() {
   const { data: strikeDataNoSession, error: strikeErrorNoSession } =
     useApiData<FlowByStrikePoint[]>(
       `/api/flow/by-strike?symbol=${symbol}&limit=500`,
-      { refreshInterval: 60000, enabled: Boolean(strikeErrorSession) },
+      {
+        refreshInterval: 60000,
+        enabled: Boolean(strikeErrorSession) || (!strikeLoading && Boolean(strikeDataSession) && strikeDataSession.length === 0),
+      },
     );
 
   const expirationData = expirationDataSession || expirationDataNoSession;
@@ -572,11 +593,7 @@ export default function OptionContractsPage() {
       new Set(
         expirationData
           .map((r) => r.expiration)
-          .filter((exp) => {
-            if (!exp) return false;
-            const normalized = exp.trim().slice(0, 10);
-            return /^\d{4}-\d{2}-\d{2}$/.test(normalized) && normalized >= todayKey;
-          }),
+          .filter((exp) => isActiveExpiration(exp, todayKey)),
       ),
     ).sort();
   }, [expirationData]);
@@ -584,7 +601,11 @@ export default function OptionContractsPage() {
   const strikeOptions = useMemo(() => {
     if (!strikeData) return [];
     return Array.from(
-      new Set(strikeData.map((r) => String(r.strike)).filter(Boolean)),
+      new Set(
+        strikeData
+          .map((r) => (r.strike == null ? "" : String(r.strike).trim()))
+          .filter((s) => s.length > 0 && !Number.isNaN(Number(s))),
+      ),
     ).sort((a, b) => Number(a) - Number(b));
   }, [strikeData]);
 
