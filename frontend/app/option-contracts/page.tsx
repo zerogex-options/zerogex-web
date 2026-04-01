@@ -542,10 +542,13 @@ export default function OptionContractsPage() {
       `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
-  const { data: expirationDataNoSession, error: expirationErrorNoSession } =
+  const { data: expirationDataNoSession, error: expirationErrorNoSession, loading: expirationLoadingNoSession } =
     useApiData<FlowByExpirationPoint[]>(
       `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
-      { refreshInterval: 60000, enabled: Boolean(expirationErrorSession) },
+      {
+        refreshInterval: 60000,
+        enabled: Boolean(expirationErrorSession) || (!!expirationDataSession && expirationDataSession.length === 0),
+      },
     );
 
   const { data: strikeDataSession, error: strikeErrorSession, loading: strikeLoading } =
@@ -553,16 +556,27 @@ export default function OptionContractsPage() {
       `/api/flow/by-strike?symbol=${symbol}&session=current&limit=500`,
       { refreshInterval: 60000 },
     );
-  const { data: strikeDataNoSession, error: strikeErrorNoSession } =
+  const { data: strikeDataNoSession, error: strikeErrorNoSession, loading: strikeLoadingNoSession } =
     useApiData<FlowByStrikePoint[]>(
       `/api/flow/by-strike?symbol=${symbol}&limit=500`,
-      { refreshInterval: 60000, enabled: Boolean(strikeErrorSession) },
+      {
+        refreshInterval: 60000,
+        enabled: Boolean(strikeErrorSession) || (!!strikeDataSession && strikeDataSession.length === 0),
+      },
     );
 
-  const expirationData = expirationDataSession || expirationDataNoSession;
-  const strikeData = strikeDataSession || strikeDataNoSession;
+  const expirationData =
+    expirationDataSession && expirationDataSession.length > 0
+      ? expirationDataSession
+      : expirationDataNoSession;
+  const strikeData =
+    strikeDataSession && strikeDataSession.length > 0
+      ? strikeDataSession
+      : strikeDataNoSession;
   const expirationError = expirationErrorSession && expirationErrorNoSession ? expirationErrorSession : null;
   const strikeError = strikeErrorSession && strikeErrorNoSession ? strikeErrorSession : null;
+  const expirationDropdownLoading = expirationLoading || expirationLoadingNoSession;
+  const strikeDropdownLoading = strikeLoading || strikeLoadingNoSession;
 
   // ── Derive available expirations (active only — expire today or later)
   const expirationOptions = useMemo(() => {
@@ -731,8 +745,8 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {expirationOptions.length === 0 ? (
-              <option value="">
-                {expirationLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}
+                <option value="">
+                {expirationDropdownLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}
               </option>
             ) : (
               expirationOptions.map((exp) => (
@@ -751,8 +765,8 @@ export default function OptionContractsPage() {
             style={selectStyle}
           >
             {strikeOptions.length === 0 ? (
-              <option value="">
-                {strikeLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}
+                <option value="">
+                {strikeDropdownLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}
               </option>
             ) : (
               strikeOptions.map((s) => (

@@ -136,7 +136,7 @@ export default function Header({ theme }: HeaderProps) {
   // open     → live quote close  vs  current_session_close
   // closed   → live quote close  vs  prior_session_close
   // pre/ah   → current_session_close  vs  prior_session_close
-  const row1Price = (isExtendedHours || quoteSession === "closed")
+  const row1Price = quoteSession === "pre-market" || quoteSession === "after-hours"
     ? (sessionClosesData?.current_session_close ?? null)
     : (quoteData?.close ?? null);
 
@@ -179,7 +179,7 @@ export default function Header({ theme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = (isExtendedHours || quoteSession === "closed")
+  const row1PriceLabel = (quoteSession === "pre-market" || quoteSession === "after-hours")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
@@ -193,7 +193,7 @@ export default function Header({ theme }: HeaderProps) {
         ? `vs close ${formatEtDateTime(sessionClosesData.prior_session_close_ts)}`
         : "vs previous close");
 
-  const row2SessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
+  const row2SessionLabel = quoteSession === "pre-market" ? "Pre-market" : "After-hours";
   const row2Label = quoteData?.timestamp
     ? `${row2SessionLabel} price as of ${formatEtDateTime(quoteData.timestamp)}`
     : `${row2SessionLabel} price`;
