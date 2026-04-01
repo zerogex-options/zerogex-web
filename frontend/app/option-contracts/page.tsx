@@ -562,7 +562,7 @@ export default function OptionContractsPage() {
       `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
       {
         refreshInterval: 60000,
-        enabled: Boolean(expirationErrorSession) || (!expirationLoading && Boolean(expirationDataSession) && expirationDataSession.length === 0),
+        enabled: Boolean(expirationErrorSession) || (!expirationLoading && (expirationDataSession?.length ?? 0) === 0),
       },
     );
 
@@ -576,7 +576,7 @@ export default function OptionContractsPage() {
       `/api/flow/by-strike?symbol=${symbol}&limit=500`,
       {
         refreshInterval: 60000,
-        enabled: Boolean(strikeErrorSession) || (!strikeLoading && Boolean(strikeDataSession) && strikeDataSession.length === 0),
+        enabled: Boolean(strikeErrorSession) || (!strikeLoading && (strikeDataSession?.length ?? 0) === 0),
       },
     );
 
