@@ -210,9 +210,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       className="border-b sticky top-0 z-40"
       style={{
         backgroundColor: "transparent",
-        borderColor: border,
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        borderColor: isCollapsed ? "transparent" : border,
+        backdropFilter: isCollapsed ? "none" : "blur(20px)",
+        WebkitBackdropFilter: isCollapsed ? "none" : "blur(20px)",
       }}
     >
       <div
@@ -230,31 +230,38 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <button
                   onClick={onToggleTheme}
                   className="rounded-full border p-2 transition-colors"
-                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer" }}
+                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: "12px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                   aria-label="Toggle theme"
                 >
                   {theme === "dark" ? <Moon size={isCollapsed ? 12 : 14} /> : <Sun size={isCollapsed ? 12 : 14} />}
                 </button>
-                <select
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                  className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
-                  style={{
-                    background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
-                    borderColor: border,
-                    color: theme === "dark" ? colors.light : colors.dark,
-                    width: isCollapsed ? "74px" : "90px",
-                    backdropFilter: "blur(8px)",
-                  }}
-                >
-                  <option>SPY</option>
-                  <option>SPX</option>
-                  <option>QQQ</option>
-                  <option>IWM</option>
-                </select>
-                {row1Price !== null && (
+                {!isCollapsed && (
+                  <div className="flex flex-col gap-1">
+                    <select
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                      className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
+                      style={{
+                        background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                        borderColor: border,
+                        color: theme === "dark" ? colors.light : colors.dark,
+                        width: "96px",
+                        backdropFilter: "blur(8px)",
+                      }}
+                    >
+                      <option>SPY</option>
+                      <option>SPX</option>
+                      <option>QQQ</option>
+                      <option>IWM</option>
+                    </select>
+                    <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
+                      <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} compact />
+                    </div>
+                  </div>
+                )}
+                {!isCollapsed && row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
                       <span className="font-bold" style={{ fontSize: isCollapsed ? "1rem" : "1.25rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
@@ -276,9 +283,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     )}
                   </div>
                 )}
-                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer", marginLeft: isCollapsed ? 0 : 2 }}>
-                  <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} compact={isCollapsed} />
-                </div>
             </div>
 
             {!isCollapsed && (
@@ -293,14 +297,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             </div>
             )}
 
-            <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
-              <WorldClocks theme={theme} session={session} compact={isCollapsed} />
-            </div>
+            {!isCollapsed && (
+              <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
+                <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+              </div>
+            )}
 
             <button
               onClick={toggleCollapsed}
-              className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute right-0"
-              style={{ color: colors.muted, backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)" }}
+              className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute"
+              style={{ color: colors.muted, backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)", right: "12px" }}
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.muted}20`; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
               aria-label={isCollapsed ? "Expand header" : "Collapse header"}

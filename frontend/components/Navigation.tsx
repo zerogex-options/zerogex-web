@@ -1,12 +1,17 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Theme } from "@/core/types";
+import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import Link from "next/link";
+import { useTimeframe } from "@/core/TimeframeContext";
+import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
+import { getMarketSession } from "@/core/utils";
+import SessionBadge from "./SessionBadge";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
 interface NavigationProps {
   theme: Theme;
@@ -15,8 +20,10 @@ interface NavigationProps {
 const SIDEBAR_WIDTH = 272;
 
 export default function Navigation({ theme }: NavigationProps) {
+  const { symbol } = useTimeframe();
   const pathname = usePathname();
   const router = useRouter();
+  const [session, setSession] = useState(getMarketSession());
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -56,6 +63,28 @@ export default function Navigation({ theme }: NavigationProps) {
     });
     return initial;
   });
+
+  useEffect(() => {
+    const interval = setInterval(() => setSession(getMarketSession()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
+  const quoteSession = quoteData?.session ?? null;
+  const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
+  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
+  const row1Price = (isExtendedHours || quoteSession === "closed")
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (quoteData?.close ?? null);
+  const row1BaseClose = quoteSession === "open"
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (sessionClosesData?.prior_session_close ?? null);
+  const row1Change =
+    row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
+  const row1ChangePercent =
+    row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
+  const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
   useEffect(() => {
     const syncNavVars = () => {
@@ -116,6 +145,20 @@ export default function Navigation({ theme }: NavigationProps) {
                     style={{ width: "100%", height: "auto", objectFit: "contain" }}
                   />
                 </Link>
+                {row1Price !== null && (
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-lg">${row1Price.toFixed(2)}</span>
+                      {row1Change !== null && row1ChangePercent !== null && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                          {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
+                          {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
+                        </div>
+                      )}
+                    </div>
+                    <SessionBadge session={sessionForBadge} theme={theme} compact />
+                  </div>
+                )}
               </div>
             )}
             {navGroups.map((group) => {

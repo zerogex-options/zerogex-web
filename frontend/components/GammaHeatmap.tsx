@@ -289,6 +289,7 @@ export default function GammaHeatmap() {
           })}
 
           <g clipPath="url(#heatmapClip)">
+            <rect x={plotLeft} y={plotTop} width={Math.max(0, plotWidth)} height={Math.max(0, plotHeight)} fill={colors.cardLight} />
             {filledCells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
               const yPos = yForValue(cell.y) - cellHeight / 2 - 0.5;
