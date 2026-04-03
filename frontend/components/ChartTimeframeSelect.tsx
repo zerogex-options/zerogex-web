@@ -22,7 +22,7 @@ export default function ChartTimeframeSelect({ value, onChange, className = 'mb-
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as ChartTimeframe)}
-        className="px-3 py-2 rounded-lg border text-sm font-semibold bg-[#2f2b2d] border-gray-600 text-gray-200"
+        className="px-3 py-2 rounded-lg border text-sm font-semibold bg-[var(--color-surface-subtle)] border-gray-600 text-[var(--color-text-secondary)]"
       >
         {CHART_TIMEFRAME_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>

@@ -132,7 +132,7 @@ export default function UnderlyingCandlesChart() {
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
     return (
-      <div className="rounded-lg p-6 text-center text-gray-400" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg p-6 text-center text-[var(--color-text-secondary)]" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
         No underlying timeseries data available
       </div>
     );
@@ -188,7 +188,7 @@ export default function UnderlyingCandlesChart() {
           </div>
           <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-0 flex justify-end" />
           {hovered && (
-            <div className="text-xs rounded px-3 py-2 bg-black/50 text-white font-mono pointer-events-none whitespace-nowrap">
+            <div className="text-xs rounded px-3 py-2 bg-black/50 text-[var(--color-text-primary)] font-mono pointer-events-none whitespace-nowrap">
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}

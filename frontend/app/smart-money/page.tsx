@@ -122,13 +122,13 @@ export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const cardBg = isDark ? '#423d3f' : '#ffffff';
-  const inputBg = isDark ? '#2f2b2c' : '#f3f4f6';
-  const inputBorder = isDark ? '#6b7280' : '#d1d5db';
-  const inputColor = isDark ? '#e5e7eb' : '#374151';
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const mutedText = isDark ? '#9ca3af' : '#6b7280';
-  const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
+  const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
+  const inputBg = isDark ? '#2f2b2c' : 'var(--color-surface-subtle)';
+  const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
+  const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
+  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
+  const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
+  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
@@ -289,7 +289,7 @@ export default function SmartMoneyPage() {
                       const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
                       const dateLabel = dateMarkerMeta.get(index);
                       if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : '#6b7280'} fontSize={9}>{dateLabel}</text> : null}</g>;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : 'var(--color-text-secondary)'} fontSize={9}>{dateLabel}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
@@ -312,7 +312,7 @@ export default function SmartMoneyPage() {
                         const underlying = payload.find((entry) => String(entry.dataKey || '').toLowerCase().includes('underlyingprice'));
 
                         return (
-                          <div style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }} className="rounded border px-3 py-2 text-sm">
+                          <div style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }} className="rounded border px-3 py-2 text-sm">
                             <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                             {underlying ? (
                               <div>Underlying Price: ${Number(underlying.value || 0).toFixed(2)}</div>
@@ -332,7 +332,7 @@ export default function SmartMoneyPage() {
                         yAxisId="notional"
                         dataKey={`block${idx + 1}`}
                         stackId="notional"
-                        fill="#22c55e"
+                        fill="var(--color-positive)"
                         onMouseEnter={(data) => {
                           const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];
                           if (meta?.rowKey) setHoveredRowKey(meta.rowKey);
@@ -342,21 +342,21 @@ export default function SmartMoneyPage() {
                         {smartMoneySessionChart.map((point, pointIdx) => {
                           const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
                           const isHovered = hoveredRowKey && meta?.rowKey === hoveredRowKey;
-                          const baseFill = meta?.optionType === 'P' ? '#ef4444' : '#22c55e';
+                          const baseFill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
                           const popFill = meta?.optionType === 'P' ? '#fb7185' : '#4ade80';
                           return (
                             <Cell
                               key={`cell-${idx + 1}-${pointIdx}`}
                               fill={isHovered ? popFill : baseFill}
                               fillOpacity={hoveredRowKey ? (isHovered ? 1 : 0.18) : 0.82}
-                              stroke={isHovered ? '#f59e0b' : 'none'}
+                              stroke={isHovered ? 'var(--color-brand-primary)' : 'none'}
                               strokeWidth={isHovered ? 2.5 : 0}
                             />
                           );
                         })}
                       </Bar>
                     ))}
-                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="#facc15" dot={false} strokeWidth={2} />
+                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="var(--color-warning)" dot={false} strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

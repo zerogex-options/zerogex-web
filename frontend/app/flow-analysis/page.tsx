@@ -527,7 +527,7 @@ function MultiSelectChips({
   isDark: boolean;
 }) {
   if (options.length === 0) {
-    return <div className="text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>No {label.toLowerCase()} available</div>;
+    return <div className="text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No {label.toLowerCase()} available</div>;
   }
 
   return (
@@ -539,9 +539,9 @@ function MultiSelectChips({
             key={option}
             onClick={() => onToggle(option)}
             style={active ? undefined : {
-              backgroundColor: isDark ? "#2f2b2d" : "#f3f4f6",
-              borderColor: isDark ? "#6b7280" : "#d1d5db",
-              color: isDark ? "#d1d5db" : "#374151",
+              backgroundColor: isDark ? "var(--color-surface-subtle)" : "var(--color-surface-subtle)",
+              borderColor: isDark ? "var(--color-text-secondary)" : "var(--color-border)",
+              color: isDark ? "var(--color-border)" : "var(--color-text-primary)",
             }}
             className={`px-3 py-1.5 text-sm rounded-md border transition ${
               active
@@ -572,15 +572,15 @@ function DateSelect({
   if (dates.length === 0) return null;
   return (
     <div className="flex items-center gap-2 mb-4">
-      <span className="text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>Date</span>
+      <span className="text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>Date</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
         style={{
-          backgroundColor: isDark ? "#2a2628" : "#f3f4f6",
-          borderColor: isDark ? "#6b7280" : "#d1d5db",
-          color: isDark ? "#e5e7eb" : "#374151",
+          backgroundColor: isDark ? "var(--color-bg)" : "var(--color-surface-subtle)",
+          borderColor: isDark ? "var(--color-text-secondary)" : "var(--color-border)",
+          color: isDark ? "var(--color-border)" : "var(--color-text-primary)",
         }}
       >
         {dates.map((d) => (
@@ -594,11 +594,11 @@ function DateSelect({
 }
 
 function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[]; isDark: boolean; isMobile: boolean }) {
-  const gridStroke = isDark ? "#968f92" : "#d1d5db";
-  const axisStroke = isDark ? "#f2f2f2" : "#374151";
+  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
+  const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
 
   if (rows.length === 0) {
-    return <div className="text-center py-8" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>No chart data available</div>;
+    return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No chart data available</div>;
   }
 
   // ── Premium axis: use actual max rounded to a clean step ──────────────────
@@ -676,9 +676,9 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
-            contentStyle={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", borderRadius: 6 }}
-            labelStyle={{ color: isDark ? "#f2f2f2" : "#374151", fontWeight: 600 }}
-            itemStyle={{ color: isDark ? "#d1d5db" : "#374151" }}
+            contentStyle={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", borderRadius: 6 }}
+            labelStyle={{ color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)", fontWeight: 600 }}
+            itemStyle={{ color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }}
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
@@ -686,14 +686,14 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               return [`$${n.toLocaleString()}`, name];
             }}
           />
-          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "#d1d5db" : "#374151" }} />
+          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
           <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
           <Line
             yAxisId="price"
             type="monotone"
             dataKey="underlyingPrice"
             name="Underlying"
-            stroke="#facc15"
+            stroke="var(--color-warning)"
             strokeWidth={2}
             dot={false}
             connectNulls
@@ -703,7 +703,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             type="monotone"
             dataKey="callPremium"
             name="Net Call Prem"
-            stroke="#10b981"
+            stroke="var(--color-positive)"
             strokeWidth={2}
             dot={false}
             connectNulls={false}
@@ -713,7 +713,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             type="monotone"
             dataKey="putPremium"
             name="Net Put Prem"
-            stroke="#ef4444"
+            stroke="var(--color-negative)"
             strokeWidth={2}
             dot={false}
             connectNulls={false}
@@ -755,7 +755,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
                     </text>
                   ) : null}
                   {dateLabel ? (
-                    <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
+                    <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
                       {dateLabel}
                     </text>
                   ) : null}
@@ -794,7 +794,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               if (!active || !payload || payload.length === 0) return null;
               const point = payload[0]?.payload as { netVolume?: number } | undefined;
               return (
-                <div style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }} className="rounded border px-3 py-2 text-sm">
+                <div style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }} className="rounded border px-3 py-2 text-sm">
                   <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                   <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>
@@ -807,8 +807,8 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             type="linear"
             dataKey="positiveNetVolume"
             name="Positive Net Volume"
-            stroke="#22c55e"
-            fill="#22c55e"
+            stroke="var(--color-positive)"
+            fill="var(--color-positive)"
             fillOpacity={0.45}
             baseValue={0}
             isAnimationActive={false}
@@ -818,8 +818,8 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             type="linear"
             dataKey="negativeNetVolume"
             name="Negative Net Volume"
-            stroke="#ef4444"
-            fill="#ef4444"
+            stroke="var(--color-negative)"
+            fill="var(--color-negative)"
             fillOpacity={0.45}
             baseValue={0}
             isAnimationActive={false}
@@ -837,13 +837,13 @@ export default function FlowAnalysisPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const isMobile = useIsMobile();
-  const cardBg = isDark ? "#423d3f" : "#ffffff";
-  const inputBg = isDark ? "#2a2628" : "#f3f4f6";
-  const inputBorder = isDark ? "#6b7280" : "#d1d5db";
-  const inputColor = isDark ? "#e5e7eb" : "#374151";
-  const mutedText = isDark ? "#9ca3af" : "#6b7280";
-  const axisStroke = isDark ? "#f2f2f2" : "#374151";
-  const gridStroke = isDark ? "#968f92" : "#d1d5db";
+  const cardBg = isDark ? "var(--color-surface)" : "var(--color-surface)";
+  const inputBg = isDark ? "var(--color-bg)" : "var(--color-surface-subtle)";
+  const inputBorder = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
+  const inputColor = isDark ? "var(--color-border)" : "var(--color-text-primary)";
+  const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
+  const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
+  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
@@ -1217,7 +1217,7 @@ export default function FlowAnalysisPage() {
                         </text>
                       ) : null}
                       {dateLabel ? (
-                        <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
+                        <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
                           {dateLabel}
                         </text>
                       ) : null}
@@ -1230,7 +1230,7 @@ export default function FlowAnalysisPage() {
                 content={({ active, label, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;
                   return (
-                    <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "#1f1d1e" : "#ffffff", borderColor: isDark ? "#423d3f" : "#d1d5db", color: isDark ? "#f2f2f2" : "#374151" }}>
+                    <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
                       <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                       <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                     </div>
@@ -1241,7 +1241,7 @@ export default function FlowAnalysisPage() {
                 type="monotone"
                 dataKey="ratio"
                 name="Put/Call Ratio"
-                stroke="#f59e0b"
+                stroke="var(--color-brand-primary)"
                 strokeWidth={2}
                 dot={false}
                 connectNulls={false}

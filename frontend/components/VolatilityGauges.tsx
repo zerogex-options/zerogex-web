@@ -125,7 +125,7 @@ export function SingleGauge({
 
   const trackColor = isDark ? "rgba(242,242,242,0.07)" : "rgba(23,23,23,0.07)";
   const mutedColor = isDark ? "rgba(242,242,242,0.32)" : "rgba(23,23,23,0.32)";
-  const hubBg = isDark ? "#2a2628" : "#f2f2f2";
+  const hubBg = isDark ? "var(--color-bg)" : "var(--color-text-primary)";
   const bgPanelColor = isDark
     ? "linear-gradient(160deg, rgba(52,47,49,0.92) 0%, rgba(36,32,34,0.92) 100%)"
     : "linear-gradient(160deg, rgba(255,255,255,0.95) 0%, rgba(240,238,240,0.95) 100%)";

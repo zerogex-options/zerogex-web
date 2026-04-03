@@ -29,14 +29,14 @@ import {
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
 const C = {
-  bgDark:    '#2a2628',
-  card:      '#423d3f',
+  bgDark:    'var(--color-bg)',
+  card:      'var(--color-surface)',
   cardHover: '#4e4749',
-  light:     '#f2f2f2',
-  muted:     '#968f92',
-  amber:     '#f59e0b',
-  green:     '#10b981',
-  red:       '#f45854',
+  light:     'var(--color-text-primary)',
+  muted:     'var(--color-text-secondary)',
+  amber:     'var(--color-brand-primary)',
+  green:     'var(--color-positive)',
+  red:       'var(--color-negative)',
   border:    'rgba(150,143,146,0.25)',
 };
 

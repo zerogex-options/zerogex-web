@@ -18,19 +18,19 @@ interface ZoneRow {
 }
 
 const SPEEDOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Subdued",  vix: "VIX ~10–15", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "#22c55e" },
+  { range: "0–2",  label: "Subdued",  vix: "VIX ~10–15", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "var(--color-positive)" },
   { range: "2–4",  label: "Low",      vix: "VIX ~15–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "#84cc16" },
-  { range: "4–6",  label: "Moderate", vix: "VIX ~19–27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "#f59e0b" },
+  { range: "4–6",  label: "Moderate", vix: "VIX ~19–27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "var(--color-brand-primary)" },
   { range: "6–8",  label: "Elevated", vix: "VIX ~27–38", desc: "Above-average fear. Significant market stress — corrections or sharp selloffs in progress.", color: "#f97316" },
-  { range: "8–10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "#ef4444" },
+  { range: "8–10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "var(--color-negative)" },
 ];
 
 const TACHOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Collapsing", desc: "Fear unwinding sharply (–2σ). VIX spiked and is now falling hard — the panic is reversing fast.", color: "#22c55e" },
+  { range: "0–2",  label: "Collapsing", desc: "Fear unwinding sharply (–2σ). VIX spiked and is now falling hard — the panic is reversing fast.", color: "var(--color-positive)" },
   { range: "2–4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "#84cc16" },
-  { range: "4–6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "#f59e0b" },
+  { range: "4–6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "var(--color-brand-primary)" },
   { range: "6–8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "#f97316" },
-  { range: "8–10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "#ef4444" },
+  { range: "8–10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "var(--color-negative)" },
 ];
 
 // ── Inline info panel ─────────────────────────────────────────────────────────

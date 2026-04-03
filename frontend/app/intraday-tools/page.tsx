@@ -204,13 +204,13 @@ export default function IntradayToolsPage() {
   const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const cardBg = isDark ? '#423d3f' : '#ffffff';
-  const inputBg = isDark ? '#2f2b2c' : '#f3f4f6';
-  const inputBorder = isDark ? '#6b7280' : '#d1d5db';
-  const inputColor = isDark ? '#e5e7eb' : '#374151';
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const mutedText = isDark ? '#9ca3af' : '#6b7280';
-  const textColor = isDark ? '#f2f2f2' : '#1f1d1e';
+  const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
+  const inputBg = isDark ? '#2f2b2c' : 'var(--color-surface-subtle)';
+  const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
+  const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
+  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
+  const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
+  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
   const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
@@ -515,7 +515,7 @@ export default function IntradayToolsPage() {
                         divergenceSignal.includes('🚨') ? 'bg-yellow-900 text-yellow-300' :
                         divergenceSignal.includes('🟢') ? 'bg-green-900 text-green-300' :
                         divergenceSignal.includes('🔴') ? 'bg-red-900 text-red-300' :
-                        'bg-gray-800 text-gray-300'
+                        'bg-gray-800 text-[var(--color-text-secondary)]'
                       }`}>
                         {divergenceSignal}
                       </div>

@@ -268,12 +268,12 @@ function ContractStatsHeader({
     return { dateKey, vol, oi, avg, prem, iv, delta, theta };
   }, [rows]);
 
-  const labelStyle: React.CSSProperties = { color: isDark ? "#9ca3af" : "#6b7280" };
+  const labelStyle: React.CSSProperties = { color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" };
   const valueStyle: React.CSSProperties = { fontWeight: 600 };
 
   if (!stats) {
     return (
-      <div className="px-4 py-2 text-sm" style={{ color: isDark ? "#9ca3af" : "#6b7280" }}>
+      <div className="px-4 py-2 text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>
         No data
       </div>
     );
@@ -299,11 +299,11 @@ function ContractStatsHeader({
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm border-b"
       style={{
-        color: isDark ? "#f2f2f2" : "#374151",
+        color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)",
         borderColor: isDark ? "rgba(150,143,146,0.2)" : "rgba(0,0,0,0.1)",
       }}
     >
-      <span className="font-semibold" style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>
+      <span className="font-semibold" style={{ color: isDark ? "var(--color-border)" : "var(--color-text-secondary)" }}>
         {formatSessionDate(stats.dateKey)}:
       </span>
       {items.map((s) => (
@@ -326,24 +326,24 @@ function ContractLegend({
   isDark: boolean;
 }) {
   const items = [
-    { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "#facc15" },
-    { label: "Ask Vol", value: null, color: "#22c55e" },
+    { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "var(--color-warning)" },
+    { label: "Ask Vol", value: null, color: "var(--color-positive)" },
     { label: "Mid Vol", value: null, color: "#60a5fa" },
-    { label: "Bid Vol", value: null, color: "#f45854" },
+    { label: "Bid Vol", value: null, color: "var(--color-negative)" },
   ];
 
   return (
     <div
       className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm"
-      style={{ color: isDark ? "#f2f2f2" : "#374151" }}
+      style={{ color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}
     >
       {items.map((item, i) => (
         <span key={item.label} className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
-          <span style={{ color: isDark ? "#d1d5db" : "#6b7280" }}>{item.label}{item.value != null ? ":" : ""}</span>
+          <span style={{ color: isDark ? "var(--color-border)" : "var(--color-text-secondary)" }}>{item.label}{item.value != null ? ":" : ""}</span>
           {item.value != null && <span style={{ fontWeight: 600 }}>{item.value}</span>}
           {i < items.length - 1 && (
-            <span style={{ color: isDark ? "#4b5563" : "#d1d5db", marginLeft: 4 }}>|</span>
+            <span style={{ color: isDark ? "#4b5563" : "var(--color-border)", marginLeft: 4 }}>|</span>
           )}
         </span>
       ))}
@@ -374,7 +374,7 @@ function ContractChart({
     return (
       <div
         className="flex items-center justify-center h-64 text-sm"
-        style={{ color: isDark ? "#9ca3af" : "#6b7280" }}
+        style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}
       >
         No contract data available for the selected parameters.
       </div>
@@ -394,8 +394,8 @@ function ContractChart({
   const priceDomainMax = maxP + pad;
   const priceTicks = computeRoundTicks(priceDomainMin, priceDomainMax);
 
-  const gridStroke = isDark ? "#968f92" : "#d1d5db";
-  const axisStroke = isDark ? "#f2f2f2" : "#374151";
+  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
+  const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
   const axisTickStyle = { fontSize: isMobile ? 9 : 10, fill: axisStroke };
 
   const chartMargin = isMobile
@@ -445,7 +445,7 @@ function ContractChart({
                       </text>
                     ) : null}
                     {dateLabel ? (
-                      <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "#6b7280"} fontSize={9}>
+                      <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
                         {dateLabel}
                       </text>
                     ) : null}
@@ -504,12 +504,12 @@ function ContractChart({
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: isDark ? "#1f1d1e" : "#ffffff",
-                borderColor: isDark ? "#423d3f" : "#d1d5db",
+                backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)",
+                borderColor: isDark ? "var(--color-surface)" : "var(--color-border)",
                 borderRadius: 6,
               }}
-              labelStyle={{ color: isDark ? "#f2f2f2" : "#374151", fontWeight: 600, fontSize: 11 }}
-              itemStyle={{ color: isDark ? "#d1d5db" : "#374151", fontSize: 11 }}
+              labelStyle={{ color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)", fontWeight: 600, fontSize: 11 }}
+              itemStyle={{ color: isDark ? "var(--color-border)" : "var(--color-text-primary)", fontSize: 11 }}
               labelFormatter={(value) => safeTimeLabel(String(value))}
               formatter={(value, name) => {
                 const n = Number(value ?? 0);
@@ -525,11 +525,11 @@ function ContractChart({
               }}
             />
 
-            <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="#22c55e" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="var(--color-positive)" isAnimationActive={false} />
             <Bar yAxisId="volume" dataKey="midVol" name="Mid Vol" stackId="vol" fill="#60a5fa" isAnimationActive={false} />
-            <Bar yAxisId="volume" dataKey="bidVol" name="Bid Vol" stackId="vol" fill="#f45854" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="bidVol" name="Bid Vol" stackId="vol" fill="var(--color-negative)" isAnimationActive={false} />
 
-            <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="#facc15" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+            <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="var(--color-warning)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -706,11 +706,11 @@ export default function OptionContractsPage() {
 
   const dte = resolvedExpiration ? computeDTE(resolvedExpiration) : null;
 
-  const cardBg = isDark ? "#423d3f" : "#ffffff";
-  const inputBg = isDark ? "#2a2628" : "#f3f4f6";
+  const cardBg = isDark ? "var(--color-surface)" : "var(--color-surface)";
+  const inputBg = isDark ? "var(--color-bg)" : "var(--color-surface-subtle)";
   const inputBorder = isDark ? "rgba(150,143,146,0.4)" : "rgba(0,0,0,0.15)";
-  const inputColor = isDark ? "#f2f2f2" : "#374151";
-  const mutedText = isDark ? "#9ca3af" : "#6b7280";
+  const inputColor = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
+  const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
 
   const selectStyle: React.CSSProperties = {
     padding: "6px 10px",
@@ -800,7 +800,7 @@ export default function OptionContractsPage() {
       {/* ── Contract Title ──────────────────────────────────────────── */}
       {resolvedExpiration && resolvedStrike && (
         <div className="mb-4 flex items-baseline gap-2">
-          <span className="text-xl font-semibold" style={{ color: "#f59e0b" }}>
+          <span className="text-xl font-semibold" style={{ color: "var(--color-brand-primary)" }}>
             {contractLabel}
           </span>
           {dte != null && (

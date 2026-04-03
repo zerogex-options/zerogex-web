@@ -161,10 +161,10 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
   const positive = pl >= 0;
   return (
     <div style={{ background: '#0f0d0e', border: `1px solid ${positive ? '#10b98144' : '#ef444444'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
-      <div style={{ color: '#64748b', fontSize: 11, marginBottom: 4 }}>
-        Underlying: <span style={{ color: '#cbd5e1' }}>${Number(label).toFixed(2)}</span>
+      <div style={{ color: 'var(--color-border)', fontSize: 11, marginBottom: 4 }}>
+        Underlying: <span style={{ color: 'var(--color-text-secondary)' }}>${Number(label).toFixed(2)}</span>
       </div>
-      <div style={{ color: positive ? '#10b981' : '#ef4444', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
+      <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
         {positive ? '+' : ''}{fmtDollar(pl)}
       </div>
     </div>
@@ -375,9 +375,9 @@ export default function OptionsCalculatorPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Live Strategy Lab</h1>
 
-      <div className="bg-[#423d3f] rounded-lg p-6 mb-6">
+      <div className="bg-[var(--color-surface)] rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <label className="text-sm text-gray-300">
+          <label className="text-sm text-[var(--color-text-secondary)]">
             Strategy
             <select
               className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1"
@@ -389,7 +389,7 @@ export default function OptionsCalculatorPage() {
               ))}
             </select>
           </label>
-          <label className="text-sm text-gray-300">
+          <label className="text-sm text-[var(--color-text-secondary)]">
             Contracts
             <input
               className="ml-2 w-24 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1"
@@ -397,8 +397,8 @@ export default function OptionsCalculatorPage() {
               onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))}
             />
           </label>
-          <div className="text-sm text-gray-300">
-            Underlying: <span className="font-semibold text-white">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span>
+          <div className="text-sm text-[var(--color-text-secondary)]">
+            Underlying: <span className="font-semibold text-[var(--color-text-primary)]">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span>
           </div>
         </div>
 
@@ -412,10 +412,10 @@ export default function OptionsCalculatorPage() {
               <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[#2f2b2c] p-3 rounded">
                 <div className="text-sm font-semibold">{leg.label}</div>
                 {isStock ? (
-                  <div className="col-span-2 text-sm text-gray-400 italic">Underlying share position · spot ${spot > 0 ? spot.toFixed(2) : '--'}</div>
+                  <div className="col-span-2 text-sm text-[var(--color-text-secondary)] italic">Underlying share position · spot ${spot > 0 ? spot.toFixed(2) : '--'}</div>
                 ) : (
                   <>
-                    <label className="text-sm text-gray-300">Exp
+                    <label className="text-sm text-[var(--color-text-secondary)]">Exp
                       <select
                         className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1"
                         value={leg.expiration}
@@ -424,7 +424,7 @@ export default function OptionsCalculatorPage() {
                         {expirationChoices.map((exp) => <option key={exp} value={exp}>{exp}</option>)}
                       </select>
                     </label>
-                    <label className="text-sm text-gray-300">Strike
+                    <label className="text-sm text-[var(--color-text-secondary)]">Strike
                       <select
                         className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1"
                         value={String(leg.strike)}
@@ -436,8 +436,8 @@ export default function OptionsCalculatorPage() {
                   </>
                 )}
                 {!isStock && (
-                  <div className="text-sm text-gray-300">
-                    {leg.ticker} · <span className="text-white font-semibold">${leg.quotePerContract.toFixed(2)}</span> {leg.quoteSide}
+                  <div className="text-sm text-[var(--color-text-secondary)]">
+                    {leg.ticker} · <span className="text-[var(--color-text-primary)] font-semibold">${leg.quotePerContract.toFixed(2)}</span> {leg.quoteSide}
                   </div>
                 )}
               </div>
@@ -445,18 +445,18 @@ export default function OptionsCalculatorPage() {
           })}
         </div>
 
-        <div className="text-sm text-gray-300">
+        <div className="text-sm text-[var(--color-text-secondary)]">
           Total position:{' '}
-          <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-white'}`}>
+          <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-[var(--color-text-primary)]'}`}>
             {fmtDollar(Math.abs(totalPosition))}
           </span>{' '}
-          <span className="text-gray-400">
+          <span className="text-[var(--color-text-secondary)]">
             ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
           </span>
         </div>
       </div>
 
-      <div className="bg-[#423d3f] rounded-lg p-4">
+      <div className="bg-[var(--color-surface)] rounded-lg p-4">
         <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
         {hasMultipleExpirations && (
           <p className="text-xs text-amber-400/80 mb-3">
@@ -467,14 +467,14 @@ export default function OptionsCalculatorPage() {
           <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 10 }}>
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-                <stop offset={`${zeroOffset}%`} stopColor="#10b981" stopOpacity={0.04} />
-                <stop offset={`${zeroOffset}%`} stopColor="#ef4444" stopOpacity={0.04} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.35} />
+                <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
+                <stop offset={`${zeroOffset}%`} stopColor="var(--color-positive)" stopOpacity={0.04} />
+                <stop offset={`${zeroOffset}%`} stopColor="var(--color-negative)" stopOpacity={0.04} />
+                <stop offset="100%" stopColor="var(--color-negative)" stopOpacity={0.35} />
               </linearGradient>
               <linearGradient id="plStroke" x1="0" y1="0" x2="0" y2="1">
-                <stop offset={`${zeroOffset}%`} stopColor="#10b981" />
-                <stop offset={`${zeroOffset}%`} stopColor="#ef4444" />
+                <stop offset={`${zeroOffset}%`} stopColor="var(--color-positive)" />
+                <stop offset={`${zeroOffset}%`} stopColor="var(--color-negative)" />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#3f3a3c" />
@@ -501,7 +501,7 @@ export default function OptionsCalculatorPage() {
             {spot > 0 && (
               <ReferenceLine
                 x={spot}
-                stroke="#64748b"
+                stroke="var(--color-border)"
                 strokeDasharray="5 3"
                 label={{
                   value: `Spot $${spot.toFixed(2)}`,
@@ -523,7 +523,7 @@ export default function OptionsCalculatorPage() {
                 <ReferenceLine
                   key={`be-${be}`}
                   x={be}
-                  stroke="#f59e0b"
+                  stroke="var(--color-brand-primary)"
                   strokeDasharray="5 3"
                   label={{
                     value: `BE $${be.toFixed(2)}`,

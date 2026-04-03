@@ -45,7 +45,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   if (maxAbs < 1 || Math.abs(value) < maxAbs * 0.02) {
     return {
       backgroundColor: isDark ? 'rgba(150, 143, 146, 0.1)' : 'rgba(0, 0, 0, 0.04)',
-      color: isDark ? colors.muted : '#9ca3af',
+      color: isDark ? colors.muted : 'var(--color-text-secondary)',
     };
   }
 
@@ -56,7 +56,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
     const alpha = 0.15 + intensity * 0.55;
     return {
       backgroundColor: `rgba(16, 185, 129, ${alpha})`,
-      color: intensity > 0.5 ? '#ffffff' : (isDark ? colors.light : colors.dark),
+      color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
     };
   }
 
@@ -64,7 +64,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   const alpha = 0.15 + intensity * 0.55;
   return {
     backgroundColor: `rgba(244, 88, 84, ${alpha})`,
-    color: intensity > 0.5 ? '#ffffff' : (isDark ? colors.light : colors.dark),
+    color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
   };
 }
 

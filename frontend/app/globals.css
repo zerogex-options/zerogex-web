@@ -1,8 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FFF4E6;
+  --foreground: #1D3557;
+
+  --color-brand-primary: #FFB347;
+  --color-brand-accent: #2EC4B6;
+  --color-brand-coral: #FF6B4A;
+  --color-brand-deep: #1D3557;
+  --color-brand-peach: #FFD6A5;
+
+  --color-bg: #FFF4E6;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFF9F1;
+  --color-surface-subtle: #FFF4D6;
+
+  --color-text-primary: #1D3557;
+  --color-text-secondary: #6C7A89;
+  --color-text-muted: #6C7A89;
+
+  --color-border: #F1E0C6;
+  --color-divider: #F1E0C6;
+
+  --color-positive: #2EC4B6;
+  --color-negative: #FF5A5F;
+  --color-neutral: #C9A27E;
+  --color-warning: #FFB703;
+
+  --color-primary-100: #FFF4D6;
+  --color-primary-200: #FFE0A3;
+  --color-primary-300: #FFD070;
+  --color-primary-400: #FFC04D;
+  --color-primary-500: #FFB347;
+  --color-primary-600: #E89A2E;
+  --color-primary-700: #C87F1E;
+
+  --color-chart-grid: #F1E0C6;
+  --color-chart-axis: #1D3557;
+  --color-chart-tooltip-bg: #FFFFFF;
+  --color-chart-tooltip-border: #F1E0C6;
+}
+
+:root.dark {
+  --background: #0F1A24;
+  --foreground: #F4EDE4;
+
+  --color-bg: #0F1A24;
+  --color-surface: #162635;
+  --color-surface-elevated: #1B3143;
+  --color-surface-subtle: #1F3A4A;
+
+  --color-text-primary: #F4EDE4;
+  --color-text-secondary: #9FB3C8;
+  --color-text-muted: #9FB3C8;
+
+  --color-border: #1F3A4A;
+  --color-divider: #1F3A4A;
+
+  --color-chart-grid: #1F3A4A;
+  --color-chart-axis: #F4EDE4;
+  --color-chart-tooltip-bg: #162635;
+  --color-chart-tooltip-border: #1F3A4A;
 }
 
 @theme inline {
@@ -10,13 +68,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 html, body {
@@ -32,7 +83,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Prevent overscroll bounce on mobile */
 html {
   overscroll-behavior: none;
 }

@@ -41,25 +41,25 @@ function renderMarkdown(markdown: string): ReactNode[] {
     }
 
     if (trimmed === '---') {
-      out.push(<hr key={`hr-${i}`} className="my-10 border-white/15" />);
+      out.push(<hr key={`hr-${i}`} className="my-10 border-[var(--color-border)]" />);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('# ')) {
-      out.push(<h1 key={`h1-${i}`} className="mt-2 mb-6 text-4xl font-extrabold leading-tight text-white">{parseInline(trimmed.slice(2))}</h1>);
+      out.push(<h1 key={`h1-${i}`} className="mt-2 mb-6 text-4xl font-extrabold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(2))}</h1>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('## ')) {
-      out.push(<h2 key={`h2-${i}`} className="mt-10 mb-4 text-2xl font-bold leading-tight text-white">{parseInline(trimmed.slice(3))}</h2>);
+      out.push(<h2 key={`h2-${i}`} className="mt-10 mb-4 text-2xl font-bold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(3))}</h2>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('### ')) {
-      out.push(<h3 key={`h3-${i}`} className="mt-8 mb-3 text-xl font-semibold text-white">{parseInline(trimmed.slice(4))}</h3>);
+      out.push(<h3 key={`h3-${i}`} className="mt-8 mb-3 text-xl font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(4))}</h3>);
       i += 1;
       continue;
     }
@@ -90,11 +90,11 @@ function renderMarkdown(markdown: string): ReactNode[] {
       const [header, ...body] = rows;
       out.push(
         <div key={`tbl-${i}`} className="my-6 overflow-x-auto">
-          <table className="w-full border-collapse rounded-xl border border-white/10 text-sm">
+          <table className="w-full border-collapse rounded-xl border border-[var(--color-border)] text-sm">
             <thead>
-              <tr className="bg-white/5">
+              <tr className="bg-[var(--color-surface-subtle)]">
                 {header.map((cell, idx) => (
-                  <th key={idx} className="border border-white/10 px-4 py-2 text-left font-semibold text-white">{parseInline(cell)}</th>
+                  <th key={idx} className="border border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-primary)]">{parseInline(cell)}</th>
                 ))}
               </tr>
             </thead>
@@ -102,7 +102,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
               {body.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="border border-white/10 px-4 py-2 text-[#d3cdd2]">{parseInline(cell)}</td>
+                    <td key={cellIdx} className="border border-[var(--color-border)] px-4 py-2 text-[#d3cdd2]">{parseInline(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -159,7 +159,7 @@ export default function DecodingGammaExposurePage() {
         ← Back to Education Hub
       </Link>
 
-      <article className="rounded-3xl border border-white/10 bg-[#201d1f]/95 px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:px-14">
+      <article className="rounded-3xl border border-[var(--color-border)] bg-[#201d1f]/95 px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:px-14">
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[#9f98a0]">ZeroGEX Education • 15 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>

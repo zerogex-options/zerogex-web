@@ -185,10 +185,10 @@ export default function TradingSignalsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Trade Ideas</h1>
-      <p className="text-gray-400 mb-8">Actionable options trade ideas powered by composite analytics.</p>
+      <p className="text-[var(--color-text-secondary)] mb-8">Actionable options trade ideas powered by composite analytics.</p>
 
       <section className="mb-6">
-        <div className="inline-flex rounded-xl border border-gray-700 bg-[#423d3f] p-1">
+        <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
           {(['intraday', 'swing', 'multi_day'] as SignalTimeframe[]).map((tf) => {
             const isActive = selectedSignalTimeframe === tf;
             return (
@@ -197,8 +197,8 @@ export default function TradingSignalsPage() {
                 onClick={() => setSelectedSignalTimeframe(tf)}
                 className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
                 style={{
-                  backgroundColor: isActive ? '#302c2d' : 'transparent',
-                  color: isActive ? '#f3f4f6' : '#9ca3af',
+                  backgroundColor: isActive ? 'var(--color-surface-subtle)' : 'transparent',
+                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 }}
                 type="button"
               >
@@ -222,45 +222,45 @@ export default function TradingSignalsPage() {
       )}
 
       {signal?.trade_idea && (
-        <section className="mb-8 bg-[#423d3f] rounded-lg border border-gray-700 p-6">
+        <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
             <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-amber-400" size={22} /> Suggested Trade Idea</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#302c2d] text-emerald-300 border border-gray-700">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-emerald-300 border border-[var(--color-border)]">
               {timeframeLabels[selectedSignalTimeframe]} Setup
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-[#302c2d] border border-gray-700 p-4">
-              <div className="text-xs uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1"><Compass size={14} /> Strategy</div>
+            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
+              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Compass size={14} /> Strategy</div>
               <div className="text-lg font-semibold">{titleCase(signal.trade_idea.trade_type)}</div>
             </div>
-            <div className="rounded-lg bg-[#302c2d] border border-gray-700 p-4">
-              <div className="text-xs uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1"><CalendarClock size={14} /> Target Expiry</div>
+            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
+              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CalendarClock size={14} /> Target Expiry</div>
               <div className="text-lg font-semibold">{signal.trade_idea.target_expiry}</div>
             </div>
-            <div className="rounded-lg bg-[#302c2d] border border-gray-700 p-4">
-              <div className="text-xs uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1"><CircleDollarSign size={14} /> Est. Win %</div>
+            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
+              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CircleDollarSign size={14} /> Est. Win %</div>
               <div className="text-lg font-semibold text-emerald-300">{(signal.trade_idea.estimated_win_pct * 100).toFixed(1)}%</div>
             </div>
           </div>
-          <div className="mt-4 rounded-lg bg-[#302c2d] border border-gray-700 p-4">
-            <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">Suggested Strikes</div>
+          <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1">Suggested Strikes</div>
             <div className="font-mono text-base">{signal.trade_idea.suggested_strikes}</div>
           </div>
-          <div className="mt-4 rounded-lg bg-[#302c2d] border border-gray-700 p-4">
-            <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">Why this setup</div>
+          <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1">Why this setup</div>
             <div className="text-sm leading-relaxed">{signal.trade_idea.rationale}</div>
           </div>
         </section>
       )}
 
       {signal && (
-        <section className="mb-8 bg-[#423d3f] rounded-lg p-6 border border-gray-700">
+        <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
           <h2 className="text-2xl font-semibold mb-4">Live Indicator Matrix</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-700 text-gray-300">
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-secondary)]">
                   <th className="text-left py-2 px-3">Indicator</th>
                   <th className="text-right py-2 px-3">Value</th>
                   <th className="text-left py-2 px-3">Interpretation</th>
@@ -277,26 +277,26 @@ export default function TradingSignalsPage() {
                   const negative = (row.value ?? 0) < 0;
 
                   return (
-                    <tr key={row.label} className="border-b border-gray-800 align-top">
+                    <tr key={row.label} className="border-b border-[var(--color-border)] align-top">
                       <td className="py-3 px-3 font-medium">
                         <div className="flex items-center gap-2">
                           {row.label}
                           <TooltipWrapper text={row.tooltip} inlineInExpanded={false}>
-                            <span className="text-gray-400">ⓘ</span>
+                            <span className="text-[var(--color-text-secondary)]">ⓘ</span>
                           </TooltipWrapper>
                         </div>
                       </td>
                       <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-red-300' : 'text-slate-100'}`}>{formatted}</td>
-                      <td className="py-3 px-3 text-gray-300 leading-relaxed">{row.interpretation}</td>
+                      <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
                     </tr>
                   );
                 })}
-                <tr className="border-b border-gray-800 align-top">
+                <tr className="border-b border-[var(--color-border)] align-top">
                   <td className="py-3 px-3 font-medium">
                     <div className="flex items-center gap-2">
                       Unusual Volume
                       <TooltipWrapper text="Detects statistically abnormal volume/flow bursts versus baseline behavior for this symbol and timeframe." inlineInExpanded={false}>
-                        <span className="text-gray-400">ⓘ</span>
+                        <span className="text-[var(--color-text-secondary)]">ⓘ</span>
                       </TooltipWrapper>
                     </div>
                   </td>
@@ -306,17 +306,17 @@ export default function TradingSignalsPage() {
                       {signal.unusual_volume_detected ? 'Detected' : 'Not Detected'}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-gray-300 leading-relaxed">
+                  <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">
                     Elevated volume can precede directional expansion and volatility repricing. If unusual volume confirms your directional signal, you can justify more conviction. If it conflicts with your setup, reduce size or wait for cleaner alignment.
                   </td>
                 </tr>
                 {signal.smart_money_direction && (
-                  <tr className="border-b border-gray-800 align-top">
+                  <tr className="border-b border-[var(--color-border)] align-top">
                     <td className="py-3 px-3 font-medium">
                       <div className="flex items-center gap-2">
                         Smart Money Direction
                         <TooltipWrapper text="Directional classification inferred from unusual large-lot / high-notional options flow." inlineInExpanded={false}>
-                          <span className="text-gray-400">ⓘ</span>
+                          <span className="text-[var(--color-text-secondary)]">ⓘ</span>
                         </TooltipWrapper>
                       </div>
                     </td>
@@ -326,7 +326,7 @@ export default function TradingSignalsPage() {
                         {titleCase(signal.smart_money_direction)}
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-gray-300 leading-relaxed">
+                    <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">
                       Use this as a confirmation layer, not a standalone trigger. Alignment between smart-money direction, composite signal direction, and price structure improves trade quality; disagreement suggests chop risk and lower expectancy.
                     </td>
                   </tr>
@@ -337,35 +337,35 @@ export default function TradingSignalsPage() {
         </section>
       )}
 
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6 border border-gray-700">
+      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-300" />Signal Components</h2>
-          <div className="text-sm text-gray-400">Timeframe: {timeframeLabels[selectedSignalTimeframe]}</div>
+          <div className="text-sm text-[var(--color-text-secondary)]">Timeframe: {timeframeLabels[selectedSignalTimeframe]}</div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-lg border border-gray-700 bg-[#302c2d] p-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
             <h3 className="text-lg font-semibold mb-3">Top Drivers</h3>
             <div className="space-y-3">
               {componentRankings.slice(0, 5).map((row) => (
-                <div key={row.subject} className="rounded-lg border border-gray-700 p-3 bg-[#423d3f]">
+                <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="font-semibold">{row.subject}</div>
                     <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                       {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
                     </div>
                   </div>
-                  <div className="text-xs text-gray-400 mb-1">Weight: {row.weight}% • Raw score: {row.rawScore}</div>
-                  <div className="text-xs text-gray-300 leading-relaxed">{row.description}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)] mb-1">Weight: {row.weight}% • Raw score: {row.rawScore}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{row.description}</div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="h-[340px] sm:h-80 rounded-lg border border-gray-700 bg-[#302c2d] p-2 sm:p-3">
+          <div className="h-[340px] sm:h-80 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-2 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={componentRadarData} cx="50%" cy="52%" outerRadius={isMobile ? '66%' : '78%'}>
-                <PolarGrid stroke="#64748b" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#cbd5e1', fontSize: isMobile ? 10 : 12 }} />
-                <Radar name="Score" dataKey="scorePct" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.45} />
+                <PolarGrid stroke="var(--color-border)" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 12 }} />
+                <Radar name="Score" dataKey="scorePct" stroke="var(--color-brand-accent)" fill="var(--color-brand-accent)" fillOpacity={0.45} />
                 <Tooltip
                   formatter={(value, _name, item) => {
                     const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
@@ -386,13 +386,13 @@ export default function TradingSignalsPage() {
         </div>
       </section>
 
-      <section className="mb-8 bg-[#423d3f] rounded-lg p-6 border border-gray-700">
+      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-2xl font-semibold">Historical Accuracy</h2>
-          <label className="text-sm text-gray-300">
+          <label className="text-sm text-[var(--color-text-secondary)]">
             Lookback Days:
             <select
-              className="ml-2 bg-[#302c2d] border border-gray-700 rounded px-2 py-1"
+              className="ml-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded px-2 py-1"
               value={lookbackDays}
               onChange={(e) => setLookbackDays(Number(e.target.value))}
             >
@@ -406,9 +406,9 @@ export default function TradingSignalsPage() {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={accuracyChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#555" />
-              <XAxis dataKey="bucket" stroke="#ccc" />
-              <YAxis stroke="#ccc" domain={[0, 100]} unit="%" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
+              <XAxis dataKey="bucket" stroke="var(--color-chart-axis)" />
+              <YAxis stroke="var(--color-chart-axis)" domain={[0, 100]} unit="%" />
               <Tooltip
                 formatter={(value, _name, item) => {
                   const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
@@ -423,7 +423,7 @@ export default function TradingSignalsPage() {
                   return [`${numericValue.toFixed(1)}%`, `${sampleCount} samples`];
                 }}
               />
-              <Line type="monotone" dataKey="winRate" stroke="#34d399" strokeWidth={3} />
+              <Line type="monotone" dataKey="winRate" stroke="var(--color-positive)" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
         </div>

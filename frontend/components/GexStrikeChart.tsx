@@ -42,8 +42,8 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
-  const axisStroke = isDark ? '#f2f2f2' : '#374151';
-  const gridStroke = isDark ? '#968f92' : '#d1d5db';
+  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
+  const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
 
   const flipStrike = gammaFlip != null && strikeData.length > 0
     ? strikeData.reduce((closest, row) =>
@@ -111,8 +111,8 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: isDark ? '#1f1d1e' : '#ffffff',
-                  borderColor: isDark ? '#423d3f' : '#d1d5db',
+                  backgroundColor: isDark ? 'var(--color-surface)' : 'var(--color-surface)',
+                  borderColor: isDark ? 'var(--color-surface)' : 'var(--color-border)',
                   borderRadius: 6,
                 }}
                 labelStyle={{ color: textColor }}

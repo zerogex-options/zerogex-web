@@ -284,8 +284,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
-  const axisStroke = isDark ? '#f2f2f2' : '#8e8e8e';
-  const gridStroke = isDark ? '#968f92' : '#e5e7eb';
+  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-secondary)';
+  const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
 
   const { data, loading, error } = useApiData<VolSurfaceResponse | VolSurfaceRawPoint[]>(
     `/api/volatility/surface?symbol=${symbol}`,
@@ -352,8 +352,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: isDark ? '#1f1d1e' : '#ffffff',
-                borderColor: isDark ? '#423d3f' : '#d1d5db',
+                backgroundColor: isDark ? 'var(--color-surface)' : 'var(--color-surface)',
+                borderColor: isDark ? 'var(--color-surface)' : 'var(--color-border)',
                 borderRadius: 6,
               }}
               labelStyle={{ color: textColor }}
@@ -365,7 +365,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
 
             <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#5db9ff" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
             <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#9b8bff" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#9b8bff' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#c0c4be" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? '#1f1d1e' : '#ffffff' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#c0c4be" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? 'var(--color-surface)' : 'var(--color-surface)' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
       )}
