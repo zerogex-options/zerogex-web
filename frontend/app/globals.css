@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF4E6;
-  --foreground: #1D3557;
+  --background: #F0EEF0;
+  --foreground: #1A1618;
 
   --color-brand-primary: #FFB347;
   --color-brand-accent: #2EC4B6;
@@ -10,19 +10,19 @@
   --color-brand-deep: #1D3557;
   --color-brand-peach: #FFD6A5;
 
-  --color-bg: #FFF4E6;
-  --color-surface: #FFFFFF;
-  --color-surface-elevated: #FFF9F1;
-  --color-surface-subtle: #FFF4D6;
+  --color-bg: #F0EEF0;
+  --color-surface: #F7F5F7;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-subtle: #ECE8EC;
 
-  --color-text-primary: #1D3557;
-  --color-text-secondary: #6C7A89;
-  --color-text-muted: #6C7A89;
+  --color-text-primary: #1A1618;
+  --color-text-secondary: #6B636A;
+  --color-text-muted: #6B636A;
 
-  --color-border: #F1E0C6;
-  --color-divider: #F1E0C6;
+  --color-border: #DDD7DD;
+  --color-divider: #DDD7DD;
 
-  --color-positive: #2EC4B6;
+  --color-positive: #2FBF71;
   --color-negative: #FF5A5F;
   --color-neutral: #C9A27E;
   --color-warning: #FFB703;
@@ -35,10 +35,10 @@
   --color-primary-600: #E89A2E;
   --color-primary-700: #C87F1E;
 
-  --color-chart-grid: #F1E0C6;
-  --color-chart-axis: #1D3557;
-  --color-chart-tooltip-bg: #FFFFFF;
-  --color-chart-tooltip-border: #F1E0C6;
+  --color-chart-grid: #DDD7DD;
+  --color-chart-axis: #1A1618;
+  --color-chart-tooltip-bg: #F7F5F7;
+  --color-chart-tooltip-border: #DDD7DD;
 }
 
 :root.dark {
@@ -78,23 +78,15 @@ html, body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  position: relative;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
+  background-color: var(--background);
   background-image:
     linear-gradient(var(--color-divider) 1px, transparent 1px),
     linear-gradient(90deg, var(--color-divider) 1px, transparent 1px);
   background-size: 44px 44px;
-  opacity: 0.14;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  position: relative;
+  background-attachment: fixed;
 }
 
 html {

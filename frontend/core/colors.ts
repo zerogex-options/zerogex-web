@@ -7,7 +7,7 @@ export const pacificDesertSunset = {
     skyPeach: '#FFD6A5',
   },
   semantic: {
-    bullish: '#2EC4B6',
+    bullish: '#2FBF71',
     bearish: '#FF5A5F',
     neutral: '#C9A27E',
     warning: '#FFB703',
@@ -22,12 +22,12 @@ export const pacificDesertSunset = {
     700: '#C87F1E',
   },
   light: {
-    background: '#FFF4E6',
-    surface: '#FFFFFF',
-    surfaceElevated: '#FFF9F1',
-    textPrimary: '#1D3557',
-    textSecondary: '#6C7A89',
-    border: '#F1E0C6',
+    background: '#F0EEF0',
+    surface: '#F7F5F7',
+    surfaceElevated: '#FFFFFF',
+    textPrimary: '#1A1618',
+    textSecondary: '#6B636A',
+    border: '#DDD7DD',
   },
   dark: {
     background: '#0F1A24',

@@ -216,18 +216,17 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       }}
     >
       <div
-        className="container mx-auto px-6"
+        className="w-full px-0"
         style={{
-          paddingTop: isMobileViewport ? "4px" : "8px",
-          paddingBottom: isMobileViewport ? "4px" : "8px",
+          paddingTop: isMobileViewport ? "2px" : isCollapsed ? "2px" : "8px",
+          paddingBottom: isMobileViewport ? "2px" : isCollapsed ? "2px" : "8px",
           transition: "padding 0.3s ease",
         }}
       >
         {/* Desktop Layout */}
         <div className="hidden md:block relative">
-          <div className="relative flex items-center justify-between" style={{ minHeight: "72px", paddingRight: "40px" }}>
-            {!isCollapsed && (
-              <div className="flex items-center gap-4">
+          <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px" }}>
+            <div className="flex items-center gap-3">
                 <select
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
@@ -236,7 +235,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
                     borderColor: border,
                     color: theme === "dark" ? colors.light : colors.dark,
-                    width: "90px",
+                    width: isCollapsed ? "74px" : "90px",
                     backdropFilter: "blur(8px)",
                   }}
                 >
@@ -248,9 +247,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 {row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
-                      <span className="font-bold text-xl" title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
+                      <span className="font-bold" style={{ fontSize: isCollapsed ? "1rem" : "1.25rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish, fontSize: isCollapsed ? "10px" : "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -267,9 +266,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     )}
                   </div>
                 )}
-              </div>
-            )}
+                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
+                  <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} compact={isCollapsed} />
+                </div>
+            </div>
 
+            {!isCollapsed && (
             <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
                 <img
@@ -279,23 +281,21 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 />
               </Link>
             </div>
-
-            {!isCollapsed && (
-              <div className="flex items-center gap-4" style={{ marginRight: "24px" }}>
-                <button
-                  onClick={onToggleTheme}
-                  className="rounded-full border p-2 transition"
-                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
-                  aria-label="Toggle theme"
-                >
-                  {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
-                </button>
-                <WorldClocks theme={theme} session={session} />
-                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
-                  <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
-                </div>
-              </div>
             )}
+
+            <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
+              <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+              <button
+                onClick={onToggleTheme}
+                className="rounded-full border p-2 transition-colors"
+                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Moon size={isCollapsed ? 12 : 14} /> : <Sun size={isCollapsed ? 12 : 14} />}
+              </button>
+            </div>
 
             <button
               onClick={toggleCollapsed}

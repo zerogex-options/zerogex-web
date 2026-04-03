@@ -26,7 +26,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight,
+        backgroundColor: 'transparent',
         color: theme === 'dark' ? colors.light : colors.dark,
         display: 'flex',
         flexDirection: 'column',

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
+import { useTheme } from '@/core/ThemeContext';
 import {
   TrendingUp,
   TrendingDown,
@@ -211,13 +212,13 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const { theme, setTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
 
   const isDark = theme === 'dark';
-  const bg     = isDark ? C.bgDark : '#f0eef0';
-  const text   = isDark ? C.light  : '#1a1618';
-  const subtext = isDark ? C.muted : '#6b636a';
+  const bg     = 'transparent';
+  const text   = isDark ? C.light  : 'var(--color-text-primary)';
+  const subtext = 'var(--color-text-secondary)';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -248,7 +249,7 @@ export default function LandingPage() {
           height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: scrolled
-            ? `${isDark ? C.bgDark : '#f0eef0'}ee`
+            ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
             : 'transparent',
           borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
           backdropFilter: scrolled ? 'blur(20px)' : 'none',
@@ -288,7 +289,7 @@ export default function LandingPage() {
                 padding: '8px 14px',
                 fontSize: 13,
                 fontWeight: 700,
-                color: isDark ? C.light : '#1a1618',
+                color: 'var(--color-text-primary)',
                 cursor: 'pointer',
               }}
             >
@@ -450,7 +451,7 @@ export default function LandingPage() {
                   borderRadius: 14,
                   padding: '15px 32px',
                   fontSize: 16, fontWeight: 600,
-                  color: isDark ? C.light : text,
+                  color: text,
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 8,
                   backdropFilter: 'blur(8px)',

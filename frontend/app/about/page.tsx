@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
+import { useTheme } from '@/core/ThemeContext';
 import {
   ArrowRight,
   BarChart2,
@@ -171,11 +172,11 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AboutPage() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
-  const bg = isDark ? C.bgDark : '#f0eef0';
-  const text = isDark ? C.light : '#1a1618';
-  const subtext = isDark ? C.muted : '#6b636a';
+  const bg = 'transparent';
+  const text = 'var(--color-text-primary)';
+  const subtext = 'var(--color-text-secondary)';
 
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -185,7 +186,7 @@ export default function AboutPage() {
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         padding: '0 32px', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: `${isDark ? C.bgDark : '#f0eef0'}ee`,
+        background: `${isDark ? C.bgDark : 'var(--color-bg)'}ee`,
         borderBottom: `1px solid ${C.border}`,
         backdropFilter: 'blur(20px)',
       }}>
@@ -216,7 +217,7 @@ export default function AboutPage() {
               padding: '8px 14px',
               fontSize: 13,
               fontWeight: 700,
-              color: isDark ? C.light : '#1a1618',
+              color: 'var(--color-text-primary)',
               cursor: 'pointer',
             }}>
               Education

@@ -120,6 +120,13 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
+                <Link href="/" className="mb-3 flex h-8 items-center overflow-hidden">
+                  <img
+                    src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                    alt="ZeroGEX"
+                    style={{ height: "140%", width: "auto", maxWidth: "none", objectFit: "contain" }}
+                  />
+                </Link>
                 <div className="mb-3 flex items-center justify-between">
                   <button
                     onClick={onToggleTheme}
@@ -144,7 +151,10 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
                     type="button"
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
                     className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                    style={{ color: colors.primary, background: `${colors.primary}08` }}
+                    style={{
+                      color: theme === "light" ? colors.coral : colors.primary,
+                      background: `${theme === "light" ? colors.coral : colors.primary}0f`,
+                    }}
                   >
                     {group.label}
                     <ChevronDown
@@ -159,10 +169,22 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
                         const isActive = pathname === page.id;
                         const isHovered = hoveredPage === page.id;
                         const commonStyle = {
-                          color: isActive || isHovered ? colors.primary : theme === "dark" ? colors.light : colors.dark,
+                          color: isActive || isHovered
+                            ? (theme === "light" ? colors.coral : colors.primary)
+                            : theme === "dark"
+                              ? colors.light
+                              : colors.dark,
                           opacity: isActive || isHovered ? 1 : 0.72,
-                          background: isHovered && !isActive ? `${colors.primary}18` : isActive ? `${colors.primary}14` : "transparent",
-                          border: `1px solid ${isActive || isHovered ? colors.primary + "40" : "transparent"}`,
+                          background: isHovered && !isActive
+                            ? `${theme === "light" ? colors.coral : colors.primary}18`
+                            : isActive
+                              ? `${theme === "light" ? colors.coral : colors.primary}14`
+                              : "transparent",
+                          border: `1px solid ${
+                            isActive || isHovered
+                              ? `${theme === "light" ? colors.coral : colors.primary}40`
+                              : "transparent"
+                          }`,
                         };
 
                         if (isExternal) {
