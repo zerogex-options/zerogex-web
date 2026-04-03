@@ -225,8 +225,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       >
         {/* Desktop Layout */}
         <div className="hidden md:block relative">
-          <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px" }}>
-            <div className="flex items-center gap-3">
+          <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
+            <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
+                <button
+                  onClick={onToggleTheme}
+                  className="rounded-full border p-2 transition-colors"
+                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? <Moon size={isCollapsed ? 12 : 14} /> : <Sun size={isCollapsed ? 12 : 14} />}
+                </button>
                 <select
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
@@ -266,7 +276,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     )}
                   </div>
                 )}
-                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
+                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer", marginLeft: isCollapsed ? 0 : 2 }}>
                   <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} compact={isCollapsed} />
                 </div>
             </div>
@@ -285,16 +295,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
             <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
               <WorldClocks theme={theme} session={session} compact={isCollapsed} />
-              <button
-                onClick={onToggleTheme}
-                className="rounded-full border p-2 transition-colors"
-                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? <Moon size={isCollapsed ? 12 : 14} /> : <Sun size={isCollapsed ? 12 : 14} />}
-              </button>
             </div>
 
             <button

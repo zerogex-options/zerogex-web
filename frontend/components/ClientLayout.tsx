@@ -33,7 +33,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       }}
     >
       <Header theme={theme} onToggleTheme={toggleTheme} />
-      <Navigation theme={theme} onToggleTheme={toggleTheme} />
+      <Navigation theme={theme} />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>

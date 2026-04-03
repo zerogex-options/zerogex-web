@@ -7,19 +7,14 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import Link from "next/link";
-import { Moon, Sun } from "lucide-react";
-import WorldClocks from "./WorldClocks";
-import SessionBadge from "./SessionBadge";
-import { getMarketSession } from "@/core/utils";
 
 interface NavigationProps {
   theme: Theme;
-  onToggleTheme: () => void;
 }
 
 const SIDEBAR_WIDTH = 272;
 
-export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
+export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
@@ -39,7 +34,6 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
       return false;
     }
   });
-  const [session, setSession] = useState(getMarketSession());
 
   const navGroups = useMemo(
     () => [
@@ -87,11 +81,6 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
       window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => setSession(getMarketSession()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   const toggleSidebar = () => {
     const next = !sidebarVisible;
     setSidebarVisible(next);
@@ -120,27 +109,13 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
-                <Link href="/" className="mb-3 flex h-8 items-center overflow-hidden">
+                <Link href="/" className="flex w-full items-center overflow-hidden">
                   <img
-                    src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                    src={theme === "dark" ? "/title-subtitle-dark.svg" : "/title-subtitle-light.svg"}
                     alt="ZeroGEX"
-                    style={{ height: "140%", width: "auto", maxWidth: "none", objectFit: "contain" }}
+                    style={{ width: "100%", height: "auto", objectFit: "contain" }}
                   />
                 </Link>
-                <div className="mb-3 flex items-center justify-between">
-                  <button
-                    onClick={onToggleTheme}
-                    className="rounded-full border p-2 transition"
-                    style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
-                    aria-label="Toggle theme"
-                  >
-                    {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
-                  </button>
-                  <div style={{ cursor: "pointer" }}>
-                    <SessionBadge session={session} theme={theme} showCountdown={false} />
-                  </div>
-                </div>
-                <WorldClocks theme={theme} session={session} />
               </div>
             )}
             {navGroups.map((group) => {

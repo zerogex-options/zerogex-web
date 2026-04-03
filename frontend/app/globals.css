@@ -39,6 +39,8 @@
   --color-chart-axis: #1A1618;
   --color-chart-tooltip-bg: #F7F5F7;
   --color-chart-tooltip-border: #DDD7DD;
+  --color-grid-line: rgba(221, 215, 221, 0.42);
+  --color-grid-overlay: rgba(240, 238, 240, 0.56);
 }
 
 :root.dark {
@@ -61,6 +63,8 @@
   --color-chart-axis: #F4EDE4;
   --color-chart-tooltip-bg: #162635;
   --color-chart-tooltip-border: #1F3A4A;
+  --color-grid-line: rgba(46, 74, 94, 0.52);
+  --color-grid-overlay: rgba(15, 26, 36, 0.4);
 }
 
 @theme inline {
@@ -80,8 +84,9 @@ html, body {
 body {
   background-color: var(--background);
   background-image:
-    linear-gradient(var(--color-divider) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-divider) 1px, transparent 1px);
+    linear-gradient(var(--color-grid-overlay), var(--color-grid-overlay)),
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
   background-size: 44px 44px;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
