@@ -6,7 +6,6 @@ import { colors } from '@/core/colors';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
-import ThemeToggle from './ThemeToggle';
 
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about'];
@@ -33,15 +32,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         flexDirection: 'column',
       }}
     >
-      <Header theme={theme} />
-      <Navigation theme={theme} />
+      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Navigation theme={theme} onToggleTheme={toggleTheme} />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>
       <Footer theme={theme} />
-
-      {/* Floating Theme Toggle */}
-      <ThemeToggle theme={theme} onToggle={toggleTheme} />
     </div>
   );
 }

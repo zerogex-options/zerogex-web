@@ -160,7 +160,7 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
   const pl = payload[0].value;
   const positive = pl >= 0;
   return (
-    <div style={{ background: '#0f0d0e', border: `1px solid ${positive ? '#10b98144' : '#ef444444'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
+    <div style={{ background: 'var(--color-surface)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
       <div style={{ color: 'var(--color-border)', fontSize: 11, marginBottom: 4 }}>
         Underlying: <span style={{ color: 'var(--color-text-secondary)' }}>${Number(label).toFixed(2)}</span>
       </div>
@@ -380,7 +380,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-[var(--color-text-secondary)]">
             Strategy
             <select
-              className="ml-2 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1"
+              className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-gray-600 px-2 py-1"
               value={strategy}
               onChange={(e) => handleStrategyChange(e.target.value as StrategyType)}
             >
@@ -392,7 +392,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-[var(--color-text-secondary)]">
             Contracts
             <input
-              className="ml-2 w-24 rounded bg-[#2f2b2c] border border-gray-600 px-2 py-1"
+              className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-gray-600 px-2 py-1"
               type="number" min={1} value={contracts}
               onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))}
             />
@@ -409,7 +409,7 @@ export default function OptionsCalculatorPage() {
             const legStrikes = strikeMapByExpiration[leg.expiration] || [];
             const isStock = leg.right === 'stock';
             return (
-              <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[#2f2b2c] p-3 rounded">
+              <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[var(--color-surface-subtle)] p-3 rounded">
                 <div className="text-sm font-semibold">{leg.label}</div>
                 {isStock ? (
                   <div className="col-span-2 text-sm text-[var(--color-text-secondary)] italic">Underlying share position · spot ${spot > 0 ? spot.toFixed(2) : '--'}</div>
@@ -417,7 +417,7 @@ export default function OptionsCalculatorPage() {
                   <>
                     <label className="text-sm text-[var(--color-text-secondary)]">Exp
                       <select
-                        className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-gray-600 px-2 py-1"
                         value={leg.expiration}
                         onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -426,7 +426,7 @@ export default function OptionsCalculatorPage() {
                     </label>
                     <label className="text-sm text-[var(--color-text-secondary)]">Strike
                       <select
-                        className="ml-2 rounded bg-[#1f1c1d] border border-gray-600 px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-gray-600 px-2 py-1"
                         value={String(leg.strike)}
                         onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -477,27 +477,27 @@ export default function OptionsCalculatorPage() {
                 <stop offset={`${zeroOffset}%`} stopColor="var(--color-negative)" />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#3f3a3c" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
             <XAxis
               type="number"
               dataKey="price"
               domain={['dataMin', 'dataMax']}
               ticks={xTicks}
               interval={0}
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
               tickLine={false}
-              axisLine={{ stroke: '#3f3a3c' }}
+              axisLine={{ stroke: 'var(--color-chart-grid)' }}
               tickFormatter={(v) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
               tickLine={false}
-              axisLine={{ stroke: '#3f3a3c' }}
+              axisLine={{ stroke: 'var(--color-chart-grid)' }}
               tickFormatter={(v) => fmtDollar(Number(v), 0)}
               width={70}
             />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={0} stroke="#475569" strokeWidth={1.5} />
+            <ReferenceLine y={0} stroke="var(--color-chart-axis)" strokeWidth={1.5} />
             {spot > 0 && (
               <ReferenceLine
                 x={spot}
@@ -507,7 +507,7 @@ export default function OptionsCalculatorPage() {
                   value: `Spot $${spot.toFixed(2)}`,
                   position: 'insideTop',
                   dy: -26,
-                  fill: '#94a3b8',
+                  fill: 'var(--color-text-secondary)',
                   fontSize: 11,
                   fontWeight: 500,
                 }}
@@ -529,7 +529,7 @@ export default function OptionsCalculatorPage() {
                     value: `BE $${be.toFixed(2)}`,
                     position: 'insideTop',
                     dy: -12,
-                    fill: '#fbbf24',
+                    fill: 'var(--color-primary-400)',
                     fontSize: 11,
                     fontWeight: 500,
                   }}
@@ -542,7 +542,7 @@ export default function OptionsCalculatorPage() {
               strokeWidth={2.5}
               fill="url(#plFill)"
               dot={false}
-              activeDot={{ r: 4, fill: '#f1f5f9', strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: 'var(--color-text-primary)', strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>

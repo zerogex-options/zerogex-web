@@ -312,7 +312,7 @@ export default function MaxPainPage() {
               <ReferenceLine
                 ifOverflow="extendDomain"
                 x={underlyingStrikeMarker}
-                stroke={"#60a5fa"}
+                stroke={"var(--color-brand-accent)"}
                 strokeDasharray="6 4"
                 strokeWidth={2}
                 label={{

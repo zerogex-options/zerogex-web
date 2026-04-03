@@ -755,7 +755,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
                     </text>
                   ) : null}
                   {dateLabel ? (
-                    <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
+                    <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
                       {dateLabel}
                     </text>
                   ) : null}
@@ -1217,7 +1217,7 @@ export default function FlowAnalysisPage() {
                         </text>
                       ) : null}
                       {dateLabel ? (
-                        <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
+                        <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
                           {dateLabel}
                         </text>
                       ) : null}

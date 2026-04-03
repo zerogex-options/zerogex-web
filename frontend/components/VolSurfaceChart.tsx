@@ -272,9 +272,9 @@ function formatPct(value: unknown): string {
 function renderLegend(labels: [string, string, string]) {
   return (
     <div className="flex items-center gap-6 text-sm pt-2">
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#5db9ff' }} />{labels[0]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#9b8bff' }} />{labels[1]} IV</span>
-      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: '#c0c4be' }} />{labels[2]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: 'var(--color-brand-accent)' }} />{labels[0]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: 'var(--color-brand-primary)' }} />{labels[1]} IV</span>
+      <span className="inline-flex items-center gap-2 leading-4"><i className="inline-block w-4 h-4 rounded" style={{ backgroundColor: 'var(--color-neutral)' }} />{labels[2]} IV</span>
     </div>
   );
 }
@@ -332,8 +332,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           <AreaChart data={surface} margin={{ top: 8, right: isMobile ? 2 : 8, left: isMobile ? -10 : 0, bottom: 14 }}>
             <defs>
               <linearGradient id="surfaceFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#c7d2df" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#c7d2df" stopOpacity={0.15} />
+                <stop offset="0%" stopColor="var(--color-neutral)" stopOpacity={0.45} />
+                <stop offset="100%" stopColor="var(--color-neutral)" stopOpacity={0.12} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.45} />
@@ -363,9 +363,9 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
 
             <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
 
-            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="#5db9ff" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
-            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="#9b8bff" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: '#9b8bff' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="#c0c4be" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: isDark ? 'var(--color-surface)' : 'var(--color-surface)' }} connectNulls />
+            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="var(--color-brand-accent)" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
+            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="var(--color-brand-primary)" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-brand-primary)' }} connectNulls />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="var(--color-neutral)" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-surface)' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
       )}

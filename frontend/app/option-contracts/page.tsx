@@ -328,7 +328,7 @@ function ContractLegend({
   const items = [
     { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "var(--color-warning)" },
     { label: "Ask Vol", value: null, color: "var(--color-positive)" },
-    { label: "Mid Vol", value: null, color: "#60a5fa" },
+    { label: "Mid Vol", value: null, color: "var(--color-brand-accent)" },
     { label: "Bid Vol", value: null, color: "var(--color-negative)" },
   ];
 
@@ -445,7 +445,7 @@ function ContractChart({
                       </text>
                     ) : null}
                     {dateLabel ? (
-                      <text dy={26} textAnchor="middle" fill={isDark ? "#cfcfcf" : "var(--color-text-secondary)"} fontSize={9}>
+                      <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
                         {dateLabel}
                       </text>
                     ) : null}
@@ -526,7 +526,7 @@ function ContractChart({
             />
 
             <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="var(--color-positive)" isAnimationActive={false} />
-            <Bar yAxisId="volume" dataKey="midVol" name="Mid Vol" stackId="vol" fill="#60a5fa" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="midVol" name="Mid Vol" stackId="vol" fill="var(--color-brand-accent)" isAnimationActive={false} />
             <Bar yAxisId="volume" dataKey="bidVol" name="Bid Vol" stackId="vol" fill="var(--color-negative)" isAnimationActive={false} />
 
             <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="var(--color-warning)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />

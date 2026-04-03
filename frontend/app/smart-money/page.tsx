@@ -123,7 +123,7 @@ export default function SmartMoneyPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = isDark ? '#2f2b2c' : 'var(--color-surface-subtle)';
+  const inputBg = isDark ? 'var(--color-surface-subtle)' : 'var(--color-surface-subtle)';
   const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
   const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
@@ -289,7 +289,7 @@ export default function SmartMoneyPage() {
                       const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
                       const dateLabel = dateMarkerMeta.get(index);
                       if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? '#cfcfcf' : 'var(--color-text-secondary)'} fontSize={9}>{dateLabel}</text> : null}</g>;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)'} fontSize={9}>{dateLabel}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
@@ -343,7 +343,7 @@ export default function SmartMoneyPage() {
                           const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
                           const isHovered = hoveredRowKey && meta?.rowKey === hoveredRowKey;
                           const baseFill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
-                          const popFill = meta?.optionType === 'P' ? '#fb7185' : '#4ade80';
+                          const popFill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
                           return (
                             <Cell
                               key={`cell-${idx + 1}-${pointIdx}`}

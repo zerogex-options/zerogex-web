@@ -7,14 +7,19 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import Link from "next/link";
+import { Moon, Sun } from "lucide-react";
+import WorldClocks from "./WorldClocks";
+import SessionBadge from "./SessionBadge";
+import { getMarketSession } from "@/core/utils";
 
 interface NavigationProps {
   theme: Theme;
+  onToggleTheme: () => void;
 }
 
 const SIDEBAR_WIDTH = 272;
 
-export default function Navigation({ theme }: NavigationProps) {
+export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
@@ -26,6 +31,15 @@ export default function Navigation({ theme }: NavigationProps) {
       return true;
     }
   });
+  const [headerCollapsed, setHeaderCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("headerCollapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [session, setSession] = useState(getMarketSession());
 
   const navGroups = useMemo(
     () => [
@@ -62,6 +76,22 @@ export default function Navigation({ theme }: NavigationProps) {
     return () => window.removeEventListener("resize", syncNavVars);
   }, [sidebarVisible]);
 
+  useEffect(() => {
+    const handleCollapseChanged = (event: Event) => {
+      const detail = (event as CustomEvent<boolean>).detail;
+      setHeaderCollapsed(Boolean(detail));
+    };
+
+    window.addEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
+    return () =>
+      window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setSession(getMarketSession()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const toggleSidebar = () => {
     const next = !sidebarVisible;
     setSidebarVisible(next);
@@ -70,7 +100,7 @@ export default function Navigation({ theme }: NavigationProps) {
     } catch {}
   };
 
-  const border = "rgba(150,143,146,0.25)";
+  const border = "var(--color-border)";
 
   return (
     <>
@@ -88,6 +118,24 @@ export default function Navigation({ theme }: NavigationProps) {
           }}
         >
           <div className="h-full overflow-y-auto px-4 py-5">
+            {headerCollapsed && (
+              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
+                <div className="mb-3 flex items-center justify-between">
+                  <button
+                    onClick={onToggleTheme}
+                    className="rounded-full border p-2 transition"
+                    style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
+                    aria-label="Toggle theme"
+                  >
+                    {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
+                  </button>
+                  <div style={{ cursor: "pointer" }}>
+                    <SessionBadge session={session} theme={theme} showCountdown={false} />
+                  </div>
+                </div>
+                <WorldClocks theme={theme} session={session} />
+              </div>
+            )}
             {navGroups.map((group) => {
               const isExpanded = expandedGroups[group.label] ?? false;
               return (

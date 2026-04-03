@@ -25,9 +25,10 @@ import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 
 interface HeaderProps {
   theme: Theme;
+  onToggleTheme: () => void;
 }
 
-export default function Header({ theme }: HeaderProps) {
+export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
@@ -201,14 +202,14 @@ export default function Header({ theme }: HeaderProps) {
     ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
     : "vs regular session close";
 
-  const border = "rgba(150,143,146,0.25)";
+  const border = "var(--color-border)";
 
   return (
     <header
       ref={headerRef}
       className="border-b sticky top-0 z-40"
       style={{
-        backgroundColor: theme === "dark" ? `${colors.bgDark}f2` : `${colors.bgLight}f2`,
+        backgroundColor: "transparent",
         borderColor: border,
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
@@ -217,360 +218,96 @@ export default function Header({ theme }: HeaderProps) {
       <div
         className="container mx-auto px-6"
         style={{
-          paddingTop: isMobileViewport ? "4px" : isCollapsed ? "8px" : "16px",
-          paddingBottom: isMobileViewport ? "4px" : isCollapsed ? "8px" : "16px",
+          paddingTop: isMobileViewport ? "4px" : "8px",
+          paddingBottom: isMobileViewport ? "4px" : "8px",
           transition: "padding 0.3s ease",
         }}
       >
         {/* Desktop Layout */}
         <div className="hidden md:block relative">
-          {isCollapsed ? (
-            // Collapsed Layout - Single Line with Absolute Centered Logo
-            <div
-              className="relative flex items-center justify-between"
-              style={{ paddingRight: "48px" }}
-            >
-              {/* Left: Dropdowns + Live Price */}
+          <div className="relative flex items-center justify-between" style={{ minHeight: "72px", paddingRight: "40px" }}>
+            {!isCollapsed && (
               <div className="flex items-center gap-4">
-                <div className="flex flex-col gap-2">
-                  <select
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                    className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
-                    style={{
-                      background:
-                        theme === "dark"
-                          ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
-                          : colors.cardLight,
-                      borderColor: border,
-                      color: theme === "dark" ? colors.light : colors.dark,
-                      width: "90px",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <option>SPY</option>
-                    <option>SPX</option>
-                    <option>QQQ</option>
-                    <option>IWM</option>
-                  </select>
-                </div>
-
+                <select
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                  className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
+                  style={{
+                    background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                    borderColor: border,
+                    color: theme === "dark" ? colors.light : colors.dark,
+                    width: "90px",
+                    backdropFilter: "blur(8px)",
+                  }}
+                >
+                  <option>SPY</option>
+                  <option>SPX</option>
+                  <option>QQQ</option>
+                  <option>IWM</option>
+                </select>
                 {row1Price !== null && (
-                  <div className="flex flex-col gap-1">
-                    {/* Row 1: regular-session price + change (inline when market closed) */}
-                    <div
-                      className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"}
-                      style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}
-                    >
-                      <span
-                        className="font-bold text-xl"
-                        title={row1PriceLabel}
-                      >
-                        ${row1Price.toFixed(2)}
-                      </span>
+                  <div className="flex flex-col gap-0.5">
+                    <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
+                      <span className="font-bold text-xl" title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit"
-                          title={row1ChangeLabel}
-                          style={{
-                            backgroundColor:
-                              theme === "dark"
-                                ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                                : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                            color: row1Positive ? colors.bullish : colors.bearish,
-                          }}
-                        >
-                          {row1Positive ? (
-                            <TrendingUp size={12} strokeWidth={2.5} />
-                          ) : (
-                            <TrendingDown size={12} strokeWidth={2.5} />
-                          )}
-                          {row1Positive ? "+" : ""}
-                          {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                          {row1ChangePercent.toFixed(2)}%)
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                          {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
+                          {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
                       )}
                     </div>
-                    {/* Row 2: extended-hours price (after-hours / pre-market only) */}
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
-                      <div
-                        className="flex items-center gap-1.5 mt-0.5"
-                        title={row2Label}
-                      >
-                        {extendedHoursIcon === "moon" ? (
-                          <Moon size={11} style={{ color: colors.muted }} />
-                        ) : (
-                          <Sun size={11} style={{ color: colors.muted }} />
-                        )}
-                        <span
-                          className="text-xs font-semibold"
-                          style={{
-                            color: theme === "dark" ? colors.light : colors.dark,
-                            opacity: 0.8,
-                          }}
-                        >
-                          ${row2Price.toFixed(2)}
-                        </span>
-                        <span
-                          className="text-xs font-semibold"
-                          title={row2ChangeLabel}
-                          style={{ color: row2Positive ? colors.bullish : colors.bearish }}
-                        >
-                          {row2Positive ? "+" : ""}
-                          {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
-                          {row2ChangePercent.toFixed(2)}%)
+                      <div className="flex items-center gap-1.5 mt-0.5" title={row2Label}>
+                        {extendedHoursIcon === "moon" ? <Moon size={11} style={{ color: colors.muted }} /> : <Sun size={11} style={{ color: colors.muted }} />}
+                        <span className="text-xs font-semibold" style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
+                        <span className="text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? colors.bullish : colors.bearish }}>
+                          {row2Positive ? "+" : ""}{row2Change.toFixed(2)} ({row2Positive ? "+" : ""}{row2ChangePercent.toFixed(2)}%)
                         </span>
                       </div>
                     )}
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Absolute Center: Logo */}
-              <div
-                className="absolute left-1/2 top-1/2 pointer-events-none"
-                style={{
-                  transform: "translate(-50%, -50%)",
-                }}
-              >
-                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", transition: "height 0.3s ease", padding: 0, margin: 0, lineHeight: 0 }}>
-                  <img
-                    src={
-                      theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
-                    }
-                    alt="ZeroGEX"
-                    style={{
-                      width: "auto",
-                      height: "150%",
-                      maxWidth: "none",
-                      maxHeight: "none",
-                      objectFit: "contain",
-                      objectPosition: "center",
-                      display: "block",
-                      margin: 0,
-                      padding: 0,
-                    }}
-                  />
-                </Link>
-              </div>
+            <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
+              <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
+                <img
+                  src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                  alt="ZeroGEX"
+                  style={{ width: "auto", height: "150%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
+                />
+              </Link>
+            </div>
 
-              {/* Right: Text Times + Session Circle (pulled in from right) */}
-              <div
-                className="flex items-center gap-4"
-                style={{ marginRight: "24px" }}
-              >
-                <WorldClocks theme={theme} session={session} compact={true} />
-                <div
-                  onClick={() => setShowCountdown(!showCountdown)}
-                  style={{ cursor: "pointer" }}
+            {!isCollapsed && (
+              <div className="flex items-center gap-4" style={{ marginRight: "24px" }}>
+                <button
+                  onClick={onToggleTheme}
+                  className="rounded-full border p-2 transition"
+                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
+                  aria-label="Toggle theme"
                 >
-                  <SessionBadge
-                    session={sessionForBadge}
-                    theme={theme}
-                    showCountdown={showCountdown}
-                    compact={true}
-                  />
+                  {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
+                </button>
+                <WorldClocks theme={theme} session={session} />
+                <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
+                  <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
                 </div>
               </div>
+            )}
 
-              {/* Collapse Toggle Button - Rightmost */}
-              <button
-                onClick={toggleCollapsed}
-                className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute right-0"
-                style={{
-                  color: colors.muted,
-                  backgroundColor: "transparent",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = `${colors.muted}20`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-                aria-label="Expand header"
-              >
-                <ChevronDown size={20} />
-              </button>
-            </div>
-          ) : (
-            // Expanded Layout - Original with right padding for toggle button
-            <div style={{ paddingRight: "48px" }}>
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "2rem",
-                  alignItems: "center",
-                }}
-              >
-                {/* Left Column - Dropdowns & Quote */}
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col gap-2">
-                    <select
-                      value={symbol}
-                      onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                      className="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200"
-                      style={{
-                        background:
-                          theme === "dark"
-                            ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
-                            : colors.cardLight,
-                        borderColor: border,
-                        color: theme === "dark" ? colors.light : colors.dark,
-                        width: "120px",
-                        backdropFilter: "blur(8px)",
-                      }}
-                    >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
-                      <option>IWM</option>
-                    </select>
-                  </div>
-
-                  {row1Price !== null && (
-                    <div className="flex flex-col gap-1">
-                      {/* Row 1: regular-session price + change (inline when market closed) */}
-                      <div
-                        className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"}
-                        style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}
-                      >
-                        <span
-                          className="font-bold text-2xl"
-                          title={row1PriceLabel}
-                        >
-                          ${row1Price.toFixed(2)}
-                        </span>
-                        {row1Change !== null && row1ChangePercent !== null && (
-                          <div
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-lg font-semibold text-sm w-fit"
-                            title={row1ChangeLabel}
-                            style={{
-                              backgroundColor:
-                                theme === "dark"
-                                  ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                                  : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                              color: row1Positive ? colors.bullish : colors.bearish,
-                            }}
-                          >
-                            {row1Positive ? (
-                              <TrendingUp size={14} strokeWidth={2.5} />
-                            ) : (
-                              <TrendingDown size={14} strokeWidth={2.5} />
-                            )}
-                            {row1Positive ? "+" : ""}
-                            {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                            {row1ChangePercent.toFixed(2)}%)
-                          </div>
-                        )}
-                      </div>
-                      {/* Row 2: extended-hours price (after-hours / pre-market only) */}
-                      {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
-                        <div
-                          className="flex items-center gap-1.5 mt-1"
-                          title={row2Label}
-                        >
-                          {extendedHoursIcon === "moon" ? (
-                            <Moon size={13} style={{ color: colors.muted }} />
-                          ) : (
-                            <Sun size={13} style={{ color: colors.muted }} />
-                          )}
-                          <span
-                            className="text-sm font-semibold"
-                            style={{
-                              color: theme === "dark" ? colors.light : colors.dark,
-                              opacity: 0.8,
-                            }}
-                          >
-                            ${row2Price.toFixed(2)}
-                          </span>
-                          <span
-                            className="text-sm font-semibold"
-                            title={row2ChangeLabel}
-                            style={{ color: row2Positive ? colors.bullish : colors.bearish }}
-                          >
-                            {row2Positive ? "+" : ""}
-                            {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
-                            {row2ChangePercent.toFixed(2)}%)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column - with padding to avoid toggle button */}
-                <div className="flex flex-col gap-2 items-end">
-                  <div
-                    onClick={() => setShowCountdown(!showCountdown)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <SessionBadge
-                      session={sessionForBadge}
-                      theme={theme}
-                      showCountdown={showCountdown}
-                    />
-                  </div>
-
-                  <div className="scale-90 origin-right">
-                    <WorldClocks
-                      theme={theme}
-                      session={session}
-                      hideCountdown={true}
-                    />
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Absolutely centered logo */}
-              <div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                style={{ top: 0, bottom: 0 }}
-              >
-                <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "200px", overflow: "hidden", transition: "height 0.3s ease", padding: 0, margin: 0, lineHeight: 0 }}>
-                  <img
-                    src={
-                      theme === "dark" ? "/title-dark.svg" : "/title-light.svg"
-                    }
-                    alt="ZeroGEX"
-                    style={{
-                      width: "auto",
-                      height: "150%",
-                      maxWidth: "none",
-                      maxHeight: "none",
-                      objectFit: "contain",
-                      objectPosition: "center",
-                      display: "block",
-                      margin: 0,
-                      padding: 0,
-                    }}
-                  />
-                </Link>
-              </div>
-
-              {/* Collapse Toggle Button - Top Right */}
-              <button
-                onClick={toggleCollapsed}
-                className="absolute top-0 right-0 p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10"
-                style={{
-                  color: colors.muted,
-                  backgroundColor: "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = `${colors.muted}20`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-                aria-label="Collapse header"
-              >
-                <ChevronUp size={20} />
-              </button>
-            </div>
-          )}
+            <button
+              onClick={toggleCollapsed}
+              className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute right-0"
+              style={{ color: colors.muted, backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.muted}20`; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+              aria-label={isCollapsed ? "Expand header" : "Collapse header"}
+            >
+              {isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Layout - Always Collapsed */}
@@ -594,6 +331,14 @@ export default function Header({ theme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-3">
+              <button
+                onClick={onToggleTheme}
+                className="rounded-full border p-1.5"
+                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
+              </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-0"
