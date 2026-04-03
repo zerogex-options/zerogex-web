@@ -238,7 +238,7 @@ export default function GammaExposurePage() {
       {/* Section 5: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
-          <div className="rounded-lg p-6 border" style={{ backgroundColor: cardBg, borderColor }}>
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
             <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
