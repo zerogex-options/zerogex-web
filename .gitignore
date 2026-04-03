@@ -216,18 +216,9 @@ frontend/public/sitemap-*.xml
 frontend/public/robots.txt
 
 # generated branding files from `make logo`
-frontend/public/logo-dark.svg
-frontend/public/logo-light.svg
-frontend/public/title-dark.svg
-frontend/public/title-light.svg
-frontend/public/title-subtitle-dark.svg
-frontend/public/title-subtitle-light.svg
-frontend/public/helmet.svg
-frontend/public/favicon.ico
-frontend/public/logo-dark-small.svg
-frontend/public/logo-light-small.svg
-frontend/public/title-dark-small.svg
-frontend/public/title-light-small.svg
-frontend/public/title-subtitle-dark-small.svg
-frontend/public/title-subtitle-light-small.svg
+frontend/public/logo*.svg
+frontend/public/title*.svg
 frontend/public/og-image.png
+frontend/public/favicon.ico
+frontend/public/helmet.svg
+frontend/public/target.svg
