@@ -117,9 +117,7 @@ export default function GammaHeatmap() {
     const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
     const bearishTone = { r: 58, g: 174, b: 216 }; // lagoonBlue
-    const neutralTone = theme === 'dark'
-      ? { r: 27, g: 49, b: 67 }
-      : { r: 247, g: 245, b: 247 };
+    const neutralTone = { r: 247, g: 245, b: 247 };
     const bullishTone = { r: 255, g: 179, b: 71 }; // sunGlow
 
     const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({

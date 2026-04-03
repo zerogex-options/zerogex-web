@@ -275,7 +275,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       <option>QQQ</option>
                       <option>IWM</option>
                     </select>
-                    <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
+                    <div onClick={() => setShowCountdown(!showCountdown)}>
                       <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
                     </div>
                   </div>
@@ -526,10 +526,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
               <WorldClocks theme={theme} session={session} />
               <div className="flex items-center gap-2">
-                <div
-                  onClick={() => setShowCountdown(!showCountdown)}
-                  style={{ cursor: "pointer" }}
-                >
+                <div onClick={() => setShowCountdown(!showCountdown)}>
                   <SessionBadge
                     session={session}
                     theme={theme}
