@@ -142,7 +142,7 @@ export default function Navigation({ theme }: NavigationProps) {
                   <img
                     src={theme === "dark" ? "/title-subtitle-dark.svg" : "/title-subtitle-light.svg"}
                     alt="ZeroGEX"
-                    style={{ width: "100%", height: "auto", objectFit: "contain" }}
+                    style={{ width: "118%", maxWidth: "118%", height: "auto", objectFit: "cover", marginLeft: "-9%" }}
                   />
                 </Link>
                 {row1Price !== null && (

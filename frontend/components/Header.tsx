@@ -235,8 +235,27 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                   aria-label="Toggle theme"
                 >
-                  {theme === "dark" ? <Moon size={isCollapsed ? 12 : 14} /> : <Sun size={isCollapsed ? 12 : 14} />}
+                  {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
                 </button>
+                {isCollapsed && (
+                  <select
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                    className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
+                    style={{
+                      background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                      borderColor: border,
+                      color: theme === "dark" ? colors.light : colors.dark,
+                      width: "90px",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <option>SPY</option>
+                    <option>SPX</option>
+                    <option>QQQ</option>
+                    <option>IWM</option>
+                  </select>
+                )}
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1">
                     <select
@@ -257,16 +276,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       <option>IWM</option>
                     </select>
                     <div onClick={() => setShowCountdown(!showCountdown)} style={{ cursor: "pointer" }}>
-                      <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} compact />
+                      <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
                     </div>
                   </div>
                 )}
                 {!isCollapsed && row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
-                      <span className="font-bold" style={{ fontSize: isCollapsed ? "1rem" : "1.25rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
+                      <span className="font-bold" style={{ fontSize: "1.5rem", lineHeight: 1.05 }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish, fontSize: isCollapsed ? "10px" : "12px" }}>
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish, fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>

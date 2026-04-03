@@ -74,6 +74,7 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
     return (
       <div
         className="px-2 py-2 rounded-lg flex items-center justify-center"
+        title={badge.label}
         style={{
           backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
           border: `1px solid ${colors.muted}40`,
