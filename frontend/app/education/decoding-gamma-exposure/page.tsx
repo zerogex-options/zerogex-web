@@ -71,7 +71,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
         i += 1;
       }
       out.push(
-        <blockquote key={`q-${i}`} className="my-6 border-l-4 border-amber-300/70 bg-amber-200/5 py-3 pl-4 text-lg font-medium text-[#efe8ee]">
+        <blockquote key={`q-${i}`} className="my-6 border-l-4 border-[var(--color-warning)] bg-[var(--color-warning-soft)] py-3 pl-4 text-lg font-medium text-[var(--text-primary)]">
           {block.map((t, idx) => <p key={idx} className="my-1">{parseInline(t)}</p>)}
         </blockquote>,
       );
@@ -102,7 +102,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
               {body.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="border border-[var(--color-border)] px-4 py-2 text-[#d3cdd2]">{parseInline(cell)}</td>
+                    <td key={cellIdx} className="border border-[var(--color-border)] px-4 py-2 text-[var(--text-secondary)]">{parseInline(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -120,7 +120,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
         i += 1;
       }
       out.push(
-        <ul key={`ul-${i}`} className="my-4 list-disc space-y-2 pl-6 text-[17px] leading-8 text-[#d3cdd2]">
+        <ul key={`ul-${i}`} className="my-4 list-disc space-y-2 pl-6 text-[17px] leading-8 text-[var(--text-secondary)]">
           {listItems.map((item, idx) => (
             <li key={idx}>{parseInline(item)}</li>
           ))}
@@ -137,7 +137,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
 
     if (paragraph.length) {
       out.push(
-        <p key={`p-${i}`} className="my-5 text-[18px] leading-9 text-[#d8d2d7]">
+        <p key={`p-${i}`} className="my-5 text-[18px] leading-9 text-[var(--text-secondary)]">
           {parseInline(paragraph.join(' '))}
         </p>,
       );
@@ -155,12 +155,12 @@ export default function DecodingGammaExposurePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
-      <Link href="/education" className="mb-8 inline-block text-sm font-semibold text-amber-300 hover:text-amber-200">
+      <Link href="/education" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Education Hub
       </Link>
 
-      <article className="rounded-3xl border border-[var(--color-border)] bg-[#201d1f]/95 px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:px-14">
-        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[#9f98a0]">ZeroGEX Education • 15 min read</div>
+      <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 15 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
     </div>

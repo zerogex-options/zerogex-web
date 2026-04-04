@@ -319,7 +319,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           Loading vol surface...
         </div>
       ) : error ? (
-        <div className="flex items-center justify-center h-[300px] text-sm text-red-400">
+        <div className="flex items-center justify-center h-[300px] text-sm text-[var(--color-bear)]">
           {error}
         </div>
       ) : surface.length === 0 ? (

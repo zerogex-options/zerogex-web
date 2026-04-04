@@ -56,7 +56,7 @@ function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isD
       className="h-5 rounded-full overflow-hidden flex-shrink-0"
       style={{
         width: '100px',
-        backgroundColor: isDark ? 'rgba(150, 143, 146, 0.15)' : 'rgba(0, 0, 0, 0.06)',
+        backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
       }}
     >
       <div
@@ -156,7 +156,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
             className="h-5 rounded-full flex-shrink-0"
             style={{
               width: '100px',
-              backgroundColor: isDark ? 'rgba(150, 143, 146, 0.15)' : 'rgba(0, 0, 0, 0.06)',
+              backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
             }}
           >
             <div

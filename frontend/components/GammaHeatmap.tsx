@@ -275,7 +275,7 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={axisColor}>{(maxValue / 1_000_000).toFixed(1)}M</text>
           <text x={plotLeft + 228} y={18} fontSize="10" fill={axisColor}>Net GEX</text>
           <g>
-            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={20} y2={20} stroke="#1D3557" strokeWidth={2.25} />
+            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={20} y2={20} stroke="var(--accent-2)" strokeWidth={2.25} />
             <text x={plotLeft + 316} y={23} fontSize="10" fill={axisColor}>Gamma Flip</text>
           </g>
 
@@ -346,11 +346,11 @@ export default function GammaHeatmap() {
 
           {gammaFlipPath && (
             <g clipPath="url(#heatmapClip)">
-              <path d={gammaFlipPath} fill="none" stroke="#1D3557" strokeWidth={2.25} />
+              <path d={gammaFlipPath} fill="none" stroke="var(--accent-2)" strokeWidth={2.25} />
               {hoveredIdx != null && gammaFlipPoints
                 .filter((p) => p.idx === hoveredIdx)
                 .map((p) => (
-                  <circle key={`gamma-flip-dot-${p.ts}`} cx={p.x} cy={p.y} r={3.5} fill="#1D3557" />
+                  <circle key={`gamma-flip-dot-${p.ts}`} cx={p.x} cy={p.y} r={3.5} fill="var(--accent-2)" />
                 ))}
             </g>
           )}

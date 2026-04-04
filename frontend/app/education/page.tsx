@@ -5,7 +5,7 @@ export default function EducationPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <div className="mb-10 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/70 p-8">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <BookOpen size={14} />
           Education
         </div>
@@ -17,7 +17,7 @@ export default function EducationPage() {
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/70 p-6">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">Published • March 26, 2026 • 16:00 UTC</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • March 26, 2026 • 16:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           ZeroGEX™ Guide: Decoding Gamma Exposure — The Hidden Force Driving Market Behavior
         </h2>
@@ -27,7 +27,7 @@ export default function EducationPage() {
         </p>
         <Link
           href="/education/decoding-gamma-exposure"
-          className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/20"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
         >
           Read article
           <ArrowRight size={16} />

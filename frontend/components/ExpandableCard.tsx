@@ -53,7 +53,7 @@ export default function ExpandableCard({
       {expanded && (
         <div
           className="fixed inset-0 z-[100] p-3 md:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+          style={{ backgroundColor: 'var(--color-grid-overlay)' }}
           onClick={() => setExpanded(false)}
         >
           <div

@@ -26,15 +26,15 @@ export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
         padding: '2px',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        boxShadow: theme === 'dark' ? '0 4px 16px rgba(0, 0, 0, 0.4)' : '0 4px 16px rgba(0, 0, 0, 0.15)',
+        boxShadow: theme === 'dark' ? '0 4px 16px var(--color-info-soft)' : '0 4px 16px var(--color-info-soft)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'scale(1.05)';
-        e.currentTarget.style.boxShadow = theme === 'dark' ? '0 6px 20px rgba(0, 0, 0, 0.5)' : '0 6px 20px rgba(0, 0, 0, 0.2)';
+        e.currentTarget.style.boxShadow = theme === 'dark' ? '0 6px 20px var(--color-info-soft)' : '0 6px 20px var(--color-info-soft)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.boxShadow = theme === 'dark' ? '0 4px 16px rgba(0, 0, 0, 0.4)' : '0 4px 16px rgba(0, 0, 0, 0.15)';
+        e.currentTarget.style.boxShadow = theme === 'dark' ? '0 4px 16px var(--color-info-soft)' : '0 4px 16px var(--color-info-soft)';
       }}
       aria-label="Toggle theme"
     >

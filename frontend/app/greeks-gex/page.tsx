@@ -148,7 +148,7 @@ export default function GreeksGEXPage() {
 
       {/* Data Freshness */}
       {gexData && (
-        <div className="text-right text-sm text-gray-500">
+        <div className="text-right text-sm text-[var(--text-muted)]">
           Last updated: {new Date(gexData.timestamp).toLocaleTimeString()}
         </div>
       )}

@@ -32,13 +32,13 @@ import {
 const C = {
   bgDark:    'var(--color-bg)',
   card:      'var(--color-surface)',
-  cardHover: '#4e4749',
+  cardHover: 'var(--bg-hover)',
   light:     'var(--color-text-primary)',
   muted:     'var(--color-text-secondary)',
   amber:     'var(--color-brand-primary)',
   green:     'var(--color-positive)',
   red:       'var(--color-negative)',
-  border:    'rgba(150,143,146,0.25)',
+  border:    'var(--border-default)',
 };
 
 // ── Section heading ───────────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
   return (
     <div style={{
       background: isDark
-        ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)`
-        : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(245,240,245,0.5) 100%)',
+        ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
+        : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
       border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
     }}>
       <div style={{
@@ -110,7 +110,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
         onClick={() => setOpen(!open)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', background: open ? `${C.amber}08` : (isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)'),
+          padding: '20px 24px', background: open ? `${C.amber}08` : (isDark ? `${C.card}99` : 'var(--bg-card)'),
           border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16,
           transition: 'background 0.2s',
         }}
@@ -141,7 +141,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
       <div style={{
         display: 'flex', alignItems: 'center', gap: 16,
         padding: '18px 22px', borderRadius: 14,
-        background: isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)', border: `1px solid ${C.border}`,
+        background: isDark ? `${C.card}cc` : 'var(--bg-card)', border: `1px solid ${C.border}`,
         transition: 'all 0.2s', cursor: 'pointer',
       }}
         onMouseEnter={e => {
@@ -150,7 +150,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.borderColor = C.border;
-          (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)';
+          (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}cc` : 'var(--bg-card)';
         }}
       >
         <div style={{
@@ -201,7 +201,7 @@ export default function AboutPage() {
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             style={{
-              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)', border: `1px solid ${C.border}`,
+              background: isDark ? `${C.card}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
               borderRadius: 10, width: 38, height: 38,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: C.muted,
@@ -211,7 +211,7 @@ export default function AboutPage() {
           </button>
           <Link href="/education" style={{ textDecoration: 'none' }}>
             <button style={{
-              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
+              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               borderRadius: 10,
               padding: '8px 14px',
@@ -225,9 +225,9 @@ export default function AboutPage() {
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button style={{
-              background: `linear-gradient(135deg, ${C.amber}, #e08800)`,
+              background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
               border: 'none', borderRadius: 10, padding: '8px 18px',
-              fontSize: 13, fontWeight: 700, color: '#1a1618', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, color: 'var(--text-inverse)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: `0 4px 16px ${C.amber}50`,
             }}>
@@ -247,8 +247,8 @@ export default function AboutPage() {
         <div style={{
           position: 'absolute', inset: 0, zIndex: 0,
           backgroundImage: `
-            linear-gradient(rgba(150,143,146,0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(150,143,146,0.06) 1px, transparent 1px)
+            linear-gradient(var(--border-subtle) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
           `,
           backgroundSize: '64px 64px',
         }} />
@@ -277,7 +277,7 @@ export default function AboutPage() {
           }}>
             Built for Traders Who{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber} 0%, #fbbf24 100%)`,
+              background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>
               Demand More
@@ -294,9 +294,9 @@ export default function AboutPage() {
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, #e08800 100%)`,
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
                 border: 'none', borderRadius: 12, padding: '14px 28px',
-                fontSize: 15, fontWeight: 700, color: '#1a1618', cursor: 'pointer',
+                fontSize: 15, fontWeight: 700, color: 'var(--text-inverse)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8,
                 boxShadow: `0 8px 28px ${C.amber}50`,
               }}>
@@ -359,7 +359,7 @@ export default function AboutPage() {
           </div>
 
           <div style={{
-            background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.75)', border: `1px solid ${C.border}`,
+            background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
             borderRadius: 20, padding: 28, backdropFilter: 'blur(12px)',
           }}>
             {[
@@ -394,7 +394,7 @@ export default function AboutPage() {
         padding: '80px 32px',
         background: isDark
           ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
-          : 'linear-gradient(180deg, transparent 0%, rgba(200,195,200,0.15) 50%, transparent 100%)',
+          : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 50%, transparent 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
@@ -490,7 +490,7 @@ export default function AboutPage() {
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div style={{
-                background: isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)', border: `1px solid ${C.border}`,
+                background: isDark ? `${C.card}99` : 'var(--bg-card)', border: `1px solid ${C.border}`,
                 borderRadius: 16, padding: '22px 20px',
                 display: 'flex', gap: 16, alignItems: 'flex-start',
                 transition: 'all 0.2s', cursor: 'pointer',
@@ -501,7 +501,7 @@ export default function AboutPage() {
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = C.border;
-                  (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}99` : 'rgba(255,255,255,0.7)';
+                  (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}99` : 'var(--bg-card)';
                 }}
               >
                 <div style={{
@@ -529,7 +529,7 @@ export default function AboutPage() {
         padding: '80px 32px',
         background: isDark
           ? `linear-gradient(180deg, transparent 0%, ${C.card}22 100%)`
-          : 'linear-gradient(180deg, transparent 0%, rgba(200,195,200,0.1) 100%)',
+          : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
@@ -558,7 +558,7 @@ export default function AboutPage() {
           </div>
 
           <div style={{
-            background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.75)', border: `1px solid ${C.border}`,
+            background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
             borderRadius: 20, padding: '32px 36px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -586,7 +586,7 @@ export default function AboutPage() {
                 { method: 'GET', path: '/intraday/levels', desc: 'VWAP, ORB, and intraday levels' },
               ].map((ep) => (
                 <div key={ep.path} style={{
-                  background: isDark ? `${C.bgDark}cc` : 'rgba(245,240,245,0.9)', border: `1px solid ${C.border}`,
+                  background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
                   borderRadius: 10, padding: '12px 14px',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -669,7 +669,7 @@ export default function AboutPage() {
           }}>
             Start Trading with{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber}, #fbbf24)`,
+              background: `linear-gradient(135deg, ${C.amber}, var(--heat-low))`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>
               Institutional Intelligence
@@ -681,9 +681,9 @@ export default function AboutPage() {
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, #e08800 100%)`,
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
                 border: 'none', borderRadius: 14,
-                padding: '16px 40px', fontSize: 17, fontWeight: 800, color: '#1a1618',
+                padding: '16px 40px', fontSize: 17, fontWeight: 800, color: 'var(--text-inverse)',
                 cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
                 boxShadow: `0 12px 40px ${C.amber}55`,
               }}>

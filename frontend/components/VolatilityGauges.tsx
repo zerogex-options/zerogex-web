@@ -18,11 +18,11 @@ interface VolatilityGaugeData {
 // ── Color interpolation ───────────────────────────────────────────────────────
 
 const COLOR_STOPS: Array<{ pos: number; rgb: [number, number, number] }> = [
-  { pos: 0,  rgb: [34,  197, 94]  }, // #22c55e  green
-  { pos: 2,  rgb: [132, 204, 22]  }, // #84cc16  lime
-  { pos: 5,  rgb: [245, 158, 11]  }, // #f59e0b  amber
-  { pos: 7,  rgb: [249, 115, 22]  }, // #f97316  orange
-  { pos: 10, rgb: [239, 68,  68]  }, // #ef4444  red
+  { pos: 0,  rgb: [27, 196, 125]  }, // bullish
+  { pos: 2,  rgb: [255, 211, 128]  }, // var(--color-bull)  lime
+  { pos: 5,  rgb: [255, 166, 0]  }, // var(--color-warning)  amber
+  { pos: 7,  rgb: [255, 133, 49]  }, // var(--heat-mid)  orange
+  { pos: 10, rgb: [255, 99, 97]  }, // heat-high
 ];
 
 function lerp(a: number, b: number, t: number) {
@@ -42,7 +42,7 @@ export function interpolateGaugeColor(value: number): string {
       return `rgb(${r},${g},${bl})`;
     }
   }
-  return "rgb(239,68,68)";
+  return "rgb(255,99,97)";
 }
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
@@ -123,15 +123,15 @@ export function SingleGauge({
   const needleAngle = (v / 10) * 180 - 90;
   const needleColor = interpolateGaugeColor(v);
 
-  const trackColor = isDark ? "rgba(242,242,242,0.07)" : "rgba(23,23,23,0.07)";
-  const mutedColor = isDark ? "rgba(242,242,242,0.32)" : "rgba(23,23,23,0.32)";
+  const trackColor = isDark ? "var(--border-subtle)" : "var(--border-subtle)";
+  const mutedColor = isDark ? "var(--text-muted)" : "var(--text-muted)";
   const hubBg = isDark ? "var(--color-bg)" : "var(--color-text-primary)";
   const bgPanelColor = isDark
-    ? "linear-gradient(160deg, rgba(52,47,49,0.92) 0%, rgba(36,32,34,0.92) 100%)"
-    : "linear-gradient(160deg, rgba(255,255,255,0.95) 0%, rgba(240,238,240,0.95) 100%)";
+    ? "linear-gradient(160deg, var(--bg-card) 0%, var(--bg-active) 100%)"
+    : "linear-gradient(160deg, var(--bg-card) 0%, var(--bg-hover) 100%)";
   const borderColor = isDark
-    ? "rgba(150,143,146,0.18)"
-    : "rgba(150,143,146,0.28)";
+    ? "var(--border-default)"
+    : "var(--border-strong)";
 
   const segments = Array.from({ length: NUM_SEGS }, (_, i) => {
     const segStart = 180 - i * SEG_ANGLE;
@@ -207,8 +207,8 @@ export function SingleGauge({
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           boxShadow: isDark
-            ? "0 2px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)"
-            : "0 2px 12px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.8)",
+            ? "0 2px 12px var(--color-info-soft), inset 0 1px 0 var(--border-subtle)"
+            : "0 2px 12px var(--color-info-soft), inset 0 1px 0 var(--bg-card)",
         }}
       >
         <svg
@@ -236,7 +236,7 @@ export function SingleGauge({
           {segments}
           <path
             d={buildArcSegment(cx, cy, outerR + 1.5, outerR + 0.5, 180, 0)}
-            fill={isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}
+            fill={isDark ? "var(--border-subtle)" : "var(--border-subtle)"}
           />
           {ticks}
           {scaleLabels}
@@ -287,23 +287,23 @@ export function SingleGauge({
           <div
             style={{
               background: isDark
-                ? "linear-gradient(135deg, rgba(66,61,63,0.98) 0%, rgba(42,38,40,0.98) 100%)"
-                : "rgba(255,255,255,0.98)",
-              border: `1px solid ${isDark ? "rgba(150,143,146,0.3)" : "rgba(150,143,146,0.25)"}`,
+                ? "linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)"
+                : "var(--bg-card)",
+              border: `1px solid ${isDark ? "var(--border-strong)" : "var(--border-default)"}`,
               borderRadius: "8px",
               padding: "7px 12px",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
-              boxShadow: "0 6px 24px rgba(0,0,0,0.3)",
+              boxShadow: "0 6px 24px var(--color-info-soft)",
               whiteSpace: "nowrap",
             }}
           >
-            <div style={{ color: isDark ? "rgba(242,242,242,0.55)" : "rgba(23,23,23,0.55)", fontSize: "11px", fontWeight: 600, marginBottom: "3px" }}>
+            <div style={{ color: isDark ? "var(--text-secondary)" : "var(--text-secondary)", fontSize: "11px", fontWeight: 600, marginBottom: "3px" }}>
               VIX: <span style={{ color: needleColor, fontWeight: 800 }}>{vix.toFixed(2)}</span>
             </div>
             <div style={{ color: needleColor, fontSize: "12px", fontWeight: 700 }}>{zoneLabel}</div>
           </div>
-          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: `6px solid ${isDark ? "rgba(66,61,63,0.98)" : "rgba(255,255,255,0.98)"}` }} />
+          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: `6px solid ${isDark ? "var(--bg-active)" : "var(--bg-card)"}` }} />
         </div>
       )}
     </div>
@@ -338,7 +338,7 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
         gaugeId="spd"
         sizePx={sizePx}
       />
-      <div style={{ width: "1px", height: compact ? "34px" : "44px", background: isDark ? "rgba(150,143,146,0.18)" : "rgba(150,143,146,0.22)", flexShrink: 0 }} />
+      <div style={{ width: "1px", height: compact ? "34px" : "44px", background: isDark ? "var(--border-default)" : "var(--border-default)", flexShrink: 0 }} />
       <SingleGauge
         value={data.momentum}
         title=""

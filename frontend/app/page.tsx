@@ -27,14 +27,14 @@ import {
 const C = {
   bgDark:   'var(--color-bg)',
   card:     'var(--color-surface)',
-  cardHover:'#4e4749',
+  cardHover:'var(--bg-hover)',
   light:    'var(--color-text-primary)',
   muted:    'var(--color-text-secondary)',
   amber:    'var(--color-brand-primary)',
   green:    'var(--color-positive)',
   red:      'var(--color-negative)',
-  border:   'rgba(150,143,146,0.25)',
-  glow:     'rgba(245,158,11,0.18)',
+  border:   'var(--border-default)',
+  glow:     'var(--color-warning-soft)',
 };
 
 // ── Animated counter ──────────────────────────────────────────────────────────
@@ -78,8 +78,8 @@ function StatCard({ label, value, sub, isDark = true }: { label: string; value: 
     <div
       style={{
         background: isDark
-          ? `linear-gradient(135deg, ${C.card} 0%, rgba(66,61,63,0.6) 100%)`
-          : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(240,235,240,0.6) 100%)',
+          ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
+          : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
         border: `1px solid ${C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
@@ -109,14 +109,14 @@ function FeatureCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         background: hovered
-          ? (isDark ? `linear-gradient(135deg, ${C.cardHover} 0%, rgba(66,61,63,0.8) 100%)` : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,240,245,0.8) 100%)')
-          : (isDark ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.9) 100%)` : 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(245,240,245,0.5) 100%)'),
+          ? (isDark ? `linear-gradient(135deg, ${C.cardHover} 0%, var(--bg-active) 100%)` : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)')
+          : (isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)'),
         border: `1px solid ${hovered ? color + '55' : C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
         transition: 'all 0.25s ease',
         transform: hovered ? 'translateY(-4px)' : 'none',
-        boxShadow: hovered ? `0 16px 40px rgba(0,0,0,0.4), 0 0 24px ${color}25` : '0 4px 16px rgba(0,0,0,0.2)',
+        boxShadow: hovered ? `0 16px 40px var(--color-info-soft), 0 0 24px ${color}25` : '0 4px 16px var(--color-info-soft)',
         cursor: 'default',
       }}
     >
@@ -153,7 +153,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 20px',
           borderRadius: 12,
-          background: hovered ? `${color}18` : (isDark ? `${C.card}cc` : 'rgba(255,255,255,0.7)'),
+          background: hovered ? `${color}18` : (isDark ? `${C.card}cc` : 'var(--bg-card)'),
           border: `1px solid ${hovered ? color + '60' : C.border}`,
           transition: 'all 0.2s ease',
           cursor: 'pointer',
@@ -269,7 +269,7 @@ export default function LandingPage() {
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             style={{
-              background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
+              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               borderRadius: 10,
               width: 38, height: 38,
@@ -283,7 +283,7 @@ export default function LandingPage() {
           <Link href="/education" style={{ textDecoration: 'none' }}>
             <button
               style={{
-                background: isDark ? `${C.card}cc` : 'rgba(220,215,220,0.7)',
+                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 10,
                 padding: '8px 14px',
@@ -301,13 +301,13 @@ export default function LandingPage() {
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, #e08800)`,
+                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
                 border: 'none',
                 borderRadius: 10,
                 padding: '8px 18px',
                 fontSize: 13,
                 fontWeight: 700,
-                color: '#1a1618',
+                color: 'var(--text-inverse)',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 6,
                 boxShadow: `0 4px 16px ${C.amber}50`,
@@ -334,8 +334,8 @@ export default function LandingPage() {
           style={{
             position: 'absolute', inset: 0, zIndex: 0,
             backgroundImage: `
-              linear-gradient(${isDark ? 'rgba(150,143,146,0.06)' : 'rgba(150,143,146,0.1)'} 1px, transparent 1px),
-              linear-gradient(90deg, ${isDark ? 'rgba(150,143,146,0.06)' : 'rgba(150,143,146,0.1)'} 1px, transparent 1px)
+              linear-gradient(${isDark ? 'var(--border-subtle)' : 'var(--border-subtle)'} 1px, transparent 1px),
+              linear-gradient(90deg, ${isDark ? 'var(--border-subtle)' : 'var(--border-subtle)'} 1px, transparent 1px)
             `,
             backgroundSize: '64px 64px',
           }}
@@ -390,7 +390,7 @@ export default function LandingPage() {
             Trade with{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, #fbbf24 50%, #f59e0b 100%)`,
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 50%, var(--color-warning) 100%)`,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -422,10 +422,10 @@ export default function LandingPage() {
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button
                 style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, #e08800 100%)`,
+                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
                   border: 'none', borderRadius: 14,
                   padding: '15px 32px',
-                  fontSize: 16, fontWeight: 700, color: '#1a1618',
+                  fontSize: 16, fontWeight: 700, color: 'var(--text-inverse)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 8,
                   boxShadow: `0 8px 32px ${C.amber}55`,
@@ -478,9 +478,9 @@ export default function LandingPage() {
               borderRadius: 20,
               border: `1px solid ${C.border}`,
               overflow: 'hidden',
-              background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.7)',
+              background: isDark ? `${C.card}aa` : 'var(--bg-card)',
               backdropFilter: 'blur(20px)',
-              boxShadow: `0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px ${C.amber}20`,
+              boxShadow: `0 32px 80px var(--color-info-soft), 0 0 0 1px ${C.amber}20`,
               padding: 24,
             }}
           >
@@ -503,7 +503,7 @@ export default function LandingPage() {
                 <div
                   key={m.label}
                   style={{
-                    background: isDark ? `${C.bgDark}cc` : 'rgba(240,238,240,0.9)',
+                    background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)',
                     border: `1px solid ${C.border}`,
                     borderRadius: 12,
                     padding: '12px 14px',
@@ -524,7 +524,7 @@ export default function LandingPage() {
             <div
               style={{
                 marginTop: 16, height: 80,
-                background: isDark ? `${C.bgDark}cc` : 'rgba(240,238,240,0.9)',
+                background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)',
                 borderRadius: 12,
                 border: `1px solid ${C.border}`,
                 display: 'flex', alignItems: 'flex-end',
@@ -556,7 +556,7 @@ export default function LandingPage() {
       {/* ── Ticker tape ──────────────────────────────────────────────────────── */}
       <div
         style={{
-          background: isDark ? `${C.card}99` : 'rgba(220,215,220,0.5)',
+          background: isDark ? `${C.card}99` : 'var(--bg-hover)',
           borderTop: `1px solid ${C.border}`,
           borderBottom: `1px solid ${C.border}`,
           padding: '10px 0',
@@ -685,7 +685,7 @@ export default function LandingPage() {
           {/* Visual explanation */}
           <div
             style={{
-              background: isDark ? `${C.card}aa` : 'rgba(255,255,255,0.6)',
+              background: isDark ? `${C.card}aa` : 'var(--bg-card)',
               border: `1px solid ${C.border}`,
               borderRadius: 20,
               padding: 28,
@@ -733,7 +733,7 @@ export default function LandingPage() {
           padding: '80px 32px',
           background: isDark
             ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
-            : 'linear-gradient(180deg, transparent 0%, rgba(200,195,200,0.15) 50%, transparent 100%)',
+            : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 50%, transparent 100%)',
         }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -834,7 +834,7 @@ export default function LandingPage() {
             <div
               key={item.title}
               style={{
-                background: isDark ? `${C.card}66` : 'rgba(255,255,255,0.5)',
+                background: isDark ? `${C.card}66` : 'var(--bg-card)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 16, padding: '24px 22px',
                 backdropFilter: 'blur(8px)',
@@ -899,7 +899,7 @@ export default function LandingPage() {
             border: `1px solid ${C.border}`,
             borderRadius: 18,
             padding: '26px 24px',
-            background: isDark ? `linear-gradient(135deg, ${C.card} 0%, rgba(42,38,40,0.92) 100%)` : 'rgba(255,255,255,0.75)',
+            background: isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'var(--bg-card)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -969,7 +969,7 @@ export default function LandingPage() {
             Ready to See What the{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, #fbbf24)`,
+                background: `linear-gradient(135deg, ${C.amber}, var(--heat-low))`,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -984,10 +984,10 @@ export default function LandingPage() {
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
               style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, #e08800 100%)`,
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
                 border: 'none', borderRadius: 16,
                 padding: '18px 44px',
-                fontSize: 18, fontWeight: 800, color: '#1a1618',
+                fontSize: 18, fontWeight: 800, color: 'var(--text-inverse)',
                 cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: 10,
                 boxShadow: `0 12px 48px ${C.amber}55`,

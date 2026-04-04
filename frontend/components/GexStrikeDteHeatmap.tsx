@@ -44,7 +44,7 @@ function formatGex(value: number): string {
 function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgroundColor: string; color: string } {
   if (maxAbs < 1 || Math.abs(value) < maxAbs * 0.02) {
     return {
-      backgroundColor: isDark ? 'rgba(150, 143, 146, 0.1)' : 'rgba(0, 0, 0, 0.04)',
+      backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
       color: isDark ? colors.muted : 'var(--color-text-secondary)',
     };
   }
@@ -55,7 +55,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
     // Green scale: high intensity = darker green
     const alpha = 0.15 + intensity * 0.55;
     return {
-      backgroundColor: `rgba(16, 185, 129, ${alpha})`,
+      backgroundColor: `rgba(27, 196, 125, ${alpha})`,
       color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
     };
   }
@@ -63,7 +63,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   // Red scale
   const alpha = 0.15 + intensity * 0.55;
   return {
-    backgroundColor: `rgba(244, 88, 84, ${alpha})`,
+    backgroundColor: `rgba(255, 77, 90, ${alpha})`,
     color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
   };
 }
@@ -185,19 +185,19 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-4 text-xs" style={{ color: colors.muted }}>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(16, 185, 129, 0.6)' }} />
+          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(27, 196, 125, 0.6)' }} />
           High + GEX
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(16, 185, 129, 0.25)' }} />
+          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(27, 196, 125, 0.25)' }} />
           Mod + GEX
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(244, 88, 84, 0.5)' }} />
+          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(255, 77, 90, 0.5)' }} />
           High &ndash; GEX
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: isDark ? 'rgba(150, 143, 146, 0.15)' : 'rgba(0, 0, 0, 0.06)' }} />
+          <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)' }} />
           Neutral
         </div>
       </div>

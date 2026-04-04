@@ -32,18 +32,18 @@ export default function MetricCard({
         backgroundColor: resolvedTheme === 'dark' ? colors.cardDark : colors.cardLight,
         border: `1px solid ${colors.muted}`,
         boxShadow: resolvedTheme === 'dark' 
-          ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)' 
-          : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
+          ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)' 
+          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
-          ? '0 8px 20px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3)'
-          : '0 8px 20px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)';
+          ? '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)'
+          : '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
-          ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)'
-          : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)';
+          ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
+          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)';
       }}
     >
       <div className="flex justify-between items-start mb-3">

@@ -545,8 +545,8 @@ function MultiSelectChips({
             }}
             className={`px-3 py-1.5 text-sm rounded-md border transition ${
               active
-                ? "bg-blue-500/20 border-blue-400 text-blue-200"
-                : "hover:border-gray-400"
+                ? "bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-info)]"
+                : "hover:border-[var(--border-strong)]"
             }`}
             type="button"
           >

@@ -78,7 +78,7 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
         style={{
           backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
           border: `1px solid ${colors.muted}40`,
-          boxShadow: theme === 'dark' ? '0 2px 8px rgba(0, 0, 0, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+          boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
           width: '40px',
           height: '40px',
         }}
@@ -102,7 +102,7 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
           backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
           color: theme === 'dark' ? colors.light : colors.dark,
           border: `1px solid ${colors.muted}40`,
-          boxShadow: theme === 'dark' ? '0 2px 8px rgba(0, 0, 0, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+          boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
         }}
       >
         <span className="text-base leading-none">⏱️</span>
@@ -119,7 +119,7 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
         backgroundColor: theme === 'dark' ? `${badge.color}15` : `${badge.color}10`,
         color: badge.color,
         border: `1px solid ${badge.color}40`,
-        boxShadow: theme === 'dark' ? '0 2px 8px rgba(0, 0, 0, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
+        boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
       }}
     >
       <span className="text-base leading-none">{badge.icon}</span>

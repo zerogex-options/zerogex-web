@@ -404,7 +404,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                   rel="noreferrer"
                                   className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                                   style={{
-                                    background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                                    background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                                     borderColor: border,
                                     color: theme === 'dark' ? colors.light : colors.dark,
                                   }}
@@ -423,7 +423,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                 }}
                                 className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                                 style={{
-                                  background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)` : colors.cardLight,
+                                  background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                                   borderColor: active ? `${colors.primary}60` : border,
                                   color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
                                 }}
@@ -447,7 +447,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   style={{
                     background:
                       theme === "dark"
-                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, rgba(66,61,63,0.6) 100%)`
+                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)`
                         : colors.cardLight,
                     borderColor: border,
                     color: theme === "dark" ? colors.light : colors.dark,

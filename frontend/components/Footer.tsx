@@ -8,7 +8,7 @@ interface FooterProps {
   theme: Theme;
 }
 
-const border = 'rgba(150,143,146,0.25)';
+const border = 'var(--border-default)';
 
 const footerLinks = [
   { href: '/dashboard', label: 'Platform', external: false },
@@ -19,16 +19,16 @@ const footerLinks = [
 
 export default function Footer({ theme }: FooterProps) {
   const isDark = theme === 'dark';
-  const subtext = isDark ? colors.muted : '#6b636a';
-  const textLight = isDark ? colors.light : '#1a1618';
+  const subtext = isDark ? colors.muted : 'var(--text-muted)';
+  const textLight = isDark ? colors.light : 'var(--text-inverse)';
 
   return (
     <footer
       className="border-t mt-16"
       style={{
         background: isDark
-          ? `linear-gradient(135deg, ${colors.cardDark}66 0%, rgba(42,38,40,0.8) 100%)`
-          : 'rgba(200,195,200,0.2)',
+          ? `linear-gradient(135deg, ${colors.cardDark}66 0%, var(--bg-active) 100%)`
+          : 'var(--border-subtle)',
         borderColor: border,
       }}
     >

@@ -230,7 +230,7 @@ export default function PositionOptimizerPage() {
         </div>
         <div className="flex flex-col items-start gap-2 lg:items-end">
           <label className="text-sm font-medium text-[var(--color-text-secondary)] flex items-center gap-2" htmlFor="portfolio-value-input">Portfolio Size<TooltipWrapper text="Position sizing and optimizer recommendations are calibrated off this portfolio value input." inlineInExpanded={false}><span className="text-[var(--color-text-secondary)]">ⓘ</span></TooltipWrapper></label>
-          <div className="flex items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 focus-within:border-amber-400 transition-colors">
+          <div className="flex items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 focus-within:border-[var(--color-warning)] transition-colors">
             <span className="mr-2 text-[var(--color-text-secondary)]">$</span>
             <input
               id="portfolio-value-input"
@@ -238,7 +238,7 @@ export default function PositionOptimizerPage() {
               inputMode="numeric"
               value={portfolioValueInput}
               onChange={(e) => setPortfolioValueInput(formatWholeDollarInput(e.target.value))}
-              className="min-w-[220px] bg-transparent text-slate-100 outline-none"
+              className="min-w-[220px] bg-transparent text-[var(--text-primary)] outline-none"
               placeholder="100,000"
             />
           </div>
@@ -261,8 +261,8 @@ export default function PositionOptimizerPage() {
       {signal && (
         <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-amber-400" size={22} /> Recommended Structure</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-emerald-300 border border-[var(--color-border)]">
+            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-[var(--color-warning)]" size={22} /> Recommended Structure</h2>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-[var(--color-bull)] border border-[var(--color-border)]">
               {titleCase(signal.trade_type)}
             </span>
           </div>
@@ -277,7 +277,7 @@ export default function PositionOptimizerPage() {
             </div>
             <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
               <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CircleDollarSign size={14} /> Max Profit / Loss</div>
-              <div className="text-lg font-semibold text-emerald-300">{formatCompact(signal.top_max_profit, { currency: true })} / {formatCompact(signal.top_max_loss, { currency: true })}</div>
+              <div className="text-lg font-semibold text-[var(--color-bull)]">{formatCompact(signal.top_max_profit, { currency: true })} / {formatCompact(signal.top_max_loss, { currency: true })}</div>
             </div>
           </div>
           <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
@@ -325,7 +325,7 @@ export default function PositionOptimizerPage() {
                           </TooltipWrapper>
                         </div>
                       </td>
-                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-red-300' : 'text-slate-100'}`}>{formatted}</td>
+                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-[var(--color-bear)]' : 'text-[var(--text-primary)]'}`}>{formatted}</td>
                       <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
                     </tr>
                   );
@@ -352,7 +352,7 @@ export default function PositionOptimizerPage() {
 
       <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-300" />Top Candidate Components</h2>
+          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-[var(--color-info)]" />Top Candidate Components</h2>
           <div className="text-sm text-[var(--color-text-secondary)]">Endpoint: <span className="font-mono">/api/signals/position-optimizer</span></div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -363,7 +363,7 @@ export default function PositionOptimizerPage() {
                 <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="font-semibold">{row.subject}</div>
-                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>
                       {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
                     </div>
                   </div>
@@ -395,7 +395,7 @@ export default function PositionOptimizerPage() {
       {signal && (
         <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><ListOrdered size={20} className="text-amber-300" />Top Ranked Candidates</h2>
+            <h2 className="text-2xl font-semibold flex items-center gap-2"><ListOrdered size={20} className="text-[var(--color-warning)]" />Top Ranked Candidates</h2>
             <div className="text-sm text-[var(--color-text-secondary)]">Highest edge-score spreads for {signal.symbol}</div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -415,10 +415,10 @@ export default function PositionOptimizerPage() {
                 <div key={`${candidate.rank}-${candidate.strategy_type}-${candidate.strikes}`} className="rounded-lg border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
-                      <div className="text-sm text-amber-300 font-semibold">Rank #{candidate.rank}</div>
+                      <div className="text-sm text-[var(--color-warning)] font-semibold">Rank #{candidate.rank}</div>
                       <div className="text-lg font-semibold">{titleCase(candidate.strategy_type)}</div>
                     </div>
-                    <div className="text-right text-sm text-[var(--color-text-secondary)]">Edge score<br /><span className="text-lg font-semibold text-slate-100">{candidate.edge_score.toFixed(1)}</span></div>
+                    <div className="text-right text-sm text-[var(--color-text-secondary)]">Edge score<br /><span className="text-lg font-semibold text-[var(--text-primary)]">{candidate.edge_score.toFixed(1)}</span></div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] p-3"><div className="text-xs text-[var(--color-text-secondary)] mb-1">Strikes</div><div className="font-mono">{candidate.strikes}</div></div>
@@ -432,16 +432,16 @@ export default function PositionOptimizerPage() {
           </div>
           {topCandidate?.sizing_profiles?.length ? (
             <div className="mt-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><Wallet size={18} className="text-emerald-300" /> Suggested Sizing Profiles</h3>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><Wallet size={18} className="text-[var(--color-bull)]" /> Suggested Sizing Profiles</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {topCandidate.sizing_profiles.map((profile) => (
                   <div key={profile.profile} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                     <div className="text-sm font-semibold mb-2">{titleCase(profile.profile)}</div>
                     <div className="text-sm text-[var(--color-text-secondary)] space-y-1">
-                      <div>Contracts: <span className="font-semibold text-slate-100">{profile.contracts}</span></div>
-                      <div>Max risk: <span className="font-semibold text-slate-100">{formatCompact(profile.max_risk_dollars, { currency: true })}</span></div>
-                      <div>Expected value: <span className="font-semibold text-slate-100">{formatCompact(profile.expected_value_dollars, { currency: true })}</span></div>
-                      <div>Constraint: <span className="font-semibold text-slate-100">{titleCase(profile.constrained_by)}</span></div>
+                      <div>Contracts: <span className="font-semibold text-[var(--text-primary)]">{profile.contracts}</span></div>
+                      <div>Max risk: <span className="font-semibold text-[var(--text-primary)]">{formatCompact(profile.max_risk_dollars, { currency: true })}</span></div>
+                      <div>Expected value: <span className="font-semibold text-[var(--text-primary)]">{formatCompact(profile.expected_value_dollars, { currency: true })}</span></div>
+                      <div>Constraint: <span className="font-semibold text-[var(--text-primary)]">{titleCase(profile.constrained_by)}</span></div>
                     </div>
                   </div>
                 ))}

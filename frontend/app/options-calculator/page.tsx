@@ -380,7 +380,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-[var(--color-text-secondary)]">
             Strategy
             <select
-              className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-gray-600 px-2 py-1"
+              className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
               value={strategy}
               onChange={(e) => handleStrategyChange(e.target.value as StrategyType)}
             >
@@ -392,7 +392,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-[var(--color-text-secondary)]">
             Contracts
             <input
-              className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-gray-600 px-2 py-1"
+              className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
               type="number" min={1} value={contracts}
               onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))}
             />
@@ -417,7 +417,7 @@ export default function OptionsCalculatorPage() {
                   <>
                     <label className="text-sm text-[var(--color-text-secondary)]">Exp
                       <select
-                        className="ml-2 rounded bg-[var(--color-surface)] border border-gray-600 px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
                         value={leg.expiration}
                         onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -426,7 +426,7 @@ export default function OptionsCalculatorPage() {
                     </label>
                     <label className="text-sm text-[var(--color-text-secondary)]">Strike
                       <select
-                        className="ml-2 rounded bg-[var(--color-surface)] border border-gray-600 px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
                         value={String(leg.strike)}
                         onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -447,7 +447,7 @@ export default function OptionsCalculatorPage() {
 
         <div className="text-sm text-[var(--color-text-secondary)]">
           Total position:{' '}
-          <span className={`font-semibold ${totalPosition > 0 ? 'text-emerald-400' : totalPosition < 0 ? 'text-red-400' : 'text-[var(--color-text-primary)]'}`}>
+          <span className={`font-semibold ${totalPosition > 0 ? 'text-[var(--color-bull)]' : totalPosition < 0 ? 'text-[var(--color-bear)]' : 'text-[var(--color-text-primary)]'}`}>
             {fmtDollar(Math.abs(totalPosition))}
           </span>{' '}
           <span className="text-[var(--color-text-secondary)]">
@@ -459,7 +459,7 @@ export default function OptionsCalculatorPage() {
       <div className="bg-[var(--color-surface)] rounded-lg p-4">
         <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
         {hasMultipleExpirations && (
-          <p className="text-xs text-amber-400/80 mb-3">
+          <p className="text-xs text-[var(--color-warning)]/80 mb-3">
             ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
           </p>
         )}

@@ -19,17 +19,17 @@ interface ZoneRow {
 
 const SPEEDOMETER_ZONES: ZoneRow[] = [
   { range: "0–2",  label: "Subdued",  vix: "VIX ~10–15", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "var(--color-positive)" },
-  { range: "2–4",  label: "Low",      vix: "VIX ~15–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "#84cc16" },
+  { range: "2–4",  label: "Low",      vix: "VIX ~15–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "var(--color-bull)" },
   { range: "4–6",  label: "Moderate", vix: "VIX ~19–27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "var(--color-brand-primary)" },
-  { range: "6–8",  label: "Elevated", vix: "VIX ~27–38", desc: "Above-average fear. Significant market stress — corrections or sharp selloffs in progress.", color: "#f97316" },
+  { range: "6–8",  label: "Elevated", vix: "VIX ~27–38", desc: "Above-average fear. Significant market stress — corrections or sharp selloffs in progress.", color: "var(--heat-mid)" },
   { range: "8–10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "var(--color-negative)" },
 ];
 
 const TACHOMETER_ZONES: ZoneRow[] = [
   { range: "0–2",  label: "Collapsing", desc: "Fear unwinding sharply (–2σ). VIX spiked and is now falling hard — the panic is reversing fast.", color: "var(--color-positive)" },
-  { range: "2–4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "#84cc16" },
+  { range: "2–4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "var(--color-bull)" },
   { range: "4–6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "var(--color-brand-primary)" },
-  { range: "6–8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "#f97316" },
+  { range: "6–8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "var(--heat-mid)" },
   { range: "8–10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "var(--color-negative)" },
 ];
 
@@ -44,8 +44,8 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
   const isSpeed = type === "speedometer";
   const zones = isSpeed ? SPEEDOMETER_ZONES : TACHOMETER_ZONES;
   const textColor = isDark ? colors.light : colors.dark;
-  const mutedColor = isDark ? "rgba(242,242,242,0.5)" : "rgba(23,23,23,0.5)";
-  const dividerColor = isDark ? "rgba(150,143,146,0.15)" : "rgba(150,143,146,0.18)";
+  const mutedColor = isDark ? "var(--text-secondary)" : "var(--text-secondary)";
+  const dividerColor = isDark ? "var(--border-subtle)" : "var(--border-default)";
 
   return (
     <div className="mt-4 flex flex-col gap-3">
@@ -120,11 +120,11 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
 
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
   const shadowBase = isDark
-    ? "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
-    : "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)";
+    ? "0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)"
+    : "0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)";
   const shadowHover = isDark
-    ? "0 8px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3)"
-    : "0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)";
+    ? "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)"
+    : "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)";
 
   return (
     <div
@@ -194,11 +194,11 @@ function VixCard({ vix, timestamp, isDark }: VixCardProps) {
   const textColor = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
   const shadowBase = isDark
-    ? "0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
-    : "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)";
+    ? "0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)"
+    : "0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)";
   const shadowHover = isDark
-    ? "0 8px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3)"
-    : "0 8px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)";
+    ? "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)"
+    : "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)";
 
   const formatEt = (ts: string) => {
     try {

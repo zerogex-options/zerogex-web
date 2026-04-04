@@ -190,8 +190,8 @@ export default function VolatilityExpansionPage() {
       {signal && (
         <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-amber-400" size={22} /> Expansion Playbook</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-cyan-300 border border-[var(--color-border)]">
+            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-[var(--color-warning)]" size={22} /> Expansion Playbook</h2>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-[var(--color-info)] border border-[var(--color-border)]">
               {titleCase(signal.strategy_type)}
             </span>
           </div>
@@ -206,7 +206,7 @@ export default function VolatilityExpansionPage() {
             </div>
             <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
               <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Gauge size={14} /> Expected Magnitude</div>
-              <div className="text-lg font-semibold text-emerald-300">{signal.expected_magnitude_pct.toFixed(2)}%</div>
+              <div className="text-lg font-semibold text-[var(--color-bull)]">{signal.expected_magnitude_pct.toFixed(2)}%</div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -252,7 +252,7 @@ export default function VolatilityExpansionPage() {
                           </TooltipWrapper>
                         </div>
                       </td>
-                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-red-300' : 'text-slate-100'}`}>{formatted}</td>
+                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-[var(--color-bear)]' : 'text-[var(--text-primary)]'}`}>{formatted}</td>
                       <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
                     </tr>
                   );
@@ -267,7 +267,7 @@ export default function VolatilityExpansionPage() {
                         </TooltipWrapper>
                       </div>
                     </td>
-                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'down' ? 'text-red-300' : signal.smart_money_direction === 'up' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'down' ? 'text-[var(--color-bear)]' : signal.smart_money_direction === 'up' ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
                       <div className="inline-flex items-center gap-2">
                         {signal.smart_money_direction === 'down' ? <ArrowBigDownDash size={14} /> : <ArrowBigUpDash size={14} />}
                         {titleCase(signal.smart_money_direction)}
@@ -286,7 +286,7 @@ export default function VolatilityExpansionPage() {
 
       <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-300" />Signal Components</h2>
+          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-[var(--color-info)]" />Signal Components</h2>
           <div className="text-sm text-[var(--color-text-secondary)]">Endpoint: <span className="font-mono">/api/signals/vol-expansion</span></div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -297,7 +297,7 @@ export default function VolatilityExpansionPage() {
                 <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="font-semibold">{row.subject}</div>
-                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>
                       {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
                     </div>
                   </div>

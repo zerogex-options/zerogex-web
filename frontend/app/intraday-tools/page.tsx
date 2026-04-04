@@ -205,13 +205,13 @@ export default function IntradayToolsPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = isDark ? '#2f2b2c' : 'var(--color-surface-subtle)';
+  const inputBg = isDark ? 'var(--bg-hover)' : 'var(--color-surface-subtle)';
   const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
   const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
-  const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
+  const borderColor = isDark ? 'var(--border-default)' : 'var(--border-default)';
   const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
   const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
   const [minClass, setMinClass] = useState('all');
@@ -463,7 +463,7 @@ export default function IntradayToolsPage() {
             </div>
             <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
               <div className="text-xl font-semibold text-center">
-                Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-green-400' : orb.orb_status.includes('💥') ? 'text-red-400' : 'text-yellow-400'}`}>{orb.orb_status}</span>
+                Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-[var(--color-bull)]' : orb.orb_status.includes('💥') ? 'text-[var(--color-bear)]' : 'text-[var(--color-warning)]'}`}>{orb.orb_status}</span>
               </div>
             </div>
           </>
@@ -512,10 +512,10 @@ export default function IntradayToolsPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-semibold">{timestamp ? new Date(timestamp).toLocaleTimeString() : '--:--'}</div>
                       <div className={`px-3 py-1 rounded text-sm font-semibold ${
-                        divergenceSignal.includes('🚨') ? 'bg-yellow-900 text-yellow-300' :
-                        divergenceSignal.includes('🟢') ? 'bg-green-900 text-green-300' :
-                        divergenceSignal.includes('🔴') ? 'bg-red-900 text-red-300' :
-                        'bg-gray-800 text-[var(--color-text-secondary)]'
+                        divergenceSignal.includes('🚨') ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
+                        divergenceSignal.includes('🟢') ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
+                        divergenceSignal.includes('🔴') ? 'bg-[var(--color-bear-soft)] text-[var(--color-bear)]' :
+                        'bg-[var(--bg-card)] text-[var(--color-text-secondary)]'
                       }`}>
                         {divergenceSignal}
                       </div>

@@ -98,10 +98,10 @@ export default function TooltipWrapper({
       <div
         className="mt-4 rounded-xl border px-6 py-4 text-base leading-relaxed md:text-lg"
         style={{
-          background: "linear-gradient(180deg, rgba(66,61,63,0.82) 0%, rgba(42,38,40,0.92) 100%)",
+          background: "linear-gradient(180deg, var(--bg-active) 0%, var(--bg-active) 100%)",
           borderColor: `${colors.primary}40`,
           color: colors.light,
-          boxShadow: "0 12px 28px rgba(0, 0, 0, 0.24)",
+          boxShadow: "0 12px 28px var(--color-info-soft)",
           maxWidth: "880px",
         }}
       >
@@ -123,10 +123,10 @@ export default function TooltipWrapper({
             top: layout.placement === "top" ? layout.top : layout.top,
             left: layout.left,
             transform: layout.placement === "top" ? "translateY(-100%)" : undefined,
-            background: "linear-gradient(180deg, rgba(66,61,63,0.96) 0%, rgba(42,38,40,0.98) 100%)",
+            background: "linear-gradient(180deg, var(--bg-active) 0%, var(--bg-active) 100%)",
             color: colors.light,
             borderColor: `${colors.primary}55`,
-            boxShadow: "0 18px 48px rgba(0, 0, 0, 0.45)",
+            boxShadow: "0 18px 48px var(--color-info-soft)",
           }}
         >
           <div
@@ -134,7 +134,7 @@ export default function TooltipWrapper({
             className="absolute h-3 w-3 rotate-45 border"
             style={{
               left: layout.arrowLeft - 6,
-              background: "rgba(56, 52, 54, 0.98)",
+              background: "var(--bg-active)",
               borderColor: `${colors.primary}55`,
               top: layout.placement === "top" ? "calc(100% - 7px)" : "-7px",
               borderLeftWidth: layout.placement === "top" ? 0 : 1,

@@ -1,47 +1,45 @@
 export const pacificDesertSunset = {
   brand: {
-    sunGlow: '#FFB347',
-    oceanBreeze: '#2EC4B6',
-    sunsetCoral: '#FF6B4A',
-    pacificDeep: '#1D3557',
-    skyPeach: '#FFD6A5',
+    sunGlow: '#FFA600',
+    oceanBreeze: '#8A508F',
+    sunsetCoral: '#BC5090',
+    pacificDeep: '#003F5C',
+    skyPeach: '#FFD380',
   },
   semantic: {
-    bullish: '#2FBF71',
-    bearish: '#FF5A5F',
-    neutral: '#C9A27E',
-    warning: '#FFB703',
+    bullish: '#1BC47D',
+    bearish: '#FF4D5A',
+    neutral: '#FFA600',
+    warning: '#FFA600',
   },
   primaryRamp: {
-    100: '#FFF4D6',
-    200: '#FFE0A3',
-    300: '#FFD070',
-    400: '#FFC04D',
-    500: '#FFB347',
-    600: '#E89A2E',
-    700: '#C87F1E',
+    100: '#FFF6ED',
+    200: '#FFF1E6',
+    300: '#FFD380',
+    400: '#FF8531',
+    500: '#FFA600',
+    600: '#FF8531',
+    700: '#FF6361',
   },
   light: {
-    background: '#F0EEF0',
-    surface: '#F7F5F7',
+    background: '#FFF6ED',
+    surface: '#FFF1E6',
     surfaceElevated: '#FFFFFF',
-    textPrimary: '#1A1618',
-    textSecondary: '#6B636A',
-    border: '#DDD7DD',
+    textPrimary: '#2C4875',
+    textSecondary: '#8A508F',
+    border: '#E8D5C4',
   },
   dark: {
-    background: '#0F1A24',
-    surface: '#162635',
-    surfaceElevated: '#1B3143',
-    textPrimary: '#F4EDE4',
-    textSecondary: '#9FB3C8',
-    border: '#1F3A4A',
+    background: '#00202E',
+    surface: '#001A26',
+    surfaceElevated: '#003F5C',
+    textPrimary: '#FFF1E6',
+    textSecondary: '#D1B8A6',
+    border: 'rgba(255, 211, 128, 0.16)',
   },
 } as const;
 
-// Backwards-compatible color aliases used throughout existing components.
 export const colors = {
-  // semantic
   bullish: pacificDesertSunset.semantic.bullish,
   bearish: pacificDesertSunset.semantic.bearish,
   neutral: pacificDesertSunset.semantic.neutral,
@@ -50,7 +48,6 @@ export const colors = {
   accent: pacificDesertSunset.brand.oceanBreeze,
   coral: pacificDesertSunset.brand.sunsetCoral,
 
-  // legacy keys
   dark: pacificDesertSunset.light.textPrimary,
   light: pacificDesertSunset.dark.textPrimary,
   muted: pacificDesertSunset.dark.textSecondary,
@@ -59,7 +56,6 @@ export const colors = {
   cardLight: pacificDesertSunset.light.surface,
   bgLight: pacificDesertSunset.light.background,
 
-  // utility
   borderDark: pacificDesertSunset.dark.border,
   borderLight: pacificDesertSunset.light.border,
 };

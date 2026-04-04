@@ -38,22 +38,22 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
     badge: '+ Gamma Regime',
     label: 'Positive GEX (pinned, low vol)',
     color: colors.bullish,
-    bgColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    bgColor: 'var(--color-bull-soft)',
+    borderColor: 'var(--color-bull)',
   },
   negative: {
     badge: '- Gamma Regime',
     label: 'Negative GEX (trending, high vol)',
     color: colors.bearish,
-    bgColor: 'rgba(244, 88, 84, 0.15)',
-    borderColor: 'rgba(244, 88, 84, 0.4)',
+    bgColor: 'var(--color-bear-soft)',
+    borderColor: 'var(--color-bear)',
   },
   neutral: {
     badge: '~ Gamma Regime',
     label: 'At the Flip (neutral, transition)',
     color: colors.primary,
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    bgColor: 'var(--color-warning-soft)',
+    borderColor: 'var(--color-warning)',
   },
 };
 

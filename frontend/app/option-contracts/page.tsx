@@ -300,7 +300,7 @@ function ContractStatsHeader({
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm border-b"
       style={{
         color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)",
-        borderColor: isDark ? "rgba(150,143,146,0.2)" : "rgba(0,0,0,0.1)",
+        borderColor: isDark ? "var(--border-subtle)" : "var(--border-default)",
       }}
     >
       <span className="font-semibold" style={{ color: isDark ? "var(--color-border)" : "var(--color-text-secondary)" }}>
@@ -343,7 +343,7 @@ function ContractLegend({
           <span style={{ color: isDark ? "var(--color-border)" : "var(--color-text-secondary)" }}>{item.label}{item.value != null ? ":" : ""}</span>
           {item.value != null && <span style={{ fontWeight: 600 }}>{item.value}</span>}
           {i < items.length - 1 && (
-            <span style={{ color: isDark ? "#4b5563" : "var(--color-border)", marginLeft: 4 }}>|</span>
+            <span style={{ color: isDark ? "var(--text-muted)" : "var(--color-border)", marginLeft: 4 }}>|</span>
           )}
         </span>
       ))}
@@ -708,7 +708,7 @@ export default function OptionContractsPage() {
 
   const cardBg = isDark ? "var(--color-surface)" : "var(--color-surface)";
   const inputBg = isDark ? "var(--color-bg)" : "var(--color-surface-subtle)";
-  const inputBorder = isDark ? "rgba(150,143,146,0.4)" : "rgba(0,0,0,0.15)";
+  const inputBorder = isDark ? "var(--border-strong)" : "var(--border-strong)";
   const inputColor = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
   const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
 

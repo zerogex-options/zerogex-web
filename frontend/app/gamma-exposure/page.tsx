@@ -258,7 +258,7 @@ export default function GammaExposurePage() {
                           return updated.length === 0 ? null : updated;
                         })}
                         style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
-                        className={`px-3 py-1 text-xs rounded border ${active ? 'bg-cyan-900 border-cyan-400 text-cyan-100' : ''}`}
+                        className={`px-3 py-1 text-xs rounded border ${active ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
                       >
                         {exp}
                       </button>
@@ -286,9 +286,9 @@ export default function GammaExposurePage() {
                         <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
                           <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
                           <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.netGexM.toFixed(2)}M</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.vannaM.toFixed(2)}M</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-green-400' : 'text-red-400'}`}>${row.charmM.toFixed(2)}M</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.charmM.toFixed(2)}M</td>
                           <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
                           <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
                           <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>

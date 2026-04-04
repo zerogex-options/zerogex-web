@@ -224,8 +224,8 @@ export default function TradingSignalsPage() {
       {signal?.trade_idea && (
         <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-amber-400" size={22} /> Suggested Trade Idea</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-emerald-300 border border-[var(--color-border)]">
+            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-[var(--color-warning)]" size={22} /> Suggested Trade Idea</h2>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-[var(--color-bull)] border border-[var(--color-border)]">
               {timeframeLabels[selectedSignalTimeframe]} Setup
             </span>
           </div>
@@ -240,7 +240,7 @@ export default function TradingSignalsPage() {
             </div>
             <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
               <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CircleDollarSign size={14} /> Est. Win %</div>
-              <div className="text-lg font-semibold text-emerald-300">{(signal.trade_idea.estimated_win_pct * 100).toFixed(1)}%</div>
+              <div className="text-lg font-semibold text-[var(--color-bull)]">{(signal.trade_idea.estimated_win_pct * 100).toFixed(1)}%</div>
             </div>
           </div>
           <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
@@ -286,7 +286,7 @@ export default function TradingSignalsPage() {
                           </TooltipWrapper>
                         </div>
                       </td>
-                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-red-300' : 'text-slate-100'}`}>{formatted}</td>
+                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-[var(--color-bear)]' : 'text-[var(--text-primary)]'}`}>{formatted}</td>
                       <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
                     </tr>
                   );
@@ -301,7 +301,7 @@ export default function TradingSignalsPage() {
                     </div>
                   </td>
                   <td className="py-3 px-3 text-right">
-                    <span className={`inline-flex items-center gap-1 font-semibold ${signal.unusual_volume_detected ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    <span className={`inline-flex items-center gap-1 font-semibold ${signal.unusual_volume_detected ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
                       {signal.unusual_volume_detected ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                       {signal.unusual_volume_detected ? 'Detected' : 'Not Detected'}
                     </span>
@@ -320,7 +320,7 @@ export default function TradingSignalsPage() {
                         </TooltipWrapper>
                       </div>
                     </td>
-                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'bearish' ? 'text-red-300' : signal.smart_money_direction === 'bullish' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'bearish' ? 'text-[var(--color-bear)]' : signal.smart_money_direction === 'bullish' ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
                       <div className="inline-flex items-center gap-2">
                         <BadgeCheck size={14} />
                         {titleCase(signal.smart_money_direction)}
@@ -339,7 +339,7 @@ export default function TradingSignalsPage() {
 
       <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-cyan-300" />Signal Components</h2>
+          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-[var(--color-info)]" />Signal Components</h2>
           <div className="text-sm text-[var(--color-text-secondary)]">Timeframe: {timeframeLabels[selectedSignalTimeframe]}</div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -350,7 +350,7 @@ export default function TradingSignalsPage() {
                 <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="font-semibold">{row.subject}</div>
-                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>
                       {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
                     </div>
                   </div>
