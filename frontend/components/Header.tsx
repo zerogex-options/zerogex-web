@@ -308,7 +308,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
                 <img
-                  src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                  src="/title.svg"
                   alt="ZeroGEX"
                   style={{ width: "auto", height: "150%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
                 />
@@ -340,7 +340,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           <div className="flex items-center justify-between mb-1" style={{ minHeight: "30px" }}>
             <Link href="/" style={{ display: "flex", alignItems: "center", height: "30px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
               <img
-                src={theme === "dark" ? "/title-dark.svg" : "/title-light.svg"}
+                src="/title.svg"
                 alt="ZeroGEX"
                 style={{
                   width: "auto",
