@@ -116,9 +116,9 @@ export default function GammaHeatmap() {
     if (maxAbsValue < 1e-9) return 'var(--color-surface-elevated)';
     const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
-    const bearishTone = { r: 58, g: 174, b: 216 }; // lagoonBlue
-    const neutralTone = { r: 247, g: 245, b: 247 };
-    const bullishTone = { r: 255, g: 179, b: 71 }; // sunGlow
+    const bearishTone = { r: 44, g: 72, b: 117 }; // #2c4875 negative GEX
+    const neutralTone = { r: 255, g: 246, b: 237 }; // #fff6ed net zero
+    const bullishTone = { r: 255, g: 133, b: 49 }; // #ff8531 positive GEX
 
     const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
       r: Math.round(a.r + (b.r - a.r) * t),

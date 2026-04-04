@@ -140,7 +140,7 @@ export default function Navigation({ theme }: NavigationProps) {
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
                 <Link href="/" className="flex w-full items-center overflow-hidden">
                   <img
-                    src={theme === "dark" ? "/title-subtitle-dark.svg" : "/title-subtitle-light.svg"}
+                    src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
                     alt="ZeroGEX"
                     style={{ width: "118%", maxWidth: "118%", height: "auto", objectFit: "cover", marginLeft: "-9%" }}
                   />
