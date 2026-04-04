@@ -56,7 +56,7 @@ export default function GammaExposurePage() {
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
   const inputBg = isDark ? 'var(--color-bg)' : 'var(--color-surface-subtle)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
-  const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
+  const borderColor = 'var(--color-border)';
 
   // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
@@ -238,7 +238,7 @@ export default function GammaExposurePage() {
       {/* Section 5: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
             <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>

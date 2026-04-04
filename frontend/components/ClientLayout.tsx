@@ -26,14 +26,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight,
+        backgroundColor: 'transparent',
         color: theme === 'dark' ? colors.light : colors.dark,
         display: 'flex',
         flexDirection: 'column',
       }}
     >
       <Header theme={theme} onToggleTheme={toggleTheme} />
-      <Navigation theme={theme} onToggleTheme={toggleTheme} />
+      <Navigation theme={theme} />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>

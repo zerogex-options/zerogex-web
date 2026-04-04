@@ -113,12 +113,12 @@ export default function GammaHeatmap() {
   if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
   const getColor = (value: number, maxAbsValue: number) => {
-    if (maxAbsValue < 1e-9) return 'rgb(245, 247, 255)';
+    if (maxAbsValue < 1e-9) return 'var(--color-surface-elevated)';
     const normalized = (value + maxAbsValue) / (2 * maxAbsValue);
 
-    const deepBlue = { r: 29, g: 78, b: 216 };
-    const white = { r: 245, g: 247, b: 255 };
-    const orange = { r: 251, g: 146, b: 60 };
+    const bearishTone = { r: 58, g: 174, b: 216 }; // lagoonBlue
+    const neutralTone = { r: 247, g: 245, b: 247 };
+    const bullishTone = { r: 255, g: 179, b: 71 }; // sunGlow
 
     const blend = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
       r: Math.round(a.r + (b.r - a.r) * t),
@@ -127,8 +127,8 @@ export default function GammaHeatmap() {
     });
 
     const rgb = normalized <= 0.5
-      ? blend(deepBlue, white, normalized / 0.5)
-      : blend(white, orange, (normalized - 0.5) / 0.5);
+      ? blend(bearishTone, neutralTone, normalized / 0.5)
+      : blend(neutralTone, bullishTone, (normalized - 0.5) / 0.5);
 
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   };
@@ -275,7 +275,7 @@ export default function GammaHeatmap() {
           <text x={plotLeft + 220} y={32} fontSize="10" textAnchor="end" fill={axisColor}>{(maxValue / 1_000_000).toFixed(1)}M</text>
           <text x={plotLeft + 228} y={18} fontSize="10" fill={axisColor}>Net GEX</text>
           <g>
-            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={20} y2={20} stroke="#a855f7" strokeWidth={2.25} />
+            <line x1={plotLeft + 290} x2={plotLeft + 310} y1={20} y2={20} stroke="#1D3557" strokeWidth={2.25} />
             <text x={plotLeft + 316} y={23} fontSize="10" fill={axisColor}>Gamma Flip</text>
           </g>
 
@@ -287,6 +287,7 @@ export default function GammaHeatmap() {
           })}
 
           <g clipPath="url(#heatmapClip)">
+            <rect x={plotLeft} y={plotTop} width={Math.max(0, plotWidth)} height={Math.max(0, plotHeight)} fill={colors.cardLight} />
             {filledCells.map((cell, idx) => {
               const xPos = cell.x * cellWidth + plotLeft;
               const yPos = yForValue(cell.y) - cellHeight / 2 - 0.5;
@@ -345,11 +346,11 @@ export default function GammaHeatmap() {
 
           {gammaFlipPath && (
             <g clipPath="url(#heatmapClip)">
-              <path d={gammaFlipPath} fill="none" stroke="#a855f7" strokeWidth={2.25} />
+              <path d={gammaFlipPath} fill="none" stroke="#1D3557" strokeWidth={2.25} />
               {hoveredIdx != null && gammaFlipPoints
                 .filter((p) => p.idx === hoveredIdx)
                 .map((p) => (
-                  <circle key={`gamma-flip-dot-${p.ts}`} cx={p.x} cy={p.y} r={3.5} fill="#a855f7" />
+                  <circle key={`gamma-flip-dot-${p.ts}`} cx={p.x} cy={p.y} r={3.5} fill="#1D3557" />
                 ))}
             </g>
           )}

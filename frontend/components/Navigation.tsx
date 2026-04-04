@@ -1,27 +1,29 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Theme } from "@/core/types";
+import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import Link from "next/link";
-import { Moon, Sun } from "lucide-react";
-import WorldClocks from "./WorldClocks";
-import SessionBadge from "./SessionBadge";
+import { useTimeframe } from "@/core/TimeframeContext";
+import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
+import SessionBadge from "./SessionBadge";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
 interface NavigationProps {
   theme: Theme;
-  onToggleTheme: () => void;
 }
 
 const SIDEBAR_WIDTH = 272;
 
-export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
+export default function Navigation({ theme }: NavigationProps) {
+  const { symbol } = useTimeframe();
   const pathname = usePathname();
   const router = useRouter();
+  const [session, setSession] = useState(getMarketSession());
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -39,7 +41,6 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
       return false;
     }
   });
-  const [session, setSession] = useState(getMarketSession());
 
   const navGroups = useMemo(
     () => [
@@ -64,6 +65,28 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
   });
 
   useEffect(() => {
+    const interval = setInterval(() => setSession(getMarketSession()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
+  const quoteSession = quoteData?.session ?? null;
+  const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
+  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
+  const row1Price = (isExtendedHours || quoteSession === "closed")
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (quoteData?.close ?? null);
+  const row1BaseClose = quoteSession === "open"
+    ? (sessionClosesData?.current_session_close ?? null)
+    : (sessionClosesData?.prior_session_close ?? null);
+  const row1Change =
+    row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
+  const row1ChangePercent =
+    row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
+  const row1Positive = row1Change !== null ? row1Change >= 0 : false;
+
+  useEffect(() => {
     const syncNavVars = () => {
       const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
       const width = sidebarVisible && desktop ? SIDEBAR_WIDTH : 0;
@@ -85,11 +108,6 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
     window.addEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
     return () =>
       window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => setSession(getMarketSession()), 60000);
-    return () => clearInterval(interval);
   }, []);
 
   const toggleSidebar = () => {
@@ -120,20 +138,27 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
-                <div className="mb-3 flex items-center justify-between">
-                  <button
-                    onClick={onToggleTheme}
-                    className="rounded-full border p-2 transition"
-                    style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
-                    aria-label="Toggle theme"
-                  >
-                    {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
-                  </button>
-                  <div style={{ cursor: "pointer" }}>
-                    <SessionBadge session={session} theme={theme} showCountdown={false} />
+                <Link href="/" className="flex w-full items-center overflow-hidden">
+                  <img
+                    src={theme === "dark" ? "/title-subtitle-dark.svg" : "/title-subtitle-light.svg"}
+                    alt="ZeroGEX"
+                    style={{ width: "118%", maxWidth: "118%", height: "auto", objectFit: "cover", marginLeft: "-9%" }}
+                  />
+                </Link>
+                {row1Price !== null && (
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-lg">${row1Price.toFixed(2)}</span>
+                      {row1Change !== null && row1ChangePercent !== null && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                          {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
+                          {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
+                        </div>
+                      )}
+                    </div>
+                    <SessionBadge session={sessionForBadge} theme={theme} compact />
                   </div>
-                </div>
-                <WorldClocks theme={theme} session={session} />
+                )}
               </div>
             )}
             {navGroups.map((group) => {
@@ -144,7 +169,10 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
                     type="button"
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
                     className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                    style={{ color: colors.primary, background: `${colors.primary}08` }}
+                    style={{
+                      color: theme === "light" ? colors.coral : colors.primary,
+                      background: `${theme === "light" ? colors.coral : colors.primary}0f`,
+                    }}
                   >
                     {group.label}
                     <ChevronDown
@@ -159,10 +187,22 @@ export default function Navigation({ theme, onToggleTheme }: NavigationProps) {
                         const isActive = pathname === page.id;
                         const isHovered = hoveredPage === page.id;
                         const commonStyle = {
-                          color: isActive || isHovered ? colors.primary : theme === "dark" ? colors.light : colors.dark,
+                          color: isActive || isHovered
+                            ? (theme === "light" ? colors.coral : colors.primary)
+                            : theme === "dark"
+                              ? colors.light
+                              : colors.dark,
                           opacity: isActive || isHovered ? 1 : 0.72,
-                          background: isHovered && !isActive ? `${colors.primary}18` : isActive ? `${colors.primary}14` : "transparent",
-                          border: `1px solid ${isActive || isHovered ? colors.primary + "40" : "transparent"}`,
+                          background: isHovered && !isActive
+                            ? `${theme === "light" ? colors.coral : colors.primary}18`
+                            : isActive
+                              ? `${theme === "light" ? colors.coral : colors.primary}14`
+                              : "transparent",
+                          border: `1px solid ${
+                            isActive || isHovered
+                              ? `${theme === "light" ? colors.coral : colors.primary}40`
+                              : "transparent"
+                          }`,
                         };
 
                         if (isExternal) {
