@@ -5,10 +5,10 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import { useGEXSummary, useMarketQuote, useSignalScore } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
-import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
+import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
@@ -21,7 +21,8 @@ export default function DashboardPage() {
   
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
-  const { data: quoteData, loading: quoteLoading, error: quoteError } = useMarketQuote(symbol, 1000);
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: scoreData } = useSignalScore(symbol, 10000);
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -85,6 +86,42 @@ export default function DashboardPage() {
         </div>
       </section>
 
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+          <MetricCard
+            title="Composite Score"
+            value={typeof (scoreData?.composite_score ?? scoreData?.score) === 'number' ? (scoreData?.composite_score ?? scoreData?.score)!.toFixed(2) : '--'}
+            trend={
+              typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'bullish' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'bearish' : 'neutral')
+                : 'neutral'
+            }
+            tooltip="Latest composite score from /api/signals/score. Positive values are bullish and negative values are bearish."
+            theme={theme}
+          />
+          <MetricCard
+            title="Signal Direction"
+            value={String(scoreData?.direction ?? 'N/A').toUpperCase()}
+            trend={String(scoreData?.direction ?? '').toLowerCase().includes('bull') ? 'bullish' : String(scoreData?.direction ?? '').toLowerCase().includes('bear') ? 'bearish' : 'neutral'}
+            tooltip="Directional label returned by the score endpoint."
+            theme={theme}
+          />
+          <MetricCard
+            title="Underlying"
+            value={String(scoreData?.underlying ?? symbol)}
+            tooltip="Underlying symbol used for the score request."
+            theme={theme}
+          />
+          <MetricCard
+            title="Score Timestamp"
+            value={scoreData?.timestamp ? new Date(String(scoreData.timestamp)).toLocaleTimeString() : 'N/A'}
+            tooltip="Timestamp of the latest score payload."
+            theme={theme}
+          />
+        </div>
+      </section>
       {/* Volatility Monitor */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>

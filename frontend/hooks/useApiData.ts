@@ -428,6 +428,24 @@ export function useVolatilityGauge(refreshInterval = 30000) {
   return useApiData<VolatilityGaugeData>('/api/volatility/gauge', { refreshInterval });
 }
 
+
+export function useTradesLive(symbol = 'SPY', refreshInterval = 5000) {
+  return useApiData<unknown>(`/api/signals/trades-live?symbol=${symbol}`, { refreshInterval });
+}
+
+export interface SignalScoreResponse {
+  underlying?: string;
+  timestamp?: string;
+  composite_score?: number;
+  score?: number;
+  direction?: string;
+  [key: string]: unknown;
+}
+
+export function useSignalScore(symbol = 'SPY', refreshInterval = 10000) {
+  return useApiData<SignalScoreResponse>(`/api/signals/score?underlying=${symbol}`, { refreshInterval });
+}
+
 export interface OptionContractRow {
   timestamp: string;
   underlying: string;
