@@ -83,7 +83,7 @@ logo:
 	@echo "Copying logos from assets to public..."
 	cp assets/branding/Dark_Full.svg frontend/public/logo-dark.svg
 	cp assets/branding/Light_Full.svg frontend/public/logo-light.svg
-	cp assets/branding/Title.svg frontend/public/title-dark.svg
+	cp assets/branding/Title.svg frontend/public/title.svg
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.
