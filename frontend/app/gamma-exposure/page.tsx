@@ -56,7 +56,7 @@ export default function GammaExposurePage() {
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
   const inputBg = isDark ? 'var(--color-bg)' : 'var(--color-surface-subtle)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
-  const borderColor = isDark ? 'rgba(150,143,146,0.3)' : 'rgba(0,0,0,0.1)';
+  const borderColor = 'var(--color-border)';
 
   // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);

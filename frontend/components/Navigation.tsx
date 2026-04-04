@@ -156,9 +156,7 @@ export default function Navigation({ theme }: NavigationProps) {
                         </div>
                       )}
                     </div>
-                    <div style={{ cursor: "pointer" }}>
-                      <SessionBadge session={sessionForBadge} theme={theme} compact />
-                    </div>
+                    <SessionBadge session={sessionForBadge} theme={theme} compact />
                   </div>
                 )}
               </div>
