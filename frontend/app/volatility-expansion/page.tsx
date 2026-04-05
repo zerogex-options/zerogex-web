@@ -132,7 +132,7 @@ export default function VolatilityExpansionPage() {
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+      <section className="zg-feature-shell mb-8 p-6">
         <div className="flex flex-col lg:flex-row gap-6 justify-between">
           <div>
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
@@ -172,7 +172,7 @@ export default function VolatilityExpansionPage() {
         <MetricCard title="Expected Magnitude" value={fmtPercent(expectedMagnitude)} tooltip="Expected magnitude of move over forecast horizon." theme="dark" icon={<CircleHelp size={16} />} />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+      <section className="zg-feature-shell mb-8 p-6">
         <h2 className="text-2xl font-semibold mb-4">What This Rating Means</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">

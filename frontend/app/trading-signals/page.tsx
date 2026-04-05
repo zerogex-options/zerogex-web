@@ -140,8 +140,7 @@ export default function TradingSignalsPage() {
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section
-        className="mb-8 rounded-2xl border border-[var(--color-border)] p-6"
-        style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}
+        className="zg-feature-shell mb-8 p-6"
       >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div>
@@ -195,7 +194,7 @@ export default function TradingSignalsPage() {
         />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+      <section className="zg-feature-shell mb-8 p-6">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Brain size={20} /> Rating Framework</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
@@ -221,7 +220,7 @@ export default function TradingSignalsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[var(--color-border)] p-4 overflow-x-auto" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+      <section className="zg-feature-shell overflow-x-auto p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">Live Trade Stream</h2>
           <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Updated every few seconds</div>

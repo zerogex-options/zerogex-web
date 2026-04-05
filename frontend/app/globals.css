@@ -151,3 +151,14 @@ body {
 html {
   overscroll-behavior: none;
 }
+
+.zg-feature-shell {
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: 0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle);
+}
+
+:root.dark .zg-feature-shell {
+  box-shadow: 0 4px 12px var(--color-info-soft), 0 1px 3px rgba(255, 211, 128, 0.12);
+}

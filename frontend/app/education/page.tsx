@@ -4,7 +4,7 @@ import { ArrowRight, BookOpen } from 'lucide-react';
 export default function EducationPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
-      <div className="mb-10 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/70 p-8">
+      <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <BookOpen size={14} />
           Education
@@ -16,7 +16,7 @@ export default function EducationPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)]/70 p-6">
+      <div className="zg-feature-shell p-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • March 26, 2026 • 16:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           ZeroGEX™ Guide: Decoding Gamma Exposure — The Hidden Force Driving Market Behavior
