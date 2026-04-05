@@ -45,9 +45,9 @@
 
   /* Backward-compat aliases */
   --color-bg: var(--bg-main);
-  --color-surface: var(--bg-subtle);
-  --color-surface-elevated: var(--bg-card);
-  --color-surface-subtle: var(--bg-hover);
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-subtle: #FFFFFF;
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
@@ -73,7 +73,7 @@
 
   --color-chart-grid: var(--border-default);
   --color-chart-axis: var(--text-primary);
-  --color-chart-tooltip-bg: var(--bg-card);
+  --color-chart-tooltip-bg: #FFFFFF;
   --color-chart-tooltip-border: var(--border-default);
   --color-grid-line: rgba(232, 213, 196, 0.42);
   --color-grid-overlay: rgba(255, 246, 237, 0.56);
@@ -114,6 +114,11 @@
 
   --color-grid-line: rgba(255, 211, 128, 0.16);
   --color-grid-overlay: rgba(0, 32, 46, 0.42);
+
+  --color-surface: var(--bg-subtle);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-hover);
+  --color-chart-tooltip-bg: var(--bg-card);
 }
 
 @theme inline {

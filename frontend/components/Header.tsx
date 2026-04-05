@@ -337,18 +337,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-1" style={{ minHeight: "30px" }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", height: "30px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
+          <div className="flex items-center justify-between mb-1" style={{ minHeight: "36px" }}>
+            <Link href="/" style={{ display: "flex", alignItems: "center", height: "36px", width: "min(58vw, 240px)", overflow: "visible", padding: 0, margin: 0, lineHeight: 0 }}>
               <img
                 src="/title.svg"
                 alt="ZeroGEX"
                 style={{
-                  width: "auto",
-                  height: "150%",
-                  maxWidth: "none",
-                  maxHeight: "none",
+                  width: "100%",
+                  height: "100%",
+                  maxWidth: "100%",
+                  maxHeight: "100%",
                   objectFit: "contain",
-                  objectPosition: "center",
+                  objectPosition: "left center",
                   display: "block",
                   margin: 0,
                   padding: 0,

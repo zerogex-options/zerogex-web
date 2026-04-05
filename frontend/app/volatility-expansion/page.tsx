@@ -1,361 +1,198 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
-  useVolExpansionAccuracy,
-  useVolExpansionSignal,
-  GenericAccuracyPoint,
-} from '@/hooks/useApiData';
-import { useTimeframe } from '@/core/TimeframeContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
-import MetricCard from '@/components/MetricCard';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
   PolarAngleAxis,
   PolarGrid,
   Radar,
   RadarChart,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis,
 } from 'recharts';
-import { Activity, ArrowBigDownDash, ArrowBigUpDash, CalendarClock, Crosshair, Gauge, Lightbulb, ShieldCheck, TimerReset } from 'lucide-react';
+import { CircleHelp, Gauge, Sparkles, TrendingUp } from 'lucide-react';
+import { useTimeframe } from '@/core/TimeframeContext';
+import { useVolExpansionSignal } from '@/hooks/useApiData';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorMessage from '@/components/ErrorMessage';
+import MetricCard from '@/components/MetricCard';
+import TooltipWrapper from '@/components/TooltipWrapper';
 
-function titleCase(value: string) {
-  return value
-    .split(/[_\s-]+/)
-    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-    .join(' ');
-}
+type GenericObject = Record<string, unknown>;
 
-function formatCompact(value: number | null | undefined, options?: { currency?: boolean; percent?: boolean }) {
-  if (value == null || Number.isNaN(value)) return '—';
-  if (options?.percent) return `${value.toFixed(2)}%`;
-
-  const abs = Math.abs(value);
-  let suffix = '';
-  let scaled = value;
-
-  if (abs >= 1_000_000_000) {
-    scaled = value / 1_000_000_000;
-    suffix = 'B';
-  } else if (abs >= 1_000_000) {
-    scaled = value / 1_000_000;
-    suffix = 'M';
-  } else if (abs >= 1_000) {
-    scaled = value / 1_000;
-    suffix = 'K';
-  }
-
-  const num = suffix ? scaled.toFixed(2) : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
-  return `${options?.currency ? '$' : ''}${num}${suffix}`;
-}
-
-function parseAccuracyRows(payload: GenericAccuracyPoint[] | Record<string, unknown> | null): GenericAccuracyPoint[] {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-
-  for (const value of Object.values(payload)) {
-    if (Array.isArray(value)) return value as GenericAccuracyPoint[];
-  }
-
-  return [];
-}
-
-type IndicatorRow = {
-  label: string;
-  value: number | null | undefined;
-  format: 'currency' | 'number' | 'percent';
-  tooltip: string;
-  interpretation: string;
+type ComponentAxis = {
+  axis: string;
+  score: number;
+  description: string;
 };
 
-function inferAccuracyBucket(row: GenericAccuracyPoint) {
-  return titleCase(String(row.strength ?? row.bucket ?? row.confidence ?? row.label ?? 'All Signals'));
+function asObject(value: unknown): GenericObject | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as GenericObject;
 }
 
-function inferAccuracyRate(row: GenericAccuracyPoint) {
-  const raw = row.hit_rate ?? row.win_rate ?? row.accuracy ?? row.rate ?? row.profitability;
-  if (raw == null || Number.isNaN(raw)) return 0;
-  return Number((raw <= 1 ? raw * 100 : raw).toFixed(1));
+function getNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const num = Number(value);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
 }
 
-function inferAccuracySamples(row: GenericAccuracyPoint) {
-  return row.total_signals ?? row.samples ?? row.count ?? 0;
+function fmtPercent(value: number | null) {
+  if (value == null) return '—';
+  const normalized = value <= 1 ? value * 100 : value;
+  return `${normalized.toFixed(1)}%`;
+}
+
+function normalizeComponentScore(rawScore: number | null) {
+  if (rawScore == null) return 50;
+  if (Math.abs(rawScore) <= 1) return Math.max(0, Math.min(100, rawScore * 100));
+  if (Math.abs(rawScore) <= 10) return Math.max(0, Math.min(100, rawScore * 10));
+  return Math.max(0, Math.min(100, rawScore));
+}
+
+function interpretation(score: number | null) {
+  if (score == null) return 'No reading';
+  if (score >= 70) return 'Expansion favored';
+  if (score >= 55) return 'Expansion tilt';
+  if (score <= 30) return 'Compression favored';
+  if (score <= 45) return 'Compression tilt';
+  return 'Balanced regime';
 }
 
 export default function VolatilityExpansionPage() {
-  const isMobile = useIsMobile();
   const { symbol } = useTimeframe();
-  const [lookbackDays, setLookbackDays] = useState(30);
+  const { data, loading, error, refetch } = useVolExpansionSignal(symbol, 10000);
 
-  const { data: signal, loading: signalLoading, error: signalError, refetch } = useVolExpansionSignal(symbol);
-  const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = useVolExpansionAccuracy(symbol, lookbackDays, 60000);
+  const payload = useMemo(() => asObject(data) ?? {}, [data]);
+  const components = useMemo(() => {
+    const source = payload.components;
+    if (Array.isArray(source)) {
+      return source.filter((item) => item && typeof item === 'object') as GenericObject[];
+    }
+    return [];
+  }, [payload]);
 
-  const accuracyRows = useMemo(() => parseAccuracyRows(accuracyPayload ?? null), [accuracyPayload]);
+  const componentTooltipText = useMemo(() => {
+    if (components.length === 0) {
+      return 'Component breakdown unavailable in the current API payload.';
+    }
 
-  const componentRadarData = useMemo(() => {
-    return (signal?.components || []).map((component) => ({
-      subject: component.name,
-      scorePct: Math.max(0, Math.min(100, (component.raw_score / 100) * 100)),
-      rawScore: component.raw_score,
-      weight: component.weight,
-      description: component.description,
-      contribution: component.weighted_score,
+    return components
+      .slice(0, 10)
+      .map((component) => {
+        const name = String(component.name ?? 'Component');
+        const raw = getNumber(component.raw_score ?? component.score);
+        const weighted = getNumber(component.weighted_score);
+        const desc = String(component.description ?? 'No description');
+        return `${name}: raw=${raw != null ? raw.toFixed(2) : '—'}, weighted=${weighted != null ? weighted.toFixed(2) : '—'} — ${desc}`;
+      })
+      .join(' | ');
+  }, [components]);
+
+  const componentRadarData = useMemo<ComponentAxis[]>(() => {
+    if (components.length === 0) {
+      return [
+        { axis: 'Magnitude', score: 50, description: 'No component data' },
+        { axis: 'Direction', score: 50, description: 'No component data' },
+        { axis: 'Flow', score: 50, description: 'No component data' },
+        { axis: 'Structure', score: 50, description: 'No component data' },
+        { axis: 'Volatility', score: 50, description: 'No component data' },
+      ];
+    }
+
+    return components.slice(0, 8).map((component) => ({
+      axis: String(component.name ?? 'Component'),
+      score: normalizeComponentScore(getNumber(component.raw_score ?? component.score ?? component.weighted_score)),
+      description: String(component.description ?? 'Component contribution'),
     }));
-  }, [signal]);
+  }, [components]);
 
-  const componentRankings = useMemo(
-    () => [...componentRadarData].sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)),
-    [componentRadarData]
-  );
+  const compositeScore = getNumber(payload.composite_score ?? payload.score ?? payload.normalized_score);
+  const direction = String(payload.expected_direction ?? payload.direction ?? 'neutral').toLowerCase();
+  const moveProbability = getNumber(payload.move_probability ?? payload.probability);
+  const expectedMagnitude = getNumber(payload.expected_magnitude_pct ?? payload.magnitude_pct);
+  const confidence = String(payload.confidence ?? payload.strength ?? 'n/a').toUpperCase();
 
-  const accuracyChartData = useMemo(() => {
-    return accuracyRows.map((row) => ({
-      bucket: inferAccuracyBucket(row),
-      hitRate: inferAccuracyRate(row),
-      samples: inferAccuracySamples(row),
-    }));
-  }, [accuracyRows]);
+  if (loading && !data) return <LoadingSpinner size="lg" />;
 
-  const indicatorRows: IndicatorRow[] = useMemo(() => {
-    if (!signal) return [];
-
-    return [
-      {
-        label: 'Expected Magnitude',
-        value: signal.expected_magnitude_pct,
-        format: 'percent',
-        tooltip: 'Model-estimated absolute percentage move over the stated time horizon.',
-        interpretation: 'This frames the size of the move the model is pricing in. Use it to choose structures that need expansion, such as debit spreads, long premium, or breakout entries that benefit from range extension.',
-      },
-      {
-        label: 'Move Probability',
-        value: signal.move_probability != null ? signal.move_probability * 100 : null,
-        format: 'percent',
-        tooltip: 'Probability that the symbol experiences a meaningful expansion move in the forecast window.',
-        interpretation: 'Higher probability means the model sees stronger alignment for an outsized move. Pair this with confidence and catalyst type before sizing up.',
-      },
-      {
-        label: 'Net GEX',
-        value: signal.net_gex,
-        format: 'currency',
-        tooltip: 'Aggregate dealer gamma positioning that can either dampen or amplify realized volatility.',
-        interpretation: 'Negative or weak gamma regimes can fuel expansion faster because hedging flows chase price. Strong positive gamma can suppress breakouts unless a catalyst overwhelms positioning.',
-      },
-      {
-        label: 'VWAP Deviation',
-        value: signal.vwap_deviation_pct,
-        format: 'percent',
-        tooltip: 'Distance between current price and VWAP, useful for spotting already-stretched versus coiled setups.',
-        interpretation: 'Small deviation with high move probability can indicate a coiled setup before breakout. Large deviation can mean part of the move is already underway, so reward-to-risk may compress.',
-      },
-      {
-        label: 'Hours to Next Expiry',
-        value: signal.hours_to_next_expiry,
-        format: 'number',
-        tooltip: 'Time remaining until the nearest listed expiry becomes the dominant options event.',
-        interpretation: 'Short time to expiry can intensify dealer and gamma effects. Expansion setups near expiry often resolve quickly, so entries and exits should be more tactical.',
-      },
-    ];
-  }, [signal]);
-
-  if ((signalLoading && !signal) || (accuracyLoading && !accuracyPayload)) {
-    return <LoadingSpinner size="lg" />;
-  }
+  const trend: 'bullish' | 'bearish' | 'neutral' = direction === 'up' || direction === 'bullish'
+    ? 'bullish'
+    : direction === 'down' || direction === 'bearish'
+      ? 'bearish'
+      : 'neutral';
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Volatility Expansion</h1>
-      <p className="text-[var(--color-text-secondary)] mb-8">Large-move prediction signals for spotting breakout, squeeze, and expansion regimes before they fully develop.</p>
+      <p className="text-[var(--color-text-secondary)] mb-8">
+        Breakout regime detection with multi-factor scoring and confidence diagnostics.
+      </p>
 
-      {signalError && <ErrorMessage message={signalError} onRetry={refetch} />}
-      {accuracyError && <ErrorMessage message={accuracyError} />}
+      {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      {signal && (
-        <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MetricCard title="Expected Direction" value={signal.expected_direction.toUpperCase()} trend={signal.expected_direction === 'up' ? 'bullish' : signal.expected_direction === 'down' ? 'bearish' : 'neutral'} tooltip="Forecast directional bias for the expansion move" theme="dark" />
-          <MetricCard title="Confidence" value={signal.confidence.toUpperCase()} tooltip="Confidence bucket for the expansion forecast" theme="dark" />
-          <MetricCard title="Move Probability" value={`${(signal.move_probability * 100).toFixed(1)}%`} tooltip="Probability of a meaningful volatility expansion" theme="dark" />
-          <MetricCard title="Normalized Score" value={`${(signal.normalized_score * 100).toFixed(1)}%`} tooltip="Composite score normalized by max possible score" theme="dark" />
-        </section>
-      )}
-
-      {signal && (
-        <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-[var(--color-warning)]" size={22} /> Expansion Playbook</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-[var(--color-info)] border border-[var(--color-border)]">
-              {titleCase(signal.strategy_type)}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Activity size={14} /> Catalyst</div>
-              <div className="text-lg font-semibold">{titleCase(signal.catalyst_type)}</div>
+      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+        <div className="flex flex-col lg:flex-row gap-6 justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
+              Expansion Regime Score
+              <TooltipWrapper text={componentTooltipText}>
+                <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+              </TooltipWrapper>
             </div>
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><TimerReset size={14} /> Time Horizon</div>
-              <div className="text-lg font-semibold">{titleCase(signal.time_horizon)}</div>
+            <div className="text-5xl font-black" style={{ color: trend === 'bullish' ? 'var(--color-bull)' : trend === 'bearish' ? 'var(--color-bear)' : 'var(--color-warning)' }}>
+              {compositeScore != null ? compositeScore.toFixed(1) : '—'}
             </div>
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Gauge size={14} /> Expected Magnitude</div>
-              <div className="text-lg font-semibold text-[var(--color-bull)]">{signal.expected_magnitude_pct.toFixed(2)}%</div>
+            <div className="mt-2 text-lg font-semibold">{interpretation(compositeScore)}</div>
+            <div className="mt-4 text-sm text-[var(--color-text-secondary)] max-w-xl">
+              The model combines directional pressure, volatility context, flow, and structure conditions to estimate whether price is likely to expand into a larger-than-normal move.
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CalendarClock size={14} /> Entry Window</div>
-              <div className="text-base font-semibold">{signal.entry_window ?? 'Monitor continuously; no fixed window provided.'}</div>
-            </div>
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Crosshair size={14} /> Suggested Structure</div>
-              <div className="text-base font-semibold">{titleCase(signal.strategy_type)}</div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {signal && (
-        <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-          <h2 className="text-2xl font-semibold mb-4">Live Expansion Matrix</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-secondary)]">
-                  <th className="text-left py-2 px-3">Indicator</th>
-                  <th className="text-right py-2 px-3">Value</th>
-                  <th className="text-left py-2 px-3">Interpretation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {indicatorRows.map((row) => {
-                  const formatted = row.format === 'currency'
-                    ? formatCompact(row.value, { currency: true })
-                    : row.format === 'percent'
-                      ? formatCompact(row.value, { percent: true })
-                      : formatCompact(row.value);
-                  const negative = (row.value ?? 0) < 0;
-                  return (
-                    <tr key={row.label} className="border-b border-[var(--color-border)] align-top">
-                      <td className="py-3 px-3 font-medium">
-                        <div className="flex items-center gap-2">
-                          {row.label}
-                          <TooltipWrapper text={row.tooltip} inlineInExpanded={false}>
-                            <span className="text-[var(--color-text-secondary)]">ⓘ</span>
-                          </TooltipWrapper>
-                        </div>
-                      </td>
-                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-[var(--color-bear)]' : 'text-[var(--text-primary)]'}`}>{formatted}</td>
-                      <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
-                    </tr>
-                  );
-                })}
-                {signal.smart_money_direction && (
-                  <tr className="border-b border-[var(--color-border)] align-top">
-                    <td className="py-3 px-3 font-medium">
-                      <div className="flex items-center gap-2">
-                        Smart Money Direction
-                        <TooltipWrapper text="Directional classification inferred from unusual large-lot and high-notional options activity." inlineInExpanded={false}>
-                          <span className="text-[var(--color-text-secondary)]">ⓘ</span>
-                        </TooltipWrapper>
-                      </div>
-                    </td>
-                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'down' ? 'text-[var(--color-bear)]' : signal.smart_money_direction === 'up' ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
-                      <div className="inline-flex items-center gap-2">
-                        {signal.smart_money_direction === 'down' ? <ArrowBigDownDash size={14} /> : <ArrowBigUpDash size={14} />}
-                        {titleCase(signal.smart_money_direction)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">
-                      When smart money direction aligns with the expected expansion direction, breakout continuation odds usually improve. When it conflicts, treat the setup as lower quality or require cleaner price confirmation.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-[var(--color-info)]" />Signal Components</h2>
-          <div className="text-sm text-[var(--color-text-secondary)]">Endpoint: <span className="font-mono">/api/signals/vol-expansion</span></div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-            <h3 className="text-lg font-semibold mb-3">Top Drivers</h3>
-            <div className="space-y-3">
-              {componentRankings.slice(0, 6).map((row) => (
-                <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
-                  <div className="flex items-start justify-between gap-3 mb-1">
-                    <div className="font-semibold">{row.subject}</div>
-                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>
-                      {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
-                    </div>
-                  </div>
-                  <div className="text-xs text-[var(--color-text-secondary)] mb-1">Weight: {row.weight}% • Raw score: {row.rawScore}</div>
-                  <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{row.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="h-[340px] sm:h-80 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-2 sm:p-3">
+          <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)]">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={componentRadarData} cx="50%" cy="52%" outerRadius={isMobile ? '66%' : '78%'}>
+              <RadarChart data={componentRadarData} outerRadius="72%">
                 <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 12 }} />
-                <Radar name="Score" dataKey="scorePct" stroke="var(--color-brand-accent)" fill="var(--color-brand-accent)" fillOpacity={0.45} />
-                <Tooltip formatter={(value, _name, item) => {
-                  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                  const subject = item && typeof item.payload === 'object' && item.payload !== null && 'subject' in item.payload
-                    ? String((item.payload as { subject?: string }).subject ?? 'Component')
-                    : 'Component';
-                  return [`${numericValue.toFixed(1)}%`, subject];
-                }} />
+                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
+                <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 10 }}
+                  formatter={(value, _n, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as ComponentAxis).description)]}
+                />
               </RadarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </section>
 
-      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold">Historical Accuracy</h2>
-          <label className="text-sm text-[var(--color-text-secondary)]">
-            Lookback Days:
-            <select className="ml-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded px-2 py-1" value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value))}>
-              <option value={14}>14</option>
-              <option value={30}>30</option>
-              <option value={60}>60</option>
-              <option value={90}>90</option>
-            </select>
-          </label>
-        </div>
-        <div className="text-sm text-[var(--color-text-secondary)] mb-4">Accuracy endpoint: <span className="font-mono">/api/signals/vol-expansion/accuracy</span></div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={accuracyChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
-              <XAxis dataKey="bucket" stroke="var(--color-chart-axis)" />
-              <YAxis stroke="var(--color-chart-axis)" domain={[0, 100]} unit="%" />
-              <Tooltip formatter={(value, _name, item) => {
-                const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                const sampleCount = item && typeof item.payload === 'object' && item.payload !== null && 'samples' in item.payload
-                  ? Number((item.payload as { samples?: number }).samples ?? 0)
-                  : 0;
-                return [`${numericValue.toFixed(1)}%`, `${sampleCount} samples`];
-              }} />
-              <Line type="monotone" dataKey="hitRate" stroke="var(--color-positive)" strokeWidth={3} />
-            </LineChart>
-          </ResponsiveContainer>
+      <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard title="Expected Direction" value={direction.toUpperCase()} trend={trend} tooltip="Forecast directional bias for expansion." theme="dark" icon={<TrendingUp size={16} />} />
+        <MetricCard title="Confidence" value={confidence} tooltip="Model confidence bucket." theme="dark" icon={<Gauge size={16} />} />
+        <MetricCard title="Move Probability" value={fmtPercent(moveProbability)} tooltip="Estimated probability of a meaningful expansion." theme="dark" icon={<Sparkles size={16} />} />
+        <MetricCard title="Expected Magnitude" value={fmtPercent(expectedMagnitude)} tooltip="Expected magnitude of move over forecast horizon." theme="dark" icon={<CircleHelp size={16} />} />
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+        <h2 className="text-2xl font-semibold mb-4">What This Rating Means</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="font-semibold mb-2">Calculation logic</div>
+            <ul className="space-y-2 text-[var(--color-text-secondary)]">
+              <li>• Component factors are normalized into a common 0–100 scale.</li>
+              <li>• Weighted component values roll into a composite expansion score.</li>
+              <li>• Composite plus supporting fields determine direction and confidence labels.</li>
+              <li>• Probability and expected magnitude provide trade selection context.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="font-semibold mb-2">Operational interpretation</div>
+            <ul className="space-y-2 text-[var(--color-text-secondary)]">
+              <li>• <strong>High score + high probability</strong>: strongest breakout conditions.</li>
+              <li>• <strong>High score + low probability</strong>: selective catalyst-driven setups.</li>
+              <li>• <strong>Low score</strong>: expansion less likely; favor compression/mean-reversion ideas.</li>
+              <li>• <strong>Mid score</strong>: require confirmation before committing size.</li>
+            </ul>
+          </div>
         </div>
       </section>
     </div>

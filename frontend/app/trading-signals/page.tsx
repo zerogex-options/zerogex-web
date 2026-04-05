@@ -1,384 +1,166 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
-  useSignalAccuracy,
-  useTradeSignal,
-  SignalAccuracyPoint,
-  SignalTimeframe,
-} from '@/hooks/useApiData';
-import { useTimeframe } from '@/core/TimeframeContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
-import MetricCard from '@/components/MetricCard';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
   PolarAngleAxis,
   PolarGrid,
   Radar,
   RadarChart,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis,
 } from 'recharts';
-import { BadgeCheck, CalendarClock, CircleDollarSign, Compass, Lightbulb, ShieldCheck, TrendingDown, TrendingUp } from 'lucide-react';
+import { Activity, Brain, Gauge, ShieldCheck, Sparkles } from 'lucide-react';
+import { useTimeframe } from '@/core/TimeframeContext';
+import { useTradesLive } from '@/hooks/useApiData';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorMessage from '@/components/ErrorMessage';
+import MetricCard from '@/components/MetricCard';
+import { useTheme } from '@/core/ThemeContext';
 
-const timeframeLabels: Record<SignalTimeframe, string> = {
-  intraday: 'Intraday',
-  swing: 'Swing',
-  multi_day: 'Multi-Day',
+type TradeRow = Record<string, unknown>;
+
+type RatingAxis = {
+  axis: string;
+  score: number;
+  note: string;
 };
 
-function parseAccuracyRows(payload: SignalAccuracyPoint[] | Record<string, unknown> | null): SignalAccuracyPoint[] {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
+function clamp(value: number, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value));
+}
 
-  for (const value of Object.values(payload)) {
-    if (Array.isArray(value)) return value as SignalAccuracyPoint[];
+function toRows(data: unknown): TradeRow[] {
+  if (Array.isArray(data)) return data as TradeRow[];
+  if (data && typeof data === 'object') {
+    const values = Object.values(data as Record<string, unknown>);
+    const firstArray = values.find((value) => Array.isArray(value));
+    if (Array.isArray(firstArray)) return firstArray as TradeRow[];
   }
-
   return [];
 }
 
-function titleCase(value: string) {
-  return value
-    .split('_')
-    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-    .join(' ');
+function getNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
-function formatCompact(value: number | null | undefined, options?: { currency?: boolean; percent?: boolean }) {
-  if (value == null || Number.isNaN(value)) return '—';
+function getString(value: unknown): string {
+  if (value == null) return '—';
+  return String(value);
+}
 
-  if (options?.percent) {
-    return `${value.toFixed(2)}%`;
-  }
-
+function formatMoney(value: number | null) {
+  if (value == null) return '—';
   const abs = Math.abs(value);
-  let suffix = '';
-  let scaled = value;
-
-  if (abs >= 1_000_000_000) {
-    scaled = value / 1_000_000_000;
-    suffix = 'B';
-  } else if (abs >= 1_000_000) {
-    scaled = value / 1_000_000;
-    suffix = 'M';
-  } else if (abs >= 1_000) {
-    scaled = value / 1_000;
-    suffix = 'K';
-  }
-
-  const num = suffix ? scaled.toFixed(2) : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
-  return `${options?.currency ? '$' : ''}${num}${suffix}`;
+  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `$${(value / 1_000).toFixed(2)}K`;
+  return `$${value.toFixed(2)}`;
 }
 
-type IndicatorRow = {
-  label: string;
-  value: number | null | undefined;
-  format: 'currency' | 'number' | 'percent';
-  tooltip: string;
-  interpretation: string;
-};
+function formatDate(value: unknown) {
+  const parsed = typeof value === 'string' ? new Date(value) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return getString(value);
+  return parsed.toLocaleString();
+}
+
+function ratingLabel(score: number) {
+  if (score >= 70) return 'High Conviction Bullish';
+  if (score >= 55) return 'Moderate Bullish';
+  if (score <= 30) return 'High Conviction Bearish';
+  if (score <= 45) return 'Moderate Bearish';
+  return 'Balanced / Two-Way';
+}
 
 export default function TradingSignalsPage() {
-  const isMobile = useIsMobile();
-  const { symbol, timeframe } = useTimeframe();
-  const [lookbackDays, setLookbackDays] = useState(30);
+  const { symbol } = useTimeframe();
+  const { theme } = useTheme();
+  const { data, loading, error, refetch } = useTradesLive(symbol, 5000);
 
-  const getDefaultSignalTimeframe = (): SignalTimeframe => {
-    if (timeframe === '1min' || timeframe === '5min') return 'intraday';
-    if (timeframe === '15min' || timeframe === '1hr') return 'swing';
-    return 'multi_day';
-  };
+  const rows = useMemo(() => toRows(data), [data]);
 
-  const [selectedSignalTimeframe, setSelectedSignalTimeframe] = useState<SignalTimeframe>(getDefaultSignalTimeframe);
+  const analytics = useMemo(() => {
+    const netPremium = rows.reduce((sum, row) => sum + (getNumber(row.net_premium ?? row.premium) ?? 0), 0);
+    const netVolume = rows.reduce((sum, row) => sum + (getNumber(row.net_volume ?? row.flow) ?? 0), 0);
+    const scoreValues = rows
+      .map((row) => getNumber(row.score ?? row.signal_score ?? row.composite_score))
+      .filter((value): value is number => value != null);
+    const averageScoreRaw = scoreValues.length
+      ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
+      : 0;
 
-  const { data: signal, loading: signalLoading, error: signalError, refetch } = useTradeSignal(symbol, selectedSignalTimeframe);
-  const { data: accuracyPayload, loading: accuracyLoading, error: accuracyError } = useSignalAccuracy(symbol, lookbackDays, 60000);
+    const bullishCount = rows.filter((row) => getString(row.flow_bias ?? row.trade_side ?? row.direction).toLowerCase().includes('bull')).length;
+    const bearishCount = rows.filter((row) => getString(row.flow_bias ?? row.trade_side ?? row.direction).toLowerCase().includes('bear')).length;
+    const breadth = rows.length ? bullishCount / rows.length : 0.5;
 
-  const accuracyRows = useMemo(() => parseAccuracyRows(accuracyPayload ?? null), [accuracyPayload]);
+    const normalizedSignal = clamp(((averageScoreRaw + 100) / 200) * 100);
+    const netFlowStrength = clamp(50 + Math.sign(netVolume) * Math.min(45, Math.log10(Math.abs(netVolume) + 1) * 12));
+    const premiumPressure = clamp(50 + Math.sign(netPremium) * Math.min(45, Math.log10(Math.abs(netPremium) + 1) * 12));
+    const directionalBreadth = clamp(breadth * 100);
+    const consistency = clamp(100 - Math.min(100, (bearishCount > bullishCount ? bearishCount - bullishCount : bullishCount - bearishCount) * 8));
 
-  const componentRadarData = useMemo(() => {
-    return (signal?.components || []).map((component) => ({
-      subject: component.name,
-      scorePct: Math.max(0, Math.min(100, ((component.score + 100) / 200) * 100)),
-      rawScore: component.score,
-      weight: component.weight,
-      applicable: component.applicable !== false,
-      description: component.description,
-      contribution: component.score * component.weight,
-    }));
-  }, [signal]);
+    const overall = clamp((normalizedSignal * 0.36) + (netFlowStrength * 0.2) + (premiumPressure * 0.2) + (directionalBreadth * 0.14) + (consistency * 0.1));
 
-  const componentRankings = useMemo(
-    () => [...componentRadarData].sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)),
-    [componentRadarData]
-  );
-
-  const accuracyChartData = useMemo(() => {
-    return accuracyRows
-      .filter((row) => row.timeframe === selectedSignalTimeframe)
-      .map((row) => ({
-        bucket: titleCase(row.strength),
-        winRate: Number((row.win_rate * 100).toFixed(1)),
-        samples: row.total_signals,
-      }));
-  }, [accuracyRows, selectedSignalTimeframe]);
-
-  const indicatorRows: IndicatorRow[] = useMemo(() => {
-    if (!signal) return [];
-
-    return [
-      {
-        label: 'Net GEX',
-        value: signal.net_gex,
-        format: 'currency',
-        tooltip: 'Aggregate net gamma exposure from dealer positioning. Positive values often imply stabilizing hedging flows; negative values can amplify volatility.',
-        interpretation:
-          'Use this as your market-regime anchor. Strongly positive Net GEX often supports mean-reversion and tighter ranges, while negative Net GEX favors momentum and larger intraday swings. Scale position size and stop width to regime.',
-      },
-      {
-        label: 'Gamma Flip',
-        value: signal.gamma_flip,
-        format: 'currency',
-        tooltip: 'Price zone where net gamma transitions sign and dealer hedging behavior can change materially.',
-        interpretation:
-          'Treat Gamma Flip as a volatility pivot. If price is above flip and holding, trend continuation can be cleaner; below flip, expect whippier tape. Around flip, reduce conviction and wait for confirmation before pressing size.',
-      },
-      {
-        label: 'VWAP Deviation',
-        value: signal.vwap_deviation_pct,
-        format: 'percent',
-        tooltip: 'Distance of current price from intraday VWAP in percentage terms.',
-        interpretation:
-          'Large positive/negative deviations indicate stretch. In positive gamma regimes, extreme deviation tends to mean-revert faster. In negative gamma regimes, extreme deviation can persist—so require stronger confirmation before fading.',
-      },
-      {
-        label: 'Put/Call Ratio',
-        value: signal.put_call_ratio,
-        format: 'number',
-        tooltip: 'Relative demand for puts versus calls from recent options flow.',
-        interpretation:
-          'Rising put/call ratio reflects defensive or bearish hedging demand. Combine with price action: if ratio rises while price holds up, downside hedging may be absorbed; if ratio rises and price weakens, downside continuation risk increases.',
-      },
-      {
-        label: 'Dealer Net Delta',
-        value: signal.dealer_net_delta,
-        format: 'number',
-        tooltip: 'Estimated aggregate dealer delta imbalance requiring hedging adjustments.',
-        interpretation:
-          'Higher absolute dealer delta imbalance can mechanically drive hedging flows into key levels. Use it to anticipate acceleration through levels (chase breakouts) versus hedging dampeners (favor pullback entries).',
-      },
+    const radarAxes: RatingAxis[] = [
+      { axis: 'Signal', score: normalizedSignal, note: 'Mean score strength from live rows' },
+      { axis: 'Flow', score: netFlowStrength, note: 'Net directional contract flow pressure' },
+      { axis: 'Premium', score: premiumPressure, note: 'Dollar premium pressure behind moves' },
+      { axis: 'Breadth', score: directionalBreadth, note: 'Percent of rows aligned bullish' },
+      { axis: 'Consistency', score: consistency, note: 'How concentrated the tape is in one direction' },
     ];
-  }, [signal]);
 
-  if ((signalLoading && !signal) || (accuracyLoading && !accuracyPayload)) {
+    return {
+      netPremium,
+      netVolume,
+      bullishCount,
+      bearishCount,
+      normalizedSignal,
+      overall,
+      radarAxes,
+      label: ratingLabel(overall),
+    };
+  }, [rows]);
+
+  if (loading && !data) {
     return <LoadingSpinner size="lg" />;
   }
+
+  const scoreColor = analytics.overall >= 55 ? 'var(--color-bull)' : analytics.overall <= 45 ? 'var(--color-bear)' : 'var(--color-warning)';
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Trade Ideas</h1>
-      <p className="text-[var(--color-text-secondary)] mb-8">Actionable options trade ideas powered by composite analytics.</p>
+      <p className="text-[var(--color-text-secondary)] mb-8">
+        Real-time flow intelligence for fast trade selection and directional conviction.
+      </p>
 
-      <section className="mb-6">
-        <div className="inline-flex rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
-          {(['intraday', 'swing', 'multi_day'] as SignalTimeframe[]).map((tf) => {
-            const isActive = selectedSignalTimeframe === tf;
-            return (
-              <button
-                key={tf}
-                onClick={() => setSelectedSignalTimeframe(tf)}
-                className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-surface-subtle)' : 'transparent',
-                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                }}
-                type="button"
-              >
-                {timeframeLabels[tf]}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      {signalError && <ErrorMessage message={signalError} onRetry={refetch} />}
-      {accuracyError && <ErrorMessage message={accuracyError} />}
-
-      {signal && (
-        <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <MetricCard title="Direction" value={signal.direction.toUpperCase()} trend={signal.direction} tooltip="Model signal direction" theme="dark" />
-          <MetricCard title="Strength" value={signal.strength.toUpperCase()} tooltip="Signal confidence bucket" theme="dark" />
-          <MetricCard title="Signal Score" value={`${(signal.normalized_score * 100).toFixed(1)}%`} tooltip="Composite score normalized by max possible score" theme="dark" />
-          <MetricCard title="Estimated Win Rate" value={`${(signal.estimated_win_pct * 100).toFixed(1)}%`} tooltip="Calibrated expected win percentage" theme="dark" />
-        </section>
-      )}
-
-      {signal?.trade_idea && (
-        <section className="mb-8 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><Lightbulb className="text-[var(--color-warning)]" size={22} /> Suggested Trade Idea</h2>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-surface-subtle)] text-[var(--color-bull)] border border-[var(--color-border)]">
-              {timeframeLabels[selectedSignalTimeframe]} Setup
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><Compass size={14} /> Strategy</div>
-              <div className="text-lg font-semibold">{titleCase(signal.trade_idea.trade_type)}</div>
-            </div>
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CalendarClock size={14} /> Target Expiry</div>
-              <div className="text-lg font-semibold">{signal.trade_idea.target_expiry}</div>
-            </div>
-            <div className="rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-              <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1 flex items-center gap-1"><CircleDollarSign size={14} /> Est. Win %</div>
-              <div className="text-lg font-semibold text-[var(--color-bull)]">{(signal.trade_idea.estimated_win_pct * 100).toFixed(1)}%</div>
+      <section
+        className="mb-8 rounded-2xl border border-[var(--color-border)] p-6"
+        style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div>
+            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Live Composite Trade Feel</div>
+            <div className="text-5xl font-black leading-none" style={{ color: scoreColor }}>{analytics.overall.toFixed(1)}</div>
+            <div className="mt-2 text-lg font-semibold">{analytics.label}</div>
+            <div className="mt-4 text-sm text-[var(--color-text-secondary)] max-w-xl">
+              This rating blends score quality, flow pressure, premium conviction, directional breadth, and consistency so you can quickly gauge whether to favor momentum continuation or mean-reversion setups.
             </div>
           </div>
-          <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-            <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1">Suggested Strikes</div>
-            <div className="font-mono text-base">{signal.trade_idea.suggested_strikes}</div>
-          </div>
-          <div className="mt-4 rounded-lg bg-[var(--color-surface-subtle)] border border-[var(--color-border)] p-4">
-            <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1">Why this setup</div>
-            <div className="text-sm leading-relaxed">{signal.trade_idea.rationale}</div>
-          </div>
-        </section>
-      )}
-
-      {signal && (
-        <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-          <h2 className="text-2xl font-semibold mb-4">Live Indicator Matrix</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-secondary)]">
-                  <th className="text-left py-2 px-3">Indicator</th>
-                  <th className="text-right py-2 px-3">Value</th>
-                  <th className="text-left py-2 px-3">Interpretation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {indicatorRows.map((row) => {
-                  const formatted =
-                    row.format === 'currency'
-                      ? formatCompact(row.value, { currency: true })
-                      : row.format === 'percent'
-                        ? formatCompact(row.value, { percent: true })
-                        : formatCompact(row.value);
-                  const negative = (row.value ?? 0) < 0;
-
-                  return (
-                    <tr key={row.label} className="border-b border-[var(--color-border)] align-top">
-                      <td className="py-3 px-3 font-medium">
-                        <div className="flex items-center gap-2">
-                          {row.label}
-                          <TooltipWrapper text={row.tooltip} inlineInExpanded={false}>
-                            <span className="text-[var(--color-text-secondary)]">ⓘ</span>
-                          </TooltipWrapper>
-                        </div>
-                      </td>
-                      <td className={`py-3 px-3 text-right font-mono ${negative ? 'text-[var(--color-bear)]' : 'text-[var(--text-primary)]'}`}>{formatted}</td>
-                      <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">{row.interpretation}</td>
-                    </tr>
-                  );
-                })}
-                <tr className="border-b border-[var(--color-border)] align-top">
-                  <td className="py-3 px-3 font-medium">
-                    <div className="flex items-center gap-2">
-                      Unusual Volume
-                      <TooltipWrapper text="Detects statistically abnormal volume/flow bursts versus baseline behavior for this symbol and timeframe." inlineInExpanded={false}>
-                        <span className="text-[var(--color-text-secondary)]">ⓘ</span>
-                      </TooltipWrapper>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <span className={`inline-flex items-center gap-1 font-semibold ${signal.unusual_volume_detected ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
-                      {signal.unusual_volume_detected ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {signal.unusual_volume_detected ? 'Detected' : 'Not Detected'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">
-                    Elevated volume can precede directional expansion and volatility repricing. If unusual volume confirms your directional signal, you can justify more conviction. If it conflicts with your setup, reduce size or wait for cleaner alignment.
-                  </td>
-                </tr>
-                {signal.smart_money_direction && (
-                  <tr className="border-b border-[var(--color-border)] align-top">
-                    <td className="py-3 px-3 font-medium">
-                      <div className="flex items-center gap-2">
-                        Smart Money Direction
-                        <TooltipWrapper text="Directional classification inferred from unusual large-lot / high-notional options flow." inlineInExpanded={false}>
-                          <span className="text-[var(--color-text-secondary)]">ⓘ</span>
-                        </TooltipWrapper>
-                      </div>
-                    </td>
-                    <td className={`py-3 px-3 text-right font-semibold ${signal.smart_money_direction === 'bearish' ? 'text-[var(--color-bear)]' : signal.smart_money_direction === 'bullish' ? 'text-[var(--color-bull)]' : 'text-[var(--color-warning)]'}`}>
-                      <div className="inline-flex items-center gap-2">
-                        <BadgeCheck size={14} />
-                        {titleCase(signal.smart_money_direction)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-[var(--color-text-secondary)] leading-relaxed">
-                      Use this as a confirmation layer, not a standalone trigger. Alignment between smart-money direction, composite signal direction, and price structure improves trade quality; disagreement suggests chop risk and lower expectancy.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><ShieldCheck size={20} className="text-[var(--color-info)]" />Signal Components</h2>
-          <div className="text-sm text-[var(--color-text-secondary)]">Timeframe: {timeframeLabels[selectedSignalTimeframe]}</div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-            <h3 className="text-lg font-semibold mb-3">Top Drivers</h3>
-            <div className="space-y-3">
-              {componentRankings.slice(0, 5).map((row) => (
-                <div key={row.subject} className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
-                  <div className="flex items-start justify-between gap-3 mb-1">
-                    <div className="font-semibold">{row.subject}</div>
-                    <div className={`text-sm font-semibold ${row.contribution >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>
-                      {row.contribution >= 0 ? '+' : ''}{row.contribution.toFixed(0)} pts
-                    </div>
-                  </div>
-                  <div className="text-xs text-[var(--color-text-secondary)] mb-1">Weight: {row.weight}% • Raw score: {row.rawScore}</div>
-                  <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{row.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="h-[340px] sm:h-80 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-2 sm:p-3">
+          <div className="w-full lg:w-[430px] h-[300px] rounded-xl border border-[var(--color-border)] p-2" style={{ backgroundColor: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={componentRadarData} cx="50%" cy="52%" outerRadius={isMobile ? '66%' : '78%'}>
+              <RadarChart data={analytics.radarAxes} outerRadius="72%">
                 <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 12 }} />
-                <Radar name="Score" dataKey="scorePct" stroke="var(--color-brand-accent)" fill="var(--color-brand-accent)" fillOpacity={0.45} />
+                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
+                <Radar dataKey="score" name="Score" stroke="var(--color-brand-accent)" fill="var(--color-brand-accent)" fillOpacity={0.46} />
                 <Tooltip
-                  formatter={(value, _name, item) => {
-                    const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                    const subject =
-                      item &&
-                      typeof item.payload === 'object' &&
-                      item.payload !== null &&
-                      'subject' in item.payload
-                        ? String((item.payload as { subject?: string }).subject ?? 'Component')
-                        : 'Component';
-
-                    return [`${numericValue.toFixed(1)}%`, subject];
-                  }}
+                  contentStyle={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10 }}
+                  formatter={(value, _name, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as RatingAxis).note)]}
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -386,47 +168,98 @@ export default function TradingSignalsPage() {
         </div>
       </section>
 
-      <section className="mb-8 bg-[var(--color-surface)] rounded-lg p-6 border border-[var(--color-border)]">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-2xl font-semibold">Historical Accuracy</h2>
-          <label className="text-sm text-[var(--color-text-secondary)]">
-            Lookback Days:
-            <select
-              className="ml-2 bg-[var(--color-surface-subtle)] border border-[var(--color-border)] rounded px-2 py-1"
-              value={lookbackDays}
-              onChange={(e) => setLookbackDays(Number(e.target.value))}
-            >
-              <option value={14}>14</option>
-              <option value={30}>30</option>
-              <option value={60}>60</option>
-              <option value={90}>90</option>
-            </select>
-          </label>
-        </div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={accuracyChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
-              <XAxis dataKey="bucket" stroke="var(--color-chart-axis)" />
-              <YAxis stroke="var(--color-chart-axis)" domain={[0, 100]} unit="%" />
-              <Tooltip
-                formatter={(value, _name, item) => {
-                  const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                  const sampleCount =
-                    item &&
-                    typeof item.payload === 'object' &&
-                    item.payload !== null &&
-                    'samples' in item.payload
-                      ? Number((item.payload as { samples?: number }).samples ?? 0)
-                      : 0;
+      <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard title="Live Signals" value={rows.length} tooltip="Current number of live rows feeding the model." theme="dark" />
+        <MetricCard
+          title="Net Premium"
+          value={formatMoney(analytics.netPremium)}
+          trend={analytics.netPremium > 0 ? 'bullish' : analytics.netPremium < 0 ? 'bearish' : 'neutral'}
+          tooltip="Aggregate premium pressure across live signal rows."
+          theme="dark"
+          icon={<Sparkles size={16} />}
+        />
+        <MetricCard
+          title="Net Flow"
+          value={Math.round(analytics.netVolume).toLocaleString()}
+          trend={analytics.netVolume > 0 ? 'bullish' : analytics.netVolume < 0 ? 'bearish' : 'neutral'}
+          tooltip="Net signed flow from live trade rows."
+          theme="dark"
+          icon={<Activity size={16} />}
+        />
+        <MetricCard
+          title="Bull vs Bear"
+          value={`${analytics.bullishCount}/${analytics.bearishCount}`}
+          tooltip="Row count split between bullish and bearish directional tags."
+          theme="dark"
+          icon={<Gauge size={16} />}
+        />
+      </section>
 
-                  return [`${numericValue.toFixed(1)}%`, `${sampleCount} samples`];
-                }}
-              />
-              <Line type="monotone" dataKey="winRate" stroke="var(--color-positive)" strokeWidth={3} />
-            </LineChart>
-          </ResponsiveContainer>
+      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Brain size={20} /> Rating Framework</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-2">How it&apos;s calculated</div>
+            <ul className="space-y-2 text-[var(--color-text-secondary)]">
+              <li>• <strong>Signal (36%)</strong>: normalized average of live row score fields.</li>
+              <li>• <strong>Flow (20%)</strong>: scaled intensity of signed net flow volume.</li>
+              <li>• <strong>Premium (20%)</strong>: scaled intensity of signed net premium.</li>
+              <li>• <strong>Breadth (14%)</strong>: percent of rows aligned in the bullish direction.</li>
+              <li>• <strong>Consistency (10%)</strong>: concentration vs fragmentation of directional signals.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-2">How to interpret</div>
+            <ul className="space-y-2 text-[var(--color-text-secondary)]">
+              <li>• <strong>70–100</strong>: aggressive bullish regime; favor directional upside structures.</li>
+              <li>• <strong>55–69</strong>: constructive bullish tilt; continuation setups preferred.</li>
+              <li>• <strong>45–54</strong>: mixed tape; reduce size and prioritize confirmation.</li>
+              <li>• <strong>31–44</strong>: bearish tilt; downside strategies gain expectancy.</li>
+              <li>• <strong>0–30</strong>: high-conviction bearish tape with elevated trend risk.</li>
+            </ul>
+          </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--color-border)] p-4 overflow-x-auto" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-semibold">Live Trade Stream</h2>
+          <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Updated every few seconds</div>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b border-[var(--color-border)]">
+              <th className="py-2 pr-3">Timestamp</th>
+              <th className="py-2 pr-3">Contract</th>
+              <th className="py-2 pr-3">Flow Bias</th>
+              <th className="py-2 pr-3">Notional</th>
+              <th className="py-2 pr-3">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 60).map((row, idx) => {
+              const score = getNumber(row.score ?? row.signal_score);
+              return (
+                <tr key={idx} className="border-b border-[var(--color-border)]/45">
+                  <td className="py-2 pr-3 whitespace-nowrap">{formatDate(row.timestamp)}</td>
+                  <td className="py-2 pr-3">{getString(row.contract ?? row.symbol)}</td>
+                  <td className="py-2 pr-3">{getString(row.flow_bias ?? row.trade_side ?? row.direction)}</td>
+                  <td className="py-2 pr-3">{formatMoney(getNumber(row.notional ?? row.net_premium ?? row.premium))}</td>
+                  <td className="py-2 pr-3" style={{ color: score != null && score > 0 ? 'var(--color-bull)' : score != null && score < 0 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
+                    {score != null ? score.toFixed(2) : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-10 text-center text-[var(--color-text-secondary)]">
+                  No live trade rows available.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </section>
     </div>
   );

@@ -5,10 +5,10 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import { useGEXSummary, useMarketQuote, useSignalScore } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
-import LoadingSpinner, { LoadingCard } from '@/components/LoadingSpinner';
+import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
@@ -21,7 +21,8 @@ export default function DashboardPage() {
   
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
-  const { data: quoteData, loading: quoteLoading, error: quoteError } = useMarketQuote(symbol, 1000);
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: scoreData } = useSignalScore(symbol, 10000);
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -82,6 +83,87 @@ export default function DashboardPage() {
             tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
             theme={theme}
           />
+        </div>
+      </section>
+
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
+        <div className="rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2">
+              <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
+              <div
+                className="text-6xl font-black leading-none"
+                style={{
+                  color:
+                    typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                      ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'var(--color-bull)' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
+                      : 'var(--color-text-primary)',
+                }}
+              >
+                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number' ? (scoreData?.composite_score ?? scoreData?.score)!.toFixed(2) : '--'}
+              </div>
+              <div className="mt-2 text-lg font-semibold">
+                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                  ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'Bullish Trading Environment' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'Bearish Trading Environment' : 'Neutral Trading Environment')
+                  : 'Awaiting signal data'}
+              </div>
+              <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
+                This is the top-level regime signal for trade selection. Readings near +100 indicate strong risk-on pressure; readings near -100 indicate strong risk-off pressure.
+              </p>
+            </div>
+
+            <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold">Score Spectrum</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Range: -100 to +100</div>
+              </div>
+
+              <div className="relative mt-4">
+                <div
+                  className="h-4 rounded-full"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, var(--color-bear) 0%, #d98572 25%, var(--color-warning) 50%, #75cfa1 75%, var(--color-bull) 100%)',
+                  }}
+                />
+                <div
+                  className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
+                  style={{
+                    left:
+                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 100) / 200) * 100))}%`
+                        : '50%',
+                    transform: 'translateX(-50%)',
+                  }}
+                />
+              </div>
+
+              <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
+                <span className="text-left">-100</span>
+                <span className="text-center">-50</span>
+                <span className="text-center">0</span>
+                <span className="text-center">+50</span>
+                <span className="text-right">+100</span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bear)]">Bearish Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">-100 to -25: favor downside continuation and defensive structures.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-warning)]">Neutral Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">-24 to +24: mixed tape, prioritize confirmation and smaller size.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bull)]">Bullish Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">+25 to +100: favor upside continuation and pullback entries.</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

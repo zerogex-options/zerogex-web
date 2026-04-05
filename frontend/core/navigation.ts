@@ -18,7 +18,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/trading-signals', label: 'Trade Ideas' },
       { id: '/volatility-expansion', label: 'Volatility Expansion' },
-      { id: '/position-optimizer', label: 'Position Optimizer' },
     ],
   },
   {
