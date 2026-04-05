@@ -14,6 +14,7 @@ import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import VolatilityCard from '@/components/VolatilityCard';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { colors } from '@/core/colors';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -91,7 +92,16 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
         <div className="rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2">
+            <div
+              className="lg:col-span-2 rounded-2xl border p-6"
+              style={{
+                backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+                borderColor: colors.muted,
+                boxShadow: theme === 'dark'
+                  ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
+                  : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
+              }}
+            >
               <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
               <div
                 className="text-6xl font-black leading-none"
