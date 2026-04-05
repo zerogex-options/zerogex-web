@@ -93,47 +93,79 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-2">
               <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
-              <div
-                className="text-6xl font-black leading-none"
-                style={{
-                  color:
-                    typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                      ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'var(--color-bull)' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
-                      : 'var(--color-text-primary)',
-                }}
-              >
-                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number' ? (scoreData?.composite_score ?? scoreData?.score)!.toFixed(2) : '--'}
-              </div>
-              <div className="mt-2 text-lg font-semibold">
-                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                  ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'Bullish Trading Environment' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'Bearish Trading Environment' : 'Neutral Trading Environment')
-                  : 'Awaiting signal data'}
-              </div>
+              {(() => {
+                const compositeScore = scoreData?.composite_score ?? scoreData?.score;
+                const hasScore = typeof compositeScore === 'number';
+                const absScore = hasScore ? Math.abs(compositeScore!) : 0;
+                const direction = hasScore ? (compositeScore! > 0 ? 'bullish' : compositeScore! < 0 ? 'bearish' : 'neutral') : null;
+                const strength = hasScore ? (absScore >= 0.82 ? 'high' : absScore >= 0.64 ? 'medium' : 'low') : null;
+
+                const directionLabel = hasScore
+                  ? absScore >= 0.58
+                    ? (direction === 'bullish' ? 'Strong Bullish — Open Trades' : 'Strong Bearish — Open Trades')
+                    : absScore >= 0.35
+                    ? (direction === 'bullish' ? 'Bullish — Monitor / Hold' : direction === 'bearish' ? 'Bearish — Monitor / Hold' : 'Neutral — No Edge')
+                    : 'Neutral — No Edge'
+                  : 'Awaiting signal data';
+
+                return (
+                  <>
+                    <div
+                      className="text-6xl font-black leading-none"
+                      style={{
+                        color: hasScore
+                          ? (compositeScore! > 0 ? 'var(--color-bull)' : compositeScore! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
+                          : 'var(--color-text-primary)',
+                      }}
+                    >
+                      {hasScore ? compositeScore!.toFixed(2) : '--'}
+                    </div>
+                    <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
+                    {hasScore && strength && (
+                      <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{
+                        background: strength === 'high' ? 'rgba(27,196,125,0.15)' : strength === 'medium' ? 'rgba(255,166,0,0.15)' : 'rgba(255,77,90,0.15)',
+                        color: strength === 'high' ? 'var(--color-bull)' : strength === 'medium' ? 'var(--color-warning)' : 'var(--color-bear)',
+                      }}>
+                        {strength === 'high' ? 'High Conviction' : strength === 'medium' ? 'Medium Conviction' : 'Low Conviction'}
+                        {' · '}|score| = {absScore.toFixed(2)}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-                This is the top-level regime signal for trade selection. Readings near +100 indicate strong risk-on pressure; readings near -100 indicate strong risk-off pressure.
+                Composite score from the UnifiedSignalEngine (−1.0 to +1.0). Weighted sum of 6 components: GEX regime, vol expansion, smart money, exhaustion, gamma flip, and put/call ratio. Sign encodes direction; magnitude encodes conviction.
               </p>
             </div>
 
             <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold">Score Spectrum</div>
-                <div className="text-xs text-[var(--color-text-secondary)]">Range: -100 to +100</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Range: −1.0 to +1.0</div>
               </div>
 
+              {/* Spectrum bar with zone markers */}
               <div className="relative mt-4">
                 <div
                   className="h-4 rounded-full"
                   style={{
                     background:
-                      'linear-gradient(90deg, var(--color-bear) 0%, #d98572 25%, var(--color-warning) 50%, #75cfa1 75%, var(--color-bull) 100%)',
+                      'linear-gradient(90deg, var(--color-bear) 0%, #d98572 21%, var(--color-warning) 50%, #75cfa1 79%, var(--color-bull) 100%)',
                   }}
                 />
+                {/* Trigger threshold markers at ±0.58 */}
+                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '21%' }} />
+                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '79%' }} />
+                {/* Neutral boundary markers at ±0.35 */}
+                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '32.5%' }} />
+                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '67.5%' }} />
+                {/* Current score indicator */}
                 <div
                   className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                   style={{
                     left:
                       typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 100) / 200) * 100))}%`
+                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 1) / 2) * 100))}%`
                         : '50%',
                     transform: 'translateX(-50%)',
                   }}
@@ -141,25 +173,46 @@ export default function DashboardPage() {
               </div>
 
               <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
-                <span className="text-left">-100</span>
-                <span className="text-center">-50</span>
+                <span className="text-left">−1.0</span>
+                <span className="text-center">−0.58</span>
                 <span className="text-center">0</span>
-                <span className="text-center">+50</span>
-                <span className="text-right">+100</span>
+                <span className="text-center">+0.58</span>
+                <span className="text-right">+1.0</span>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bear)]">Bearish Zone</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">-100 to -25: favor downside continuation and defensive structures.</div>
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bear)]">Strong Bear</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">−1.0 to −0.58: open bearish trades.</div>
                 </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-warning)]">Neutral Zone</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">-24 to +24: mixed tape, prioritize confirmation and smaller size.</div>
+                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bear)] opacity-70">Weak Bear</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">−0.58 to −0.35: hold, don&apos;t add.</div>
                 </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bull)]">Bullish Zone</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">+25 to +100: favor upside continuation and pullback entries.</div>
+                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-warning)]">Neutral</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">−0.35 to +0.35: no edge, cut size.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bull)] opacity-70">Weak Bull</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">+0.35 to +0.58: hold, don&apos;t add.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bull)]">Strong Bull</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">+0.58 to +1.0: open bullish trades.</div>
+                </div>
+              </div>
+
+              {/* Component breakdown reference */}
+              <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
+                <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2">Signal Components</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-[11px] text-[var(--color-text-secondary)]">
+                  <span>GEX Regime <span className="opacity-60">(22%)</span></span>
+                  <span>Vol Expansion <span className="opacity-60">(20%)</span></span>
+                  <span>Smart Money <span className="opacity-60">(16%)</span></span>
+                  <span>Exhaustion <span className="opacity-60">(15%)</span></span>
+                  <span>Gamma Flip <span className="opacity-60">(15%)</span></span>
+                  <span>Put/Call Ratio <span className="opacity-60">(12%)</span></span>
                 </div>
               </div>
             </div>

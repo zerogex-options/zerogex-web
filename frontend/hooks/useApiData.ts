@@ -433,12 +433,24 @@ export function useTradesLive(symbol = 'SPY', refreshInterval = 5000) {
   return useApiData<unknown>(`/api/signals/trades-live?symbol=${symbol}`, { refreshInterval });
 }
 
+export interface SignalScoreComponent {
+  name: string;
+  weight: number;
+  score: number;
+  contribution: number;
+}
+
 export interface SignalScoreResponse {
   underlying?: string;
   timestamp?: string;
   composite_score?: number;
   score?: number;
-  direction?: string;
+  normalized_score?: number;
+  direction?: 'bullish' | 'bearish' | 'neutral';
+  strength?: 'high' | 'medium' | 'low';
+  trigger_threshold?: number;
+  iv_rank?: number;
+  components?: SignalScoreComponent[];
   [key: string]: unknown;
 }
 
