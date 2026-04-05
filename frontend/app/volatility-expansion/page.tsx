@@ -15,7 +15,7 @@ import { useVolExpansionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
-import { useTheme } from '@/core/ThemeContext';
+import TooltipWrapper from '@/components/TooltipWrapper';
 
 type GenericObject = Record<string, unknown>;
 
@@ -63,7 +63,6 @@ function interpretation(score: number | null) {
 
 export default function VolatilityExpansionPage() {
   const { symbol } = useTimeframe();
-  const { theme } = useTheme();
   const { data, loading, error, refetch } = useVolExpansionSignal(symbol, 10000);
 
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
@@ -74,6 +73,23 @@ export default function VolatilityExpansionPage() {
     }
     return [];
   }, [payload]);
+
+  const componentTooltipText = useMemo(() => {
+    if (components.length === 0) {
+      return 'Component breakdown unavailable in the current API payload.';
+    }
+
+    return components
+      .slice(0, 10)
+      .map((component) => {
+        const name = String(component.name ?? 'Component');
+        const raw = getNumber(component.raw_score ?? component.score);
+        const weighted = getNumber(component.weighted_score);
+        const desc = String(component.description ?? 'No description');
+        return `${name}: raw=${raw != null ? raw.toFixed(2) : '—'}, weighted=${weighted != null ? weighted.toFixed(2) : '—'} — ${desc}`;
+      })
+      .join(' | ');
+  }, [components]);
 
   const componentRadarData = useMemo<ComponentAxis[]>(() => {
     if (components.length === 0) {
@@ -116,10 +132,15 @@ export default function VolatilityExpansionPage() {
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
         <div className="flex flex-col lg:flex-row gap-6 justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Expansion Regime Score</div>
+            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
+              Expansion Regime Score
+              <TooltipWrapper text={componentTooltipText}>
+                <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+              </TooltipWrapper>
+            </div>
             <div className="text-5xl font-black" style={{ color: trend === 'bullish' ? 'var(--color-bull)' : trend === 'bearish' ? 'var(--color-bear)' : 'var(--color-warning)' }}>
               {compositeScore != null ? compositeScore.toFixed(1) : '—'}
             </div>
@@ -128,14 +149,14 @@ export default function VolatilityExpansionPage() {
               The model combines directional pressure, volatility context, flow, and structure conditions to estimate whether price is likely to expand into a larger-than-normal move.
             </div>
           </div>
-          <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)]" style={{ backgroundColor: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+          <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)]">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={componentRadarData} outerRadius="72%">
                 <PolarGrid stroke="var(--color-border)" />
                 <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
                 <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                 <Tooltip
-                  contentStyle={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10 }}
+                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 10 }}
                   formatter={(value, _n, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as ComponentAxis).description)]}
                 />
               </RadarChart>
@@ -151,10 +172,10 @@ export default function VolatilityExpansionPage() {
         <MetricCard title="Expected Magnitude" value={fmtPercent(expectedMagnitude)} tooltip="Expected magnitude of move over forecast horizon." theme="dark" icon={<CircleHelp size={16} />} />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+      <section className="mb-8 rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
         <h2 className="text-2xl font-semibold mb-4">What This Rating Means</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2">Calculation logic</div>
             <ul className="space-y-2 text-[var(--color-text-secondary)]">
               <li>• Component factors are normalized into a common 0–100 scale.</li>
@@ -163,7 +184,7 @@ export default function VolatilityExpansionPage() {
               <li>• Probability and expected magnitude provide trade selection context.</li>
             </ul>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2">Operational interpretation</div>
             <ul className="space-y-2 text-[var(--color-text-secondary)]">
               <li>• <strong>High score + high probability</strong>: strongest breakout conditions.</li>
@@ -173,50 +194,6 @@ export default function VolatilityExpansionPage() {
             </ul>
           </div>
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
-        <h2 className="text-xl font-semibold mb-4">Signal Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-6">
-          {Object.entries(payload)
-            .filter(([key]) => key !== 'components')
-            .map(([key, value]) => (
-              <div key={key} className="flex justify-between gap-4 border-b border-[var(--color-border)]/50 py-2">
-                <span className="text-[var(--color-text-secondary)]">{key}</span>
-                <span className="text-right">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-              </div>
-            ))}
-        </div>
-
-        <h3 className="text-lg font-semibold mb-3">Component Breakdown</h3>
-        {components.length === 0 ? (
-          <p className="text-[var(--color-text-secondary)]">No component rows returned by the API.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-[var(--color-border)]">
-                  <th className="py-2 pr-3">Name</th>
-                  <th className="py-2 pr-3">Weight</th>
-                  <th className="py-2 pr-3">Raw Score</th>
-                  <th className="py-2 pr-3">Weighted Score</th>
-                  <th className="py-2 pr-3">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {components.map((row, idx) => (
-                  <tr key={idx} className="border-b border-[var(--color-border)]/50">
-                    <td className="py-2 pr-3">{String(row.name ?? '—')}</td>
-                    <td className="py-2 pr-3">{getNumber(row.weight)?.toFixed(2) ?? '—'}</td>
-                    <td className="py-2 pr-3">{getNumber(row.raw_score)?.toFixed(2) ?? '—'}</td>
-                    <td className="py-2 pr-3">{getNumber(row.weighted_score)?.toFixed(2) ?? '—'}</td>
-                    <td className="py-2 pr-3 text-[var(--color-text-secondary)]">{String(row.description ?? '—')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
     </div>
   );

@@ -89,9 +89,9 @@ export default function DashboardPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
-        <div className="rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+        <div className="rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2">
               <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
               <div
                 className="text-6xl font-black leading-none"
@@ -109,40 +109,59 @@ export default function DashboardPage() {
                   ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'Bullish Trading Environment' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'Bearish Trading Environment' : 'Neutral Trading Environment')
                   : 'Awaiting signal data'}
               </div>
-              <div className="mt-4 h-3 rounded-full bg-[var(--color-surface)] overflow-hidden">
-                <div
-                  className="h-full transition-all"
-                  style={{
-                    width:
-                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 100) / 200) * 100))}%`
-                        : '0%',
-                    backgroundColor:
-                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                        ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'var(--color-bull)' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
-                        : 'var(--color-border)',
-                  }}
-                />
-              </div>
               <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-                Use this as your top-level regime filter before selecting a trade. Positive readings favor bullish expression and pullback buys; negative readings favor bearish expression and failed-rally shorts.
+                This is the top-level regime signal for trade selection. Readings near +100 indicate strong risk-on pressure; readings near -100 indicate strong risk-off pressure.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <MetricCard
-                title="Signal Direction"
-                value={String(scoreData?.direction ?? 'N/A').toUpperCase()}
-                trend={String(scoreData?.direction ?? '').toLowerCase().includes('bull') ? 'bullish' : String(scoreData?.direction ?? '').toLowerCase().includes('bear') ? 'bearish' : 'neutral'}
-                tooltip="Directional label from the live composite score model."
-                theme={theme}
-              />
-              <MetricCard
-                title="Signal Timestamp"
-                value={scoreData?.timestamp ? new Date(String(scoreData.timestamp)).toLocaleTimeString() : 'N/A'}
-                tooltip="Most recent timestamp of the score update."
-                theme={theme}
-              />
+            <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold">Score Spectrum</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Range: -100 to +100</div>
+              </div>
+
+              <div className="relative mt-4">
+                <div
+                  className="h-4 rounded-full"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, var(--color-bear) 0%, #d98572 25%, var(--color-warning) 50%, #75cfa1 75%, var(--color-bull) 100%)',
+                  }}
+                />
+                <div
+                  className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
+                  style={{
+                    left:
+                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 100) / 200) * 100))}%`
+                        : '50%',
+                    transform: 'translateX(-50%)',
+                  }}
+                />
+              </div>
+
+              <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
+                <span className="text-left">-100</span>
+                <span className="text-center">-50</span>
+                <span className="text-center">0</span>
+                <span className="text-center">+50</span>
+                <span className="text-right">+100</span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bear)]">Bearish Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">-100 to -25: favor downside continuation and defensive structures.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-warning)]">Neutral Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">-24 to +24: mixed tape, prioritize confirmation and smaller size.</div>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
+                  <div className="font-semibold text-[var(--color-bull)]">Bullish Zone</div>
+                  <div className="text-[var(--color-text-secondary)] mt-1">+25 to +100: favor upside continuation and pullback entries.</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

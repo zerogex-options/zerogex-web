@@ -114,6 +114,11 @@
 
   --color-grid-line: rgba(255, 211, 128, 0.16);
   --color-grid-overlay: rgba(0, 32, 46, 0.42);
+
+  --color-surface: var(--bg-subtle);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-hover);
+  --color-chart-tooltip-bg: var(--bg-card);
 }
 
 @theme inline {
