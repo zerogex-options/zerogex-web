@@ -89,39 +89,65 @@ export default function DashboardPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-          <MetricCard
-            title="Composite Score"
-            value={typeof (scoreData?.composite_score ?? scoreData?.score) === 'number' ? (scoreData?.composite_score ?? scoreData?.score)!.toFixed(2) : '--'}
-            trend={
-              typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'bullish' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'bearish' : 'neutral')
-                : 'neutral'
-            }
-            tooltip="Latest composite score from /api/signals/score. Positive values are bullish and negative values are bearish."
-            theme={theme}
-          />
-          <MetricCard
-            title="Signal Direction"
-            value={String(scoreData?.direction ?? 'N/A').toUpperCase()}
-            trend={String(scoreData?.direction ?? '').toLowerCase().includes('bull') ? 'bullish' : String(scoreData?.direction ?? '').toLowerCase().includes('bear') ? 'bearish' : 'neutral'}
-            tooltip="Directional label returned by the score endpoint."
-            theme={theme}
-          />
-          <MetricCard
-            title="Underlying"
-            value={String(scoreData?.underlying ?? symbol)}
-            tooltip="Underlying symbol used for the score request."
-            theme={theme}
-          />
-          <MetricCard
-            title="Score Timestamp"
-            value={scoreData?.timestamp ? new Date(String(scoreData.timestamp)).toLocaleTimeString() : 'N/A'}
-            tooltip="Timestamp of the latest score payload."
-            theme={theme}
-          />
+        <div className="rounded-2xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-6" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+              <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
+              <div
+                className="text-6xl font-black leading-none"
+                style={{
+                  color:
+                    typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                      ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'var(--color-bull)' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
+                      : 'var(--color-text-primary)',
+                }}
+              >
+                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number' ? (scoreData?.composite_score ?? scoreData?.score)!.toFixed(2) : '--'}
+              </div>
+              <div className="mt-2 text-lg font-semibold">
+                {typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                  ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'Bullish Trading Environment' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'Bearish Trading Environment' : 'Neutral Trading Environment')
+                  : 'Awaiting signal data'}
+              </div>
+              <div className="mt-4 h-3 rounded-full bg-[var(--color-surface)] overflow-hidden">
+                <div
+                  className="h-full transition-all"
+                  style={{
+                    width:
+                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 100) / 200) * 100))}%`
+                        : '0%',
+                    backgroundColor:
+                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
+                        ? ((scoreData?.composite_score ?? scoreData?.score)! > 0 ? 'var(--color-bull)' : (scoreData?.composite_score ?? scoreData?.score)! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
+                        : 'var(--color-border)',
+                  }}
+                />
+              </div>
+              <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
+                Use this as your top-level regime filter before selecting a trade. Positive readings favor bullish expression and pullback buys; negative readings favor bearish expression and failed-rally shorts.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <MetricCard
+                title="Signal Direction"
+                value={String(scoreData?.direction ?? 'N/A').toUpperCase()}
+                trend={String(scoreData?.direction ?? '').toLowerCase().includes('bull') ? 'bullish' : String(scoreData?.direction ?? '').toLowerCase().includes('bear') ? 'bearish' : 'neutral'}
+                tooltip="Directional label from the live composite score model."
+                theme={theme}
+              />
+              <MetricCard
+                title="Signal Timestamp"
+                value={scoreData?.timestamp ? new Date(String(scoreData.timestamp)).toLocaleTimeString() : 'N/A'}
+                tooltip="Most recent timestamp of the score update."
+                theme={theme}
+              />
+            </div>
+          </div>
         </div>
       </section>
+
       {/* Volatility Monitor */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>

@@ -23,7 +23,7 @@ export const pacificDesertSunset = {
   },
   light: {
     background: '#FFF6ED',
-    surface: '#FFF1E6',
+    surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
     textPrimary: '#2C4875',
     textSecondary: '#8A508F',
