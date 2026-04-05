@@ -90,18 +90,18 @@ export default function DashboardPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
-        <div className="rounded-2xl border border-[var(--color-border)] p-6 bg-[var(--color-surface)]">
+        <div
+          className="rounded-2xl border p-6"
+          style={{
+            backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
+            borderColor: colors.muted,
+            boxShadow: theme === 'dark'
+              ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
+              : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
+          }}
+        >
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div
-              className="lg:col-span-2 rounded-2xl border p-6"
-              style={{
-                backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-                borderColor: colors.muted,
-                boxShadow: theme === 'dark'
-                  ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
-                  : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
-              }}
-            >
+            <div className="lg:col-span-2">
               <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
               <div
                 className="text-6xl font-black leading-none"
