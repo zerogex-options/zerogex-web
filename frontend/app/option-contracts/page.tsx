@@ -17,6 +17,7 @@ import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { normalizeToMinute } from "@/core/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -98,12 +99,6 @@ function getSessionMinuteTimeline(dateKey: string): string[] {
     result.push(new Date(t).toISOString());
   }
   return result;
-}
-
-function normalizeToMinute(ts: string): string | null {
-  const ms = new Date(ts).getTime();
-  if (!Number.isFinite(ms)) return null;
-  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
 }
 
 function getETDateKey(ts: string): string {

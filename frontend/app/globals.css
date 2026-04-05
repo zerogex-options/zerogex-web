@@ -1,37 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF6ED;
-  --foreground: #2C4875;
+  --background: #F5F7FA;
+  --foreground: #1E293B;
 
-  --bg-main: #FFF6ED;
-  --bg-subtle: #FFF1E6;
+  --bg-main: #F5F7FA;
+  --bg-subtle: #EEF1F6;
   --bg-card: #FFFFFF;
-  --bg-hover: #FDF0E6;
-  --bg-active: #FBE4D3;
+  --bg-hover: #E8ECF2;
+  --bg-active: #DDE3EC;
 
-  --text-primary: #2C4875;
-  --text-secondary: #8A508F;
-  --text-muted: #BFA6A0;
+  --text-primary: #1E293B;
+  --text-secondary: #526580;
+  --text-muted: #94A3B8;
   --text-inverse: #FFFFFF;
 
-  --border-subtle: #F1E4D8;
-  --border-default: #E8D5C4;
-  --border-strong: #D8BFAE;
+  --border-subtle: #E2E8F0;
+  --border-default: #CBD5E1;
+  --border-strong: #94A3B8;
 
   --accent-1: #003F5C;
-  --accent-2: #2C4875;
-  --accent-3: #8A508F;
-  --accent-4: #BC5090;
+  --accent-2: #1E3A5F;
+  --accent-3: #2563EB;
+  --accent-4: #E0527E;
 
   --color-bull: #1BC47D;
-  --color-bull-soft: rgba(27, 196, 125, 0.12);
+  --color-bull-soft: rgba(27, 196, 125, 0.10);
   --color-bear: #FF4D5A;
-  --color-bear-soft: rgba(255, 77, 90, 0.12);
-  --color-warning: #FFA600;
-  --color-warning-soft: rgba(255, 166, 0, 0.12);
+  --color-bear-soft: rgba(255, 77, 90, 0.10);
+  --color-warning: #F59E0B;
+  --color-warning-soft: rgba(245, 158, 11, 0.10);
   --color-info: #003F5C;
-  --color-info-soft: rgba(0, 63, 92, 0.12);
+  --color-info-soft: rgba(0, 63, 92, 0.08);
 
   --heat-low: #FFD380;
   --heat-mid: #FF8531;
@@ -39,9 +39,9 @@
 
   --chart-1: #1BC47D;
   --chart-2: #FF4D5A;
-  --chart-3: #FFA600;
-  --chart-4: #2C4875;
-  --chart-5: #BC5090;
+  --chart-3: #F59E0B;
+  --chart-4: #1E3A5F;
+  --chart-5: #E0527E;
 
   /* Backward-compat aliases */
   --color-bg: var(--bg-main);
@@ -67,7 +67,7 @@
   --color-primary-200: var(--bg-hover);
   --color-primary-300: var(--heat-low);
   --color-primary-400: var(--heat-mid);
-  --color-primary-500: var(--color-warning);
+  --color-primary-500: var(--accent-3);
   --color-primary-600: var(--heat-mid);
   --color-primary-700: var(--heat-high);
 
@@ -75,8 +75,8 @@
   --color-chart-axis: var(--text-primary);
   --color-chart-tooltip-bg: #FFFFFF;
   --color-chart-tooltip-border: var(--border-default);
-  --color-grid-line: rgba(232, 213, 196, 0.42);
-  --color-grid-overlay: rgba(255, 246, 237, 0.56);
+  --color-grid-line: rgba(148, 163, 184, 0.18);
+  --color-grid-overlay: rgba(245, 247, 250, 0.60);
 }
 
 :root.dark {

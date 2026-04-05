@@ -64,3 +64,58 @@ export const omitClosedMarketTimes = <T>(
   data: T[],
   getTimestamp: (item: T) => string | Date
 ): T[] => data.filter((item) => isWithinExtendedMarketHours(getTimestamp(item)));
+
+/**
+ * Truncate an ISO timestamp to minute precision.
+ * Returns the original string if it cannot be parsed.
+ */
+export function normalizeToMinute(ts: string): string;
+export function normalizeToMinute(ts: string | undefined): string | null;
+export function normalizeToMinute(ts: string | undefined): string | null {
+  if (!ts) return null;
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return ts ?? null;
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+/**
+ * Generate an array of ISO timestamps for every minute of a US-equity
+ * regular session (09:30–16:00 ET) on the given YYYY-MM-DD date.
+ */
+export function getSessionTimestamps(dateKey: string): string[] {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return [];
+
+  const etFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  let startMs: number | null = null;
+  for (const utcH of [13, 14]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 9 && min === 30) { startMs = candidate; break; }
+  }
+
+  let endMs: number | null = null;
+  for (const utcH of [20, 21]) {
+    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === 16 && min === 0) { endMs = candidate; break; }
+  }
+
+  if (startMs === null || endMs === null) return [];
+
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}

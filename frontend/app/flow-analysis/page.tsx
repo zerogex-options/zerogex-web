@@ -22,6 +22,7 @@ import TooltipWrapper from "@/components/TooltipWrapper";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { normalizeToMinute, getSessionTimestamps } from "@/core/utils";
 
 // ── API shape ─────────────────────────────────────────────────────────────────
 
@@ -101,13 +102,6 @@ function getCurrentETDateKey(): string {
   return getETDateKey(new Date().toISOString());
 }
 
-/** Normalises a timestamp to minute precision (truncates seconds/ms). */
-function normalizeToMinute(ts: string): string {
-  const ms = new Date(ts).getTime();
-  if (!Number.isFinite(ms)) return ts;
-  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
-}
-
 function flowRowTimestamp(row: {
   timestamp?: string;
   time_window_end?: string;
@@ -115,50 +109,6 @@ function flowRowTimestamp(row: {
   time_window_start?: string;
 }): string | null {
   return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
-}
-
-/**
- * Generates 1-min ISO timestamps from 09:30 ET to 16:00 ET for the given YYYY-MM-DD dateKey.
- * Handles EDT (UTC-4) and EST (UTC-5) automatically.
- */
-function getSessionTimestamps(dateKey: string): string[] {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  if (!y || !m || !d) return [];
-
-  const etFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  // 09:30 ET = 13:30 UTC (EDT) or 14:30 UTC (EST)
-  let startMs: number | null = null;
-  for (const utcH of [13, 14]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
-    if (h === 9 && min === 30) { startMs = candidate; break; }
-  }
-
-  // 16:00 ET = 20:00 UTC (EDT) or 21:00 UTC (EST)
-  let endMs: number | null = null;
-  for (const utcH of [20, 21]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
-    if (h === 16 && min === 0) { endMs = candidate; break; }
-  }
-
-  if (startMs === null || endMs === null) return [];
-
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) {
-    result.push(new Date(t).toISOString());
-  }
-  return result;
 }
 
 /** Aligns a timeseries to the session timeline, filling missing slots with null data values. */

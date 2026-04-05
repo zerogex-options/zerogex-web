@@ -13,7 +13,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { omitClosedMarketTimes, normalizeToMinute } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 
@@ -122,12 +122,6 @@ function extractDivergenceRows(payload: unknown): DivergenceRow[] {
   return [];
 }
 
-function normalizeToMinute(ts?: string): string | null {
-  if (!ts) return null;
-  const ms = new Date(ts).getTime();
-  if (!Number.isFinite(ms)) return null;
-  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
-}
 
 function smartMoneyTimestamp(row: SmartMoneyRow): string | null {
   return normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);

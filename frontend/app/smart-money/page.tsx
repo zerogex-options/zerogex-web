@@ -6,6 +6,7 @@ import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YA
 import { useApiData } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
+import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 
@@ -59,48 +60,10 @@ function getRowContractLabel(row: SmartMoneyRow): string {
   return `${symbol} ${strike}${optionType ? ` ${optionType}` : ''}`.trim();
 }
 
-const normalizeToMinute = (ts?: string) => { if (!ts) return null; const ms = new Date(ts).getTime(); if (!Number.isFinite(ms)) return null; return new Date(Math.floor(ms / 60_000) * 60_000).toISOString(); };
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
-function getSessionTimestamps(dateKey: string): string[] {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return [];
-
-  const etFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  let startMs: number | null = null;
-  for (const utcH of [13, 14]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 30);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 9 && min === 30) { startMs = candidate; break; }
-  }
-
-  let endMs: number | null = null;
-  for (const utcH of [20, 21]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, 0);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === 16 && min === 0) { endMs = candidate; break; }
-  }
-
-  if (startMs === null || endMs === null) return [];
-
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) {
-    result.push(new Date(t).toISOString());
-  }
-  return result;
-}
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
 const minClassOptions: Array<{ value: MinClassFilter; label: string }> = [
   { value: '500k', label: '💰 $500K+' },

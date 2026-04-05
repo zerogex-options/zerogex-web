@@ -6,6 +6,7 @@
 'use client';
 
 import { useGEXSummary, useMarketQuote, useSignalScore } from '@/hooks/useApiData';
+import { STRENGTH_HIGH, STRENGTH_MEDIUM, TRIGGER_THRESHOLD_DEFAULT, NEUTRAL_BOUNDARY, getRegimeLabel, getStrengthLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -97,16 +98,8 @@ export default function DashboardPage() {
                 const compositeScore = scoreData?.composite_score ?? scoreData?.score;
                 const hasScore = typeof compositeScore === 'number';
                 const absScore = hasScore ? Math.abs(compositeScore!) : 0;
-                const direction = hasScore ? (compositeScore! > 0 ? 'bullish' : compositeScore! < 0 ? 'bearish' : 'neutral') : null;
-                const strength = hasScore ? (absScore >= 0.82 ? 'high' : absScore >= 0.64 ? 'medium' : 'low') : null;
-
-                const directionLabel = hasScore
-                  ? absScore >= 0.58
-                    ? (direction === 'bullish' ? 'Strong Bullish — Open Trades' : 'Strong Bearish — Open Trades')
-                    : absScore >= 0.35
-                    ? (direction === 'bullish' ? 'Bullish — Monitor / Hold' : direction === 'bearish' ? 'Bearish — Monitor / Hold' : 'Neutral — No Edge')
-                    : 'Neutral — No Edge'
-                  : 'Awaiting signal data';
+                const strength = hasScore ? getStrengthLabel(absScore) : null;
+                const directionLabel = hasScore ? getRegimeLabel(compositeScore!) : 'Awaiting signal data';
 
                 return (
                   <>

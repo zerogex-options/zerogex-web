@@ -49,7 +49,7 @@ function getFlowDescription(value: number, type: 'vanna' | 'charm' | 'eod_charm'
 
 function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isDark: boolean }) {
   const width = maxAbs > 0 ? Math.min(100, (Math.abs(value) / maxAbs) * 100) : 0;
-  const barColor = value >= 0 ? colors.bullish : colors.primary;
+  const barColor = value >= 0 ? colors.bullish : colors.bearish;
 
   return (
     <div
@@ -83,26 +83,26 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
   const maxAbs = Math.max(Math.abs(totalVanna), Math.abs(totalCharm), Math.abs(eodCharm), 1);
 
   const volRiskLabel = volExpansion?.confidence === 'high' ? 'High' : volExpansion?.confidence === 'medium' ? 'Medium' : 'Low';
-  const volRiskColor = volRiskLabel === 'High' ? colors.bearish : volRiskLabel === 'Medium' ? colors.primary : colors.muted;
+  const volRiskColor = volRiskLabel === 'High' ? colors.bearish : volRiskLabel === 'Medium' ? colors.warning : colors.muted;
 
   const flowItems = [
     {
       title: 'Vanna (vol\u2192delta)',
       description: getFlowDescription(totalVanna, 'vanna'),
       value: totalVanna,
-      color: totalVanna >= 0 ? colors.bullish : colors.primary,
+      color: totalVanna >= 0 ? colors.bullish : colors.bearish,
     },
     {
       title: 'Charm (time\u2192delta)',
       description: getFlowDescription(totalCharm, 'charm'),
       value: totalCharm,
-      color: totalCharm >= 0 ? colors.bullish : colors.primary,
+      color: totalCharm >= 0 ? colors.bullish : colors.bearish,
     },
     {
       title: 'End-of-day charm',
       description: getFlowDescription(eodCharm, 'eod_charm'),
       value: eodCharm,
-      color: eodCharm >= 0 ? colors.bullish : colors.primary,
+      color: eodCharm >= 0 ? colors.bullish : colors.bearish,
     },
   ];
 
