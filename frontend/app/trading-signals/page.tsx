@@ -84,10 +84,10 @@ export default function TradingSignalsPage() {
   const rows = useMemo(() => toRows(data), [data]);
 
   const analytics = useMemo(() => {
-    const netPremium = rows.reduce((sum, row) => sum + (getNumber(row.net_premium ?? row.premium) ?? 0), 0);
-    const netVolume = rows.reduce((sum, row) => sum + (getNumber(row.net_volume ?? row.flow) ?? 0), 0);
+    const netPremium = rows.reduce((sum, row) => sum + (getNumber(row.net_premium ?? row.premium ?? row.total_pnl) ?? 0), 0);
+    const netVolume = rows.reduce((sum, row) => sum + (getNumber(row.net_volume ?? row.flow ?? row.quantity_initial ?? row.quantity_open) ?? 0), 0);
     const scoreValues = rows
-      .map((row) => getNumber(row.score ?? row.signal_score ?? row.composite_score))
+      .map((row) => getNumber(row.score ?? row.signal_score ?? row.composite_score ?? row.score_latest ?? row.score_at_entry))
       .filter((value): value is number => value != null);
     const averageScoreRaw = scoreValues.length
       ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
@@ -97,7 +97,11 @@ export default function TradingSignalsPage() {
     const bearishCount = rows.filter((row) => getString(row.flow_bias ?? row.trade_side ?? row.direction).toLowerCase().includes('bear')).length;
     const breadth = rows.length ? bullishCount / rows.length : 0.5;
 
-    const normalizedSignal = clamp(((averageScoreRaw + 100) / 200) * 100);
+    // Scores may be in -1..+1 (API) or -100..+100 range.  Detect automatically.
+    const isSmallRange = Math.abs(averageScoreRaw) <= 1.5;
+    const normalizedSignal = isSmallRange
+      ? clamp(((averageScoreRaw + 1) / 2) * 100)   // -1..+1 → 0..100
+      : clamp(((averageScoreRaw + 100) / 200) * 100); // -100..+100 → 0..100
     const netFlowStrength = clamp(50 + Math.sign(netVolume) * Math.min(45, Math.log10(Math.abs(netVolume) + 1) * 12));
     const premiumPressure = clamp(50 + Math.sign(netPremium) * Math.min(45, Math.log10(Math.abs(netPremium) + 1) * 12));
     const directionalBreadth = clamp(breadth * 100);
@@ -317,13 +321,13 @@ export default function TradingSignalsPage() {
           </thead>
           <tbody>
             {rows.slice(0, 60).map((row, idx) => {
-              const score = getNumber(row.score ?? row.signal_score);
+              const score = getNumber(row.score ?? row.signal_score ?? row.score_latest ?? row.score_at_entry);
               return (
                 <tr key={idx} className="border-b border-[var(--color-border)]/45">
-                  <td className="py-2 pr-3 whitespace-nowrap">{formatDate(row.timestamp)}</td>
-                  <td className="py-2 pr-3">{getString(row.contract ?? row.symbol)}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">{formatDate(row.timestamp ?? row.signal_timestamp ?? row.opened_at)}</td>
+                  <td className="py-2 pr-3">{getString(row.contract ?? row.option_symbol ?? row.symbol ?? row.underlying)}</td>
                   <td className="py-2 pr-3">{getString(row.flow_bias ?? row.trade_side ?? row.direction)}</td>
-                  <td className="py-2 pr-3">{formatMoney(getNumber(row.notional ?? row.net_premium ?? row.premium))}</td>
+                  <td className="py-2 pr-3">{formatMoney(getNumber(row.notional ?? row.net_premium ?? row.premium ?? row.total_pnl))}</td>
                   <td className="py-2 pr-3" style={{ color: score != null && score > 0 ? 'var(--color-bull)' : score != null && score < 0 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                     {score != null ? score.toFixed(2) : '—'}
                   </td>
