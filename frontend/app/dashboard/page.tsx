@@ -251,19 +251,23 @@ export default function DashboardPage() {
                           <div className="flex-shrink-0 w-[120px] text-[11px] text-[var(--color-text-secondary)] truncate">
                             {comp.name} <span className="opacity-60">({Math.round(comp.weight * 100)}%)</span>
                           </div>
-                          <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{
-                            background:
-                              'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)',
+                          <div className="relative flex-1 h-2 rounded-full" style={{
                             opacity: hasScore ? 1 : 0.25,
                           }}>
+                            <div className="absolute inset-0 rounded-full" style={{
+                              background:
+                                'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)',
+                            }} />
                             {pct != null && (
                               <div
-                                className="absolute top-[-1px] h-[10px] w-[6px] rounded-sm"
+                                className="absolute w-0.5 rounded-full"
                                 style={{
                                   left: `${pct}%`,
+                                  top: '-3px',
+                                  height: '14px',
                                   transform: 'translateX(-50%)',
-                                  backgroundColor: barColor,
-                                  boxShadow: `0 0 3px ${barColor}`,
+                                  backgroundColor: 'var(--color-text-primary)',
+                                  boxShadow: '0 0 2px rgba(0,0,0,0.5)',
                                 }}
                               />
                             )}
