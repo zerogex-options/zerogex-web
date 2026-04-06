@@ -20,7 +20,7 @@ type TooltipLayout = {
   arrowLeft: number;
 };
 
-const TOOLTIP_WIDTH = 288;
+const TOOLTIP_WIDTH = 360;
 const TOOLTIP_GAP = 12;
 const VIEWPORT_PADDING = 16;
 
@@ -40,8 +40,7 @@ export default function TooltipWrapper({
 
     const rect = triggerRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const estimatedHeight = Math.min(160, Math.max(72, Math.ceil(text.length / 42) * 24 + 28));
+    const estimatedHeight = Math.min(160, Math.max(72, Math.ceil(text.length / 56) * 24 + 28));
 
     const centeredLeft = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
     const clampedLeft = Math.min(
@@ -50,8 +49,7 @@ export default function TooltipWrapper({
     );
 
     const roomAbove = rect.top - VIEWPORT_PADDING;
-    const roomBelow = viewportHeight - rect.bottom - VIEWPORT_PADDING;
-    const placement: TooltipPlacement = roomAbove > estimatedHeight + TOOLTIP_GAP || roomAbove > roomBelow
+    const placement: TooltipPlacement = roomAbove >= estimatedHeight + TOOLTIP_GAP
       ? "top"
       : "bottom";
 
@@ -117,11 +115,12 @@ export default function TooltipWrapper({
         <div
           role="tooltip"
           id={tooltipId}
-          className="pointer-events-none fixed z-[9999] w-72 rounded-lg border px-4 py-3 text-sm leading-relaxed"
+          className="pointer-events-none fixed z-[9999] rounded-lg border px-4 py-3 text-sm leading-relaxed"
           style={{
             top: layout.placement === "top" ? layout.top : layout.top,
             left: layout.left,
             transform: layout.placement === "top" ? "translateY(-100%)" : undefined,
+            width: `${TOOLTIP_WIDTH}px`,
             background: "var(--color-chart-tooltip-bg)",
             color: "var(--color-chart-tooltip-text)",
             borderColor: "var(--color-border)",
