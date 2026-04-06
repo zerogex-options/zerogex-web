@@ -1,12 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Activity, ArrowDown, ArrowUp, Gauge, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Brain, Gauge, ShieldCheck, Sparkles } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTradesLive } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import { useTheme } from '@/core/ThemeContext';
 
 type TradeRow = Record<string, unknown>;
 
@@ -61,6 +62,7 @@ function formatOpenedAt(value: unknown): string {
 
 export default function TradingSignalsPage() {
   const { symbol } = useTimeframe();
+  const { theme } = useTheme();
   const { data, loading, error, refetch } = useTradesLive(symbol, 5000);
 
   const rows = useMemo(() => toRows(data), [data]);
@@ -178,6 +180,85 @@ export default function TradingSignalsPage() {
             )}
           </tbody>
         </table>
+      </section>
+
+      {/* UnifiedSignalEngine Reference */}
+      <section className="zg-feature-shell mb-8 p-6">
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+          The dashboard Signal Score (−1.0 to +1.0) is the weighted sum of 6 components from the UnifiedSignalEngine. Sign encodes direction; magnitude encodes conviction.
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Signal Components</div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
+                  <th className="pb-1.5">Component</th>
+                  <th className="pb-1.5">Weight</th>
+                  <th className="pb-1.5">Driver</th>
+                </tr>
+              </thead>
+              <tbody className="text-[var(--color-text-secondary)]">
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>22%</td><td>+GEX = bullish, −GEX = bearish</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>20%</td><td>−GEX × momentum; +GEX = mean-reversion</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>16%</td><td>Call vs put sweep premium (≥$100K)</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>15%</td><td>Contra signal at RSI / MA extremes</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>15%</td><td>Above flip = bull, below = bear</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>12%</td><td>PCR &lt; 0.8 = bull, &gt; 1.2 = bear</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Composite Score Zones</div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
+                  <th className="pb-1.5">Range</th>
+                  <th className="pb-1.5">Action</th>
+                </tr>
+              </thead>
+              <tbody className="text-[var(--color-text-secondary)]">
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] font-medium">+0.58 to +1.0</span></td><td>Open bullish trade</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] opacity-70 font-medium">+0.35 to +0.58</span></td><td>Monitor, hold existing</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-warning)] font-medium">−0.35 to +0.35</span></td><td>No edge — cut size</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bear)] opacity-70 font-medium">−0.58 to −0.35</span></td><td>Monitor, hold existing</td></tr>
+                <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−1.0 to −0.58</span></td><td>Open bearish trade</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-3 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)]">
+              <strong>Dynamic trigger:</strong> baseline 0.58; raised to 0.65 when IV rank &gt; 0.70, lowered to 0.54 when IV rank &lt; 0.25.
+            </div>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Conviction & Strength</div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
+                  <th className="pb-1.5">|Score|</th>
+                  <th className="pb-1.5">Strength</th>
+                  <th className="pb-1.5">Meaning</th>
+                </tr>
+              </thead>
+              <tbody className="text-[var(--color-text-secondary)]">
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">≥ 0.82</td><td className="text-[var(--color-bull)]">High</td><td>All components aligned</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">0.64 – 0.82</td><td className="text-[var(--color-warning)]">Medium</td><td>Majority aligned, some noise</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">&lt; 0.64</td><td className="text-[var(--color-bear)]">Low</td><td>Below trigger or weak</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-3 pt-2 border-t border-[var(--color-border)]">
+              <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-1.5">In Practice</div>
+              <ul className="text-[11px] text-[var(--color-text-secondary)] space-y-1">
+                <li>• <strong>0.85+</strong>: Rare high-conviction — pyramid if already in.</li>
+                <li>• <strong>0.65–0.85</strong>: Clean — open position sized by Kelly.</li>
+                <li>• <strong>0.58–0.65</strong>: Marginal — needs +EV from optimizer.</li>
+                <li>• <strong>0.35–0.58</strong>: Weak — hold, don&apos;t add.</li>
+                <li>• <strong>&lt; 0.35</strong>: Degraded — cut size by half.</li>
+                <li>• <strong>Flip ≥ 0.55</strong>: Close open trade at market.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );
