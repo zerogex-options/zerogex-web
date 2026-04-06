@@ -25,6 +25,7 @@ function getDistanceMeta(level: number | null | undefined, spotPrice: number | n
     color: isAbove ? colors.bullish : colors.bearish,
     deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
     pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
+    spotRelationLabel: `${isAbove ? 'above' : 'below'} spot`,
   };
 }
 
@@ -44,7 +45,7 @@ export default function PriceDistanceMetricCard({
       subtitle={distanceMeta ? (
         <span className="inline-flex items-center gap-1" style={{ color: distanceMeta.color }}>
           {distanceMeta.isAbove ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-          <span>{`${distanceMeta.deltaLabel} / ${distanceMeta.pctLabel}`}</span>
+          <span>{`${distanceMeta.deltaLabel} / ${distanceMeta.pctLabel} ${distanceMeta.spotRelationLabel}`}</span>
         </span>
       ) : 'Awaiting underlying price context'}
       tooltip={tooltip}

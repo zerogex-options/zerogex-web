@@ -18,6 +18,7 @@ import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { getMarketSession } from "@/core/utils";
+import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
@@ -137,19 +138,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // open     → live quote close  vs  current_session_close
   // closed   → live quote close  vs  prior_session_close
   // pre/ah   → current_session_close  vs  prior_session_close
-  const row1Price = (isExtendedHours || quoteSession === "closed")
-    ? (sessionClosesData?.current_session_close ?? null)
-    : (quoteData?.close ?? null);
-
-  const row1BaseClose = quoteSession === "open"
-    ? (sessionClosesData?.current_session_close ?? null)
-    : (sessionClosesData?.prior_session_close ?? null);
-
-  const row1Change =
-    row1Price !== null && row1BaseClose !== null ? row1Price - row1BaseClose : null;
-  const row1ChangePercent =
-    row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
-  const row1Positive = row1Change !== null ? row1Change >= 0 : false;
+  const {
+    displayPrice: row1Price,
+    change: row1Change,
+    changePercent: row1ChangePercent,
+    isPositive: row1Positive,
+  } = getPrimaryPriceChangeSummary({
+    quoteClose: quoteData?.close,
+    quoteSession,
+    sessionCloses: sessionClosesData,
+  });
 
   // ── Row 2 (pre-market / after-hours only) ────────────────────────────────
   // pre/ah → icon + live quote close  vs  current_session_close

@@ -5,8 +5,8 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote, useSignalScore } from '@/hooks/useApiData';
-import { STRENGTH_HIGH, STRENGTH_MEDIUM, TRIGGER_THRESHOLD_DEFAULT, NEUTRAL_BOUNDARY, getRegimeLabel, getStrengthLabel } from '@/core/signalConstants';
+import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -15,6 +15,26 @@ import { useTheme } from '@/core/ThemeContext';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import VolatilityCard from '@/components/VolatilityCard';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
+
+function toRows(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) return data as Record<string, unknown>[];
+  if (data && typeof data === 'object') {
+    const values = Object.values(data as Record<string, unknown>);
+    const firstArray = values.find((value) => Array.isArray(value));
+    if (Array.isArray(firstArray)) return firstArray as Record<string, unknown>[];
+  }
+  return [];
+}
+
+function getNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -23,7 +43,46 @@ export default function DashboardPage() {
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
   const { data: scoreData } = useSignalScore(symbol, 10000);
+  const { data: tradesData } = useTradesLive(symbol, 5000);
+  const { data: volExpansionData } = useVolExpansionSignal(symbol, 10000);
+
+  const rows = toRows(tradesData);
+  const bullishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
+  const bearishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
+  const directionalRows = bullishCount + bearishCount;
+  const bullishPct = directionalRows > 0 ? (bullishCount / directionalRows) * 100 : null;
+  const bearishPct = directionalRows > 0 ? (bearishCount / directionalRows) * 100 : null;
+  const cumulativePnl = rows.reduce((sum, row) => {
+    const totalPnl = getNumber(row.total_pnl);
+    if (totalPnl != null) return sum + totalPnl;
+    const realized = getNumber(row.realized_pnl) ?? 0;
+    const unrealized = getNumber(row.unrealized_pnl) ?? 0;
+    return sum + realized + unrealized;
+  }, 0);
+
+  const compositeScore = scoreData?.composite_score ?? scoreData?.score;
+  const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
+
+  const volExpansionScore = typeof volExpansionData?.composite_score === 'number' ? volExpansionData.composite_score : null;
+  const volExpansionStatus = volExpansionScore == null
+    ? 'Awaiting regime data'
+    : volExpansionScore >= 70
+      ? 'Expansion favored'
+      : volExpansionScore >= 55
+        ? 'Expansion tilt'
+        : volExpansionScore <= 30
+          ? 'Compression favored'
+          : volExpansionScore <= 45
+            ? 'Compression tilt'
+            : 'Balanced regime';
+
+  const underlyingPrice = getPrimaryPriceChangeSummary({
+    quoteClose: quoteData?.close,
+    quoteSession: quoteData?.session,
+    sessionCloses: sessionClosesData,
+  });
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -57,8 +116,23 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
           <MetricCard
             title={`${symbol} Price`}
-            value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
+            value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
+            subtitle={(
+              <div className="flex flex-col gap-1">
+                <span
+                  style={{
+                    color: underlyingPrice.change != null
+                      ? (underlyingPrice.isPositive ? 'var(--color-bull)' : 'var(--color-bear)')
+                      : undefined,
+                  }}
+                >
+                  {underlyingPrice.change != null && underlyingPrice.changePercent != null
+                    ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}% vs previous`
+                    : 'Awaiting previous-close context'}
+                </span>
+                <span>{quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}</span>
+              </div>
+            )}
             tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
             theme={theme}
             trend="neutral"
@@ -89,200 +163,34 @@ export default function DashboardPage() {
 
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Signal Score</h2>
-        <div className="zg-feature-shell p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2">
-              <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
-              {(() => {
-                const compositeScore = scoreData?.composite_score ?? scoreData?.score;
-                const hasScore = typeof compositeScore === 'number';
-                const absScore = hasScore ? Math.abs(compositeScore!) : 0;
-                const strength = hasScore ? getStrengthLabel(absScore) : null;
-                const directionLabel = hasScore ? getRegimeLabel(compositeScore!) : 'Awaiting signal data';
-
-                return (
-                  <>
-                    <div
-                      className="text-6xl font-black leading-none"
-                      style={{
-                        color: hasScore
-                          ? (compositeScore! > 0 ? 'var(--color-bull)' : compositeScore! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
-                          : 'var(--color-text-primary)',
-                      }}
-                    >
-                      {hasScore ? compositeScore!.toFixed(2) : '--'}
-                    </div>
-                    <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
-                    {hasScore && strength && (
-                      <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{
-                        background: strength === 'high' ? 'rgba(27,196,125,0.15)' : strength === 'medium' ? 'rgba(255,166,0,0.15)' : 'rgba(255,77,90,0.15)',
-                        color: strength === 'high' ? 'var(--color-bull)' : strength === 'medium' ? 'var(--color-warning)' : 'var(--color-bear)',
-                      }}>
-                        {strength === 'high' ? 'High Conviction' : strength === 'medium' ? 'Medium Conviction' : 'Low Conviction'}
-                        {' · '}|score| = {absScore.toFixed(2)}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-              <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-                Composite score from the UnifiedSignalEngine (−1.0 to +1.0). Weighted sum of 6 components: GEX regime, vol expansion, smart money, exhaustion, gamma flip, and put/call ratio. Sign encodes direction; magnitude encodes conviction.
-              </p>
-            </div>
-
-            <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold">Score Spectrum</div>
-                <div className="text-xs text-[var(--color-text-secondary)]">Range: −1.0 to +1.0</div>
-              </div>
-
-              {/* Spectrum bar with zone markers */}
-              <div className="relative mt-4">
-                <div
-                  className="h-4 rounded-full"
-                  style={{
-                    background:
-                      'linear-gradient(90deg, var(--color-bear) 0%, #d98572 21%, var(--color-warning) 50%, #75cfa1 79%, var(--color-bull) 100%)',
-                  }}
-                />
-                {/* Trigger threshold markers at ±0.58 */}
-                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '21%' }} />
-                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '79%' }} />
-                {/* Neutral boundary markers at ±0.35 */}
-                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '32.5%' }} />
-                <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '67.5%' }} />
-                {/* Current score indicator */}
-                <div
-                  className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
-                  style={{
-                    left:
-                      typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                        ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 1) / 2) * 100))}%`
-                        : '50%',
-                    transform: 'translateX(-50%)',
-                  }}
-                />
-              </div>
-
-              <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
-                <span className="text-left">−1.0</span>
-                <span className="text-center">−0.58</span>
-                <span className="text-center">0</span>
-                <span className="text-center">+0.58</span>
-                <span className="text-right">+1.0</span>
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
-                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bear)]">Strong Bear</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">−1.0 to −0.58: open bearish trades.</div>
-                </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bear)] opacity-70">Weak Bear</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">−0.58 to −0.35: hold, don&apos;t add.</div>
-                </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-warning)]">Neutral</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">−0.35 to +0.35: no edge, cut size.</div>
-                </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bull)] opacity-70">Weak Bull</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">+0.35 to +0.58: hold, don&apos;t add.</div>
-                </div>
-                <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                  <div className="font-semibold text-[var(--color-bull)]">Strong Bull</div>
-                  <div className="text-[var(--color-text-secondary)] mt-1">+0.58 to +1.0: open bullish trades.</div>
-                </div>
-              </div>
-
-              {/* Component breakdown with mini spectrum bars */}
-              <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
-                <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2">Signal Components</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                  {(() => {
-                    const COMPONENT_LABELS: Record<string, string> = {
-                      gex_regime: 'GEX Regime',
-                      vol_expansion: 'Vol Expansion',
-                      smart_money: 'Smart Money',
-                      exhaustion: 'Exhaustion',
-                      gamma_flip: 'Gamma Flip',
-                      put_call_ratio: 'Put/Call Ratio',
-                    };
-                    const fallbackComponents: { name: string; weight: number; score?: number }[] = [
-                      { name: 'GEX Regime', weight: 0.22 },
-                      { name: 'Vol Expansion', weight: 0.20 },
-                      { name: 'Smart Money', weight: 0.16 },
-                      { name: 'Exhaustion', weight: 0.15 },
-                      { name: 'Gamma Flip', weight: 0.15 },
-                      { name: 'Put/Call Ratio', weight: 0.12 },
-                    ];
-
-                    // Normalize components: API may return an array or a dict keyed by snake_case name
-                    let components = fallbackComponents;
-                    const raw = scoreData?.components;
-                    if (Array.isArray(raw) && raw.length > 0) {
-                      components = raw.map((c) => ({ name: c.name, weight: c.weight, score: c.score }));
-                    } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-                      const dict = raw as Record<string, { score?: number; weight?: number }>;
-                      components = Object.entries(dict).map(([key, val]) => ({
-                        name: COMPONENT_LABELS[key] ?? key,
-                        weight: val.weight ?? 0,
-                        score: val.score,
-                      }));
-                    }
-
-                    return components.map((comp) => {
-                      const hasScore = 'score' in comp && typeof comp.score === 'number';
-                      const score = hasScore ? (comp as { score: number }).score : null;
-                      // Map score from -1..+1 to 0..100% for the indicator position
-                      const pct = score != null ? Math.max(0, Math.min(100, ((score + 1) / 2) * 100)) : null;
-                      const barColor =
-                        score != null
-                          ? score > 0.1
-                            ? 'var(--color-bull)'
-                            : score < -0.1
-                              ? 'var(--color-bear)'
-                              : 'var(--color-warning)'
-                          : undefined;
-
-                      return (
-                        <div key={comp.name} className="flex items-center gap-2">
-                          <div className="flex-shrink-0 w-[120px] text-[11px] text-[var(--color-text-secondary)] truncate">
-                            {comp.name} <span className="opacity-60">({Math.round(comp.weight * 100)}%)</span>
-                          </div>
-                          <div className="relative flex-1 h-2 rounded-full" style={{
-                            opacity: hasScore ? 1 : 0.25,
-                          }}>
-                            <div className="absolute inset-0 rounded-full" style={{
-                              background:
-                                'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)',
-                            }} />
-                            {pct != null && (
-                              <div
-                                className="absolute w-0.5 rounded-full"
-                                style={{
-                                  left: `${pct}%`,
-                                  top: '-3px',
-                                  height: '14px',
-                                  transform: 'translateX(-50%)',
-                                  backgroundColor: 'var(--color-text-primary)',
-                                  boxShadow: '0 0 2px rgba(0,0,0,0.5)',
-                                }}
-                              />
-                            )}
-                          </div>
-                          <div className="flex-shrink-0 w-[36px] text-right text-[11px] font-mono" style={{ color: barColor ?? 'var(--color-text-secondary)' }}>
-                            {score != null ? (score >= 0 ? '+' : '') + score.toFixed(2) : '—'}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
+        <h2 className="text-2xl font-semibold mb-4">Proprietary Signals</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <MetricCard
+            title="Composite Score"
+            value={typeof compositeScore === 'number' ? compositeScore.toFixed(2) : '--'}
+            subtitle={compositeRegimeLabel}
+            tooltip="UnifiedSignalEngine composite signal score and current actionable regime label."
+            theme={theme}
+            trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
+          />
+          <MetricCard
+            title="Signaled Trades"
+            value={rows.length}
+            subtitle={directionalRows > 0
+              ? `${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · PnL ${cumulativePnl >= 0 ? '+' : '-'}$${Math.abs(cumulativePnl).toFixed(2)}`
+              : `No directional mix yet · PnL ${cumulativePnl >= 0 ? '+' : '-'}$${Math.abs(cumulativePnl).toFixed(2)}`}
+            tooltip="Live signaled trade count for the selected underlying, with bullish/bearish split and cumulative active-trade PnL."
+            theme={theme}
+            trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
+          />
+          <MetricCard
+            title="Volatility Expansion"
+            value={volExpansionScore != null ? volExpansionScore.toFixed(1) : '--'}
+            subtitle={volExpansionStatus}
+            tooltip="Volatility expansion regime score and current status."
+            theme={theme}
+            trend={volExpansionScore == null ? 'neutral' : volExpansionScore >= 55 ? 'bullish' : volExpansionScore <= 45 ? 'bearish' : 'neutral'}
+          />
         </div>
       </section>
 
