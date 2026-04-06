@@ -64,7 +64,16 @@ export default function OptionsFlowChart() {
             <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
             <XAxis dataKey="time" stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark, fontSize: isMobile ? 9 : 12 }} minTickGap={isMobile ? 50 : 20} angle={isMobile ? -45 : 0} textAnchor={isMobile ? 'end' : 'middle'} height={isMobile ? 50 : 30} />
             <YAxis stroke={theme === 'dark' ? colors.light : colors.dark} tick={{ fill: theme === 'dark' ? colors.light : colors.dark }} label={{ value: 'Premium ($M)', angle: -90, position: 'insideLeft', style: { fill: theme === 'dark' ? colors.light : colors.dark } }} domain={['auto', 'auto']} />
-            <Tooltip />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'var(--color-chart-tooltip-bg)',
+                borderColor: 'var(--color-border)',
+                borderRadius: 8,
+                color: 'var(--color-chart-tooltip-text)',
+              }}
+              labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
+              itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
+            />
             <Legend />
             <Line type="monotone" dataKey="calls" name="Call Premium" stroke={colors.bullish} strokeWidth={3} dot={false} />
             <Line type="monotone" dataKey="puts" name="Put Premium" stroke={colors.bearish} strokeWidth={3} dot={false} />

@@ -159,7 +159,7 @@ export default function TradingSignalsPage() {
                 <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
                 <Radar dataKey="score" name="Score" stroke="var(--color-brand-accent)" fill="var(--color-brand-accent)" fillOpacity={0.46} />
                 <Tooltip
-                  contentStyle={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10 }}
+                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
                   formatter={(value, _name, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as RatingAxis).note)]}
                 />
               </RadarChart>

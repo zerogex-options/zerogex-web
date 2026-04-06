@@ -182,34 +182,35 @@ export default function AboutPage() {
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
 
       {/* ── Sticky Nav ───────────────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        padding: '0 32px', height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: `${isDark ? C.bgDark : 'var(--color-bg)'}ee`,
-        borderBottom: `1px solid ${C.border}`,
-        backdropFilter: 'blur(20px)',
-      }}>
-        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', height: '100%', overflow: 'hidden', padding: 0, margin: 0, lineHeight: 0 }}>
+      <nav
+        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
+        style={{
+          background: `${isDark ? C.bgDark : 'var(--color-bg)'}ee`,
+          borderBottom: `1px solid ${C.border}`,
+          backdropFilter: 'blur(20px)',
+        }}
+      >
+        <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', padding: 0, margin: 0, lineHeight: 0 }}>
           <img
             src='/title.svg'
             alt="ZeroGEX"
-            style={{ height: '150%', width: 'auto', maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', display: 'block', margin: 0, padding: 0 }}
+            className="h-[130%] sm:h-[150%] w-auto block"
+            style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
           />
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
-              borderRadius: 10, width: 38, height: 38,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              border: `1px solid ${C.border}`,
               cursor: 'pointer', color: C.muted,
             }}
           >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/education" style={{ textDecoration: 'none' }}>
+          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button style={{
               background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
@@ -224,13 +225,15 @@ export default function AboutPage() {
             </button>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <button style={{
-              background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-              border: 'none', borderRadius: 10, padding: '8px 18px',
-              fontSize: 13, fontWeight: 700, color: 'var(--text-inverse)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-              boxShadow: `0 4px 16px ${C.amber}50`,
-            }}>
+            <button
+              className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
+              style={{
+                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
+                border: 'none',
+                color: 'var(--text-inverse)', cursor: 'pointer',
+                boxShadow: `0 4px 16px ${C.amber}50`,
+              }}
+            >
               Launch App <ArrowRight size={14} />
             </button>
           </Link>

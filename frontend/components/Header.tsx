@@ -338,15 +338,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-1" style={{ minHeight: "36px" }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", height: "36px", width: "min(58vw, 240px)", overflow: "visible", padding: 0, margin: 0, lineHeight: 0 }}>
+            <Link href="/" className="flex items-center overflow-hidden flex-shrink" style={{ height: "36px", maxWidth: "min(68vw, 260px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <img
                 src="/title.svg"
                 alt="ZeroGEX"
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  maxWidth: "100%",
-                  maxHeight: "100%",
+                  height: "130%",
+                  width: "auto",
+                  maxHeight: "none",
+                  maxWidth: "none",
                   objectFit: "contain",
                   objectPosition: "left center",
                   display: "block",
@@ -355,10 +355,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 }}
               />
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={onToggleTheme}
-                className="rounded-full border p-1.5"
+                className="rounded-full border p-1"
                 style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
                 aria-label="Toggle theme"
               >
@@ -368,7 +368,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-0"
               >
-                {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
           </div>

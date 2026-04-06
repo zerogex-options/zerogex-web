@@ -160,9 +160,9 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
   const pl = payload[0].value;
   const positive = pl >= 0;
   return (
-    <div style={{ background: 'var(--color-surface)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
-      <div style={{ color: 'var(--color-border)', fontSize: 11, marginBottom: 4 }}>
-        Underlying: <span style={{ color: 'var(--color-text-secondary)' }}>${Number(label).toFixed(2)}</span>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
+      <div style={{ color: 'var(--color-chart-tooltip-muted)', fontSize: 11, marginBottom: 4 }}>
+        Underlying: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>${Number(label).toFixed(2)}</span>
       </div>
       <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
         {positive ? '+' : ''}{fmtDollar(pl)}

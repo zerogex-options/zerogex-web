@@ -626,9 +626,9 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
-            contentStyle={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", borderRadius: 6 }}
-            labelStyle={{ color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)", fontWeight: 600 }}
-            itemStyle={{ color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }}
+            contentStyle={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", borderRadius: 8, color: "var(--color-chart-tooltip-text)" }}
+            labelStyle={{ color: "var(--color-chart-tooltip-text)", fontWeight: 600 }}
+            itemStyle={{ color: "var(--color-chart-tooltip-muted)" }}
             labelFormatter={(value) => new Date(String(value)).toLocaleString()}
             formatter={(value, name) => {
               const n = Number(value ?? 0);
@@ -744,7 +744,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               if (!active || !payload || payload.length === 0) return null;
               const point = payload[0]?.payload as { netVolume?: number } | undefined;
               return (
-                <div style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }} className="rounded border px-3 py-2 text-sm">
+                <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
                   <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                   <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>

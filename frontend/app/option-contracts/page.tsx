@@ -499,12 +499,13 @@ function ContractChart({
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)",
-                borderColor: isDark ? "var(--color-surface)" : "var(--color-border)",
-                borderRadius: 6,
+                backgroundColor: "var(--color-chart-tooltip-bg)",
+                borderColor: "var(--color-border)",
+                borderRadius: 8,
+                color: "var(--color-chart-tooltip-text)",
               }}
-              labelStyle={{ color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)", fontWeight: 600, fontSize: 11 }}
-              itemStyle={{ color: isDark ? "var(--color-border)" : "var(--color-text-primary)", fontSize: 11 }}
+              labelStyle={{ color: "var(--color-chart-tooltip-text)", fontWeight: 600, fontSize: 11 }}
+              itemStyle={{ color: "var(--color-chart-tooltip-muted)", fontSize: 11 }}
               labelFormatter={(value) => safeTimeLabel(String(value))}
               formatter={(value, name) => {
                 const n = Number(value ?? 0);

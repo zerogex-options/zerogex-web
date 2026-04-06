@@ -230,7 +230,7 @@ export default function GammaHeatmap() {
 
         <div className="overflow-x-auto relative">
         {hoveredTs && (
-          <div className="absolute right-4 top-3 z-10 rounded-md px-3 py-2 text-xs shadow-lg pointer-events-none" style={{ backgroundColor: theme === 'dark' ? 'var(--color-surface)' : 'var(--color-surface)', border: `1px solid ${theme === 'dark' ? 'var(--color-surface)' : 'var(--color-border)'}`, color: tooltipValueColor }}>
+          <div className="absolute right-4 top-3 z-10 rounded-lg px-3 py-2 text-xs pointer-events-none" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
             <div className="font-semibold">{new Date(hoveredTs).toLocaleString()}</div>
             {hoveredPrice && (
               <div>Underlying O:{Number(hoveredPrice.open ?? hoveredPrice.close ?? 0).toFixed(2)} H:{Number(hoveredPrice.high ?? hoveredPrice.close ?? 0).toFixed(2)} L:{Number(hoveredPrice.low ?? hoveredPrice.close ?? 0).toFixed(2)} C:{Number(hoveredPrice.close ?? hoveredPrice.open ?? 0).toFixed(2)}</div>

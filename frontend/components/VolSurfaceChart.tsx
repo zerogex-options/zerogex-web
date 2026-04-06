@@ -352,11 +352,13 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: isDark ? 'var(--color-surface)' : 'var(--color-surface)',
-                borderColor: isDark ? 'var(--color-surface)' : 'var(--color-border)',
-                borderRadius: 6,
+                backgroundColor: 'var(--color-chart-tooltip-bg)',
+                borderColor: 'var(--color-border)',
+                borderRadius: 8,
+                color: 'var(--color-chart-tooltip-text)',
               }}
-              labelStyle={{ color: textColor }}
+              labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
+              itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
               formatter={(value, name) => [formatPct(value), String(name ?? '')]}
             />
             <Legend verticalAlign="bottom" align="left" content={() => renderLegend(labels)} />

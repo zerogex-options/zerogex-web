@@ -275,7 +275,7 @@ export default function SmartMoneyPage() {
                         const underlying = payload.find((entry) => String(entry.dataKey || '').toLowerCase().includes('underlyingprice'));
 
                         return (
-                          <div style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }} className="rounded border px-3 py-2 text-sm">
+                          <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
                             <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                             {underlying ? (
                               <div>Underlying Price: ${Number(underlying.value || 0).toFixed(2)}</div>

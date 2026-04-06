@@ -188,7 +188,7 @@ export default function UnderlyingCandlesChart() {
           </div>
           <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-0 flex justify-end" />
           {hovered && (
-            <div className="text-xs rounded px-3 py-2 bg-black/50 text-[var(--color-text-primary)] font-mono pointer-events-none whitespace-nowrap">
+            <div className="text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
               <div>{new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}

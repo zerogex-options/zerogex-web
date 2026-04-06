@@ -156,7 +156,7 @@ export default function VolatilityExpansionPage() {
                 <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
                 <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                 <Tooltip
-                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 10 }}
+                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
                   formatter={(value, _n, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as ComponentAxis).description)]}
                 />
               </RadarChart>

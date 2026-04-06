@@ -243,11 +243,8 @@ export default function LandingPage() {
 
       {/* ── Sticky Nav ───────────────────────────────────────────────────────── */}
       <nav
+        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-          padding: '0 32px',
-          height: 64,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: scrolled
             ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
             : 'transparent',
@@ -256,31 +253,30 @@ export default function LandingPage() {
           transition: 'all 0.3s ease',
         }}
       >
-        <div style={{ height: '100%', display: 'flex', alignItems: 'center', overflow: 'hidden', margin: 0, padding: 0, lineHeight: 0 }}>
+        <div className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ margin: 0, padding: 0, lineHeight: 0 }}>
           <img
             src='/title.svg'
             alt="ZeroGEX"
-            style={{ height: '150%', width: 'auto', maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', display: 'block', margin: 0, padding: 0 }}
+            className="h-[130%] sm:h-[150%] w-auto block"
+            style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
               background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
-              borderRadius: 10,
-              width: 38, height: 38,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: C.muted,
             }}
           >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
 
-          <Link href="/education" style={{ textDecoration: 'none' }}>
+          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               style={{
                 background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
@@ -300,16 +296,12 @@ export default function LandingPage() {
           {/* Launch App CTA */}
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
+              className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
               style={{
                 background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
                 border: 'none',
-                borderRadius: 10,
-                padding: '8px 18px',
-                fontSize: 13,
-                fontWeight: 700,
                 color: 'var(--text-inverse)',
                 cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 6,
                 boxShadow: `0 4px 16px ${C.amber}50`,
               }}
             >

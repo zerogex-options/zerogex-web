@@ -75,6 +75,8 @@
   --color-chart-axis: var(--text-primary);
   --color-chart-tooltip-bg: #FFFFFF;
   --color-chart-tooltip-border: var(--border-default);
+  --color-chart-tooltip-text: var(--text-primary);
+  --color-chart-tooltip-muted: var(--text-secondary);
   --color-grid-line: rgba(148, 163, 184, 0.18);
   --color-grid-overlay: rgba(245, 247, 250, 0.60);
 }
@@ -119,6 +121,8 @@
   --color-surface-elevated: var(--bg-card);
   --color-surface-subtle: var(--bg-hover);
   --color-chart-tooltip-bg: var(--bg-card);
+  --color-chart-tooltip-text: var(--text-primary);
+  --color-chart-tooltip-muted: var(--text-secondary);
 }
 
 @theme inline {

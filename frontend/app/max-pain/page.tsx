@@ -294,7 +294,12 @@ export default function MaxPainPage() {
               <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
               <XAxis dataKey="strike" stroke={textColor} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
               <YAxis stroke={textColor} tickFormatter={(v) => `${Number(v).toFixed(1)}M`} domain={["auto", "auto"]} />
-              <Tooltip formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`} />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
+                itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
+                formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`}
+              />
               <Legend />
               <ReferenceLine
                 ifOverflow="extendDomain"

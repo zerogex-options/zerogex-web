@@ -111,11 +111,13 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: isDark ? 'var(--color-surface)' : 'var(--color-surface)',
-                  borderColor: isDark ? 'var(--color-surface)' : 'var(--color-border)',
-                  borderRadius: 6,
+                  backgroundColor: 'var(--color-chart-tooltip-bg)',
+                  borderColor: 'var(--color-border)',
+                  borderRadius: 8,
+                  color: 'var(--color-chart-tooltip-text)',
                 }}
-                labelStyle={{ color: textColor }}
+                labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
+                itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
                 labelFormatter={(v) => `Strike $${Number(v).toFixed(0)}`}
                 formatter={(value) => [`$${formatB(Number(value))}`, 'Net GEX']}
               />

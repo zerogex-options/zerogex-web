@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
-import { colors } from "@/core/colors";
 import { useExpandedCard } from "./ExpandableCard";
 
 interface TooltipWrapperProps {
@@ -98,17 +97,17 @@ export default function TooltipWrapper({
       <div
         className="mt-4 rounded-xl border px-6 py-4 text-base leading-relaxed md:text-lg"
         style={{
-          background: "linear-gradient(180deg, var(--bg-active) 0%, var(--bg-active) 100%)",
-          borderColor: `${colors.primary}40`,
-          color: colors.light,
+          background: "var(--color-chart-tooltip-bg)",
+          borderColor: "var(--color-border)",
+          color: "var(--color-chart-tooltip-text)",
           boxShadow: "0 12px 28px var(--color-info-soft)",
           maxWidth: "880px",
         }}
       >
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-secondary)" }}>
           Tooltip details
         </div>
-        <div style={{ opacity: 0.95 }}>{text}</div>
+        <div style={{ opacity: 0.92 }}>{text}</div>
       </div>
     );
   }
@@ -118,15 +117,15 @@ export default function TooltipWrapper({
         <div
           role="tooltip"
           id={tooltipId}
-          className="pointer-events-none fixed z-[9999] w-72 rounded-xl border px-4 py-3 text-sm leading-relaxed shadow-2xl backdrop-blur-md"
+          className="pointer-events-none fixed z-[9999] w-72 rounded-lg border px-4 py-3 text-sm leading-relaxed"
           style={{
             top: layout.placement === "top" ? layout.top : layout.top,
             left: layout.left,
             transform: layout.placement === "top" ? "translateY(-100%)" : undefined,
-            background: "linear-gradient(180deg, var(--bg-active) 0%, var(--bg-active) 100%)",
-            color: colors.light,
-            borderColor: `${colors.primary}55`,
-            boxShadow: "0 18px 48px var(--color-info-soft)",
+            background: "var(--color-chart-tooltip-bg)",
+            color: "var(--color-chart-tooltip-text)",
+            borderColor: "var(--color-border)",
+            boxShadow: "0 8px 24px var(--color-info-soft), 0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
           <div
@@ -134,8 +133,8 @@ export default function TooltipWrapper({
             className="absolute h-3 w-3 rotate-45 border"
             style={{
               left: layout.arrowLeft - 6,
-              background: "var(--bg-active)",
-              borderColor: `${colors.primary}55`,
+              background: "var(--color-chart-tooltip-bg)",
+              borderColor: "var(--color-border)",
               top: layout.placement === "top" ? "calc(100% - 7px)" : "-7px",
               borderLeftWidth: layout.placement === "top" ? 0 : 1,
               borderTopWidth: layout.placement === "top" ? 0 : 1,
@@ -143,7 +142,7 @@ export default function TooltipWrapper({
               borderBottomWidth: layout.placement === "top" ? 1 : 0,
             }}
           />
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: colors.primary }}>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-secondary)" }}>
             Context
           </div>
           <div>{text}</div>
