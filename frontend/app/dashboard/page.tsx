@@ -196,16 +196,66 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Component breakdown reference */}
+              {/* Component breakdown with mini spectrum bars */}
               <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
                 <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2">Signal Components</div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-[11px] text-[var(--color-text-secondary)]">
-                  <span>GEX Regime <span className="opacity-60">(22%)</span></span>
-                  <span>Vol Expansion <span className="opacity-60">(20%)</span></span>
-                  <span>Smart Money <span className="opacity-60">(16%)</span></span>
-                  <span>Exhaustion <span className="opacity-60">(15%)</span></span>
-                  <span>Gamma Flip <span className="opacity-60">(15%)</span></span>
-                  <span>Put/Call Ratio <span className="opacity-60">(12%)</span></span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                  {(() => {
+                    const fallbackComponents = [
+                      { name: 'GEX Regime', weight: 0.22 },
+                      { name: 'Vol Expansion', weight: 0.20 },
+                      { name: 'Smart Money', weight: 0.16 },
+                      { name: 'Exhaustion', weight: 0.15 },
+                      { name: 'Gamma Flip', weight: 0.15 },
+                      { name: 'Put/Call Ratio', weight: 0.12 },
+                    ];
+                    const components = scoreData?.components?.length
+                      ? scoreData.components
+                      : fallbackComponents;
+
+                    return components.map((comp) => {
+                      const hasScore = 'score' in comp && typeof comp.score === 'number';
+                      const score = hasScore ? (comp as { score: number }).score : null;
+                      // Map score from -1..+1 to 0..100% for the indicator position
+                      const pct = score != null ? Math.max(0, Math.min(100, ((score + 1) / 2) * 100)) : null;
+                      const barColor =
+                        score != null
+                          ? score > 0.1
+                            ? 'var(--color-bull)'
+                            : score < -0.1
+                              ? 'var(--color-bear)'
+                              : 'var(--color-warning)'
+                          : undefined;
+
+                      return (
+                        <div key={comp.name} className="flex items-center gap-2">
+                          <div className="flex-shrink-0 w-[120px] text-[11px] text-[var(--color-text-secondary)] truncate">
+                            {comp.name} <span className="opacity-60">({Math.round(comp.weight * 100)}%)</span>
+                          </div>
+                          <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{
+                            background:
+                              'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)',
+                            opacity: hasScore ? 1 : 0.25,
+                          }}>
+                            {pct != null && (
+                              <div
+                                className="absolute top-[-1px] h-[10px] w-[6px] rounded-sm"
+                                style={{
+                                  left: `${pct}%`,
+                                  transform: 'translateX(-50%)',
+                                  backgroundColor: barColor,
+                                  boxShadow: `0 0 3px ${barColor}`,
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 w-[36px] text-right text-[11px] font-mono" style={{ color: barColor ?? 'var(--color-text-secondary)' }}>
+                            {score != null ? (score >= 0 ? '+' : '') + score.toFixed(2) : '—'}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>
