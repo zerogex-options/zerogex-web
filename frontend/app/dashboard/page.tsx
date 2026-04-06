@@ -36,6 +36,10 @@ function getNumber(value: unknown): number | null {
   return null;
 }
 
+function formatUsd(value: number): string {
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -130,7 +134,7 @@ export default function DashboardPage() {
                     ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}% vs previous`
                     : 'Awaiting previous-close context'}
                 </span>
-                <span>{quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}</span>
+                <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
               </div>
             )}
             tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
@@ -177,8 +181,8 @@ export default function DashboardPage() {
             title="Signaled Trades"
             value={rows.length}
             subtitle={directionalRows > 0
-              ? `${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · PnL ${cumulativePnl >= 0 ? '+' : '-'}$${Math.abs(cumulativePnl).toFixed(2)}`
-              : `No directional mix yet · PnL ${cumulativePnl >= 0 ? '+' : '-'}$${Math.abs(cumulativePnl).toFixed(2)}`}
+              ? `${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
+              : `No directional mix yet · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
             tooltip="Live signaled trade count for the selected underlying, with bullish/bearish split and cumulative active-trade PnL."
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}

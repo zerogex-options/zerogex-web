@@ -45,11 +45,10 @@ function fmtPercent(value: number | null) {
   return `${normalized.toFixed(1)}%`;
 }
 
-function normalizeComponentScore(rawScore: number | null) {
-  if (rawScore == null) return 50;
-  if (Math.abs(rawScore) <= 1) return Math.max(0, Math.min(100, rawScore * 100));
-  if (Math.abs(rawScore) <= 10) return Math.max(0, Math.min(100, rawScore * 10));
-  return Math.max(0, Math.min(100, rawScore));
+function normalizeWeightScore(weight: number | null) {
+  if (weight == null) return 0;
+  if (Math.abs(weight) <= 1) return Math.max(0, Math.min(100, weight * 100));
+  return Math.max(0, Math.min(100, weight));
 }
 
 function interpretation(score: number | null) {
@@ -104,8 +103,8 @@ export default function VolatilityExpansionPage() {
 
     return components.slice(0, 8).map((component) => ({
       axis: String(component.name ?? 'Component'),
-      score: normalizeComponentScore(getNumber(component.raw_score ?? component.score ?? component.weighted_score)),
-      description: String(component.description ?? 'Component contribution'),
+      score: normalizeWeightScore(getNumber(component.weight)),
+      description: `${(normalizeWeightScore(getNumber(component.weight))).toFixed(0)}% model weighting`,
     }));
   }, [components]);
 
@@ -157,11 +156,43 @@ export default function VolatilityExpansionPage() {
                 <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                  formatter={(value, _n, item) => [`${Number(value).toFixed(1)}/100`, String((item.payload as ComponentAxis).description)]}
+                  formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as ComponentAxis).description)]}
                 />
               </RadarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </section>
+
+      <section className="zg-feature-shell mb-8 p-6">
+        <h2 className="text-2xl font-semibold mb-4">Component Score Breakdown</h2>
+        <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+          <span>Component</span>
+          <span className="text-right">Weight</span>
+          <span className="text-right">Raw Score</span>
+          <span className="text-right">Weighted</span>
+        </div>
+        <div className="divide-y divide-[var(--color-border)]">
+          {components.map((component, idx) => {
+            const name = String(component.name ?? `Component ${idx + 1}`);
+            const weight = getNumber(component.weight);
+            const raw = getNumber(component.raw_score ?? component.score);
+            const weighted = getNumber(component.weighted_score);
+
+            return (
+              <div key={`${name}-${idx}`} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-sm py-2 items-center">
+                <span className="font-medium">{name}</span>
+                <span className="text-right text-[var(--color-text-secondary)]">{weight != null ? `${(normalizeWeightScore(weight)).toFixed(0)}%` : '—'}</span>
+                <span className="text-right">{raw != null ? raw.toFixed(2) : '—'}</span>
+                <span className="text-right" style={{ color: weighted != null ? (weighted >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
+                  {weighted != null ? `${weighted >= 0 ? '+' : ''}${weighted.toFixed(3)}` : '—'}
+                </span>
+              </div>
+            );
+          })}
+          {components.length === 0 && (
+            <div className="py-8 text-center text-sm text-[var(--color-text-secondary)]">No component rows available.</div>
+          )}
         </div>
       </section>
 
