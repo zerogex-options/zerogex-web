@@ -450,7 +450,7 @@ export interface SignalScoreResponse {
   strength?: 'high' | 'medium' | 'low';
   trigger_threshold?: number;
   iv_rank?: number;
-  components?: SignalScoreComponent[];
+  components?: SignalScoreComponent[] | Record<string, { score?: number; weight?: number; value?: number; state?: string }>;
   [key: string]: unknown;
 }
 

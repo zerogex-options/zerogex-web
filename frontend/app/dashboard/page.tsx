@@ -201,7 +201,15 @@ export default function DashboardPage() {
                 <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2">Signal Components</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                   {(() => {
-                    const fallbackComponents = [
+                    const COMPONENT_LABELS: Record<string, string> = {
+                      gex_regime: 'GEX Regime',
+                      vol_expansion: 'Vol Expansion',
+                      smart_money: 'Smart Money',
+                      exhaustion: 'Exhaustion',
+                      gamma_flip: 'Gamma Flip',
+                      put_call_ratio: 'Put/Call Ratio',
+                    };
+                    const fallbackComponents: { name: string; weight: number; score?: number }[] = [
                       { name: 'GEX Regime', weight: 0.22 },
                       { name: 'Vol Expansion', weight: 0.20 },
                       { name: 'Smart Money', weight: 0.16 },
@@ -209,9 +217,20 @@ export default function DashboardPage() {
                       { name: 'Gamma Flip', weight: 0.15 },
                       { name: 'Put/Call Ratio', weight: 0.12 },
                     ];
-                    const components = scoreData?.components?.length
-                      ? scoreData.components
-                      : fallbackComponents;
+
+                    // Normalize components: API may return an array or a dict keyed by snake_case name
+                    let components = fallbackComponents;
+                    const raw = scoreData?.components;
+                    if (Array.isArray(raw) && raw.length > 0) {
+                      components = raw.map((c) => ({ name: c.name, weight: c.weight, score: c.score }));
+                    } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+                      const dict = raw as Record<string, { score?: number; weight?: number }>;
+                      components = Object.entries(dict).map(([key, val]) => ({
+                        name: COMPONENT_LABELS[key] ?? key,
+                        weight: val.weight ?? 0,
+                        score: val.score,
+                      }));
+                    }
 
                     return components.map((comp) => {
                       const hasScore = 'score' in comp && typeof comp.score === 'number';
