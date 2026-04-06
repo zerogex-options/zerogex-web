@@ -136,7 +136,7 @@ export default function VolatilityExpansionPage() {
           <div>
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Expansion Regime Score
-              <TooltipWrapper text={componentTooltipText}>
+              <TooltipWrapper text={componentTooltipText} placement="bottom">
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>

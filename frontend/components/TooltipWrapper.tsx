@@ -9,6 +9,7 @@ interface TooltipWrapperProps {
   text: string;
   children?: React.ReactNode;
   inlineInExpanded?: boolean;
+  placement?: "auto" | TooltipPlacement;
 }
 
 type TooltipPlacement = "top" | "bottom";
@@ -28,6 +29,7 @@ export default function TooltipWrapper({
   text,
   children,
   inlineInExpanded = true,
+  placement = "auto",
 }: TooltipWrapperProps) {
   const [show, setShow] = useState(false);
   const [layout, setLayout] = useState<TooltipLayout | null>(null);
@@ -49,11 +51,11 @@ export default function TooltipWrapper({
     );
 
     const roomAbove = rect.top - VIEWPORT_PADDING;
-    const placement: TooltipPlacement = roomAbove >= estimatedHeight + TOOLTIP_GAP
-      ? "top"
-      : "bottom";
+    const computedPlacement: TooltipPlacement = placement === "auto"
+      ? (roomAbove >= estimatedHeight + TOOLTIP_GAP ? "top" : "bottom")
+      : placement;
 
-    const top = placement === "top"
+    const top = computedPlacement === "top"
       ? rect.top - TOOLTIP_GAP
       : rect.bottom + TOOLTIP_GAP;
 
@@ -63,8 +65,8 @@ export default function TooltipWrapper({
       Math.max(20, triggerCenter - clampedLeft),
     );
 
-    setLayout({ top, left: clampedLeft, placement, arrowLeft });
-  }, [text]);
+    setLayout({ top, left: clampedLeft, placement: computedPlacement, arrowLeft });
+  }, [placement, text]);
 
 
   useEffect(() => {
