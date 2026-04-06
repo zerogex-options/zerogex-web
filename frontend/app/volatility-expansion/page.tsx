@@ -132,8 +132,8 @@ export default function VolatilityExpansionPage() {
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell mb-8 p-6">
-        <div className="flex flex-col lg:flex-row gap-6 justify-between">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Expansion Regime Score
               <TooltipWrapper text={componentTooltipText} placement="bottom">
@@ -148,29 +148,94 @@ export default function VolatilityExpansionPage() {
               The model combines directional pressure, volatility context, flow, and structure conditions to estimate whether price is likely to expand into a larger-than-normal move.
             </div>
           </div>
-          <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={componentRadarData} outerRadius="72%">
-                <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
-                <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                  formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as ComponentAxis).description)]}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+
+          <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">Score Spectrum</div>
+              <div className="text-xs text-[var(--color-text-secondary)]">Range: 0 to 100</div>
+            </div>
+
+            <div className="relative mt-4">
+              <div
+                className="h-4 rounded-full"
+                style={{
+                  background:
+                    'linear-gradient(90deg, var(--color-bear) 0%, #d98572 25%, var(--color-warning) 50%, #75cfa1 75%, var(--color-bull) 100%)',
+                }}
+              />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '30%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '70%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '45%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '55%' }} />
+              <div
+                className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
+                style={{
+                  left: compositeScore != null
+                    ? `${Math.max(0, Math.min(100, compositeScore))}%`
+                    : '50%',
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            </div>
+
+            <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
+              <span className="text-left">0</span>
+              <span className="text-center">30</span>
+              <span className="text-center">50</span>
+              <span className="text-center">70</span>
+              <span className="text-right">100</span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+              <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                <div className="font-semibold text-[var(--color-bear)]">Compression</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">0–30: compression favored.</div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                <div className="font-semibold text-[var(--color-bear)] opacity-70">Compression Tilt</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">30–45: lean compression.</div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                <div className="font-semibold text-[var(--color-warning)]">Balanced</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">45–55: balanced regime.</div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                <div className="font-semibold text-[var(--color-bull)] opacity-70">Expansion Tilt</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">55–70: lean expansion.</div>
+              </div>
+              <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
+                <div className="font-semibold text-[var(--color-bull)]">Expansion</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">70–100: expansion favored.</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="zg-feature-shell mb-8 p-6">
+        <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] mx-auto">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={componentRadarData} outerRadius="72%">
+              <PolarGrid stroke="var(--color-border)" />
+              <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
+              <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
+              <Tooltip
+                contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as ComponentAxis).description)]}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="zg-feature-shell mb-8 p-6">
         <h2 className="text-2xl font-semibold mb-4">Component Score Breakdown</h2>
-        <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+        <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
           <span>Component</span>
           <span className="text-right">Weight</span>
           <span className="text-right">Raw Score</span>
           <span className="text-right">Weighted</span>
+          <span className="text-center">Spectrum</span>
         </div>
         <div className="divide-y divide-[var(--color-border)]">
           {components.map((component, idx) => {
@@ -178,14 +243,24 @@ export default function VolatilityExpansionPage() {
             const weight = getNumber(component.weight);
             const raw = getNumber(component.raw_score ?? component.score);
             const weighted = getNumber(component.weighted_score);
+            const spectrumPct = raw != null ? Math.max(0, Math.min(100, ((raw + 1) / 2) * 100)) : null;
 
             return (
-              <div key={`${name}-${idx}`} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-sm py-2 items-center">
+              <div key={`${name}-${idx}`} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
                 <span className="font-medium">{name}</span>
                 <span className="text-right text-[var(--color-text-secondary)]">{weight != null ? `${(normalizeWeightScore(weight)).toFixed(0)}%` : '—'}</span>
                 <span className="text-right">{raw != null ? raw.toFixed(2) : '—'}</span>
                 <span className="text-right" style={{ color: weighted != null ? (weighted >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
                   {weighted != null ? `${weighted >= 0 ? '+' : ''}${weighted.toFixed(3)}` : '—'}
+                </span>
+                <span className="flex items-center justify-center">
+                  {spectrumPct != null ? (
+                    <div className="relative w-full h-2 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }}>
+                      <div className="absolute -top-0.5 h-3 w-0.5 bg-[var(--color-text-primary)] rounded-sm" style={{ left: `${spectrumPct}%`, transform: 'translateX(-50%)' }} />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-[var(--color-text-secondary)]">—</span>
+                  )}
                 </span>
               </div>
             );

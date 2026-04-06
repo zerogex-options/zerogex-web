@@ -22,6 +22,10 @@ interface SmartMoneyRow {
   total_volume?: number | null;
   notional?: number | null;
   total_premium?: number | null;
+  trade_side?: string | null;
+  delta?: number | null;
+  score?: number | null;
+  underlying_price?: number | null;
   notional_class?: string | null;
   size_class?: string | null;
   time_window_start?: string;
@@ -99,15 +103,15 @@ export default function SmartMoneyPage() {
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000 });
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}`, { refreshInterval: 10000 });
   const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(
     `/api/flow/smart-money?symbol=${symbol}&limit=100`,
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
-  const { data: sessionPriceDataRaw, error: sessionPriceError } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${sessionView}`, { refreshInterval: 10000 });
+  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
+  const { data: sessionPriceDataRaw, error: sessionPriceError } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}`, { refreshInterval: 10000 });
   const { data: sessionPriceDataNoSession } = useApiData<SessionFlowPoint[]>(
-    `/api/flow/by-type?symbol=${symbol}`,
+    `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
     { refreshInterval: 10000, enabled: Boolean(sessionPriceError) }
   );
   const sessionPriceData = useMemo(

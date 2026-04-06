@@ -192,23 +192,36 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="text-sm font-semibold mb-3">Component Score Breakdown</div>
-            <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+            <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
               <span>Component</span>
               <span className="text-right">Weight</span>
               <span className="text-right">Score</span>
               <span className="text-right">Contribution</span>
+              <span className="text-center">Spectrum</span>
             </div>
             <div className="divide-y divide-[var(--color-border)]">
-              {components.map((component) => (
-                <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr] gap-2 text-sm py-2 items-center">
-                  <span className="font-medium">{component.name}</span>
-                  <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
-                  <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${component.score.toFixed(2)}` : '—'}</span>
-                  <span className="text-right" style={{ color: component.contribution != null ? (component.contribution >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
-                    {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${component.contribution.toFixed(3)}` : '—'}
-                  </span>
-                </div>
-              ))}
+              {components.map((component) => {
+                const spectrumPct = component.score != null ? Math.max(0, Math.min(100, ((component.score + 1) / 2) * 100)) : null;
+                return (
+                  <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
+                    <span className="font-medium">{component.name}</span>
+                    <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
+                    <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${component.score.toFixed(2)}` : '—'}</span>
+                    <span className="text-right" style={{ color: component.contribution != null ? (component.contribution >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
+                      {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${component.contribution.toFixed(3)}` : '—'}
+                    </span>
+                    <span className="flex items-center justify-center">
+                      {spectrumPct != null ? (
+                        <div className="relative w-full h-2 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }}>
+                          <div className="absolute -top-0.5 h-3 w-0.5 bg-[var(--color-text-primary)] rounded-sm" style={{ left: `${spectrumPct}%`, transform: 'translateX(-50%)' }} />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--color-text-secondary)]">—</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
