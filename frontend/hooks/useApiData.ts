@@ -425,7 +425,7 @@ export interface VolatilityGaugeData {
 }
 
 export function useVolatilityGauge(refreshInterval = 30000) {
-  return useApiData<VolatilityGaugeData>('/api/volatility/gauge', { refreshInterval });
+  return useApiData<VolatilityGaugeData>('/api/market/vix', { refreshInterval });
 }
 
 

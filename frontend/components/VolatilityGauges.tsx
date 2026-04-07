@@ -318,7 +318,7 @@ interface VolatilityGaugesProps {
 }
 
 export default function VolatilityGauges({ theme, compact }: VolatilityGaugesProps) {
-  const { data } = useApiData<VolatilityGaugeData>("/api/volatility/gauge", {
+  const { data } = useApiData<VolatilityGaugeData>("/api/market/vix", {
     refreshInterval: 30000,
   });
 
