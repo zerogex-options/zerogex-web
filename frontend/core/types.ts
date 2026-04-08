@@ -21,6 +21,7 @@ export interface MetricCardProps {
   title: string;
   value: React.ReactNode;
   subtitle?: React.ReactNode;
+  subtitleColor?: string;
   trend?: 'bullish' | 'bearish' | 'neutral';
   tooltip: string;
   icon?: React.ReactNode;

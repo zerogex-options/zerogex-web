@@ -11,6 +11,7 @@ export default function MetricCard({
   title,
   value,
   subtitle,
+  subtitleColor,
   trend = 'neutral',
   tooltip,
   icon,
@@ -69,9 +70,9 @@ export default function MetricCard({
         {value}
       </div>
       {subtitle && (
-        <div 
+        <div
           className="text-sm font-semibold"
-          style={{ color: colors.muted }}
+          style={{ color: subtitleColor || colors.muted }}
         >
           {subtitle}
         </div>

@@ -69,18 +69,22 @@ export default function DashboardPage() {
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
 
-  const volExpansionScore = typeof volExpansionData?.composite_score === 'number' ? volExpansionData.composite_score : null;
+  const volExpansionScore = typeof volExpansionData?.score === 'number'
+    ? volExpansionData.score
+    : typeof volExpansionData?.composite_score === 'number'
+      ? volExpansionData.composite_score
+      : null;
   const volExpansionStatus = volExpansionScore == null
     ? 'Awaiting regime data'
     : volExpansionScore >= 70
-      ? 'Expansion favored'
-      : volExpansionScore >= 55
-        ? 'Expansion tilt'
-        : volExpansionScore <= 30
-          ? 'Compression favored'
-          : volExpansionScore <= 45
-            ? 'Compression tilt'
-            : 'Balanced regime';
+      ? 'Bullish Expansion'
+      : volExpansionScore >= 30
+        ? 'Amplification'
+        : volExpansionScore > -30
+          ? 'Neutral'
+          : volExpansionScore > -70
+            ? 'Downside Pressure'
+            : 'Bearish Expansion';
 
   const underlyingPrice = getPrimaryPriceChangeSummary({
     quoteClose: quoteData?.close,
@@ -191,9 +195,17 @@ export default function DashboardPage() {
             title="Volatility Expansion"
             value={volExpansionScore != null ? volExpansionScore.toFixed(1) : '--'}
             subtitle={volExpansionStatus}
-            tooltip="Volatility expansion regime score and current status."
+            subtitleColor={
+              volExpansionScore == null ? undefined
+              : volExpansionScore >= 70 ? 'var(--color-bull)'
+              : volExpansionScore >= 30 ? 'var(--color-positive)'
+              : volExpansionScore > -30 ? 'var(--color-warning)'
+              : volExpansionScore > -70 ? 'var(--color-negative)'
+              : 'var(--color-bear)'
+            }
+            tooltip="Volatility expansion regime score (−100 to +100). Bullish Expansion (+70 to +100), Amplification (+30 to +70), Neutral (−30 to +30), Downside Pressure (−70 to −30), Bearish Expansion (−100 to −70)."
             theme={theme}
-            trend={volExpansionScore == null ? 'neutral' : volExpansionScore >= 55 ? 'bullish' : volExpansionScore <= 45 ? 'bearish' : 'neutral'}
+            trend={volExpansionScore == null ? 'neutral' : volExpansionScore >= 30 ? 'bullish' : volExpansionScore <= -30 ? 'bearish' : 'neutral'}
           />
         </div>
       </section>

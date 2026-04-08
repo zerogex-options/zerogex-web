@@ -149,6 +149,7 @@ export interface VolExpansionComponent {
 export interface VolExpansionSignalResponse {
   symbol: string;
   timestamp: string;
+  score?: number;
   composite_score: number;
   max_possible_score: number;
   normalized_score: number;
