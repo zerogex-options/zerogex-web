@@ -143,7 +143,7 @@ export default function SignalScorePage() {
                 <Tooltip
                   contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
                   labelFormatter={formatTime}
-                  formatter={(value: number) => [value.toFixed(2), 'Score']}
+                  formatter={(value) => [Number(value).toFixed(2), 'Score']}
                 />
                 <ReferenceLine y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.4} />
                 <ReferenceLine y={58} stroke="var(--color-bull)" strokeDasharray="4 4" strokeOpacity={0.4} />
