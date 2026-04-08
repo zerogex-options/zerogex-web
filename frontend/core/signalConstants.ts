@@ -8,19 +8,19 @@ export const SIGNAL_SCORE_MIN = -100;
 export const SIGNAL_SCORE_MAX = 100;
 
 /** Trigger threshold — normalized score must exceed this to open a new trade */
-export const TRIGGER_THRESHOLD_DEFAULT = 0.58;
-export const TRIGGER_THRESHOLD_HIGH_IV = 0.72; // IV rank > 0.70
-export const TRIGGER_THRESHOLD_LOW_IV = 0.52; // IV rank < 0.25
+export const TRIGGER_THRESHOLD_DEFAULT = 58;
+export const TRIGGER_THRESHOLD_HIGH_IV = 72; // IV rank > 0.70
+export const TRIGGER_THRESHOLD_LOW_IV = 52; // IV rank < 0.25
 
 /** Neutral zone — no edge inside this band */
-export const NEUTRAL_BOUNDARY = 0.30;
+export const NEUTRAL_BOUNDARY = 30;
 
-/** Strength labels applied to normalized score (abs of composite / 100) */
-export const STRENGTH_HIGH = 0.80;
-export const STRENGTH_MEDIUM = 0.58;
+/** Strength labels applied to normalized score (abs of composite) */
+export const STRENGTH_HIGH = 80;
+export const STRENGTH_MEDIUM = 58;
 
 /** Direction flip threshold — close open trade when opposing signal hits this */
-export const DIRECTION_FLIP_THRESHOLD = 0.55;
+export const DIRECTION_FLIP_THRESHOLD = 55;
 
 /** Component weights (sum to 1.0) */
 export const SIGNAL_WEIGHTS = {
@@ -49,11 +49,11 @@ export function getDirectionLabel(compositeScore: number): 'bullish' | 'bearish'
   return 'neutral';
 }
 
-/** Get the regime action label for a given composite score (accepts -1..+1 from API) */
+/** Get the regime action label for a given composite score (-100 to +100) */
 export function getRegimeLabel(compositeScore: number): string {
   const abs = Math.abs(compositeScore);
   const dir = compositeScore > 0 ? 'Bullish' : 'Bearish';
-  if (abs >= 0.80) return `Strong ${dir} — High Conviction`;
+  if (abs >= STRENGTH_HIGH) return `Strong ${dir} — High Conviction`;
   if (abs >= TRIGGER_THRESHOLD_DEFAULT) return `${dir} — Tradeable Signal`;
   if (abs >= NEUTRAL_BOUNDARY) return `${dir} — Below Trigger`;
   return 'Neutral — No Edge';

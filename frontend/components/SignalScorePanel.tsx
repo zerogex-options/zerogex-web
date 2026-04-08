@@ -133,7 +133,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 style={{
                   left:
                     typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                      ? `${Math.max(0, Math.min(100, (((scoreData?.composite_score ?? scoreData?.score)! + 1) / 2) * 100))}%`
+                      ? `${Math.max(0, Math.min(100, ((scoreData?.composite_score ?? scoreData?.score)! + 100) / 2))}%`
                       : '50%',
                   transform: 'translateX(-50%)',
                 }}
@@ -203,7 +203,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             </div>
             <div className="divide-y divide-[var(--color-border)]">
               {components.map((component) => {
-                const spectrumPct = component.score != null ? Math.max(0, Math.min(100, ((component.score + 1) / 2) * 100)) : null;
+                const spectrumPct = component.score != null ? Math.max(0, Math.min(100, (component.score + 100) / 2)) : null;
                 return (
                   <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
                     <span className="font-medium">{component.name}</span>

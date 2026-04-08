@@ -20,10 +20,13 @@ export default function SignalScorePage() {
   const { data: historyData } = useSignalScoreHistory(symbol, 30000);
 
   const chartData = useMemo(() => {
-    if (!Array.isArray(historyData)) return [];
-    return historyData.map((pt) => ({
-      time: pt.timestamp,
-      score: pt.composite_score ?? pt.score ?? 0,
+    const rows = Array.isArray(historyData)
+      ? historyData
+      : (historyData as Record<string, unknown>)?.rows;
+    if (!Array.isArray(rows)) return [];
+    return [...rows].reverse().map((pt: Record<string, unknown>) => ({
+      time: String(pt.timestamp ?? ''),
+      score: Number(pt.composite_score ?? pt.score ?? 0),
     }));
   }, [historyData]);
 
