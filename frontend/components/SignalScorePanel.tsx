@@ -90,7 +90,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                         : 'var(--color-text-primary)',
                     }}
                   >
-                    {hasScore ? Math.round(compositeScore! * 100) : '--'}
+                    {hasScore ? compositeScore!.toFixed(2) : '--'}
                   </div>
                   <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
                   {hasScore && strength && (
@@ -99,7 +99,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                       color: strength === 'high' ? 'var(--color-bull)' : strength === 'medium' ? 'var(--color-warning)' : 'var(--color-bear)',
                     }}>
                       {strength === 'high' ? 'High Conviction' : strength === 'medium' ? 'Medium Conviction' : 'Low Conviction'}
-                      {' · '}|score| = {Math.round(absScore * 100)}
+                      {' · '}|score| = {absScore.toFixed(2)}
                     </div>
                   )}
                 </>
@@ -208,9 +208,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
                     <span className="font-medium">{component.name}</span>
                     <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
-                    <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${Math.round(component.score * 100)}` : '—'}</span>
+                    <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${component.score.toFixed(2)}` : '—'}</span>
                     <span className="text-right" style={{ color: component.contribution != null ? (component.contribution >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
-                      {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${(component.contribution * 100).toFixed(1)}` : '—'}
+                      {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${component.contribution.toFixed(3)}` : '—'}
                     </span>
                     <span className="flex items-center justify-center">
                       {spectrumPct != null ? (

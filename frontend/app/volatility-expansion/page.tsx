@@ -1,29 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts';
-import { CircleHelp, Gauge, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, ShieldCheck, Zap, TrendingDown, Activity, Gauge } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useVolExpansionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 
 type GenericObject = Record<string, unknown>;
-
-type ComponentAxis = {
-  axis: string;
-  score: number;
-  description: string;
-};
 
 function asObject(value: unknown): GenericObject | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -39,18 +24,6 @@ function getNumber(value: unknown): number | null {
   return null;
 }
 
-function fmtPercent(value: number | null) {
-  if (value == null) return '—';
-  const normalized = value <= 1 ? value * 100 : value;
-  return `${normalized.toFixed(1)}%`;
-}
-
-function normalizeWeightScore(weight: number | null) {
-  if (weight == null) return 0;
-  if (Math.abs(weight) <= 1) return Math.max(0, Math.min(100, weight * 100));
-  return Math.max(0, Math.min(100, weight));
-}
-
 function interpretation(score: number | null) {
   if (score == null) return 'No reading';
   if (score >= 70) return 'Bullish expansion primed';
@@ -60,59 +33,34 @@ function interpretation(score: number | null) {
   return 'Neutral — suppressed';
 }
 
+function formatGex(value: number | null) {
+  if (value == null) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 1e9) return `${value < 0 ? '-' : ''}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${value < 0 ? '-' : ''}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${value < 0 ? '-' : ''}$${(abs / 1e3).toFixed(0)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
 export default function VolatilityExpansionPage() {
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useVolExpansionSignal(symbol, 10000);
 
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
-  const components = useMemo(() => {
-    const source = payload.components;
-    if (Array.isArray(source)) {
-      return source.filter((item) => item && typeof item === 'object') as GenericObject[];
-    }
-    return [];
+
+  const compositeScore = getNumber(payload.score ?? payload.composite_score ?? payload.normalized_score);
+  const direction = String(payload.direction ?? payload.expected_direction ?? 'neutral').toLowerCase();
+
+  const ctx = useMemo(() => {
+    const cv = asObject(payload.context_values) ?? {};
+    return {
+      net_gex: getNumber(cv.net_gex),
+      momentum: getNumber(cv.momentum),
+      gex_regime: String(cv.gex_regime ?? '—'),
+      vol_pressure: getNumber(cv.vol_pressure),
+      pct_change_5bar: getNumber(cv.pct_change_5bar),
+    };
   }, [payload]);
-
-  const componentTooltipText = useMemo(() => {
-    if (components.length === 0) {
-      return 'Component breakdown unavailable in the current API payload.';
-    }
-
-    return components
-      .slice(0, 10)
-      .map((component) => {
-        const name = String(component.name ?? 'Component');
-        const raw = getNumber(component.raw_score ?? component.score);
-        const weighted = getNumber(component.weighted_score);
-        const desc = String(component.description ?? 'No description');
-        return `${name}: raw=${raw != null ? raw.toFixed(2) : '—'}, weighted=${weighted != null ? weighted.toFixed(2) : '—'} — ${desc}`;
-      })
-      .join(' | ');
-  }, [components]);
-
-  const componentRadarData = useMemo<ComponentAxis[]>(() => {
-    if (components.length === 0) {
-      return [
-        { axis: 'Magnitude', score: 50, description: 'No component data' },
-        { axis: 'Direction', score: 50, description: 'No component data' },
-        { axis: 'Flow', score: 50, description: 'No component data' },
-        { axis: 'Structure', score: 50, description: 'No component data' },
-        { axis: 'Volatility', score: 50, description: 'No component data' },
-      ];
-    }
-
-    return components.slice(0, 8).map((component) => ({
-      axis: String(component.name ?? 'Component'),
-      score: normalizeWeightScore(getNumber(component.weight)),
-      description: `${(normalizeWeightScore(getNumber(component.weight))).toFixed(0)}% model weighting`,
-    }));
-  }, [components]);
-
-  const compositeScore = getNumber(payload.composite_score ?? payload.score ?? payload.normalized_score);
-  const direction = String(payload.expected_direction ?? payload.direction ?? 'neutral').toLowerCase();
-  const moveProbability = getNumber(payload.move_probability ?? payload.probability);
-  const expectedMagnitude = getNumber(payload.expected_magnitude_pct ?? payload.magnitude_pct);
-  const confidence = String(payload.confidence ?? payload.strength ?? 'n/a').toUpperCase();
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
@@ -131,22 +79,23 @@ export default function VolatilityExpansionPage() {
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      <section className="zg-feature-shell mb-8 p-6">
+      {/* Score + Spectrum */}
+      <div className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Expansion Regime Score
-              <TooltipWrapper text={componentTooltipText} placement="bottom">
+              <TooltipWrapper text="If net GEX ≥ 0, score = 0 (dealers suppress vol). In negative GEX, score reflects vol pressure × momentum direction." placement="bottom">
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>
-            <div className="text-5xl font-black" style={{ color: trend === 'bullish' ? 'var(--color-bull)' : trend === 'bearish' ? 'var(--color-bear)' : 'var(--color-warning)' }}>
-              {compositeScore != null ? compositeScore.toFixed(1) : '—'}
+            <div className="text-6xl font-black leading-none" style={{ color: trend === 'bullish' ? 'var(--color-bull)' : trend === 'bearish' ? 'var(--color-bear)' : 'var(--color-warning)' }}>
+              {compositeScore != null ? compositeScore.toFixed(2) : '—'}
             </div>
             <div className="mt-2 text-lg font-semibold">{interpretation(compositeScore)}</div>
-            <div className="mt-4 text-sm text-[var(--color-text-secondary)] max-w-xl">
+            <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
               If net GEX is zero or positive, the score is immediately 0 — dealers suppress volatility. In negative GEX, vol pressure scales with |net_gex| and momentum direction determines the sign. This score tells you the amplification environment, not the trade direction.
-            </div>
+            </p>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
@@ -210,94 +159,132 @@ export default function VolatilityExpansionPage() {
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="zg-feature-shell mb-8 p-6">
-        <div className="w-full lg:w-[450px] h-[320px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] mx-auto">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={componentRadarData} outerRadius="72%">
-              <PolarGrid stroke="var(--color-border)" />
-              <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
-              <Radar dataKey="score" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as ComponentAxis).description)]}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+      {/* Context Breakdown */}
+      <section className="zg-feature-shell mt-8 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="text-sm font-semibold mb-2">How It&apos;s Calculated</div>
+            <div className="text-xs text-[var(--color-text-secondary)] space-y-2.5 mt-3">
+              <div><strong className="text-[var(--color-text-primary)]">1. GEX regime gate</strong> — If net GEX ≥ 0 → score = 0. Positive GEX means dealers suppress vol.</div>
+              <div><strong className="text-[var(--color-text-primary)]">2. Vol pressure</strong> — min(1.0, |net_gex| / $300M). How loaded the gun is.</div>
+              <div><strong className="text-[var(--color-text-primary)]">3. Momentum</strong> — 5-bar % change normalized against 0.5% threshold, clamped [−1, +1].</div>
+              <div><strong className="text-[var(--color-text-primary)]">4. Blend</strong> — Flat/rising price → +vol_pressure. Falling price → shifts toward −vol_pressure.</div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-[var(--color-border)] text-xs text-[var(--color-text-secondary)]">
+              Use alongside the composite score — composite tells you <strong>whether</strong> to trade, vol expansion tells you <strong>how explosive</strong> the follow-through could be.
+            </div>
+          </div>
 
-      <section className="zg-feature-shell mb-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4">Component Score Breakdown</h2>
-        <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
-          <span>Component</span>
-          <span className="text-right">Weight</span>
-          <span className="text-right">Raw Score</span>
-          <span className="text-right">Weighted</span>
-          <span className="text-center">Spectrum</span>
-        </div>
-        <div className="divide-y divide-[var(--color-border)]">
-          {components.map((component, idx) => {
-            const name = String(component.name ?? `Component ${idx + 1}`);
-            const weight = getNumber(component.weight);
-            const raw = getNumber(component.raw_score ?? component.score);
-            const weighted = getNumber(component.weighted_score);
-            const spectrumPct = raw != null ? Math.max(0, Math.min(100, (raw + 100) / 2)) : null;
-
-            return (
-              <div key={`${name}-${idx}`} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
-                <span className="font-medium">{name}</span>
-                <span className="text-right text-[var(--color-text-secondary)]">{weight != null ? `${(normalizeWeightScore(weight)).toFixed(0)}%` : '—'}</span>
-                <span className="text-right">{raw != null ? raw.toFixed(2) : '—'}</span>
-                <span className="text-right" style={{ color: weighted != null ? (weighted >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
-                  {weighted != null ? `${weighted >= 0 ? '+' : ''}${weighted.toFixed(3)}` : '—'}
-                </span>
+          <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="text-sm font-semibold mb-3">Context Breakdown</div>
+            <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+              <span>Metric</span>
+              <span className="text-right">Value</span>
+              <span className="text-center">Status</span>
+            </div>
+            <div className="divide-y divide-[var(--color-border)]">
+              {/* Net GEX */}
+              <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+                <span className="font-medium">Net GEX</span>
+                <span className="text-right font-mono text-[var(--color-text-secondary)]">{formatGex(ctx.net_gex)}</span>
                 <span className="flex items-center justify-center">
-                  {spectrumPct != null ? (
-                    <div className="relative w-full h-2 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }}>
-                      <div className="absolute -top-0.5 h-3 w-0.5 bg-[var(--color-text-primary)] rounded-sm" style={{ left: `${spectrumPct}%`, transform: 'translateX(-50%)' }} />
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[var(--color-text-secondary)]">—</span>
-                  )}
+                  {ctx.net_gex != null ? (
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                      ctx.net_gex > 0
+                        ? 'bg-[rgba(27,196,125,0.12)] text-[var(--color-bull)]'
+                        : ctx.net_gex < 0
+                          ? 'bg-[rgba(255,77,90,0.12)] text-[var(--color-bear)]'
+                          : 'bg-[rgba(255,166,0,0.12)] text-[var(--color-warning)]'
+                    }`}>
+                      {ctx.net_gex > 0 ? <ShieldCheck size={13} /> : ctx.net_gex < 0 ? <Zap size={13} /> : <Minus size={13} />}
+                      {ctx.net_gex > 0 ? 'Suppression' : ctx.net_gex < 0 ? 'Amplification' : 'Flat'}
+                    </span>
+                  ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
                 </span>
               </div>
-            );
-          })}
-          {components.length === 0 && (
-            <div className="py-8 text-center text-sm text-[var(--color-text-secondary)]">No component rows available.</div>
-          )}
-        </div>
-      </section>
 
-      <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard title="Expected Direction" value={direction.toUpperCase()} trend={trend} tooltip="Forecast directional bias for expansion." theme="dark" icon={<TrendingUp size={16} />} />
-        <MetricCard title="Confidence" value={confidence} tooltip="Model confidence bucket." theme="dark" icon={<Gauge size={16} />} />
-        <MetricCard title="Move Probability" value={fmtPercent(moveProbability)} tooltip="Estimated probability of a meaningful expansion." theme="dark" icon={<Sparkles size={16} />} />
-        <MetricCard title="Expected Magnitude" value={fmtPercent(expectedMagnitude)} tooltip="Expected magnitude of move over forecast horizon." theme="dark" icon={<CircleHelp size={16} />} />
-      </section>
+              {/* GEX Regime */}
+              <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+                <span className="font-medium">GEX Regime</span>
+                <span className="text-right font-mono text-[var(--color-text-secondary)] capitalize">{ctx.gex_regime}</span>
+                <span className="flex items-center justify-center">
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                    ctx.gex_regime === 'positive'
+                      ? 'bg-[rgba(27,196,125,0.12)] text-[var(--color-bull)]'
+                      : ctx.gex_regime === 'negative'
+                        ? 'bg-[rgba(255,77,90,0.12)] text-[var(--color-bear)]'
+                        : 'bg-[rgba(255,166,0,0.12)] text-[var(--color-warning)]'
+                  }`}>
+                    {ctx.gex_regime === 'positive' ? <ShieldCheck size={13} /> : ctx.gex_regime === 'negative' ? <Zap size={13} /> : <Minus size={13} />}
+                    {ctx.gex_regime === 'positive' ? 'Dealers dampen' : ctx.gex_regime === 'negative' ? 'Dealers amplify' : 'Unknown'}
+                  </span>
+                </span>
+              </div>
 
-      <section className="zg-feature-shell mb-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4">How It&apos;s Calculated</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2">Calculation logic</div>
-            <ul className="space-y-2 text-[var(--color-text-secondary)]">
-              <li>• <strong>GEX regime gate:</strong> If net GEX is zero or positive, the score is immediately 0. Positive GEX means dealers suppress volatility.</li>
-              <li>• <strong>Vol pressure:</strong> In negative GEX, vol_pressure = min(1.0, |net_gex| / $300M). This is how loaded the gun is.</li>
-              <li>• <strong>Momentum direction:</strong> 5-bar price change normalized against a 0.5% threshold, clamped to [−1, +1].</li>
-              <li>• <strong>Primed-environment blend:</strong> Flat/rising price → +vol_pressure. Falling price → shifts toward −vol_pressure.</li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2">How to use it</div>
-            <ul className="space-y-2 text-[var(--color-text-secondary)]">
-              <li>• This score tells you the <strong>amplification environment</strong>, not the direction of the underlying trade.</li>
-              <li>• <strong>+70</strong>: &quot;If price starts moving up, dealer hedging will make it move more than normal.&quot;</li>
-              <li>• <strong>−70</strong>: &quot;Dealers are being forced to sell into the drop — bearish vol expansion is underway.&quot;</li>
-              <li>• Use alongside the composite score — composite tells you <strong>whether</strong> to trade, vol expansion tells you <strong>how explosive</strong> the follow-through could be.</li>
-            </ul>
+              {/* Vol Pressure */}
+              <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+                <span className="font-medium">Vol Pressure</span>
+                <span className="text-right font-mono text-[var(--color-text-secondary)]">{ctx.vol_pressure != null ? ctx.vol_pressure.toFixed(2) : '—'}</span>
+                <span className="flex items-center justify-center">
+                  {ctx.vol_pressure != null ? (
+                    <div className="flex items-center gap-2 w-full max-w-[110px]">
+                      <div className="relative flex-1 h-2 rounded-full bg-[var(--color-border)]">
+                        <div
+                          className="absolute top-0 left-0 h-2 rounded-full"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, ctx.vol_pressure * 100))}%`,
+                            background: ctx.vol_pressure >= 0.7
+                              ? 'var(--color-bear)'
+                              : ctx.vol_pressure >= 0.4
+                                ? 'var(--color-warning)'
+                                : 'var(--color-bull)',
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-[var(--color-text-secondary)] w-8 text-right">{(ctx.vol_pressure * 100).toFixed(0)}%</span>
+                    </div>
+                  ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
+                </span>
+              </div>
+
+              {/* Momentum */}
+              <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+                <span className="font-medium">Momentum</span>
+                <span className="text-right font-mono" style={{ color: ctx.momentum != null ? (ctx.momentum > 0 ? 'var(--color-bull)' : ctx.momentum < 0 ? 'var(--color-bear)' : 'var(--color-text-secondary)') : 'var(--color-text-secondary)' }}>
+                  {ctx.momentum != null ? `${ctx.momentum >= 0 ? '+' : ''}${ctx.momentum.toFixed(4)}` : '—'}
+                </span>
+                <span className="flex items-center justify-center">
+                  {ctx.momentum != null ? (
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                      ctx.momentum > 0.01 ? 'text-[var(--color-bull)]' : ctx.momentum < -0.01 ? 'text-[var(--color-bear)]' : 'text-[var(--color-text-secondary)]'
+                    }`}>
+                      {ctx.momentum > 0.01 ? <ArrowUp size={14} /> : ctx.momentum < -0.01 ? <ArrowDown size={14} /> : <Minus size={14} />}
+                      {ctx.momentum > 0.01 ? 'Bullish' : ctx.momentum < -0.01 ? 'Bearish' : 'Flat'}
+                    </span>
+                  ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
+                </span>
+              </div>
+
+              {/* 5-Bar % Change */}
+              <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+                <span className="font-medium">5-Bar % Change</span>
+                <span className="text-right font-mono" style={{ color: ctx.pct_change_5bar != null ? (ctx.pct_change_5bar > 0 ? 'var(--color-bull)' : ctx.pct_change_5bar < 0 ? 'var(--color-bear)' : 'var(--color-text-secondary)') : 'var(--color-text-secondary)' }}>
+                  {ctx.pct_change_5bar != null ? `${ctx.pct_change_5bar >= 0 ? '+' : ''}${(ctx.pct_change_5bar * 100).toFixed(3)}%` : '—'}
+                </span>
+                <span className="flex items-center justify-center">
+                  {ctx.pct_change_5bar != null ? (
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                      ctx.pct_change_5bar > 0.001 ? 'text-[var(--color-bull)]' : ctx.pct_change_5bar < -0.001 ? 'text-[var(--color-bear)]' : 'text-[var(--color-text-secondary)]'
+                    }`}>
+                      {ctx.pct_change_5bar > 0.001 ? <ArrowUp size={14} /> : ctx.pct_change_5bar < -0.001 ? <ArrowDown size={14} /> : <Minus size={14} />}
+                      {Math.abs(ctx.pct_change_5bar) >= 0.005 ? 'Strong' : Math.abs(ctx.pct_change_5bar) >= 0.001 ? 'Moderate' : 'Negligible'}
+                    </span>
+                  ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -458,6 +458,19 @@ export function useSignalScore(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<SignalScoreResponse>(`/api/signals/score?underlying=${symbol}`, { refreshInterval });
 }
 
+export interface SignalScoreHistoryPoint {
+  timestamp: string;
+  composite_score?: number;
+  score?: number;
+  normalized_score?: number;
+  direction?: 'bullish' | 'bearish' | 'neutral';
+  [key: string]: unknown;
+}
+
+export function useSignalScoreHistory(symbol = 'SPY', refreshInterval = 30000) {
+  return useApiData<SignalScoreHistoryPoint[]>(`/api/signals/score-history?underlying=${symbol}`, { refreshInterval });
+}
+
 export interface OptionContractRow {
   timestamp: string;
   underlying: string;
