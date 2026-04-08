@@ -84,7 +84,7 @@ export default function TradingSignalsPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Trade Ideas</h1>
       <p className="text-[var(--color-text-secondary)] mb-8">
-        Real-time flow intelligence for fast trade selection and directional conviction.
+        All trades are hypothetical — the engine observes live market data but does not connect to a broker. Everything is recorded as if executed at mid-mark with no slippage or commissions.
       </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -186,7 +186,7 @@ export default function TradingSignalsPage() {
       <section className="zg-feature-shell mb-8 p-6">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
         <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          The dashboard Signal Score (−1.0 to +1.0) is the weighted sum of 6 components from the UnifiedSignalEngine. Sign encodes direction; magnitude encodes conviction.
+          The composite score (−100 to +100) is the weighted sum of 7 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
         </p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
@@ -200,12 +200,13 @@ export default function TradingSignalsPage() {
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>22%</td><td>+GEX = bullish, −GEX = bearish</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>20%</td><td>−GEX × momentum; +GEX = mean-reversion</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>16%</td><td>Call vs put sweep premium (≥$100K)</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>15%</td><td>Contra signal at RSI / MA extremes</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>15%</td><td>Above flip = bull, below = bear</td></tr>
-                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>12%</td><td>PCR &lt; 0.8 = bull, &gt; 1.2 = bear</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>18%</td><td>+GEX = suppression (+1), −GEX = amplification (−1)</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>16%</td><td>Premium-weighted call vs put from large/unusual orders</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>16%</td><td>Dealer feedback loop amplification readiness</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>16%</td><td>Risk/reward quality of available options structures</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>12%</td><td>Above flip = +1, below = −1, ±0.3% = 0</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>12%</td><td>Countertrend signal at RSI/momentum extremes</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>10%</td><td>PCR ≤ 0.8 = bullish (+1), ≥ 1.2 = bearish (−1)</td></tr>
               </tbody>
             </table>
           </div>
@@ -219,15 +220,15 @@ export default function TradingSignalsPage() {
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] font-medium">+0.58 to +1.0</span></td><td>Open bullish trade</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] opacity-70 font-medium">+0.35 to +0.58</span></td><td>Monitor, hold existing</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-warning)] font-medium">−0.35 to +0.35</span></td><td>No edge — cut size</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bear)] opacity-70 font-medium">−0.58 to −0.35</span></td><td>Monitor, hold existing</td></tr>
-                <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−1.0 to −0.58</span></td><td>Open bearish trade</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] font-medium">+80 to +100</span></td><td>High conviction — strong alignment</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] opacity-70 font-medium">+58 to +80</span></td><td>Tradeable bullish signal</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-warning)] font-medium">−30 to +30</span></td><td>Near-neutral — no trade</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bear)] opacity-70 font-medium">−80 to −58</span></td><td>Tradeable bearish signal</td></tr>
+                <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−100 to −80</span></td><td>High conviction — strong alignment</td></tr>
               </tbody>
             </table>
             <div className="mt-3 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)]">
-              <strong>Dynamic trigger:</strong> baseline 0.58; raised to 0.65 when IV rank &gt; 0.70, lowered to 0.54 when IV rank &lt; 0.25.
+              <strong>Dynamic trigger:</strong> baseline 58; raised to 72 when IV rank &gt; 0.70, lowered to 52 when IV rank &lt; 0.25.
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
@@ -241,22 +242,60 @@ export default function TradingSignalsPage() {
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">≥ 0.82</td><td className="text-[var(--color-bull)]">High</td><td>All components aligned</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">0.64 – 0.82</td><td className="text-[var(--color-warning)]">Medium</td><td>Majority aligned, some noise</td></tr>
-                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">&lt; 0.64</td><td className="text-[var(--color-bear)]">Low</td><td>Below trigger or weak</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">≥ 80</td><td className="text-[var(--color-bull)]">High</td><td>Strong alignment across most components</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">58 – 80</td><td className="text-[var(--color-warning)]">Medium</td><td>Above trigger, multiple components agree</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">&lt; 58</td><td className="text-[var(--color-bear)]">Low</td><td>Below trigger or mixed signals</td></tr>
               </tbody>
             </table>
             <div className="mt-3 pt-2 border-t border-[var(--color-border)]">
               <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-1.5">In Practice</div>
               <ul className="text-[11px] text-[var(--color-text-secondary)] space-y-1">
-                <li>• <strong>0.85+</strong>: Rare high-conviction — pyramid if already in.</li>
-                <li>• <strong>0.65–0.85</strong>: Clean — open position sized by Kelly.</li>
-                <li>• <strong>0.58–0.65</strong>: Marginal — needs +EV from optimizer.</li>
-                <li>• <strong>0.35–0.58</strong>: Weak — hold, don&apos;t add.</li>
-                <li>• <strong>&lt; 0.35</strong>: Degraded — cut size by half.</li>
-                <li>• <strong>Flip ≥ 0.55</strong>: Close open trade at market.</li>
+                <li>• <strong>85+</strong>: Rare high-conviction — position sizing at ~85% of optimizer max.</li>
+                <li>• <strong>65–85</strong>: Clean — open position sized proportionally to score.</li>
+                <li>• <strong>58–65</strong>: Marginal — needs +EV structure from optimizer.</li>
+                <li>• <strong>30–58</strong>: Below trigger — mixed signals, no trade.</li>
+                <li>• <strong>&lt; 30</strong>: Near-neutral — components cancel out, no trade.</li>
+                <li>• <strong>Direction reversal</strong>: Close existing, open opposite if conditions pass.</li>
               </ul>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trade Execution Reference */}
+      <section className="zg-feature-shell mb-8 p-6">
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Brain size={20} /> Trade Execution Logic</h2>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+          All five conditions must be true simultaneously to open a position. There are no fixed stop-losses or take-profits — positions close when the signal degrades.
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Conditions to Open</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• <strong>Normalized score ≥ threshold</strong> (default 58, raised to 72 in high IV, lowered to 52 in low IV)</li>
+              <li>• <strong>Trend confirmation</strong> — at least 2 of the last 4 non-neutral scores agree with current direction</li>
+              <li>• <strong>Valid options structure</strong> — optimizer finds positive-EV candidate in the appropriate DTE window</li>
+              <li>• <strong>Portfolio heat headroom</strong> — new position won&apos;t exceed max heat %</li>
+              <li>• <strong>Open trade count headroom</strong> — below max open trades limit</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Conditions to Close</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• <strong>Score drops below threshold</strong> → all positions closed, move to cash</li>
+              <li>• <strong>Direction reverses</strong> → existing closed, new position opened in opposite direction</li>
+              <li>• <strong>Position size target decreases</strong> → oldest trades closed first to reach new target</li>
+              <li>• <strong>No positive-EV structure</strong> for held direction → full liquidation</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">Position Sizing</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• Contracts = <strong>int(optimal_contracts × normalized_score)</strong>, min 1</li>
+              <li>• A score of 85 opens ~85% of the optimizer&apos;s suggested contracts</li>
+              <li>• A score of 58 opens ~58% — higher conviction = larger position</li>
+              <li>• DTE window adapts: high IV (&gt; 0.70) uses 0–2 DTE, normal/low IV uses 1–7 DTE</li>
+            </ul>
           </div>
         </div>
       </section>

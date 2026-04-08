@@ -53,11 +53,11 @@ function normalizeWeightScore(weight: number | null) {
 
 function interpretation(score: number | null) {
   if (score == null) return 'No reading';
-  if (score >= 70) return 'Expansion favored';
-  if (score >= 55) return 'Expansion tilt';
-  if (score <= 30) return 'Compression favored';
-  if (score <= 45) return 'Compression tilt';
-  return 'Balanced regime';
+  if (score >= 70) return 'Bullish expansion primed';
+  if (score >= 30) return 'Amplification potential';
+  if (score <= -70) return 'Bearish expansion active';
+  if (score <= -30) return 'Downside amplification';
+  return 'Neutral — suppressed';
 }
 
 export default function VolatilityExpansionPage() {
@@ -126,7 +126,7 @@ export default function VolatilityExpansionPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Volatility Expansion</h1>
       <p className="text-[var(--color-text-secondary)] mb-8">
-        Breakout regime detection with multi-factor scoring and confidence diagnostics.
+        Whether the current market structure is loaded for a volatile directional move, and which direction that move would go.
       </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -145,14 +145,14 @@ export default function VolatilityExpansionPage() {
             </div>
             <div className="mt-2 text-lg font-semibold">{interpretation(compositeScore)}</div>
             <div className="mt-4 text-sm text-[var(--color-text-secondary)] max-w-xl">
-              The model combines directional pressure, volatility context, flow, and structure conditions to estimate whether price is likely to expand into a larger-than-normal move.
+              If net GEX is zero or positive, the score is immediately 0 — dealers suppress volatility. In negative GEX, vol pressure scales with |net_gex| and momentum direction determines the sign. This score tells you the amplification environment, not the trade direction.
             </div>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">Score Spectrum</div>
-              <div className="text-xs text-[var(--color-text-secondary)]">Range: 0 to 100</div>
+              <div className="text-xs text-[var(--color-text-secondary)]">Range: −100 to +100</div>
             </div>
 
             <div className="relative mt-4">
@@ -163,15 +163,15 @@ export default function VolatilityExpansionPage() {
                     'linear-gradient(90deg, var(--color-bear) 0%, #d98572 25%, var(--color-warning) 50%, #75cfa1 75%, var(--color-bull) 100%)',
                 }}
               />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '30%' }} />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '70%' }} />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '45%' }} />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '55%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '15%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '85%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '35%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '65%' }} />
               <div
                 className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                 style={{
                   left: compositeScore != null
-                    ? `${Math.max(0, Math.min(100, compositeScore))}%`
+                    ? `${Math.max(0, Math.min(100, (compositeScore + 100) / 2))}%`
                     : '50%',
                   transform: 'translateX(-50%)',
                 }}
@@ -179,33 +179,33 @@ export default function VolatilityExpansionPage() {
             </div>
 
             <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
-              <span className="text-left">0</span>
-              <span className="text-center">30</span>
-              <span className="text-center">50</span>
-              <span className="text-center">70</span>
-              <span className="text-right">100</span>
+              <span className="text-left">−100</span>
+              <span className="text-center">−30</span>
+              <span className="text-center">0</span>
+              <span className="text-center">+30</span>
+              <span className="text-right">+100</span>
             </div>
 
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                <div className="font-semibold text-[var(--color-bear)]">Compression</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">0–30: compression favored.</div>
+                <div className="font-semibold text-[var(--color-bear)]">Bearish Expansion</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−100 to −70: dealers forced to sell into drop.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                <div className="font-semibold text-[var(--color-bear)] opacity-70">Compression Tilt</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">30–45: lean compression.</div>
+                <div className="font-semibold text-[var(--color-bear)] opacity-70">Downside Pressure</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−70 to −30: feedback loop on the downside.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                <div className="font-semibold text-[var(--color-warning)]">Balanced</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">45–55: balanced regime.</div>
+                <div className="font-semibold text-[var(--color-warning)]">Neutral</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−30 to +30: vol suppressed or neutralized.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                <div className="font-semibold text-[var(--color-bull)] opacity-70">Expansion Tilt</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">55–70: lean expansion.</div>
+                <div className="font-semibold text-[var(--color-bull)] opacity-70">Amplification</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">+30 to +70: meaningful amplification potential.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
-                <div className="font-semibold text-[var(--color-bull)]">Expansion</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">70–100: expansion favored.</div>
+                <div className="font-semibold text-[var(--color-bull)]">Bullish Expansion</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">+70 to +100: primed for bullish vol expansion.</div>
               </div>
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function VolatilityExpansionPage() {
             const weight = getNumber(component.weight);
             const raw = getNumber(component.raw_score ?? component.score);
             const weighted = getNumber(component.weighted_score);
-            const spectrumPct = raw != null ? Math.max(0, Math.min(100, ((raw + 1) / 2) * 100)) : null;
+            const spectrumPct = raw != null ? Math.max(0, Math.min(100, (raw + 100) / 2)) : null;
 
             return (
               <div key={`${name}-${idx}`} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
@@ -279,24 +279,24 @@ export default function VolatilityExpansionPage() {
       </section>
 
       <section className="zg-feature-shell mb-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4">What This Rating Means</h2>
+        <h2 className="text-2xl font-semibold mb-4">How It&apos;s Calculated</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2">Calculation logic</div>
             <ul className="space-y-2 text-[var(--color-text-secondary)]">
-              <li>• Component factors are normalized into a common 0–100 scale.</li>
-              <li>• Weighted component values roll into a composite expansion score.</li>
-              <li>• Composite plus supporting fields determine direction and confidence labels.</li>
-              <li>• Probability and expected magnitude provide trade selection context.</li>
+              <li>• <strong>GEX regime gate:</strong> If net GEX is zero or positive, the score is immediately 0. Positive GEX means dealers suppress volatility.</li>
+              <li>• <strong>Vol pressure:</strong> In negative GEX, vol_pressure = min(1.0, |net_gex| / $300M). This is how loaded the gun is.</li>
+              <li>• <strong>Momentum direction:</strong> 5-bar price change normalized against a 0.5% threshold, clamped to [−1, +1].</li>
+              <li>• <strong>Primed-environment blend:</strong> Flat/rising price → +vol_pressure. Falling price → shifts toward −vol_pressure.</li>
             </ul>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2">Operational interpretation</div>
+            <div className="font-semibold mb-2">How to use it</div>
             <ul className="space-y-2 text-[var(--color-text-secondary)]">
-              <li>• <strong>High score + high probability</strong>: strongest breakout conditions.</li>
-              <li>• <strong>High score + low probability</strong>: selective catalyst-driven setups.</li>
-              <li>• <strong>Low score</strong>: expansion less likely; favor compression/mean-reversion ideas.</li>
-              <li>• <strong>Mid score</strong>: require confirmation before committing size.</li>
+              <li>• This score tells you the <strong>amplification environment</strong>, not the direction of the underlying trade.</li>
+              <li>• <strong>+70</strong>: &quot;If price starts moving up, dealer hedging will make it move more than normal.&quot;</li>
+              <li>• <strong>−70</strong>: &quot;Dealers are being forced to sell into the drop — bearish vol expansion is underway.&quot;</li>
+              <li>• Use alongside the composite score — composite tells you <strong>whether</strong> to trade, vol expansion tells you <strong>how explosive</strong> the follow-through could be.</li>
             </ul>
           </div>
         </div>

@@ -18,20 +18,22 @@ interface SignalScorePanelProps {
 function normalizeComponents(raw: unknown): SignalComponentRow[] {
   const COMPONENT_LABELS: Record<string, string> = {
     gex_regime: 'GEX Regime',
-    vol_expansion: 'Vol Expansion',
     smart_money: 'Smart Money',
-    exhaustion: 'Exhaustion',
+    vol_expansion: 'Vol Expansion',
+    opportunity_quality: 'Opportunity Quality',
     gamma_flip: 'Gamma Flip',
+    exhaustion: 'Exhaustion',
     put_call_ratio: 'Put/Call Ratio',
   };
 
   const fallbackComponents: SignalComponentRow[] = [
-    { name: 'GEX Regime', weight: 0.22, score: null, contribution: null },
-    { name: 'Vol Expansion', weight: 0.20, score: null, contribution: null },
+    { name: 'GEX Regime', weight: 0.18, score: null, contribution: null },
     { name: 'Smart Money', weight: 0.16, score: null, contribution: null },
-    { name: 'Exhaustion', weight: 0.15, score: null, contribution: null },
-    { name: 'Gamma Flip', weight: 0.15, score: null, contribution: null },
-    { name: 'Put/Call Ratio', weight: 0.12, score: null, contribution: null },
+    { name: 'Vol Expansion', weight: 0.16, score: null, contribution: null },
+    { name: 'Opportunity Quality', weight: 0.16, score: null, contribution: null },
+    { name: 'Gamma Flip', weight: 0.12, score: null, contribution: null },
+    { name: 'Exhaustion', weight: 0.12, score: null, contribution: null },
+    { name: 'Put/Call Ratio', weight: 0.10, score: null, contribution: null },
   ];
 
   if (Array.isArray(raw) && raw.length > 0) {
@@ -88,7 +90,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                         : 'var(--color-text-primary)',
                     }}
                   >
-                    {hasScore ? compositeScore!.toFixed(2) : '--'}
+                    {hasScore ? Math.round(compositeScore! * 100) : '--'}
                   </div>
                   <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
                   {hasScore && strength && (
@@ -97,21 +99,21 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                       color: strength === 'high' ? 'var(--color-bull)' : strength === 'medium' ? 'var(--color-warning)' : 'var(--color-bear)',
                     }}>
                       {strength === 'high' ? 'High Conviction' : strength === 'medium' ? 'Medium Conviction' : 'Low Conviction'}
-                      {' · '}|score| = {absScore.toFixed(2)}
+                      {' · '}|score| = {Math.round(absScore * 100)}
                     </div>
                   )}
                 </>
               );
             })()}
             <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-              Composite score from the UnifiedSignalEngine (−1.0 to +1.0). Weighted sum of 6 components: GEX regime, vol expansion, smart money, exhaustion, gamma flip, and put/call ratio. Sign encodes direction; magnitude encodes conviction.
+              Aggregate weighted conviction of seven independent market signals (−100 to +100). Positive = net bullish evidence, negative = net bearish. The normalized score (absolute value, 0–100) represents pure conviction strength regardless of direction.
             </p>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">Score Spectrum</div>
-              <div className="text-xs text-[var(--color-text-secondary)]">Range: −1.0 to +1.0</div>
+              <div className="text-xs text-[var(--color-text-secondary)]">Range: −100 to +100</div>
             </div>
 
             <div className="relative mt-4">
@@ -124,8 +126,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               />
               <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '21%' }} />
               <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '79%' }} />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '32.5%' }} />
-              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '67.5%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '35%' }} />
+              <div className="absolute top-0 h-4 w-px bg-[var(--color-text-primary)] opacity-25" style={{ left: '65%' }} />
               <div
                 className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                 style={{
@@ -139,33 +141,33 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             </div>
 
             <div className="mt-3 grid grid-cols-5 text-[11px] text-[var(--color-text-secondary)]">
-              <span className="text-left">−1.0</span>
-              <span className="text-center">−0.58</span>
+              <span className="text-left">−100</span>
+              <span className="text-center">−58</span>
               <span className="text-center">0</span>
-              <span className="text-center">+0.58</span>
-              <span className="text-right">+1.0</span>
+              <span className="text-center">+58</span>
+              <span className="text-right">+100</span>
             </div>
 
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
                 <div className="font-semibold text-[var(--color-bear)]">Strong Bear</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">−1.0 to −0.58: open bearish trades.</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−100 to −58: tradeable bearish signal.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
                 <div className="font-semibold text-[var(--color-bear)] opacity-70">Weak Bear</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">−0.58 to −0.35: hold, don&apos;t add.</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−58 to −30: below trigger, no trade.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
                 <div className="font-semibold text-[var(--color-warning)]">Neutral</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">−0.35 to +0.35: no edge, cut size.</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">−30 to +30: near-neutral, no edge.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
                 <div className="font-semibold text-[var(--color-bull)] opacity-70">Weak Bull</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">+0.35 to +0.58: hold, don&apos;t add.</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">+30 to +58: below trigger, no trade.</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] p-2.5 bg-[var(--color-surface)]">
                 <div className="font-semibold text-[var(--color-bull)]">Strong Bull</div>
-                <div className="text-[var(--color-text-secondary)] mt-1">+0.58 to +1.0: open bullish trades.</div>
+                <div className="text-[var(--color-text-secondary)] mt-1">+58 to +100: tradeable bullish signal.</div>
               </div>
             </div>
           </div>
@@ -176,7 +178,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-[320px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of UnifiedSignalEngine weighting model</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 7-component weighting model</div>
             <ResponsiveContainer width="100%" height="86%">
               <RadarChart data={radarData} outerRadius="72%">
                 <PolarGrid stroke="var(--color-border)" />
@@ -206,9 +208,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
                     <span className="font-medium">{component.name}</span>
                     <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
-                    <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${component.score.toFixed(2)}` : '—'}</span>
+                    <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${Math.round(component.score * 100)}` : '—'}</span>
                     <span className="text-right" style={{ color: component.contribution != null ? (component.contribution >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
-                      {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${component.contribution.toFixed(3)}` : '—'}
+                      {component.contribution != null ? `${component.contribution >= 0 ? '+' : ''}${(component.contribution * 100).toFixed(1)}` : '—'}
                     </span>
                     <span className="flex items-center justify-center">
                       {spectrumPct != null ? (
