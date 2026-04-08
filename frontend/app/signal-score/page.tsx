@@ -8,9 +8,9 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScoreHistory } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 
-function formatTime(value: string) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
+function formatTime(value: unknown) {
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
 }
 
