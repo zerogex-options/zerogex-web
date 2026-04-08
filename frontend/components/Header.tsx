@@ -364,7 +364,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-0"
+                className="p-0 mr-2"
               >
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
