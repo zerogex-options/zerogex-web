@@ -721,7 +721,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             stroke="var(--color-positive)"
             strokeWidth={2}
             dot={false}
-            connectNulls={false}
+            connectNulls
           />
           <Line
             yAxisId="premium"
@@ -731,7 +731,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             stroke="var(--color-negative)"
             strokeWidth={2}
             dot={false}
-            connectNulls={false}
+            connectNulls
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -819,24 +819,26 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
           <ReferenceLine yAxisId="volume" y={0} stroke={axisStroke} opacity={0.6} />
           <Area
             yAxisId="volume"
-            type="linear"
+            type="monotone"
             dataKey="positiveNetVolume"
             name="Positive Net Volume"
             stroke="var(--color-positive)"
             fill="var(--color-positive)"
             fillOpacity={0.45}
             baseValue={0}
+            connectNulls
             isAnimationActive={false}
           />
           <Area
             yAxisId="volume"
-            type="linear"
+            type="monotone"
             dataKey="negativeNetVolume"
             name="Negative Net Volume"
             stroke="var(--color-negative)"
             fill="var(--color-negative)"
             fillOpacity={0.45}
             baseValue={0}
+            connectNulls
             isAnimationActive={false}
           />
         </ComposedChart>
@@ -996,7 +998,7 @@ export default function FlowAnalysisPage() {
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
     const base = buildTimeseriesFromNetRows(filtered);
-    return forwardFillTimeseries(alignSeriesToTimeline(base, sessionTimeline));
+    return alignSeriesToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
@@ -1023,7 +1025,7 @@ export default function FlowAnalysisPage() {
     const filtered =
       selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
     const base = buildTimeseriesFromNetRows(filtered);
-    return forwardFillTimeseries(alignSeriesToTimeline(base, sessionTimeline));
+    return alignSeriesToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
