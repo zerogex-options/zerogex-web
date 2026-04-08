@@ -147,37 +147,6 @@ function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): Times
   });
 }
 
-/**
- * Forward-fills null cumulative values in an aligned timeseries.
- * Needed when sparse data (e.g. 5-minute API buckets) is aligned to a
- * 1-minute session timeline — the in-between minutes stay at the last
- * known cumulative value rather than dropping to null/zero.
- */
-function forwardFillTimeseries(rows: TimeseriesRow[]): TimeseriesRow[] {
-  let lastCall: number | null = null;
-  let lastPut: number | null = null;
-  let lastVol: number | null = null;
-  let lastPrice: number | null = null;
-
-  return rows.map((row) => {
-    if (row.callPremium !== null) lastCall = row.callPremium;
-    if (row.putPremium !== null) lastPut = row.putPremium;
-    if (row.netVolume !== null) lastVol = row.netVolume;
-    if (row.underlyingPrice !== null) lastPrice = row.underlyingPrice;
-
-    const vol = lastVol;
-    return {
-      ...row,
-      callPremium: lastCall,
-      putPremium: lastPut,
-      netVolume: vol,
-      positiveNetVolume: vol !== null && vol > 0 ? vol : 0,
-      negativeNetVolume: vol !== null && vol < 0 ? vol : 0,
-      underlyingPrice: lastPrice,
-    };
-  });
-}
-
 /** Aligns a put/call ratio series to the session timeline, filling missing slots with null. */
 function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
@@ -303,56 +272,32 @@ function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
-function normalizeSignedFlow(
-  totalPremium: number,
-  netPremium: number,
-  totalVolume: number,
-  netVolume: number,
-) {
-  const callPremium = Math.max(0, (totalPremium + netPremium) / 2);
-  const putPremium = Math.max(0, (totalPremium - netPremium) / 2);
-
-  const derivedFromPremium = Math.round(
-    Math.max(
-      -totalVolume,
-      Math.min(totalVolume, totalVolume * ((netPremium || 0) / Math.max(1, totalPremium || 0))),
-    ),
-  );
-
-  const boundedRawNet = Number.isFinite(netVolume)
-    ? Math.max(-totalVolume, Math.min(totalVolume, Math.round(netVolume)))
-    : derivedFromPremium;
-
-  const hasSignMismatch =
-    Math.sign(netPremium || 0) !== 0 &&
-    Math.sign(boundedRawNet || 0) !== 0 &&
-    Math.sign(netPremium || 0) !== Math.sign(boundedRawNet || 0);
-
-  return {
-    callPremium,
-    putPremium,
-    netVolume: hasSignMismatch ? derivedFromPremium : boundedRawNet,
-  };
-}
-
-function buildTimeseriesFromNetRows(
+/**
+ * Builds a timeseries for the by-expiration / by-strike charts.
+ *
+ * Each API row already carries pre-computed cumulative running totals
+ * (cumulative_premium, cumulative_net_premium, cumulative_net_volume).
+ * For a given timestamp we simply sum those across every row that matches
+ * the current filter (i.e. the selected strikes or expirations).
+ *
+ * call_premium = (cumulative_premium + cumulative_net_premium) / 2
+ * put_premium  = (cumulative_premium - cumulative_net_premium) / 2
+ */
+function buildTimeseriesFromCumulativeRows(
   rows: Array<{
     timestamp?: string;
     time_window_start?: string;
     time_window_end?: string;
     interval_timestamp?: string | null;
-    premium?: number | string;
-    total_premium?: number | string;
-    net_premium?: number | string;
-    volume?: number | string;
-    total_volume?: number | string;
-    net_volume?: number | string;
+    cumulative_premium?: number | string;
+    cumulative_net_premium?: number | string;
+    cumulative_net_volume?: number | string;
     underlying_price?: number | string | null;
   }>,
 ): TimeseriesRow[] {
   const grouped = new Map<
     string,
-    { totalPremium: number; netPremium: number; totalVolume: number; netVolume: number; underlyingPrice: number | null }
+    { cumPremium: number; cumNetPremium: number; cumNetVolume: number; underlyingPrice: number | null }
   >();
 
   rows.forEach((row) => {
@@ -361,18 +306,11 @@ function buildTimeseriesFromNetRows(
     const ts = normalizeToMinute(sourceTs);
     if (!ts) return;
 
-    const current = grouped.get(ts) ?? {
-      totalPremium: 0,
-      netPremium: 0,
-      totalVolume: 0,
-      netVolume: 0,
-      underlyingPrice: null,
-    };
+    const current = grouped.get(ts) ?? { cumPremium: 0, cumNetPremium: 0, cumNetVolume: 0, underlyingPrice: null };
 
-    current.totalPremium += Number(row.total_premium ?? row.premium ?? 0);
-    current.netPremium += Number(row.net_premium || 0);
-    current.totalVolume += Number(row.total_volume ?? row.volume ?? 0);
-    current.netVolume += Number(row.net_volume || 0);
+    current.cumPremium += Number(row.cumulative_premium ?? 0);
+    current.cumNetPremium += Number(row.cumulative_net_premium ?? 0);
+    current.cumNetVolume += Number(row.cumulative_net_volume ?? 0);
     if (current.underlyingPrice === null && row.underlying_price != null) {
       current.underlyingPrice = Number(row.underlying_price);
     }
@@ -380,38 +318,23 @@ function buildTimeseriesFromNetRows(
     grouped.set(ts, current);
   });
 
-  const perMinute = Array.from(grouped.entries())
+  return Array.from(grouped.entries())
     .map(([timestamp, value]) => {
-      const normalized = normalizeSignedFlow(
-        value.totalPremium,
-        value.netPremium,
-        value.totalVolume,
-        value.netVolume,
-      );
-      return { timestamp, callPremium: normalized.callPremium, putPremium: normalized.putPremium, netVolume: normalized.netVolume, underlyingPrice: value.underlyingPrice };
+      const callPremium = Math.max(0, (value.cumPremium + value.cumNetPremium) / 2);
+      const putPremium  = Math.max(0, (value.cumPremium - value.cumNetPremium) / 2);
+      const netVolume   = value.cumNetVolume;
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium,
+        putPremium,
+        netVolume,
+        positiveNetVolume: netVolume > 0 ? netVolume : 0,
+        negativeNetVolume: netVolume < 0 ? netVolume : 0,
+        underlyingPrice: value.underlyingPrice,
+      };
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  // Accumulate into running cumulative totals
-  let cumCall = 0;
-  let cumPut = 0;
-  let cumVol = 0;
-
-  return perMinute.map((row) => {
-    cumCall += row.callPremium;
-    cumPut += row.putPremium;
-    cumVol += row.netVolume;
-    return {
-      timestamp: row.timestamp,
-      time: safeTimeLabel(row.timestamp),
-      callPremium: cumCall,
-      putPremium: cumPut,
-      netVolume: cumVol,
-      positiveNetVolume: cumVol > 0 ? cumVol : 0,
-      negativeNetVolume: cumVol < 0 ? cumVol : 0,
-      underlyingPrice: row.underlyingPrice,
-    };
-  });
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
@@ -997,7 +920,7 @@ export default function FlowAnalysisPage() {
       activeSelection.size > 0
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
-    const base = buildTimeseriesFromNetRows(filtered);
+    const base = buildTimeseriesFromCumulativeRows(filtered);
     return alignSeriesToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
 
@@ -1024,7 +947,7 @@ export default function FlowAnalysisPage() {
     });
     const filtered =
       selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
-    const base = buildTimeseriesFromNetRows(filtered);
+    const base = buildTimeseriesFromCumulativeRows(filtered);
     return alignSeriesToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
 
