@@ -34,9 +34,12 @@ interface FlowByTypePoint {
   put_premium: number;
   net_volume: number;
   net_premium: number;
+  cumulative_call_volume?: number | string;
+  cumulative_put_volume?: number | string;
   cumulative_call_premium?: number | string;
   cumulative_put_premium?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_net_premium?: number | string;
   running_put_call_ratio?: number | string;
   underlying_price?: number | null;
 }
@@ -635,9 +638,11 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             ticks={premiumTicks}
             tickFormatter={(v) => {
               const n = Number(v);
-              if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-              if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-              return `$${Math.round(n)}`;
+              const abs = Math.abs(n);
+              const sign = n < 0 ? '-' : '';
+              if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+              if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+              return `${sign}$${Math.round(abs)}`;
             }}
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
@@ -886,39 +891,29 @@ export default function FlowAnalysisPage() {
     return getSessionTimestamps(selectedDate);
   }, [selectedDate]);
 
-  // ── Snapshot (daily cumulative totals for selected date) ────────────────────
+  // ── Snapshot (most recent row's cumulative values) ──────────────────────────
 
   const latestSnapshot = useMemo(() => {
     if (!selectedDate || !flowByType || flowByType.length === 0) return null;
     const dateRows = flowByType.filter((r) => getETDateKey(r.timestamp) === selectedDate);
     if (dateRows.length === 0) return null;
 
-    const sortedRows = [...dateRows].sort(
+    const latest = [...dateRows].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-    const latest = sortedRows[0];
+    )[0];
 
-    const totals = dateRows.reduce((acc, row) => {
-      acc.callVolume += Number(row.call_volume || 0);
-      acc.putVolume += Number(row.put_volume || 0);
-      acc.callPremium += Number(row.call_premium || 0);
-      acc.putPremium += Number(row.put_premium || 0);
-      acc.netFlow += Number(row.net_volume || Number(row.call_volume || 0) - Number(row.put_volume || 0));
-      acc.netPremium += Number(row.net_premium || Number(row.call_premium || 0) - Number(row.put_premium || 0));
-      return acc;
-    }, {
-      callVolume: 0,
-      putVolume: 0,
-      callPremium: 0,
-      putPremium: 0,
-      netFlow: 0,
-      netPremium: 0,
-    });
+    const callVolume = Number(latest.cumulative_call_volume || 0);
+    const putVolume = Number(latest.cumulative_put_volume || 0);
 
     return {
       timestamp: latest.timestamp,
-      ...totals,
-      putCallRatio: totals.callVolume > 0 ? totals.putVolume / totals.callVolume : 0,
+      callVolume,
+      putVolume,
+      callPremium: Number(latest.cumulative_call_premium || 0),
+      putPremium: Number(latest.cumulative_put_premium || 0),
+      netFlow: Number(latest.cumulative_net_volume || 0),
+      netPremium: Number(latest.cumulative_net_premium || 0),
+      putCallRatio: Number(latest.running_put_call_ratio || 0),
     };
   }, [selectedDate, flowByType]);
 
@@ -1050,7 +1045,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8">
         <SectionTitle
           title="Flow Snapshot"
-          tooltip="Daily cumulative snapshot summed across the selected trading session."
+          tooltip="Cumulative snapshot from the most recent data point in the selected trading session."
         />
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of:{" "}
@@ -1060,17 +1055,17 @@ export default function FlowAnalysisPage() {
           <MetricCard
             title="Call Volume"
             value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
-            subtitle={`$${(Number(latestSnapshot?.callPremium || 0) / 1_000_000).toFixed(2)}M premium`}
+            subtitle={`${Number(latestSnapshot?.callPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.callPremium || 0)) / 1_000_000).toFixed(2)}M premium`}
             trend="bullish"
-            tooltip="Cumulative call contracts traded across the selected date."
+            tooltip="Cumulative call contracts and net call premium across the selected date."
             theme="dark"
           />
           <MetricCard
             title="Put Volume"
             value={Number(latestSnapshot?.putVolume || 0).toLocaleString()}
-            subtitle={`$${(Number(latestSnapshot?.putPremium || 0) / 1_000_000).toFixed(2)}M premium`}
+            subtitle={`${Number(latestSnapshot?.putPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.putPremium || 0)) / 1_000_000).toFixed(2)}M premium`}
             trend="bearish"
-            tooltip="Cumulative put contracts traded across the selected date."
+            tooltip="Cumulative put contracts and net put premium across the selected date."
             theme="dark"
           />
           <MetricCard
@@ -1083,7 +1078,7 @@ export default function FlowAnalysisPage() {
           />
           <MetricCard
             title="Net Premium"
-            value={`$${(Number(latestSnapshot?.netPremium || 0) / 1_000_000).toFixed(2)}M`}
+            value={`${Number(latestSnapshot?.netPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.netPremium || 0)) / 1_000_000).toFixed(2)}M`}
             trend={Number(latestSnapshot?.netPremium || 0) > 0 ? "bullish" : "bearish"}
             tooltip="Cumulative call premium minus put premium across the selected date."
             theme="dark"
@@ -1194,7 +1189,33 @@ export default function FlowAnalysisPage() {
                   );
                 }}
               />
-              <YAxis stroke={axisStroke} tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }} tickMargin={isMobile ? 2 : 8} width={isMobile ? 38 : 62} />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                tickMargin={isMobile ? 2 : 8}
+                width={isMobile ? 38 : 62}
+                domain={(() => {
+                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                  if (vals.length === 0) return [0, 2];
+                  const min = Math.min(...vals);
+                  const max = Math.max(...vals);
+                  const step = max - min > 1 ? 0.5 : 0.25;
+                  return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
+                })()}
+                ticks={(() => {
+                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                  if (vals.length === 0) return [0, 0.5, 1.0, 1.5, 2.0];
+                  const min = Math.min(...vals);
+                  const max = Math.max(...vals);
+                  const step = max - min > 1 ? 0.5 : 0.25;
+                  const lo = Math.floor(min / step) * step;
+                  const hi = Math.ceil(max / step) * step;
+                  const t: number[] = [];
+                  for (let v = lo; v <= hi + step / 2; v += step) t.push(parseFloat(v.toFixed(2)));
+                  return t;
+                })()}
+                tickFormatter={(v) => Number(v).toFixed(2)}
+              />
               <Tooltip
                 content={({ active, label, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;
