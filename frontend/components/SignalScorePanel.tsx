@@ -2,7 +2,8 @@
 
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
-import { getRegimeLabel, getStrengthLabel } from '@/core/signalConstants';
+import { getRegimeLabel } from '@/core/signalConstants';
+import TooltipWrapper from '@/components/TooltipWrapper';
 
 type SignalComponentRow = {
   name: string;
@@ -72,12 +73,15 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       <div className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Current Market Feel</div>
+            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
+              Current Market Feel
+              <TooltipWrapper text="Weighted composite of 7 signals (GEX regime, smart money, vol expansion, opportunity quality, gamma flip, exhaustion, put/call ratio). Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
+                <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+              </TooltipWrapper>
+            </div>
             {(() => {
               const compositeScore = scoreData?.composite_score ?? scoreData?.score;
               const hasScore = typeof compositeScore === 'number';
-              const absScore = hasScore ? Math.abs(compositeScore!) : 0;
-              const strength = hasScore ? getStrengthLabel(absScore) : null;
               const directionLabel = hasScore ? getRegimeLabel(compositeScore!) : 'Awaiting signal data';
 
               return (
@@ -93,15 +97,6 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     {hasScore ? compositeScore!.toFixed(2) : '--'}
                   </div>
                   <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
-                  {hasScore && strength && (
-                    <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{
-                      background: strength === 'high' ? 'rgba(27,196,125,0.15)' : strength === 'medium' ? 'rgba(255,166,0,0.15)' : 'rgba(255,77,90,0.15)',
-                      color: strength === 'high' ? 'var(--color-bull)' : strength === 'medium' ? 'var(--color-warning)' : 'var(--color-bear)',
-                    }}>
-                      {strength === 'high' ? 'High Conviction' : strength === 'medium' ? 'Medium Conviction' : 'Low Conviction'}
-                      {' · '}|score| = {absScore.toFixed(2)}
-                    </div>
-                  )}
                 </>
               );
             })()}
