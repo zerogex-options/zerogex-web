@@ -22,7 +22,7 @@ export default function SignalScorePage() {
   const chartData = useMemo(() => {
     const rows = Array.isArray(historyData)
       ? historyData
-      : (historyData as Record<string, unknown>)?.rows;
+      : (historyData as unknown as Record<string, unknown>)?.rows;
     if (!Array.isArray(rows)) return [];
     return [...rows].reverse().map((pt: Record<string, unknown>) => ({
       time: String(pt.timestamp ?? ''),
