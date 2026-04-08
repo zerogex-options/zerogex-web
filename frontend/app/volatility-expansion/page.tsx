@@ -49,6 +49,8 @@ export default function VolatilityExpansionPage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
 
   const compositeScore = getNumber(payload.score ?? payload.composite_score ?? payload.normalized_score);
+  const expansionScore = getNumber(payload.expansion);
+  const directionScore = getNumber(payload.direction_score);
   const direction = String(payload.direction ?? payload.expected_direction ?? 'neutral').toLowerCase();
 
   const ctx = useMemo(() => {
@@ -160,6 +162,95 @@ export default function VolatilityExpansionPage() {
           </div>
         </div>
       </div>
+
+      {/* Sub-Scores: Expansion + Direction */}
+      <section className="zg-feature-shell mt-8 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Expansion (0–100) */}
+          <div className="rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                Expansion
+                <TooltipWrapper text="Should I care about a vol move? Measures how primed the environment is for a larger-than-normal move, regardless of direction." placement="bottom">
+                  <span className="text-[var(--color-text-secondary)] cursor-help text-xs">ⓘ</span>
+                </TooltipWrapper>
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)]">0 to 100</div>
+            </div>
+            <div className="text-3xl font-black mt-1" style={{
+              color: expansionScore != null
+                ? (expansionScore >= 70 ? 'var(--color-bull)' : expansionScore >= 30 ? 'var(--color-warning)' : 'var(--color-text-secondary)')
+                : 'var(--color-text-primary)',
+            }}>
+              {expansionScore != null ? expansionScore.toFixed(1) : '—'}
+              <span className="text-sm font-medium text-[var(--color-text-secondary)] ml-2">
+                {expansionScore != null
+                  ? (expansionScore >= 70 ? 'Primed' : expansionScore >= 30 ? 'Building' : 'Suppressed')
+                  : ''}
+              </span>
+            </div>
+            <div className="relative mt-4">
+              <div className="h-3 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-text-secondary) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }} />
+              <div className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-30" style={{ left: '30%' }} />
+              <div className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-30" style={{ left: '70%' }} />
+              <div
+                className="absolute -top-1.5 h-6 w-0.5 bg-[var(--color-text-primary)]"
+                style={{
+                  left: expansionScore != null ? `${Math.max(0, Math.min(100, expansionScore))}%` : '0%',
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-3 text-[10px] text-[var(--color-text-secondary)]">
+              <span className="text-left">0</span>
+              <span className="text-center">50</span>
+              <span className="text-right">100</span>
+            </div>
+          </div>
+
+          {/* Direction (-100 to +100) */}
+          <div className="rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                Direction
+                <TooltipWrapper text="Which way would the move go? Positive = bullish bias, negative = bearish bias, near zero = no directional lean." placement="bottom">
+                  <span className="text-[var(--color-text-secondary)] cursor-help text-xs">ⓘ</span>
+                </TooltipWrapper>
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)]">−100 to +100</div>
+            </div>
+            <div className="text-3xl font-black mt-1" style={{
+              color: directionScore != null
+                ? (directionScore > 10 ? 'var(--color-bull)' : directionScore < -10 ? 'var(--color-bear)' : 'var(--color-warning)')
+                : 'var(--color-text-primary)',
+            }}>
+              {directionScore != null ? `${directionScore >= 0 ? '+' : ''}${directionScore.toFixed(1)}` : '—'}
+              <span className="text-sm font-medium text-[var(--color-text-secondary)] ml-2">
+                {directionScore != null
+                  ? (directionScore > 10 ? 'Bullish' : directionScore < -10 ? 'Bearish' : 'Neutral')
+                  : ''}
+              </span>
+            </div>
+            <div className="relative mt-4">
+              <div className="h-3 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }} />
+              <div className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-30" style={{ left: '25%' }} />
+              <div className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-30" style={{ left: '75%' }} />
+              <div
+                className="absolute -top-1.5 h-6 w-0.5 bg-[var(--color-text-primary)]"
+                style={{
+                  left: directionScore != null ? `${Math.max(0, Math.min(100, (directionScore + 100) / 2))}%` : '50%',
+                  transform: 'translateX(-50%)',
+                }}
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-3 text-[10px] text-[var(--color-text-secondary)]">
+              <span className="text-left">−100</span>
+              <span className="text-center">0</span>
+              <span className="text-right">+100</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Context Breakdown */}
       <section className="zg-feature-shell mt-8 p-6">
