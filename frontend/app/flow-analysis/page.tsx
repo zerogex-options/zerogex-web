@@ -37,6 +37,7 @@ interface FlowByTypePoint {
   cumulative_call_premium?: number | string;
   cumulative_put_premium?: number | string;
   cumulative_net_volume?: number | string;
+  running_put_call_ratio?: number | string;
   underlying_price?: number | null;
 }
 
@@ -235,21 +236,25 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
 }
 
 function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
-  const grouped = new Map<string, { callVolume: number; putVolume: number }>();
+  const grouped = new Map<string, { ratio: number; latestTs: number }>();
 
   rows.forEach((row) => {
     const ts = normalizeToMinute(row.timestamp);
     if (!ts) return;
-    const current = grouped.get(ts) ?? { callVolume: 0, putVolume: 0 };
-    current.callVolume += Number(row.call_volume || 0);
-    current.putVolume += Number(row.put_volume || 0);
-    grouped.set(ts, current);
+    const rowTime = new Date(row.timestamp).getTime();
+    const current = grouped.get(ts);
+    if (!current || rowTime > current.latestTs) {
+      grouped.set(ts, {
+        ratio: Number(row.running_put_call_ratio || 0),
+        latestTs: rowTime,
+      });
+    }
   });
 
   return Array.from(grouped.entries())
     .map(([timestamp, value]) => ({
       timestamp,
-      ratio: value.callVolume > 0 ? value.putVolume / value.callVolume : 0,
+      ratio: value.ratio,
     }))
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
