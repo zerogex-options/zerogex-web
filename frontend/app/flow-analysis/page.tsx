@@ -34,6 +34,9 @@ interface FlowByTypePoint {
   put_premium: number;
   net_volume: number;
   net_premium: number;
+  cumulative_call_premium?: number | string;
+  cumulative_put_premium?: number | string;
+  cumulative_net_volume?: number | string;
   underlying_price?: number | null;
 }
 
@@ -190,37 +193,33 @@ function isActiveExpiration(expiration?: string, todayKey: string = getCurrentET
 // ── Series builders ───────────────────────────────────────────────────────────
 
 function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
+  // Use the last row per minute bucket for cumulative values (they are running totals).
   const grouped = new Map<
     string,
-    { callPremium: number; putPremium: number; callVolume: number; putVolume: number; underlyingPrice: number | null }
+    { callPremium: number; putPremium: number; netVolume: number; underlyingPrice: number | null; latestTs: number }
   >();
 
   rows.forEach((row) => {
     const ts = normalizeToMinute(row.timestamp);
     if (!ts) return;
 
-    const current = grouped.get(ts) ?? {
-      callPremium: 0,
-      putPremium: 0,
-      callVolume: 0,
-      putVolume: 0,
-      underlyingPrice: null,
-    };
+    const rowTime = new Date(row.timestamp).getTime();
+    const current = grouped.get(ts);
 
-    current.callPremium += Number(row.call_premium || 0);
-    current.putPremium += Number(row.put_premium || 0);
-    current.callVolume += Number(row.call_volume || 0);
-    current.putVolume += Number(row.put_volume || 0);
-    if (current.underlyingPrice === null && row.underlying_price != null) {
-      current.underlyingPrice = Number(row.underlying_price);
+    if (!current || rowTime > current.latestTs) {
+      grouped.set(ts, {
+        callPremium: Number(row.cumulative_call_premium || 0),
+        putPremium: Number(row.cumulative_put_premium || 0),
+        netVolume: Number(row.cumulative_net_volume || 0),
+        underlyingPrice: row.underlying_price != null ? Number(row.underlying_price) : (current?.underlyingPrice ?? null),
+        latestTs: rowTime,
+      });
     }
-
-    grouped.set(ts, current);
   });
 
   return Array.from(grouped.entries())
     .map(([timestamp, value]) => {
-      const netVolume = value.callVolume - value.putVolume;
+      const netVolume = value.netVolume;
       return {
         timestamp,
         time: safeTimeLabel(timestamp),
@@ -332,7 +331,7 @@ function buildTimeseriesFromNetRows(
     grouped.set(ts, current);
   });
 
-  return Array.from(grouped.entries())
+  const perMinute = Array.from(grouped.entries())
     .map(([timestamp, value]) => {
       const normalized = normalizeSignedFlow(
         value.totalPremium,
@@ -340,18 +339,30 @@ function buildTimeseriesFromNetRows(
         value.totalVolume,
         value.netVolume,
       );
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium: normalized.callPremium,
-        putPremium: normalized.putPremium,
-        netVolume: normalized.netVolume,
-        positiveNetVolume: normalized.netVolume > 0 ? normalized.netVolume : 0,
-        negativeNetVolume: normalized.netVolume < 0 ? normalized.netVolume : 0,
-        underlyingPrice: value.underlyingPrice,
-      };
+      return { timestamp, callPremium: normalized.callPremium, putPremium: normalized.putPremium, netVolume: normalized.netVolume, underlyingPrice: value.underlyingPrice };
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  // Accumulate into running cumulative totals
+  let cumCall = 0;
+  let cumPut = 0;
+  let cumVol = 0;
+
+  return perMinute.map((row) => {
+    cumCall += row.callPremium;
+    cumPut += row.putPremium;
+    cumVol += row.netVolume;
+    return {
+      timestamp: row.timestamp,
+      time: safeTimeLabel(row.timestamp),
+      callPremium: cumCall,
+      putPremium: cumPut,
+      netVolume: cumVol,
+      positiveNetVolume: cumVol > 0 ? cumVol : 0,
+      negativeNetVolume: cumVol < 0 ? cumVol : 0,
+      underlyingPrice: row.underlyingPrice,
+    };
+  });
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
@@ -551,11 +562,14 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
     return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No chart data available</div>;
   }
 
-  // ── Premium axis: use actual max rounded to a clean step ──────────────────
-  const maxPremium = Math.max(0, ...rows.map((r) => r.callPremium ?? 0), ...rows.map((r) => r.putPremium ?? 0));
-  const premiumStep = getDynamicStep(0, Math.max(1, maxPremium));
-  const premiumDomainMax = roundToStep(Math.max(1, maxPremium), premiumStep, "up");
-  const premiumTicks = generateNiceTicks(0, premiumDomainMax);
+  // ── Premium axis: handle negative cumulative values ─────────────────────────
+  const premiumValues = rows.flatMap((r) => [r.callPremium ?? 0, r.putPremium ?? 0]).filter(Number.isFinite);
+  const rawMinPremium = premiumValues.length > 0 ? Math.min(0, ...premiumValues) : 0;
+  const rawMaxPremium = premiumValues.length > 0 ? Math.max(0, ...premiumValues) : 0;
+  const premiumStep = getDynamicStep(rawMinPremium, Math.max(1, rawMaxPremium - rawMinPremium));
+  const premiumDomainMin = roundToStep(rawMinPremium, premiumStep, "down");
+  const premiumDomainMax = roundToStep(Math.max(rawMinPremium + 1, rawMaxPremium), premiumStep, "up");
+  const premiumTicks = generateNiceTicks(premiumDomainMin, premiumDomainMax);
 
   // ── Volume axis: actual min/max with nice step ─────────────────────────────
   const rawVolumeValues = rows.map((r) => r.netVolume ?? 0).filter(Number.isFinite);
@@ -612,7 +626,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             yAxisId="premium"
             stroke={axisStroke}
             orientation="right"
-            domain={[0, premiumDomainMax]}
+            domain={[premiumDomainMin, premiumDomainMax]}
             ticks={premiumTicks}
             tickFormatter={(v) => {
               const n = Number(v);
