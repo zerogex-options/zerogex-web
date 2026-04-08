@@ -50,13 +50,18 @@ interface FlowByExpirationPoint {
   time_window_end?: string;
   interval_timestamp?: string | null;
   expiration: string;
-  volume?: number;
-  total_volume?: number;
-  premium?: number;
-  total_premium?: number;
-  net_volume?: number;
-  net_premium?: number;
-  underlying_price?: number | null;
+  volume?: number | string;
+  total_volume?: number | string;
+  premium?: number | string;
+  total_premium?: number | string;
+  net_volume?: number | string;
+  net_premium?: number | string;
+  cumulative_volume?: number | string;
+  cumulative_net_volume?: number | string;
+  cumulative_premium?: number | string;
+  cumulative_net_premium?: number | string;
+  flow_bias?: string;
+  underlying_price?: number | string | null;
 }
 
 interface FlowByStrikePoint {
@@ -65,13 +70,18 @@ interface FlowByStrikePoint {
   time_window_end?: string;
   interval_timestamp?: string | null;
   strike: number | string;
-  volume?: number;
-  total_volume?: number;
-  premium?: number;
-  total_premium?: number;
-  net_volume?: number;
-  net_premium?: number;
-  underlying_price?: number | null;
+  volume?: number | string;
+  total_volume?: number | string;
+  premium?: number | string;
+  total_premium?: number | string;
+  net_volume?: number | string;
+  net_premium?: number | string;
+  cumulative_volume?: number | string;
+  cumulative_net_volume?: number | string;
+  cumulative_premium?: number | string;
+  cumulative_net_premium?: number | string;
+  flow_bias?: string;
+  underlying_price?: number | string | null;
 }
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
@@ -134,6 +144,37 @@ function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): Times
       negativeNetVolume: null,
       underlyingPrice: null,
     } satisfies TimeseriesRow;
+  });
+}
+
+/**
+ * Forward-fills null cumulative values in an aligned timeseries.
+ * Needed when sparse data (e.g. 5-minute API buckets) is aligned to a
+ * 1-minute session timeline — the in-between minutes stay at the last
+ * known cumulative value rather than dropping to null/zero.
+ */
+function forwardFillTimeseries(rows: TimeseriesRow[]): TimeseriesRow[] {
+  let lastCall: number | null = null;
+  let lastPut: number | null = null;
+  let lastVol: number | null = null;
+  let lastPrice: number | null = null;
+
+  return rows.map((row) => {
+    if (row.callPremium !== null) lastCall = row.callPremium;
+    if (row.putPremium !== null) lastPut = row.putPremium;
+    if (row.netVolume !== null) lastVol = row.netVolume;
+    if (row.underlyingPrice !== null) lastPrice = row.underlyingPrice;
+
+    const vol = lastVol;
+    return {
+      ...row,
+      callPremium: lastCall,
+      putPremium: lastPut,
+      netVolume: vol,
+      positiveNetVolume: vol !== null && vol > 0 ? vol : 0,
+      negativeNetVolume: vol !== null && vol < 0 ? vol : 0,
+      underlyingPrice: lastPrice,
+    };
   });
 }
 
@@ -300,13 +341,13 @@ function buildTimeseriesFromNetRows(
     time_window_start?: string;
     time_window_end?: string;
     interval_timestamp?: string | null;
-    premium?: number;
-    total_premium?: number;
-    net_premium?: number;
-    volume?: number;
-    total_volume?: number;
-    net_volume?: number;
-    underlying_price?: number | null;
+    premium?: number | string;
+    total_premium?: number | string;
+    net_premium?: number | string;
+    volume?: number | string;
+    total_volume?: number | string;
+    net_volume?: number | string;
+    underlying_price?: number | string | null;
   }>,
 ): TimeseriesRow[] {
   const grouped = new Map<
@@ -955,7 +996,7 @@ export default function FlowAnalysisPage() {
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
     const base = buildTimeseriesFromNetRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
+    return forwardFillTimeseries(alignSeriesToTimeline(base, sessionTimeline));
   }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
@@ -982,7 +1023,7 @@ export default function FlowAnalysisPage() {
     const filtered =
       selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
     const base = buildTimeseriesFromNetRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
+    return forwardFillTimeseries(alignSeriesToTimeline(base, sessionTimeline));
   }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
