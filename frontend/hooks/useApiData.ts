@@ -36,6 +36,21 @@ interface GEXSummaryRow {
   put_call_ratio?: number | null;
 }
 
+export interface GEXWallNode {
+  strike: number;
+  exposure: number;
+  distance_from_spot: number;
+  pct_from_spot: number;
+}
+
+export interface GEXWallsRow {
+  timestamp: string;
+  symbol: string;
+  spot_price: number;
+  call_wall: GEXWallNode | null;
+  put_wall: GEXWallNode | null;
+}
+
 interface GEXStrikeRow {
   timestamp: string;
   symbol: string;
@@ -360,6 +375,10 @@ export function useGEXByStrike(
   sortBy: 'distance' | 'impact' = 'distance'
 ) {
   return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}&sort_by=${sortBy}`, { refreshInterval });
+}
+
+export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
+  return useApiData<GEXWallsRow>(`/api/gex/walls?symbol=${symbol}`, { refreshInterval });
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {

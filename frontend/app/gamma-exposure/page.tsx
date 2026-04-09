@@ -5,6 +5,7 @@ import { Info } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
+  useGEXWalls,
   useMarketQuote,
   useVolatilityGauge,
   useApiData,
@@ -17,6 +18,7 @@ import GammaHeatmap from '@/components/GammaHeatmap';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexStrikeChart from '@/components/GexStrikeChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
+import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -62,6 +64,7 @@ export default function GammaExposurePage() {
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: gexWalls } = useGEXWalls(symbol, 10000);
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/vol-expansion?symbol=${symbol}`,
@@ -215,19 +218,26 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 3: GEX by Strike + Strike×DTE Heatmap */}
+      {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GexWallsChart wallsData={gexWalls} />
+          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+        </div>
+      </section>
+
+      {/* Section 4: GEX by Strike */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
           <GexStrikeChart
             strikeData={chartStrikeData}
             gammaFlip={gexData?.gamma_flip}
             spotPrice={quoteData?.close}
           />
-          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
         </div>
       </section>
 
-      {/* Section 4: Charm/Vanna Flows + Vol Surface */}
+      {/* Section 5: Charm/Vanna Flows + Vol Surface */}
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
@@ -235,7 +245,7 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 5: Strike Data Table */}
+      {/* Section 6: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
@@ -304,7 +314,7 @@ export default function GammaExposurePage() {
         </ExpandableCard>
       </section>
 
-      {/* Section 6: Existing Time-Series Heatmap */}
+      {/* Section 7: Existing Time-Series Heatmap */}
       <section className="mb-8">
         <GammaHeatmap />
       </section>
