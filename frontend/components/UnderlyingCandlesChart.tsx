@@ -416,11 +416,11 @@ export default function UnderlyingCandlesChart() {
                     timeframe === "1day" ? (
                       <text
                         x={x + 6}
-                        y={height - 4}
+                        y={height - 28}
                         fontSize="10"
-                        textAnchor="end"
+                        textAnchor="start"
                         fill={colors.muted}
-                        transform={`rotate(-90, ${x + 6}, ${height - 4})`}
+                        transform={`rotate(-90, ${x + 6}, ${height - 28})`}
                       >
                         {marker.label}
                       </text>
