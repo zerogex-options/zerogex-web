@@ -19,7 +19,6 @@ import type { GEXWallsRow } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { TooltipProps } from 'recharts';
 
 interface PlotPoint {
   wallType: string;
@@ -33,6 +32,11 @@ interface PlotPoint {
 
 interface GexWallsChartProps {
   wallsData: GEXWallsRow | null | undefined;
+}
+
+interface WallTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: PlotPoint }>;
 }
 
 function formatExposure(value: number): string {
@@ -52,7 +56,7 @@ function formatPoints(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)} pts`;
 }
 
-function WallTooltipContent({ active, payload }: TooltipProps<number, string>) {
+function WallTooltipContent({ active, payload }: WallTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0]?.payload as PlotPoint | undefined;
   if (!row) return null;
