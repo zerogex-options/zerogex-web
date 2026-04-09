@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useApiData, useMarketQuote } from "@/hooks/useApiData";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -156,7 +156,7 @@ export default function UnderlyingCandlesChart() {
     return markers;
   }, [bars]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = chartWrapRef.current;
     if (!node) return;
     const updateWidth = () => {
@@ -164,9 +164,12 @@ export default function UnderlyingCandlesChart() {
       setSvgWidth((prev) => (prev === nextWidth ? prev : nextWidth));
     };
     updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(node);
     const rafId = window.requestAnimationFrame(updateWidth);
     window.addEventListener("resize", updateWidth);
     return () => {
+      resizeObserver.disconnect();
       window.cancelAnimationFrame(rafId);
       window.removeEventListener("resize", updateWidth);
     };
@@ -247,7 +250,7 @@ export default function UnderlyingCandlesChart() {
           )}
         </div>
         <div ref={chartWrapRef} className="relative">
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width={width} height={height} className="block w-full" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
