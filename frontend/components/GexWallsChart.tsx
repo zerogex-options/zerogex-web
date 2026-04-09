@@ -23,8 +23,8 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 interface PlotPoint {
   wallType: string;
   wallKey: 'Call Wall' | 'Put Wall';
-  y: number;
-  strike: number;
+  x: number;
+  price: number;
   exposure: number;
   distance: number;
   pct: number;
@@ -47,6 +47,10 @@ function formatPct(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 }
 
+function formatPoints(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)} pts`;
+}
+
 export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -60,8 +64,8 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
     points.push({
       wallType: 'Call Wall',
       wallKey: 'Call Wall',
-      y: 1,
-      strike: Number(wallsData.call_wall.strike),
+      x: 1,
+      price: Number(wallsData.call_wall.strike),
       exposure: Number(wallsData.call_wall.exposure),
       distance: Number(wallsData.call_wall.distance_from_spot),
       pct: Number(wallsData.call_wall.pct_from_spot),
@@ -71,8 +75,8 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
     points.push({
       wallType: 'Put Wall',
       wallKey: 'Put Wall',
-      y: 0,
-      strike: Number(wallsData.put_wall.strike),
+      x: 0,
+      price: Number(wallsData.put_wall.strike),
       exposure: Number(wallsData.put_wall.exposure),
       distance: Number(wallsData.put_wall.distance_from_spot),
       pct: Number(wallsData.put_wall.pct_from_spot),
@@ -82,12 +86,36 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
   const maxAbsExposure = points.reduce((max, p) => Math.max(max, Math.abs(p.exposure)), 1);
   const spot = Number(wallsData?.spot_price ?? 0);
 
-  const priceCandidates = points.map((p) => p.strike).concat(spot ? [spot] : []);
+  const priceCandidates = points.map((p) => p.price).concat(spot ? [spot] : []);
   const minPrice = priceCandidates.length > 0 ? Math.min(...priceCandidates) : 0;
   const maxPrice = priceCandidates.length > 0 ? Math.max(...priceCandidates) : 0;
-  const rangePad = Math.max(1, (maxPrice - minPrice) * 0.18);
+  const rangePad = Math.max(1.5, (maxPrice - minPrice) * 0.25);
   const domainStart = minPrice - rangePad;
   const domainEnd = maxPrice + rangePad;
+
+  const callPoint = points.find((point) => point.wallKey === 'Call Wall');
+  const putPoint = points.find((point) => point.wallKey === 'Put Wall');
+  const nearestWall = [...points].sort((a, b) => Math.abs(a.distance) - Math.abs(b.distance))[0];
+
+  const positionRegime = callPoint && putPoint
+    ? spot > callPoint.price
+      ? 'above call wall'
+      : spot < putPoint.price
+        ? 'below put wall'
+        : 'between walls'
+    : 'insufficient wall data';
+
+  const dominantWall = callPoint && putPoint
+    ? Math.abs(callPoint.exposure) >= Math.abs(putPoint.exposure)
+      ? 'call'
+      : 'put'
+    : null;
+
+  const directionalBias = dominantWall === 'call'
+    ? 'Upside resistance is stronger (potential pin/slowdown into call wall).'
+    : dominantWall === 'put'
+      ? 'Downside support is weaker than put pressure (watch for acceleration lower on breaks).'
+      : 'No clear directional dominance.';
 
   const legendContent = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
@@ -101,7 +129,7 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
       </div>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: colors.primary }} />
-        Spot / underlying
+        Spot / underlying price
       </div>
     </div>
   );
@@ -119,7 +147,7 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
           <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
             CALL &amp; PUT WALL MAP
           </h3>
-          <TooltipWrapper text="Shows where the dominant call/put gamma walls sit relative to spot. Bubble size scales with wall exposure magnitude and horizontal distance shows how far each wall is from the underlying price.">
+          <TooltipWrapper text="Price is plotted on the Y-axis so you can read wall levels like a price ladder. Bubble size = wall gamma magnitude, and the distance labels show how far each wall sits from spot in points and %.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -134,21 +162,21 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
               <XAxis
                 type="number"
-                dataKey="strike"
-                domain={[domainStart, domainEnd]}
+                dataKey="x"
+                domain={[-0.6, 1.6]}
+                ticks={[0, 1]}
                 stroke={axisStroke}
                 tick={{ fontSize: isMobile ? 9 : 11, fill: axisStroke }}
-                tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
+                tickFormatter={(value) => (Number(value) === 1 ? 'Call Side' : 'Put Side')}
               />
               <YAxis
                 type="number"
-                dataKey="y"
-                domain={[-0.5, 1.5]}
-                ticks={[0, 1]}
+                dataKey="price"
+                domain={[domainStart, domainEnd]}
                 stroke={axisStroke}
                 width={isMobile ? 72 : 92}
                 tick={{ fontSize: isMobile ? 9 : 11, fill: axisStroke }}
-                tickFormatter={(value) => (Number(value) === 1 ? 'Call Wall' : 'Put Wall')}
+                tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
               />
               <ZAxis
                 type="number"
@@ -171,19 +199,19 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
                   const payload = item?.payload as PlotPoint | undefined;
                   if (!payload) return [];
                   return [
-                    `${formatExposure(payload.exposure)} • ${formatPct(payload.pct)} • ${payload.distance >= 0 ? '+' : ''}${payload.distance.toFixed(2)}pts`,
+                    `${formatExposure(payload.exposure)} • ${formatPct(payload.pct)} • ${formatPoints(payload.distance)}`,
                     payload.wallType,
                   ];
                 }}
                 labelFormatter={(_label, payload) => {
                   const row = payload?.[0]?.payload as PlotPoint | undefined;
-                  return row ? `${row.wallType} @ $${row.strike.toFixed(2)}` : '';
+                  return row ? `${row.wallType} @ $${row.price.toFixed(2)}` : '';
                 }}
               />
               <Legend verticalAlign="top" align="right" content={legendContent} wrapperStyle={{ top: 0, right: 0 }} />
 
               <ReferenceLine
-                x={spot}
+                y={spot}
                 stroke={colors.primary}
                 strokeDasharray="6 4"
                 strokeWidth={2}
@@ -194,8 +222,8 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
                 <ReferenceLine
                   key={`${point.wallKey}-distance`}
                   segment={[
-                    { x: spot, y: point.y },
-                    { x: point.strike, y: point.y },
+                    { x: point.x, y: spot },
+                    { x: point.x, y: point.price },
                   ]}
                   stroke={point.wallKey === 'Call Wall' ? colors.bullish : colors.bearish}
                   strokeDasharray="4 3"
@@ -215,6 +243,30 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
               />
             </ScatterChart>
           </ResponsiveContainer>
+        )}
+
+        {points.length > 0 && (
+          <div className="mt-5 rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: textColor }}>
+              Trader Readout
+            </div>
+            <ul className="space-y-1.5 text-sm" style={{ color: textColor }}>
+              <li>
+                <span className="font-semibold">Regime:</span> Price is currently <span className="font-semibold">{positionRegime}</span>.
+              </li>
+              {nearestWall && (
+                <li>
+                  <span className="font-semibold">Nearest wall:</span> {nearestWall.wallType} is {formatPoints(nearestWall.distance)} ({formatPct(nearestWall.pct)}) from spot.
+                </li>
+              )}
+              <li>
+                <span className="font-semibold">Bias:</span> {directionalBias}
+              </li>
+              <li>
+                <span className="font-semibold">Actionable use:</span> Fade moves into the stronger wall when spot remains between walls; switch to breakout/continuation bias only after sustained price acceptance beyond that wall.
+              </li>
+            </ul>
+          </div>
         )}
       </div>
     </ExpandableCard>
