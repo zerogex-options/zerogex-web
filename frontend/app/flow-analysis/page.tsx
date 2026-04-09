@@ -228,7 +228,7 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
       grouped.set(ts, {
         callPremium: Number(row.cumulative_call_premium || 0),
         putPremium: Number(row.cumulative_put_premium || 0),
-        netVolume: Number(row.net_volume || 0),
+        netVolume: Number(row.cumulative_net_volume || 0),
         underlyingPrice: row.underlying_price != null ? Number(row.underlying_price) : (current?.underlyingPrice ?? null),
         latestTs: rowTime,
       });
@@ -280,7 +280,7 @@ function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
  * Builds a timeseries for the by-expiration / by-strike charts.
  *
  * New API format (5-min buckets): each row carries cumulative call/put premium
- * and point-in-time net volume values. For each timestamp we aggregate those
+ * and cumulative net volume values. For each timestamp we aggregate those
  * across every row matching the current filter (selected strikes/expirations).
  *
  * Legacy API format: rows have only bucket-level premium/net_premium/net_volume
@@ -289,7 +289,7 @@ function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
  * For the new format:
  * - callPremium = Σ(cumulative_call_premium)
  * - putPremium = Σ(cumulative_put_premium)
- * - netVolume = Σ(net_volume)
+ * - netVolume = Σ(cumulative_net_volume)
  * - underlyingPrice = first row's underlying_price for the interval
  */
 function buildTimeseriesFromCumulativeRows(
@@ -316,7 +316,7 @@ function buildTimeseriesFromCumulativeRows(
     (r) => r.cumulative_call_premium != null || r.cumulative_put_premium != null,
   );
 
-  // ── New format: sum cumulative call/put + net_volume per timestamp ───────
+  // ── New format: sum cumulative call/put + cumulative_net_volume per timestamp ───────
   if (hasDirectCallPutCumulativeFields) {
     const grouped = new Map<
       string,
@@ -344,7 +344,7 @@ function buildTimeseriesFromCumulativeRows(
       };
       current.callPremium += Number(row.cumulative_call_premium ?? 0);
       current.putPremium += Number(row.cumulative_put_premium ?? 0);
-      current.netVolume += Number(row.net_volume ?? 0);
+      current.netVolume += Number(row.cumulative_net_volume ?? 0);
       if (!current.hasUnderlying) {
         current.underlyingPrice = row.underlying_price != null ? Number(row.underlying_price) : null;
         current.hasUnderlying = true;
@@ -961,7 +961,7 @@ export default function FlowAnalysisPage() {
       putVolume,
       callPremium: Number(latest.cumulative_call_premium || 0),
       putPremium: Number(latest.cumulative_put_premium || 0),
-      netFlow: Number(latest.net_volume || 0),
+      netFlow: Number(latest.cumulative_net_volume || 0),
       netPremium: Number(latest.cumulative_net_premium || 0),
       putCallRatio: Number(latest.running_put_call_ratio || 0),
     };
