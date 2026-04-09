@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -130,6 +130,44 @@ function flowRowTimestamp(row: {
   time_window_start?: string;
 }): string | null {
   return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
+}
+
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
+  for (const utcHour of candidateHours) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+  if (timeline.length === 0) return timeline;
+  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
+  if (targetMs == null) return timeline;
+
+  const result = [...timeline];
+  let cursor = new Date(result[result.length - 1]).getTime();
+  if (!Number.isFinite(cursor)) return timeline;
+
+  while (cursor < targetMs) {
+    cursor += 60_000;
+    result.push(new Date(cursor).toISOString());
+  }
+  return result;
 }
 
 /** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
@@ -534,12 +572,14 @@ function MultiSelectChips({
   options,
   selected,
   onToggle,
+  onClear,
   label,
   isDark,
 }: {
   options: string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
+  onClear?: () => void;
   label: string;
   isDark: boolean;
 }) {
@@ -548,29 +588,41 @@ function MultiSelectChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {options.map((option) => {
-        const active = selected.has(option);
-        return (
-          <button
-            key={option}
-            onClick={() => onToggle(option)}
-            style={active ? undefined : {
-              backgroundColor: "var(--color-surface-subtle)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-primary)",
-            }}
-            className={`px-3 py-1.5 text-sm rounded-md border transition ${
-              active
-                ? "bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-info)]"
-                : "hover:border-[var(--border-strong)]"
-            }`}
-            type="button"
-          >
-            {option}
-          </button>
-        );
-      })}
+    <div className="mb-4">
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = selected.has(option);
+          return (
+            <button
+              key={option}
+              onClick={() => onToggle(option)}
+              style={active ? undefined : {
+                backgroundColor: "var(--color-surface-subtle)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-primary)",
+              }}
+              className={`px-3 py-1.5 text-sm rounded-md border transition ${
+                active
+                  ? "bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-info)]"
+                  : "hover:border-[var(--border-strong)]"
+              }`}
+              type="button"
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+      {onClear && selected.size > 0 ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-2 text-xs underline underline-offset-2 hover:opacity-80"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          Clear
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -938,7 +990,7 @@ export default function FlowAnalysisPage() {
 
   const sessionTimeline = useMemo(() => {
     if (!selectedDate) return [];
-    return getSessionTimestamps(selectedDate);
+    return extendTimelineToSessionClose(getSessionTimestamps(selectedDate), selectedDate);
   }, [selectedDate]);
 
   // ── Snapshot (most recent row's cumulative values) ──────────────────────────
@@ -991,6 +1043,13 @@ export default function FlowAnalysisPage() {
   }, [selectedDate, flowByExpiration]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+  const [expirationSelectionCleared, setExpirationSelectionCleared] = useState(false);
+  const effectiveSelectedExpirations = useMemo(() => {
+    const kept = expirationOptions.filter((exp) => selectedExpirations.has(exp));
+    if (kept.length > 0) return new Set(kept);
+    if (expirationSelectionCleared || expirationOptions.length === 0) return new Set<string>();
+    return new Set([expirationOptions[0]]);
+  }, [expirationOptions, selectedExpirations, expirationSelectionCleared]);
 
   const expirationSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
@@ -999,14 +1058,19 @@ export default function FlowAnalysisPage() {
       return ts ? getETDateKey(ts) === selectedDate : false;
     });
     const available = new Set(expirationOptions);
-    const activeSelection = new Set(Array.from(selectedExpirations).filter((v) => available.has(v)));
+    const activeSelection = new Set(Array.from(effectiveSelectedExpirations).filter((v) => available.has(v)));
     const filtered =
       activeSelection.size > 0
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
     const base = buildTimeseriesFromCumulativeRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
+    const aligned = alignSeriesToTimeline(base, sessionTimeline);
+    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
+    return aligned.map((row) => ({
+      ...row,
+      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
+    }));
+  }, [selectedDate, flowByExpiration, effectiveSelectedExpirations, expirationOptions, sessionTimeline, mainSeries]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
 
@@ -1022,6 +1086,35 @@ export default function FlowAnalysisPage() {
   }, [selectedDate, flowByStrike]);
 
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
+  const [strikeSelectionCleared, setStrikeSelectionCleared] = useState(false);
+
+  const latestUnderlyingPrice = useMemo(() => {
+    for (let i = mainSeries.length - 1; i >= 0; i -= 1) {
+      const p = mainSeries[i]?.underlyingPrice;
+      if (typeof p === "number" && Number.isFinite(p)) return p;
+    }
+    return null;
+  }, [mainSeries]);
+
+  const effectiveSelectedStrikes = useMemo(() => {
+    const kept = strikeOptions.filter((strike) => selectedStrikes.has(strike));
+    if (kept.length > 0) return new Set(kept);
+    if (strikeSelectionCleared || strikeOptions.length === 0) return new Set<string>();
+
+    if (latestUnderlyingPrice == null) return new Set([strikeOptions[0]]);
+    let closest = strikeOptions[0];
+    let closestDistance = Math.abs(Number(closest) - latestUnderlyingPrice);
+    for (const strike of strikeOptions) {
+      const strikeNum = Number(strike);
+      if (!Number.isFinite(strikeNum)) continue;
+      const distance = Math.abs(strikeNum - latestUnderlyingPrice);
+      if (distance < closestDistance) {
+        closest = strike;
+        closestDistance = distance;
+      }
+    }
+    return new Set([closest]);
+  }, [strikeOptions, selectedStrikes, strikeSelectionCleared, latestUnderlyingPrice]);
 
   const strikeSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
@@ -1030,10 +1123,17 @@ export default function FlowAnalysisPage() {
       return ts ? getETDateKey(ts) === selectedDate : false;
     });
     const filtered =
-      selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
+      effectiveSelectedStrikes.size > 0
+        ? dateRows.filter((r) => effectiveSelectedStrikes.has(String(r.strike)))
+        : dateRows;
     const base = buildTimeseriesFromCumulativeRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
+    const aligned = alignSeriesToTimeline(base, sessionTimeline);
+    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
+    return aligned.map((row) => ({
+      ...row,
+      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
+    }));
+  }, [selectedDate, flowByStrike, effectiveSelectedStrikes, sessionTimeline, mainSeries]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
 
@@ -1053,6 +1153,7 @@ export default function FlowAnalysisPage() {
   // ── Chip toggles ────────────────────────────────────────────────────────────
 
   const toggleExpirations = (value: string) => {
+    setExpirationSelectionCleared(false);
     setSelectedExpirations((prev) => {
       const next = new Set(prev);
       if (next.has(value)) next.delete(value);
@@ -1062,6 +1163,7 @@ export default function FlowAnalysisPage() {
   };
 
   const toggleStrikes = (value: string) => {
+    setStrikeSelectionCleared(false);
     setSelectedStrikes((prev) => {
       const next = new Set(prev);
       if (next.has(value)) next.delete(value);
@@ -1082,7 +1184,13 @@ export default function FlowAnalysisPage() {
         <span className="text-sm" style={{ color: mutedText }}>Session</span>
         <select
           value={flowSession}
-          onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
+          onChange={(e) => {
+            setFlowSession(e.target.value as "current" | "prior");
+            setExpirationSelectionCleared(false);
+            setSelectedExpirations(new Set());
+            setStrikeSelectionCleared(false);
+            setSelectedStrikes(new Set());
+          }}
           className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
           style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
         >
@@ -1160,8 +1268,12 @@ export default function FlowAnalysisPage() {
         />
         <MultiSelectChips
           options={expirationOptions}
-          selected={selectedExpirations}
+          selected={effectiveSelectedExpirations}
           onToggle={toggleExpirations}
+          onClear={() => {
+            setExpirationSelectionCleared(true);
+            setSelectedExpirations(new Set());
+          }}
           label="Expirations"
           isDark={isDark}
         />
@@ -1177,8 +1289,12 @@ export default function FlowAnalysisPage() {
         />
         <MultiSelectChips
           options={strikeOptions}
-          selected={selectedStrikes}
+          selected={effectiveSelectedStrikes}
           onToggle={toggleStrikes}
+          onClear={() => {
+            setStrikeSelectionCleared(true);
+            setSelectedStrikes(new Set());
+          }}
           label="Strikes"
           isDark={isDark}
         />
