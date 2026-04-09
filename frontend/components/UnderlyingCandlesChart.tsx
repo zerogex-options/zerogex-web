@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useApiData, useMarketQuote } from "@/hooks/useApiData";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -82,6 +82,8 @@ export default function UnderlyingCandlesChart() {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const chartWrapRef = useRef<HTMLDivElement | null>(null);
+  const [svgWidth, setSvgWidth] = useState(1100);
 
   const intervalMinutes = timeframe === "1min" ? 1 : timeframe === "5min" ? 5 : timeframe === "15min" ? 15 : timeframe === "1hr" ? 60 : 1440;
   const maxPoints = getMaxDataPoints();
@@ -128,6 +130,45 @@ export default function UnderlyingCandlesChart() {
     return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
 
+  const dateMarkers = useMemo(() => {
+    const markers: Array<{ index: number; label: string; key: string }> = [];
+    let previousDateKey = "";
+    bars.forEach((bar, index) => {
+      const dt = new Date(bar.timestamp);
+      const dateKey = dt.toLocaleDateString("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      if (dateKey === previousDateKey) return;
+      previousDateKey = dateKey;
+      markers.push({
+        index,
+        key: bar.timestamp,
+        label: dt.toLocaleDateString("en-US", {
+          timeZone: "America/New_York",
+          month: "short",
+          day: "numeric",
+        }),
+      });
+    });
+    return markers;
+  }, [bars]);
+
+  useEffect(() => {
+    const node = chartWrapRef.current;
+    if (!node) return;
+    const updateWidth = () => {
+      const nextWidth = Math.max(900, Math.floor(node.clientWidth));
+      setSvgWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   if (loading && bars.length === 0) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
@@ -137,7 +178,7 @@ export default function UnderlyingCandlesChart() {
       </div>
     );
 
-  const width = 1100;
+  const width = svgWidth;
   const height = 500;
   const padLeft = 70;
   const padRight = 30;
@@ -176,7 +217,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg border border-[var(--color-border)] p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -202,8 +243,8 @@ export default function UnderlyingCandlesChart() {
             </div>
           )}
         </div>
-        <div className="relative">
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+        <div ref={chartWrapRef} className="relative">
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -351,6 +392,17 @@ export default function UnderlyingCandlesChart() {
                       })}
                     </text>
                   )}
+                </g>
+              );
+            })}
+            {dateMarkers.map((marker) => {
+              const x = padLeft + marker.index * xStep;
+              return (
+                <g key={`date-marker-${marker.key}`}>
+                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
+                  <text x={x + 4} y={height - 32} fontSize="10" textAnchor="start" fill={colors.muted}>
+                    {marker.label}
+                  </text>
                 </g>
               );
             })}
