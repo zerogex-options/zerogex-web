@@ -160,13 +160,16 @@ export default function UnderlyingCandlesChart() {
     const node = chartWrapRef.current;
     if (!node) return;
     const updateWidth = () => {
-      const nextWidth = Math.max(320, Math.floor(node.clientWidth));
+      const nextWidth = Math.max(320, Math.floor(node.getBoundingClientRect().width));
       setSvgWidth((prev) => (prev === nextWidth ? prev : nextWidth));
     };
     updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(node);
-    return () => observer.disconnect();
+    const rafId = window.requestAnimationFrame(updateWidth);
+    window.addEventListener("resize", updateWidth);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updateWidth);
+    };
   }, []);
 
   if (loading && bars.length === 0) return <LoadingSpinner />;
@@ -244,7 +247,7 @@ export default function UnderlyingCandlesChart() {
           )}
         </div>
         <div ref={chartWrapRef} className="relative">
-          <svg width="100%" height={height} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -400,7 +403,7 @@ export default function UnderlyingCandlesChart() {
               return (
                 <g key={`date-marker-${marker.key}`}>
                   <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
-                  <text x={x + 4} y={height - 32} fontSize="10" textAnchor="start" fill={colors.muted}>
+                  <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
                     {marker.label}
                   </text>
                 </g>
