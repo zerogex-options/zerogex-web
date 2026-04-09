@@ -160,7 +160,7 @@ export default function UnderlyingCandlesChart() {
     const node = chartWrapRef.current;
     if (!node) return;
     const updateWidth = () => {
-      const nextWidth = Math.max(900, Math.floor(node.clientWidth));
+      const nextWidth = Math.max(320, Math.floor(node.clientWidth));
       setSvgWidth((prev) => (prev === nextWidth ? prev : nextWidth));
     };
     updateWidth();
@@ -217,7 +217,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg border border-[var(--color-border)] p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -244,7 +244,7 @@ export default function UnderlyingCandlesChart() {
           )}
         </div>
         <div ref={chartWrapRef} className="relative">
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <svg width="100%" height={height} onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
