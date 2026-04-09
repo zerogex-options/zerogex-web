@@ -90,9 +90,9 @@ export default function SmartMoneyPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = isDark ? 'var(--color-surface-subtle)' : 'var(--color-surface-subtle)';
-  const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
-  const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
+  const inputBg = 'var(--color-surface-subtle)';
+  const inputBorder = 'var(--color-border)';
+  const inputColor = 'var(--color-text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';

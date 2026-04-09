@@ -532,9 +532,9 @@ function MultiSelectChips({
             key={option}
             onClick={() => onToggle(option)}
             style={active ? undefined : {
-              backgroundColor: isDark ? "var(--color-surface-subtle)" : "var(--color-surface-subtle)",
-              borderColor: isDark ? "var(--color-text-secondary)" : "var(--color-border)",
-              color: isDark ? "var(--color-border)" : "var(--color-text-primary)",
+              backgroundColor: "var(--color-surface-subtle)",
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-primary)",
             }}
             className={`px-3 py-1.5 text-sm rounded-md border transition ${
               active
@@ -571,9 +571,9 @@ function DateSelect({
         onChange={(e) => onChange(e.target.value)}
         className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
         style={{
-          backgroundColor: isDark ? "var(--color-bg)" : "var(--color-surface-subtle)",
-          borderColor: isDark ? "var(--color-text-secondary)" : "var(--color-border)",
-          color: isDark ? "var(--color-border)" : "var(--color-text-primary)",
+          backgroundColor: "var(--color-surface-subtle)",
+          borderColor: "var(--color-border)",
+          color: "var(--color-text-primary)",
         }}
       >
         {dates.map((d) => (
@@ -838,9 +838,9 @@ export default function FlowAnalysisPage() {
   const isDark = theme === "dark";
   const isMobile = useIsMobile();
   const cardBg = isDark ? "var(--color-surface)" : "var(--color-surface)";
-  const inputBg = isDark ? "var(--color-bg)" : "var(--color-surface-subtle)";
-  const inputBorder = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
-  const inputColor = isDark ? "var(--color-border)" : "var(--color-text-primary)";
+  const inputBg = "var(--color-surface-subtle)";
+  const inputBorder = "var(--color-border)";
+  const inputColor = "var(--color-text-primary)";
   const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
   const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";

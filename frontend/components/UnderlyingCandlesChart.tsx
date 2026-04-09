@@ -128,6 +128,58 @@ export default function UnderlyingCandlesChart() {
     return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
 
+  const dateMarkers = useMemo(() => {
+    const markers: Array<{ index: number; label: string; key: string }> = [];
+    let previousDateKey = "";
+    bars.forEach((bar, index) => {
+      const dt = new Date(bar.timestamp);
+      const dateKey = dt.toLocaleDateString("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      if (dateKey === previousDateKey) return;
+      previousDateKey = dateKey;
+      markers.push({
+        index,
+        key: bar.timestamp,
+        label: dt.toLocaleDateString("en-US", {
+          timeZone: "America/New_York",
+          month: "short",
+          day: "numeric",
+        }),
+      });
+    });
+    return markers;
+  }, [bars]);
+
+  const dateMarkersForLabels = useMemo(() => {
+    if (dateMarkers.length <= 1) return dateMarkers;
+    const minGap = isMobile ? 80 : 52;
+    const layoutWidth = 1100;
+    const layoutPadLeft = 70;
+    const layoutPadRight = 30;
+    const filtered: Array<{ index: number; label: string; key: string }> = [];
+    let lastLabeledX = Number.NEGATIVE_INFINITY;
+    dateMarkers.forEach((marker) => {
+      const x =
+        layoutPadLeft +
+        marker.index *
+          ((layoutWidth - layoutPadLeft - layoutPadRight) /
+            Math.max(1, bars.length - 1));
+      if (x - lastLabeledX < minGap) return;
+      filtered.push(marker);
+      lastLabeledX = x;
+    });
+    return filtered;
+  }, [bars.length, dateMarkers, isMobile]);
+
+  const labeledDateMarkerKeys = useMemo(
+    () => new Set(dateMarkersForLabels.map((marker) => marker.key)),
+    [dateMarkersForLabels],
+  );
+
   if (loading && bars.length === 0) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
@@ -138,7 +190,7 @@ export default function UnderlyingCandlesChart() {
     );
 
   const width = 1100;
-  const height = 500;
+  const height = timeframe === "1day" ? 560 : 500;
   const padLeft = 70;
   const padRight = 30;
   const padTop = 30;
@@ -176,7 +228,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -202,8 +254,8 @@ export default function UnderlyingCandlesChart() {
             </div>
           )}
         </div>
-        <div className="relative">
-          <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+        <div className="relative w-full">
+          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMin meet" style={{ aspectRatio: `${width} / ${height}` }} className="block w-full" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
@@ -257,7 +309,7 @@ export default function UnderlyingCandlesChart() {
                 <g key={`v-${p}`}>
                   <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
                   <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
-                    {vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
+                    {vol === 0 ? "0" : vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
                   </text>
                 </g>
               );
@@ -336,10 +388,10 @@ export default function UnderlyingCandlesChart() {
                       opacity={0.75}
                     />
                   )}
-                  {i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
+                  {timeframe !== "1day" && i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
                     <text
                       x={x}
-                      y={height - 12}
+                      y={volumeAreaBottom + 18}
                       fontSize={isMobile ? "8" : "10"}
                       textAnchor="middle"
                       fill={theme === "dark" ? colors.light : colors.dark}
@@ -351,6 +403,33 @@ export default function UnderlyingCandlesChart() {
                       })}
                     </text>
                   )}
+                </g>
+              );
+            })}
+            {dateMarkers.map((marker) => {
+              const x = padLeft + marker.index * xStep;
+              const showLabel = labeledDateMarkerKeys.has(marker.key);
+              return (
+                <g key={`date-marker-${marker.key}`}>
+                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
+                  {showLabel ? (
+                    timeframe === "1day" ? (
+                      <text
+                        x={x + 6}
+                        y={volumeAreaBottom + 44}
+                        fontSize="10"
+                        textAnchor="start"
+                        fill={colors.muted}
+                        transform={`rotate(-90, ${x + 6}, ${volumeAreaBottom + 44})`}
+                      >
+                        {marker.label}
+                      </text>
+                    ) : (
+                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={colors.muted}>
+                        {marker.label}
+                      </text>
+                    )
+                  ) : null}
                 </g>
               );
             })}
