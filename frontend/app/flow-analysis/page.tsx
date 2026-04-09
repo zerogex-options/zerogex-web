@@ -58,6 +58,8 @@ interface FlowByExpirationPoint {
   net_premium?: number | string;
   cumulative_volume?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_call_premium?: number | string;
+  cumulative_put_premium?: number | string;
   cumulative_premium?: number | string;
   cumulative_net_premium?: number | string;
   flow_bias?: string;
@@ -78,6 +80,8 @@ interface FlowByStrikePoint {
   net_premium?: number | string;
   cumulative_volume?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_call_premium?: number | string;
+  cumulative_put_premium?: number | string;
   cumulative_premium?: number | string;
   cumulative_net_premium?: number | string;
   flow_bias?: string;
@@ -224,7 +228,7 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
       grouped.set(ts, {
         callPremium: Number(row.cumulative_call_premium || 0),
         putPremium: Number(row.cumulative_put_premium || 0),
-        netVolume: Number(row.cumulative_net_volume || 0),
+        netVolume: Number(row.net_volume || 0),
         underlyingPrice: row.underlying_price != null ? Number(row.underlying_price) : (current?.underlyingPrice ?? null),
         latestTs: rowTime,
       });
@@ -275,15 +279,18 @@ function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
 /**
  * Builds a timeseries for the by-expiration / by-strike charts.
  *
- * New API format (5-min buckets): each row carries pre-computed cumulative
- * running totals. For each timestamp we sum those across every row matching
- * the current filter (selected strikes or expirations).
+ * New API format (5-min buckets): each row carries cumulative call/put premium
+ * and point-in-time net volume values. For each timestamp we aggregate those
+ * across every row matching the current filter (selected strikes/expirations).
  *
  * Legacy API format: rows have only bucket-level premium/net_premium/net_volume
  * fields. We fall back to summing those and accumulating manually.
  *
- * call_premium = (cumulative_premium + cumulative_net_premium) / 2
- * put_premium  = (cumulative_premium - cumulative_net_premium) / 2
+ * For the new format:
+ * - callPremium = Σ(cumulative_call_premium)
+ * - putPremium = Σ(cumulative_put_premium)
+ * - netVolume = Σ(net_volume)
+ * - underlyingPrice = first row's underlying_price for the interval
  */
 function buildTimeseriesFromCumulativeRows(
   rows: Array<{
@@ -292,6 +299,8 @@ function buildTimeseriesFromCumulativeRows(
     time_window_end?: string;
     interval_timestamp?: string | null;
     // New format
+    cumulative_call_premium?: number | string;
+    cumulative_put_premium?: number | string;
     cumulative_premium?: number | string;
     cumulative_net_premium?: number | string;
     cumulative_net_volume?: number | string;
@@ -303,13 +312,21 @@ function buildTimeseriesFromCumulativeRows(
     underlying_price?: number | string | null;
   }>,
 ): TimeseriesRow[] {
-  const hasCumulativeFields = rows.some((r) => r.cumulative_premium != null);
+  const hasDirectCallPutCumulativeFields = rows.some(
+    (r) => r.cumulative_call_premium != null || r.cumulative_put_premium != null,
+  );
 
-  // ── New format: sum cumulative values per timestamp ───────────────────────
-  if (hasCumulativeFields) {
+  // ── New format: sum cumulative call/put + net_volume per timestamp ───────
+  if (hasDirectCallPutCumulativeFields) {
     const grouped = new Map<
       string,
-      { cumPremium: number; cumNetPremium: number; cumNetVolume: number; underlyingPrice: number | null }
+      {
+        callPremium: number;
+        putPremium: number;
+        netVolume: number;
+        underlyingPrice: number | null;
+        hasUnderlying: boolean;
+      }
     >();
 
     rows.forEach((row) => {
@@ -318,21 +335,28 @@ function buildTimeseriesFromCumulativeRows(
       const ts = normalizeToMinute(sourceTs);
       if (!ts) return;
 
-      const current = grouped.get(ts) ?? { cumPremium: 0, cumNetPremium: 0, cumNetVolume: 0, underlyingPrice: null };
-      current.cumPremium    += Number(row.cumulative_premium ?? 0);
-      current.cumNetPremium += Number(row.cumulative_net_premium ?? 0);
-      current.cumNetVolume  += Number(row.cumulative_net_volume ?? 0);
-      if (current.underlyingPrice === null && row.underlying_price != null) {
-        current.underlyingPrice = Number(row.underlying_price);
+      const current = grouped.get(ts) ?? {
+        callPremium: 0,
+        putPremium: 0,
+        netVolume: 0,
+        underlyingPrice: null,
+        hasUnderlying: false,
+      };
+      current.callPremium += Number(row.cumulative_call_premium ?? 0);
+      current.putPremium += Number(row.cumulative_put_premium ?? 0);
+      current.netVolume += Number(row.net_volume ?? 0);
+      if (!current.hasUnderlying) {
+        current.underlyingPrice = row.underlying_price != null ? Number(row.underlying_price) : null;
+        current.hasUnderlying = true;
       }
       grouped.set(ts, current);
     });
 
     return Array.from(grouped.entries())
       .map(([timestamp, value]) => {
-        const callPremium = Math.max(0, (value.cumPremium + value.cumNetPremium) / 2);
-        const putPremium  = Math.max(0, (value.cumPremium - value.cumNetPremium) / 2);
-        const netVolume   = value.cumNetVolume;
+        const callPremium = value.callPremium;
+        const putPremium = value.putPremium;
+        const netVolume = value.netVolume;
         return {
           timestamp,
           time: safeTimeLabel(timestamp),
@@ -937,7 +961,7 @@ export default function FlowAnalysisPage() {
       putVolume,
       callPremium: Number(latest.cumulative_call_premium || 0),
       putPremium: Number(latest.cumulative_put_premium || 0),
-      netFlow: Number(latest.cumulative_net_volume || 0),
+      netFlow: Number(latest.net_volume || 0),
       netPremium: Number(latest.cumulative_net_premium || 0),
       putCallRatio: Number(latest.running_put_call_ratio || 0),
     };
