@@ -275,10 +275,12 @@ function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
 /**
  * Builds a timeseries for the by-expiration / by-strike charts.
  *
- * Each API row already carries pre-computed cumulative running totals
- * (cumulative_premium, cumulative_net_premium, cumulative_net_volume).
- * For a given timestamp we simply sum those across every row that matches
- * the current filter (i.e. the selected strikes or expirations).
+ * New API format (5-min buckets): each row carries pre-computed cumulative
+ * running totals. For each timestamp we sum those across every row matching
+ * the current filter (selected strikes or expirations).
+ *
+ * Legacy API format: rows have only bucket-level premium/net_premium/net_volume
+ * fields. We fall back to summing those and accumulating manually.
  *
  * call_premium = (cumulative_premium + cumulative_net_premium) / 2
  * put_premium  = (cumulative_premium - cumulative_net_premium) / 2
@@ -289,15 +291,66 @@ function buildTimeseriesFromCumulativeRows(
     time_window_start?: string;
     time_window_end?: string;
     interval_timestamp?: string | null;
+    // New format
     cumulative_premium?: number | string;
     cumulative_net_premium?: number | string;
     cumulative_net_volume?: number | string;
+    // Legacy format fallback
+    premium?: number | string;
+    total_premium?: number | string;
+    net_premium?: number | string;
+    net_volume?: number | string;
     underlying_price?: number | string | null;
   }>,
 ): TimeseriesRow[] {
+  const hasCumulativeFields = rows.some((r) => r.cumulative_premium != null);
+
+  // ── New format: sum cumulative values per timestamp ───────────────────────
+  if (hasCumulativeFields) {
+    const grouped = new Map<
+      string,
+      { cumPremium: number; cumNetPremium: number; cumNetVolume: number; underlyingPrice: number | null }
+    >();
+
+    rows.forEach((row) => {
+      const sourceTs = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
+      if (!sourceTs) return;
+      const ts = normalizeToMinute(sourceTs);
+      if (!ts) return;
+
+      const current = grouped.get(ts) ?? { cumPremium: 0, cumNetPremium: 0, cumNetVolume: 0, underlyingPrice: null };
+      current.cumPremium    += Number(row.cumulative_premium ?? 0);
+      current.cumNetPremium += Number(row.cumulative_net_premium ?? 0);
+      current.cumNetVolume  += Number(row.cumulative_net_volume ?? 0);
+      if (current.underlyingPrice === null && row.underlying_price != null) {
+        current.underlyingPrice = Number(row.underlying_price);
+      }
+      grouped.set(ts, current);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([timestamp, value]) => {
+        const callPremium = Math.max(0, (value.cumPremium + value.cumNetPremium) / 2);
+        const putPremium  = Math.max(0, (value.cumPremium - value.cumNetPremium) / 2);
+        const netVolume   = value.cumNetVolume;
+        return {
+          timestamp,
+          time: safeTimeLabel(timestamp),
+          callPremium,
+          putPremium,
+          netVolume,
+          positiveNetVolume: netVolume > 0 ? netVolume : 0,
+          negativeNetVolume: netVolume < 0 ? netVolume : 0,
+          underlyingPrice: value.underlyingPrice,
+        };
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  // ── Legacy format: sum bucket-level values then accumulate ────────────────
   const grouped = new Map<
     string,
-    { cumPremium: number; cumNetPremium: number; cumNetVolume: number; underlyingPrice: number | null }
+    { totalPremium: number; netPremium: number; netVolume: number; underlyingPrice: number | null }
   >();
 
   rows.forEach((row) => {
@@ -306,35 +359,42 @@ function buildTimeseriesFromCumulativeRows(
     const ts = normalizeToMinute(sourceTs);
     if (!ts) return;
 
-    const current = grouped.get(ts) ?? { cumPremium: 0, cumNetPremium: 0, cumNetVolume: 0, underlyingPrice: null };
-
-    current.cumPremium += Number(row.cumulative_premium ?? 0);
-    current.cumNetPremium += Number(row.cumulative_net_premium ?? 0);
-    current.cumNetVolume += Number(row.cumulative_net_volume ?? 0);
+    const current = grouped.get(ts) ?? { totalPremium: 0, netPremium: 0, netVolume: 0, underlyingPrice: null };
+    current.totalPremium += Number(row.total_premium ?? row.premium ?? 0);
+    current.netPremium   += Number(row.net_premium ?? 0);
+    current.netVolume    += Number(row.net_volume ?? 0);
     if (current.underlyingPrice === null && row.underlying_price != null) {
       current.underlyingPrice = Number(row.underlying_price);
     }
-
     grouped.set(ts, current);
   });
 
-  return Array.from(grouped.entries())
-    .map(([timestamp, value]) => {
-      const callPremium = Math.max(0, (value.cumPremium + value.cumNetPremium) / 2);
-      const putPremium  = Math.max(0, (value.cumPremium - value.cumNetPremium) / 2);
-      const netVolume   = value.cumNetVolume;
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium,
-        putPremium,
-        netVolume,
-        positiveNetVolume: netVolume > 0 ? netVolume : 0,
-        negativeNetVolume: netVolume < 0 ? netVolume : 0,
-        underlyingPrice: value.underlyingPrice,
-      };
-    })
+  const perBucket = Array.from(grouped.entries())
+    .map(([timestamp, v]) => ({
+      timestamp,
+      callBucket: Math.max(0, (v.totalPremium + v.netPremium) / 2),
+      putBucket:  Math.max(0, (v.totalPremium - v.netPremium) / 2),
+      netVolume:  v.netVolume,
+      underlyingPrice: v.underlyingPrice,
+    }))
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  let cumCall = 0, cumPut = 0, cumVol = 0;
+  return perBucket.map((row) => {
+    cumCall += row.callBucket;
+    cumPut  += row.putBucket;
+    cumVol  += row.netVolume;
+    return {
+      timestamp: row.timestamp,
+      time: safeTimeLabel(row.timestamp),
+      callPremium: cumCall,
+      putPremium:  cumPut,
+      netVolume:   cumVol,
+      positiveNetVolume: cumVol > 0 ? cumVol : 0,
+      negativeNetVolume: cumVol < 0 ? cumVol : 0,
+      underlyingPrice: row.underlyingPrice,
+    };
+  });
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
