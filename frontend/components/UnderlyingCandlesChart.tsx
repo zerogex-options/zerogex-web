@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { useApiData, useMarketQuote } from "@/hooks/useApiData";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -82,8 +82,6 @@ export default function UnderlyingCandlesChart() {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const chartWrapRef = useRef<HTMLDivElement | null>(null);
-  const [svgWidth, setSvgWidth] = useState(1100);
 
   const intervalMinutes = timeframe === "1min" ? 1 : timeframe === "5min" ? 5 : timeframe === "15min" ? 15 : timeframe === "1hr" ? 60 : 1440;
   const maxPoints = getMaxDataPoints();
@@ -156,25 +154,6 @@ export default function UnderlyingCandlesChart() {
     return markers;
   }, [bars]);
 
-  useLayoutEffect(() => {
-    const node = chartWrapRef.current;
-    if (!node) return;
-    const updateWidth = () => {
-      const nextWidth = Math.max(320, Math.floor(node.getBoundingClientRect().width));
-      setSvgWidth((prev) => (prev === nextWidth ? prev : nextWidth));
-    };
-    updateWidth();
-    const resizeObserver = new ResizeObserver(updateWidth);
-    resizeObserver.observe(node);
-    const rafId = window.requestAnimationFrame(updateWidth);
-    window.addEventListener("resize", updateWidth);
-    return () => {
-      resizeObserver.disconnect();
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", updateWidth);
-    };
-  }, []);
-
   if (loading && bars.length === 0) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
@@ -184,7 +163,7 @@ export default function UnderlyingCandlesChart() {
       </div>
     );
 
-  const width = svgWidth;
+  const width = 1100;
   const height = 500;
   const padLeft = 70;
   const padRight = 30;
@@ -249,8 +228,8 @@ export default function UnderlyingCandlesChart() {
             </div>
           )}
         </div>
-        <div ref={chartWrapRef} className="relative">
-          <svg width={width} height={height} className="block w-full" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+        <div className="relative w-full">
+          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMin meet" style={{ aspectRatio: `${width} / ${height}` }} className="block w-full" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
               x="18"
               y={(padTop + priceAreaBottom) / 2}
