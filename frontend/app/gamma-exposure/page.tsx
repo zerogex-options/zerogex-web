@@ -218,21 +218,23 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 3: GEX by Strike + Strike×DTE Heatmap */}
+      {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GexWallsChart wallsData={gexWalls} />
+          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+        </div>
+      </section>
+
+      {/* Section 4: GEX by Strike */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
           <GexStrikeChart
             strikeData={chartStrikeData}
             gammaFlip={gexData?.gamma_flip}
             spotPrice={quoteData?.close}
           />
-          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
         </div>
-      </section>
-
-      {/* Section 4: Call/Put Walls */}
-      <section className="mb-8">
-        <GexWallsChart wallsData={gexWalls} />
       </section>
 
       {/* Section 5: Charm/Vanna Flows + Vol Surface */}

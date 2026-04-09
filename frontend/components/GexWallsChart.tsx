@@ -19,6 +19,7 @@ import type { GEXWallsRow } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import type { TooltipProps } from 'recharts';
 
 interface PlotPoint {
   wallType: string;
@@ -49,6 +50,27 @@ function formatPct(value: number): string {
 
 function formatPoints(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)} pts`;
+}
+
+function WallTooltipContent({ active, payload }: TooltipProps<number, string>) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]?.payload as PlotPoint | undefined;
+  if (!row) return null;
+
+  return (
+    <div
+      className="rounded-lg px-3 py-2 text-xs"
+      style={{
+        backgroundColor: 'var(--color-chart-tooltip-bg)',
+        border: '1px solid var(--color-border)',
+        color: 'var(--color-chart-tooltip-text)',
+      }}
+    >
+      <div className="font-semibold mb-1">{row.wallType} @ ${row.price.toFixed(2)}</div>
+      <div style={{ color: 'var(--color-chart-tooltip-muted)' }}>Exposure: {formatExposure(row.exposure)}</div>
+      <div style={{ color: 'var(--color-chart-tooltip-muted)' }}>Distance: {formatPoints(row.distance)} ({formatPct(row.pct)})</div>
+    </div>
+  );
 }
 
 export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
@@ -187,26 +209,7 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
               />
               <Tooltip
                 cursor={{ strokeDasharray: '4 4' }}
-                contentStyle={{
-                  backgroundColor: 'var(--color-chart-tooltip-bg)',
-                  borderColor: 'var(--color-border)',
-                  borderRadius: 8,
-                  color: 'var(--color-chart-tooltip-text)',
-                }}
-                labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
-                itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
-                formatter={(_value, _name, item) => {
-                  const payload = item?.payload as PlotPoint | undefined;
-                  if (!payload) return [];
-                  return [
-                    `${formatExposure(payload.exposure)} • ${formatPct(payload.pct)} • ${formatPoints(payload.distance)}`,
-                    payload.wallType,
-                  ];
-                }}
-                labelFormatter={(_label, payload) => {
-                  const row = payload?.[0]?.payload as PlotPoint | undefined;
-                  return row ? `${row.wallType} @ $${row.price.toFixed(2)}` : '';
-                }}
+                content={<WallTooltipContent />}
               />
               <Legend verticalAlign="top" align="right" content={legendContent} wrapperStyle={{ top: 0, right: 0 }} />
 
