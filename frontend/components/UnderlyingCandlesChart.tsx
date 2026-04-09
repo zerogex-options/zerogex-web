@@ -190,7 +190,7 @@ export default function UnderlyingCandlesChart() {
     );
 
   const width = 1100;
-  const height = 500;
+  const height = timeframe === "1day" ? 560 : 500;
   const padLeft = 70;
   const padRight = 30;
   const padTop = 30;
@@ -309,7 +309,7 @@ export default function UnderlyingCandlesChart() {
                 <g key={`v-${p}`}>
                   <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
                   <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
-                    {vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
+                    {vol === 0 ? "0" : vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
                   </text>
                 </g>
               );
@@ -391,7 +391,7 @@ export default function UnderlyingCandlesChart() {
                   {timeframe !== "1day" && i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
                     <text
                       x={x}
-                      y={height - 12}
+                      y={volumeAreaBottom + 18}
                       fontSize={isMobile ? "8" : "10"}
                       textAnchor="middle"
                       fill={theme === "dark" ? colors.light : colors.dark}
@@ -416,16 +416,16 @@ export default function UnderlyingCandlesChart() {
                     timeframe === "1day" ? (
                       <text
                         x={x + 6}
-                        y={height - 28}
+                        y={volumeAreaBottom + 44}
                         fontSize="10"
                         textAnchor="start"
                         fill={colors.muted}
-                        transform={`rotate(-90, ${x + 6}, ${height - 28})`}
+                        transform={`rotate(-90, ${x + 6}, ${volumeAreaBottom + 44})`}
                       >
                         {marker.label}
                       </text>
                     ) : (
-                      <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
+                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={colors.muted}>
                         {marker.label}
                       </text>
                     )
