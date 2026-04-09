@@ -388,7 +388,7 @@ export default function UnderlyingCandlesChart() {
                       opacity={0.75}
                     />
                   )}
-                  {i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
+                  {timeframe !== "1day" && i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
                     <text
                       x={x}
                       y={height - 12}
@@ -413,9 +413,22 @@ export default function UnderlyingCandlesChart() {
                 <g key={`date-marker-${marker.key}`}>
                   <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
                   {showLabel ? (
-                    <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
-                      {marker.label}
-                    </text>
+                    timeframe === "1day" ? (
+                      <text
+                        x={x + 6}
+                        y={height - 4}
+                        fontSize="10"
+                        textAnchor="end"
+                        fill={colors.muted}
+                        transform={`rotate(-90, ${x + 6}, ${height - 4})`}
+                      >
+                        {marker.label}
+                      </text>
+                    ) : (
+                      <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
+                        {marker.label}
+                      </text>
+                    )
                   ) : null}
                 </g>
               );
