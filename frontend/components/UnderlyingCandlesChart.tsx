@@ -154,6 +154,32 @@ export default function UnderlyingCandlesChart() {
     return markers;
   }, [bars]);
 
+  const dateMarkersForLabels = useMemo(() => {
+    if (dateMarkers.length <= 1) return dateMarkers;
+    const minGap = isMobile ? 80 : 52;
+    const layoutWidth = 1100;
+    const layoutPadLeft = 70;
+    const layoutPadRight = 30;
+    const filtered: Array<{ index: number; label: string; key: string }> = [];
+    let lastLabeledX = Number.NEGATIVE_INFINITY;
+    dateMarkers.forEach((marker) => {
+      const x =
+        layoutPadLeft +
+        marker.index *
+          ((layoutWidth - layoutPadLeft - layoutPadRight) /
+            Math.max(1, bars.length - 1));
+      if (x - lastLabeledX < minGap) return;
+      filtered.push(marker);
+      lastLabeledX = x;
+    });
+    return filtered;
+  }, [bars.length, dateMarkers, isMobile]);
+
+  const labeledDateMarkerKeys = useMemo(
+    () => new Set(dateMarkersForLabels.map((marker) => marker.key)),
+    [dateMarkersForLabels],
+  );
+
   if (loading && bars.length === 0) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
@@ -382,12 +408,15 @@ export default function UnderlyingCandlesChart() {
             })}
             {dateMarkers.map((marker) => {
               const x = padLeft + marker.index * xStep;
+              const showLabel = labeledDateMarkerKeys.has(marker.key);
               return (
                 <g key={`date-marker-${marker.key}`}>
                   <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
-                  <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
-                    {marker.label}
-                  </text>
+                  {showLabel ? (
+                    <text x={x + 4} y={height - 2} fontSize="10" textAnchor="start" fill={colors.muted}>
+                      {marker.label}
+                    </text>
+                  ) : null}
                 </g>
               );
             })}
