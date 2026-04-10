@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 type Timeframe = '1min' | '5min' | '15min' | '1hr' | '1day';
-export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ' | 'IWM';
+export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ';
 
 interface TimeframeContextType {
   timeframe: Timeframe;

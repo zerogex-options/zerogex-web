@@ -231,7 +231,6 @@ export default function LandingPage() {
     { symbol: 'SPY',  price: '591.42', change: '+1.23', pct: '+0.21%', up: true },
     { symbol: 'SPX',  price: '5,912.4', change: '+12.3', pct: '+0.21%', up: true },
     { symbol: 'QQQ',  price: '512.87', change: '-2.14', pct: '-0.42%', up: false },
-    { symbol: 'IWM',  price: '218.63', change: '+0.87', pct: '+0.40%', up: true },
     { symbol: 'NET GEX', price: '$+4.2B', change: 'Positive',  pct: 'Bullish', up: true },
     { symbol: 'Γ FLIP', price: '$587.00', change: 'Key Level', pct: 'Watch', up: true },
     { symbol: 'MAX PAIN', price: '$590.00', change: '0DTE Target', pct: '', up: true },
@@ -609,7 +608,7 @@ export default function LandingPage() {
           <StatCard isDark={isDark} label="Analytics Modules" value={<AnimatedNumber target={8} suffix="+" />} sub="Gamma, Flow, Signals & more" />
           <StatCard isDark={isDark} label="Data Refresh Rate" value={<AnimatedNumber target={1} suffix="s" />} sub="Real-time market updates" />
           <StatCard isDark={isDark} label="Options Greeks" value={<AnimatedNumber target={5} />} sub="Delta, Gamma, Theta, Vega, Charm" />
-          <StatCard isDark={isDark} label="Supported Symbols" value={<AnimatedNumber target={4} suffix="+" />} sub="SPY, SPX, QQQ, IWM" />
+          <StatCard isDark={isDark} label="Supported Symbols" value={<AnimatedNumber target={3} suffix="+" />} sub="SPY, SPX, QQQ" />
         </div>
       </section>
 
@@ -813,7 +812,7 @@ export default function LandingPage() {
             {
               icon: Layers,
               title: 'Multi-Symbol Coverage',
-              body: 'SPY, SPX, QQQ, and IWM covered with full GEX analytics, flow tracking, and signal generation — the most liquid and most gamma-rich underlyings in the market.',
+              body: 'SPY, SPX, and QQQ covered with full GEX analytics, flow tracking, and signal generation — the most liquid and most gamma-rich underlyings in the market.',
               color: C.amber,
             },
             {
