@@ -267,24 +267,16 @@ export default function GammaExposurePage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Gamma Exposure Analysis</h1>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
-      <div className="mb-4 flex items-center gap-2">
-        <span className="text-xs text-[var(--color-text-secondary)] uppercase tracking-wide">Context Horizon</span>
-        <button
-          onClick={() => setTimeframe('5min')}
-          className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${timeframe === '5min' || timeframe === '1min' || timeframe === '15min' ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-text-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
-        >
-          Intraday
-        </button>
-        <button
-          onClick={() => setTimeframe('1day')}
-          className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${timeframe === '1day' || timeframe === '1hr' ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-text-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
-        >
-          Swing
-        </button>
-      </div>
-
       {/* Section 1: Regime Header */}
-      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} marketContextSummary={marketContextSummary} postureTag={postureTag} />
+      <GexRegimeHeader
+        gexSummary={gexData}
+        quoteData={quoteData}
+        symbol={symbol}
+        marketContextSummary={marketContextSummary}
+        postureTag={postureTag}
+        contextHorizon={timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday'}
+        onContextHorizonChange={(horizon) => setTimeframe(horizon === 'intraday' ? '5min' : '1day')}
+      />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">

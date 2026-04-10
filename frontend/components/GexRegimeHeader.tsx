@@ -20,6 +20,8 @@ interface GexRegimeHeaderProps {
   symbol: string;
   marketContextSummary?: string;
   postureTag?: 'Aggressive' | 'Balanced' | 'Defensive';
+  contextHorizon?: 'intraday' | 'swing';
+  onContextHorizonChange?: (horizon: 'intraday' | 'swing') => void;
 }
 
 type Regime = 'positive' | 'negative' | 'neutral';
@@ -77,7 +79,15 @@ const postureConfig: Record<NonNullable<GexRegimeHeaderProps['postureTag']>, { c
   },
 };
 
-export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketContextSummary, postureTag }: GexRegimeHeaderProps) {
+export default function GexRegimeHeader({
+  gexSummary,
+  quoteData,
+  symbol,
+  marketContextSummary,
+  postureTag,
+  contextHorizon,
+  onContextHorizonChange,
+}: GexRegimeHeaderProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -160,9 +170,36 @@ export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketC
         </div>
       </div>
       {marketContextSummary && (
-        <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
-          <span className="font-semibold" style={{ color: textColor }}>Market context:</span> {marketContextSummary}
-        </p>
+        <div className="mt-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-semibold text-sm" style={{ color: textColor }}>Market Context</span>
+            <button
+              onClick={() => onContextHorizonChange?.('intraday')}
+              className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+              style={{
+                borderColor: contextHorizon === 'intraday' ? 'var(--color-info)' : 'var(--color-border)',
+                backgroundColor: contextHorizon === 'intraday' ? 'var(--color-info-soft)' : 'transparent',
+                color: contextHorizon === 'intraday' ? textColor : colors.muted,
+              }}
+            >
+              Intraday
+            </button>
+            <button
+              onClick={() => onContextHorizonChange?.('swing')}
+              className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+              style={{
+                borderColor: contextHorizon === 'swing' ? 'var(--color-info)' : 'var(--color-border)',
+                backgroundColor: contextHorizon === 'swing' ? 'var(--color-info-soft)' : 'transparent',
+                color: contextHorizon === 'swing' ? textColor : colors.muted,
+              }}
+            >
+              Swing
+            </button>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
+            {marketContextSummary}
+          </p>
+        </div>
       )}
     </div>
   );

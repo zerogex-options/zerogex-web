@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
+import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
   TrendingUp,
   TrendingDown,
@@ -226,16 +227,53 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ── Ticker tape mock data ────────────────────────────────────────────────────
-  const tickerItems = [
-    { symbol: 'SPY',  price: '591.42', change: '+1.23', pct: '+0.21%', up: true },
-    { symbol: 'SPX',  price: '5,912.4', change: '+12.3', pct: '+0.21%', up: true },
-    { symbol: 'QQQ',  price: '512.87', change: '-2.14', pct: '-0.42%', up: false },
-    { symbol: 'NET GEX', price: '$+4.2B', change: 'Positive',  pct: 'Bullish', up: true },
-    { symbol: 'Γ FLIP', price: '$587.00', change: 'Key Level', pct: 'Watch', up: true },
-    { symbol: 'MAX PAIN', price: '$590.00', change: '0DTE Target', pct: '', up: true },
-    { symbol: 'PUT/CALL',  price: '0.82', change: 'Ratio', pct: 'Neutral', up: true },
-  ];
+  const { data: spyQuote } = useMarketQuote('SPY', 60000);
+  const { data: spxQuote } = useMarketQuote('SPX', 60000);
+  const { data: qqqQuote } = useMarketQuote('QQQ', 60000);
+  const { data: spyGex } = useGEXSummary('SPY', 60000);
+
+  const formatPrice = (value?: number | null, decimals = 2) => (value != null ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : '--');
+  const formatSigned = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
+  const formatPct = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  const formatDollarCompact = (value?: number | null) => {
+    if (value == null) return '--';
+    const abs = Math.abs(value);
+    if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+    if (abs >= 1e3) return `$${(value / 1e3).toFixed(0)}K`;
+    return `$${value.toFixed(0)}`;
+  };
+
+  const tickerItems = useMemo(() => {
+    const buildQuoteItem = (symbol: string, close?: number | null, open?: number | null) => {
+      if (close == null || open == null || open === 0) {
+        return { symbol, price: '--', change: '--', pct: '--', up: true };
+      }
+      const change = close - open;
+      const pct = (change / open) * 100;
+      return {
+        symbol,
+        price: formatPrice(close),
+        change: formatSigned(change),
+        pct: formatPct(pct),
+        up: change >= 0,
+      };
+    };
+
+    const gexPositive = (spyGex?.net_gex ?? 0) >= 0;
+    const pcr = spyGex?.put_call_ratio;
+    const pcrBias = pcr == null ? 'Neutral' : pcr >= 1.2 ? 'Bearish' : pcr <= 0.8 ? 'Bullish' : 'Neutral';
+
+    return [
+      buildQuoteItem('SPY', spyQuote?.close, spyQuote?.open),
+      buildQuoteItem('SPX', spxQuote?.close, spxQuote?.open),
+      buildQuoteItem('QQQ', qqqQuote?.close, qqqQuote?.open),
+      { symbol: 'NET GEX', price: formatDollarCompact(spyGex?.net_gex), change: gexPositive ? 'Positive' : 'Negative', pct: gexPositive ? 'Bullish' : 'Bearish', up: gexPositive },
+      { symbol: 'Γ FLIP', price: spyGex?.gamma_flip != null ? `$${formatPrice(spyGex.gamma_flip)}` : '--', change: 'Key Level', pct: 'Watch', up: true },
+      { symbol: 'MAX PAIN', price: spyGex?.max_pain != null ? `$${formatPrice(spyGex.max_pain)}` : '--', change: '0DTE Target', pct: '', up: true },
+      { symbol: 'PUT/CALL', price: pcr != null ? pcr.toFixed(2) : '--', change: 'Ratio', pct: pcrBias, up: pcrBias !== 'Bearish' },
+    ];
+  }, [spyQuote, spxQuote, qqqQuote, spyGex]);
 
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
