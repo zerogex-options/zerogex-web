@@ -25,17 +25,17 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Metrics',
     items: [
       { id: '/gamma-exposure', label: 'Gamma Exposure' },
-      { id: '/flow-analysis', label: 'Flow Analysis' },
+      { id: '/flow-analysis', label: 'Market Tide' },
       { id: '/smart-money', label: 'Smart Money' },
       { id: '/max-pain', label: 'Max Pain' },
-      { id: '/intraday-tools', label: 'Other' },
+      { id: '/intraday-tools', label: 'Technicals' },
     ],
   },
   {
     label: 'Strategy Tools',
     items: [
-      { id: '/options-calculator', label: 'Live Strategy Lab' },
-      { id: '/option-contracts', label: 'Real-Time Contract Viewer' },
+      { id: '/options-calculator', label: 'Strategy Builder' },
+      { id: '/option-contracts', label: 'Live Options Quotes' },
     ],
   },
   {

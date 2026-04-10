@@ -19,6 +19,7 @@ import type { GEXWallsRow } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileScrollableChart from './MobileScrollableChart';
 
 interface PlotPoint {
   wallType: string;
@@ -183,6 +184,7 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
             No wall data available
           </div>
         ) : (
+          <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={isMobile ? 300 : 340}>
             <ScatterChart margin={{ top: 8, right: isMobile ? 4 : 16, left: isMobile ? -14 : 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
@@ -250,6 +252,7 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
               />
             </ScatterChart>
           </ResponsiveContainer>
+          </MobileScrollableChart>
         )}
 
         {points.length > 0 && (

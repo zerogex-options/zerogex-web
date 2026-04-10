@@ -4,6 +4,7 @@ import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tool
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 
 type SignalComponentRow = {
   name: string;
@@ -174,6 +175,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-[320px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
             <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 7-component weighting model</div>
+            <MobileScrollableChart minWidthClass="min-w-[760px]">
             <ResponsiveContainer width="100%" height="86%">
               <RadarChart data={radarData} outerRadius="72%">
                 <PolarGrid stroke="var(--color-border)" />
@@ -185,6 +187,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 />
               </RadarChart>
             </ResponsiveContainer>
+            </MobileScrollableChart>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">

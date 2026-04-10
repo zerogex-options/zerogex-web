@@ -874,7 +874,7 @@ export default function LandingPage() {
           >
             <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label="Dashboard — Market Overview"         color={C.amber} />
             <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
-            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label="Flow Analysis — Smart Money Tracker" color={C.amber} />
+            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label="Market Tide — Smart Money Tracker" color={C.amber} />
             <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label="Gamma Exposure — GEX Heatmap"        color={C.green} />
             <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
             <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />

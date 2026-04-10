@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -40,6 +40,13 @@ function formatUsd(value: number): string {
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+interface FlowByTypePoint {
+  timestamp: string;
+  cumulative_net_volume?: number | string;
+  cumulative_net_premium?: number | string;
+  running_put_call_ratio?: number | string;
+}
+
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -51,6 +58,7 @@ export default function DashboardPage() {
   const { data: scoreData } = useSignalScore(symbol, 10000);
   const { data: tradesData } = useTradesLive(symbol, 5000);
   const { data: volExpansionData } = useVolExpansionSignal(symbol, 10000);
+  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: 30000 });
 
   const rows = toRows(tradesData);
   const bullishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
@@ -91,6 +99,17 @@ export default function DashboardPage() {
     quoteSession: quoteData?.session,
     sessionCloses: sessionClosesData,
   });
+
+  const latestFlowSnapshot = (() => {
+    if (!flowByTypeData?.length) return null;
+    const sorted = [...flowByTypeData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const latest = sorted[0];
+    return {
+      netFlow: Number(latest.cumulative_net_volume ?? 0),
+      netPremium: Number(latest.cumulative_net_premium ?? 0),
+      putCallRatio: Number(latest.running_put_call_ratio ?? 0),
+    };
+  })();
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -246,10 +265,25 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-semibold mb-4">Options Sentiment</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
+            title="Net Flow"
+            value={Number(latestFlowSnapshot?.netFlow ?? 0).toLocaleString()}
+            subtitle="contracts"
+            trend={Number(latestFlowSnapshot?.netFlow ?? 0) > 0 ? "bullish" : "bearish"}
+            tooltip="Cumulative call volume minus put volume for the current session."
+            theme={theme}
+          />
+          <MetricCard
+            title="Net Premium"
+            value={`${Number(latestFlowSnapshot?.netPremium ?? 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestFlowSnapshot?.netPremium ?? 0)) / 1_000_000).toFixed(2)}M`}
+            trend={Number(latestFlowSnapshot?.netPremium ?? 0) > 0 ? "bullish" : "bearish"}
+            tooltip="Cumulative call premium minus put premium for the current session."
+            theme={theme}
+          />
+          <MetricCard
             title="Put/Call Ratio"
-            value={gexData?.put_call_ratio ? gexData.put_call_ratio.toFixed(2) : '--'}
-            trend={gexData && (gexData.put_call_ratio ?? 0) > 1 ? 'bearish' : 'bullish'}
-            tooltip="Ratio of put option volume to call option volume. Calculation: Total put volume divided by total call volume over the last hour. Values > 1.0 indicate more put buying (bearish sentiment). Values < 1.0 indicate more call buying (bullish sentiment). Extreme readings can signal reversals."
+            value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
+            trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
+            tooltip="Cumulative put volume divided by cumulative call volume for the current session."
             theme={theme}
           />
         </div>

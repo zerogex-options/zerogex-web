@@ -17,6 +17,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
+import MobileScrollableChart from './MobileScrollableChart';
 
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
@@ -328,6 +329,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           {normalized.emptyReason && <span className="text-xs mt-2 opacity-80">{normalized.emptyReason}</span>}
         </div>
       ) : (
+        <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={isMobile ? 280 : 340}>
           <AreaChart data={surface} margin={{ top: 8, right: isMobile ? 2 : 8, left: isMobile ? -10 : 0, bottom: 14 }}>
             <defs>
@@ -370,6 +372,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
             <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="var(--color-neutral)" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-surface)' }} connectNulls />
           </AreaChart>
         </ResponsiveContainer>
+        </MobileScrollableChart>
       )}
       </div>
     </ExpandableCard>

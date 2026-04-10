@@ -1,7 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -130,6 +130,44 @@ function flowRowTimestamp(row: {
   time_window_start?: string;
 }): string | null {
   return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
+}
+
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
+  for (const utcHour of candidateHours) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+  if (timeline.length === 0) return timeline;
+  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
+  if (targetMs == null) return timeline;
+
+  const result = [...timeline];
+  let cursor = new Date(result[result.length - 1]).getTime();
+  if (!Number.isFinite(cursor)) return timeline;
+
+  while (cursor < targetMs) {
+    cursor += 60_000;
+    result.push(new Date(cursor).toISOString());
+  }
+  return result;
 }
 
 /** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
@@ -534,12 +572,14 @@ function MultiSelectChips({
   options,
   selected,
   onToggle,
+  onClear,
   label,
   isDark,
 }: {
   options: string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
+  onClear?: () => void;
   label: string;
   isDark: boolean;
 }) {
@@ -548,29 +588,51 @@ function MultiSelectChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {options.map((option) => {
-        const active = selected.has(option);
-        return (
-          <button
-            key={option}
-            onClick={() => onToggle(option)}
-            style={active ? undefined : {
-              backgroundColor: "var(--color-surface-subtle)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-primary)",
-            }}
-            className={`px-3 py-1.5 text-sm rounded-md border transition ${
-              active
-                ? "bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-info)]"
-                : "hover:border-[var(--border-strong)]"
-            }`}
-            type="button"
-          >
-            {option}
-          </button>
-        );
-      })}
+    <div className="mb-4">
+      <div className="mb-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+        {selected.size > 0 ? `${selected.size} selected` : "No filters selected"}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = selected.has(option);
+          return (
+            <button
+              key={option}
+              onClick={() => onToggle(option)}
+              style={active
+                ? {
+                    backgroundColor: "var(--color-info)",
+                    borderColor: "var(--color-info)",
+                    color: "#ffffff",
+                  }
+                : {
+                    backgroundColor: "var(--color-surface-subtle)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-text-secondary)",
+                  }}
+              className={`px-3 py-1.5 text-sm rounded-md border transition ${
+                active
+                  ? "shadow-sm"
+                  : "hover:border-[var(--border-strong)]"
+              }`}
+              type="button"
+              aria-pressed={active}
+            >
+              {active ? `✓ ${option}` : option}
+            </button>
+          );
+        })}
+      </div>
+      {onClear && selected.size > 0 ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-2 text-xs underline underline-offset-2 hover:opacity-80"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          Clear
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -653,11 +715,13 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
   const rightChartMargin = isMobile ? 8 : 70;
   const yAxisWidth = isMobile ? 40 : 72;
   const yAxisWidthRight = isMobile ? 38 : 62;
+  const chartWidth = isMobile ? 900 : "100%";
 
   return (
-    <div className="h-[400px] md:h-[580px]">
+    <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+      <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
       <ResponsiveContainer width="100%" height="62%">
-        <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
           <XAxis
             dataKey="timestamp"
@@ -676,6 +740,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
             width={yAxisWidth}
+            padding={{ top: 14, bottom: 8 }}
             label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
           />
           <YAxis
@@ -695,6 +760,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
             width={yAxisWidthRight}
+            padding={{ top: 14, bottom: 8 }}
             label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
@@ -850,6 +916,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -938,7 +1005,7 @@ export default function FlowAnalysisPage() {
 
   const sessionTimeline = useMemo(() => {
     if (!selectedDate) return [];
-    return getSessionTimestamps(selectedDate);
+    return extendTimelineToSessionClose(getSessionTimestamps(selectedDate), selectedDate);
   }, [selectedDate]);
 
   // ── Snapshot (most recent row's cumulative values) ──────────────────────────
@@ -991,6 +1058,13 @@ export default function FlowAnalysisPage() {
   }, [selectedDate, flowByExpiration]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+  const [expirationSelectionCleared, setExpirationSelectionCleared] = useState(false);
+  const effectiveSelectedExpirations = useMemo(() => {
+    const kept = expirationOptions.filter((exp) => selectedExpirations.has(exp));
+    if (kept.length > 0) return new Set(kept);
+    if (expirationSelectionCleared || expirationOptions.length === 0) return new Set<string>();
+    return new Set([expirationOptions[0]]);
+  }, [expirationOptions, selectedExpirations, expirationSelectionCleared]);
 
   const expirationSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
@@ -999,14 +1073,19 @@ export default function FlowAnalysisPage() {
       return ts ? getETDateKey(ts) === selectedDate : false;
     });
     const available = new Set(expirationOptions);
-    const activeSelection = new Set(Array.from(selectedExpirations).filter((v) => available.has(v)));
+    const activeSelection = new Set(Array.from(effectiveSelectedExpirations).filter((v) => available.has(v)));
     const filtered =
       activeSelection.size > 0
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
     const base = buildTimeseriesFromCumulativeRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByExpiration, selectedExpirations, expirationOptions, sessionTimeline]);
+    const aligned = alignSeriesToTimeline(base, sessionTimeline);
+    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
+    return aligned.map((row) => ({
+      ...row,
+      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
+    }));
+  }, [selectedDate, flowByExpiration, effectiveSelectedExpirations, expirationOptions, sessionTimeline, mainSeries]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
 
@@ -1022,6 +1101,35 @@ export default function FlowAnalysisPage() {
   }, [selectedDate, flowByStrike]);
 
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
+  const [strikeSelectionCleared, setStrikeSelectionCleared] = useState(false);
+
+  const latestUnderlyingPrice = useMemo(() => {
+    for (let i = mainSeries.length - 1; i >= 0; i -= 1) {
+      const p = mainSeries[i]?.underlyingPrice;
+      if (typeof p === "number" && Number.isFinite(p)) return p;
+    }
+    return null;
+  }, [mainSeries]);
+
+  const effectiveSelectedStrikes = useMemo(() => {
+    const kept = strikeOptions.filter((strike) => selectedStrikes.has(strike));
+    if (kept.length > 0) return new Set(kept);
+    if (strikeSelectionCleared || strikeOptions.length === 0) return new Set<string>();
+
+    if (latestUnderlyingPrice == null) return new Set([strikeOptions[0]]);
+    let closest = strikeOptions[0];
+    let closestDistance = Math.abs(Number(closest) - latestUnderlyingPrice);
+    for (const strike of strikeOptions) {
+      const strikeNum = Number(strike);
+      if (!Number.isFinite(strikeNum)) continue;
+      const distance = Math.abs(strikeNum - latestUnderlyingPrice);
+      if (distance < closestDistance) {
+        closest = strike;
+        closestDistance = distance;
+      }
+    }
+    return new Set([closest]);
+  }, [strikeOptions, selectedStrikes, strikeSelectionCleared, latestUnderlyingPrice]);
 
   const strikeSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
@@ -1030,10 +1138,17 @@ export default function FlowAnalysisPage() {
       return ts ? getETDateKey(ts) === selectedDate : false;
     });
     const filtered =
-      selectedStrikes.size > 0 ? dateRows.filter((r) => selectedStrikes.has(String(r.strike))) : dateRows;
+      effectiveSelectedStrikes.size > 0
+        ? dateRows.filter((r) => effectiveSelectedStrikes.has(String(r.strike)))
+        : dateRows;
     const base = buildTimeseriesFromCumulativeRows(filtered);
-    return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByStrike, selectedStrikes, sessionTimeline]);
+    const aligned = alignSeriesToTimeline(base, sessionTimeline);
+    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
+    return aligned.map((row) => ({
+      ...row,
+      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
+    }));
+  }, [selectedDate, flowByStrike, effectiveSelectedStrikes, sessionTimeline, mainSeries]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
 
@@ -1053,6 +1168,7 @@ export default function FlowAnalysisPage() {
   // ── Chip toggles ────────────────────────────────────────────────────────────
 
   const toggleExpirations = (value: string) => {
+    setExpirationSelectionCleared(false);
     setSelectedExpirations((prev) => {
       const next = new Set(prev);
       if (next.has(value)) next.delete(value);
@@ -1062,6 +1178,7 @@ export default function FlowAnalysisPage() {
   };
 
   const toggleStrikes = (value: string) => {
+    setStrikeSelectionCleared(false);
     setSelectedStrikes((prev) => {
       const next = new Set(prev);
       if (next.has(value)) next.delete(value);
@@ -1074,7 +1191,7 @@ export default function FlowAnalysisPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
+      <h1 className="text-3xl font-bold mb-8">Market Tide</h1>
       {flowError && <ErrorMessage message={flowError} />}
 
       {/* Session selector — shared across all sections */}
@@ -1082,7 +1199,13 @@ export default function FlowAnalysisPage() {
         <span className="text-sm" style={{ color: mutedText }}>Session</span>
         <select
           value={flowSession}
-          onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
+          onChange={(e) => {
+            setFlowSession(e.target.value as "current" | "prior");
+            setExpirationSelectionCleared(false);
+            setSelectedExpirations(new Set());
+            setStrikeSelectionCleared(false);
+            setSelectedStrikes(new Set());
+          }}
           className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
           style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
         >
@@ -1160,8 +1283,12 @@ export default function FlowAnalysisPage() {
         />
         <MultiSelectChips
           options={expirationOptions}
-          selected={selectedExpirations}
+          selected={effectiveSelectedExpirations}
           onToggle={toggleExpirations}
+          onClear={() => {
+            setExpirationSelectionCleared(true);
+            setSelectedExpirations(new Set());
+          }}
           label="Expirations"
           isDark={isDark}
         />
@@ -1177,8 +1304,12 @@ export default function FlowAnalysisPage() {
         />
         <MultiSelectChips
           options={strikeOptions}
-          selected={selectedStrikes}
+          selected={effectiveSelectedStrikes}
           onToggle={toggleStrikes}
+          onClear={() => {
+            setStrikeSelectionCleared(true);
+            setSelectedStrikes(new Set());
+          }}
           label="Strikes"
           isDark={isDark}
         />
@@ -1195,99 +1326,103 @@ export default function FlowAnalysisPage() {
         {putCallRatioSeries.length === 0 ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
-          <ResponsiveContainer width="100%" height={isMobile ? 200 : 240}>
-            <ComposedChart
-              data={putCallRatioSeries}
-              margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
-              <XAxis
-                dataKey="timestamp"
-                stroke={axisStroke}
-                interval={0}
-                minTickGap={24}
-                tickLine={false}
-                tick={(props: {
-                  x?: number | string;
-                  y?: number | string;
-                  payload?: { value?: string | number };
-                  index?: number;
-                }) => {
-                  const x = Number(props?.x ?? 0);
-                  const y = Number(props?.y ?? 0);
-                  const payload = props?.payload;
-                  const index = Number(props?.index ?? -1);
-                  const ts = String(payload?.value || "");
-                  const timeLabel = safeTimeLabel(ts);
-                  const dateLabel = ratioDateMarkerMeta.get(index);
-                  const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
-                  if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                  return (
-                    <g transform={`translate(${x},${y})`}>
-                      <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                      {showTime ? (
-                        <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                          {timeLabel}
-                        </text>
-                      ) : null}
-                      {dateLabel ? (
-                        <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
-                          {dateLabel}
-                        </text>
-                      ) : null}
-                    </g>
-                  );
-                }}
-              />
-              <YAxis
-                stroke={axisStroke}
-                tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-                tickMargin={isMobile ? 2 : 8}
-                width={isMobile ? 38 : 62}
-                domain={(() => {
-                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
-                  if (vals.length === 0) return [0, 2];
-                  const min = Math.min(...vals);
-                  const max = Math.max(...vals);
-                  const step = max - min > 1 ? 0.5 : 0.25;
-                  return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
-                })()}
-                ticks={(() => {
-                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
-                  if (vals.length === 0) return [0, 0.5, 1.0, 1.5, 2.0];
-                  const min = Math.min(...vals);
-                  const max = Math.max(...vals);
-                  const step = max - min > 1 ? 0.5 : 0.25;
-                  const lo = Math.floor(min / step) * step;
-                  const hi = Math.ceil(max / step) * step;
-                  const t: number[] = [];
-                  for (let v = lo; v <= hi + step / 2; v += step) t.push(parseFloat(v.toFixed(2)));
-                  return t;
-                })()}
-                tickFormatter={(v) => Number(v).toFixed(2)}
-              />
-              <Tooltip
-                content={({ active, label, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null;
-                  return (
-                    <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
-                      <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                      <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
-                    </div>
-                  );
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="ratio"
-                name="Put/Call Ratio"
-                stroke="var(--color-brand-primary)"
-                strokeWidth={2}
-                dot={false}
-                connectNulls={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: isMobile ? 220 : 240 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={putCallRatioSeries}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke={axisStroke}
+                    interval={0}
+                    minTickGap={24}
+                    tickLine={false}
+                    tick={(props: {
+                      x?: number | string;
+                      y?: number | string;
+                      payload?: { value?: string | number };
+                      index?: number;
+                    }) => {
+                      const x = Number(props?.x ?? 0);
+                      const y = Number(props?.y ?? 0);
+                      const payload = props?.payload;
+                      const index = Number(props?.index ?? -1);
+                      const ts = String(payload?.value || "");
+                      const timeLabel = safeTimeLabel(ts);
+                      const dateLabel = ratioDateMarkerMeta.get(index);
+                      const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                          {showTime ? (
+                            <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                              {timeLabel}
+                            </text>
+                          ) : null}
+                          {dateLabel ? (
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                              {dateLabel}
+                            </text>
+                          ) : null}
+                        </g>
+                      );
+                    }}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tickMargin={isMobile ? 2 : 8}
+                    width={isMobile ? 38 : 62}
+                    domain={(() => {
+                      const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                      if (vals.length === 0) return [0, 2];
+                      const min = Math.min(...vals);
+                      const max = Math.max(...vals);
+                      const step = max - min > 1 ? 0.5 : 0.25;
+                      return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
+                    })()}
+                    ticks={(() => {
+                      const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                      if (vals.length === 0) return [0, 0.5, 1.0, 1.5, 2.0];
+                      const min = Math.min(...vals);
+                      const max = Math.max(...vals);
+                      const step = max - min > 1 ? 0.5 : 0.25;
+                      const lo = Math.floor(min / step) * step;
+                      const hi = Math.ceil(max / step) * step;
+                      const t: number[] = [];
+                      for (let v = lo; v <= hi + step / 2; v += step) t.push(parseFloat(v.toFixed(2)));
+                      return t;
+                    })()}
+                    tickFormatter={(v) => Number(v).toFixed(2)}
+                  />
+                  <Tooltip
+                    content={({ active, label, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      return (
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
+                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                          <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ratio"
+                    name="Put/Call Ratio"
+                    stroke="var(--color-brand-primary)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </section>
     </div>

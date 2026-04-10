@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Gauge } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScoreHistory } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
@@ -127,6 +128,7 @@ export default function SignalScorePage() {
         <p className="text-sm text-[var(--color-text-secondary)] mb-4">Composite score over time. Green shading = bullish, red = bearish.</p>
         <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]" style={{ height: 320 }}>
           {chartData.length > 0 ? (
+            <MobileScrollableChart>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -161,6 +163,7 @@ export default function SignalScorePage() {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </MobileScrollableChart>
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">
               No score history available.
