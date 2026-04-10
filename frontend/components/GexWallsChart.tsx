@@ -162,9 +162,9 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
   );
 
   return (
-    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-6"
         style={{
           backgroundColor: isDark ? colors.cardDark : colors.cardLight,
           border: `1px solid ${colors.muted}`,
@@ -178,6 +178,10 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
             <Info size={14} />
           </TooltipWrapper>
         </div>
+        <p className="mb-3 text-sm leading-relaxed" style={{ color: textColor }}>
+          Bubble position marks where the strongest call and put walls sit relative to spot, bubble size reflects wall gamma magnitude,
+          and dashed connectors show point/% distance from current price to each wall.
+        </p>
 
         {!wallsData || points.length === 0 || !Number.isFinite(spot) ? (
           <div className="flex items-center justify-center h-[260px] text-sm" style={{ color: colors.muted }}>

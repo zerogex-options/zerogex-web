@@ -18,17 +18,34 @@ function formatTime(value: unknown) {
 export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
-  const { data: historyData } = useSignalScoreHistory(symbol, 30000);
+  const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, 30000);
 
   const chartData = useMemo(() => {
+    const payload = historyData as unknown as Record<string, unknown> | null;
+    const nestedData = payload?.data as Record<string, unknown> | unknown[] | undefined;
     const rows = Array.isArray(historyData)
       ? historyData
-      : (historyData as unknown as Record<string, unknown>)?.rows;
+      : Array.isArray(payload?.rows)
+        ? payload.rows
+        : Array.isArray(payload?.history)
+          ? payload.history
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(nestedData)
+              ? nestedData
+              : Array.isArray((nestedData as Record<string, unknown> | undefined)?.rows)
+                ? (nestedData as Record<string, unknown>).rows as unknown[]
+                : Array.isArray((nestedData as Record<string, unknown> | undefined)?.history)
+                  ? (nestedData as Record<string, unknown>).history as unknown[]
+                  : [];
     if (!Array.isArray(rows)) return [];
-    return [...rows].reverse().map((pt: Record<string, unknown>) => ({
-      time: String(pt.timestamp ?? ''),
-      score: Number(pt.composite_score ?? pt.score ?? 0),
-    }));
+    return [...rows]
+      .reverse()
+      .map((pt: Record<string, unknown>) => ({
+        time: String(pt.timestamp ?? pt.time ?? pt.ts ?? pt.datetime ?? ''),
+        score: Number(pt.composite_score ?? pt.score ?? pt.normalized_score ?? 0),
+      }))
+      .filter((pt) => pt.time && Number.isFinite(pt.score));
   }, [historyData]);
 
   const cardBg = theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)';
@@ -158,12 +175,21 @@ export default function SignalScorePage() {
                   dataKey="score"
                   stroke="var(--color-warning)"
                   strokeWidth={2}
-                  dot={false}
+                  dot={chartData.length === 1 ? { r: 3, fill: 'var(--color-warning)', stroke: 'var(--color-warning)' } : false}
                   activeDot={{ r: 4, stroke: 'var(--color-warning)', fill: 'var(--color-surface)' }}
                 />
               </LineChart>
             </ResponsiveContainer>
             </MobileScrollableChart>
+          ) : historyError ? (
+            <div className="flex flex-col items-center justify-center h-full text-sm text-[var(--color-text-secondary)] gap-1">
+              <div>Unable to load score history.</div>
+              <div className="text-xs opacity-80">{historyError}</div>
+            </div>
+          ) : historyLoading ? (
+            <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">
+              Loading score history…
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">
               No score history available.

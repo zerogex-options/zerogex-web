@@ -487,8 +487,12 @@ export interface SignalScoreHistoryPoint {
   [key: string]: unknown;
 }
 
-export function useSignalScoreHistory(symbol = 'SPY', refreshInterval = 30000) {
-  return useApiData<SignalScoreHistoryPoint[]>(`/api/signals/score-history?underlying=${symbol}`, { refreshInterval });
+export function useSignalScoreHistory(symbol = 'SPY', refreshInterval = 30000, limit = 100) {
+  const encoded = encodeURIComponent(symbol);
+  return useApiData<SignalScoreHistoryPoint[]>(
+    `/api/signals/score-history?underlying=${encoded}&limit=${Math.max(1, Math.floor(limit))}`,
+    { refreshInterval }
+  );
 }
 
 export interface OptionContractRow {
