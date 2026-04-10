@@ -19,6 +19,7 @@ interface GexRegimeHeaderProps {
   quoteData: QuoteData | null | undefined;
   symbol: string;
   marketContextSummary?: string;
+  postureTag?: 'Aggressive' | 'Balanced' | 'Defensive';
 }
 
 type Regime = 'positive' | 'negative' | 'neutral';
@@ -58,7 +59,25 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
   },
 };
 
-export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketContextSummary }: GexRegimeHeaderProps) {
+const postureConfig: Record<NonNullable<GexRegimeHeaderProps['postureTag']>, { color: string; bgColor: string; borderColor: string }> = {
+  Aggressive: {
+    color: colors.bearish,
+    bgColor: 'var(--color-bear-soft)',
+    borderColor: 'var(--color-bear)',
+  },
+  Balanced: {
+    color: colors.primary,
+    bgColor: 'var(--color-warning-soft)',
+    borderColor: 'var(--color-warning)',
+  },
+  Defensive: {
+    color: colors.bullish,
+    bgColor: 'var(--color-bull-soft)',
+    borderColor: 'var(--color-bull)',
+  },
+};
+
+export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketContextSummary, postureTag }: GexRegimeHeaderProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -79,15 +98,29 @@ export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketC
     >
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         {/* Left: Regime badge */}
-        <div
-          className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap"
-          style={{
-            backgroundColor: config.bgColor,
-            color: config.color,
-            border: `1px solid ${config.borderColor}`,
-          }}
-        >
-          {config.badge}
+        <div className="flex items-center gap-2">
+          <div
+            className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap"
+            style={{
+              backgroundColor: config.bgColor,
+              color: config.color,
+              border: `1px solid ${config.borderColor}`,
+            }}
+          >
+            {config.badge}
+          </div>
+          {postureTag && (
+            <div
+              className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap uppercase tracking-wide"
+              style={{
+                backgroundColor: postureConfig[postureTag].bgColor,
+                color: postureConfig[postureTag].color,
+                border: `1px solid ${postureConfig[postureTag].borderColor}`,
+              }}
+            >
+              {postureTag}
+            </div>
+          )}
         </div>
 
         {/* Center: Gamma flip + price info */}

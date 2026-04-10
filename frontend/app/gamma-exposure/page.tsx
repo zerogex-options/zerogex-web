@@ -51,7 +51,7 @@ type StrikeAggregate = {
 type SortKey = keyof StrikeAggregate;
 
 export default function GammaExposurePage() {
-  const { symbol, timeframe } = useTimeframe();
+  const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -161,6 +161,17 @@ export default function GammaExposurePage() {
     return `${sign}$${value.toFixed(0)}`;
   };
 
+  const postureTag: 'Aggressive' | 'Balanced' | 'Defensive' = useMemo(() => {
+    const netGex = gexData?.net_gex ?? null;
+    if (netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60) {
+      return 'Aggressive';
+    }
+    if (netGex != null && netGex > 0 && ivRankPct != null && ivRankPct <= 40) {
+      return 'Defensive';
+    }
+    return 'Balanced';
+  }, [gexData?.net_gex, vannaTrend, ivRankPct]);
+
   const marketContextSummary = useMemo(() => {
     const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
     const spot = quoteData?.close;
@@ -225,18 +236,11 @@ export default function GammaExposurePage() {
       netGex != null && netGex < 0
         ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
         : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
-    const postureTag =
-      netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60
-        ? 'Aggressive'
-        : (netGex != null && netGex > 0 && ivRankPct != null && ivRankPct <= 40)
-          ? 'Defensive'
-          : 'Balanced';
-
     const horizonText = horizonLabel === 'intraday'
       ? 'Intraday lens: prioritize reaction at walls/flip and tighten risk quickly if tape fails to follow through.'
       : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
 
-    return `Posture: ${postureTag}. ${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
+    return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
   }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
 
   const toggleSort = (key: SortKey) => {
@@ -263,9 +267,24 @@ export default function GammaExposurePage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Gamma Exposure Analysis</h1>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-xs text-[var(--color-text-secondary)] uppercase tracking-wide">Context Horizon</span>
+        <button
+          onClick={() => setTimeframe('5min')}
+          className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${timeframe === '5min' || timeframe === '1min' || timeframe === '15min' ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-text-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
+        >
+          Intraday
+        </button>
+        <button
+          onClick={() => setTimeframe('1day')}
+          className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${timeframe === '1day' || timeframe === '1hr' ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-text-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
+        >
+          Swing
+        </button>
+      </div>
 
       {/* Section 1: Regime Header */}
-      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} marketContextSummary={marketContextSummary} />
+      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} marketContextSummary={marketContextSummary} postureTag={postureTag} />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">
