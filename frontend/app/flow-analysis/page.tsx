@@ -589,6 +589,9 @@ function MultiSelectChips({
 
   return (
     <div className="mb-4">
+      <div className="mb-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+        {selected.size > 0 ? `${selected.size} selected` : "No filters selected"}
+      </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const active = selected.has(option);
@@ -596,19 +599,26 @@ function MultiSelectChips({
             <button
               key={option}
               onClick={() => onToggle(option)}
-              style={active ? undefined : {
-                backgroundColor: "var(--color-surface-subtle)",
-                borderColor: "var(--color-border)",
-                color: "var(--color-text-primary)",
-              }}
+              style={active
+                ? {
+                    backgroundColor: "var(--color-info)",
+                    borderColor: "var(--color-info)",
+                    color: "#ffffff",
+                  }
+                : {
+                    backgroundColor: "var(--color-surface-subtle)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-text-secondary)",
+                  }}
               className={`px-3 py-1.5 text-sm rounded-md border transition ${
                 active
-                  ? "bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--color-info)]"
+                  ? "shadow-sm"
                   : "hover:border-[var(--border-strong)]"
               }`}
               type="button"
+              aria-pressed={active}
             >
-              {option}
+              {active ? `✓ ${option}` : option}
             </button>
           );
         })}
@@ -705,11 +715,13 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
   const rightChartMargin = isMobile ? 8 : 70;
   const yAxisWidth = isMobile ? 40 : 72;
   const yAxisWidthRight = isMobile ? 38 : 62;
+  const chartWidth = isMobile ? 900 : "100%";
 
   return (
-    <div className="h-[400px] md:h-[580px]">
+    <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+      <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
       <ResponsiveContainer width="100%" height="62%">
-        <ComposedChart data={rows} margin={{ top: 10, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
           <XAxis
             dataKey="timestamp"
@@ -728,6 +740,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
             width={yAxisWidth}
+            padding={{ top: 14, bottom: 8 }}
             label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
           />
           <YAxis
@@ -747,6 +760,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
             width={yAxisWidthRight}
+            padding={{ top: 14, bottom: 8 }}
             label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
@@ -902,6 +916,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -1311,99 +1326,103 @@ export default function FlowAnalysisPage() {
         {putCallRatioSeries.length === 0 ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
-          <ResponsiveContainer width="100%" height={isMobile ? 200 : 240}>
-            <ComposedChart
-              data={putCallRatioSeries}
-              margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
-              <XAxis
-                dataKey="timestamp"
-                stroke={axisStroke}
-                interval={0}
-                minTickGap={24}
-                tickLine={false}
-                tick={(props: {
-                  x?: number | string;
-                  y?: number | string;
-                  payload?: { value?: string | number };
-                  index?: number;
-                }) => {
-                  const x = Number(props?.x ?? 0);
-                  const y = Number(props?.y ?? 0);
-                  const payload = props?.payload;
-                  const index = Number(props?.index ?? -1);
-                  const ts = String(payload?.value || "");
-                  const timeLabel = safeTimeLabel(ts);
-                  const dateLabel = ratioDateMarkerMeta.get(index);
-                  const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
-                  if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                  return (
-                    <g transform={`translate(${x},${y})`}>
-                      <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                      {showTime ? (
-                        <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                          {timeLabel}
-                        </text>
-                      ) : null}
-                      {dateLabel ? (
-                        <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
-                          {dateLabel}
-                        </text>
-                      ) : null}
-                    </g>
-                  );
-                }}
-              />
-              <YAxis
-                stroke={axisStroke}
-                tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-                tickMargin={isMobile ? 2 : 8}
-                width={isMobile ? 38 : 62}
-                domain={(() => {
-                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
-                  if (vals.length === 0) return [0, 2];
-                  const min = Math.min(...vals);
-                  const max = Math.max(...vals);
-                  const step = max - min > 1 ? 0.5 : 0.25;
-                  return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
-                })()}
-                ticks={(() => {
-                  const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
-                  if (vals.length === 0) return [0, 0.5, 1.0, 1.5, 2.0];
-                  const min = Math.min(...vals);
-                  const max = Math.max(...vals);
-                  const step = max - min > 1 ? 0.5 : 0.25;
-                  const lo = Math.floor(min / step) * step;
-                  const hi = Math.ceil(max / step) * step;
-                  const t: number[] = [];
-                  for (let v = lo; v <= hi + step / 2; v += step) t.push(parseFloat(v.toFixed(2)));
-                  return t;
-                })()}
-                tickFormatter={(v) => Number(v).toFixed(2)}
-              />
-              <Tooltip
-                content={({ active, label, payload }) => {
-                  if (!active || !payload || payload.length === 0) return null;
-                  return (
-                    <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
-                      <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                      <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
-                    </div>
-                  );
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="ratio"
-                name="Put/Call Ratio"
-                stroke="var(--color-brand-primary)"
-                strokeWidth={2}
-                dot={false}
-                connectNulls={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: isMobile ? 220 : 240 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={putCallRatioSeries}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke={axisStroke}
+                    interval={0}
+                    minTickGap={24}
+                    tickLine={false}
+                    tick={(props: {
+                      x?: number | string;
+                      y?: number | string;
+                      payload?: { value?: string | number };
+                      index?: number;
+                    }) => {
+                      const x = Number(props?.x ?? 0);
+                      const y = Number(props?.y ?? 0);
+                      const payload = props?.payload;
+                      const index = Number(props?.index ?? -1);
+                      const ts = String(payload?.value || "");
+                      const timeLabel = safeTimeLabel(ts);
+                      const dateLabel = ratioDateMarkerMeta.get(index);
+                      const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                          {showTime ? (
+                            <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                              {timeLabel}
+                            </text>
+                          ) : null}
+                          {dateLabel ? (
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                              {dateLabel}
+                            </text>
+                          ) : null}
+                        </g>
+                      );
+                    }}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tickMargin={isMobile ? 2 : 8}
+                    width={isMobile ? 38 : 62}
+                    domain={(() => {
+                      const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                      if (vals.length === 0) return [0, 2];
+                      const min = Math.min(...vals);
+                      const max = Math.max(...vals);
+                      const step = max - min > 1 ? 0.5 : 0.25;
+                      return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
+                    })()}
+                    ticks={(() => {
+                      const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
+                      if (vals.length === 0) return [0, 0.5, 1.0, 1.5, 2.0];
+                      const min = Math.min(...vals);
+                      const max = Math.max(...vals);
+                      const step = max - min > 1 ? 0.5 : 0.25;
+                      const lo = Math.floor(min / step) * step;
+                      const hi = Math.ceil(max / step) * step;
+                      const t: number[] = [];
+                      for (let v = lo; v <= hi + step / 2; v += step) t.push(parseFloat(v.toFixed(2)));
+                      return t;
+                    })()}
+                    tickFormatter={(v) => Number(v).toFixed(2)}
+                  />
+                  <Tooltip
+                    content={({ active, label, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      return (
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
+                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                          <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ratio"
+                    name="Put/Call Ratio"
+                    stroke="var(--color-brand-primary)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </section>
     </div>
