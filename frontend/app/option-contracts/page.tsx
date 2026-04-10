@@ -14,6 +14,7 @@ import {
 import { useApiData, useMarketQuote, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
+import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -402,7 +403,8 @@ function ContractChart({
     <div>
       <ContractStatsHeader rows={rawRows} isDark={isDark} />
       <ContractLegend latest={latestRaw} isDark={isDark} />
-      <div className="h-[320px] md:h-[480px] mt-2">
+      <MobileScrollableChart>
+      <div className="h-[480px] mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={rows}
@@ -529,6 +531,7 @@ function ContractChart({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      </MobileScrollableChart>
     </div>
   );
 }
@@ -729,7 +732,7 @@ export default function OptionContractsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Real-Time Contract Viewer</h1>
+      <h1 className="text-3xl font-bold mb-6">Live Options Quotes</h1>
 
       {dropdownLoadError && (
         <div className="mb-4">

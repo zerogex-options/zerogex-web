@@ -9,6 +9,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 
 interface SmartMoneyRow {
   timestamp?: string;
@@ -249,6 +250,7 @@ export default function SmartMoneyPage() {
                   <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
                   <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:00 ET session timeline."><Info size={14} /></TooltipWrapper>
                 </div>
+                <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                     <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
@@ -326,6 +328,7 @@ export default function SmartMoneyPage() {
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="var(--color-warning)" dot={false} strokeWidth={2} />
                   </ComposedChart>
                 </ResponsiveContainer>
+                </MobileScrollableChart>
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY FLOW TABLE</h3>

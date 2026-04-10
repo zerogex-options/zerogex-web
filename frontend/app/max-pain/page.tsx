@@ -23,6 +23,7 @@ import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTim
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
 import { omitClosedMarketTimes } from "@/core/utils";
+import MobileScrollableChart from "@/components/MobileScrollableChart";
 
 interface MaxPainPoint {
   settlement_price: number;
@@ -289,6 +290,7 @@ export default function MaxPainPage() {
         ) : oiChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain OI data available</div>
         ) : (
+          <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={380}>
             <BarChart data={oiChart} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
@@ -331,6 +333,7 @@ export default function MaxPainPage() {
               <Bar dataKey="putNotionalM" name="Put Notional" fill={colors.bearish} />
             </BarChart>
           </ResponsiveContainer>
+          </MobileScrollableChart>
         )}
       </section>
 

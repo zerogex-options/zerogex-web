@@ -18,6 +18,7 @@ import { colors } from '@/core/colors';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileScrollableChart from './MobileScrollableChart';
 
 interface StrikeRow {
   strike: number;
@@ -94,6 +95,7 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
             No strike data available
           </div>
         ) : (
+          <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
             <BarChart data={strikeData} margin={{ top: 5, right: isMobile ? 4 : 10, left: isMobile ? -12 : 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
@@ -146,6 +148,7 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          </MobileScrollableChart>
         )}
       </div>
     </ExpandableCard>

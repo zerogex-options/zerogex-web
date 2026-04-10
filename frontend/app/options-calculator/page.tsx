@@ -5,6 +5,7 @@ import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -373,7 +374,7 @@ export default function OptionsCalculatorPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Live Strategy Lab</h1>
+      <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -463,6 +464,7 @@ export default function OptionsCalculatorPage() {
             ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
           </p>
         )}
+        <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={420}>
           <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 10 }}>
             <defs>
@@ -546,6 +548,7 @@ export default function OptionsCalculatorPage() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        </MobileScrollableChart>
       </div>
     </div>
   );
