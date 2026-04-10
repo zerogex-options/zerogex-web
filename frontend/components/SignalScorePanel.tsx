@@ -82,6 +82,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   })();
 
   const components = normalizeComponents(resolvedScoreData?.components);
+  const compositeScoreRaw = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
+  const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
   const radarData = components.map((component) => ({
     axis: component.name,
     weightScore: Math.max(0, Math.min(100, component.weight * 100)),
@@ -100,9 +102,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </TooltipWrapper>
             </div>
             {(() => {
-              const compositeScore = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
-              const hasScore = typeof compositeScore === 'number';
-              const directionLabel = hasScore ? getRegimeLabel(compositeScore!) : 'Awaiting signal data';
+              const hasScore = compositeScore != null;
+              const directionLabel = hasScore ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
 
               return (
                 <>
@@ -110,11 +111,11 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     className="text-6xl font-black leading-none"
                     style={{
                       color: hasScore
-                        ? (compositeScore! > 0 ? 'var(--color-bull)' : compositeScore! < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
+                        ? (compositeScore > 0 ? 'var(--color-bull)' : compositeScore < 0 ? 'var(--color-bear)' : 'var(--color-warning)')
                         : 'var(--color-text-primary)',
                     }}
                   >
-                    {hasScore ? compositeScore!.toFixed(2) : '--'}
+                    {hasScore ? compositeScore.toFixed(2) : '--'}
                   </div>
                   <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
                 </>
@@ -147,8 +148,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                 style={{
                   left:
-                    typeof (resolvedScoreData?.composite_score ?? resolvedScoreData?.score) === 'number'
-                      ? `${Math.max(0, Math.min(100, ((resolvedScoreData?.composite_score ?? resolvedScoreData?.score)! + 100) / 2))}%`
+                    compositeScore != null
+                      ? `${Math.max(0, Math.min(100, (compositeScore + 100) / 2))}%`
                       : '50%',
                   transform: 'translateX(-50%)',
                 }}
