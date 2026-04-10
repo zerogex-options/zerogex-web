@@ -53,7 +53,10 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
       name: COMPONENT_LABELS[key] ?? key,
       weight: value.weight ?? 0,
       score: typeof value.score === 'number' ? value.score : null,
-      contribution: typeof value.contribution === 'number' ? value.contribution : null,
+      contribution:
+        typeof value.contribution === 'number'
+          ? value.contribution
+          : (typeof value.score === 'number' && typeof value.weight === 'number' ? value.score * value.weight : null),
     }));
   }
 
@@ -62,7 +65,23 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
 
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const { data: scoreData } = useSignalScore(symbol, 10000);
-  const components = normalizeComponents(scoreData?.components);
+  const resolvedScoreData = (() => {
+    if (!scoreData || typeof scoreData !== 'object') return null;
+    const candidate = scoreData as Record<string, unknown>;
+    if (candidate.components || candidate.composite_score != null || candidate.score != null) {
+      return candidate;
+    }
+    const nested = candidate.data;
+    if (nested && typeof nested === 'object') {
+      const nestedCandidate = nested as Record<string, unknown>;
+      if (nestedCandidate.components || nestedCandidate.composite_score != null || nestedCandidate.score != null) {
+        return nestedCandidate;
+      }
+    }
+    return candidate;
+  })();
+
+  const components = normalizeComponents(resolvedScoreData?.components);
   const radarData = components.map((component) => ({
     axis: component.name,
     weightScore: Math.max(0, Math.min(100, component.weight * 100)),
@@ -81,7 +100,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </TooltipWrapper>
             </div>
             {(() => {
-              const compositeScore = scoreData?.composite_score ?? scoreData?.score;
+              const compositeScore = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
               const hasScore = typeof compositeScore === 'number';
               const directionLabel = hasScore ? getRegimeLabel(compositeScore!) : 'Awaiting signal data';
 
@@ -128,8 +147,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                 style={{
                   left:
-                    typeof (scoreData?.composite_score ?? scoreData?.score) === 'number'
-                      ? `${Math.max(0, Math.min(100, ((scoreData?.composite_score ?? scoreData?.score)! + 100) / 2))}%`
+                    typeof (resolvedScoreData?.composite_score ?? resolvedScoreData?.score) === 'number'
+                      ? `${Math.max(0, Math.min(100, ((resolvedScoreData?.composite_score ?? resolvedScoreData?.score)! + 100) / 2))}%`
                       : '50%',
                   transform: 'translateX(-50%)',
                 }}
