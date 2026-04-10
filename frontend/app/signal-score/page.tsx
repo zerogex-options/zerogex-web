@@ -18,17 +18,27 @@ function formatTime(value: unknown) {
 export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
-  const { data: historyData } = useSignalScoreHistory(symbol, 30000);
+  const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, 30000);
 
   const chartData = useMemo(() => {
+    const payload = historyData as unknown as Record<string, unknown> | null;
     const rows = Array.isArray(historyData)
       ? historyData
-      : (historyData as unknown as Record<string, unknown>)?.rows;
+      : Array.isArray(payload?.rows)
+        ? payload.rows
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray((payload?.data as Record<string, unknown> | undefined)?.rows)
+            ? (payload?.data as Record<string, unknown>).rows as unknown[]
+            : [];
     if (!Array.isArray(rows)) return [];
-    return [...rows].reverse().map((pt: Record<string, unknown>) => ({
-      time: String(pt.timestamp ?? ''),
-      score: Number(pt.composite_score ?? pt.score ?? 0),
-    }));
+    return [...rows]
+      .reverse()
+      .map((pt: Record<string, unknown>) => ({
+        time: String(pt.timestamp ?? ''),
+        score: Number(pt.composite_score ?? pt.score ?? 0),
+      }))
+      .filter((pt) => pt.time && Number.isFinite(pt.score));
   }, [historyData]);
 
   const cardBg = theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)';
@@ -164,6 +174,15 @@ export default function SignalScorePage() {
               </LineChart>
             </ResponsiveContainer>
             </MobileScrollableChart>
+          ) : historyError ? (
+            <div className="flex flex-col items-center justify-center h-full text-sm text-[var(--color-text-secondary)] gap-1">
+              <div>Unable to load score history.</div>
+              <div className="text-xs opacity-80">{historyError}</div>
+            </div>
+          ) : historyLoading ? (
+            <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">
+              Loading score history…
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">
               No score history available.
