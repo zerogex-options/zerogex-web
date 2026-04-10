@@ -162,9 +162,9 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
   );
 
   return (
-    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-6"
         style={{
           backgroundColor: isDark ? colors.cardDark : colors.cardLight,
           border: `1px solid ${colors.muted}`,
