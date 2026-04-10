@@ -22,21 +22,28 @@ export default function SignalScorePage() {
 
   const chartData = useMemo(() => {
     const payload = historyData as unknown as Record<string, unknown> | null;
+    const nestedData = payload?.data as Record<string, unknown> | unknown[] | undefined;
     const rows = Array.isArray(historyData)
       ? historyData
       : Array.isArray(payload?.rows)
         ? payload.rows
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray((payload?.data as Record<string, unknown> | undefined)?.rows)
-            ? (payload?.data as Record<string, unknown>).rows as unknown[]
-            : [];
+        : Array.isArray(payload?.history)
+          ? payload.history
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(nestedData)
+              ? nestedData
+              : Array.isArray((nestedData as Record<string, unknown> | undefined)?.rows)
+                ? (nestedData as Record<string, unknown>).rows as unknown[]
+                : Array.isArray((nestedData as Record<string, unknown> | undefined)?.history)
+                  ? (nestedData as Record<string, unknown>).history as unknown[]
+                  : [];
     if (!Array.isArray(rows)) return [];
     return [...rows]
       .reverse()
       .map((pt: Record<string, unknown>) => ({
-        time: String(pt.timestamp ?? ''),
-        score: Number(pt.composite_score ?? pt.score ?? 0),
+        time: String(pt.timestamp ?? pt.time ?? pt.ts ?? pt.datetime ?? ''),
+        score: Number(pt.composite_score ?? pt.score ?? pt.normalized_score ?? 0),
       }))
       .filter((pt) => pt.time && Number.isFinite(pt.score));
   }, [historyData]);
