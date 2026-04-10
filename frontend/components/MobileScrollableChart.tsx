@@ -14,8 +14,8 @@ export default function MobileScrollableChart({
   className = "",
 }: MobileScrollableChartProps) {
   return (
-    <div className={`overflow-x-auto md:overflow-visible pb-2 md:pb-0 ${className}`}>
-      <div className={`w-full ${minWidthClass} md:min-w-0`}>
+    <div className={`h-full overflow-x-auto md:overflow-visible pb-2 md:pb-0 ${className}`}>
+      <div className={`h-full w-full ${minWidthClass} md:min-w-0`}>
         {children}
       </div>
     </div>
