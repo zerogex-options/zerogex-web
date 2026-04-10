@@ -51,7 +51,7 @@ type StrikeAggregate = {
 type SortKey = keyof StrikeAggregate;
 
 export default function GammaExposurePage() {
-  const { symbol } = useTimeframe();
+  const { symbol, timeframe } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -162,6 +162,7 @@ export default function GammaExposurePage() {
   };
 
   const marketContextSummary = useMemo(() => {
+    const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
     const spot = quoteData?.close;
     const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
     const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
@@ -224,9 +225,19 @@ export default function GammaExposurePage() {
       netGex != null && netGex < 0
         ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
         : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
+    const postureTag =
+      netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60
+        ? 'Aggressive'
+        : (netGex != null && netGex > 0 && ivRankPct != null && ivRankPct <= 40)
+          ? 'Defensive'
+          : 'Balanced';
 
-    return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText}`.trim();
-  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct]);
+    const horizonText = horizonLabel === 'intraday'
+      ? 'Intraday lens: prioritize reaction at walls/flip and tighten risk quickly if tape fails to follow through.'
+      : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
+
+    return `Posture: ${postureTag}. ${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
+  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
