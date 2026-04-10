@@ -175,7 +175,7 @@ export default function SignalScorePage() {
                   dataKey="score"
                   stroke="var(--color-warning)"
                   strokeWidth={2}
-                  dot={false}
+                  dot={chartData.length === 1 ? { r: 3, fill: 'var(--color-warning)', stroke: 'var(--color-warning)' } : false}
                   activeDot={{ r: 4, stroke: 'var(--color-warning)', fill: 'var(--color-surface)' }}
                 />
               </LineChart>
