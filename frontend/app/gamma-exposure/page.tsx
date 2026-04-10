@@ -152,6 +152,15 @@ export default function GammaExposurePage() {
   );
   const charmLabel = Math.abs(totalCharm) < 1e8 ? 'Neutral' : totalCharm > 0 ? 'Bullish' : 'Bearish';
 
+  const formatGexValue = (value: number): string => {
+    const abs = Math.abs(value);
+    const sign = value >= 0 ? '+' : '';
+    if (abs >= 1e9) return `${sign}$${(value / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `${sign}$${(value / 1e6).toFixed(1)}M`;
+    if (abs >= 1e3) return `${sign}$${(value / 1e3).toFixed(0)}K`;
+    return `${sign}$${value.toFixed(0)}`;
+  };
+
   const marketContextSummary = useMemo(() => {
     const spot = quoteData?.close;
     const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
@@ -180,15 +189,6 @@ export default function GammaExposurePage() {
 
     return `${locationText} ${gexText} ${flowText} ${volText}`;
   }, [quoteData?.close, gexWalls, gexData, vannaLabel, charmLabel, ivRankPct]);
-
-  const formatGexValue = (value: number): string => {
-    const abs = Math.abs(value);
-    const sign = value >= 0 ? '+' : '';
-    if (abs >= 1e9) return `${sign}$${(value / 1e9).toFixed(1)}B`;
-    if (abs >= 1e6) return `${sign}$${(value / 1e6).toFixed(1)}M`;
-    if (abs >= 1e3) return `${sign}$${(value / 1e3).toFixed(0)}K`;
-    return `${sign}$${value.toFixed(0)}`;
-  };
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
