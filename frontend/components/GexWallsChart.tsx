@@ -256,10 +256,10 @@ export default function GexWallsChart({ wallsData }: GexWallsChartProps) {
         )}
 
         {points.length > 0 && (
-          <p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="mt-4 rounded-lg px-3 py-2 text-sm leading-relaxed" style={{ color: textColor, backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
             Bubble position marks where the strongest call and put walls sit relative to spot, bubble size reflects wall gamma magnitude,
             and dashed connectors show point/% distance from current price to each wall so you can gauge likely support/resistance pressure.
-          </p>
+          </div>
         )}
 
         {points.length > 0 && (
