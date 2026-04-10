@@ -18,6 +18,7 @@ interface GexRegimeHeaderProps {
   gexSummary: GEXSummaryData | null | undefined;
   quoteData: QuoteData | null | undefined;
   symbol: string;
+  marketContextSummary?: string;
 }
 
 type Regime = 'positive' | 'negative' | 'neutral';
@@ -57,7 +58,7 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
   },
 };
 
-export default function GexRegimeHeader({ gexSummary, quoteData, symbol }: GexRegimeHeaderProps) {
+export default function GexRegimeHeader({ gexSummary, quoteData, symbol, marketContextSummary }: GexRegimeHeaderProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -73,56 +74,63 @@ export default function GexRegimeHeader({ gexSummary, quoteData, symbol }: GexRe
 
   return (
     <div
-      className="rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
+      className="rounded-2xl p-4 mb-6"
       style={{ backgroundColor: cardBg, border: `1px solid ${colors.muted}` }}
     >
-      {/* Left: Regime badge */}
-      <div
-        className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap"
-        style={{
-          backgroundColor: config.bgColor,
-          color: config.color,
-          border: `1px solid ${config.borderColor}`,
-        }}
-      >
-        {config.badge}
-      </div>
-
-      {/* Center: Gamma flip + price info */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 text-sm">
-        <span style={{ color: textColor }}>
-          <span className="font-semibold">Gamma flip:</span>{' '}
-          <span style={{ color: config.color, fontWeight: 700 }}>
-            {gammaFlip != null ? `$${gammaFlip.toFixed(2)}` : '--'}
-          </span>
-        </span>
-        <span style={{ color: colors.muted }}>
-          {symbol} last: <span style={{ color: textColor, fontWeight: 500 }}>{spotPrice != null ? `$${spotPrice.toFixed(2)}` : '--'}</span>
-          {flipDistance != null && (
-            <>
-              {' — '}
-              <span style={{ color: aboveFlip ? colors.bullish : colors.bearish }}>
-                {Math.abs(flipDistance).toFixed(2)} pts {aboveFlip ? 'above' : 'below'} flip
-              </span>
-            </>
-          )}
-        </span>
-      </div>
-
-      {/* Right: Scenario label */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs" style={{ color: colors.muted }}>Scenario:</span>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        {/* Left: Regime badge */}
         <div
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
+          className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap"
           style={{
             backgroundColor: config.bgColor,
             color: config.color,
             border: `1px solid ${config.borderColor}`,
           }}
         >
-          {config.label}
+          {config.badge}
+        </div>
+
+        {/* Center: Gamma flip + price info */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 text-sm">
+          <span style={{ color: textColor }}>
+            <span className="font-semibold">Gamma flip:</span>{' '}
+            <span style={{ color: config.color, fontWeight: 700 }}>
+              {gammaFlip != null ? `$${gammaFlip.toFixed(2)}` : '--'}
+            </span>
+          </span>
+          <span style={{ color: colors.muted }}>
+            {symbol} last: <span style={{ color: textColor, fontWeight: 500 }}>{spotPrice != null ? `$${spotPrice.toFixed(2)}` : '--'}</span>
+            {flipDistance != null && (
+              <>
+                {' — '}
+                <span style={{ color: aboveFlip ? colors.bullish : colors.bearish }}>
+                  {Math.abs(flipDistance).toFixed(2)} pts {aboveFlip ? 'above' : 'below'} flip
+                </span>
+              </>
+            )}
+          </span>
+        </div>
+
+        {/* Right: Scenario label */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: colors.muted }}>Scenario:</span>
+          <div
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
+            style={{
+              backgroundColor: config.bgColor,
+              color: config.color,
+              border: `1px solid ${config.borderColor}`,
+            }}
+          >
+            {config.label}
+          </div>
         </div>
       </div>
+      {marketContextSummary && (
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
+          <span className="font-semibold" style={{ color: textColor }}>Market context:</span> {marketContextSummary}
+        </p>
+      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ export default function SignalScorePage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Composite Score</h1>
       <p className="text-[var(--color-text-secondary)] mb-8">
-        Aggregate weighted conviction of seven independent market signals. Positive = net bullish, negative = net bearish.
+        Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish.
       </p>
 
       <SignalScorePanel symbol={symbol} />
@@ -63,7 +63,7 @@ export default function SignalScorePage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
         <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          The composite score (−100 to +100) is the weighted sum of 7 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
+          The composite score (−100 to +100) is the weighted sum of 8 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
         </p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
@@ -83,6 +83,7 @@ export default function SignalScorePage() {
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>16%</td><td>Risk/reward quality of available options structures</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>12%</td><td>Above flip = +1, below = −1, ±0.3% = 0</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>12%</td><td>Countertrend signal at RSI/momentum extremes</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Positioning Trap</td><td>10%</td><td>Detects “offsides” setups from options crowding, tape resilience/weakness, and gamma context.</td></tr>
                 <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>10%</td><td>PCR ≤ 0.8 = bullish (+1), ≥ 1.2 = bearish (−1)</td></tr>
               </tbody>
             </table>

@@ -152,6 +152,35 @@ export default function GammaExposurePage() {
   );
   const charmLabel = Math.abs(totalCharm) < 1e8 ? 'Neutral' : totalCharm > 0 ? 'Bullish' : 'Bearish';
 
+  const marketContextSummary = useMemo(() => {
+    const spot = quoteData?.close;
+    const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
+    const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
+    const netGex = gexData?.net_gex ?? null;
+    const pcr = gexData?.put_call_ratio ?? null;
+
+    const locationText =
+      spot != null && callWall != null && putWall != null
+        ? spot > callWall
+          ? `Spot is above the call wall ($${callWall.toFixed(2)}), signaling potential upside squeeze risk if price holds.`
+          : spot < putWall
+            ? `Spot is below the put wall ($${putWall.toFixed(2)}), signaling potential downside flush risk if support fails.`
+            : `Spot is between the put wall ($${putWall.toFixed(2)}) and call wall ($${callWall.toFixed(2)}), with dealers likely pulling price toward the heaviest gamma magnets.`
+        : 'Wall placement is incomplete, so spot-vs-wall context is limited.';
+
+    const gexText =
+      netGex == null
+        ? 'Net GEX is unavailable.'
+        : netGex >= 0
+          ? `Net GEX is positive (${formatGexValue(netGex)}), which typically dampens realized volatility and supports mean-reversion.`
+          : `Net GEX is negative (${formatGexValue(netGex)}), which typically amplifies realized volatility and supports trend extension.`;
+
+    const flowText = `Vanna flow reads ${vannaLabel.toLowerCase()} while charm decay reads ${charmLabel.toLowerCase()}, shaping the short-term directional drift as dealers rebalance delta over both vol and time.`;
+    const volText = `IV Rank is ${ivRankPct != null ? `${ivRankPct}%` : 'unavailable'}${pcr != null ? ` with put/call ratio at ${pcr.toFixed(2)}` : ''}, framing current volatility-surface stress and crowding conditions.`;
+
+    return `${locationText} ${gexText} ${flowText} ${volText}`;
+  }, [quoteData?.close, gexWalls, gexData, vannaLabel, charmLabel, ivRankPct]);
+
   const formatGexValue = (value: number): string => {
     const abs = Math.abs(value);
     const sign = value >= 0 ? '+' : '';
@@ -187,7 +216,7 @@ export default function GammaExposurePage() {
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
 
       {/* Section 1: Regime Header */}
-      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
+      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} marketContextSummary={marketContextSummary} />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">
