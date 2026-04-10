@@ -167,28 +167,66 @@ export default function GammaExposurePage() {
     const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
     const netGex = gexData?.net_gex ?? null;
     const pcr = gexData?.put_call_ratio ?? null;
+    const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
+    const putDistance = spot != null && putWall != null ? Math.abs(spot - putWall) : null;
+    const nearestWall = callDistance != null && putDistance != null
+      ? (callDistance < putDistance ? 'call' : 'put')
+      : null;
 
     const locationText =
       spot != null && callWall != null && putWall != null
         ? spot > callWall
-          ? `Spot is above the call wall ($${callWall.toFixed(2)}), signaling potential upside squeeze risk if price holds.`
+          ? 'Spot is above the call wall, so upside continuation can squeeze quickly but failed breakouts can snap back hard.'
           : spot < putWall
-            ? `Spot is below the put wall ($${putWall.toFixed(2)}), signaling potential downside flush risk if support fails.`
-            : `Spot is between the put wall ($${putWall.toFixed(2)}) and call wall ($${callWall.toFixed(2)}), with dealers likely pulling price toward the heaviest gamma magnets.`
-        : 'Wall placement is incomplete, so spot-vs-wall context is limited.';
+            ? 'Spot is below the put wall, so downside can accelerate fast if support keeps failing.'
+            : nearestWall === 'put'
+              ? 'Spot is just above the put wall, where failed breakdowns often reverse sharply and trap late shorts.'
+              : 'Spot is leaning toward the call wall, where breakouts can run if buyers keep pressure on.'
+        : 'Wall placement is incomplete, so treat directional conviction as lower until structure is clearer.';
 
     const gexText =
       netGex == null
-        ? 'Net GEX is unavailable.'
-        : netGex >= 0
-          ? `Net GEX is positive (${formatGexValue(netGex)}), which typically dampens realized volatility and supports mean-reversion.`
-          : `Net GEX is negative (${formatGexValue(netGex)}), which typically amplifies realized volatility and supports trend extension.`;
+        ? 'Net GEX is unclear, so expect less reliable pinning behavior.'
+        : netGex > 2e9
+          ? 'Net GEX is highly positive, which usually suppresses volatility and favors fade/mean-reversion setups over aggressive trend chasing.'
+          : netGex > 0
+            ? 'Net GEX is positive, so price is more likely to mean-revert than sustain runaway moves.'
+            : netGex < -2e9
+              ? 'Net GEX is deeply negative, which often amplifies volatility and can punish late entries on both sides.'
+              : 'Net GEX is negative, which supports trend extension and larger directional swings.';
 
-    const flowText = `Vanna flow reads ${vannaLabel.toLowerCase()} while charm decay reads ${charmLabel.toLowerCase()}, shaping the short-term directional drift as dealers rebalance delta over both vol and time.`;
-    const volText = `IV Rank is ${ivRankPct != null ? `${ivRankPct}%` : 'unavailable'}${pcr != null ? ` with put/call ratio at ${pcr.toFixed(2)}` : ''}, framing current volatility-surface stress and crowding conditions.`;
+    const flowText =
+      vannaTrend === 'bullish' && charmLabel === 'Bullish'
+        ? 'Vanna flow and charm decay are both adding a bullish tailwind as dealers rebalance delta across vol and time.'
+        : vannaTrend === 'bearish' && charmLabel === 'Bearish'
+          ? 'Vanna flow and charm decay are both adding bearish pressure, so downside moves can snowball faster.'
+          : 'Vanna and charm are mixed, so directional follow-through is less trustworthy and fake-outs are more likely.';
 
-    return `${locationText} ${gexText} ${flowText} ${volText}`;
-  }, [quoteData?.close, gexWalls, gexData, vannaLabel, charmLabel, ivRankPct]);
+    const riskText =
+      ivRankPct == null
+        ? 'Volatility regime is unclear; size risk conservatively.'
+        : ivRankPct >= 70
+          ? 'Vol is elevated, so prioritize defined-risk structures and avoid oversized directional bets.'
+          : ivRankPct <= 30
+            ? 'Vol is relatively calm, which favors cleaner structure-driven entries but still requires trap awareness near walls.'
+            : 'Vol is in a middle regime; stay selective and demand confirmation before pressing size.';
+
+    const crowdingText =
+      pcr == null
+        ? ''
+        : pcr >= 1.2
+          ? 'Positioning is put-heavy, so failed downside can trigger sharp reflex squeezes.'
+          : pcr <= 0.8
+            ? 'Positioning is call-heavy, so upside failures can unwind quickly.'
+            : 'Positioning is fairly balanced, so wall behavior matters more than crowding extremes.';
+
+    const actionText =
+      netGex != null && netGex < 0
+        ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
+        : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
+
+    return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText}`.trim();
+  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
