@@ -411,7 +411,7 @@ export default function AboutPage() {
             <InfoCard isDark={isDark}
               icon={Database}
               title="Options Chain Ingestion"
-              body="We ingest live options chain data across all strikes and expirations for SPY, SPX, QQQ, and IWM. Open interest, volume, bid/ask spreads, and Greeks are captured tick-by-tick during market hours."
+              body="We ingest live options chain data across all strikes and expirations for SPY, SPX, and QQQ. Open interest, volume, bid/ask spreads, and Greeks are captured tick-by-tick during market hours."
               color={C.amber}
             />
             <InfoCard isDark={isDark}
@@ -633,7 +633,7 @@ export default function AboutPage() {
           />
           <FAQItem isDark={isDark}
             q="What symbols are currently supported?"
-            a="ZeroGEX currently provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and IWM (Russell 2000 ETF). These four instruments represent the most liquid and most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest impact on intraday price dynamics."
+            a="ZeroGEX currently provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), and QQQ (Nasdaq 100 ETF). These instruments represent the most liquid and most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest impact on intraday price dynamics."
           />
           <FAQItem isDark={isDark}
             q="How often does the data refresh?"

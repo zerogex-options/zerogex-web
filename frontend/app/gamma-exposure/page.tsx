@@ -51,7 +51,7 @@ type StrikeAggregate = {
 type SortKey = keyof StrikeAggregate;
 
 export default function GammaExposurePage() {
-  const { symbol } = useTimeframe();
+  const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -161,6 +161,88 @@ export default function GammaExposurePage() {
     return `${sign}$${value.toFixed(0)}`;
   };
 
+  const postureTag: 'Aggressive' | 'Balanced' | 'Defensive' = useMemo(() => {
+    const netGex = gexData?.net_gex ?? null;
+    if (netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60) {
+      return 'Aggressive';
+    }
+    if (netGex != null && netGex > 0 && ivRankPct != null && ivRankPct <= 40) {
+      return 'Defensive';
+    }
+    return 'Balanced';
+  }, [gexData?.net_gex, vannaTrend, ivRankPct]);
+
+  const marketContextSummary = useMemo(() => {
+    const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
+    const spot = quoteData?.close;
+    const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
+    const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
+    const netGex = gexData?.net_gex ?? null;
+    const pcr = gexData?.put_call_ratio ?? null;
+    const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
+    const putDistance = spot != null && putWall != null ? Math.abs(spot - putWall) : null;
+    const nearestWall = callDistance != null && putDistance != null
+      ? (callDistance < putDistance ? 'call' : 'put')
+      : null;
+
+    const locationText =
+      spot != null && callWall != null && putWall != null
+        ? spot > callWall
+          ? 'Spot is above the call wall, so upside continuation can squeeze quickly but failed breakouts can snap back hard.'
+          : spot < putWall
+            ? 'Spot is below the put wall, so downside can accelerate fast if support keeps failing.'
+            : nearestWall === 'put'
+              ? 'Spot is just above the put wall, where failed breakdowns often reverse sharply and trap late shorts.'
+              : 'Spot is leaning toward the call wall, where breakouts can run if buyers keep pressure on.'
+        : 'Wall placement is incomplete, so treat directional conviction as lower until structure is clearer.';
+
+    const gexText =
+      netGex == null
+        ? 'Net GEX is unclear, so expect less reliable pinning behavior.'
+        : netGex > 2e9
+          ? 'Net GEX is highly positive, which usually suppresses volatility and favors fade/mean-reversion setups over aggressive trend chasing.'
+          : netGex > 0
+            ? 'Net GEX is positive, so price is more likely to mean-revert than sustain runaway moves.'
+            : netGex < -2e9
+              ? 'Net GEX is deeply negative, which often amplifies volatility and can punish late entries on both sides.'
+              : 'Net GEX is negative, which supports trend extension and larger directional swings.';
+
+    const flowText =
+      vannaTrend === 'bullish' && charmLabel === 'Bullish'
+        ? 'Vanna flow and charm decay are both adding a bullish tailwind as dealers rebalance delta across vol and time.'
+        : vannaTrend === 'bearish' && charmLabel === 'Bearish'
+          ? 'Vanna flow and charm decay are both adding bearish pressure, so downside moves can snowball faster.'
+          : 'Vanna and charm are mixed, so directional follow-through is less trustworthy and fake-outs are more likely.';
+
+    const riskText =
+      ivRankPct == null
+        ? 'Volatility regime is unclear; size risk conservatively.'
+        : ivRankPct >= 70
+          ? 'Vol is elevated, so prioritize defined-risk structures and avoid oversized directional bets.'
+          : ivRankPct <= 30
+            ? 'Vol is relatively calm, which favors cleaner structure-driven entries but still requires trap awareness near walls.'
+            : 'Vol is in a middle regime; stay selective and demand confirmation before pressing size.';
+
+    const crowdingText =
+      pcr == null
+        ? ''
+        : pcr >= 1.2
+          ? 'Positioning is put-heavy, so failed downside can trigger sharp reflex squeezes.'
+          : pcr <= 0.8
+            ? 'Positioning is call-heavy, so upside failures can unwind quickly.'
+            : 'Positioning is fairly balanced, so wall behavior matters more than crowding extremes.';
+
+    const actionText =
+      netGex != null && netGex < 0
+        ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
+        : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
+    const horizonText = horizonLabel === 'intraday'
+      ? 'Intraday lens: prioritize reaction at walls/flip and tighten risk quickly if tape fails to follow through.'
+      : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
+
+    return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
+  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
+
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -185,9 +267,16 @@ export default function GammaExposurePage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Gamma Exposure Analysis</h1>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
-
       {/* Section 1: Regime Header */}
-      <GexRegimeHeader gexSummary={gexData} quoteData={quoteData} symbol={symbol} />
+      <GexRegimeHeader
+        gexSummary={gexData}
+        quoteData={quoteData}
+        symbol={symbol}
+        marketContextSummary={marketContextSummary}
+        postureTag={postureTag}
+        contextHorizon={timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday'}
+        onContextHorizonChange={(horizon) => setTimeframe(horizon === 'intraday' ? '5min' : '1day')}
+      />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">

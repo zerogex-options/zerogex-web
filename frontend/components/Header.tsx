@@ -251,7 +251,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <option>SPY</option>
                     <option>SPX</option>
                     <option>QQQ</option>
-                    <option>IWM</option>
                   </select>
                 )}
                 {!isCollapsed && (
@@ -271,7 +270,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       <option>SPY</option>
                       <option>SPX</option>
                       <option>QQQ</option>
-                      <option>IWM</option>
                     </select>
                     <div onClick={() => setShowCountdown(!showCountdown)}>
                       <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
@@ -454,7 +452,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <option>SPY</option>
                   <option>SPX</option>
                   <option>QQQ</option>
-                  <option>IWM</option>
                 </select>
               </div>
 

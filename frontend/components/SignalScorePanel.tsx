@@ -13,6 +13,17 @@ type SignalComponentRow = {
   contribution: number | null;
 };
 
+const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
+  'GEX Regime': 1,
+  'Smart Money': 2,
+  'Vol Expansion': 3,
+  'Opportunity Quality': 4,
+  'Gamma Flip': 5,
+  Exhaustion: 6,
+  'Positioning Trap': 7,
+  'Put/Call Ratio': 8,
+};
+
 interface SignalScorePanelProps {
   symbol: string;
 }
@@ -25,6 +36,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
     opportunity_quality: 'Opportunity Quality',
     gamma_flip: 'Gamma Flip',
     exhaustion: 'Exhaustion',
+    positioning_trap: 'Positioning Trap',
     put_call_ratio: 'Put/Call Ratio',
   };
 
@@ -35,6 +47,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
     { name: 'Opportunity Quality', weight: 0.16, score: null, contribution: null },
     { name: 'Gamma Flip', weight: 0.12, score: null, contribution: null },
     { name: 'Exhaustion', weight: 0.12, score: null, contribution: null },
+    { name: 'Positioning Trap', weight: 0.10, score: null, contribution: null },
     { name: 'Put/Call Ratio', weight: 0.10, score: null, contribution: null },
   ];
 
@@ -44,7 +57,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
       weight: typeof c?.weight === 'number' ? c.weight : 0,
       score: typeof c?.score === 'number' ? c.score : null,
       contribution: typeof c?.contribution === 'number' ? c.contribution : null,
-    }));
+    })).sort((a, b) => b.weight - a.weight || (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999));
   }
 
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -57,10 +70,10 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
         typeof value.contribution === 'number'
           ? value.contribution
           : (typeof value.score === 'number' && typeof value.weight === 'number' ? value.score * value.weight : null),
-    }));
+    })).sort((a, b) => b.weight - a.weight || (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999));
   }
 
-  return fallbackComponents;
+  return fallbackComponents.sort((a, b) => b.weight - a.weight || (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999));
 }
 
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
@@ -97,7 +110,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Current Market Feel
-              <TooltipWrapper text="Weighted composite of 7 signals (GEX regime, smart money, vol expansion, opportunity quality, gamma flip, exhaustion, put/call ratio). Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
+              <TooltipWrapper text="Weighted composite of 8 signals (GEX regime, smart money, vol expansion, opportunity quality, gamma flip, exhaustion, positioning trap, put/call ratio). Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>
@@ -122,7 +135,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               );
             })()}
             <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-              Aggregate weighted conviction of seven independent market signals (−100 to +100). Positive = net bullish evidence, negative = net bearish. The normalized score (absolute value, 0–100) represents pure conviction strength regardless of direction.
+              Aggregate weighted conviction of eight independent market signals (−100 to +100). Positive = net bullish evidence, negative = net bearish. The normalized score (absolute value, 0–100) represents pure conviction strength regardless of direction.
             </p>
           </div>
 
@@ -192,9 +205,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
 
       <section className="zg-feature-shell mt-8 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-[320px]">
+          <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 7-component weighting model</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 8-component weighting model</div>
             <MobileScrollableChart minWidthClass="min-w-[760px]">
             <ResponsiveContainer width="100%" height="86%">
               <RadarChart data={radarData} outerRadius="72%">
@@ -210,7 +223,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             </MobileScrollableChart>
           </div>
 
-          <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+          <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full">
             <div className="text-sm font-semibold mb-3">Component Score Breakdown</div>
             <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
               <span>Component</span>
