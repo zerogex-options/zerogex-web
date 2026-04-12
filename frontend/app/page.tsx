@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
-import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import { useGEXByStrike, useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
   TrendingUp,
   TrendingDown,
@@ -231,6 +231,7 @@ export default function LandingPage() {
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
   const { data: qqqQuote } = useMarketQuote('QQQ', 60000);
   const { data: spyGex } = useGEXSummary('SPY', 60000);
+  const { data: spyStrikeData } = useGEXByStrike('SPY', 42, 60000, 'distance');
 
   const formatPrice = (value?: number | null, decimals = 2) => (value != null ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : '--');
   const formatSigned = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
@@ -274,6 +275,31 @@ export default function LandingPage() {
       { symbol: 'PUT/CALL', price: pcr != null ? pcr.toFixed(2) : '--', change: 'Ratio', pct: pcrBias, up: pcrBias !== 'Bearish' },
     ];
   }, [spyQuote, spxQuote, qqqQuote, spyGex]);
+
+  const previewMetrics = useMemo(() => {
+    const putCallRatio = spyGex?.put_call_ratio ?? null;
+    return [
+      { label: 'Net GEX', value: formatDollarCompact(spyGex?.net_gex), color: (spyGex?.net_gex ?? 0) >= 0 ? C.green : C.red, up: (spyGex?.net_gex ?? 0) >= 0 },
+      { label: 'Gamma Flip', value: spyGex?.gamma_flip != null ? `$${formatPrice(spyGex.gamma_flip)}` : '--', color: C.amber, up: true },
+      { label: 'Max Pain', value: spyGex?.max_pain != null ? `$${formatPrice(spyGex.max_pain)}` : '--', color: C.amber, up: true },
+      { label: 'Call Wall', value: spyGex?.call_wall != null ? `$${formatPrice(spyGex.call_wall)}` : '--', color: C.green, up: true },
+      { label: 'Put Wall', value: spyGex?.put_wall != null ? `$${formatPrice(spyGex.put_wall)}` : '--', color: C.red, up: false },
+      { label: 'Put/Call', value: putCallRatio != null ? putCallRatio.toFixed(2) : '--', color: putCallRatio != null && putCallRatio > 1 ? C.red : C.amber, up: !(putCallRatio != null && putCallRatio > 1) },
+    ];
+  }, [spyGex]);
+
+  const previewStrikeBars = useMemo(
+    () =>
+      (spyStrikeData || []).map((row) => ({
+        strike: Number(row.strike),
+        netGex: Number(row.net_gex || 0),
+      })),
+    [spyStrikeData],
+  );
+  const previewStrikeMaxAbs = useMemo(
+    () => Math.max(...previewStrikeBars.map((row) => Math.abs(row.netGex)), 1),
+    [previewStrikeBars],
+  );
 
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -521,14 +547,7 @@ export default function LandingPage() {
                 gap: 12,
               }}
             >
-              {[
-                { label: 'Net GEX',     value: '+$4.2B',  color: C.green, up: true  },
-                { label: 'Gamma Flip',  value: '$587.00', color: C.amber, up: true  },
-                { label: 'Max Pain',    value: '$590.00', color: C.amber, up: true  },
-                { label: 'Call Wall',   value: '$600.00', color: C.green, up: true  },
-                { label: 'Put Wall',    value: '$580.00', color: C.red,   up: false },
-                { label: 'Put/Call',    value: '0.82',    color: C.amber, up: true  },
-              ].map((m) => (
+              {previewMetrics.map((m) => (
                 <div
                   key={m.label}
                   style={{
@@ -549,7 +568,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {/* Mock chart bar */}
+            {/* Live Gamma-by-Strike mini chart */}
             <div
               style={{
                 marginTop: 16, height: 80,
@@ -561,9 +580,12 @@ export default function LandingPage() {
                 overflow: 'hidden',
               }}
             >
-              {Array.from({ length: 42 }).map((_, i) => {
-                const h = 20 + Math.abs(Math.sin(i * 0.7) * 45);
-                const positive = Math.sin(i * 0.7) > 0;
+              {previewStrikeBars.length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 12 }}>Loading gamma-by-strike…</div>
+              ) : (
+                previewStrikeBars.map((bar, i) => {
+                const h = Math.max(8, (Math.abs(bar.netGex) / previewStrikeMaxAbs) * 100);
+                const positive = bar.netGex >= 0;
                 return (
                   <div
                     key={i}
@@ -574,9 +596,11 @@ export default function LandingPage() {
                       borderRadius: 3,
                       minWidth: 4,
                     }}
+                    title={`$${bar.strike.toFixed(0)} • ${bar.netGex >= 0 ? '+' : ''}$${(bar.netGex / 1_000_000).toFixed(1)}M`}
                   />
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         </div>
