@@ -408,16 +408,17 @@ export default function LandingPage() {
           }}
         />
 
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 900 }}>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 900, width: '100%' }}>
           {/* Badge */}
           <div
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              fontSize: 12, fontWeight: 700, letterSpacing: '0.15em',
+              fontSize: 'clamp(10px, 2.8vw, 12px)', fontWeight: 700, letterSpacing: '0.12em',
               textTransform: 'uppercase', color: C.amber,
               background: `${C.amber}18`, border: `1px solid ${C.amber}40`,
               borderRadius: 100, padding: '5px 16px',
               marginBottom: 28,
+              maxWidth: '100%',
             }}
           >
             <span
@@ -435,10 +436,10 @@ export default function LandingPage() {
           {/* Headline */}
           <h1
             style={{
-              fontSize: 'clamp(38px, 7vw, 82px)',
+              fontSize: 'clamp(30px, 9vw, 82px)',
               fontWeight: 900,
               lineHeight: 1.05,
-              letterSpacing: '-2px',
+              letterSpacing: 'clamp(-1px, -0.4vw, -2px)',
               margin: '0 0 24px',
               color: text,
             }}
@@ -461,9 +462,9 @@ export default function LandingPage() {
           {/* Sub-headline */}
           <p
             style={{
-              fontSize: 'clamp(16px, 2vw, 21px)',
+              fontSize: 'clamp(14px, 4vw, 21px)',
               color: subtext,
-              lineHeight: 1.65,
+              lineHeight: 1.55,
               maxWidth: 680,
               margin: '0 auto 40px',
             }}
@@ -474,14 +475,14 @@ export default function LandingPage() {
           </p>
 
           {/* CTAs */}
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
                   border: 'none', borderRadius: 14,
-                  padding: '15px 32px',
-                  fontSize: 16, fontWeight: 700, color: 'var(--text-inverse)',
+                  padding: '13px 22px',
+                  fontSize: 15, fontWeight: 700, color: 'var(--text-inverse)',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 8,
                   boxShadow: `0 8px 32px ${C.amber}55`,
@@ -505,8 +506,8 @@ export default function LandingPage() {
                   background: 'transparent',
                   border: `1px solid ${C.border}`,
                   borderRadius: 14,
-                  padding: '15px 32px',
-                  fontSize: 16, fontWeight: 600,
+                  padding: '13px 22px',
+                  fontSize: 15, fontWeight: 600,
                   color: text,
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -537,15 +538,15 @@ export default function LandingPage() {
               background: isDark ? `${C.card}aa` : 'var(--bg-card)',
               backdropFilter: 'blur(20px)',
               boxShadow: `0 32px 80px var(--color-info-soft), 0 0 0 1px ${C.amber}20`,
-              padding: 24,
+              padding: 'clamp(14px, 3.5vw, 24px)',
             }}
           >
             {/* Mock metric row */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                gap: 12,
+                gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
+                gap: 10,
               }}
             >
               {previewMetrics.map((m) => (
@@ -569,12 +570,14 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div style={{ marginTop: 16 }}>
-              <GexStrikeChart
-                strikeData={previewStrikeChartData}
-                gammaFlip={spyGex?.gamma_flip}
-                spotPrice={spyQuote?.close}
-              />
+            <div style={{ marginTop: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ minWidth: 620 }}>
+                <GexStrikeChart
+                  strikeData={previewStrikeChartData}
+                  gammaFlip={spyGex?.gamma_flip}
+                  spotPrice={spyQuote?.close}
+                />
+              </div>
             </div>
           </div>
         </div>
