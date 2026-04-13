@@ -40,6 +40,7 @@ interface FlowByTypePoint {
   cumulative_call_premium?: number | string;
   cumulative_put_premium?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_net_directional_volume?: number | string;
   cumulative_net_premium?: number | string;
   running_put_call_ratio?: number | string;
   underlying_price?: number | null;
@@ -59,6 +60,7 @@ interface FlowByExpirationPoint {
   net_premium?: number | string;
   cumulative_volume?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_net_directional_volume?: number | string;
   cumulative_call_premium?: number | string;
   cumulative_put_premium?: number | string;
   cumulative_premium?: number | string;
@@ -81,6 +83,7 @@ interface FlowByStrikePoint {
   net_premium?: number | string;
   cumulative_volume?: number | string;
   cumulative_net_volume?: number | string;
+  cumulative_net_directional_volume?: number | string;
   cumulative_call_premium?: number | string;
   cumulative_put_premium?: number | string;
   cumulative_premium?: number | string;
@@ -249,7 +252,10 @@ function isActiveExpiration(expiration?: string, todayKey: string = getCurrentET
 
 // ── Series builders ───────────────────────────────────────────────────────────
 
-function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
+function buildTimeseriesFromByType(
+  rows: FlowByTypePoint[],
+  netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
+): TimeseriesRow[] {
   // Use the last row per minute bucket for cumulative values (they are running totals).
   const grouped = new Map<
     string,
@@ -267,7 +273,7 @@ function buildTimeseriesFromByType(rows: FlowByTypePoint[]): TimeseriesRow[] {
       grouped.set(ts, {
         callPremium: Number(row.cumulative_call_premium || 0),
         putPremium: Number(row.cumulative_put_premium || 0),
-        netVolume: Number(row.cumulative_net_volume || 0),
+        netVolume: Number(row[netVolumeMode] || 0),
         underlyingPrice: row.underlying_price != null ? Number(row.underlying_price) : (current?.underlyingPrice ?? null),
         latestTs: rowTime,
       });
@@ -343,6 +349,7 @@ function buildTimeseriesFromCumulativeRows(
     cumulative_premium?: number | string;
     cumulative_net_premium?: number | string;
     cumulative_net_volume?: number | string;
+    cumulative_net_directional_volume?: number | string;
     // Legacy format fallback
     premium?: number | string;
     total_premium?: number | string;
@@ -350,6 +357,7 @@ function buildTimeseriesFromCumulativeRows(
     net_volume?: number | string;
     underlying_price?: number | string | null;
   }>,
+  netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
 ): TimeseriesRow[] {
   const hasDirectCallPutCumulativeFields = rows.some(
     (r) => r.cumulative_call_premium != null || r.cumulative_put_premium != null,
@@ -383,7 +391,7 @@ function buildTimeseriesFromCumulativeRows(
       };
       current.callPremium += Number(row.cumulative_call_premium ?? 0);
       current.putPremium += Number(row.cumulative_put_premium ?? 0);
-      current.netVolume += Number(row.cumulative_net_volume ?? 0);
+      current.netVolume += Number(row[netVolumeMode] ?? 0);
       if (!current.hasUnderlying) {
         current.underlyingPrice = row.underlying_price != null ? Number(row.underlying_price) : null;
         current.hasUnderlying = true;
@@ -939,6 +947,9 @@ export default function FlowAnalysisPage() {
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
+  const [netVolumeMode, setNetVolumeMode] = useState<"cumulative_net_volume" | "cumulative_net_directional_volume">(
+    "cumulative_net_directional_volume",
+  );
 
   // Fetch all data for the selected session
   const {
@@ -1056,9 +1067,9 @@ export default function FlowAnalysisPage() {
   const mainSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
     const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    const base = buildTimeseriesFromByType(dateRows);
+    const base = buildTimeseriesFromByType(dateRows, netVolumeMode);
     return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByType, sessionTimeline]);
+  }, [selectedDate, flowByType, sessionTimeline, netVolumeMode]);
 
   // ── By-expiration ───────────────────────────────────────────────────────────
 
@@ -1095,14 +1106,14 @@ export default function FlowAnalysisPage() {
       activeSelection.size > 0
         ? dateRows.filter((r) => activeSelection.has(r.expiration))
         : dateRows.filter((r) => available.has(r.expiration));
-    const base = buildTimeseriesFromCumulativeRows(filtered);
+    const base = buildTimeseriesFromCumulativeRows(filtered, netVolumeMode);
     const aligned = alignSeriesToTimeline(base, sessionTimeline);
     const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
     return aligned.map((row) => ({
       ...row,
       underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
     }));
-  }, [selectedDate, flowByExpiration, effectiveSelectedExpirations, expirationOptions, sessionTimeline, mainSeries]);
+  }, [selectedDate, flowByExpiration, effectiveSelectedExpirations, expirationOptions, sessionTimeline, mainSeries, netVolumeMode]);
 
   // ── By-strike ───────────────────────────────────────────────────────────────
 
@@ -1158,14 +1169,14 @@ export default function FlowAnalysisPage() {
       effectiveSelectedStrikes.size > 0
         ? dateRows.filter((r) => effectiveSelectedStrikes.has(String(r.strike)))
         : dateRows;
-    const base = buildTimeseriesFromCumulativeRows(filtered);
+    const base = buildTimeseriesFromCumulativeRows(filtered, netVolumeMode);
     const aligned = alignSeriesToTimeline(base, sessionTimeline);
     const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
     return aligned.map((row) => ({
       ...row,
       underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
     }));
-  }, [selectedDate, flowByStrike, effectiveSelectedStrikes, sessionTimeline, mainSeries]);
+  }, [selectedDate, flowByStrike, effectiveSelectedStrikes, sessionTimeline, mainSeries, netVolumeMode]);
 
   // ── Put/Call ratio ──────────────────────────────────────────────────────────
 
@@ -1218,23 +1229,37 @@ export default function FlowAnalysisPage() {
       />
 
       {/* Session selector — shared across all sections */}
-      <div className="mb-6 flex items-center gap-3">
-        <span className="text-sm" style={{ color: mutedText }}>Session</span>
-        <select
-          value={flowSession}
-          onChange={(e) => {
-            setFlowSession(e.target.value as "current" | "prior");
-            setExpirationSelectionCleared(false);
-            setSelectedExpirations(new Set());
-            setStrikeSelectionCleared(false);
-            setSelectedStrikes(new Set());
-          }}
-          className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
-          style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
-        >
-          <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
-          <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
-        </select>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm" style={{ color: mutedText }}>Session</span>
+          <select
+            value={flowSession}
+            onChange={(e) => {
+              setFlowSession(e.target.value as "current" | "prior");
+              setExpirationSelectionCleared(false);
+              setSelectedExpirations(new Set());
+              setStrikeSelectionCleared(false);
+              setSelectedStrikes(new Set());
+            }}
+            className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
+            style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
+          >
+            <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
+            <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm" style={{ color: mutedText }}>Net Volume Basis</span>
+          <select
+            value={netVolumeMode}
+            onChange={(e) => setNetVolumeMode(e.target.value as "cumulative_net_volume" | "cumulative_net_directional_volume")}
+            className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
+            style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
+          >
+            <option value="cumulative_net_directional_volume">Directional</option>
+            <option value="cumulative_net_volume">Raw Net</option>
+          </select>
+        </div>
       </div>
 
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
