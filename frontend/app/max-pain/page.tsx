@@ -163,6 +163,10 @@ export default function MaxPainPage() {
 
   const markerSeparation = Math.abs(safeNum(activeExpiration?.max_pain || currentMaxPain) - underlyingStrikeMarker);
   const labelsNeedExtraOffset = markerSeparation <= 5;
+  const maxPainLabelPosition = labelsNeedExtraOffset ? "insideTopRight" : "insideTopLeft";
+  const underlyingLabelPosition = labelsNeedExtraOffset ? "insideTopLeft" : "insideTopRight";
+  const maxPainLabelDy = labelsNeedExtraOffset ? 0 : 8;
+  const underlyingLabelDy = labelsNeedExtraOffset ? 22 : 8;
 
   const filteredMaxPainRows = omitClosedMarketTimes(maxPainSeries || [], (row) => row.timestamp || "");
   const filteredPriceRows = omitClosedMarketTimes(priceSeries || [], (row) => row.timestamp);
@@ -333,8 +337,8 @@ export default function MaxPainPage() {
                 label={{
                   value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`,
                   fill: textColor,
-                  position: "insideTopLeft",
-                  dy: labelsNeedExtraOffset ? 0 : 8,
+                  position: maxPainLabelPosition,
+                  dy: maxPainLabelDy,
                 }}
               />
               <ReferenceLine
@@ -346,8 +350,8 @@ export default function MaxPainPage() {
                 label={{
                   value: `Underlying $${currentUnderlying.toFixed(2)}`,
                   fill: textColor,
-                  position: "insideTopRight",
-                  dy: labelsNeedExtraOffset ? 22 : 8,
+                  position: underlyingLabelPosition,
+                  dy: underlyingLabelDy,
                 }}
               />
               <Bar dataKey="callNotionalM" name="Call Notional" fill={colors.bullish} />
