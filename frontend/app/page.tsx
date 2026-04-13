@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXByStrike, useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import GexStrikeChart from '@/components/GexStrikeChart';
 import {
   TrendingUp,
   TrendingDown,
@@ -296,8 +297,8 @@ export default function LandingPage() {
       })),
     [spyStrikeData],
   );
-  const previewStrikeMaxAbs = useMemo(
-    () => Math.max(...previewStrikeBars.map((row) => Math.abs(row.netGex)), 1),
+  const previewStrikeChartData = useMemo(
+    () => previewStrikeBars.map((row) => ({ strike: row.strike, netGexB: row.netGex / 1_000_000_000 })),
     [previewStrikeBars],
   );
 
@@ -568,39 +569,12 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {/* Live Gamma-by-Strike mini chart */}
-            <div
-              style={{
-                marginTop: 16, height: 80,
-                background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)',
-                borderRadius: 12,
-                border: `1px solid ${C.border}`,
-                display: 'flex', alignItems: 'flex-end',
-                gap: 3, padding: '10px 14px',
-                overflow: 'hidden',
-              }}
-            >
-              {previewStrikeBars.length === 0 ? (
-                <div style={{ color: C.muted, fontSize: 12 }}>Loading gamma-by-strike…</div>
-              ) : (
-                previewStrikeBars.map((bar, i) => {
-                const h = Math.max(8, (Math.abs(bar.netGex) / previewStrikeMaxAbs) * 100);
-                const positive = bar.netGex >= 0;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: `${h}%`,
-                      background: positive ? `${C.green}90` : `${C.red}90`,
-                      borderRadius: 3,
-                      minWidth: 4,
-                    }}
-                    title={`$${bar.strike.toFixed(0)} • ${bar.netGex >= 0 ? '+' : ''}$${(bar.netGex / 1_000_000).toFixed(1)}M`}
-                  />
-                );
-              })
-              )}
+            <div style={{ marginTop: 16 }}>
+              <GexStrikeChart
+                strikeData={previewStrikeChartData}
+                gammaFlip={spyGex?.gamma_flip}
+                spotPrice={spyQuote?.close}
+              />
             </div>
           </div>
         </div>
