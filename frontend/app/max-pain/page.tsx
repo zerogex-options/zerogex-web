@@ -18,6 +18,7 @@ import MetricCard from "@/components/MetricCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
+import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
@@ -195,6 +196,20 @@ export default function MaxPainPage() {
   const latest = seriesChart[seriesChart.length - 1];
   const impliedMove = currentMaxPain - currentUnderlying;
   const impliedMovePct = currentUnderlying > 0 ? (impliedMove / currentUnderlying) * 100 : 0;
+  const maxPainTone: 'bullish' | 'bearish' | 'neutral' =
+    Math.abs(impliedMovePct) <= 0.4 ? 'neutral' : impliedMove > 0 ? 'bullish' : 'bearish';
+  const maxPainBadge = Math.abs(impliedMovePct) <= 0.4
+    ? 'Pin Risk Elevated'
+    : impliedMove > 0
+      ? 'Upside Magnet'
+      : 'Downside Magnet';
+  const maxPainSummary = `Spot is ${impliedMove >= 0 ? 'below' : 'above'} max pain by ${Math.abs(impliedMove).toFixed(2)} points (${Math.abs(impliedMovePct).toFixed(2)}%). ${
+    Math.abs(impliedMovePct) <= 0.4
+      ? 'Price is already near the pin, so expect more mean-reversion behavior and faster failed breakouts.'
+      : impliedMove > 0
+        ? 'A higher pin suggests dealer hedging can nudge price upward into expirations if buyers stay engaged.'
+        : 'A lower pin suggests gravity can remain to the downside into expiry, especially on failed bounces.'
+  } Day and swing traders can use this as context: fade overextensions near the pin, but treat decisive breaks away from max pain as trend-confirmation signals.`;
 
   const textColor = theme === "dark" ? colors.light : colors.dark;
   const panelBg = theme === "dark" ? colors.cardDark : colors.cardLight;
@@ -234,6 +249,12 @@ export default function MaxPainPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Max Pain</h1>
+      <RegimeSummaryBanner
+        title="Max Pain Regime"
+        badge={maxPainBadge}
+        tone={maxPainTone}
+        summary={maxPainSummary}
+      />
 
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />

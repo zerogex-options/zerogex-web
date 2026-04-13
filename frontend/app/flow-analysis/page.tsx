@@ -19,6 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
+import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -1033,6 +1034,22 @@ export default function FlowAnalysisPage() {
       putCallRatio: Number(latest.running_put_call_ratio || 0),
     };
   }, [selectedDate, flowByType]);
+  const flowTone: 'bullish' | 'bearish' | 'neutral' = !latestSnapshot
+    ? 'neutral'
+    : (Math.abs(latestSnapshot.netPremium) < 250_000 && Math.abs(latestSnapshot.netFlow) < 10_000)
+      ? 'neutral'
+      : latestSnapshot.netPremium > 0 && latestSnapshot.netFlow > 0
+        ? 'bullish'
+        : latestSnapshot.netPremium < 0 && latestSnapshot.netFlow < 0
+          ? 'bearish'
+          : 'neutral';
+  const flowBadge =
+    flowTone === 'neutral' ? 'Mixed / Two-Way Flow' : flowTone === 'bullish' ? 'Risk-On Flow Regime' : 'Risk-Off Flow Regime';
+  const flowSummary = !latestSnapshot
+    ? 'Flow snapshot is still loading. Once data arrives, this banner will summarize whether options participants are pressing risk-on or risk-off in the selected session.'
+    : `Session flow is showing ${latestSnapshot.netPremium >= 0 ? 'net call-premium' : 'net put-premium'} pressure of $${(Math.abs(latestSnapshot.netPremium) / 1_000_000).toFixed(2)}M with a net contract imbalance of ${Math.abs(latestSnapshot.netFlow).toLocaleString()} (${latestSnapshot.netFlow >= 0 ? 'call-led' : 'put-led'}). Put/Call ratio is ${latestSnapshot.putCallRatio.toFixed(2)}, which ${
+      latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
+    }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
 
   // ── Main options flow series ────────────────────────────────────────────────
 
@@ -1193,6 +1210,12 @@ export default function FlowAnalysisPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Market Tide</h1>
       {flowError && <ErrorMessage message={flowError} />}
+      <RegimeSummaryBanner
+        title="Market Tide Regime"
+        badge={flowBadge}
+        tone={flowTone}
+        summary={flowSummary}
+      />
 
       {/* Session selector — shared across all sections */}
       <div className="mb-6 flex items-center gap-3">

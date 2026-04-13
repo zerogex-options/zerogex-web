@@ -10,6 +10,7 @@ import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
+import RegimeSummaryBanner from '@/components/RegimeSummaryBanner';
 
 interface SmartMoneyRow {
   timestamp?: string;
@@ -218,10 +219,40 @@ export default function SmartMoneyPage() {
       .filter(Boolean);
     return timestamps.length ? latestTimestamp(timestamps) : null;
   }, [filteredSmartMoneyData]);
+  const smartMoneyTotals = useMemo(() => {
+    return filteredSmartMoneyData.reduce(
+      (acc, row) => {
+        const notional = Number(row.absNotional || 0);
+        const optionType = String(row.option_type || '').toUpperCase();
+        if (optionType.includes('C')) acc.call += notional;
+        if (optionType.includes('P')) acc.put += notional;
+        return acc;
+      },
+      { call: 0, put: 0 },
+    );
+  }, [filteredSmartMoneyData]);
+  const smartMoneyNet = smartMoneyTotals.call - smartMoneyTotals.put;
+  const smartMoneyTone: 'bullish' | 'bearish' | 'neutral' =
+    Math.abs(smartMoneyNet) < 250_000 ? 'neutral' : smartMoneyNet > 0 ? 'bullish' : 'bearish';
+  const smartMoneyBadge =
+    smartMoneyTone === 'neutral' ? 'Balanced Positioning' : smartMoneyTone === 'bullish' ? 'Call Buyers in Control' : 'Put Buyers in Control';
+  const smartMoneySummary = `Filtered blocks show ${smartMoneyNet >= 0 ? 'net call' : 'net put'} notional of $${(Math.abs(smartMoneyNet) / 1_000_000).toFixed(2)}M ($${(smartMoneyTotals.call / 1_000_000).toFixed(2)}M calls vs $${(smartMoneyTotals.put / 1_000_000).toFixed(2)}M puts). ${
+    smartMoneyTone === 'neutral'
+      ? 'Positioning is relatively balanced, so confirmation from price action is more important than flow alone.'
+      : smartMoneyTone === 'bullish'
+        ? 'Call-heavy institutional flow supports dip-buying and upside continuation if price holds key supports.'
+        : 'Put-heavy institutional flow supports defensive or downside setups unless price decisively reclaims resistance.'
+  } Day traders can use this for intraday bias, while swing traders can treat sustained multi-session imbalance as a potential trend filter.`;
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => smartMoneySortKey === key ? setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc')) : (setSmartMoneySortKey(key), setSmartMoneySortDir('desc'));
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <RegimeSummaryBanner
+        title="Smart Money Regime"
+        badge={smartMoneyBadge}
+        tone={smartMoneyTone}
+        summary={smartMoneySummary}
+      />
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
           <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."><Info size={14} /></TooltipWrapper>
