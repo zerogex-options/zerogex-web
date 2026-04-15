@@ -242,11 +242,13 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const components = normalizeComponents(resolvedScoreData?.components);
   const compositeScoreRaw = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
   const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
-  const radarData = components.map((component) => ({
-    axis: component.name,
-    weightScore: Math.max(0, Math.min(100, component.weight * 100)),
-    description: `${Math.round(component.weight * 100)}% model weighting`,
-  }));
+  const radarData = components
+    .filter((component) => component.weight > 0)
+    .map((component) => ({
+      axis: component.name,
+      weightScore: Math.max(0, Math.min(100, component.weight * 100)),
+      description: `${Math.round(component.weight * 100)}% model weighting`,
+    }));
   const selectedComponentDetails = useMemo(
     () => (selectedComponent ? COMPONENT_DETAILS[selectedComponent] : null),
     [selectedComponent],
@@ -356,20 +358,22 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of weighted model components</div>
-            <MobileScrollableChart minWidthClass="min-w-[980px]">
-            <ResponsiveContainer width="100%" height="86%">
-              <RadarChart data={radarData} outerRadius="58%">
-                <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                  formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as { description?: string }).description ?? '')]}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-            </MobileScrollableChart>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of components with configured model weights</div>
+            <div className="h-[420px]">
+              <MobileScrollableChart minWidthClass="min-w-[900px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} outerRadius="68%">
+                  <PolarGrid stroke="var(--color-border)" />
+                  <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                  <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                    formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as { description?: string }).description ?? '')]}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+              </MobileScrollableChart>
+            </div>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full">
