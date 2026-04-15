@@ -356,12 +356,12 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 8-component weighting model</div>
-            <MobileScrollableChart minWidthClass="min-w-[760px]">
+            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of weighted model components</div>
+            <MobileScrollableChart minWidthClass="min-w-[980px]">
             <ResponsiveContainer width="100%" height="86%">
-              <RadarChart data={radarData} outerRadius="72%">
+              <RadarChart data={radarData} outerRadius="58%">
                 <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
+                <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
                 <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
