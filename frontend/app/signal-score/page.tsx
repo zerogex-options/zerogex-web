@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Gauge } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
@@ -18,6 +18,7 @@ function formatTime(value: unknown) {
 export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
+  const [marketContext, setMarketContext] = useState<'intraday' | 'swing'>('intraday');
   const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, 30000);
 
   const chartData = useMemo(() => {
@@ -49,6 +50,9 @@ export default function SignalScorePage() {
   }, [historyData]);
 
   const cardBg = theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)';
+  const contextSummary = marketContext === 'intraday'
+    ? 'Intraday: prioritize the current tape and active flow shifts. Treat the Composite Score as a real-time bias filter that can change quickly with dealer positioning, volatility, and options flow.'
+    : 'Swing: focus on persistence across sessions. Treat the Composite Score as a trend-alignment filter and look for repeated agreement from the same components before scaling risk.';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -56,6 +60,34 @@ export default function SignalScorePage() {
       <p className="text-[var(--color-text-secondary)] mb-8">
         Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish.
       </p>
+      <section className="zg-feature-shell p-4 mb-8">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-semibold text-sm text-[var(--color-text-primary)]">Market Context</span>
+          <button
+            onClick={() => setMarketContext('intraday')}
+            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+            style={{
+              borderColor: marketContext === 'intraday' ? 'var(--color-info)' : 'var(--color-border)',
+              backgroundColor: marketContext === 'intraday' ? 'var(--color-info-soft)' : 'transparent',
+              color: marketContext === 'intraday' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            }}
+          >
+            Intraday
+          </button>
+          <button
+            onClick={() => setMarketContext('swing')}
+            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+            style={{
+              borderColor: marketContext === 'swing' ? 'var(--color-info)' : 'var(--color-border)',
+              backgroundColor: marketContext === 'swing' ? 'var(--color-info-soft)' : 'transparent',
+              color: marketContext === 'swing' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            }}
+          >
+            Swing
+          </button>
+        </div>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{contextSummary}</p>
+      </section>
 
       <SignalScorePanel symbol={symbol} />
 
@@ -77,7 +109,7 @@ export default function SignalScorePage() {
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>18%</td><td>+GEX = suppression (+1), −GEX = amplification (−1)</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Dealer Regime</td><td>18%</td><td>+GEX = suppression (+1), −GEX = amplification (−1)</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>16%</td><td>Premium-weighted call vs put from large/unusual orders</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>16%</td><td>Dealer feedback loop amplification readiness</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>16%</td><td>Risk/reward quality of available options structures</td></tr>

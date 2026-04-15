@@ -71,6 +71,36 @@ const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
+
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
+  for (const utcHour of candidateHours) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+  if (timeline.length === 0) return timeline;
+  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
+  if (targetMs == null) return timeline;
+  const extended = [...timeline];
+  let cursor = new Date(extended[extended.length - 1]).getTime();
+  if (!Number.isFinite(cursor)) return timeline;
+  while (cursor < targetMs) {
+    cursor += 60_000;
+    extended.push(new Date(cursor).toISOString());
+  }
+  return extended;
+}
+
 const minClassOptions: Array<{ value: MinClassFilter; label: string }> = [
   { value: '500k', label: '💰 $500K+' },
   { value: '250k', label: '💵 $250K+' },
@@ -160,7 +190,10 @@ export default function SmartMoneyPage() {
     return getETDateKey(latestTimestamp(candidates));
   }, [sessionPriceData, filteredSmartMoneyData]);
 
-  const sessionTimeline = useMemo(() => sessionDateKey ? getSessionTimestamps(sessionDateKey) : [], [sessionDateKey]);
+  const sessionTimeline = useMemo(
+    () => (sessionDateKey ? extendTimelineToSessionClose(getSessionTimestamps(sessionDateKey), sessionDateKey) : []),
+    [sessionDateKey],
+  );
 
   const sortedSmartMoneyRows = useMemo(() => {
     const rows = [...filteredSmartMoneyData];
@@ -279,7 +312,7 @@ export default function SmartMoneyPage() {
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
-                  <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:00 ET session timeline."><Info size={14} /></TooltipWrapper>
+                  <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={300}>

@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import { Info, X } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
@@ -14,14 +16,149 @@ type SignalComponentRow = {
 };
 
 const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
-  'GEX Regime': 1,
-  'Smart Money': 2,
-  'Vol Expansion': 3,
-  'Opportunity Quality': 4,
-  'Gamma Flip': 5,
-  Exhaustion: 6,
-  'Positioning Trap': 7,
-  'Put/Call Ratio': 8,
+  'Dealer Regime': 1,
+  'GEX Gradient': 2,
+  'Tape Flow Bias': 3,
+  'Dealer Delta Pressure': 4,
+  'Vanna Charm Flow': 5,
+  'Intraday Regime': 6,
+  'Skew Delta': 7,
+  'Smart Money': 8,
+  'Vol Expansion': 9,
+  'Opportunity Quality': 10,
+  'Gamma Flip': 11,
+  Exhaustion: 12,
+  'Positioning Trap': 13,
+  'Put/Call Ratio': 14,
+};
+
+const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: { negative: string; neutral: string; positive: string } }> = {
+  'Dealer Regime': {
+    what: 'Measures whether dealer hedging tends to dampen moves (+gamma) or amplify moves (−gamma).',
+    why: 'Dealer positioning heavily influences index intraday behavior and breakout follow-through probability.',
+    spectrum: {
+      negative: 'Extreme negative: dealers are short gamma and hedging can accelerate directional moves.',
+      neutral: 'Net 0: mixed/transition regime, with less predictable damping or amplification.',
+      positive: 'Extreme positive: dealers are long gamma and hedging often suppresses volatility and mean-reverts price.',
+    },
+  },
+  'Smart Money': {
+    what: 'Tracks premium-weighted institutional call versus put flow from large/unusual options trades.',
+    why: 'Large informed flow can signal where sophisticated participants are expressing conviction.',
+    spectrum: {
+      negative: 'Extreme negative: put-heavy flow bias suggests defensive/downside positioning.',
+      neutral: 'Net 0: call and put flow are balanced, giving less directional edge.',
+      positive: 'Extreme positive: call-heavy flow bias suggests upside participation and risk-on tone.',
+    },
+  },
+  'GEX Gradient': {
+    what: 'Measures how rapidly gamma exposure changes as price moves across nearby strikes.',
+    why: 'Steeper gradients can create sharper hedging reactions and faster intraday acceleration/deceleration.',
+    spectrum: {
+      negative: 'Extreme negative: gradient supports downside-amplifying dealer reactions.',
+      neutral: 'Net 0: balanced slope with limited directional edge from gamma curvature.',
+      positive: 'Extreme positive: gradient supports upside-stabilizing or supportive hedging dynamics.',
+    },
+  },
+  'Tape Flow Bias': {
+    what: 'Captures real-time directional pressure in executed options/underlying flow.',
+    why: 'Short-term flow bias helps confirm whether price action is being supported or faded by participation.',
+    spectrum: {
+      negative: 'Extreme negative: sustained sell-side/put-biased tape pressure.',
+      neutral: 'Net 0: balanced flow, low conviction from tape.',
+      positive: 'Extreme positive: sustained buy-side/call-biased tape pressure.',
+    },
+  },
+  'Dealer Delta Pressure': {
+    what: 'Estimates dealer delta-hedging pressure from aggregate options positioning.',
+    why: 'Delta hedging can mechanically add directional flow that reinforces or dampens market moves.',
+    spectrum: {
+      negative: 'Extreme negative: hedging pressure leans toward downside reinforcement.',
+      neutral: 'Net 0: little net dealer delta pressure.',
+      positive: 'Extreme positive: hedging pressure leans toward upside reinforcement.',
+    },
+  },
+  'Vanna Charm Flow': {
+    what: 'Represents expected flow from vanna/charm effects as spot and time evolve.',
+    why: 'These second-order Greeks can drive persistent dealer rebalancing even without large price shocks.',
+    spectrum: {
+      negative: 'Extreme negative: vanna/charm effects skew toward sell pressure.',
+      neutral: 'Net 0: vanna/charm influence is muted or balanced.',
+      positive: 'Extreme positive: vanna/charm effects skew toward buy pressure.',
+    },
+  },
+  'Intraday Regime': {
+    what: 'Classifies the current session structure (trend, mean-revert, transition).',
+    why: 'Regime awareness improves trade selection and prevents using the wrong playbook for the tape.',
+    spectrum: {
+      negative: 'Extreme negative: bearish/trending intraday regime signal.',
+      neutral: 'Net 0: transitional or mixed regime.',
+      positive: 'Extreme positive: bullish/supportive intraday regime signal.',
+    },
+  },
+  'Skew Delta': {
+    what: 'Tracks directional information from changes in options skew and its delta sensitivity.',
+    why: 'Skew shifts often reveal demand for downside or upside protection before spot fully reacts.',
+    spectrum: {
+      negative: 'Extreme negative: skew move implies stronger downside risk pricing.',
+      neutral: 'Net 0: skew/delta posture is balanced.',
+      positive: 'Extreme positive: skew move implies stronger upside participation/risk appetite.',
+    },
+  },
+  'Vol Expansion': {
+    what: 'Estimates whether volatility conditions are primed to expand or stay contained.',
+    why: 'Volatility regime changes can determine whether directional trades trend or stall quickly.',
+    spectrum: {
+      negative: 'Extreme negative: compression regime where breakouts are less likely to sustain.',
+      neutral: 'Net 0: balanced regime with no strong volatility expansion signal.',
+      positive: 'Extreme positive: expansion regime where momentum and range extension are more likely.',
+    },
+  },
+  'Opportunity Quality': {
+    what: 'Scores whether current options structures offer favorable risk/reward characteristics.',
+    why: 'Even with directional bias, poor structure quality can reduce expected value of trades.',
+    spectrum: {
+      negative: 'Extreme negative: unattractive setups with weaker payoff asymmetry.',
+      neutral: 'Net 0: average setup quality without strong edge.',
+      positive: 'Extreme positive: high-quality structures with stronger potential risk/reward.',
+    },
+  },
+  'Gamma Flip': {
+    what: 'Measures spot positioning relative to the gamma flip level where dealer behavior can change.',
+    why: 'Crossing or rejecting flip zones often changes market tone from pinning to trending (or vice versa).',
+    spectrum: {
+      negative: 'Extreme negative: price materially below flip, favoring downside-amplifying dynamics.',
+      neutral: 'Net 0: near the flip, indicating transition and lower directional clarity.',
+      positive: 'Extreme positive: price materially above flip, favoring upside-supportive conditions.',
+    },
+  },
+  Exhaustion: {
+    what: 'Detects momentum and positioning extremes where current move may be overextended.',
+    why: 'Exhaustion flags help avoid chasing late-stage moves and improve reversal timing context.',
+    spectrum: {
+      negative: 'Extreme negative: bearish exhaustion context (risk of downside fade ending / snapback).',
+      neutral: 'Net 0: no major exhaustion signal present.',
+      positive: 'Extreme positive: bullish exhaustion context (risk of upside fade ending / bounce).',
+    },
+  },
+  'Positioning Trap': {
+    what: 'Identifies crowded positioning and potential squeeze or flush setups.',
+    why: 'Crowded consensus can reverse violently when price fails to confirm expected direction.',
+    spectrum: {
+      negative: 'Extreme negative: crowding skewed bearish with greater trap risk to downside chasers.',
+      neutral: 'Net 0: limited crowding/trap signal.',
+      positive: 'Extreme positive: crowding skewed bullish with greater trap risk to upside chasers.',
+    },
+  },
+  'Put/Call Ratio': {
+    what: 'Uses options put/call balance as a sentiment and positioning proxy.',
+    why: 'Extremes in put/call behavior can indicate one-sided sentiment and potential inflection risk.',
+    spectrum: {
+      negative: 'Extreme negative: put-heavy sentiment indicating strong risk-off positioning.',
+      neutral: 'Net 0: balanced put/call posture.',
+      positive: 'Extreme positive: call-heavy sentiment indicating stronger risk-on positioning.',
+    },
+  },
 };
 
 interface SignalScorePanelProps {
@@ -30,7 +167,14 @@ interface SignalScorePanelProps {
 
 function normalizeComponents(raw: unknown): SignalComponentRow[] {
   const COMPONENT_LABELS: Record<string, string> = {
-    gex_regime: 'GEX Regime',
+    gex_regime: 'Dealer Regime',
+    dealer_regime: 'Dealer Regime',
+    gex_gradient: 'GEX Gradient',
+    tape_flow_bias: 'Tape Flow Bias',
+    dealer_delta_pressure: 'Dealer Delta Pressure',
+    vanna_charm_flow: 'Vanna Charm Flow',
+    intraday_regime: 'Intraday Regime',
+    skew_delta: 'Skew Delta',
     smart_money: 'Smart Money',
     vol_expansion: 'Vol Expansion',
     opportunity_quality: 'Opportunity Quality',
@@ -41,7 +185,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
   };
 
   const fallbackComponents: SignalComponentRow[] = [
-    { name: 'GEX Regime', weight: 0.18, score: null, contribution: null },
+    { name: 'Dealer Regime', weight: 0.18, score: null, contribution: null },
     { name: 'Smart Money', weight: 0.16, score: null, contribution: null },
     { name: 'Vol Expansion', weight: 0.16, score: null, contribution: null },
     { name: 'Opportunity Quality', weight: 0.16, score: null, contribution: null },
@@ -77,6 +221,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
 }
 
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const { data: scoreData } = useSignalScore(symbol, 10000);
   const resolvedScoreData = (() => {
     if (!scoreData || typeof scoreData !== 'object') return null;
@@ -102,6 +247,10 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
     weightScore: Math.max(0, Math.min(100, component.weight * 100)),
     description: `${Math.round(component.weight * 100)}% model weighting`,
   }));
+  const selectedComponentDetails = useMemo(
+    () => (selectedComponent ? COMPONENT_DETAILS[selectedComponent] : null),
+    [selectedComponent],
+  );
 
   return (
     <>
@@ -110,7 +259,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Current Market Feel
-              <TooltipWrapper text="Weighted composite of 8 signals (GEX regime, smart money, vol expansion, opportunity quality, gamma flip, exhaustion, positioning trap, put/call ratio). Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
+              <TooltipWrapper text="Weighted composite of model components. Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>
@@ -237,7 +386,14 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 const spectrumPct = component.score != null ? Math.max(0, Math.min(100, (component.score + 100) / 2)) : null;
                 return (
                   <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
-                    <span className="font-medium">{component.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedComponent(component.name)}
+                      className="font-medium text-left hover:underline flex items-center gap-1.5"
+                    >
+                      {component.name}
+                      <Info size={12} className="text-[var(--color-text-secondary)]" />
+                    </button>
                     <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
                     <span className="text-right">{component.score != null ? `${component.score >= 0 ? '+' : ''}${component.score.toFixed(2)}` : '—'}</span>
                     <span className="text-right" style={{ color: component.contribution != null ? (component.contribution >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--color-text-secondary)' }}>
@@ -259,6 +415,37 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           </div>
         </div>
       </section>
+
+      {selectedComponent && selectedComponentDetails && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedComponent(null)} role="presentation">
+          <div
+            className="w-full max-w-xl rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="component-breakdown-title"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h3 id="component-breakdown-title" className="text-lg font-semibold">{selectedComponent}</h3>
+              <button type="button" onClick={() => setSelectedComponent(null)} className="rounded p-1 hover:bg-[var(--color-surface-subtle)]" aria-label="Close component details">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+              <p><span className="font-semibold text-[var(--color-text-primary)]">What it is:</span> {selectedComponentDetails.what}</p>
+              <p><span className="font-semibold text-[var(--color-text-primary)]">Why it matters:</span> {selectedComponentDetails.why}</p>
+              <div>
+                <div className="font-semibold text-[var(--color-text-primary)] mb-1">Spectrum interpretation</div>
+                <ul className="space-y-1 list-disc pl-4">
+                  <li><span className="font-medium text-[var(--color-bear)]">Extreme Negative:</span> {selectedComponentDetails.spectrum.negative}</li>
+                  <li><span className="font-medium text-[var(--color-warning)]">Net 0:</span> {selectedComponentDetails.spectrum.neutral}</li>
+                  <li><span className="font-medium text-[var(--color-bull)]">Extreme Positive:</span> {selectedComponentDetails.spectrum.positive}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
