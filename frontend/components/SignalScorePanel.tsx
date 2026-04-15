@@ -32,6 +32,17 @@ const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
   'Put/Call Ratio': 14,
 };
 
+const RADAR_COMPONENT_ORDER = [
+  'Smart Money',
+  'Dealer Regime',
+  'GEX Gradient',
+  'Tape Flow Bias',
+  'Dealer Delta Pressure',
+  'Vanna Charm Flow',
+  'Intraday Regime',
+  'Skew Delta',
+] as const;
+
 const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: { negative: string; neutral: string; positive: string } }> = {
   'Dealer Regime': {
     what: 'Measures whether dealer hedging tends to dampen moves (+gamma) or amplify moves (−gamma).',
@@ -242,8 +253,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const components = normalizeComponents(resolvedScoreData?.components);
   const compositeScoreRaw = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
   const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
-  const radarData = components
-    .filter((component) => component.weight > 0)
+  const radarData = RADAR_COMPONENT_ORDER
+    .map((name) => components.find((component) => component.name === name))
+    .filter((component): component is SignalComponentRow => Boolean(component) && component.weight > 0)
     .map((component) => ({
       axis: component.name,
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),
@@ -358,7 +370,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of components with configured model weights</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of 8 primary model components</div>
             <div className="h-[420px]">
               <MobileScrollableChart minWidthClass="min-w-[900px]">
               <ResponsiveContainer width="100%" height="100%">
