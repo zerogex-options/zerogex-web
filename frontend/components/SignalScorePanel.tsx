@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Info, X } from 'lucide-react';
+import { AlertTriangle, Info, Target, Users, X } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
@@ -13,6 +13,18 @@ type SignalComponentRow = {
   weight: number;
   score: number | null;
   contribution: number | null;
+};
+
+type AggregationData = {
+  mode?: string;
+  active_count?: number;
+  active_weight?: number;
+  raw_composite?: number;
+  renormalized?: number;
+  agreement?: number;
+  agreement_multiplier?: number;
+  max_abs_component?: number;
+  extremity_multiplier?: number;
 };
 
 const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
@@ -251,8 +263,47 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   })();
 
   const components = normalizeComponents(resolvedScoreData?.components);
+  const aggregation = (resolvedScoreData?.aggregation && typeof resolvedScoreData.aggregation === 'object'
+    ? resolvedScoreData.aggregation
+    : null) as AggregationData | null;
   const compositeScoreRaw = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
   const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
+  const scalpThreshold = 0.36;
+  const fullThreshold = 0.52;
+  const totalComponents = components.length;
+  const activeFromRows = components.filter((component) => Math.abs(component.score ?? 0) >= 0.02).length;
+  const activeCount = aggregation?.active_count ?? activeFromRows;
+  const dormantCount = Math.max(0, totalComponents - activeCount);
+  const activeWeight = aggregation?.active_weight ?? components.reduce((sum, component) => sum + (Math.abs(component.score ?? 0) >= 0.02 ? component.weight : 0), 0);
+  const rawComposite = aggregation?.raw_composite ?? null;
+  const renormalized = aggregation?.renormalized ?? null;
+  const agreement = aggregation?.agreement ?? null;
+  const agreementMultiplier = aggregation?.agreement_multiplier ?? null;
+  const maxAbsComponent = aggregation?.max_abs_component ?? null;
+  const extremityMultiplier = aggregation?.extremity_multiplier ?? null;
+  const topComponent = useMemo(
+    () => [...components].sort((a, b) => Math.abs(b.score ?? 0) - Math.abs(a.score ?? 0))[0] ?? null,
+    [components],
+  );
+  const displayedFinalComposite = compositeScore != null ? compositeScore / 100 : null;
+  const finalComposite = displayedFinalComposite ?? (renormalized != null && agreementMultiplier != null && extremityMultiplier != null
+    ? renormalized * agreementMultiplier * extremityMultiplier
+    : null);
+  const nextThreshold = finalComposite == null
+    ? null
+    : finalComposite < scalpThreshold
+      ? scalpThreshold
+      : finalComposite < fullThreshold
+        ? fullThreshold
+        : null;
+  const distanceToThreshold = nextThreshold != null && finalComposite != null ? nextThreshold - finalComposite : null;
+  const thresholdTone = finalComposite == null
+    ? 'neutral'
+    : finalComposite >= fullThreshold
+      ? 'green'
+      : finalComposite >= scalpThreshold
+        ? 'amber'
+        : 'red';
   const radarData = RADAR_COMPONENT_ORDER
     .map((name) => components.find((component) => component.name === name))
     .filter((component): component is SignalComponentRow => component != null)
@@ -262,6 +313,24 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),
       description: `${Math.round(component.weight * 100)}% model weighting`,
     }));
+  const enrichedComponents = useMemo(
+    () => components.map((component) => ({
+      ...component,
+      isDormant: Math.abs(component.score ?? 0) < 0.02,
+      isLoudest:
+        topComponent != null
+        && component.name === topComponent.name
+        && Math.abs(component.score ?? 0) === Math.abs(topComponent.score ?? 0),
+    })),
+    [components, topComponent],
+  );
+  const sortedComponents = useMemo(
+    () => [...enrichedComponents].sort((a, b) => {
+      if (a.isDormant !== b.isDormant) return a.isDormant ? 1 : -1;
+      return (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999);
+    }),
+    [enrichedComponents],
+  );
   const selectedComponentDetails = useMemo(
     () => (selectedComponent ? COMPONENT_DETAILS[selectedComponent] : null),
     [selectedComponent],
@@ -368,6 +437,78 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       </div>
 
       <section className="zg-feature-shell mt-8 p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="text-xl font-semibold">Aggregation Walkthrough</h3>
+          <span className="text-xs px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+            Mode: {aggregation?.mode ?? 'conviction'}
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] mb-5">
+          <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-3">Trigger Path Receipt</div>
+          <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-center">
+            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Raw</div><div className="font-semibold">{rawComposite != null ? rawComposite.toFixed(3) : '—'}</div></div>
+            <div className="text-center text-[var(--color-text-secondary)]">→</div>
+            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Active-weighted</div><div className="font-semibold">{renormalized != null ? renormalized.toFixed(3) : '—'}</div></div>
+            <div className="text-center text-[var(--color-text-secondary)]">×</div>
+            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Agreement</div><div className="font-semibold">{agreementMultiplier != null ? agreementMultiplier.toFixed(2) : '—'}x</div></div>
+            <div className="text-center text-[var(--color-text-secondary)]">×</div>
+            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Extremity</div><div className="font-semibold">{extremityMultiplier != null ? extremityMultiplier.toFixed(2) : '—'}x</div></div>
+          </div>
+          <div className="mt-3 rounded-lg border border-[var(--color-border)] p-2">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-[var(--color-text-secondary)]">Final Composite</span>
+              <span className={`font-semibold ${thresholdTone === 'green' ? 'text-[var(--color-bull)]' : thresholdTone === 'amber' ? 'text-[var(--color-warning)]' : 'text-[var(--color-bear)]'}`}>
+                {finalComposite != null ? finalComposite.toFixed(3) : '—'}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-[var(--color-surface)] relative overflow-hidden">
+              <div className="absolute inset-y-0 left-0 bg-[var(--color-bear)]/35" style={{ width: `${(scalpThreshold / 0.8) * 100}%` }} />
+              <div className="absolute inset-y-0 bg-[var(--color-warning)]/35" style={{ left: `${(scalpThreshold / 0.8) * 100}%`, width: `${((fullThreshold - scalpThreshold) / 0.8) * 100}%` }} />
+              <div className="absolute inset-y-0 right-0 bg-[var(--color-bull)]/30" style={{ width: `${((0.8 - fullThreshold) / 0.8) * 100}%` }} />
+              <div className="absolute -top-1 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: `${Math.max(0, Math.min(100, ((finalComposite ?? 0) / 0.8) * 100))}%` }} />
+            </div>
+            <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">scalp {scalpThreshold.toFixed(2)} · full {fullThreshold.toFixed(2)}{distanceToThreshold != null ? ` · gap ${distanceToThreshold.toFixed(3)}` : ''}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Users size={14} /> Participation</div>
+            <div className="font-semibold">{activeCount}/{totalComponents} active — {dormantCount} dormant</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mt-1">Active weight: {(activeWeight * 100).toFixed(1)}%</div>
+            {activeCount < 8 && <div className="mt-2 text-xs text-[var(--color-warning)]">Thin participation — composite may be unstable.</div>}
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Target size={14} /> Agreement</div>
+            <div className="font-semibold">{agreement != null ? `${(agreement * 100).toFixed(1)}%` : '—'}</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mt-1">{agreement != null ? (agreement >= 0.9 ? 'Strong consensus' : agreement >= 0.7 ? 'Moderate consensus' : 'Low consensus') : 'Awaiting aggregation data'}</div>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Info size={14} /> Max Conviction</div>
+            <div className="font-semibold">{maxAbsComponent != null ? maxAbsComponent.toFixed(2) : (topComponent?.score != null ? Math.abs(topComponent.score).toFixed(2) : '—')}</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mt-1">Driver: {topComponent?.name ?? '—'}</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {agreement != null && agreement < 0.65 && (maxAbsComponent ?? Math.abs(topComponent?.score ?? 0)) >= 0.9 && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">
+              <AlertTriangle size={12} /> Conflicted signal
+            </span>
+          )}
+          {agreement != null && agreement > 0.85 && activeCount > 12 && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-bull)] text-[var(--color-bull)]">
+              Building consensus
+            </span>
+          )}
+        </div>
+        <div className="text-sm text-[var(--color-text-secondary)]">
+          {finalComposite != null ? `${finalComposite >= 0 ? 'Bullish' : 'Bearish'} consensus across ${activeCount}/${totalComponents} components${agreement != null ? ` (${(agreement * 100).toFixed(0)}% agreement)` : ''}, driven by ${topComponent?.name ?? 'the top component'}${maxAbsComponent != null ? ` at ${maxAbsComponent.toFixed(2)} max conviction` : ''}. Composite ${finalComposite.toFixed(3)}${nextThreshold != null && distanceToThreshold != null ? ` — below ${nextThreshold.toFixed(2)} trigger by ${Math.max(0, distanceToThreshold).toFixed(3)}.` : '.'}` : 'Aggregation explain-why sentence will appear as soon as aggregation data is available.'}
+        </div>
+      </section>
+
+      <section className="zg-feature-shell mt-8 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
@@ -399,16 +540,18 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <span className="text-center">Spectrum</span>
             </div>
             <div className="divide-y divide-[var(--color-border)]">
-              {components.map((component) => {
+              {sortedComponents.map((component) => {
                 const spectrumPct = component.score != null ? Math.max(0, Math.min(100, (component.score + 100) / 2)) : null;
                 return (
-                  <div key={component.name} className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center">
+                  <div key={component.name} className={`grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center ${component.isDormant ? 'opacity-55' : ''}`}>
                     <button
                       type="button"
                       onClick={() => setSelectedComponent(component.name)}
                       className="font-medium text-left hover:underline flex items-center gap-1.5"
                     >
                       {component.name}
+                      {component.isLoudest && <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">Top</span>}
+                      {component.isDormant && <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">Dormant</span>}
                       <Info size={12} className="text-[var(--color-text-secondary)]" />
                     </button>
                     <span className="text-right text-[var(--color-text-secondary)]">{(component.weight * 100).toFixed(0)}%</span>
