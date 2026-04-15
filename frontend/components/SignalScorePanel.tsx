@@ -9,6 +9,7 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 
 type SignalComponentRow = {
+  key?: string;
   name: string;
   weight: number;
   score: number | null;
@@ -28,20 +29,21 @@ type AggregationData = {
 };
 
 const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
-  'Dealer Regime': 1,
-  'GEX Gradient': 2,
-  'Tape Flow Bias': 3,
-  'Dealer Delta Pressure': 4,
-  'Vanna Charm Flow': 5,
-  'Intraday Regime': 6,
-  'Skew Delta': 7,
-  'Smart Money': 8,
-  'Vol Expansion': 9,
-  'Opportunity Quality': 10,
-  'Gamma Flip': 11,
+  'GEX Regime': 1,
+  'Gamma Flip': 2,
+  'Dealer Regime': 3,
+  'GEX Gradient': 4,
+  'Dealer Delta Pressure': 5,
+  'Vanna Charm Flow': 6,
+  'Smart Money': 7,
+  'Tape Flow Bias': 8,
+  'Put/Call Ratio': 9,
+  'Skew Delta': 10,
+  'Vol Expansion': 11,
   Exhaustion: 12,
   'Positioning Trap': 13,
-  'Put/Call Ratio': 14,
+  'Intraday Regime': 14,
+  'Opportunity Quality': 15,
 };
 
 const RADAR_COMPONENT_ORDER = [
@@ -55,19 +57,53 @@ const RADAR_COMPONENT_ORDER = [
   'Skew Delta',
 ] as const;
 
-const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: { negative: string; neutral: string; positive: string } }> = {
+const COMPONENT_DETAILS: Record<string, { bucket: string; weight: number; what: string; math: string; why: string; abstains: string; spectrum: { negative: string; neutral: string; positive: string } }> = {
+  'GEX Regime': {
+    bucket: 'Dealer Structure',
+    weight: 0.07,
+    what: 'Magnitude/sign read of aggregate dealer gamma across the book.',
+    math: 'score = -tanh(net_gex / 2.5e8)',
+    why: 'Establishes the base volatility-amplification regime dealers are likely to enforce.',
+    abstains: 'Effectively always active in production.',
+    spectrum: {
+      negative: 'Positive net GEX / long-gamma suppression regime.',
+      neutral: 'Mixed or low-magnitude aggregate gamma regime.',
+      positive: 'Negative net GEX / short-gamma amplification regime.',
+    },
+  },
   'Dealer Regime': {
+    bucket: 'Dealer Structure',
+    weight: 0.08,
     what: 'Measures whether dealer hedging tends to dampen moves (+gamma) or amplify moves (−gamma).',
+    math: 'Composite 5-factor positional regime score normalized to [-1, +1].',
     why: 'Dealer positioning heavily influences index intraday behavior and breakout follow-through probability.',
+    abstains: 'Never fully abstains; weak/unknown sub-inputs resolve to 0.',
     spectrum: {
       negative: 'Extreme negative: dealers are short gamma and hedging can accelerate directional moves.',
       neutral: 'Net 0: mixed/transition regime, with less predictable damping or amplification.',
       positive: 'Extreme positive: dealers are long gamma and hedging often suppresses volatility and mean-reverts price.',
     },
   },
+  'Gamma Flip': {
+    bucket: 'Dealer Structure',
+    weight: 0.05,
+    what: 'Distance of spot from the gamma flip strike where net dealer gamma changes sign.',
+    math: 'score = tanh(distance_pct / 0.005)',
+    why: 'Captures regime transition pressure around the flip boundary.',
+    abstains: 'Abstains when gamma flip is unavailable.',
+    spectrum: {
+      negative: 'Below flip / mean-revert-favoring continuation regime.',
+      neutral: 'Near flip / transitional structure.',
+      positive: 'Above flip / momentum-amplifying continuation regime.',
+    },
+  },
   'Smart Money': {
+    bucket: 'Flow / Positioning',
+    weight: 0.09,
     what: 'Tracks premium-weighted institutional call versus put flow from large/unusual options trades.',
+    math: 'Premium imbalance over recent smart-money window with confidence and divergence adjustment.',
     why: 'Large informed flow can signal where sophisticated participants are expressing conviction.',
+    abstains: 'Abstains when recent smart-money premium is below activity threshold.',
     spectrum: {
       negative: 'Extreme negative: put-heavy flow bias suggests defensive/downside positioning.',
       neutral: 'Net 0: call and put flow are balanced, giving less directional edge.',
@@ -75,8 +111,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'GEX Gradient': {
+    bucket: 'Dealer Structure',
+    weight: 0.08,
     what: 'Measures how rapidly gamma exposure changes as price moves across nearby strikes.',
+    math: 'Asymmetry between above-spot vs below-spot strike gamma buckets, adjusted for dealer sign.',
     why: 'Steeper gradients can create sharper hedging reactions and faster intraday acceleration/deceleration.',
+    abstains: 'Abstains when strike-level gamma buckets are unavailable or insufficient.',
     spectrum: {
       negative: 'Extreme negative: gradient supports downside-amplifying dealer reactions.',
       neutral: 'Net 0: balanced slope with limited directional edge from gamma curvature.',
@@ -84,8 +124,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Tape Flow Bias': {
+    bucket: 'Flow / Positioning',
+    weight: 0.08,
     what: 'Captures real-time directional pressure in executed options/underlying flow.',
+    math: 'Directional net premium over total absolute premium with saturation scaling.',
     why: 'Short-term flow bias helps confirm whether price action is being supported or faded by participation.',
+    abstains: 'Abstains on thin/empty flow_by_type windows.',
     spectrum: {
       negative: 'Extreme negative: sustained sell-side/put-biased tape pressure.',
       neutral: 'Net 0: balanced flow, low conviction from tape.',
@@ -93,8 +137,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Dealer Delta Pressure': {
+    bucket: 'Dealer Structure',
+    weight: 0.08,
     what: 'Estimates dealer delta-hedging pressure from aggregate options positioning.',
+    math: 'score = -tanh(dealer_net_delta / 3.0e8)',
     why: 'Delta hedging can mechanically add directional flow that reinforces or dampens market moves.',
+    abstains: 'Abstains if no dealer delta source and no usable strike-level proxies.',
     spectrum: {
       negative: 'Extreme negative: hedging pressure leans toward downside reinforcement.',
       neutral: 'Net 0: little net dealer delta pressure.',
@@ -102,8 +150,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Vanna Charm Flow': {
+    bucket: 'Dealer Structure',
+    weight: 0.07,
     what: 'Represents expected flow from vanna/charm effects as spot and time evolve.',
+    math: 'Combined(vanna + charm*time-of-day weighting) normalized to saturation.',
     why: 'These second-order Greeks can drive persistent dealer rebalancing even without large price shocks.',
+    abstains: 'Abstains when vanna/charm exposure columns are missing.',
     spectrum: {
       negative: 'Extreme negative: vanna/charm effects skew toward sell pressure.',
       neutral: 'Net 0: vanna/charm influence is muted or balanced.',
@@ -111,8 +163,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Intraday Regime': {
+    bucket: 'Price Behavior',
+    weight: 0.05,
     what: 'Classifies the current session structure (trend, mean-revert, transition).',
+    math: 'Phase-aware momentum/mean-reversion/pinning logic across session windows.',
     why: 'Regime awareness improves trade selection and prevents using the wrong playbook for the tape.',
+    abstains: 'Pre-open and post-close return neutral/abstain.',
     spectrum: {
       negative: 'Extreme negative: bearish/trending intraday regime signal.',
       neutral: 'Net 0: transitional or mixed regime.',
@@ -120,8 +176,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Skew Delta': {
+    bucket: 'Flow / Positioning',
+    weight: 0.04,
     what: 'Tracks directional information from changes in options skew and its delta sensitivity.',
+    math: 'OTM put IV - OTM call IV vs baseline; deviation saturates and sign is inverted for bearish skew.',
     why: 'Skew shifts often reveal demand for downside or upside protection before spot fully reacts.',
+    abstains: 'Abstains when either OTM put/call IV bucket is missing.',
     spectrum: {
       negative: 'Extreme negative: skew move implies stronger downside risk pricing.',
       neutral: 'Net 0: skew/delta posture is balanced.',
@@ -129,8 +189,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Vol Expansion': {
+    bucket: 'Price Behavior',
+    weight: 0.08,
     what: 'Estimates whether volatility conditions are primed to expand or stay contained.',
+    math: 'Readiness (from net GEX) × momentum direction.',
     why: 'Volatility regime changes can determine whether directional trades trend or stall quickly.',
+    abstains: 'Abstains with insufficient recent close history.',
     spectrum: {
       negative: 'Extreme negative: compression regime where breakouts are less likely to sustain.',
       neutral: 'Net 0: balanced regime with no strong volatility expansion signal.',
@@ -138,26 +202,25 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Opportunity Quality': {
+    bucket: 'Meta / Opportunity',
+    weight: 0.07,
     what: 'Scores whether current options structures offer favorable risk/reward characteristics.',
+    math: 'Optimizer-derived blend of POP, EV, liquidity, and sharpe-like quality metrics.',
     why: 'Even with directional bias, poor structure quality can reduce expected value of trades.',
+    abstains: 'Abstains on neutral direction, failed chain query, or missing candidate path.',
     spectrum: {
       negative: 'Extreme negative: unattractive setups with weaker payoff asymmetry.',
       neutral: 'Net 0: average setup quality without strong edge.',
       positive: 'Extreme positive: high-quality structures with stronger potential risk/reward.',
     },
   },
-  'Gamma Flip': {
-    what: 'Measures spot positioning relative to the gamma flip level where dealer behavior can change.',
-    why: 'Crossing or rejecting flip zones often changes market tone from pinning to trending (or vice versa).',
-    spectrum: {
-      negative: 'Extreme negative: price materially below flip, favoring downside-amplifying dynamics.',
-      neutral: 'Net 0: near the flip, indicating transition and lower directional clarity.',
-      positive: 'Extreme positive: price materially above flip, favoring upside-supportive conditions.',
-    },
-  },
   Exhaustion: {
+    bucket: 'Price Behavior',
+    weight: 0.05,
     what: 'Detects momentum and positioning extremes where current move may be overextended.',
+    math: 'Weighted blend of drift, RSI extremes, and extension, then signed opposite momentum direction.',
     why: 'Exhaustion flags help avoid chasing late-stage moves and improve reversal timing context.',
+    abstains: 'Abstains with insufficient price-history bars.',
     spectrum: {
       negative: 'Extreme negative: bearish exhaustion context (risk of downside fade ending / snapback).',
       neutral: 'Net 0: no major exhaustion signal present.',
@@ -165,8 +228,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Positioning Trap': {
+    bucket: 'Price Behavior',
+    weight: 0.06,
     what: 'Identifies crowded positioning and potential squeeze or flush setups.',
+    math: 'Net of squeeze-vs-flush crowding composites.',
     why: 'Crowded consensus can reverse violently when price fails to confirm expected direction.',
+    abstains: 'Generally always emits (available inputs default missing legs to 0).',
     spectrum: {
       negative: 'Extreme negative: crowding skewed bearish with greater trap risk to downside chasers.',
       neutral: 'Net 0: limited crowding/trap signal.',
@@ -174,8 +241,12 @@ const COMPONENT_DETAILS: Record<string, { what: string; why: string; spectrum: {
     },
   },
   'Put/Call Ratio': {
+    bucket: 'Flow / Positioning',
+    weight: 0.05,
     what: 'Uses options put/call balance as a sentiment and positioning proxy.',
+    math: 'Threshold/interpolated PCR mapping between bullish and bearish extremes.',
     why: 'Extremes in put/call behavior can indicate one-sided sentiment and potential inflection risk.',
+    abstains: 'Rarely abstains in practice; usually always populated.',
     spectrum: {
       negative: 'Extreme negative: put-heavy sentiment indicating strong risk-off positioning.',
       neutral: 'Net 0: balanced put/call posture.',
@@ -190,7 +261,7 @@ interface SignalScorePanelProps {
 
 function normalizeComponents(raw: unknown): SignalComponentRow[] {
   const COMPONENT_LABELS: Record<string, string> = {
-    gex_regime: 'Dealer Regime',
+    gex_regime: 'GEX Regime',
     dealer_regime: 'Dealer Regime',
     gex_gradient: 'GEX Gradient',
     tape_flow_bias: 'Tape Flow Bias',
@@ -208,19 +279,27 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
   };
 
   const fallbackComponents: SignalComponentRow[] = [
-    { name: 'Dealer Regime', weight: 0.18, score: null, contribution: null },
-    { name: 'Smart Money', weight: 0.16, score: null, contribution: null },
-    { name: 'Vol Expansion', weight: 0.16, score: null, contribution: null },
-    { name: 'Opportunity Quality', weight: 0.16, score: null, contribution: null },
-    { name: 'Gamma Flip', weight: 0.12, score: null, contribution: null },
-    { name: 'Exhaustion', weight: 0.12, score: null, contribution: null },
-    { name: 'Positioning Trap', weight: 0.10, score: null, contribution: null },
-    { name: 'Put/Call Ratio', weight: 0.10, score: null, contribution: null },
+    { name: 'GEX Regime', weight: 0.07, score: null, contribution: null },
+    { name: 'Gamma Flip', weight: 0.05, score: null, contribution: null },
+    { name: 'Dealer Regime', weight: 0.08, score: null, contribution: null },
+    { name: 'GEX Gradient', weight: 0.08, score: null, contribution: null },
+    { name: 'Dealer Delta Pressure', weight: 0.08, score: null, contribution: null },
+    { name: 'Vanna Charm Flow', weight: 0.07, score: null, contribution: null },
+    { name: 'Smart Money', weight: 0.09, score: null, contribution: null },
+    { name: 'Tape Flow Bias', weight: 0.08, score: null, contribution: null },
+    { name: 'Put/Call Ratio', weight: 0.05, score: null, contribution: null },
+    { name: 'Skew Delta', weight: 0.04, score: null, contribution: null },
+    { name: 'Vol Expansion', weight: 0.08, score: null, contribution: null },
+    { name: 'Exhaustion', weight: 0.05, score: null, contribution: null },
+    { name: 'Positioning Trap', weight: 0.06, score: null, contribution: null },
+    { name: 'Intraday Regime', weight: 0.05, score: null, contribution: null },
+    { name: 'Opportunity Quality', weight: 0.07, score: null, contribution: null },
   ];
 
   if (Array.isArray(raw) && raw.length > 0) {
     return raw.map((c) => ({
       name: typeof c?.name === 'string' ? c.name : 'Component',
+      key: typeof c?.key === 'string' ? c.key : undefined,
       weight: typeof c?.weight === 'number' ? c.weight : 0,
       score: typeof c?.score === 'number' ? c.score : null,
       contribution: typeof c?.contribution === 'number' ? c.contribution : null,
@@ -230,6 +309,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const dict = raw as Record<string, { score?: number; weight?: number; contribution?: number }>;
     return Object.entries(dict).map(([key, value]) => ({
+      key,
       name: COMPONENT_LABELS[key] ?? key,
       weight: value.weight ?? 0,
       score: typeof value.score === 'number' ? value.score : null,
@@ -313,24 +393,27 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),
       description: `${Math.round(component.weight * 100)}% model weighting`,
     }));
-  const enrichedComponents = useMemo(
-    () => components.map((component) => ({
+  const sortedComponents = useMemo(() => {
+    const sorted = [...components].sort((a, b) => {
+      const contributionA = a.contribution ?? 0;
+      const contributionB = b.contribution ?? 0;
+      if ((compositeScore ?? 0) < 0) {
+        if (contributionA !== contributionB) return contributionA - contributionB;
+      } else {
+        if (contributionA !== contributionB) return contributionB - contributionA;
+      }
+      return (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999);
+    });
+    const topSorted = sorted[0];
+    return sorted.map((component) => ({
       ...component,
       isDormant: Math.abs(component.score ?? 0) < 0.02,
-      isLoudest:
-        topComponent != null
-        && component.name === topComponent.name
-        && Math.abs(component.score ?? 0) === Math.abs(topComponent.score ?? 0),
-    })),
-    [components, topComponent],
-  );
-  const sortedComponents = useMemo(
-    () => [...enrichedComponents].sort((a, b) => {
-      if (a.isDormant !== b.isDormant) return a.isDormant ? 1 : -1;
-      return (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999);
-    }),
-    [enrichedComponents],
-  );
+      isTopByContribution:
+        topSorted != null
+        && component.name === topSorted.name
+        && (component.contribution ?? 0) === (topSorted.contribution ?? 0),
+    }));
+  }, [components, compositeScore]);
   const selectedComponentDetails = useMemo(
     () => (selectedComponent ? COMPONENT_DETAILS[selectedComponent] : null),
     [selectedComponent],
@@ -550,7 +633,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                       className="font-medium text-left hover:underline flex items-center gap-1.5"
                     >
                       {component.name}
-                      {component.isLoudest && <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">Top</span>}
+                      {component.isTopByContribution && <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">Top</span>}
                       {component.isDormant && <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">Dormant</span>}
                       <Info size={12} className="text-[var(--color-text-secondary)]" />
                     </button>
@@ -592,8 +675,14 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </button>
             </div>
             <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2 py-0.5 rounded border border-[var(--color-border)]">Bucket: {selectedComponentDetails.bucket}</span>
+                <span className="px-2 py-0.5 rounded border border-[var(--color-border)]">Weight: {(selectedComponentDetails.weight * 100).toFixed(0)}%</span>
+              </div>
               <p><span className="font-semibold text-[var(--color-text-primary)]">What it is:</span> {selectedComponentDetails.what}</p>
+              <p><span className="font-semibold text-[var(--color-text-primary)]">Math:</span> {selectedComponentDetails.math}</p>
               <p><span className="font-semibold text-[var(--color-text-primary)]">Why it matters:</span> {selectedComponentDetails.why}</p>
+              <p><span className="font-semibold text-[var(--color-text-primary)]">Abstains when:</span> {selectedComponentDetails.abstains}</p>
               <div>
                 <div className="font-semibold text-[var(--color-text-primary)] mb-1">Spectrum interpretation</div>
                 <ul className="space-y-1 list-disc pl-4">
