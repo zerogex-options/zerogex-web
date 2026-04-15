@@ -255,7 +255,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
   const radarData = RADAR_COMPONENT_ORDER
     .map((name) => components.find((component) => component.name === name))
-    .filter((component): component is SignalComponentRow => Boolean(component) && component.weight > 0)
+    .filter((component): component is SignalComponentRow => component != null)
+    .filter((component) => component.weight > 0)
     .map((component) => ({
       axis: component.name,
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),
