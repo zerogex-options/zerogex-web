@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { Gauge } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
@@ -18,6 +18,7 @@ function formatTime(value: unknown) {
 export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
+  const [marketContext, setMarketContext] = useState<'intraday' | 'swing'>('intraday');
   const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, 30000);
 
   const chartData = useMemo(() => {
@@ -49,6 +50,9 @@ export default function SignalScorePage() {
   }, [historyData]);
 
   const cardBg = theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)';
+  const contextSummary = marketContext === 'intraday'
+    ? 'Intraday: prioritize the current tape and active flow shifts. Treat the Composite Score as a real-time bias filter that can change quickly with dealer positioning, volatility, and options flow.'
+    : 'Swing: focus on persistence across sessions. Treat the Composite Score as a trend-alignment filter and look for repeated agreement from the same components before scaling risk.';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -56,6 +60,34 @@ export default function SignalScorePage() {
       <p className="text-[var(--color-text-secondary)] mb-8">
         Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish.
       </p>
+      <section className="zg-feature-shell p-4 mb-8">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-semibold text-sm text-[var(--color-text-primary)]">Market Context</span>
+          <button
+            onClick={() => setMarketContext('intraday')}
+            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+            style={{
+              borderColor: marketContext === 'intraday' ? 'var(--color-info)' : 'var(--color-border)',
+              backgroundColor: marketContext === 'intraday' ? 'var(--color-info-soft)' : 'transparent',
+              color: marketContext === 'intraday' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            }}
+          >
+            Intraday
+          </button>
+          <button
+            onClick={() => setMarketContext('swing')}
+            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
+            style={{
+              borderColor: marketContext === 'swing' ? 'var(--color-info)' : 'var(--color-border)',
+              backgroundColor: marketContext === 'swing' ? 'var(--color-info-soft)' : 'transparent',
+              color: marketContext === 'swing' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            }}
+          >
+            Swing
+          </button>
+        </div>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{contextSummary}</p>
+      </section>
 
       <SignalScorePanel symbol={symbol} />
 
@@ -63,7 +95,7 @@ export default function SignalScorePage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
         <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          The composite score (−100 to +100) is the weighted sum of 8 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
+          The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
         </p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
@@ -77,14 +109,21 @@ export default function SignalScorePage() {
                 </tr>
               </thead>
               <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>18%</td><td>+GEX = suppression (+1), −GEX = amplification (−1)</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>16%</td><td>Premium-weighted call vs put from large/unusual orders</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>16%</td><td>Dealer feedback loop amplification readiness</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>16%</td><td>Risk/reward quality of available options structures</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>12%</td><td>Above flip = +1, below = −1, ±0.3% = 0</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>12%</td><td>Countertrend signal at RSI/momentum extremes</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Positioning Trap</td><td>10%</td><td>Detects “offsides” setups from options crowding, tape resilience/weakness, and gamma context.</td></tr>
-                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>10%</td><td>PCR ≤ 0.8 = bullish (+1), ≥ 1.2 = bearish (−1)</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Regime</td><td>7%</td><td>Book-level gamma sign/magnitude regime</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Gamma Flip</td><td>5%</td><td>Spot distance from gamma flip transition line</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Dealer Regime</td><td>8%</td><td>Composite dealer posture alignment (DRS)</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">GEX Gradient</td><td>8%</td><td>Strike-level gamma asymmetry around spot</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Dealer Delta Pressure</td><td>8%</td><td>Dealer net delta hedge pressure estimate</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vanna Charm Flow</td><td>7%</td><td>Second-order greek re-hedging pressure</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Smart Money</td><td>9%</td><td>Large/aggressive premium imbalance read</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Tape Flow Bias</td><td>8%</td><td>Continuous call-vs-put tape pressure</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Put/Call Ratio</td><td>5%</td><td>Sentiment/crowding read from PCR</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Skew Delta</td><td>4%</td><td>OTM put-call IV skew differential</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Vol Expansion</td><td>8%</td><td>Regime readiness × momentum direction</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Exhaustion</td><td>5%</td><td>Overextension / mean-reversion pressure</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Positioning Trap</td><td>6%</td><td>Crowding squeeze/flush trap detector</td></tr>
+                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Intraday Regime</td><td>5%</td><td>Time-of-day regime context multiplier</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>7%</td><td>Tradeability / structure quality from optimizer</td></tr>
               </tbody>
             </table>
           </div>

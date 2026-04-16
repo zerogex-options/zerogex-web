@@ -18,13 +18,6 @@ interface GexStrikeDteHeatmapProps {
   byStrikeData: ByStrikeRow[] | null | undefined;
 }
 
-const DTE_BUCKETS = [
-  { label: '0DTE', min: 0, max: 0 },
-  { label: '1DTE', min: 1, max: 1 },
-  { label: '3DTE', min: 2, max: 3 },
-  { label: '7DTE', min: 4, max: 7 },
-] as const;
-
 function getDte(expiration: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -73,21 +66,22 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
 
-  const { strikes, grid, maxAbs } = useMemo(() => {
+  const { strikes, grid, maxAbs, dteColumns } = useMemo(() => {
     const rows = byStrikeData || [];
-    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0 };
+    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0, dteColumns: [] as number[] };
 
-    // Aggregate by (strike, DTE bucket)
+    // Aggregate by (strike, DTE exact)
     const agg = new Map<string, number>();
     const strikeTotal = new Map<number, number>();
+    const seenDtes = new Set<number>();
 
     rows.forEach((row) => {
       const dte = getDte(row.expiration);
-      const bucket = DTE_BUCKETS.find((b) => dte >= b.min && dte <= b.max);
-      if (!bucket) return;
+      if (dte < 0 || dte > 7) return;
+      seenDtes.add(dte);
 
       const strike = Number(row.strike);
-      const key = `${strike}_${bucket.label}`;
+      const key = `${strike}_${dte}`;
       agg.set(key, (agg.get(key) || 0) + Number(row.net_gex || 0));
       strikeTotal.set(strike, (strikeTotal.get(strike) || 0) + Math.abs(Number(row.net_gex || 0)));
     });
@@ -102,11 +96,15 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
     // Find max absolute for color scaling
     let maxAbsVal = 0;
     agg.forEach((v) => { maxAbsVal = Math.max(maxAbsVal, Math.abs(v)); });
+    const visibilityThreshold = maxAbsVal > 0 ? maxAbsVal * 0.02 : 0;
+    const nonEmptyDtes = Array.from(seenDtes)
+      .filter((dte) => sortedStrikes.some((strike) => Math.abs(agg.get(`${strike}_${dte}`) || 0) > visibilityThreshold))
+      .sort((a, b) => a - b);
 
-    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal };
+    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes };
   }, [byStrikeData]);
 
-  if (strikes.length === 0) {
+  if (strikes.length === 0 || dteColumns.length === 0) {
     return (
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
         <div
@@ -145,9 +143,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
           <thead>
             <tr>
               <th className="text-left py-2 px-2 font-semibold" style={{ color: colors.muted }}>Strike</th>
-              {DTE_BUCKETS.map((b) => (
-                <th key={b.label} className="text-center py-2 px-2 font-semibold" style={{ color: colors.muted }}>
-                  {b.label}
+              {dteColumns.map((dte) => (
+                <th key={dte} className="text-center py-2 px-2 font-semibold" style={{ color: colors.muted }}>
+                  {dte}DTE
                 </th>
               ))}
             </tr>
@@ -158,11 +156,11 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
                 <td className="py-1.5 px-2 font-mono font-semibold" style={{ color: textColor }}>
                   {strike.toFixed(0)}
                 </td>
-                {DTE_BUCKETS.map((bucket) => {
-                  const value = grid.get(`${strike}_${bucket.label}`) || 0;
+                {dteColumns.map((dte) => {
+                  const value = grid.get(`${strike}_${dte}`) || 0;
                   const cellStyle = getCellStyle(value, maxAbs, isDark);
                   return (
-                    <td key={bucket.label} className="py-1.5 px-2 text-center">
+                    <td key={dte} className="py-1.5 px-2 text-center">
                       {Math.abs(value) > maxAbs * 0.02 ? (
                         <div
                           className="rounded px-2 py-1 text-xs font-semibold inline-block min-w-[48px]"
