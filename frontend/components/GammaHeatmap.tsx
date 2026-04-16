@@ -229,7 +229,7 @@ export default function GammaHeatmap() {
 
         <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />
 
-        <div className="overflow-x-auto relative">
+        <div className="relative w-full">
         {hoveredTs && (
           <div className="absolute right-4 top-3 z-10 rounded-lg px-3 py-2 text-xs pointer-events-none" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
             <div className="font-semibold">{new Date(hoveredTs).toLocaleString()}</div>
@@ -246,9 +246,10 @@ export default function GammaHeatmap() {
         )}
         <svg
           width="100%"
-          height={chartHeight}
+          height="100%"
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          preserveAspectRatio="xMinYMin meet"
+          preserveAspectRatio="none"
+          style={{ aspectRatio: `${chartWidth} / ${chartHeight}` }}
           className="block w-full"
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();

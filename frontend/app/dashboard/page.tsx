@@ -234,8 +234,26 @@ export default function DashboardPage() {
             title="Signaled Trades"
             value={signaledTradeRows.length}
             subtitle={directionalRows > 0
-              ? `Today: ${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
-              : `Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
+              ? (
+                <span>
+                  Today:{' '}
+                  <span style={{ color: 'var(--color-bull)' }}>{bullishPct!.toFixed(0)}% bullish</span>
+                  {' / '}
+                  <span style={{ color: 'var(--color-bear)' }}>{bearishPct!.toFixed(0)}% bearish</span>
+                  {' · Today PnL '}
+                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
+                  </span>
+                </span>
+              )
+              : (
+                <span>
+                  Today PnL{' '}
+                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
+                  </span>
+                </span>
+              )}
             tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, with today's cumulative PnL."
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}

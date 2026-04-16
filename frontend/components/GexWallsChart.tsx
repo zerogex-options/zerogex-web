@@ -188,8 +188,8 @@ export default function GexWallsChart({ wallsData, openInterestData, byStrikeFal
                 <YAxis yAxisId="oi" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
                 <Tooltip content={<WallMapTooltip />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="oi" dataKey="callOi" name="Call OI" fill={colors.bullish} opacity={0.55} />
-                <Bar yAxisId="oi" dataKey="putOi" name="Put OI" fill={colors.bearish} opacity={0.55} />
+                <Bar yAxisId="oi" dataKey="callOi" name="Call OI" fill={colors.bullish} opacity={1} barSize={14} />
+                <Bar yAxisId="oi" dataKey="putOi" name="Put OI" fill={colors.bearish} opacity={1} barSize={14} />
 
                 {closestStrikeLabel && (
                   <ReferenceLine yAxisId="oi" x={closestStrikeLabel} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
