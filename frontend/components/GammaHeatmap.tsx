@@ -25,6 +25,7 @@ export default function GammaHeatmap() {
   const isMobile = useIsMobile();
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [hoveredLevel, setHoveredLevel] = useState<number | null>(null);
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
@@ -133,13 +134,13 @@ export default function GammaHeatmap() {
     return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
   };
 
-  const chartWidth = 1200;
-  const chartHeight = 620;
-  const yAxisWidth = 64;
-  const plotLeft = 64;
+  const chartWidth = isMobile ? 900 : 1300;
+  const chartHeight = isMobile ? 700 : 820;
+  const yAxisWidth = 52;
+  const plotLeft = 52;
   const plotTop = 42;
-  const plotWidth = chartWidth - yAxisWidth - 12;
-  const plotHeight = chartHeight - 76;
+  const plotWidth = chartWidth - yAxisWidth - 4;
+  const plotHeight = chartHeight - 94;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
 
   const priceRows = omitClosedMarketTimes(activePriceData, (p) => p.timestamp);
@@ -152,7 +153,7 @@ export default function GammaHeatmap() {
   const combinedMinRaw = Math.min(minStrike, hasPriceRange ? priceLow : minStrike);
   const combinedMaxRaw = Math.max(maxStrike, hasPriceRange ? priceHigh : maxStrike);
   const combinedSpan = Math.max(1e-9, combinedMaxRaw - combinedMinRaw);
-  const combinedPadding = combinedSpan * 0.03;
+  const combinedPadding = combinedSpan * 0.01;
   const combinedMin = combinedMinRaw - combinedPadding;
   const combinedMax = combinedMaxRaw + combinedPadding;
   const topLevel = Math.ceil(combinedMax);
@@ -209,13 +210,13 @@ export default function GammaHeatmap() {
   const hoveredPrice = hoveredTs ? priceByTs.get(hoveredTs) : undefined;
   const hoveredGammaFlip = hoveredTs ? gammaFlipByTs.get(hoveredTs) : undefined;
   const hoveredStrikeValue = (() => {
-    if (!hoveredTs) return null;
-    const cell = filledCells.find((c) => c.x === hoveredIndex);
-    if (!cell) return null;
-    return { strike: cell.y, value: cell.value };
+    if (!hoveredTs || hoveredLevel == null) return null;
+    return {
+      strike: hoveredLevel,
+      value: cellValueMap.get(`${hoveredTs}_${Number(hoveredLevel).toFixed(2)}`) ?? 0,
+    };
   })();
 
-  const tooltipValueColor = theme === 'dark' ? colors.light : colors.dark;
   const axisColor = theme === 'dark' ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
 
   return (
@@ -247,16 +248,27 @@ export default function GammaHeatmap() {
           width="100%"
           height={chartHeight}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          preserveAspectRatio="xMidYMid meet"
-          className="block min-w-[760px] md:min-w-0"
+          preserveAspectRatio="xMinYMin meet"
+          className="block w-full"
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const xPx = e.clientX - rect.left;
+            const yPx = e.clientY - rect.top;
             const xView = (xPx / Math.max(1, rect.width)) * chartWidth;
-            const idx = Math.round((xView - plotLeft) / Math.max(1e-9, cellWidth));
+            const yView = (yPx / Math.max(1, rect.height)) * chartHeight;
+            const idx = Math.floor((xView - plotLeft) / Math.max(1e-9, cellWidth));
             setHoveredIdx(Math.max(0, Math.min(derived.timestamps.length - 1, idx)));
+            const yClamped = Math.max(plotTop, Math.min(plotTop + plotHeight, yView));
+            const yValue = combinedMax - ((yClamped - plotTop) / Math.max(1e-9, plotHeight)) * (combinedMax - combinedMin);
+            const nearestLevel = yLevels.reduce((best, level) =>
+              Math.abs(level - yValue) < Math.abs(best - yValue) ? level : best,
+            yLevels[0]);
+            setHoveredLevel(nearestLevel);
           }}
-          onMouseLeave={() => setHoveredIdx(null)}
+          onMouseLeave={() => {
+            setHoveredIdx(null);
+            setHoveredLevel(null);
+          }}
         >
           <defs>
             <linearGradient id="gexScale" x1="0%" y1="0%" x2="100%" y2="0%">

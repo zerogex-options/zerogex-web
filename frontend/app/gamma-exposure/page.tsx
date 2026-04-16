@@ -342,11 +342,11 @@ export default function GammaExposurePage() {
 
       {/* Section 5: Strike×DTE Heatmap + Charm/Vanna Flows */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-3 h-full">
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
           </div>
-          <div className="lg:col-span-1 h-full">
+          <div className="lg:col-span-2 h-full">
             <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
           </div>
         </div>

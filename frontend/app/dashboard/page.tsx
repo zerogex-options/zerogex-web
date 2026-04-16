@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -51,23 +51,24 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function isTodayInNewYork(value: unknown): boolean {
-  if (!value) return false;
-  const parsed = new Date(String(value));
-  if (Number.isNaN(parsed.getTime())) return false;
-  const nyDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(parsed);
-  const todayNy = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  return nyDate === todayNy;
+function getTradeTimestamp(row: Record<string, unknown>): Date | null {
+  const raw = row.closed_at ?? row.exit_at ?? row.opened_at ?? row.created_at ?? row.timestamp;
+  if (typeof raw !== 'string') return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function inTodayWindow(date: Date | null): boolean {
+  if (!date) return false;
+  return date.toDateString() === new Date().toDateString();
+}
+
+function getTradePnl(row: Record<string, unknown>): number {
+  const total = getNumber(row.total_pnl ?? row.pnl ?? row.net_pnl);
+  if (total != null) return total;
+  const realized = getNumber(row.realized_pnl) ?? 0;
+  const unrealized = getNumber(row.unrealized_pnl) ?? 0;
+  return realized + unrealized;
 }
 
 interface FlowByTypePoint {
@@ -87,26 +88,21 @@ export default function DashboardPage() {
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
   const { data: scoreData } = useSignalScore(symbol, 10000);
   const { data: tradesData } = useTradesLive(symbol, 5000);
+  const { data: tradesHistoryData } = useTradesHistory(symbol, 15000);
   const { data: volExpansionData } = useVolExpansionSignal(symbol, 10000);
   const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: 30000 });
 
-  const rows = toRows(tradesData);
-  const todaysRows = rows.filter((row) => {
-    const candidateTimestamp = row.timestamp ?? row.executed_at ?? row.created_at ?? row.updated_at ?? row.trade_time ?? row.datetime ?? row.date;
-    return isTodayInNewYork(candidateTimestamp);
-  });
-  const bullishCount = todaysRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
-  const bearishCount = todaysRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
+  const liveRows = toRows(tradesData);
+  const historyRows = toRows(tradesHistoryData);
+  const todayHistoryRows = historyRows.filter((row) => inTodayWindow(getTradeTimestamp(row)));
+  const signaledTradeRows = [...liveRows, ...todayHistoryRows];
+
+  const bullishCount = signaledTradeRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
+  const bearishCount = signaledTradeRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
   const directionalRows = bullishCount + bearishCount;
   const bullishPct = directionalRows > 0 ? (bullishCount / directionalRows) * 100 : null;
   const bearishPct = directionalRows > 0 ? (bearishCount / directionalRows) * 100 : null;
-  const cumulativePnl = todaysRows.reduce((sum, row) => {
-    const totalPnl = getNumber(row.total_pnl);
-    if (totalPnl != null) return sum + totalPnl;
-    const realized = getNumber(row.realized_pnl) ?? 0;
-    const unrealized = getNumber(row.unrealized_pnl) ?? 0;
-    return sum + realized + unrealized;
-  }, 0);
+  const cumulativePnl = signaledTradeRows.reduce((sum, row) => sum + getTradePnl(row), 0);
 
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
@@ -236,11 +232,11 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Signaled Trades"
-            value={todaysRows.length}
+            value={signaledTradeRows.length}
             subtitle={directionalRows > 0
               ? `Today: ${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
-              : `Today: no directional mix yet · Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
-            tooltip="Today's signaled trade count for the selected underlying, with today's bullish/bearish split and today's cumulative PnL."
+              : `Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
+            tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, with today's cumulative PnL."
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
           />

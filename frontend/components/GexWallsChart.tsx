@@ -9,6 +9,7 @@ import type { GEXWallsRow } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface OpenInterestRow {
   strike?: number | string;
@@ -61,6 +62,7 @@ function WallMapTooltip({ active, payload, label }: { active?: boolean; payload?
 
 export default function GexWallsChart({ wallsData, openInterestData, byStrikeFallback }: GexWallsChartProps) {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
   const axisStroke = 'var(--color-text-primary)';
@@ -124,6 +126,23 @@ export default function GexWallsChart({ wallsData, openInterestData, byStrikeFal
     return closest.strikeLabel;
   }, [spot, chartData]);
 
+  const renderLegend = () => (
+    <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
+        Call OI
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
+        Put OI
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#FFD700' }} />
+        Spot (nearest strike)
+      </div>
+    </div>
+  );
+
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div
@@ -161,14 +180,14 @@ export default function GexWallsChart({ wallsData, openInterestData, byStrikeFal
             No open-interest data available for the selected expiration.
           </div>
         ) : (
-          <MobileScrollableChart minWidthClass="min-w-[900px]">
-            <ResponsiveContainer width="100%" height={560}>
+          <MobileScrollableChart>
+            <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
                 <XAxis dataKey="strikeLabel" type="category" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} interval="preserveStartEnd" minTickGap={22} />
                 <YAxis yAxisId="oi" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
                 <Tooltip content={<WallMapTooltip />} />
-                <Legend />
+                <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 <Bar yAxisId="oi" dataKey="callOi" name="Call OI" fill={colors.bullish} opacity={0.55} />
                 <Bar yAxisId="oi" dataKey="putOi" name="Put OI" fill={colors.bearish} opacity={0.55} />
 
