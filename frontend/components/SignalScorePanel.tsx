@@ -6,7 +6,7 @@ import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tool
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 type SignalComponentRow = {
   key?: string;
@@ -333,6 +333,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
 
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   const { data: scoreData } = useSignalScore(symbol, 10000);
   const resolvedScoreData = (() => {
     if (!scoreData || typeof scoreData !== 'object') return null;
@@ -632,12 +633,11 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="text-sm font-semibold mb-2">Component Weights</div>
             <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of all active model component weights (15 total).</div>
-            <div className="h-[420px]">
-              <MobileScrollableChart minWidthClass="min-w-[900px]">
+            <div className="h-[320px] sm:h-[420px]">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData} outerRadius="68%">
+                <RadarChart data={radarData} outerRadius={isMobile ? '86%' : '75%'} margin={{ top: 10, right: isMobile ? 4 : 14, bottom: 10, left: isMobile ? 4 : 14 }}>
                   <PolarGrid stroke="var(--color-border)" />
-                  <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                  <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 9 : 11 }} />
                   <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                   <Tooltip
                     contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
@@ -645,21 +645,22 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   />
                 </RadarChart>
               </ResponsiveContainer>
-              </MobileScrollableChart>
             </div>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full">
             <div className="text-sm font-semibold mb-3">Component Score Breakdown</div>
-            <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
-              <span>Component</span>
-              <span className="text-right">Weight</span>
-              <span className="text-right">Score</span>
-              <span className="text-right">Contribution</span>
-              <span className="text-center">Spectrum</span>
-            </div>
-            <div className="divide-y divide-[var(--color-border)]">
-              {sortedComponents.map((component) => {
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                <div className="grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+                  <span>Component</span>
+                  <span className="text-right">Weight</span>
+                  <span className="text-right">Score</span>
+                  <span className="text-right">Contribution</span>
+                  <span className="text-center">Spectrum</span>
+                </div>
+                <div className="divide-y divide-[var(--color-border)]">
+                  {sortedComponents.map((component) => {
                 const spectrumPct = component.score != null ? Math.max(0, Math.min(100, (component.score + 100) / 2)) : null;
                 return (
                   <div key={component.name} className={`grid grid-cols-[minmax(140px,1.4fr)_0.8fr_0.8fr_0.8fr_minmax(80px,1fr)] gap-2 text-sm py-2 items-center ${component.isDormant ? 'opacity-55' : ''}`}>
@@ -689,7 +690,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     </span>
                   </div>
                 );
-              })}
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>

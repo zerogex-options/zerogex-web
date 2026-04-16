@@ -322,19 +322,7 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
-      <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-full">
-            <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} byStrikeFallback={gexByStrike || []} />
-          </div>
-          <div className="lg:col-span-1 h-full">
-            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
-          </div>
-        </div>
-      </section>
-
-      {/* Section 4: GEX by Strike */}
+      {/* Section 3: GEX by Strike */}
       <section className="mb-8">
         <div className="grid grid-cols-1 gap-4">
           <GexStrikeChart
@@ -345,15 +333,33 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 5: Charm/Vanna Flows + Vol Surface */}
+      {/* Section 4: Call/Put Wall Map */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+        <div className="grid grid-cols-1 gap-4">
+          <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} byStrikeFallback={gexByStrike || []} />
+        </div>
+      </section>
+
+      {/* Section 5: Strike×DTE Heatmap + Charm/Vanna Flows */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 h-full">
+            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+          </div>
+          <div className="lg:col-span-1 h-full">
+            <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+          </div>
+        </div>
+      </section>
+
+      {/* Section 6: Vol Surface */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
           <VolSurfaceChart symbol={symbol} />
         </div>
       </section>
 
-      {/* Section 6: Strike Data Table */}
+      {/* Section 7: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
@@ -422,7 +428,7 @@ export default function GammaExposurePage() {
         </ExpandableCard>
       </section>
 
-      {/* Section 7: Existing Time-Series Heatmap */}
+      {/* Section 8: Existing Time-Series Heatmap */}
       <section className="mb-8">
         <GammaHeatmap />
       </section>

@@ -40,6 +40,36 @@ function formatUsd(value: number): string {
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
+  if (value == null || !Number.isFinite(value)) return '--';
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : showPositiveSign ? '+' : '';
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function isTodayInNewYork(value: unknown): boolean {
+  if (!value) return false;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return false;
+  const nyDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(parsed);
+  const todayNy = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return nyDate === todayNy;
+}
+
 interface FlowByTypePoint {
   timestamp: string;
   cumulative_net_volume?: number | string;
@@ -61,12 +91,16 @@ export default function DashboardPage() {
   const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: 30000 });
 
   const rows = toRows(tradesData);
-  const bullishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
-  const bearishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
+  const todaysRows = rows.filter((row) => {
+    const candidateTimestamp = row.timestamp ?? row.executed_at ?? row.created_at ?? row.updated_at ?? row.trade_time ?? row.datetime ?? row.date;
+    return isTodayInNewYork(candidateTimestamp);
+  });
+  const bullishCount = todaysRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
+  const bearishCount = todaysRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
   const directionalRows = bullishCount + bearishCount;
   const bullishPct = directionalRows > 0 ? (bullishCount / directionalRows) * 100 : null;
   const bearishPct = directionalRows > 0 ? (bearishCount / directionalRows) * 100 : null;
-  const cumulativePnl = rows.reduce((sum, row) => {
+  const cumulativePnl = todaysRows.reduce((sum, row) => {
     const totalPnl = getNumber(row.total_pnl);
     if (totalPnl != null) return sum + totalPnl;
     const realized = getNumber(row.realized_pnl) ?? 0;
@@ -166,7 +200,7 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Net GEX"
-            value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.net_gex, true)}
             trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
             tooltip="Net Gamma Exposure across all strikes. Calculation: Sum of all call gamma minus put gamma, scaled by notional value. Positive GEX means dealers are net short gamma (bullish - creates resistance to price movement). Negative GEX means dealers are net long gamma (bearish - amplifies price swings)."
             theme={theme}
@@ -202,11 +236,11 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Signaled Trades"
-            value={rows.length}
+            value={todaysRows.length}
             subtitle={directionalRows > 0
-              ? `${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
-              : `No directional mix yet · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
-            tooltip="Live signaled trade count for the selected underlying, with bullish/bearish split and cumulative active-trade PnL."
+              ? `Today: ${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
+              : `Today: no directional mix yet · Today PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
+            tooltip="Today's signaled trade count for the selected underlying, with today's bullish/bearish split and today's cumulative PnL."
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
           />
@@ -245,14 +279,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
             title="Call GEX"
-            value={gexData ? `$${(gexData.total_call_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.total_call_gex)}
             trend="neutral"
             tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
             theme={theme}
           />
           <MetricCard
             title="Put GEX"
-            value={gexData ? `$${(gexData.total_put_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.total_put_gex)}
             trend="neutral"
             tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
             theme={theme}
