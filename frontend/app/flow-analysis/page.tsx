@@ -1426,7 +1426,7 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: isMobile ? 220 : 240 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={directionalPremiumSeries}
@@ -1470,7 +1470,6 @@ export default function FlowAnalysisPage() {
                       if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
                       return `$${Math.round(n)}`;
                     }}
-                    label={isMobile ? undefined : { value: "Directional Premium", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 12 }}
                   />
                   <Tooltip
                     content={({ active, label, payload }) => {
@@ -1507,15 +1506,6 @@ export default function FlowAnalysisPage() {
                     connectNulls
                     isAnimationActive={false}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="premium"
-                    name="Net Directional Premium"
-                    stroke="var(--color-warning)"
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls
-                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -1533,7 +1523,7 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: isMobile ? 220 : 240 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}

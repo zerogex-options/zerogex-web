@@ -1,12 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Brain, ShieldCheck } from 'lucide-react';
+import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTheme } from '@/core/ThemeContext';
 
 type TradeRow = Record<string, unknown>;
@@ -156,16 +157,26 @@ export default function TradingSignalsPage() {
     };
   }, [filteredHistoryRows, filteredLiveRows.length, portfolioSize]);
 
+  const combinedRows = useMemo(() => {
+    const live = liveRows.map((row) => ({ kind: 'live' as const, row }));
+    const history = filteredHistoryRows.map((row) => ({ kind: 'history' as const, row }));
+    return [...live, ...history];
+  }, [liveRows, filteredHistoryRows]);
+
   if (loading && !liveData) {
     return <LoadingSpinner size="lg" />;
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Signaled Trades</h1>
-      <p className="text-[var(--color-text-secondary)] mb-6">
-        All trades are hypothetical — the engine observes live market data but does not connect to a broker. Everything is recorded as if executed at mid-mark with no slippage or commissions.
-      </p>
+      <div className="mb-6 flex items-center gap-2">
+        <h1 className="text-3xl font-bold">Signaled Trades</h1>
+        <TooltipWrapper text="All trades are hypothetical — the engine observes live market data but does not connect to a broker. Everything is recorded as if executed at mid-mark with no slippage or commissions.">
+          <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+            <Info size={14} />
+          </button>
+        </TooltipWrapper>
+      </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {TIMEFRAME_OPTIONS.map((option) => {
@@ -190,7 +201,9 @@ export default function TradingSignalsPage() {
 
       {(error || historyError) && <ErrorMessage message={error || historyError || 'Unable to load trades'} onRetry={() => { refetch(); refetchHistory(); }} />}
 
-      <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-3">Performance Snapshot</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades in the selected timeframe window." theme="dark" />
         <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Closed or recorded trades in the selected timeframe window." theme="dark" />
         <MetricCard
@@ -208,12 +221,13 @@ export default function TradingSignalsPage() {
           tooltip="Percentage of trades with positive PnL in selected timeframe."
           theme="dark"
         />
+        </div>
       </section>
 
       <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Live Trade Stream</h2>
-          <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Updated every few seconds</div>
+          <h2 className="text-xl font-semibold">Trade Stream</h2>
+          <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Live first, then selected history</div>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -223,14 +237,19 @@ export default function TradingSignalsPage() {
               <th className="py-2 pr-3">Expiry</th>
               <th className="py-2 pr-3">Strike</th>
               <th className="py-2 pr-3">Opened At</th>
-              <th className="py-2 pr-3 text-right">Contracts Open</th>
+              <th className="py-2 pr-3">Closed At</th>
+              <th className="py-2 pr-3 text-right">Contracts</th>
+              <th className="py-2 pr-3 text-right">Open</th>
               <th className="py-2 pr-3 text-right">Realized PnL</th>
               <th className="py-2 pr-3 text-right">Unrealized PnL</th>
               <th className="py-2 pr-3 text-right">Entry Score</th>
+              <th className="py-2 pr-3 text-right">Outcome</th>
             </tr>
           </thead>
           <tbody>
-            {liveRows.slice(0, 60).map((row, idx) => {
+            {combinedRows.slice(0, 180).map((item, idx) => {
+              const row = item.row;
+              const isLive = item.kind === 'live';
               const direction = getString(row.direction).toLowerCase();
               const isBullish = direction.includes('bull');
               const isBearish = direction.includes('bear');
@@ -238,8 +257,16 @@ export default function TradingSignalsPage() {
               const entryScore = getNumber(row.score_at_entry);
               const realizedPnl = getNumber(row.realized_pnl);
               const unrealizedPnl = getNumber(row.unrealized_pnl);
+              const totalPnl = getPnl(row);
               const optionType = getString(row.option_type);
               const strike = getNumber(row.strike);
+              const contracts = isLive
+                ? getNumber(row.quantity_open ?? row.quantity_initial ?? row.contracts)
+                : getNumber(row.quantity_initial ?? row.quantity_open ?? row.contracts);
+              const openContracts = getNumber(row.quantity_open);
+              const outcome = isLive
+                ? (totalPnl > 0 ? 'up' : totalPnl < 0 ? 'down' : 'flat')
+                : (totalPnl > 0 ? 'Win' : totalPnl < 0 ? 'Loss' : 'Flat');
 
               return (
                 <tr key={idx} className="border-b border-[var(--color-border)]/45">
@@ -248,7 +275,15 @@ export default function TradingSignalsPage() {
                   <td className="py-2 pr-3 whitespace-nowrap">{getString(row.expiration)}</td>
                   <td className="py-2 pr-3">{strike != null ? `$${strike.toFixed(2)}` : '—'}</td>
                   <td className="py-2 pr-3 whitespace-nowrap">{formatOpenedAt(row.opened_at)}</td>
-                  <td className="py-2 pr-3 text-right">{getString(row.quantity_open)}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">
+                    {isLive ? (
+                      <span className="inline-flex items-center rounded-full bg-[var(--color-bull)]/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-bull)]">live</span>
+                    ) : (
+                      formatOpenedAt(row.closed_at ?? row.exit_at)
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-right">{contracts != null ? contracts.toLocaleString() : '—'}</td>
+                  <td className="py-2 pr-3 text-right">{openContracts != null ? openContracts.toLocaleString() : (isLive ? '—' : '0')}</td>
                   <td className="py-2 pr-3 text-right" style={{ color: realizedPnl != null ? (realizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
                     {formatPnl(realizedPnl)}
                   </td>
@@ -262,58 +297,14 @@ export default function TradingSignalsPage() {
                       {entryScore != null ? entryScore.toFixed(4) : '—'}
                     </span>
                   </td>
-                </tr>
-              );
-            })}
-            {liveRows.length === 0 && (
-              <tr>
-                <td colSpan={9} className="py-10 text-center text-[var(--color-text-secondary)]">
-                  No live trade rows available.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Trade History</h2>
-          <div className="text-xs text-[var(--color-text-secondary)]">Source: /api/signals/trades-history</div>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b border-[var(--color-border)]">
-              <th className="py-2 pr-3">Symbol</th>
-              <th className="py-2 pr-3">Type</th>
-              <th className="py-2 pr-3">Opened</th>
-              <th className="py-2 pr-3">Closed</th>
-              <th className="py-2 pr-3 text-right">Contracts</th>
-              <th className="py-2 pr-3 text-right">PnL</th>
-              <th className="py-2 pr-3 text-right">Outcome</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredHistoryRows.slice(0, 120).map((row, idx) => {
-              const pnl = getPnl(row);
-              const optionType = getString(row.option_type);
-              const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Flat';
-              return (
-                <tr key={idx} className="border-b border-[var(--color-border)]/45">
-                  <td className="py-2 pr-3 font-medium">{getString(row.underlying)}</td>
-                  <td className="py-2 pr-3">{optionType === 'C' ? 'Call' : optionType === 'P' ? 'Put' : optionType}</td>
-                  <td className="py-2 pr-3 whitespace-nowrap">{formatOpenedAt(row.opened_at)}</td>
-                  <td className="py-2 pr-3 whitespace-nowrap">{formatOpenedAt(row.closed_at ?? row.exit_at)}</td>
-                  <td className="py-2 pr-3 text-right">{getString(row.quantity_closed ?? row.quantity_open ?? row.contracts)}</td>
-                  <td className="py-2 pr-3 text-right" style={{ color: pnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>{formatPnl(pnl)}</td>
                   <td className="py-2 pr-3 text-right">{outcome}</td>
                 </tr>
               );
             })}
-            {filteredHistoryRows.length === 0 && (
+            {combinedRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[var(--color-text-secondary)]">
-                  No historical trades in the selected timeframe.
+                <td colSpan={12} className="py-10 text-center text-[var(--color-text-secondary)]">
+                  No trade rows available.
                 </td>
               </tr>
             )}
