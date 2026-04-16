@@ -69,6 +69,16 @@ export default function GammaExposurePage() {
     `/api/market/open-interest?symbol=${symbol}`,
     { refreshInterval: 30000 },
   );
+  const normalizedOpenInterest = useMemo(() => {
+    if (Array.isArray(openInterestData)) return openInterestData;
+    if (openInterestData && typeof openInterestData === 'object') {
+      const payload = openInterestData as Record<string, unknown>;
+      if (Array.isArray(payload.rows)) return payload.rows as Record<string, unknown>[];
+      if (Array.isArray(payload.data)) return payload.data as Record<string, unknown>[];
+      if (Array.isArray(payload.items)) return payload.items as Record<string, unknown>[];
+    }
+    return [];
+  }, [openInterestData]);
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/vol-expansion?symbol=${symbol}`,
@@ -315,7 +325,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 h-full">
-            <GexWallsChart wallsData={gexWalls} openInterestData={openInterestData} />
+            <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} />
           </div>
           <div className="lg:col-span-1 h-full">
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} />

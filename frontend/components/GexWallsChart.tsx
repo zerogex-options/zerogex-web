@@ -134,7 +134,7 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
           </div>
         ) : (
           <MobileScrollableChart minWidthClass="min-w-[900px]">
-            <ResponsiveContainer width="100%" height={360}>
+            <ResponsiveContainer width="100%" height={520}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
                 <XAxis dataKey="strike" type="number" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} domain={['dataMin', 'dataMax']} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
