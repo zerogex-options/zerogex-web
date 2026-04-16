@@ -96,8 +96,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
     // Find max absolute for color scaling
     let maxAbsVal = 0;
     agg.forEach((v) => { maxAbsVal = Math.max(maxAbsVal, Math.abs(v)); });
+    const visibilityThreshold = maxAbsVal > 0 ? maxAbsVal * 0.02 : 0;
     const nonEmptyDtes = Array.from(seenDtes)
-      .filter((dte) => sortedStrikes.some((strike) => Math.abs(agg.get(`${strike}_${dte}`) || 0) > 0))
+      .filter((dte) => sortedStrikes.some((strike) => Math.abs(agg.get(`${strike}_${dte}`) || 0) > visibilityThreshold))
       .sort((a, b) => a - b);
 
     return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes };

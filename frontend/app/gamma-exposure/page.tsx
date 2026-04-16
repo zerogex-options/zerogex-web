@@ -313,9 +313,13 @@ export default function GammaExposurePage() {
 
       {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <GexWallsChart wallsData={gexWalls} openInterestData={openInterestData} />
-          <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 h-full">
+            <GexWallsChart wallsData={gexWalls} openInterestData={openInterestData} />
+          </div>
+          <div className="lg:col-span-1 h-full">
+            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+          </div>
         </div>
       </section>
 

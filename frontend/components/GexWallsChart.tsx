@@ -19,6 +19,8 @@ interface OpenInterestRow {
   put_open_interest?: number | string | null;
   total_call_oi?: number | string | null;
   total_put_oi?: number | string | null;
+  option_type?: string | null;
+  open_interest?: number | string | null;
 }
 
 interface GexWallsChartProps {
@@ -62,8 +64,16 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
       const strike = asNum(row.strike);
       if (!Number.isFinite(strike) || strike <= 0) return;
       const existing = grouped.get(strike) ?? { strike, callOi: 0, putOi: 0 };
-      existing.callOi += asNum(row.call_oi ?? row.call_open_interest ?? row.total_call_oi);
-      existing.putOi += asNum(row.put_oi ?? row.put_open_interest ?? row.total_put_oi);
+      const optionType = String(row.option_type || '').toUpperCase();
+      const rowOi = asNum(row.open_interest);
+      if (optionType === 'C') {
+        existing.callOi += rowOi;
+      } else if (optionType === 'P') {
+        existing.putOi += rowOi;
+      } else {
+        existing.callOi += asNum(row.call_oi ?? row.call_open_interest ?? row.total_call_oi);
+        existing.putOi += asNum(row.put_oi ?? row.put_open_interest ?? row.total_put_oi);
+      }
       grouped.set(strike, existing);
     });
 
