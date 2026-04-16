@@ -99,6 +99,13 @@ interface PutCallRatioRow {
   ratio: number | null;
 }
 
+interface NetDirectionalPremiumRow {
+  timestamp: string;
+  premium: number | null;
+  positivePremium: number | null;
+  negativePremium: number | null;
+}
+
 interface TimeseriesRow {
   timestamp: string;
   time: string;
@@ -108,6 +115,33 @@ interface TimeseriesRow {
   positiveNetVolume: number | null;
   negativeNetVolume: number | null;
   underlyingPrice: number | null;
+}
+
+function buildNetDirectionalPremiumSeries(rows: FlowByTypePoint[]): NetDirectionalPremiumRow[] {
+  const grouped = new Map<string, { timestamp: string; cumulative: number | null }>();
+
+  for (const row of rows) {
+    const normalizedTs = normalizeToMinute(row.timestamp);
+    if (!normalizedTs) continue;
+    const cumulative = typeof row.cumulative_net_premium === "number"
+      ? row.cumulative_net_premium
+      : typeof row.cumulative_net_premium === "string"
+        ? Number(row.cumulative_net_premium)
+        : null;
+    grouped.set(normalizedTs, {
+      timestamp: normalizedTs,
+      cumulative: Number.isFinite(cumulative) ? (cumulative as number) : null,
+    });
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .map((row) => ({
+      timestamp: row.timestamp,
+      premium: row.cumulative,
+      positivePremium: row.cumulative != null && row.cumulative > 0 ? row.cumulative : null,
+      negativePremium: row.cumulative != null && row.cumulative < 0 ? row.cumulative : null,
+    }));
 }
 
 // ── Date / session helpers ────────────────────────────────────────────────────
@@ -197,6 +231,16 @@ function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): Times
 function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
   return timeline.map((timestamp) => byTs.get(timestamp) ?? { timestamp, ratio: null });
+}
+
+function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: string[]): NetDirectionalPremiumRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map((timestamp) => byTs.get(timestamp) ?? {
+    timestamp,
+    premium: null,
+    positivePremium: null,
+    negativePremium: null,
+  });
 }
 
 /**
@@ -943,7 +987,6 @@ export default function FlowAnalysisPage() {
   const inputColor = "var(--color-text-primary)";
   const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
-  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
@@ -1187,6 +1230,13 @@ export default function FlowAnalysisPage() {
     return alignRatioToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByType, sessionTimeline]);
 
+  const directionalPremiumSeries = useMemo(() => {
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
+    const base = buildNetDirectionalPremiumSeries(dateRows);
+    return alignPremiumToTimeline(base, sessionTimeline);
+  }, [selectedDate, flowByType, sessionTimeline]);
+
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
@@ -1219,10 +1269,10 @@ export default function FlowAnalysisPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Market Tide</h1>
+      <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
-        title="Market Tide Regime"
+        title="Flow Analysis Regime"
         badge={flowBadge}
         tone={flowTone}
         summary={flowSummary}
@@ -1365,6 +1415,112 @@ export default function FlowAnalysisPage() {
         <FullWidthFlowChart rows={strikeSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
+      {/* ── Net Directional Premium ───────────────────────────────────── */}
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+        <SectionTitle
+          title="Net Directional Premium"
+          tooltip="Cumulative net directional premium from flow-by-type, where positive values indicate net bullish premium and negative values indicate net bearish premium."
+        />
+        {directionalPremiumSeries.length === 0 ? (
+          <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
+        ) : (
+          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={directionalPremiumSeries}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                >
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke={axisStroke}
+                    interval={0}
+                    minTickGap={24}
+                    tickLine={false}
+                    tick={(props: {
+                      x?: number | string;
+                      y?: number | string;
+                      payload?: { value?: string | number };
+                    }) => {
+                      const x = Number(props?.x ?? 0);
+                      const y = Number(props?.y ?? 0);
+                      const ts = String(props?.payload?.value || "");
+                      const showTime = is30MinBoundary(ts);
+                      if (!showTime) return <g transform={`translate(${x},${y})`} />;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                          <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                            {safeTimeLabel(ts)}
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tickMargin={isMobile ? 2 : 8}
+                    width={isMobile ? 42 : 62}
+                    tickFormatter={(v) => {
+                      const n = Number(v);
+                      if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+                      if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+                      return `$${Math.round(n)}`;
+                    }}
+                  />
+                  {directionalPremiumSeries
+                    .filter((row) => is30MinBoundary(row.timestamp))
+                    .map((row) => (
+                      <ReferenceLine
+                        key={`premium-v-${row.timestamp}`}
+                        x={row.timestamp}
+                        stroke={axisStroke}
+                        opacity={0.18}
+                      />
+                    ))}
+                  <Tooltip
+                    content={({ active, label, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const point = payload[0]?.payload as { premium?: number | null } | undefined;
+                      return (
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
+                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                          <div>Cumulative Net Premium: {point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
+                  <Area
+                    type="monotone"
+                    dataKey="positivePremium"
+                    name="Positive Premium"
+                    stroke="var(--color-positive)"
+                    fill="var(--color-positive)"
+                    fillOpacity={0.42}
+                    baseValue={0}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="negativePremium"
+                    name="Negative Premium"
+                    stroke="var(--color-negative)"
+                    fill="var(--color-negative)"
+                    fillOpacity={0.42}
+                    baseValue={0}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
@@ -1375,13 +1531,12 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: isMobile ? 220 : 240 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}
                   margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
                   <XAxis
                     dataKey="timestamp"
                     stroke={axisStroke}
@@ -1420,6 +1575,16 @@ export default function FlowAnalysisPage() {
                       );
                     }}
                   />
+                  {putCallRatioSeries
+                    .filter((row) => is30MinBoundary(row.timestamp))
+                    .map((row) => (
+                      <ReferenceLine
+                        key={`pcr-v-${row.timestamp}`}
+                        x={row.timestamp}
+                        stroke={axisStroke}
+                        opacity={0.18}
+                      />
+                    ))}
                   <YAxis
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}

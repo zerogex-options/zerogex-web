@@ -467,11 +467,11 @@ export default function AboutPage() {
               desc: 'Composite buy/sell signals built from GEX regime, options flow direction, and technical momentum. Signals are rated by conviction level and tagged with the timeframe they\'re most relevant to.',
             },
             {
-              icon: Activity, href: '/flow-analysis', label: 'Market Tide', color: C.amber,
+              icon: Activity, href: '/flow-analysis', label: 'Flow Analysis', color: C.amber,
               desc: 'Real-time smart money tracker. Identifies unusual options activity — large premium blocks, sweep orders, and sentiment-shifting prints — filtered by size, expiry, and directional bias.',
             },
             {
-              icon: BarChart2, href: '/gamma-exposure', label: 'Gamma Exposure', color: C.green,
+              icon: BarChart2, href: '/gamma-exposure', label: 'Dealer Exposure', color: C.green,
               desc: 'Full strike-by-strike GEX heatmap across all expirations. Visualize exactly where dealer gamma is concentrated, how it\'s distributed, and which levels are most likely to influence price.',
             },
             {

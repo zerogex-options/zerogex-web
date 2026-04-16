@@ -1,15 +1,24 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Activity, ArrowDown, ArrowUp, Brain, Gauge, ShieldCheck, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useTradesLive } from '@/hooks/useApiData';
+import { useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTheme } from '@/core/ThemeContext';
 
 type TradeRow = Record<string, unknown>;
+type TimeframeFilter = 'today' | 'week' | 'month' | 'year';
+
+const TIMEFRAME_OPTIONS: Array<{ key: TimeframeFilter; label: string }> = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
+];
 
 function toRows(data: unknown): TradeRow[] {
   if (Array.isArray(data)) return data as TradeRow[];
@@ -50,6 +59,12 @@ function formatPnl(value: number | null) {
   return formatted;
 }
 
+function formatPnlCell(value: number | null) {
+  if (value == null) return '—';
+  if (Math.abs(value) < 1e-9) return '-';
+  return formatPnl(value);
+}
+
 function formatOpenedAt(value: unknown): string {
   const parsed = typeof value === 'string' ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return getString(value);
@@ -59,67 +74,166 @@ function formatOpenedAt(value: unknown): string {
     + ' ET';
 }
 
+function getTradeTimestamp(row: TradeRow): Date | null {
+  const raw = row.closed_at ?? row.exit_at ?? row.opened_at ?? row.created_at ?? row.timestamp;
+  if (typeof raw !== 'string') return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function inSelectedWindow(date: Date | null, timeframe: TimeframeFilter): boolean {
+  if (!date) return false;
+  const now = new Date();
+  if (timeframe === 'today') {
+    return date.toDateString() === now.toDateString();
+  }
+
+  const start = new Date(now);
+  if (timeframe === 'week') {
+    const day = start.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    start.setDate(start.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    return date >= start;
+  }
+
+  if (timeframe === 'month') {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    return date >= start;
+  }
+
+  start.setMonth(0, 1);
+  start.setHours(0, 0, 0, 0);
+  return date >= start;
+}
+
+function getPnl(row: TradeRow): number {
+  const realized = getNumber(row.realized_pnl);
+  const unrealized = getNumber(row.unrealized_pnl);
+  const total = getNumber(row.total_pnl ?? row.pnl ?? row.net_pnl);
+  if (total != null) return total;
+  return (realized ?? 0) + (unrealized ?? 0);
+}
 
 export default function TradingSignalsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
-  const { data, loading, error, refetch } = useTradesLive(symbol, 5000);
+  const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('today');
 
-  const rows = useMemo(() => toRows(data), [data]);
+  const { data: liveData, loading, error, refetch } = useTradesLive(symbol, 5000);
+  const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, 15000);
 
-  const analytics = useMemo(() => {
-    const netPremium = rows.reduce((sum, row) => sum + (getNumber(row.net_premium ?? row.premium ?? row.total_pnl) ?? 0), 0);
-    const netVolume = rows.reduce((sum, row) => sum + (getNumber(row.net_volume ?? row.flow ?? row.quantity_initial ?? row.quantity_open) ?? 0), 0);
-    const bullishCount = rows.filter((row) => getString(row.flow_bias ?? row.trade_side ?? row.direction).toLowerCase().includes('bull')).length;
-    const bearishCount = rows.filter((row) => getString(row.flow_bias ?? row.trade_side ?? row.direction).toLowerCase().includes('bear')).length;
+  const liveRows = useMemo(() => toRows(liveData), [liveData]);
+  const historyRows = useMemo(() => toRows(historyData), [historyData]);
 
-    return { netPremium, netVolume, bullishCount, bearishCount };
-  }, [rows]);
+  const portfolioSize = useMemo(() => {
+    const candidates = [
+      getNumber((historyData as Record<string, unknown> | null)?.portfolio_size),
+      getNumber((historyData as Record<string, unknown> | null)?.portfolio_value),
+      getNumber((liveData as Record<string, unknown> | null)?.portfolio_size),
+      getNumber((liveData as Record<string, unknown> | null)?.portfolio_value),
+    ].filter((value): value is number => value != null && value > 0);
 
-  if (loading && !data) {
+    return candidates[0] ?? 100_000;
+  }, [historyData, liveData]);
+
+  const filteredLiveRows = useMemo(
+    () => liveRows.filter((row) => inSelectedWindow(getTradeTimestamp(row), timeframeFilter)),
+    [liveRows, timeframeFilter],
+  );
+  const filteredHistoryRows = useMemo(
+    () => historyRows.filter((row) => inSelectedWindow(getTradeTimestamp(row), timeframeFilter)),
+    [historyRows, timeframeFilter],
+  );
+
+  const metrics = useMemo(() => {
+    const totalTrades = filteredHistoryRows.length;
+    const totalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
+    const wins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : null;
+    const pnlPct = portfolioSize > 0 ? (totalPnl / portfolioSize) * 100 : null;
+
+    return {
+      liveTrades: filteredLiveRows.length,
+      totalTrades,
+      totalPnl,
+      pnlPct,
+      winRate,
+    };
+  }, [filteredHistoryRows, filteredLiveRows.length, portfolioSize]);
+
+  const combinedRows = useMemo(() => {
+    const live = liveRows.map((row) => ({ kind: 'live' as const, row }));
+    const history = filteredHistoryRows.map((row) => ({ kind: 'history' as const, row }));
+    return [...live, ...history];
+  }, [liveRows, filteredHistoryRows]);
+
+  if (loading && !liveData) {
     return <LoadingSpinner size="lg" />;
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Trade Ideas</h1>
-      <p className="text-[var(--color-text-secondary)] mb-8">
-        All trades are hypothetical — the engine observes live market data but does not connect to a broker. Everything is recorded as if executed at mid-mark with no slippage or commissions.
-      </p>
+      <div className="mb-6 flex items-center gap-2">
+        <h1 className="text-3xl font-bold">Signaled Trades</h1>
+        <TooltipWrapper text="All trades are hypothetical — the engine observes live market data but does not connect to a broker. Everything is recorded as if executed at mid-mark with no slippage or commissions.">
+          <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+            <Info size={14} />
+          </button>
+        </TooltipWrapper>
+      </div>
 
-      {error && <ErrorMessage message={error} onRetry={refetch} />}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {TIMEFRAME_OPTIONS.map((option) => {
+          const active = option.key === timeframeFilter;
+          return (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setTimeframeFilter(option.key)}
+              className="rounded-lg border px-3 py-1.5 text-sm font-medium transition"
+              style={{
+                borderColor: active ? 'var(--color-warning)' : 'var(--color-border)',
+                color: active ? 'var(--color-warning)' : 'var(--color-text-secondary)',
+                background: active ? 'var(--color-warning-soft)' : 'transparent',
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
 
-      <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard title="Live Signals" value={rows.length} tooltip="Current number of live rows feeding the model." theme="dark" />
+      {(error || historyError) && <ErrorMessage message={error || historyError || 'Unable to load trades'} onRetry={() => { refetch(); refetchHistory(); }} />}
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-3">Performance Snapshot</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades in the selected timeframe window." theme="dark" />
+        <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Closed or recorded trades in the selected timeframe window." theme="dark" />
         <MetricCard
-          title="Net Premium"
-          value={formatMoney(analytics.netPremium)}
-          trend={analytics.netPremium > 0 ? 'bullish' : analytics.netPremium < 0 ? 'bearish' : 'neutral'}
-          tooltip="Aggregate premium pressure across live signal rows."
+          title="PnL $"
+          value={formatPnl(metrics.totalPnl)}
+          subtitle={metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? '+' : ''}${metrics.pnlPct.toFixed(2)}% of portfolio` : '—'}
+          trend={metrics.totalPnl > 0 ? 'bullish' : metrics.totalPnl < 0 ? 'bearish' : 'neutral'}
+          tooltip={`Net realized + unrealized PnL over selected timeframe. Portfolio size: ${formatMoney(portfolioSize)}.`}
           theme="dark"
-          icon={<Sparkles size={16} />}
         />
         <MetricCard
-          title="Net Flow"
-          value={Math.round(analytics.netVolume).toLocaleString()}
-          trend={analytics.netVolume > 0 ? 'bullish' : analytics.netVolume < 0 ? 'bearish' : 'neutral'}
-          tooltip="Net signed flow from live trade rows."
+          title="Win Rate"
+          value={metrics.winRate != null ? `${metrics.winRate.toFixed(1)}%` : '—'}
+          trend={metrics.winRate != null ? (metrics.winRate >= 50 ? 'bullish' : 'bearish') : 'neutral'}
+          tooltip="Percentage of trades with positive PnL in selected timeframe."
           theme="dark"
-          icon={<Activity size={16} />}
         />
-        <MetricCard
-          title="Bull vs Bear"
-          value={`${analytics.bullishCount}/${analytics.bearishCount}`}
-          tooltip="Row count split between bullish and bearish directional tags."
-          theme="dark"
-          icon={<Gauge size={16} />}
-        />
+        </div>
       </section>
 
-      <section className="zg-feature-shell overflow-x-auto p-4">
+      <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Live Trade Stream</h2>
-          <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Updated every few seconds</div>
+          <h2 className="text-xl font-semibold">Trade Stream</h2>
+          <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Live first, then selected history</div>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -129,14 +243,19 @@ export default function TradingSignalsPage() {
               <th className="py-2 pr-3">Expiry</th>
               <th className="py-2 pr-3">Strike</th>
               <th className="py-2 pr-3">Opened At</th>
-              <th className="py-2 pr-3 text-right">Contracts Open</th>
+              <th className="py-2 pr-3">Closed At</th>
+              <th className="py-2 pr-3 text-right">Contracts</th>
+              <th className="py-2 pr-3 text-right">Open</th>
               <th className="py-2 pr-3 text-right">Realized PnL</th>
               <th className="py-2 pr-3 text-right">Unrealized PnL</th>
               <th className="py-2 pr-3 text-right">Entry Score</th>
+              <th className="py-2 pr-3 text-right">Outcome</th>
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 60).map((row, idx) => {
+            {combinedRows.slice(0, 180).map((item, idx) => {
+              const row = item.row;
+              const isLive = item.kind === 'live';
               const direction = getString(row.direction).toLowerCase();
               const isBullish = direction.includes('bull');
               const isBearish = direction.includes('bear');
@@ -144,8 +263,16 @@ export default function TradingSignalsPage() {
               const entryScore = getNumber(row.score_at_entry);
               const realizedPnl = getNumber(row.realized_pnl);
               const unrealizedPnl = getNumber(row.unrealized_pnl);
+              const totalPnl = getPnl(row);
               const optionType = getString(row.option_type);
               const strike = getNumber(row.strike);
+              const contracts = isLive
+                ? getNumber(row.quantity_open ?? row.quantity_initial ?? row.contracts)
+                : getNumber(row.quantity_initial ?? row.quantity_open ?? row.contracts);
+              const openContracts = getNumber(row.quantity_open);
+              const outcome = isLive
+                ? (totalPnl > 0 ? 'up' : totalPnl < 0 ? 'down' : 'flat')
+                : (totalPnl > 0 ? 'Win' : totalPnl < 0 ? 'Loss' : 'Flat');
 
               return (
                 <tr key={idx} className="border-b border-[var(--color-border)]/45">
@@ -154,12 +281,20 @@ export default function TradingSignalsPage() {
                   <td className="py-2 pr-3 whitespace-nowrap">{getString(row.expiration)}</td>
                   <td className="py-2 pr-3">{strike != null ? `$${strike.toFixed(2)}` : '—'}</td>
                   <td className="py-2 pr-3 whitespace-nowrap">{formatOpenedAt(row.opened_at)}</td>
-                  <td className="py-2 pr-3 text-right">{getString(row.quantity_open)}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">
+                    {isLive ? (
+                      <span className="inline-flex items-center rounded-full bg-[var(--color-bull)]/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-bull)]">live</span>
+                    ) : (
+                      formatOpenedAt(row.closed_at ?? row.exit_at)
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-right">{contracts != null ? contracts.toLocaleString() : '—'}</td>
+                  <td className="py-2 pr-3 text-right">{openContracts != null ? openContracts.toLocaleString() : (isLive ? '—' : '0')}</td>
                   <td className="py-2 pr-3 text-right" style={{ color: realizedPnl != null ? (realizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnl(realizedPnl)}
+                    {formatPnlCell(realizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right" style={{ color: unrealizedPnl != null ? (unrealizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnl(unrealizedPnl)}
+                    {formatPnlCell(unrealizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     <span className="inline-flex items-center gap-1" style={{ color: scoreColor }}>
@@ -168,13 +303,14 @@ export default function TradingSignalsPage() {
                       {entryScore != null ? entryScore.toFixed(4) : '—'}
                     </span>
                   </td>
+                  <td className="py-2 pr-3 text-right">{outcome}</td>
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {combinedRows.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-10 text-center text-[var(--color-text-secondary)]">
-                  No live trade rows available.
+                <td colSpan={12} className="py-10 text-center text-[var(--color-text-secondary)]">
+                  No trade rows available.
                 </td>
               </tr>
             )}
@@ -182,7 +318,6 @@ export default function TradingSignalsPage() {
         </table>
       </section>
 
-      {/* Trade Execution Reference */}
       <section className="zg-feature-shell mb-8 p-6">
         <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Brain size={20} /> Trade Execution Logic</h2>
         <p className="text-sm text-[var(--color-text-secondary)] mb-4">

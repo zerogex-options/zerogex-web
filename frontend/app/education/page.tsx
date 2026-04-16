@@ -12,7 +12,7 @@ export default function EducationPage() {
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Learning Hub</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
           Practical market-structure education for options traders. Start with our first guide on
-          Gamma Exposure (GEX), then revisit this section as more ZeroGEX educational articles are added.
+          Gamma Exposure (GEX), then explore additional flow-focused ZeroGEX educational articles.
         </p>
       </div>
 
@@ -27,6 +27,23 @@ export default function EducationPage() {
         </p>
         <Link
           href="/education/decoding-gamma-exposure"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • April 16, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Net Volume vs Directional Flow: What Actually Matters in Options Tape?
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Understand why raw contract counts can mislead, when directional volume adds signal, and why premium-weighted flow is often the strongest conviction metric on professional desks.
+        </p>
+        <Link
+          href="/education/net-volume-vs-directional-flow"
           className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
         >
           Read article
