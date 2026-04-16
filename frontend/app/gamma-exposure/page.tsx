@@ -65,6 +65,10 @@ export default function GammaExposurePage() {
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
   const { data: gexWalls } = useGEXWalls(symbol, 10000);
+  const { data: openInterestData } = useApiData<Record<string, unknown>[]>(
+    `/api/market/open-interest?symbol=${symbol}`,
+    { refreshInterval: 30000 },
+  );
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/vol-expansion?symbol=${symbol}`,
@@ -310,7 +314,7 @@ export default function GammaExposurePage() {
       {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <GexWallsChart wallsData={gexWalls} />
+          <GexWallsChart wallsData={gexWalls} openInterestData={openInterestData} />
           <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
         </div>
       </section>

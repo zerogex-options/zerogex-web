@@ -42,6 +42,11 @@ function normalizeComponentScore(score: number | null | undefined): number {
   return Math.abs(score) > 1.5 ? score / 100 : score;
 }
 
+function humanizeScope(scope?: string): string {
+  if (!scope) return 'Direction Only';
+  return scope.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+}
+
 const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
   'GEX Regime': 1,
   'Gamma Flip': 2,
@@ -537,23 +542,23 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">Regime</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Regime <TooltipWrapper text="Derived from gex_regime: short gamma amplifies moves, long gamma dampens, neutral is mixed."><Info size={12} /></TooltipWrapper></div>
             <div className="font-semibold">{regime === 'short_gamma' ? 'Short Gamma (amplified moves)' : regime === 'long_gamma' ? 'Long Gamma (dampened moves)' : 'Neutral Gamma'}</div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">Action</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Action <TooltipWrapper text="Backtested recommendation from calibration: enter / watch / wait."><Info size={12} /></TooltipWrapper></div>
             <div className={`font-semibold uppercase ${analytics?.action === 'enter' ? 'text-[var(--color-bull)]' : analytics?.action === 'watch' ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-secondary)]'}`}>{analytics?.action ?? 'wait'}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Scope: {analytics?.calibration_scope ?? 'direction_only'}</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Scope: {humanizeScope(analytics?.calibration_scope)}</div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">Edge Calibration</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Edge Calibration <TooltipWrapper text="Historical sample quality: hit-rate, sample size, and expected directional move in basis points."><Info size={12} /></TooltipWrapper></div>
             <div className="font-semibold">{analytics?.hit_rate != null ? `${(analytics.hit_rate * 100).toFixed(1)}% hit rate` : '—'}</div>
             <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{analytics?.sample_size != null ? `n=${analytics.sample_size}` : 'No sample info'} · {analytics?.expected_move_bp != null ? `${analytics.expected_move_bp.toFixed(2)} bp` : '-- bp'}</div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">Confidence</div>
+            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Confidence <TooltipWrapper text="Composite quality score from edge strength, sample quality, and current score magnitude."><Info size={12} /></TooltipWrapper></div>
             <div className="font-semibold">{analytics?.confidence != null ? `${(analytics.confidence * 100).toFixed(1)}%` : '—'}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Backtest-calibrated quality score.</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Calibrated quality score.</div>
           </div>
         </div>
 
