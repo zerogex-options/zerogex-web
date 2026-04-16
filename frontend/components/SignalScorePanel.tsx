@@ -398,7 +398,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         : 'red';
   const radarData = [...components]
     .sort((a, b) => (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999))
-    .filter((component) => component.weight > 0)
+    .filter((component) => component.weight > 0 && Math.abs(normalizeComponentScore(component.score)) >= 0.02)
     .map((component) => ({
       axis: component.name,
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),

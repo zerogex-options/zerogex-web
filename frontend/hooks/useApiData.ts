@@ -453,6 +453,10 @@ export function useTradesLive(symbol = 'SPY', refreshInterval = 5000) {
   return useApiData<unknown>(`/api/signals/trades-live?symbol=${symbol}`, { refreshInterval });
 }
 
+export function useTradesHistory(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<unknown>(`/api/signals/trades-history?symbol=${symbol}`, { refreshInterval });
+}
+
 export interface SignalScoreComponent {
   name: string;
   weight: number;
