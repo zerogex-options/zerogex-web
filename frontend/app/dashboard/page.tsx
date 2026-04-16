@@ -337,37 +337,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Support/Resistance Levels */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Key Levels</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetricCard
-            title="Call Wall (Resistance)"
-            value={gexData?.call_wall ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.call_wall && quoteData?.close
-                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy call open interest'
-            }
-            tooltip="Strike with the highest concentration of call open interest, acting as resistance. Calculation: Strike with maximum total call OI weighted by gamma. As price approaches this level, dealers must sell shares to hedge their short gamma exposure, creating selling pressure. Price often struggles to break through this level."
-            theme={theme}
-            trend="bearish"
-          />
-          <MetricCard
-            title="Put Wall (Support)"
-            value={gexData?.put_wall ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.put_wall && quoteData?.close
-                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy put open interest'
-            }
-            tooltip="Strike with the highest concentration of put open interest, acting as support. Calculation: Strike with maximum total put OI weighted by gamma. As price approaches this level, dealers must buy shares to hedge their short gamma exposure, creating buying pressure. Price often bounces off this level."
-            theme={theme}
-            trend="bullish"
-          />
-        </div>
-      </section>
-
       {/* Data Freshness */}
       {gexData && (
         <div className="text-right text-sm text-[var(--text-muted)]">

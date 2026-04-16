@@ -8,11 +8,11 @@
 
 If you are looking for one perfect metric, you will be disappointed.
 
-**Cumulative Net Volume** (`cumulative_net_volume`) and **Cumulative Net Directional Volume** (`cumulative_net_directional_volume`) are both useful, but they answer different questions. Serious flow desks typically monitor both — then place the most weight on premium metrics when sizing conviction.
+**Cumulative Net Volume** and **Cumulative Net Directional Volume** are both useful, but they answer different questions. Serious flow desks typically monitor both — then place the most weight on premium metrics when sizing conviction.
 
 ---
 
-## Metric 1: **Cumulative Net Volume** (`cumulative_net_volume`)
+## Metric 1: **Cumulative Net Volume**
 
 *(Call Volume − Put Volume)*
 
@@ -32,7 +32,7 @@ Volume alone cannot separate conviction from mechanics.
 
 ---
 
-## Metric 2: **Cumulative Net Directional Volume** (`cumulative_net_directional_volume`)
+## Metric 2: **Cumulative Net Directional Volume**
 
 *((Calls Bought − Calls Sold) − (Puts Bought − Puts Sold))*
 
@@ -65,7 +65,7 @@ That is why desks tend to prioritize **capital-weighted flow**, not contract cou
 
 Your field:
 
-**Cumulative Net Premium** (`cumulative_net_premium`)
+**Cumulative Net Premium**
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
@@ -83,7 +83,7 @@ If the goal is directional conviction quality:
 
 Or in one line:
 
-> **net_directional_volume > net_volume for conviction, but net_directional_premium is what serious flow desks usually weight most.**
+> **Net Directional Volume beats Net Volume for conviction, but Net Directional Premium is what serious flow desks usually weight most.**
 
 ---
 

@@ -5,7 +5,6 @@ import { Info } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
-  useGEXWalls,
   useMarketQuote,
   useVolatilityGauge,
   useApiData,
@@ -50,6 +49,15 @@ type StrikeAggregate = {
 
 type SortKey = keyof StrikeAggregate;
 
+type OpenInterestApiResponse = {
+  spot_price?: number | string;
+  contracts?: Record<string, unknown>[];
+  rows?: Record<string, unknown>[];
+  data?: Record<string, unknown>[];
+  items?: Record<string, unknown>[];
+  results?: Record<string, unknown>[];
+};
+
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
@@ -64,22 +72,36 @@ export default function GammaExposurePage() {
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
-  const { data: gexWalls } = useGEXWalls(symbol, 10000);
-  const { data: openInterestData } = useApiData<Record<string, unknown>[]>(
+  const { data: openInterestData } = useApiData<OpenInterestApiResponse | Record<string, unknown>[] | null>(
     `/api/market/open-interest?symbol=${symbol}`,
     { refreshInterval: 30000 },
   );
-  const normalizedOpenInterest = useMemo(() => {
-    if (Array.isArray(openInterestData)) return openInterestData;
+  const openInterestPayload = useMemo<OpenInterestApiResponse | null>(() => {
+    if (!openInterestData) return null;
+    if (Array.isArray(openInterestData)) {
+      return { contracts: openInterestData };
+    }
     if (openInterestData && typeof openInterestData === 'object') {
-      const payload = openInterestData as Record<string, unknown>;
+      return openInterestData as OpenInterestApiResponse;
+    }
+    return null;
+  }, [openInterestData]);
+  const normalizedOpenInterest = useMemo(() => {
+    if (openInterestPayload && typeof openInterestPayload === 'object') {
+      const payload = openInterestPayload as Record<string, unknown>;
+      if (Array.isArray(payload.contracts)) return payload.contracts as Record<string, unknown>[];
       if (Array.isArray(payload.rows)) return payload.rows as Record<string, unknown>[];
       if (Array.isArray(payload.data)) return payload.data as Record<string, unknown>[];
       if (Array.isArray(payload.items)) return payload.items as Record<string, unknown>[];
       if (Array.isArray(payload.results)) return payload.results as Record<string, unknown>[];
     }
     return [];
-  }, [openInterestData]);
+  }, [openInterestPayload]);
+  const openInterestSpotPrice = useMemo(() => {
+    if (!openInterestPayload) return null;
+    const value = Number(openInterestPayload.spot_price);
+    return Number.isFinite(value) ? value : null;
+  }, [openInterestPayload]);
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/vol-expansion?symbol=${symbol}`,
@@ -190,8 +212,8 @@ export default function GammaExposurePage() {
   const marketContextSummary = useMemo(() => {
     const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
     const spot = quoteData?.close;
-    const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
-    const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
+    const callWall = gexData?.call_wall ?? null;
+    const putWall = gexData?.put_wall ?? null;
     const netGex = gexData?.net_gex ?? null;
     const pcr = gexData?.put_call_ratio ?? null;
     const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
@@ -256,7 +278,7 @@ export default function GammaExposurePage() {
       : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
 
     return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
-  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
+  }, [quoteData?.close, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -336,7 +358,7 @@ export default function GammaExposurePage() {
       {/* Section 4: Call/Put Wall Map */}
       <section className="mb-8">
         <div className="grid grid-cols-1 gap-4">
-          <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} byStrikeFallback={gexByStrike || []} />
+          <GexWallsChart openInterestData={normalizedOpenInterest} spotPrice={openInterestSpotPrice} byStrikeFallback={gexByStrike || []} />
         </div>
       </section>
 
