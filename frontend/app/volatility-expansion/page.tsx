@@ -7,6 +7,7 @@ import { useVolExpansionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 type GenericObject = Record<string, unknown>;
 
@@ -44,7 +45,7 @@ function formatGex(value: number | null) {
 
 export default function VolatilityExpansionPage() {
   const { symbol } = useTimeframe();
-  const { data, loading, error, refetch } = useVolExpansionSignal(symbol, 10000);
+  const { data, loading, error, refetch } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
 
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
 

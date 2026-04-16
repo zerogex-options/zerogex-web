@@ -16,6 +16,7 @@ import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import VolatilityCard from '@/components/VolatilityCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 function toRows(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data as Record<string, unknown>[];
@@ -86,11 +87,11 @@ export default function DashboardPage() {
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
-  const { data: scoreData } = useSignalScore(symbol, 10000);
-  const { data: tradesData } = useTradesLive(symbol, 5000);
-  const { data: tradesHistoryData } = useTradesHistory(symbol, 15000);
-  const { data: volExpansionData } = useVolExpansionSignal(symbol, 10000);
-  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: 30000 });
+  const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
+  const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
+  const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
+  const { data: volExpansionData } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
+  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs });
 
   const liveRows = toRows(tradesData);
   const historyRows = toRows(tradesHistoryData);

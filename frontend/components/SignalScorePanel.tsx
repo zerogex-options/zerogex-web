@@ -7,6 +7,7 @@ import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 type SignalComponentRow = {
   key?: string;
@@ -334,7 +335,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const isMobile = useIsMobile();
-  const { data: scoreData } = useSignalScore(symbol, 10000);
+  const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const resolvedScoreData = (() => {
     if (!scoreData || typeof scoreData !== 'object') return null;
     const candidate = scoreData as Record<string, unknown>;
