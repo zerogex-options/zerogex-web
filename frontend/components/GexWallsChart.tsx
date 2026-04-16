@@ -30,6 +30,7 @@ interface GexWallsChartProps {
 
 type ChartRow = {
   strike: number;
+  strikeLabel: string;
   callOi: number;
   putOi: number;
 };
@@ -63,12 +64,12 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
     filtered.forEach((row) => {
       const strike = asNum(row.strike);
       if (!Number.isFinite(strike) || strike <= 0) return;
-      const existing = grouped.get(strike) ?? { strike, callOi: 0, putOi: 0 };
+      const existing = grouped.get(strike) ?? { strike, strikeLabel: strike.toFixed(0), callOi: 0, putOi: 0 };
       const optionType = String(row.option_type || '').toUpperCase();
       const rowOi = asNum(row.open_interest);
-      if (optionType === 'C') {
+      if (optionType.startsWith('C')) {
         existing.callOi += rowOi;
-      } else if (optionType === 'P') {
+      } else if (optionType.startsWith('P')) {
         existing.putOi += rowOi;
       } else {
         existing.callOi += asNum(row.call_oi ?? row.call_open_interest ?? row.total_call_oi);
@@ -92,8 +93,8 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
   );
   const maxWallExposure = Math.max(callWallExposure, putWallExposure, 1);
   const bubbleRows = [
-    ...(callWallStrike > 0 ? [{ x: callWallStrike, y: maxOi * 0.92, z: (callWallExposure / maxWallExposure) * 100 + 20, label: 'Call Wall' }] : []),
-    ...(putWallStrike > 0 ? [{ x: putWallStrike, y: maxOi * 0.85, z: (putWallExposure / maxWallExposure) * 100 + 20, label: 'Put Wall' }] : []),
+    ...(callWallStrike > 0 ? [{ x: callWallStrike.toFixed(0), y: maxOi * 0.92, z: (callWallExposure / maxWallExposure) * 100 + 20, label: 'Call Wall' }] : []),
+    ...(putWallStrike > 0 ? [{ x: putWallStrike.toFixed(0), y: maxOi * 0.85, z: (putWallExposure / maxWallExposure) * 100 + 20, label: 'Put Wall' }] : []),
   ];
 
   return (
@@ -134,10 +135,10 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
           </div>
         ) : (
           <MobileScrollableChart minWidthClass="min-w-[900px]">
-            <ResponsiveContainer width="100%" height={520}>
+            <ResponsiveContainer width="100%" height={560}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strike" type="number" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} domain={['dataMin', 'dataMax']} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
+                <XAxis dataKey="strikeLabel" type="category" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} interval="preserveStartEnd" minTickGap={22} />
                 <YAxis yAxisId="oi" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
@@ -149,10 +150,10 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
                 <Bar yAxisId="oi" dataKey="putOi" name="Put OI" fill={colors.bearish} opacity={0.55} />
 
                 {spot > 0 && (
-                  <ReferenceLine x={spot} stroke={colors.primary} strokeDasharray="5 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: colors.primary, position: 'top' }} />
+                  <ReferenceLine x={spot.toFixed(0)} stroke={colors.primary} strokeDasharray="5 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: colors.primary, position: 'top' }} />
                 )}
-                {callWallStrike > 0 && <ReferenceLine x={callWallStrike} stroke={colors.bullish} strokeDasharray="3 3" label={{ value: 'Call Wall', fill: colors.bullish, position: 'insideTopRight' }} />}
-                {putWallStrike > 0 && <ReferenceLine x={putWallStrike} stroke={colors.bearish} strokeDasharray="3 3" label={{ value: 'Put Wall', fill: colors.bearish, position: 'insideTopLeft' }} />}
+                {callWallStrike > 0 && <ReferenceLine x={callWallStrike.toFixed(0)} stroke={colors.bullish} strokeDasharray="3 3" label={{ value: 'Call Wall', fill: colors.bullish, position: 'insideTopRight' }} />}
+                {putWallStrike > 0 && <ReferenceLine x={putWallStrike.toFixed(0)} stroke={colors.bearish} strokeDasharray="3 3" label={{ value: 'Put Wall', fill: colors.bearish, position: 'insideTopLeft' }} />}
 
                 <Scatter yAxisId="oi" name="Wall Bubble" data={bubbleRows} fill={colors.warning} />
               </ComposedChart>
