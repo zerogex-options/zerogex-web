@@ -8,11 +8,13 @@
 
 If you are looking for one perfect metric, you will be disappointed.
 
-**cumulative_net_volume** and **cumulative_net_directional_volume** are both useful, but they answer different questions. Serious flow desks typically monitor both — then place the most weight on premium metrics when sizing conviction.
+**Cumulative Net Volume** (`cumulative_net_volume`) and **Cumulative Net Directional Volume** (`cumulative_net_directional_volume`) are both useful, but they answer different questions. Serious flow desks typically monitor both — then place the most weight on premium metrics when sizing conviction.
 
 ---
 
-## Metric 1: `cumulative_net_volume` (call volume − put volume)
+## Metric 1: **Cumulative Net Volume** (`cumulative_net_volume`)
+
+*(Call Volume − Put Volume)*
 
 This is effectively the inverse framing of the classic put/call ratio.
 
@@ -30,7 +32,9 @@ Volume alone cannot separate conviction from mechanics.
 
 ---
 
-## Metric 2: `cumulative_net_directional_volume` ((calls bought − calls sold) − (puts bought − puts sold))
+## Metric 2: **Cumulative Net Directional Volume** (`cumulative_net_directional_volume`)
+
+*((Calls Bought − Calls Sold) − (Puts Bought − Puts Sold))*
 
 This metric tries to answer the better question:
 
@@ -61,7 +65,9 @@ That is why desks tend to prioritize **capital-weighted flow**, not contract cou
 
 Your field:
 
-`cumulative_net_premium = (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
+**Cumulative Net Premium** (`cumulative_net_premium`)
+
+`= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
 is generally a stronger single read on where informed money is leaning, because it reflects dollars actually committed.
 

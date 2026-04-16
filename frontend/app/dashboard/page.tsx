@@ -98,12 +98,20 @@ export default function DashboardPage() {
   const todayHistoryRows = historyRows.filter((row) => inTodayWindow(getTradeTimestamp(row)));
   const signaledTradeRows = [...liveRows, ...todayHistoryRows];
 
-  const bullishCount = signaledTradeRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
-  const bearishCount = signaledTradeRows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
-  const directionalRows = bullishCount + bearishCount;
-  const bullishPct = directionalRows > 0 ? (bullishCount / directionalRows) * 100 : null;
-  const bearishPct = directionalRows > 0 ? (bearishCount / directionalRows) * 100 : null;
   const cumulativePnl = signaledTradeRows.reduce((sum, row) => sum + getTradePnl(row), 0);
+  const resolvedTradeOutcomes = signaledTradeRows
+    .map((row) => getTradePnl(row))
+    .filter((pnl) => Math.abs(pnl) > 1e-9);
+  const winRate = resolvedTradeOutcomes.length > 0
+    ? (resolvedTradeOutcomes.filter((pnl) => pnl > 0).length / resolvedTradeOutcomes.length) * 100
+    : null;
+  const winRateColor = winRate == null
+    ? 'var(--color-text-secondary)'
+    : winRate > 50
+      ? 'var(--color-bull)'
+      : winRate < 50
+        ? 'var(--color-bear)'
+        : 'var(--color-text-secondary)';
 
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
@@ -232,29 +240,21 @@ export default function DashboardPage() {
             trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
           />
           <MetricCard
-            title="Signaled Trades"
+            title="Signaled Trades Today"
             value={signaledTradeRows.length}
-            subtitle={directionalRows > 0
-              ? (
-                <span>
-                  <span style={{ color: 'var(--color-bull)' }}>{bullishPct!.toFixed(0)}% bullish</span>
-                  {' / '}
-                  <span style={{ color: 'var(--color-bear)' }}>{bearishPct!.toFixed(0)}% bearish</span>
-                  {' · PnL '}
-                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
-                  </span>
+            subtitle={(
+              <span>
+                PnL{' '}
+                <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                  {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
                 </span>
-              )
-              : (
-                <span>
-                  Today PnL{' '}
-                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
-                  </span>
+                {' · Win Rate '}
+                <span style={{ color: winRateColor }}>
+                  {winRate != null ? `${winRate.toFixed(0)}%` : '—'}
                 </span>
-              )}
-            tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, with today's cumulative PnL."
+              </span>
+            )}
+            tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, showing cumulative PnL and win rate for today." 
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
           />
