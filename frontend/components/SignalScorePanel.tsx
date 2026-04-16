@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Info, Target, Users, X } from 'lucide-react';
+import { AlertTriangle, Clock, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
@@ -391,13 +391,6 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         ? fullThreshold
         : null;
   const distanceToThreshold = nextThreshold != null && finalComposite != null ? nextThreshold - finalComposite : null;
-  const thresholdTone = finalComposite == null
-    ? 'neutral'
-    : finalComposite >= fullThreshold
-      ? 'green'
-      : finalComposite >= scalpThreshold
-        ? 'amber'
-        : 'red';
   const radarData = [...components]
     .sort((a, b) => (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999))
     .filter((component) => component.weight > 0 && Math.abs(normalizeComponentScore(component.score)) >= 0.02)
@@ -535,99 +528,328 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         </div>
       </div>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-xl font-semibold">Trader Decision Snapshot</h3>
-          <span className="text-xs px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">
-            Aggregation mode: {aggregation?.mode ?? 'conviction'}
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Regime <TooltipWrapper text="Derived from gex_regime: short gamma amplifies moves, long gamma dampens, neutral is mixed."><Info size={12} /></TooltipWrapper></div>
-            <div className="font-semibold">{regime === 'short_gamma' ? 'Short Gamma (amplified moves)' : regime === 'long_gamma' ? 'Long Gamma (dampened moves)' : 'Neutral Gamma'}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Action <TooltipWrapper text="Backtested recommendation from calibration: enter / watch / wait."><Info size={12} /></TooltipWrapper></div>
-            <div className={`font-semibold uppercase ${analytics?.action === 'enter' ? 'text-[var(--color-bull)]' : analytics?.action === 'watch' ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-secondary)]'}`}>{analytics?.action ?? 'wait'}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Scope: {humanizeScope(analytics?.calibration_scope)}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Edge Calibration <TooltipWrapper text="Historical sample quality: hit-rate, sample size, and expected directional move in basis points."><Info size={12} /></TooltipWrapper></div>
-            <div className="font-semibold">{analytics?.hit_rate != null ? `${(analytics.hit_rate * 100).toFixed(1)}% hit rate` : '—'}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{analytics?.sample_size != null ? `n=${analytics.sample_size}` : 'No sample info'} · {analytics?.expected_move_bp != null ? `${analytics.expected_move_bp.toFixed(2)} bp` : '-- bp'}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1">Confidence <TooltipWrapper text="Composite quality score from edge strength, sample quality, and current score magnitude."><Info size={12} /></TooltipWrapper></div>
-            <div className="font-semibold">{analytics?.confidence != null ? `${(analytics.confidence * 100).toFixed(1)}%` : '—'}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">Calibrated quality score.</div>
-          </div>
-        </div>
+      {(() => {
+        const direction: 'long' | 'short' | 'flat' = finalComposite == null || Math.abs(finalComposite) < 0.01
+          ? 'flat'
+          : finalComposite > 0 ? 'long' : 'short';
+        const action = (analytics?.action ?? '').toLowerCase();
+        const hasAnalytics = analytics != null && (analytics.action != null || analytics.sample_size != null);
+        const maxConviction = maxAbsComponent ?? Math.abs(topComponent?.score ?? 0);
+        const isConflicted = agreement != null && agreement < 0.65 && maxConviction >= 0.9;
+        const isThin = activeCount < 8;
+        const isLowConsensus = agreement != null && agreement < 0.7;
+        const isLowConfidence = analytics?.confidence != null && analytics.confidence < 0.55;
+        const cautionReasons: string[] = [];
+        if (isConflicted) cautionReasons.push('loud component disagrees with the rest');
+        if (isThin) cautionReasons.push('thin participation');
+        if (isLowConsensus) cautionReasons.push('moderate consensus');
+        if (isLowConfidence) cautionReasons.push('lower calibrated confidence');
 
-        <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] mb-5">
-          <div className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)] mb-1">How the composite was built this cycle</div>
-          <div className="text-[11px] text-[var(--color-text-secondary)] mb-3">Read this left → right: raw signal, reweighted by active components, then scaled by agreement and extremity.</div>
-          <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-center">
-            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Raw</div><div className="font-semibold">{rawComposite != null ? rawComposite.toFixed(3) : '—'}</div></div>
-            <div className="text-center text-[var(--color-text-secondary)]">→</div>
-            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Active-weighted</div><div className="font-semibold">{renormalized != null ? renormalized.toFixed(3) : '—'}</div></div>
-            <div className="text-center text-[var(--color-text-secondary)]">×</div>
-            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Agreement</div><div className="font-semibold">{agreementMultiplier != null ? agreementMultiplier.toFixed(2) : '—'}x</div></div>
-            <div className="text-center text-[var(--color-text-secondary)]">×</div>
-            <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2"><div className="text-[11px] text-[var(--color-text-secondary)]">Extremity</div><div className="font-semibold">{extremityMultiplier != null ? extremityMultiplier.toFixed(2) : '—'}x</div></div>
-          </div>
-          <div className="mt-3 rounded-lg border border-[var(--color-border)] p-2">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-[var(--color-text-secondary)]">Final Composite</span>
-              <span className={`font-semibold ${thresholdTone === 'green' ? 'text-[var(--color-bull)]' : thresholdTone === 'amber' ? 'text-[var(--color-warning)]' : 'text-[var(--color-bear)]'}`}>
-                {finalComposite != null ? finalComposite.toFixed(3) : '—'}
-              </span>
+        type VerdictTone = 'bull' | 'bear' | 'amber' | 'neutral';
+        let verdictLabel = 'AWAITING SIGNAL';
+        let verdictTone: VerdictTone = 'neutral';
+        let verdictHeuristic = 'Signals are still loading or the engine is between cycles.';
+        let VerdictIcon: typeof TrendingUp = Clock;
+
+        if (finalComposite != null) {
+          const belowScalp = Math.abs(finalComposite) < scalpThreshold;
+          if (action === 'wait' || direction === 'flat' || (!hasAnalytics && belowScalp)) {
+            verdictLabel = 'WAIT';
+            verdictTone = 'neutral';
+            verdictHeuristic = belowScalp
+              ? 'Composite below scalp trigger — no edge worth paying the spread.'
+              : 'Calibration says no edge. Stand down.';
+            VerdictIcon = Clock;
+          } else if (action === 'watch' || isConflicted) {
+            verdictLabel = direction === 'long' ? 'WATCH · LEAN LONG' : 'WATCH · LEAN SHORT';
+            verdictTone = 'amber';
+            verdictHeuristic = isConflicted
+              ? 'Conflicted read — one component screams, the rest disagree. Wait for confirmation or fade the outlier.'
+              : 'Modest edge. Size small or wait for a cleaner tape to confirm.';
+            VerdictIcon = Eye;
+          } else {
+            // action === 'enter' (or heuristic above threshold with missing analytics)
+            const caution = cautionReasons.length > 0;
+            if (direction === 'long') {
+              verdictLabel = caution ? 'GO LONG · CAUTIOUS' : 'GO LONG';
+              verdictTone = 'bull';
+              VerdictIcon = TrendingUp;
+            } else {
+              verdictLabel = caution ? 'GO SHORT · CAUTIOUS' : 'GO SHORT';
+              verdictTone = 'bear';
+              VerdictIcon = TrendingDown;
+            }
+            verdictHeuristic = caution
+              ? `Edge is real but ${cautionReasons[0]} — consider reduced size and tighter stops.`
+              : 'Strong edge with consensus — aligned setup, size to conviction.';
+          }
+        }
+
+        const verdictColor = verdictTone === 'bull'
+          ? 'var(--color-bull)'
+          : verdictTone === 'bear'
+            ? 'var(--color-bear)'
+            : verdictTone === 'amber'
+              ? 'var(--color-warning)'
+              : 'var(--color-text-secondary)';
+        const verdictSoftBg = verdictTone === 'bull'
+          ? 'rgba(34, 197, 94, 0.08)'
+          : verdictTone === 'bear'
+            ? 'rgba(239, 68, 68, 0.08)'
+            : verdictTone === 'amber'
+              ? 'rgba(245, 158, 11, 0.08)'
+              : 'var(--color-surface-subtle)';
+
+        const regimeLabel = regime === 'short_gamma'
+          ? 'Short Gamma'
+          : regime === 'long_gamma'
+            ? 'Long Gamma'
+            : 'Neutral Gamma';
+        const regimePlaybook = regime === 'short_gamma'
+          ? 'Dealer hedging amplifies moves — breakouts & momentum favored.'
+          : regime === 'long_gamma'
+            ? 'Dealer hedging dampens moves — fades & mean-reversion favored.'
+            : 'Mixed dealer posture — no structural tailwind either way.';
+        const regimeColor = regime === 'short_gamma'
+          ? 'var(--color-warning)'
+          : regime === 'long_gamma'
+            ? 'var(--color-bull)'
+            : 'var(--color-text-secondary)';
+        const RegimeIcon = regime === 'short_gamma' ? Zap : regime === 'long_gamma' ? Shield : Minus;
+
+        const hitRatePct = analytics?.hit_rate != null ? analytics.hit_rate * 100 : null;
+        const hitRateTone = hitRatePct == null
+          ? 'var(--color-text-secondary)'
+          : hitRatePct >= 60
+            ? 'var(--color-bull)'
+            : hitRatePct >= 50
+              ? 'var(--color-warning)'
+              : 'var(--color-bear)';
+
+        const agreementPct = agreement != null ? agreement * 100 : null;
+        const agreementLabel = agreementPct == null
+          ? 'awaiting data'
+          : agreementPct >= 90
+            ? 'unanimous'
+            : agreementPct >= 75
+              ? 'strong consensus'
+              : agreementPct >= 60
+                ? 'moderate consensus'
+                : 'split';
+        const agreementColor = agreementPct == null
+          ? 'var(--color-text-secondary)'
+          : agreementPct >= 75
+            ? 'var(--color-bull)'
+            : agreementPct >= 60
+              ? 'var(--color-warning)'
+              : 'var(--color-bear)';
+
+        return (
+          <section className="zg-feature-shell mt-8 p-6">
+            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+              <div>
+                <h3 className="text-xl font-semibold">Trader Decision Snapshot</h3>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">Glance-and-go read: verdict, regime, calibrated edge, and consensus.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isConflicted && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">
+                    <AlertTriangle size={11} /> Conflicted
+                  </span>
+                )}
+                {agreement != null && agreement > 0.85 && activeCount > 12 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-bull)] text-[var(--color-bull)]">
+                    Consensus building
+                  </span>
+                )}
+                <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+                  {aggregation?.mode === 'legacy_linear' ? 'Legacy linear' : 'Conviction mode'}
+                </span>
+              </div>
             </div>
-            <div className="h-2 rounded-full bg-[var(--color-surface)] relative overflow-hidden">
-              <div className="absolute inset-y-0 left-0 bg-[var(--color-bear)]/35" style={{ width: `${(scalpThreshold / 0.8) * 100}%` }} />
-              <div className="absolute inset-y-0 bg-[var(--color-warning)]/35" style={{ left: `${(scalpThreshold / 0.8) * 100}%`, width: `${((fullThreshold - scalpThreshold) / 0.8) * 100}%` }} />
-              <div className="absolute inset-y-0 right-0 bg-[var(--color-bull)]/30" style={{ width: `${((0.8 - fullThreshold) / 0.8) * 100}%` }} />
-              <div className="absolute -top-1 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: `${Math.max(0, Math.min(100, ((finalComposite ?? 0) / 0.8) * 100))}%` }} />
+
+            {/* HERO VERDICT */}
+            <div
+              className="relative rounded-2xl border p-5 md:p-6 mb-5 overflow-hidden"
+              style={{ borderColor: verdictColor, background: verdictSoftBg }}
+            >
+              <div className="absolute inset-y-0 left-0 w-1" style={{ background: verdictColor }} aria-hidden />
+              <div className="flex items-start justify-between gap-6 flex-wrap">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-text-secondary)] mb-2">Verdict</div>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex items-center justify-center rounded-full"
+                      style={{ width: 44, height: 44, background: verdictColor, color: 'var(--color-surface)' }}
+                    >
+                      <VerdictIcon size={24} />
+                    </div>
+                    <div className="text-3xl md:text-4xl font-black leading-none tracking-tight" style={{ color: verdictColor }}>
+                      {verdictLabel}
+                    </div>
+                  </div>
+                  <div className="mt-3 text-sm text-[var(--color-text-primary)]">{verdictHeuristic}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1 min-w-[140px]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Composite</div>
+                  <div className="text-3xl font-bold leading-none" style={{ color: verdictColor }}>
+                    {finalComposite != null ? `${finalComposite >= 0 ? '+' : ''}${finalComposite.toFixed(3)}` : '—'}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-secondary)] text-right">
+                    {finalComposite == null
+                      ? 'awaiting data'
+                      : nextThreshold != null && distanceToThreshold != null
+                        ? `${Math.max(0, distanceToThreshold).toFixed(3)} to ${nextThreshold.toFixed(2)} trigger`
+                        : `past ${fullThreshold.toFixed(2)} full trigger`}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">scalp {scalpThreshold.toFixed(2)} · full {fullThreshold.toFixed(2)}{distanceToThreshold != null ? ` · distance to next trigger ${distanceToThreshold.toFixed(3)}` : ''}</div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Users size={14} /> Participation</div>
-            <div className="font-semibold">{activeCount}/{totalComponents} active — {dormantCount} dormant</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-1">Active weight: {(activeWeight * 100).toFixed(1)}%</div>
-            {activeCount < 8 && <div className="mt-2 text-xs text-[var(--color-warning)]">Thin participation — composite may be unstable.</div>}
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Target size={14} /> Agreement</div>
-            <div className="font-semibold">{agreement != null ? `${(agreement * 100).toFixed(1)}%` : '—'}</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-1">{agreement != null ? (agreement >= 0.9 ? 'Strong consensus' : agreement >= 0.7 ? 'Moderate consensus' : 'Low consensus') : 'Awaiting aggregation data'}</div>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-3 bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center gap-2 text-[var(--color-text-secondary)] mb-1"><Info size={14} /> Max Conviction</div>
-            <div className="font-semibold">{maxAbsComponent != null ? maxAbsComponent.toFixed(2) : (topComponent?.score != null ? Math.abs(topComponent.score).toFixed(2) : '—')}</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mt-1">Driver: {topComponent?.name ?? '—'}</div>
-          </div>
-        </div>
+            {/* THREE PILLARS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+              {/* Regime */}
+              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <Zap size={12} /> Regime
+                  </div>
+                  <TooltipWrapper text="From gex_regime. Short gamma → dealer hedging amplifies moves. Long gamma → hedging dampens them. Neutral = mixed.">
+                    <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+                  </TooltipWrapper>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RegimeIcon size={20} style={{ color: regimeColor }} />
+                  <div className="text-lg font-bold" style={{ color: regimeColor }}>{regimeLabel}</div>
+                </div>
+                <div className="mt-2 text-xs text-[var(--color-text-secondary)]">{regimePlaybook}</div>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          {agreement != null && agreement < 0.65 && (maxAbsComponent ?? Math.abs(topComponent?.score ?? 0)) >= 0.9 && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">
-              <AlertTriangle size={12} /> Conflicted signal
-            </span>
-          )}
-          {agreement != null && agreement > 0.85 && activeCount > 12 && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--color-bull)] text-[var(--color-bull)]">
-              Building consensus
-            </span>
-          )}
-        </div>
-        <div className="text-sm text-[var(--color-text-secondary)]">
-          {finalComposite != null ? `${finalComposite >= 0 ? 'Bullish' : 'Bearish'} setup: ${activeCount}/${totalComponents} components active${agreement != null ? ` with ${(agreement * 100).toFixed(0)}% agreement` : ''}. Strongest driver: ${topComponent?.name ?? 'N/A'}${maxAbsComponent != null ? ` (max conviction ${maxAbsComponent.toFixed(2)})` : ''}. Composite ${finalComposite.toFixed(3)}${nextThreshold != null && distanceToThreshold != null ? ` is ${Math.max(0, distanceToThreshold).toFixed(3)} away from the ${nextThreshold.toFixed(2)} trigger.` : '.'}` : 'Waiting for aggregation data to generate the explain-why summary.'}
-        </div>
-      </section>
+              {/* Calibrated Edge */}
+              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <Target size={12} /> Calibrated Edge
+                  </div>
+                  <TooltipWrapper text={`Backtested against matching history. Scope: how tightly filtered — regime+strength is strictest, direction only is loosest.`}>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
+                      {humanizeScope(analytics?.calibration_scope)}
+                    </span>
+                  </TooltipWrapper>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl font-bold" style={{ color: hitRateTone }}>
+                    {hitRatePct != null ? `${hitRatePct.toFixed(0)}%` : '—'}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-secondary)]">hit rate</div>
+                </div>
+                <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, hitRatePct ?? 0))}%`,
+                      background: hitRateTone,
+                    }}
+                  />
+                  <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
+                </div>
+                <div className="flex items-center justify-between mt-2 text-[11px] text-[var(--color-text-secondary)]">
+                  <span>n={analytics?.sample_size ?? '—'}</span>
+                  <span>{analytics?.expected_move_bp != null ? `${analytics.expected_move_bp >= 0 ? '+' : ''}${analytics.expected_move_bp.toFixed(1)} bp exp` : '— bp'}</span>
+                  <span>{analytics?.confidence != null ? `${(analytics.confidence * 100).toFixed(0)}% conf` : '— conf'}</span>
+                </div>
+              </div>
+
+              {/* Consensus */}
+              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                    <Users size={12} /> Consensus
+                  </div>
+                  <TooltipWrapper text="Agreement: 0.5 = split, 1.0 = unanimous among active components. Active count shows how many components contributed vs abstained.">
+                    <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+                  </TooltipWrapper>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl font-bold" style={{ color: agreementColor }}>
+                    {agreementPct != null ? `${agreementPct.toFixed(0)}%` : '—'}
+                  </div>
+                  <div className="text-xs text-[var(--color-text-secondary)]">{agreementLabel}</div>
+                </div>
+                <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, agreementPct ?? 0))}%`,
+                      background: agreementColor,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2 text-[11px] text-[var(--color-text-secondary)]">
+                  <span>{activeCount}/{totalComponents} active · {dormantCount} dormant</span>
+                  <span>max {maxConviction.toFixed(2)}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-[var(--color-text-secondary)] truncate">
+                  Driver: <span className="text-[var(--color-text-primary)] font-medium">{topComponent?.name ?? '—'}</span>
+                </div>
+                {isThin && (
+                  <div className="mt-2 flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
+                    <AlertTriangle size={11} /> Thin participation — composite may be unstable.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* COMPOSITE BUILD CHAIN */}
+            <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">How this cycle&apos;s composite was built</div>
+                <div className="text-[11px] text-[var(--color-text-secondary)]">raw → reweight → × agreement × extremity</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-center">
+                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Raw</div>
+                  <div className="font-semibold">{rawComposite != null ? rawComposite.toFixed(3) : '—'}</div>
+                </div>
+                <div className="text-center text-[var(--color-text-secondary)] font-semibold">→</div>
+                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Renormalized</div>
+                  <div className="font-semibold">{renormalized != null ? renormalized.toFixed(3) : '—'}</div>
+                </div>
+                <div className="text-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Agreement</div>
+                  <div className="font-semibold">{agreementMultiplier != null ? `${agreementMultiplier.toFixed(2)}×` : '—'}</div>
+                </div>
+                <div className="text-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Extremity</div>
+                  <div className="font-semibold">{extremityMultiplier != null ? `${extremityMultiplier.toFixed(2)}×` : '—'}</div>
+                </div>
+              </div>
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-[var(--color-text-secondary)]">Final Composite</span>
+                  <span className="font-semibold" style={{ color: verdictColor }}>
+                    {finalComposite != null ? finalComposite.toFixed(3) : '—'}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-[var(--color-surface-subtle)] relative overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-[var(--color-bear)]/35" style={{ width: `${(scalpThreshold / 0.8) * 100}%` }} />
+                  <div className="absolute inset-y-0 bg-[var(--color-warning)]/35" style={{ left: `${(scalpThreshold / 0.8) * 100}%`, width: `${((fullThreshold - scalpThreshold) / 0.8) * 100}%` }} />
+                  <div className="absolute inset-y-0 right-0 bg-[var(--color-bull)]/30" style={{ width: `${((0.8 - fullThreshold) / 0.8) * 100}%` }} />
+                  <div className="absolute -top-1 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: `${Math.max(0, Math.min(100, ((finalComposite ?? 0) / 0.8) * 100))}%` }} />
+                </div>
+                <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+                  scalp {scalpThreshold.toFixed(2)} · full {fullThreshold.toFixed(2)}
+                  {distanceToThreshold != null ? ` · ${Math.max(0, distanceToThreshold).toFixed(3)} to next trigger` : ''}
+                  {' · '}active weight {(activeWeight * 100).toFixed(0)}%
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       <section className="zg-feature-shell mt-8 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
