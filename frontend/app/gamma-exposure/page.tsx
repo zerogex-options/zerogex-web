@@ -76,6 +76,7 @@ export default function GammaExposurePage() {
       if (Array.isArray(payload.rows)) return payload.rows as Record<string, unknown>[];
       if (Array.isArray(payload.data)) return payload.data as Record<string, unknown>[];
       if (Array.isArray(payload.items)) return payload.items as Record<string, unknown>[];
+      if (Array.isArray(payload.results)) return payload.results as Record<string, unknown>[];
     }
     return [];
   }, [openInterestData]);
@@ -325,7 +326,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 h-full">
-            <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} />
+            <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} byStrikeFallback={gexByStrike || []} />
           </div>
           <div className="lg:col-span-1 h-full">
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} />

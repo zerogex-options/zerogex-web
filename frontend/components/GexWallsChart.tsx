@@ -26,6 +26,7 @@ interface OpenInterestRow {
 interface GexWallsChartProps {
   wallsData: GEXWallsRow | null | undefined;
   openInterestData?: OpenInterestRow[] | null;
+  byStrikeFallback?: Array<{ strike?: number | string; call_oi?: number | string | null; put_oi?: number | string | null }> | null;
 }
 
 type ChartRow = {
@@ -40,7 +41,7 @@ function asNum(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export default function GexWallsChart({ wallsData, openInterestData }: GexWallsChartProps) {
+export default function GexWallsChart({ wallsData, openInterestData, byStrikeFallback }: GexWallsChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -78,8 +79,32 @@ export default function GexWallsChart({ wallsData, openInterestData }: GexWallsC
       grouped.set(strike, existing);
     });
 
-    return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
-  }, [openInterestData, selectedExpiration]);
+    let rows = Array.from(grouped.values());
+
+    if (rows.length === 0 && byStrikeFallback?.length) {
+      byStrikeFallback.forEach((row) => {
+        const strike = asNum(row.strike);
+        if (!Number.isFinite(strike) || strike <= 0) return;
+        const existing = grouped.get(strike) ?? { strike, strikeLabel: strike.toFixed(0), callOi: 0, putOi: 0 };
+        existing.callOi += asNum(row.call_oi);
+        existing.putOi += asNum(row.put_oi);
+        grouped.set(strike, existing);
+      });
+      rows = Array.from(grouped.values());
+    }
+
+    const spotPrice = asNum(wallsData?.spot_price);
+    if (spotPrice > 0 && rows.length > 80) {
+      rows = rows.filter((row) => Math.abs(row.strike - spotPrice) <= 60);
+    }
+    if (rows.length > 120) {
+      rows = rows
+        .sort((a, b) => (b.callOi + b.putOi) - (a.callOi + a.putOi))
+        .slice(0, 120);
+    }
+
+    return rows.sort((a, b) => a.strike - b.strike);
+  }, [openInterestData, selectedExpiration, byStrikeFallback, wallsData?.spot_price]);
 
   const callWallStrike = asNum(wallsData?.call_wall?.strike);
   const putWallStrike = asNum(wallsData?.put_wall?.strike);
