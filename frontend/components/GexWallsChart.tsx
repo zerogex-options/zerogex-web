@@ -42,12 +42,20 @@ function asNum(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatAxisValue(value: number): string {
+function formatAxisValue(value: number, mode: DisplayMode): string {
   const abs = Math.abs(value);
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(0)}k`;
-  return `${value.toFixed(0)}`;
+  const prefix = mode === 'exposure' ? '$' : '';
+  if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${prefix}${(value / 1e3).toFixed(0)}k`;
+  return `${prefix}${value.toFixed(mode === 'exposure' ? 2 : 0)}`;
+}
+
+function formatTooltipValue(value: number, mode: DisplayMode): string {
+  if (mode === 'exposure') {
+    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return value.toLocaleString();
 }
 
 function WallMapTooltip({
@@ -68,10 +76,10 @@ function WallMapTooltip({
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
       {payload.map((entry, i) => {
         if (entry.dataKey === 'callValue') {
-          return <div key={i} style={{ color: colors.bullish }}>Call {unitLabel}: {Number(entry.value).toLocaleString()}</div>;
+          return <div key={i} style={{ color: colors.bullish }}>Call {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
         }
         if (entry.dataKey === 'putValue') {
-          return <div key={i} style={{ color: colors.bearish }}>Put {unitLabel}: {Number(entry.value).toLocaleString()}</div>;
+          return <div key={i} style={{ color: colors.bearish }}>Put {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
         }
         return null;
       })}
@@ -145,12 +153,12 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
 
   const spot = asNum(spotPrice);
 
-  const closestStrikeLabel = useMemo(() => {
+  const closestStrike = useMemo(() => {
     if (spot <= 0 || !chartData.length) return null;
     const closest = chartData.reduce((best, row) =>
       Math.abs(row.strike - spot) < Math.abs(best.strike - spot) ? row : best,
     );
-    return closest.strikeLabel;
+    return closest.strike;
   }, [spot, chartData]);
 
   const renderLegend = () => (
@@ -237,15 +245,15 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strikeLabel" type="category" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} interval="preserveStartEnd" minTickGap={22} />
-                <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v))} />
+                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${Number(v).toFixed(0)}`} minTickGap={22} />
+                <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call Exposure'} fill={colors.bullish} opacity={1} barSize={14} />
                 <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put Exposure'} fill={colors.bearish} opacity={1} barSize={14} />
 
-                {closestStrikeLabel && (
-                  <ReferenceLine yAxisId="value" x={closestStrikeLabel} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
+                {closestStrike != null && (
+                  <ReferenceLine yAxisId="value" x={closestStrike} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
                 )}
               </ComposedChart>
             </ResponsiveContainer>
