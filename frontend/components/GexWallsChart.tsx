@@ -161,7 +161,7 @@ export default function GexWallsChart({ wallsData, openInterestData, byStrikeFal
               <Info size={14} />
             </TooltipWrapper>
           </div>
-          <label className="text-xs" style={{ color: textColor }}>
+          <label className="text-xs mr-8" style={{ color: textColor }}>
             Expiration
             <select
               className="ml-2 rounded px-2 py-1"

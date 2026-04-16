@@ -139,7 +139,7 @@ export default function GammaHeatmap() {
   const yAxisWidth = 52;
   const plotLeft = 52;
   const plotTop = 42;
-  const plotWidth = chartWidth - yAxisWidth - 4;
+  const plotWidth = chartWidth - yAxisWidth - 18;
   const plotHeight = chartHeight - 94;
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
 

@@ -236,11 +236,10 @@ export default function DashboardPage() {
             subtitle={directionalRows > 0
               ? (
                 <span>
-                  Today:{' '}
                   <span style={{ color: 'var(--color-bull)' }}>{bullishPct!.toFixed(0)}% bullish</span>
                   {' / '}
                   <span style={{ color: 'var(--color-bear)' }}>{bearishPct!.toFixed(0)}% bearish</span>
-                  {' · Today PnL '}
+                  {' · PnL '}
                   <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                     {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
                   </span>
