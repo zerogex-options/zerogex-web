@@ -6,6 +6,7 @@ import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tool
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
@@ -647,9 +648,9 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         return (
           <section className="zg-feature-shell mt-8 p-6">
             <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-xl font-semibold">Trader Decision Snapshot</h3>
-                <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">Glance-and-go read: verdict, regime, calibrated edge, and consensus.</p>
+                <TooltipWrapper text="Glance-and-go read: verdict, regime, calibrated edge, and consensus." />
               </div>
               <div className="flex items-center gap-2">
                 {isConflicted && (
@@ -662,9 +663,11 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     Consensus building
                   </span>
                 )}
-                <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)]">
-                  {aggregation?.mode === 'legacy_linear' ? 'Legacy linear' : 'Conviction mode'}
-                </span>
+                <TooltipWrapper text="Aggregation mode. Conviction mode (active): dormant components are dropped, remaining weights renormalize, then the composite is amplified by agreement (consensus) and extremity (loudest component) — this fights dead-weight dilution from abstaining signals. Legacy linear (disabled): flat weighted average across every component, so abstentions count as zero and drag the composite toward neutral. The engine currently exposes these two modes; conviction is the default.">
+                  <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
+                    {aggregation?.mode === 'legacy_linear' ? 'Legacy linear' : 'Conviction mode'}
+                  </span>
+                </TooltipWrapper>
               </div>
             </div>
 
@@ -854,20 +857,24 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       <section className="zg-feature-shell mt-8 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
-            <div className="text-sm font-semibold mb-2">Component Weights</div>
-            <div className="text-xs text-[var(--color-text-secondary)] mb-2">Radar view of all active model component weights (15 total).</div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="text-sm font-semibold">Component Weights</div>
+              <TooltipWrapper text="Radar view of all active model component weights (15 total). Swipe horizontally on mobile if labels extend past the edge." />
+            </div>
             <div className="h-[320px] sm:h-[420px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData} outerRadius={isMobile ? '86%' : '75%'} margin={{ top: 10, right: isMobile ? 4 : 14, bottom: 10, left: isMobile ? 4 : 14 }}>
-                  <PolarGrid stroke="var(--color-border)" />
-                  <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 9 : 11 }} />
-                  <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                    formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as { description?: string }).description ?? '')]}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
+              <MobileScrollableChart minWidthClass="min-w-[540px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData} outerRadius={isMobile ? '78%' : '75%'} margin={{ top: 10, right: isMobile ? 28 : 14, bottom: 10, left: isMobile ? 28 : 14 }}>
+                    <PolarGrid stroke="var(--color-border)" />
+                    <PolarAngleAxis dataKey="axis" tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }} />
+                    <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                      formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as { description?: string }).description ?? '')]}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </MobileScrollableChart>
             </div>
           </div>
 
