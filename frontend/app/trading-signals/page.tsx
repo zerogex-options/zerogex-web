@@ -59,6 +59,12 @@ function formatPnl(value: number | null) {
   return formatted;
 }
 
+function formatPnlCell(value: number | null) {
+  if (value == null) return '—';
+  if (Math.abs(value) < 1e-9) return '-';
+  return formatPnl(value);
+}
+
 function formatOpenedAt(value: unknown): string {
   const parsed = typeof value === 'string' ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return getString(value);
@@ -285,10 +291,10 @@ export default function TradingSignalsPage() {
                   <td className="py-2 pr-3 text-right">{contracts != null ? contracts.toLocaleString() : '—'}</td>
                   <td className="py-2 pr-3 text-right">{openContracts != null ? openContracts.toLocaleString() : (isLive ? '—' : '0')}</td>
                   <td className="py-2 pr-3 text-right" style={{ color: realizedPnl != null ? (realizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnl(realizedPnl)}
+                    {formatPnlCell(realizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right" style={{ color: unrealizedPnl != null ? (unrealizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnl(unrealizedPnl)}
+                    {formatPnlCell(unrealizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     <span className="inline-flex items-center gap-1" style={{ color: scoreColor }}>

@@ -987,7 +987,6 @@ export default function FlowAnalysisPage() {
   const inputColor = "var(--color-text-primary)";
   const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
-  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
@@ -1432,7 +1431,6 @@ export default function FlowAnalysisPage() {
                   data={directionalPremiumSeries}
                   margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
                   <XAxis
                     dataKey="timestamp"
                     stroke={axisStroke}
@@ -1471,6 +1469,16 @@ export default function FlowAnalysisPage() {
                       return `$${Math.round(n)}`;
                     }}
                   />
+                  {directionalPremiumSeries
+                    .filter((row) => is30MinBoundary(row.timestamp))
+                    .map((row) => (
+                      <ReferenceLine
+                        key={`premium-v-${row.timestamp}`}
+                        x={row.timestamp}
+                        stroke={axisStroke}
+                        opacity={0.18}
+                      />
+                    ))}
                   <Tooltip
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
@@ -1529,7 +1537,6 @@ export default function FlowAnalysisPage() {
                   data={putCallRatioSeries}
                   margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} />
                   <XAxis
                     dataKey="timestamp"
                     stroke={axisStroke}
@@ -1568,6 +1575,16 @@ export default function FlowAnalysisPage() {
                       );
                     }}
                   />
+                  {putCallRatioSeries
+                    .filter((row) => is30MinBoundary(row.timestamp))
+                    .map((row) => (
+                      <ReferenceLine
+                        key={`pcr-v-${row.timestamp}`}
+                        x={row.timestamp}
+                        stroke={axisStroke}
+                        opacity={0.18}
+                      />
+                    ))}
                   <YAxis
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}

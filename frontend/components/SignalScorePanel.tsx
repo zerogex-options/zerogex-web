@@ -440,7 +440,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
               Current Market Feel
-              <TooltipWrapper text="Weighted composite of model components. Positive = bullish, negative = bearish, magnitude = conviction." placement="bottom">
+              <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>
@@ -465,7 +465,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               );
             })()}
             <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-              Aggregate weighted conviction of eight independent market signals (−100 to +100). Positive = net bullish evidence, negative = net bearish. The normalized score (absolute value, 0–100) represents pure conviction strength regardless of direction.
+              The normalized score (absolute value, 0–100) represents pure conviction strength regardless of direction.
             </p>
           </div>
 
