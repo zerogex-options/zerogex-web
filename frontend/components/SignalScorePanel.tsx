@@ -399,7 +399,6 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
     .map((component) => ({
       axis: component.name,
       weightScore: Math.max(0, Math.min(100, component.weight * 100)),
-      description: `${Math.round(component.weight * 100)}% model weighting`,
     }));
   const sortedComponents = useMemo(() => {
     const sortedByContribution = [...components].sort((a, b) => {
@@ -1030,7 +1029,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     <Radar dataKey="weightScore" stroke="var(--color-warning)" fill="var(--color-warning)" fillOpacity={0.45} />
                     <Tooltip
                       contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                      formatter={(value, _n, item) => [`${Number(value).toFixed(0)}%`, String((item.payload as { description?: string }).description ?? '')]}
+                      formatter={(value) => [`${Number(value).toFixed(0)}%`, 'Weight']}
                     />
                   </RadarChart>
                 </ResponsiveContainer>

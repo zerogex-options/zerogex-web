@@ -82,10 +82,11 @@ interface MarketQuoteRow {
   session?: string | null;
 }
 
-interface UseApiDataOptions {
+interface UseApiDataOptions<T = unknown> {
   refreshInterval?: number;
   enabled?: boolean;
   onError?: (error: string) => void;
+  shouldAcceptData?: (nextData: T, prevData: T | null) => boolean;
 }
 
 const REFRESH_ACCELERATION_FACTOR = 0.5;
@@ -295,8 +296,8 @@ function normalizeNumbers(value: unknown): unknown {
   return value;
 }
 
-export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {}) {
-  const { refreshInterval = 5000, enabled = true, onError } = options;
+export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = {}) {
+  const { refreshInterval = 5000, enabled = true, onError, shouldAcceptData } = options;
   const effectiveRefreshInterval = refreshInterval > 0
     ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(refreshInterval * REFRESH_ACCELERATION_FACTOR))
     : 0;
@@ -331,8 +332,19 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
 
       const rawResult = await response.json();
       const result = normalizeNumbers(rawResult) as T;
-      setData(result);
-      setError(null);
+
+      let accepted = true;
+      setData((prev) => {
+        if (shouldAcceptData && !shouldAcceptData(result, prev)) {
+          accepted = false;
+          return prev;
+        }
+        return result;
+      });
+
+      if (accepted) {
+        setError(null);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(errorMessage);
@@ -340,7 +352,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
     } finally {
       setLoading(false);
     }
-  }, [endpoint, enabled, onError]);
+  }, [endpoint, enabled, onError, shouldAcceptData]);
 
   useEffect(() => {
     if (!enabled) {
@@ -364,6 +376,52 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions = {})
   return { data, loading, error, refetch };
 }
 
+
+function countValidGexStrikeRows(rows: GEXStrikeRow[] | null | undefined): number {
+  if (!rows || rows.length === 0) return 0;
+  return rows.filter((row) => Number.isFinite(Number(row?.strike)) && Number.isFinite(Number(row?.net_gex))).length;
+}
+
+function shouldAcceptGexStrikeSnapshot(next: GEXStrikeRow[], prev: GEXStrikeRow[] | null): boolean {
+  if (!prev || prev.length === 0) return true;
+
+  const prevCount = countValidGexStrikeRows(prev);
+  const nextCount = countValidGexStrikeRows(next);
+
+  if (prevCount < 20) return true;
+  if (nextCount === 0) return false;
+
+  const minimumExpected = Math.max(8, Math.floor(prevCount * 0.35));
+  return nextCount >= minimumExpected;
+}
+
+function countSignalScoreComponents(response: SignalScoreResponse | null | undefined): number {
+  const raw = response?.components;
+  if (!raw) return 0;
+
+  if (Array.isArray(raw)) {
+    return raw.filter((component) => Number.isFinite(Number(component?.weight))).length;
+  }
+
+  if (typeof raw === 'object') {
+    return Object.values(raw).filter((component) => Number.isFinite(Number(component?.weight))).length;
+  }
+
+  return 0;
+}
+
+function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: SignalScoreResponse | null): boolean {
+  if (!prev) return true;
+
+  const prevCount = countSignalScoreComponents(prev);
+  const nextCount = countSignalScoreComponents(next);
+
+  if (prevCount < 10) return true;
+
+  const minimumExpected = Math.max(6, Math.floor(prevCount * 0.5));
+  return nextCount >= minimumExpected;
+}
+
 export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
   return useApiData<GEXSummaryRow>(`/api/gex/summary?symbol=${symbol}`, { refreshInterval });
 }
@@ -374,7 +432,10 @@ export function useGEXByStrike(
   refreshInterval = 10000,
   sortBy: 'distance' | 'impact' = 'distance'
 ) {
-  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}&sort_by=${sortBy}`, { refreshInterval });
+  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}&sort_by=${sortBy}`, {
+    refreshInterval,
+    shouldAcceptData: shouldAcceptGexStrikeSnapshot,
+  });
 }
 
 export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
@@ -479,7 +540,10 @@ export interface SignalScoreResponse {
 }
 
 export function useSignalScore(symbol = 'SPY', refreshInterval = 10000) {
-  return useApiData<SignalScoreResponse>(`/api/signals/score?underlying=${symbol}`, { refreshInterval });
+  return useApiData<SignalScoreResponse>(`/api/signals/score?underlying=${symbol}`, {
+    refreshInterval,
+    shouldAcceptData: shouldAcceptSignalScoreSnapshot,
+  });
 }
 
 export interface SignalScoreHistoryPoint {
