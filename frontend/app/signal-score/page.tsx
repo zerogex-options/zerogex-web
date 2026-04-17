@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { BarChart3, Gauge, Info, LineChart as LineChartIcon } from 'lucide-react';
+import { Gauge, Info, LineChart as LineChartIcon } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -55,7 +55,6 @@ export default function SignalScorePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center gap-2 mb-8">
-        <BarChart3 size={28} className="text-[var(--color-text-secondary)]" />
         <h1 className="text-3xl font-bold">Composite Score</h1>
         <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
