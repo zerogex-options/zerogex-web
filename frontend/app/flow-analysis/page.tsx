@@ -1237,6 +1237,8 @@ export default function FlowAnalysisPage() {
     return alignPremiumToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByType, sessionTimeline]);
 
+  const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
+
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
@@ -1421,7 +1423,7 @@ export default function FlowAnalysisPage() {
           title="Net Directional Premium"
           tooltip="Cumulative net directional premium from flow-by-type, where positive values indicate net bullish premium and negative values indicate net bearish premium."
         />
-        {directionalPremiumSeries.length === 0 ? (
+        {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
@@ -1500,7 +1502,6 @@ export default function FlowAnalysisPage() {
                     fill="var(--color-positive)"
                     fillOpacity={0.42}
                     baseValue={0}
-                    connectNulls
                     isAnimationActive={false}
                   />
                   <Area
@@ -1511,7 +1512,6 @@ export default function FlowAnalysisPage() {
                     fill="var(--color-negative)"
                     fillOpacity={0.42}
                     baseValue={0}
-                    connectNulls
                     isAnimationActive={false}
                   />
                 </ComposedChart>

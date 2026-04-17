@@ -13,6 +13,20 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 type TradeRow = Record<string, unknown>;
 type TimeframeFilter = 'today' | 'week' | 'month' | 'year';
+type SortDirection = 'asc' | 'desc';
+type TradeSortKey =
+  | 'symbol'
+  | 'type'
+  | 'expiry'
+  | 'strike'
+  | 'openedAt'
+  | 'closedAt'
+  | 'contracts'
+  | 'openContracts'
+  | 'realizedPnl'
+  | 'unrealizedPnl'
+  | 'entryScore'
+  | 'outcome';
 
 const TIMEFRAME_OPTIONS: Array<{ key: TimeframeFilter; label: string }> = [
   { key: 'today', label: 'Today' },
@@ -122,6 +136,8 @@ export default function TradingSignalsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('today');
+  const [sortKey, setSortKey] = useState<TradeSortKey>('openedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const { data: liveData, loading, error, refetch } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
@@ -170,6 +186,68 @@ export default function TradingSignalsPage() {
     const history = filteredHistoryRows.map((row) => ({ kind: 'history' as const, row }));
     return [...live, ...history];
   }, [liveRows, filteredHistoryRows]);
+
+  const sortedRows = useMemo(() => {
+    const rows = [...combinedRows];
+    const direction = sortDirection === 'asc' ? 1 : -1;
+
+    const getSortValue = (item: (typeof combinedRows)[number]): number | string => {
+      const row = item.row;
+      const isLive = item.kind === 'live';
+      const optionType = getString(row.option_type);
+      const strike = getNumber(row.strike);
+      const contracts = isLive
+        ? getNumber(row.quantity_open ?? row.quantity_initial ?? row.contracts)
+        : getNumber(row.quantity_initial ?? row.quantity_open ?? row.contracts);
+      const openContracts = getNumber(row.quantity_open);
+      const entryScore = getNumber(row.score_at_entry);
+      const realizedPnl = getNumber(row.realized_pnl);
+      const unrealizedPnl = getNumber(row.unrealized_pnl);
+      const totalPnl = getPnl(row);
+      const outcome = isLive ? (totalPnl > 0 ? 'up' : totalPnl < 0 ? 'down' : 'flat') : (totalPnl > 0 ? 'Win' : totalPnl < 0 ? 'Loss' : 'Flat');
+
+      switch (sortKey) {
+        case 'symbol': return getString(row.underlying);
+        case 'type': return optionType;
+        case 'expiry': return getString(row.expiration);
+        case 'strike': return strike ?? Number.NEGATIVE_INFINITY;
+        case 'openedAt': return new Date(String(row.opened_at ?? row.created_at ?? row.timestamp ?? '')).getTime() || Number.NEGATIVE_INFINITY;
+        case 'closedAt': return isLive ? Number.POSITIVE_INFINITY : (new Date(String(row.closed_at ?? row.exit_at ?? '')).getTime() || Number.NEGATIVE_INFINITY);
+        case 'contracts': return contracts ?? Number.NEGATIVE_INFINITY;
+        case 'openContracts': return openContracts ?? Number.NEGATIVE_INFINITY;
+        case 'realizedPnl': return realizedPnl ?? Number.NEGATIVE_INFINITY;
+        case 'unrealizedPnl': return unrealizedPnl ?? Number.NEGATIVE_INFINITY;
+        case 'entryScore': return entryScore ?? Number.NEGATIVE_INFINITY;
+        case 'outcome': return outcome;
+        default: return 0;
+      }
+    };
+
+    rows.sort((a, b) => {
+      const av = getSortValue(a);
+      const bv = getSortValue(b);
+      if (typeof av === 'string' || typeof bv === 'string') {
+        return String(av).localeCompare(String(bv)) * direction;
+      }
+      return (av - bv) * direction;
+    });
+
+    return rows;
+  }, [combinedRows, sortDirection, sortKey]);
+
+  const toggleSort = (key: TradeSortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection('desc');
+  };
+
+  const sortIndicator = (key: TradeSortKey) => {
+    if (sortKey !== key) return '↕';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
 
   if (loading && !liveData) {
     return <LoadingSpinner size="lg" />;
@@ -240,22 +318,22 @@ export default function TradingSignalsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-[var(--color-border)]">
-              <th className="py-2 pr-3">Symbol</th>
-              <th className="py-2 pr-3">Type</th>
-              <th className="py-2 pr-3">Expiry</th>
-              <th className="py-2 pr-3">Strike</th>
-              <th className="py-2 pr-3">Opened At</th>
-              <th className="py-2 pr-3">Closed At</th>
-              <th className="py-2 pr-3 text-right">Contracts</th>
-              <th className="py-2 pr-3 text-right">Open</th>
-              <th className="py-2 pr-3 text-right">Realized PnL</th>
-              <th className="py-2 pr-3 text-right">Unrealized PnL</th>
-              <th className="py-2 pr-3 text-right">Entry Score</th>
-              <th className="py-2 pr-3 text-right">Outcome</th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('symbol')} className="inline-flex items-center gap-1">Symbol <span className="opacity-70">{sortIndicator('symbol')}</span></button></th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('type')} className="inline-flex items-center gap-1">Type <span className="opacity-70">{sortIndicator('type')}</span></button></th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('expiry')} className="inline-flex items-center gap-1">Expiry <span className="opacity-70">{sortIndicator('expiry')}</span></button></th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('strike')} className="inline-flex items-center gap-1">Strike <span className="opacity-70">{sortIndicator('strike')}</span></button></th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('openedAt')} className="inline-flex items-center gap-1">Opened At <span className="opacity-70">{sortIndicator('openedAt')}</span></button></th>
+              <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('closedAt')} className="inline-flex items-center gap-1">Closed At <span className="opacity-70">{sortIndicator('closedAt')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('contracts')} className="inline-flex items-center gap-1">Contracts <span className="opacity-70">{sortIndicator('contracts')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('openContracts')} className="inline-flex items-center gap-1">Open <span className="opacity-70">{sortIndicator('openContracts')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('realizedPnl')} className="inline-flex items-center gap-1">Realized PnL <span className="opacity-70">{sortIndicator('realizedPnl')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('unrealizedPnl')} className="inline-flex items-center gap-1">Unrealized PnL <span className="opacity-70">{sortIndicator('unrealizedPnl')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('entryScore')} className="inline-flex items-center gap-1">Entry Score <span className="opacity-70">{sortIndicator('entryScore')}</span></button></th>
+              <th className="py-2 pr-3 text-right"><button type="button" onClick={() => toggleSort('outcome')} className="inline-flex items-center gap-1">Outcome <span className="opacity-70">{sortIndicator('outcome')}</span></button></th>
             </tr>
           </thead>
           <tbody>
-            {combinedRows.slice(0, 180).map((item, idx) => {
+            {sortedRows.slice(0, 180).map((item, idx) => {
               const row = item.row;
               const isLive = item.kind === 'live';
               const direction = getString(row.direction).toLowerCase();
@@ -309,7 +387,7 @@ export default function TradingSignalsPage() {
                 </tr>
               );
             })}
-            {combinedRows.length === 0 && (
+            {sortedRows.length === 0 && (
               <tr>
                 <td colSpan={12} className="py-10 text-center text-[var(--color-text-secondary)]">
                   No trade rows available.
