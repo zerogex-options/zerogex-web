@@ -1237,6 +1237,15 @@ export default function FlowAnalysisPage() {
     return alignPremiumToTimeline(base, sessionTimeline);
   }, [selectedDate, flowByType, sessionTimeline]);
 
+  const directionalPremiumVisibleSeries = useMemo(() => {
+    if (directionalPremiumSeries.length === 0) return [];
+
+    const lastDataIndex = directionalPremiumSeries.findLastIndex((row) => row.premium != null);
+    if (lastDataIndex < 0) return [];
+
+    return directionalPremiumSeries.slice(0, lastDataIndex + 1);
+  }, [directionalPremiumSeries]);
+
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
@@ -1421,14 +1430,14 @@ export default function FlowAnalysisPage() {
           title="Net Directional Premium"
           tooltip="Cumulative net directional premium from flow-by-type, where positive values indicate net bullish premium and negative values indicate net bearish premium."
         />
-        {directionalPremiumSeries.length === 0 ? (
+        {directionalPremiumVisibleSeries.length === 0 ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
             <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
-                  data={directionalPremiumSeries}
+                  data={directionalPremiumVisibleSeries}
                   margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
                 >
                   <XAxis
@@ -1469,7 +1478,7 @@ export default function FlowAnalysisPage() {
                       return `$${Math.round(n)}`;
                     }}
                   />
-                  {directionalPremiumSeries
+                  {directionalPremiumVisibleSeries
                     .filter((row) => is30MinBoundary(row.timestamp))
                     .map((row) => (
                       <ReferenceLine
