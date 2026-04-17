@@ -166,10 +166,11 @@ export default function TradingSignalsPage() {
   );
 
   const metrics = useMemo(() => {
-    const totalTrades = filteredHistoryRows.length;
+    const historicalTrades = filteredHistoryRows.length;
+    const totalTrades = historicalTrades + liveRows.length;
     const totalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
     const wins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
-    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : null;
+    const winRate = historicalTrades > 0 ? (wins / historicalTrades) * 100 : null;
     const pnlPct = portfolioSize > 0 ? (totalPnl / portfolioSize) * 100 : null;
 
     return {
@@ -179,7 +180,7 @@ export default function TradingSignalsPage() {
       pnlPct,
       winRate,
     };
-  }, [filteredHistoryRows, filteredLiveRows.length, portfolioSize]);
+  }, [filteredHistoryRows, filteredLiveRows.length, liveRows.length, portfolioSize]);
 
   const combinedRows = useMemo(() => {
     const live = liveRows.map((row) => ({ kind: 'live' as const, row }));
@@ -291,7 +292,7 @@ export default function TradingSignalsPage() {
         <h2 className="text-xl font-semibold mb-3">Performance Snapshot</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades in the selected timeframe window." theme="dark" />
-        <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Closed or recorded trades in the selected timeframe window." theme="dark" />
+        <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Historical trades in selected timeframe plus all currently live trades." theme="dark" />
         <MetricCard
           title="PnL $"
           value={formatPnl(metrics.totalPnl)}
