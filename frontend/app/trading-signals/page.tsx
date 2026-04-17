@@ -86,7 +86,8 @@ function inSelectedWindow(date: Date | null, timeframe: TimeframeFilter): boolea
   if (!date) return false;
   const now = new Date();
   if (timeframe === 'today') {
-    return date.toDateString() === now.toDateString();
+    const etDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    return etDate(date) === etDate(now);
   }
 
   const start = new Date(now);

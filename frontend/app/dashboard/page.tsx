@@ -61,7 +61,8 @@ function getTradeTimestamp(row: Record<string, unknown>): Date | null {
 
 function inTodayWindow(date: Date | null): boolean {
   if (!date) return false;
-  return date.toDateString() === new Date().toDateString();
+  const etDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  return etDate(date) === etDate(new Date());
 }
 
 function getTradePnl(row: Record<string, unknown>): number {
