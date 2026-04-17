@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { Gauge } from 'lucide-react';
+import { Gauge, Info, LineChart as LineChartIcon } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
+import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScoreHistory } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
@@ -19,7 +20,6 @@ function formatTime(value: unknown) {
 export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
-  const [marketContext, setMarketContext] = useState<'intraday' | 'swing'>('intraday');
   const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeHistoryMs);
 
   const chartData = useMemo(() => {
@@ -51,54 +51,28 @@ export default function SignalScorePage() {
   }, [historyData]);
 
   const cardBg = theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)';
-  const contextSummary = marketContext === 'intraday'
-    ? 'Intraday: prioritize the current tape and active flow shifts. Treat the Composite Score as a real-time bias filter that can change quickly with dealer positioning, volatility, and options flow.'
-    : 'Swing: focus on persistence across sessions. Treat the Composite Score as a trend-alignment filter and look for repeated agreement from the same components before scaling risk.';
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Composite Score</h1>
-      <p className="text-[var(--color-text-secondary)] mb-8">
-        Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish.
-      </p>
-      <section className="zg-feature-shell p-4 mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="font-semibold text-sm text-[var(--color-text-primary)]">Market Context</span>
-          <button
-            onClick={() => setMarketContext('intraday')}
-            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
-            style={{
-              borderColor: marketContext === 'intraday' ? 'var(--color-info)' : 'var(--color-border)',
-              backgroundColor: marketContext === 'intraday' ? 'var(--color-info-soft)' : 'transparent',
-              color: marketContext === 'intraday' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-            }}
-          >
-            Intraday
-          </button>
-          <button
-            onClick={() => setMarketContext('swing')}
-            className="px-2.5 py-1 rounded-md text-[11px] font-semibold border"
-            style={{
-              borderColor: marketContext === 'swing' ? 'var(--color-info)' : 'var(--color-border)',
-              backgroundColor: marketContext === 'swing' ? 'var(--color-info-soft)' : 'transparent',
-              color: marketContext === 'swing' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-            }}
-          >
-            Swing
-          </button>
-        </div>
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{contextSummary}</p>
-      </section>
+      <div className="flex items-center gap-2 mb-8">
+        <h1 className="text-3xl font-bold">Composite Score</h1>
+        <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
+          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+        </TooltipWrapper>
+      </div>
 
       <SignalScorePanel symbol={symbol} />
 
       {/* Signal Engine Reference */}
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
-        </p>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Gauge size={20} />
+          Signal Engine Reference
+          <TooltipWrapper text="The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing." placement="bottom">
+            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm items-stretch">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
             <div className="font-semibold mb-3">Signal Components</div>
             <table className="w-full text-xs">
@@ -128,25 +102,39 @@ export default function SignalScorePage() {
               </tbody>
             </table>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
-            <div className="font-semibold mb-3">Composite Score Zones</div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
-                  <th className="pb-1.5">Range</th>
-                  <th className="pb-1.5">Action</th>
-                </tr>
-              </thead>
-              <tbody className="text-[var(--color-text-secondary)]">
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] font-medium">+80 to +100</span></td><td>High conviction — strong alignment</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] opacity-70 font-medium">+58 to +80</span></td><td>Tradeable bullish signal</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-warning)] font-medium">−30 to +30</span></td><td>Near-neutral — no trade</td></tr>
-                <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bear)] opacity-70 font-medium">−80 to −58</span></td><td>Tradeable bearish signal</td></tr>
-                <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−100 to −80</span></td><td>High conviction — strong alignment</td></tr>
-              </tbody>
-            </table>
-            <div className="mt-3 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)]">
-              <strong>Dynamic trigger:</strong> baseline 58; raised to 72 when IV rank &gt; 0.70, lowered to 52 when IV rank &lt; 0.25.
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
+              <div className="font-semibold mb-3">How the Composite Is Built</div>
+              <div className="space-y-2 text-xs text-[var(--color-text-secondary)]">
+                <div><span className="font-medium text-[var(--color-text-primary)]">Raw:</span> Flat weighted average of all 15 components (dormant components count as zero).</div>
+                <div><span className="font-medium text-[var(--color-text-primary)]">Renormalized:</span> Dormant components are dropped and active weights are rescaled.</div>
+                <div><span className="font-medium text-[var(--color-text-primary)]">Agreement:</span> Multiplier shrinks split reads and boosts aligned reads.</div>
+                <div><span className="font-medium text-[var(--color-text-primary)]">Extremity:</span> Adds a boost when the loudest component is near ±1.0.</div>
+                <div className="pt-2 border-t border-[var(--color-border)]">
+                  <span className="font-semibold text-[var(--color-text-primary)]">Final Composite = Raw → Renormalized × Agreement × Extremity.</span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
+              <div className="font-semibold mb-3">Composite Score Zones</div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
+                    <th className="pb-1.5">Range</th>
+                    <th className="pb-1.5">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-[var(--color-text-secondary)]">
+                  <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] font-medium">+80 to +100</span></td><td>High conviction — strong alignment</td></tr>
+                  <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bull)] opacity-70 font-medium">+58 to +80</span></td><td>Tradeable bullish signal</td></tr>
+                  <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-warning)] font-medium">−30 to +30</span></td><td>Near-neutral — no trade</td></tr>
+                  <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5"><span className="text-[var(--color-bear)] opacity-70 font-medium">−80 to −58</span></td><td>Tradeable bearish signal</td></tr>
+                  <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−100 to −80</span></td><td>High conviction — strong alignment</td></tr>
+                </tbody>
+              </table>
+              <div className="mt-3 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)]">
+                <strong>Dynamic trigger:</strong> baseline 58; raised to 72 when IV rank &gt; 0.70, lowered to 52 when IV rank &lt; 0.25.
+              </div>
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
@@ -182,8 +170,13 @@ export default function SignalScorePage() {
 
       {/* Score History */}
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-2xl font-semibold mb-1">Score History</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4">Composite score over time. Green shading = bullish, red = bearish.</p>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <LineChartIcon size={20} />
+          Score History
+          <TooltipWrapper text="Composite score over time. Green shading = bullish, red = bearish." placement="bottom">
+            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+        </h2>
         <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]" style={{ height: 320 }}>
           {chartData.length > 0 ? (
             <MobileScrollableChart>

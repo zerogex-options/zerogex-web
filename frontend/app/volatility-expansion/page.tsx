@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowDown, ArrowUp, Minus, ShieldCheck, Zap, TrendingDown, Activity, Gauge } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, ShieldCheck, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useVolExpansionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -75,10 +75,12 @@ export default function VolatilityExpansionPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Volatility Expansion</h1>
-      <p className="text-[var(--color-text-secondary)] mb-8">
-        Whether the current market structure is loaded for a volatile directional move, and which direction that move would go.
-      </p>
+      <div className="flex items-center gap-2 mb-8">
+        <h1 className="text-3xl font-bold">Volatility Expansion</h1>
+        <TooltipWrapper text="Whether the current market structure is loaded for a volatile directional move, and which direction that move would go." placement="bottom">
+          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+        </TooltipWrapper>
+      </div>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
