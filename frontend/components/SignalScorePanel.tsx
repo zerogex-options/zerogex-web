@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Clock, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Clock, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
@@ -335,6 +335,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
 
 export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+  const [showReadingGuide, setShowReadingGuide] = useState(false);
   const isMobile = useIsMobile();
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const resolvedScoreData = (() => {
@@ -645,6 +646,52 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               ? 'var(--color-warning)'
               : 'var(--color-bear)';
 
+        const confidencePct = analytics?.confidence != null ? analytics.confidence * 100 : null;
+        const confidenceBand = confidencePct == null
+          ? { label: '—', tone: 'var(--color-text-secondary)' }
+          : confidencePct >= 65
+            ? { label: 'strong', tone: 'var(--color-bull)' }
+            : confidencePct >= 40
+              ? { label: 'moderate', tone: 'var(--color-warning)' }
+              : { label: 'low', tone: 'var(--color-bear)' };
+
+        const hitRateBand = hitRatePct == null
+          ? { label: '—' }
+          : hitRatePct >= 60
+            ? { label: 'strong' }
+            : hitRatePct >= 50
+              ? { label: 'marginal' }
+              : { label: 'weak' };
+
+        const compositeAbs = finalComposite != null ? Math.abs(finalComposite) : null;
+        const compositeZone = compositeAbs == null
+          ? { label: 'awaiting data', hint: '', color: 'var(--color-text-secondary)' }
+          : compositeAbs >= fullThreshold
+            ? { label: 'Full trigger zone', hint: 'full-size trade OK', color: 'var(--color-bull)' }
+            : compositeAbs >= scalpThreshold
+              ? { label: 'Scalp zone', hint: 'reduced-size scalp OK', color: 'var(--color-warning)' }
+              : { label: 'Below scalp trigger', hint: 'no trade yet', color: 'var(--color-bear)' };
+
+        const regimeTag = regime === 'short_gamma'
+          ? 'amplifying'
+          : regime === 'long_gamma'
+            ? 'dampening'
+            : 'mixed';
+
+        const agreementMultEffect = agreementMultiplier == null
+          ? null
+          : agreementMultiplier < 0.98
+            ? 'shrinks the signal'
+            : agreementMultiplier > 1.02
+              ? 'amplifies the signal'
+              : 'roughly neutral';
+
+        const extremityMultEffect = extremityMultiplier == null
+          ? null
+          : extremityMultiplier > 1.02
+            ? 'boosts — loudest is near ±1.0'
+            : 'no boost — nothing is screaming';
+
         return (
           <section className="zg-feature-shell mt-8 p-6">
             <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
@@ -671,6 +718,50 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </div>
             </div>
 
+            {/* READING GUIDE (collapsible) */}
+            <div className="mb-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowReadingGuide((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 p-3 text-left hover:bg-[var(--color-surface)]/50 transition-colors"
+                aria-expanded={showReadingGuide}
+              >
+                <span className="flex items-center gap-2">
+                  <Info size={14} className="text-[var(--color-text-secondary)]" />
+                  <span className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">How to read this</span>
+                </span>
+                <ChevronDown
+                  size={16}
+                  className="text-[var(--color-text-secondary)] transition-transform"
+                  style={{ transform: showReadingGuide ? 'rotate(180deg)' : 'none' }}
+                />
+              </button>
+              {showReadingGuide && (
+                <div className="px-4 pb-4 pt-1 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-xs text-[var(--color-text-secondary)]">
+                  <div>
+                    <div className="font-semibold text-[var(--color-text-primary)] mb-0.5">1. Verdict — what to do</div>
+                    <div><span className="text-[var(--color-bull)] font-medium">GO LONG / SHORT</span>: take the trade. <span className="text-[var(--color-warning)] font-medium">WATCH</span>: edge exists but wait or size tiny. <span className="font-medium">WAIT</span>: stand down. <em>CAUTIOUS</em> flags when caveats apply.</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[var(--color-text-primary)] mb-0.5">2. Regime — market structure</div>
+                    <div>Short gamma = dealers amplify moves (momentum / breakouts favored). Long gamma = dealers dampen moves (fades / mean-reversion favored). Neutral = no structural tilt.</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[var(--color-text-primary)] mb-0.5">3. Calibrated Edge — historical track record</div>
+                    <div>Hit rate = % of past similar setups that moved the signaled direction. Bigger <code>n</code> + higher confidence = more trustworthy. Below 50% hit rate means worse than a coin flip.</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[var(--color-text-primary)] mb-0.5">4. Consensus — do the components agree?</div>
+                    <div>15 components each vote on direction. 50% = tie (half up, half down). 100% = unanimous. Low agreement usually means wait.</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="font-semibold text-[var(--color-text-primary)] mb-0.5">5. Build chain — how the composite number was produced</div>
+                    <div>Raw weighted average → renormalized to only the components that actually contributed → × agreement multiplier (shrinks if split, grows if aligned) → × extremity multiplier (boost when loudest component is near ±1.0) = final composite. Positive = bullish, negative = bearish. Cross the <span className="text-[var(--color-warning)]">scalp</span> trigger to consider a small trade, the <span className="text-[var(--color-bull)]">full</span> trigger for full size.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* HERO VERDICT */}
             <div
               className="relative rounded-2xl border p-5 md:p-6 mb-5 overflow-hidden"
@@ -679,7 +770,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <div className="absolute inset-y-0 left-0 w-1" style={{ background: verdictColor }} aria-hidden />
               <div className="flex items-start justify-between gap-6 flex-wrap">
                 <div className="flex-1 min-w-[240px]">
-                  <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-text-secondary)] mb-2">Verdict</div>
+                  <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-text-secondary)] mb-2">Verdict · what to do</div>
                   <div className="flex items-center gap-3">
                     <div
                       className="flex items-center justify-center rounded-full"
@@ -693,17 +784,21 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   </div>
                   <div className="mt-3 text-sm text-[var(--color-text-primary)]">{verdictHeuristic}</div>
                 </div>
-                <div className="flex flex-col items-end gap-1 min-w-[140px]">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Composite</div>
+                <div className="flex flex-col items-end gap-1 min-w-[160px]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Composite score</div>
                   <div className="text-3xl font-bold leading-none" style={{ color: verdictColor }}>
                     {finalComposite != null ? `${finalComposite >= 0 ? '+' : ''}${finalComposite.toFixed(3)}` : '—'}
                   </div>
+                  <div className="text-[11px] font-semibold mt-1" style={{ color: compositeZone.color }}>
+                    {compositeZone.label}
+                    {compositeZone.hint && <span className="text-[var(--color-text-secondary)] font-normal"> · {compositeZone.hint}</span>}
+                  </div>
                   <div className="text-[11px] text-[var(--color-text-secondary)] text-right">
                     {finalComposite == null
-                      ? 'awaiting data'
+                      ? '(awaiting data)'
                       : nextThreshold != null && distanceToThreshold != null
-                        ? `${Math.max(0, distanceToThreshold).toFixed(3)} to ${nextThreshold.toFixed(2)} trigger`
-                        : `past ${fullThreshold.toFixed(2)} full trigger`}
+                        ? `${Math.max(0, distanceToThreshold).toFixed(3)} away from the ${nextThreshold.toFixed(2)} trigger`
+                        : `past the ${fullThreshold.toFixed(2)} full trigger`}
                   </div>
                 </div>
               </div>
@@ -715,37 +810,55 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Zap size={12} /> Regime
+                    <Zap size={12} /> Regime · market structure
                   </div>
                   <TooltipWrapper text="From gex_regime. Short gamma → dealer hedging amplifies moves. Long gamma → hedging dampens them. Neutral = mixed.">
                     <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
                   </TooltipWrapper>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <RegimeIcon size={20} style={{ color: regimeColor }} />
                   <div className="text-lg font-bold" style={{ color: regimeColor }}>{regimeLabel}</div>
+                  <span
+                    className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: `${regimeColor}20`, color: regimeColor }}
+                  >
+                    {regimeTag}
+                  </span>
                 </div>
                 <div className="mt-2 text-xs text-[var(--color-text-secondary)]">{regimePlaybook}</div>
+                <div className="mt-2 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
+                  Dealer hedging either <strong>amplifies</strong> moves (short gamma), <strong>dampens</strong> them (long gamma), or has no structural tilt (neutral).
+                </div>
               </div>
 
               {/* Calibrated Edge */}
               <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Target size={12} /> Calibrated Edge
+                    <Target size={12} /> Calibrated Edge · history
                   </div>
-                  <TooltipWrapper text={`Backtested against matching history. Scope: how tightly filtered — regime+strength is strictest, direction only is loosest.`}>
+                  <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
                     <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
                       {humanizeScope(analytics?.calibration_scope)}
                     </span>
                   </TooltipWrapper>
                 </div>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
                   <div className="text-2xl font-bold" style={{ color: hitRateTone }}>
                     {hitRatePct != null ? `${hitRatePct.toFixed(0)}%` : '—'}
                   </div>
                   <div className="text-xs text-[var(--color-text-secondary)]">hit rate</div>
+                  {hitRatePct != null && (
+                    <span
+                      className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                      style={{ background: `${hitRateTone}20`, color: hitRateTone }}
+                    >
+                      {hitRateBand.label}
+                    </span>
+                  )}
                 </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">of past similar setups moved this way (50% = coin flip)</div>
                 <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0"
@@ -756,10 +869,22 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   />
                   <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
                 </div>
-                <div className="flex items-center justify-between mt-2 text-[11px] text-[var(--color-text-secondary)]">
-                  <span>n={analytics?.sample_size ?? '—'}</span>
-                  <span>{analytics?.expected_move_bp != null ? `${analytics.expected_move_bp >= 0 ? '+' : ''}${analytics.expected_move_bp.toFixed(1)} bp exp` : '— bp'}</span>
-                  <span>{analytics?.confidence != null ? `${(analytics.confidence * 100).toFixed(0)}% conf` : '— conf'}</span>
+                <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
+                  <div className="flex items-center justify-between">
+                    <span>Sample size</span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{analytics?.sample_size != null ? `${analytics.sample_size.toLocaleString()} matches` : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Avg move</span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{analytics?.expected_move_bp != null ? `${analytics.expected_move_bp >= 0 ? '+' : ''}${analytics.expected_move_bp.toFixed(1)} bp` : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Confidence</span>
+                    <span className="font-medium flex items-center gap-1.5" style={{ color: confidenceBand.tone }}>
+                      {confidencePct != null ? `${confidencePct.toFixed(0)}%` : '—'}
+                      <span className="text-[9px] uppercase tracking-wider">{confidenceBand.label}</span>
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -767,18 +892,27 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Users size={12} /> Consensus
+                    <Users size={12} /> Consensus · components
                   </div>
-                  <TooltipWrapper text="Agreement: 0.5 = split, 1.0 = unanimous among active components. Active count shows how many components contributed vs abstained.">
+                  <TooltipWrapper text="Agreement: 0.5 = tie (half up, half down), 1.0 = unanimous among active components. Active count shows how many components contributed vs abstained.">
                     <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
                   </TooltipWrapper>
                 </div>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
                   <div className="text-2xl font-bold" style={{ color: agreementColor }}>
                     {agreementPct != null ? `${agreementPct.toFixed(0)}%` : '—'}
                   </div>
-                  <div className="text-xs text-[var(--color-text-secondary)]">{agreementLabel}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)]">agreement</div>
+                  {agreementPct != null && (
+                    <span
+                      className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                      style={{ background: `${agreementColor}20`, color: agreementColor }}
+                    >
+                      {agreementLabel}
+                    </span>
+                  )}
                 </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">how much the active components agree on direction</div>
                 <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0"
@@ -787,13 +921,25 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                       background: agreementColor,
                     }}
                   />
+                  <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
                 </div>
-                <div className="flex items-center justify-between mt-2 text-[11px] text-[var(--color-text-secondary)]">
-                  <span>{activeCount}/{totalComponents} active · {dormantCount} dormant</span>
-                  <span>max {maxConviction.toFixed(2)}</span>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                  <span>50% tie</span>
+                  <span>100% unanimous</span>
                 </div>
-                <div className="mt-1 text-[11px] text-[var(--color-text-secondary)] truncate">
-                  Driver: <span className="text-[var(--color-text-primary)] font-medium">{topComponent?.name ?? '—'}</span>
+                <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
+                  <div className="flex items-center justify-between">
+                    <span>Active</span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{activeCount}/{totalComponents} · {dormantCount} dormant</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Loudest voice</span>
+                    <span className="text-[var(--color-text-primary)] font-medium">{maxConviction.toFixed(2)} <span className="text-[var(--color-text-secondary)] font-normal">(of 1.00)</span></span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Driver</span>
+                    <span className="text-[var(--color-text-primary)] font-medium truncate">{topComponent?.name ?? '—'}</span>
+                  </div>
                 </div>
                 {isThin && (
                   <div className="mt-2 flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
@@ -805,35 +951,40 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
 
             {/* COMPOSITE BUILD CHAIN */}
             <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                 <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">How this cycle&apos;s composite was built</div>
                 <div className="text-[11px] text-[var(--color-text-secondary)]">raw → reweight → × agreement × extremity</div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-center">
+              <div className="text-[11px] text-[var(--color-text-secondary)] mb-3">Read left → right. Each step shows the number and what it represents.</div>
+              <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-stretch">
                 <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Raw</div>
                   <div className="font-semibold">{rawComposite != null ? rawComposite.toFixed(3) : '—'}</div>
+                  <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">flat weighted avg of all 15 components (dormant ones count as zero)</div>
                 </div>
-                <div className="text-center text-[var(--color-text-secondary)] font-semibold">→</div>
+                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">→</div>
                 <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Renormalized</div>
                   <div className="font-semibold">{renormalized != null ? renormalized.toFixed(3) : '—'}</div>
+                  <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">dormant ones dropped, remaining weights rescaled so active voices count fully</div>
                 </div>
-                <div className="text-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
                 <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Agreement</div>
                   <div className="font-semibold">{agreementMultiplier != null ? `${agreementMultiplier.toFixed(2)}×` : '—'}</div>
+                  <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">{agreementMultEffect ?? 'consensus multiplier (shrinks if split, grows if aligned)'}</div>
                 </div>
-                <div className="text-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
                 <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Extremity</div>
                   <div className="font-semibold">{extremityMultiplier != null ? `${extremityMultiplier.toFixed(2)}×` : '—'}</div>
+                  <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">{extremityMultEffect ?? 'loud-voice boost (×1.0–1.5 when loudest component is near ±1.0)'}</div>
                 </div>
               </div>
-              <div className="mt-3 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
                 <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-[var(--color-text-secondary)]">Final Composite</span>
-                  <span className="font-semibold" style={{ color: verdictColor }}>
+                  <span className="text-[var(--color-text-secondary)] font-semibold uppercase tracking-wider">Final Composite</span>
+                  <span className="text-lg font-bold" style={{ color: verdictColor }}>
                     {finalComposite != null ? finalComposite.toFixed(3) : '—'}
                   </span>
                 </div>
@@ -843,10 +994,17 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                   <div className="absolute inset-y-0 right-0 bg-[var(--color-bull)]/30" style={{ width: `${((0.8 - fullThreshold) / 0.8) * 100}%` }} />
                   <div className="absolute -top-1 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: `${Math.max(0, Math.min(100, ((finalComposite ?? 0) / 0.8) * 100))}%` }} />
                 </div>
-                <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-                  scalp {scalpThreshold.toFixed(2)} · full {fullThreshold.toFixed(2)}
+                <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                  <span>0 no trade</span>
+                  <span>scalp {scalpThreshold.toFixed(2)}</span>
+                  <span>full {fullThreshold.toFixed(2)}</span>
+                  <span>0.80 max</span>
+                </div>
+                <div className="mt-2 text-[11px] text-[var(--color-text-secondary)]">
+                  <strong style={{ color: compositeZone.color }}>{compositeZone.label}</strong>
+                  {compositeZone.hint && <> · {compositeZone.hint}</>}
                   {distanceToThreshold != null ? ` · ${Math.max(0, distanceToThreshold).toFixed(3)} to next trigger` : ''}
-                  {' · '}active weight {(activeWeight * 100).toFixed(0)}%
+                  {' · '}active weight {(activeWeight * 100).toFixed(0)}% of the book
                 </div>
               </div>
             </div>
