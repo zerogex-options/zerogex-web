@@ -956,29 +956,31 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 <div className="text-[11px] text-[var(--color-text-secondary)]">raw → reweight → × agreement × extremity</div>
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mb-3">Read left → right. Each step shows the number and what it represents.</div>
-              <div className="grid grid-cols-1 md:grid-cols-9 gap-2 text-sm items-stretch">
-                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+              <div className="overflow-x-auto">
+                <div className="min-w-[1080px] flex items-stretch gap-2 text-sm">
+                  <div className="w-[300px] rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Raw</div>
                   <div className="font-semibold">{rawComposite != null ? rawComposite.toFixed(3) : '—'}</div>
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">flat weighted avg of all 15 components (dormant ones count as zero)</div>
-                </div>
-                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">→</div>
-                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  </div>
+                  <div className="w-8 flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">→</div>
+                  <div className="w-[300px] rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Renormalized</div>
                   <div className="font-semibold">{renormalized != null ? renormalized.toFixed(3) : '—'}</div>
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">dormant ones dropped, remaining weights rescaled so active voices count fully</div>
-                </div>
-                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
-                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  </div>
+                  <div className="w-8 flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                  <div className="w-[300px] rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Agreement</div>
                   <div className="font-semibold">{agreementMultiplier != null ? `${agreementMultiplier.toFixed(2)}×` : '—'}</div>
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">{agreementMultEffect ?? 'consensus multiplier (shrinks if split, grows if aligned)'}</div>
-                </div>
-                <div className="flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
-                <div className="md:col-span-2 rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
+                  </div>
+                  <div className="w-8 flex items-center justify-center text-[var(--color-text-secondary)] font-semibold">×</div>
+                  <div className="w-[300px] rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface)]">
                   <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Extremity</div>
                   <div className="font-semibold">{extremityMultiplier != null ? `${extremityMultiplier.toFixed(2)}×` : '—'}</div>
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">{extremityMultEffect ?? 'loud-voice boost (×1.0–1.5 when loudest component is near ±1.0)'}</div>
+                  </div>
                 </div>
               </div>
               <div className="mt-3 rounded-lg border border-[var(--color-border)] p-3 bg-[var(--color-surface)]">
@@ -1020,7 +1022,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <TooltipWrapper text="Radar view of all active model component weights (15 total). Swipe horizontally on mobile if labels extend past the edge." />
             </div>
             <div className="h-[320px] sm:h-[420px]">
-              <MobileScrollableChart minWidthClass="min-w-[540px]">
+              <MobileScrollableChart minWidthClass="min-w-[540px]" initialScroll="center">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData} outerRadius={isMobile ? '78%' : '75%'} margin={{ top: 10, right: isMobile ? 28 : 14, bottom: 10, left: isMobile ? 28 : 14 }}>
                     <PolarGrid stroke="var(--color-border)" />
