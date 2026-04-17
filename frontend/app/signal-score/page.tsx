@@ -56,6 +56,11 @@ export default function SignalScorePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center gap-2 mb-8">
         <h1 className="text-3xl font-bold">Composite Score</h1>
+        <TooltipWrapper text="Aggregation mode. Conviction mode (active): dormant components are dropped, remaining weights renormalize, then the composite is amplified by agreement (consensus) and extremity (loudest component). Legacy linear (disabled): flat weighted average across every component, so abstentions count as zero and drag the composite toward neutral.">
+          <span className="inline-flex items-center rounded-md border border-emerald-400/60 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-emerald-300 cursor-help uppercase">
+            Conviction Mode
+          </span>
+        </TooltipWrapper>
         <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>

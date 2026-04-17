@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Clock, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
-import { getRegimeLabel } from '@/core/signalConstants';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -374,7 +373,6 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const compositeScoreRaw = resolvedScoreData?.composite_score ?? resolvedScoreData?.score;
   const compositeScore = typeof compositeScoreRaw === 'number' ? compositeScoreRaw : null;
   const scalpThreshold = 0.36;
-  const fullThreshold = 0.52;
   const totalComponents = components.length;
   const activeFromRows = components.filter((component) => Math.abs(normalizeComponentScore(component.score)) >= 0.02).length;
   const activeCount = aggregation?.active_count ?? activeFromRows;
@@ -392,14 +390,6 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   const finalComposite = displayedFinalComposite ?? (renormalized != null && agreementMultiplier != null && extremityMultiplier != null
     ? renormalized * agreementMultiplier * extremityMultiplier
     : null);
-  const nextThreshold = finalComposite == null
-    ? null
-    : finalComposite < scalpThreshold
-      ? scalpThreshold
-      : finalComposite < fullThreshold
-        ? fullThreshold
-        : null;
-  const distanceToThreshold = nextThreshold != null && finalComposite != null ? nextThreshold - finalComposite : null;
   const radarData = [...components]
     .sort((a, b) => (COMPONENT_DISPLAY_ORDER[a.name] ?? 999) - (COMPONENT_DISPLAY_ORDER[b.name] ?? 999))
     .filter((component) => component.weight > 0 && Math.abs(normalizeComponentScore(component.score)) >= 0.02)
@@ -435,7 +425,129 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
     () => (selectedComponent ? COMPONENT_DETAILS[selectedComponent] : null),
     [selectedComponent],
   );
+  const direction: 'long' | 'short' | 'flat' = finalComposite == null || Math.abs(finalComposite) < 0.01
+    ? 'flat'
+    : finalComposite > 0 ? 'long' : 'short';
+  const action = (analytics?.action ?? '').toLowerCase();
+  const hasAnalytics = analytics != null && (analytics.action != null || analytics.sample_size != null);
+  const maxConviction = maxAbsComponent ?? Math.abs(topComponent?.score ?? 0);
+  const isConflicted = agreement != null && agreement < 0.65 && maxConviction >= 0.9;
+  const isThin = activeCount < 8;
+  const isLowConsensus = agreement != null && agreement < 0.7;
+  const isLowConfidence = analytics?.confidence != null && analytics.confidence < 0.55;
+  const cautionReasons: string[] = [];
+  if (isConflicted) cautionReasons.push('loud component disagrees with the rest');
+  if (isThin) cautionReasons.push('thin participation');
+  if (isLowConsensus) cautionReasons.push('moderate consensus');
+  if (isLowConfidence) cautionReasons.push('lower calibrated confidence');
 
+  type VerdictTone = 'bull' | 'bear' | 'amber' | 'neutral';
+  let verdictLabel = 'AWAITING SIGNAL';
+  let verdictTone: VerdictTone = 'neutral';
+  let verdictHeuristic = 'Signals are still loading or the engine is between cycles.';
+  let VerdictIcon: typeof TrendingUp = Clock;
+
+  if (finalComposite != null) {
+    const belowScalp = Math.abs(finalComposite) < scalpThreshold;
+    if (action === 'wait' || direction === 'flat' || (!hasAnalytics && belowScalp)) {
+      verdictLabel = 'WAIT';
+      verdictTone = 'neutral';
+      verdictHeuristic = belowScalp
+        ? 'Composite below scalp trigger — no edge worth paying the spread.'
+        : 'Calibration says no edge. Stand down.';
+      VerdictIcon = Clock;
+    } else if (action === 'watch' || isConflicted) {
+      verdictLabel = direction === 'long' ? 'WATCH · LEAN LONG' : 'WATCH · LEAN SHORT';
+      verdictTone = 'amber';
+      verdictHeuristic = isConflicted
+        ? 'Conflicted read — one component screams, the rest disagree. Wait for confirmation or fade the outlier.'
+        : 'Modest edge. Size small or wait for a cleaner tape to confirm.';
+      VerdictIcon = Eye;
+    } else {
+      const caution = cautionReasons.length > 0;
+      if (direction === 'long') {
+        verdictLabel = caution ? 'GO LONG · CAUTIOUS' : 'GO LONG';
+        verdictTone = 'bull';
+        VerdictIcon = TrendingUp;
+      } else {
+        verdictLabel = caution ? 'GO SHORT · CAUTIOUS' : 'GO SHORT';
+        verdictTone = 'bear';
+        VerdictIcon = TrendingDown;
+      }
+      verdictHeuristic = caution
+        ? `Edge is real but ${cautionReasons[0]} — consider reduced size and tighter stops.`
+        : 'Strong edge with consensus — aligned setup, size to conviction.';
+    }
+  }
+
+  const verdictColor = verdictTone === 'bull'
+    ? 'var(--color-bull)'
+    : verdictTone === 'bear'
+      ? 'var(--color-bear)'
+      : verdictTone === 'amber'
+        ? 'var(--color-warning)'
+        : 'var(--color-text-secondary)';
+  const regimeLabel = regime === 'short_gamma'
+    ? 'Short Gamma'
+    : regime === 'long_gamma'
+      ? 'Long Gamma'
+      : 'Neutral Gamma';
+  const regimePlaybook = regime === 'short_gamma'
+    ? 'Dealer hedging amplifies moves — breakouts & momentum favored.'
+    : regime === 'long_gamma'
+      ? 'Dealer hedging dampens moves — fades & mean-reversion favored.'
+      : 'Mixed dealer posture — no structural tailwind either way.';
+  const regimeColor = regime === 'short_gamma'
+    ? 'var(--color-warning)'
+    : regime === 'long_gamma'
+      ? 'var(--color-bull)'
+      : 'var(--color-text-secondary)';
+  const regimeTag = regime === 'short_gamma'
+    ? 'amplifying'
+    : regime === 'long_gamma'
+      ? 'dampening'
+      : 'mixed';
+  const RegimeIcon = regime === 'short_gamma' ? Zap : regime === 'long_gamma' ? Shield : Minus;
+  const hitRatePct = analytics?.hit_rate != null ? analytics.hit_rate * 100 : null;
+  const hitRateTone = hitRatePct == null
+    ? 'var(--color-text-secondary)'
+    : hitRatePct >= 60
+      ? 'var(--color-bull)'
+      : hitRatePct >= 50
+        ? 'var(--color-warning)'
+        : 'var(--color-bear)';
+  const hitRateBand = hitRatePct == null
+    ? { label: '—' }
+    : hitRatePct >= 60
+      ? { label: 'strong' }
+      : hitRatePct >= 50
+        ? { label: 'marginal' }
+        : { label: 'weak' };
+  const agreementPct = agreement != null ? agreement * 100 : null;
+  const agreementLabel = agreementPct == null
+    ? 'awaiting data'
+    : agreementPct >= 90
+      ? 'unanimous'
+      : agreementPct >= 75
+        ? 'strong consensus'
+        : agreementPct >= 60
+          ? 'moderate consensus'
+          : 'split';
+  const agreementColor = agreementPct == null
+    ? 'var(--color-text-secondary)'
+    : agreementPct >= 75
+      ? 'var(--color-bull)'
+      : agreementPct >= 60
+        ? 'var(--color-warning)'
+        : 'var(--color-bear)';
+  const confidencePct = analytics?.confidence != null ? analytics.confidence * 100 : null;
+  const confidenceBand = confidencePct == null
+    ? { label: '—', tone: 'var(--color-text-secondary)' }
+    : confidencePct >= 65
+      ? { label: 'strong', tone: 'var(--color-bull)' }
+      : confidencePct >= 40
+        ? { label: 'moderate', tone: 'var(--color-warning)' }
+        : { label: 'low', tone: 'var(--color-bear)' };
   return (
     <>
       <div className="zg-feature-shell p-6">
@@ -447,24 +559,19 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
               </TooltipWrapper>
             </div>
-            {(() => {
-              const hasScore = compositeScore != null;
-              const directionLabel = hasScore ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
-
-              return (
-                <>
-                  <div
-                    className="text-6xl font-black leading-none"
-                    style={{
-                      color: hasScore ? compositeScoreColor(compositeScore) : 'var(--color-text-primary)',
-                    }}
-                  >
-                    {hasScore ? compositeScore.toFixed(2) : '--'}
-                  </div>
-                  <div className="mt-2 text-lg font-semibold">{directionLabel}</div>
-                </>
-              );
-            })()}
+            <div
+              className="text-6xl font-black leading-none"
+              style={{
+                color: compositeScore != null ? compositeScoreColor(compositeScore) : 'var(--color-text-primary)',
+              }}
+            >
+              {compositeScore != null ? compositeScore.toFixed(2) : '--'}
+            </div>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold" style={{ borderColor: verdictColor, color: verdictColor }}>
+              <VerdictIcon size={16} />
+              <span>{verdictLabel}</span>
+            </div>
+            <div className="mt-2 text-sm text-[var(--color-text-secondary)]">{verdictHeuristic}</div>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
@@ -531,372 +638,147 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         </div>
       </div>
 
-      {(() => {
-        const direction: 'long' | 'short' | 'flat' = finalComposite == null || Math.abs(finalComposite) < 0.01
-          ? 'flat'
-          : finalComposite > 0 ? 'long' : 'short';
-        const action = (analytics?.action ?? '').toLowerCase();
-        const hasAnalytics = analytics != null && (analytics.action != null || analytics.sample_size != null);
-        const maxConviction = maxAbsComponent ?? Math.abs(topComponent?.score ?? 0);
-        const isConflicted = agreement != null && agreement < 0.65 && maxConviction >= 0.9;
-        const isThin = activeCount < 8;
-        const isLowConsensus = agreement != null && agreement < 0.7;
-        const isLowConfidence = analytics?.confidence != null && analytics.confidence < 0.55;
-        const cautionReasons: string[] = [];
-        if (isConflicted) cautionReasons.push('loud component disagrees with the rest');
-        if (isThin) cautionReasons.push('thin participation');
-        if (isLowConsensus) cautionReasons.push('moderate consensus');
-        if (isLowConfidence) cautionReasons.push('lower calibrated confidence');
-
-        type VerdictTone = 'bull' | 'bear' | 'amber' | 'neutral';
-        let verdictLabel = 'AWAITING SIGNAL';
-        let verdictTone: VerdictTone = 'neutral';
-        let verdictHeuristic = 'Signals are still loading or the engine is between cycles.';
-        let VerdictIcon: typeof TrendingUp = Clock;
-
-        if (finalComposite != null) {
-          const belowScalp = Math.abs(finalComposite) < scalpThreshold;
-          if (action === 'wait' || direction === 'flat' || (!hasAnalytics && belowScalp)) {
-            verdictLabel = 'WAIT';
-            verdictTone = 'neutral';
-            verdictHeuristic = belowScalp
-              ? 'Composite below scalp trigger — no edge worth paying the spread.'
-              : 'Calibration says no edge. Stand down.';
-            VerdictIcon = Clock;
-          } else if (action === 'watch' || isConflicted) {
-            verdictLabel = direction === 'long' ? 'WATCH · LEAN LONG' : 'WATCH · LEAN SHORT';
-            verdictTone = 'amber';
-            verdictHeuristic = isConflicted
-              ? 'Conflicted read — one component screams, the rest disagree. Wait for confirmation or fade the outlier.'
-              : 'Modest edge. Size small or wait for a cleaner tape to confirm.';
-            VerdictIcon = Eye;
-          } else {
-            // action === 'enter' (or heuristic above threshold with missing analytics)
-            const caution = cautionReasons.length > 0;
-            if (direction === 'long') {
-              verdictLabel = caution ? 'GO LONG · CAUTIOUS' : 'GO LONG';
-              verdictTone = 'bull';
-              VerdictIcon = TrendingUp;
-            } else {
-              verdictLabel = caution ? 'GO SHORT · CAUTIOUS' : 'GO SHORT';
-              verdictTone = 'bear';
-              VerdictIcon = TrendingDown;
-            }
-            verdictHeuristic = caution
-              ? `Edge is real but ${cautionReasons[0]} — consider reduced size and tighter stops.`
-              : 'Strong edge with consensus — aligned setup, size to conviction.';
-          }
-        }
-
-        const verdictColor = verdictTone === 'bull'
-          ? 'var(--color-bull)'
-          : verdictTone === 'bear'
-            ? 'var(--color-bear)'
-            : verdictTone === 'amber'
-              ? 'var(--color-warning)'
-              : 'var(--color-text-secondary)';
-        const verdictSoftBg = verdictTone === 'bull'
-          ? 'rgba(34, 197, 94, 0.08)'
-          : verdictTone === 'bear'
-            ? 'rgba(239, 68, 68, 0.08)'
-            : verdictTone === 'amber'
-              ? 'rgba(245, 158, 11, 0.08)'
-              : 'var(--color-surface-subtle)';
-
-        const regimeLabel = regime === 'short_gamma'
-          ? 'Short Gamma'
-          : regime === 'long_gamma'
-            ? 'Long Gamma'
-            : 'Neutral Gamma';
-        const regimePlaybook = regime === 'short_gamma'
-          ? 'Dealer hedging amplifies moves — breakouts & momentum favored.'
-          : regime === 'long_gamma'
-            ? 'Dealer hedging dampens moves — fades & mean-reversion favored.'
-            : 'Mixed dealer posture — no structural tailwind either way.';
-        const regimeColor = regime === 'short_gamma'
-          ? 'var(--color-warning)'
-          : regime === 'long_gamma'
-            ? 'var(--color-bull)'
-            : 'var(--color-text-secondary)';
-        const RegimeIcon = regime === 'short_gamma' ? Zap : regime === 'long_gamma' ? Shield : Minus;
-
-        const hitRatePct = analytics?.hit_rate != null ? analytics.hit_rate * 100 : null;
-        const hitRateTone = hitRatePct == null
-          ? 'var(--color-text-secondary)'
-          : hitRatePct >= 60
-            ? 'var(--color-bull)'
-            : hitRatePct >= 50
-              ? 'var(--color-warning)'
-              : 'var(--color-bear)';
-
-        const agreementPct = agreement != null ? agreement * 100 : null;
-        const agreementLabel = agreementPct == null
-          ? 'awaiting data'
-          : agreementPct >= 90
-            ? 'unanimous'
-            : agreementPct >= 75
-              ? 'strong consensus'
-              : agreementPct >= 60
-                ? 'moderate consensus'
-                : 'split';
-        const agreementColor = agreementPct == null
-          ? 'var(--color-text-secondary)'
-          : agreementPct >= 75
-            ? 'var(--color-bull)'
-            : agreementPct >= 60
-              ? 'var(--color-warning)'
-              : 'var(--color-bear)';
-
-        const confidencePct = analytics?.confidence != null ? analytics.confidence * 100 : null;
-        const confidenceBand = confidencePct == null
-          ? { label: '—', tone: 'var(--color-text-secondary)' }
-          : confidencePct >= 65
-            ? { label: 'strong', tone: 'var(--color-bull)' }
-            : confidencePct >= 40
-              ? { label: 'moderate', tone: 'var(--color-warning)' }
-              : { label: 'low', tone: 'var(--color-bear)' };
-
-        const hitRateBand = hitRatePct == null
-          ? { label: '—' }
-          : hitRatePct >= 60
-            ? { label: 'strong' }
-            : hitRatePct >= 50
-              ? { label: 'marginal' }
-              : { label: 'weak' };
-
-        const compositeAbs = finalComposite != null ? Math.abs(finalComposite) : null;
-        const compositeZone = compositeAbs == null
-          ? { label: 'awaiting data', hint: '', color: 'var(--color-text-secondary)' }
-          : compositeAbs >= fullThreshold
-            ? { label: 'Full trigger zone', hint: 'full-size trade OK', color: 'var(--color-bull)' }
-            : compositeAbs >= scalpThreshold
-              ? { label: 'Scalp zone', hint: 'reduced-size scalp OK', color: 'var(--color-warning)' }
-              : { label: 'Below scalp trigger', hint: 'no trade yet', color: 'var(--color-bear)' };
-
-        const regimeTag = regime === 'short_gamma'
-          ? 'amplifying'
-          : regime === 'long_gamma'
-            ? 'dampening'
-            : 'mixed';
-
-        return (
-          <section className="zg-feature-shell mt-8 p-6">
-            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-semibold">Current Market Feel</h3>
-                <TooltipWrapper text="How to read this: Verdict = what to do now; Regime = market structure backdrop; Calibrated Edge = historical hit-rate context; Consensus = component agreement depth." />
-              </div>
-              <div className="flex items-center gap-2">
-                {isConflicted && (
-                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">
-                    <AlertTriangle size={11} /> Conflicted
-                  </span>
-                )}
-                {agreement != null && agreement > 0.85 && activeCount > 12 && (
-                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-bull)] text-[var(--color-bull)]">
-                    Consensus building
-                  </span>
-                )}
-                <TooltipWrapper text="Aggregation mode. Conviction mode (active): dormant components are dropped, remaining weights renormalize, then the composite is amplified by agreement (consensus) and extremity (loudest component) — this fights dead-weight dilution from abstaining signals. Legacy linear (disabled): flat weighted average across every component, so abstentions count as zero and drag the composite toward neutral. The engine currently exposes these two modes; conviction is the default.">
-                  <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
-                    {aggregation?.mode === 'legacy_linear' ? 'Legacy linear' : 'Conviction mode'}
-                  </span>
-                </TooltipWrapper>
-              </div>
-            </div>
-
-            {/* HERO VERDICT */}
-            <div
-              className="relative rounded-2xl border p-5 md:p-6 mb-5 overflow-hidden"
-              style={{ borderColor: verdictColor, background: verdictSoftBg }}
-            >
-              <div className="absolute inset-y-0 left-0 w-1" style={{ background: verdictColor }} aria-hidden />
-              <div className="flex items-start justify-between gap-6 flex-wrap">
-                <div className="flex-1 min-w-[240px]">
-                  <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-text-secondary)] mb-2">Verdict · What to Do</div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex items-center justify-center rounded-full"
-                      style={{ width: 44, height: 44, background: verdictColor, color: 'var(--color-surface)' }}
-                    >
-                      <VerdictIcon size={24} />
-                    </div>
-                    <div className="text-3xl md:text-4xl font-black leading-none tracking-tight" style={{ color: verdictColor }}>
-                      {verdictLabel}
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm text-[var(--color-text-primary)]">{verdictHeuristic}</div>
-                </div>
-                <div className="flex flex-col items-end gap-1 min-w-[160px]">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Composite score</div>
-                  <div className="text-3xl font-bold leading-none" style={{ color: verdictColor }}>
-                    {finalComposite != null ? `${finalComposite >= 0 ? '+' : ''}${finalComposite.toFixed(3)}` : '—'}
-                  </div>
-                  <div className="text-[11px] font-semibold mt-1" style={{ color: compositeZone.color }}>
-                    {compositeZone.label}
-                    {compositeZone.hint && <span className="text-[var(--color-text-secondary)] font-normal"> · {compositeZone.hint}</span>}
-                  </div>
-                  <div className="text-[11px] text-[var(--color-text-secondary)] text-right">
-                    {finalComposite == null
-                      ? '(awaiting data)'
-                      : nextThreshold != null && distanceToThreshold != null
-                        ? `${Math.max(0, distanceToThreshold).toFixed(3)} away from the ${nextThreshold.toFixed(2)} trigger`
-                        : `past the ${fullThreshold.toFixed(2)} full trigger`}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* THREE PILLARS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-              {/* Regime */}
-              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Zap size={12} /> Regime · Market Structure
-                  </div>
-                  <TooltipWrapper text="From gex_regime. Short gamma → dealer hedging amplifies moves. Long gamma → hedging dampens them. Neutral = mixed.">
-                    <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
-                  </TooltipWrapper>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <RegimeIcon size={20} style={{ color: regimeColor }} />
-                  <div className="text-lg font-bold" style={{ color: regimeColor }}>{regimeLabel}</div>
-                  <span
-                    className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ background: `${regimeColor}20`, color: regimeColor }}
-                  >
-                    {regimeTag}
-                  </span>
-                </div>
-                <div className="mt-2 text-xs text-[var(--color-text-secondary)]">{regimePlaybook}</div>
-                <div className="mt-2 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-                  Dealer hedging either <strong>amplifies</strong> moves (short gamma), <strong>dampens</strong> them (long gamma), or has no structural tilt (neutral).
-                </div>
-              </div>
-
-              {/* Calibrated Edge */}
-              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Target size={12} /> Calibrated Edge · History
-                  </div>
-                  <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
-                      {humanizeScope(analytics?.calibration_scope)}
-                    </span>
-                  </TooltipWrapper>
-                </div>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <div className="text-2xl font-bold" style={{ color: hitRateTone }}>
-                    {hitRatePct != null ? `${hitRatePct.toFixed(0)}%` : '—'}
-                  </div>
-                  <div className="text-xs text-[var(--color-text-secondary)]">hit rate</div>
-                  {hitRatePct != null && (
-                    <span
-                      className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                      style={{ background: `${hitRateTone}20`, color: hitRateTone }}
-                    >
-                      {hitRateBand.label}
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">of past similar setups moved this way (50% = coin flip)</div>
-                <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
-                  <div
-                    className="absolute inset-y-0 left-0"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, hitRatePct ?? 0))}%`,
-                      background: hitRateTone,
-                    }}
-                  />
-                  <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
-                </div>
-                <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
-                  <div className="flex items-center justify-between">
-                    <span>Sample size</span>
-                    <span className="text-[var(--color-text-primary)] font-medium">{analytics?.sample_size != null ? `${analytics.sample_size.toLocaleString()} matches` : '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Avg move</span>
-                    <span className="text-[var(--color-text-primary)] font-medium">{analytics?.expected_move_bp != null ? `${analytics.expected_move_bp >= 0 ? '+' : ''}${analytics.expected_move_bp.toFixed(1)} bp` : '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Confidence</span>
-                    <span className="font-medium flex items-center gap-1.5" style={{ color: confidenceBand.tone }}>
-                      {confidencePct != null ? `${confidencePct.toFixed(0)}%` : '—'}
-                      <span className="text-[9px] uppercase tracking-wider">{confidenceBand.label}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Consensus */}
-              <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                    <Users size={12} /> Consensus · Components
-                  </div>
-                  <TooltipWrapper text="Agreement: 0.5 = tie (half up, half down), 1.0 = unanimous among active components. Active count shows how many components contributed vs abstained.">
-                    <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
-                  </TooltipWrapper>
-                </div>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <div className="text-2xl font-bold" style={{ color: agreementColor }}>
-                    {agreementPct != null ? `${agreementPct.toFixed(0)}%` : '—'}
-                  </div>
-                  <div className="text-xs text-[var(--color-text-secondary)]">agreement</div>
-                  {agreementPct != null && (
-                    <span
-                      className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                      style={{ background: `${agreementColor}20`, color: agreementColor }}
-                    >
-                      {agreementLabel}
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">how much the active components agree on direction</div>
-                <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
-                  <div
-                    className="absolute inset-y-0 left-0"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, agreementPct ?? 0))}%`,
-                      background: agreementColor,
-                    }}
-                  />
-                  <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
-                  <span>50% tie</span>
-                  <span>100% unanimous</span>
-                </div>
-                <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
-                  <div className="flex items-center justify-between">
-                    <span>Active</span>
-                    <span className="text-[var(--color-text-primary)] font-medium">{activeCount}/{totalComponents} · {dormantCount} dormant</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Loudest voice</span>
-                    <span className="text-[var(--color-text-primary)] font-medium">{maxConviction.toFixed(2)} <span className="text-[var(--color-text-secondary)] font-normal">(of 1.00)</span></span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Driver</span>
-                    <span className="text-[var(--color-text-primary)] font-medium truncate">{topComponent?.name ?? '—'}</span>
-                  </div>
-                </div>
-                {isThin && (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
-                    <AlertTriangle size={11} /> Thin participation — composite may be unstable.
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </section>
-        );
-      })()}
 
       <section className="zg-feature-shell mt-8 p-6">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-semibold">Signal Engine Inputs</h3>
+            <TooltipWrapper text="How to read this: Regime = market structure backdrop; Calibrated Edge = historical hit-rate context; Consensus = component agreement depth." />
+          </div>
+          <div className="flex items-center gap-2">
+            {isConflicted && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-warning)] text-[var(--color-warning)]">
+                <AlertTriangle size={11} /> Conflicted
+              </span>
+            )}
+            {agreement != null && agreement > 0.85 && activeCount > 12 && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-[var(--color-bull)] text-[var(--color-bull)]">
+                Consensus building
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                <Zap size={12} /> Regime · Market Structure
+              </div>
+              <TooltipWrapper text="From gex_regime. Short gamma → dealer hedging amplifies moves. Long gamma → hedging dampens them. Neutral = mixed.">
+                <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+              </TooltipWrapper>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <RegimeIcon size={20} style={{ color: regimeColor }} />
+              <div className="text-lg font-bold" style={{ color: regimeColor }}>{regimeLabel}</div>
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${regimeColor}20`, color: regimeColor }}>
+                {regimeTag}
+              </span>
+            </div>
+            <div className="mt-2 text-xs text-[var(--color-text-secondary)]">{regimePlaybook}</div>
+            <div className="mt-2 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
+              Dealer hedging either <strong>amplifies</strong> moves (short gamma), <strong>dampens</strong> them (long gamma), or has no structural tilt (neutral).
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                <Target size={12} /> Calibrated Edge · History
+              </div>
+              <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
+                <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
+                  {humanizeScope(analytics?.calibration_scope)}
+                </span>
+              </TooltipWrapper>
+            </div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <div className="text-2xl font-bold" style={{ color: hitRateTone }}>
+                {hitRatePct != null ? `${hitRatePct.toFixed(0)}%` : '—'}
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)]">hit rate</div>
+              {hitRatePct != null && (
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${hitRateTone}20`, color: hitRateTone }}>
+                  {hitRateBand.label}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">of past similar setups moved this way (50% = coin flip)</div>
+            <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
+              <div className="absolute inset-y-0 left-0" style={{ width: `${Math.max(0, Math.min(100, hitRatePct ?? 0))}%`, background: hitRateTone }} />
+              <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
+            </div>
+            <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between">
+                <span>Sample size</span>
+                <span className="text-[var(--color-text-primary)] font-medium">{analytics?.sample_size != null ? `${analytics.sample_size.toLocaleString()} matches` : '—'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Avg move</span>
+                <span className="text-[var(--color-text-primary)] font-medium">{analytics?.expected_move_bp != null ? `${analytics.expected_move_bp >= 0 ? '+' : ''}${analytics.expected_move_bp.toFixed(1)} bp` : '—'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Confidence</span>
+                <span className="font-medium flex items-center gap-1.5" style={{ color: confidenceBand.tone }}>
+                  {confidencePct != null ? `${confidencePct.toFixed(0)}%` : '—'}
+                  <span className="text-[9px] uppercase tracking-wider">{confidenceBand.label}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                <Users size={12} /> Consensus · Components
+              </div>
+              <TooltipWrapper text="Agreement: 0.5 = tie (half up, half down), 1.0 = unanimous among active components. Active count shows how many components contributed vs abstained.">
+                <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+              </TooltipWrapper>
+            </div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <div className="text-2xl font-bold" style={{ color: agreementColor }}>
+                {agreementPct != null ? `${agreementPct.toFixed(0)}%` : '—'}
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)]">agreement</div>
+              {agreementPct != null && (
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${agreementColor}20`, color: agreementColor }}>
+                  {agreementLabel}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">how much the active components agree on direction</div>
+            <div className="relative mt-2 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
+              <div className="absolute inset-y-0 left-0" style={{ width: `${Math.max(0, Math.min(100, agreementPct ?? 0))}%`, background: agreementColor }} />
+              <div className="absolute inset-y-0 w-px bg-[var(--color-text-primary)] opacity-40" style={{ left: '50%' }} aria-hidden />
+            </div>
+            <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+              <span>50% tie</span>
+              <span>100% unanimous</span>
+            </div>
+            <div className="mt-3 space-y-1 text-[11px] text-[var(--color-text-secondary)]">
+              <div className="flex items-center justify-between">
+                <span>Active</span>
+                <span className="text-[var(--color-text-primary)] font-medium">{activeCount}/{totalComponents} · {dormantCount} dormant</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Loudest voice</span>
+                <span className="text-[var(--color-text-primary)] font-medium">{maxConviction.toFixed(2)} <span className="text-[var(--color-text-secondary)] font-normal">(of 1.00)</span></span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span>Driver</span>
+                <span className="text-[var(--color-text-primary)] font-medium truncate">{topComponent?.name ?? '—'}</span>
+              </div>
+            </div>
+            {isThin && (
+              <div className="mt-2 flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
+                <AlertTriangle size={11} /> Thin participation — composite may be unstable.
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)] h-full min-h-[360px]">
             <div className="flex items-center gap-2 mb-2">
