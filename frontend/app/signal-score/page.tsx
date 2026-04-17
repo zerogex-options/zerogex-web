@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
-import { Gauge } from 'lucide-react';
+import { Gauge, Info } from 'lucide-react';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -70,10 +70,13 @@ export default function SignalScorePage() {
 
       {/* Signal Engine Reference */}
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Gauge size={20} /> Signal Engine Reference</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing.
-        </p>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Gauge size={20} />
+          Signal Engine Reference
+          <TooltipWrapper text="The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing." placement="bottom">
+            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+        </h2>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
             <div className="font-semibold mb-3">Signal Components</div>
@@ -170,8 +173,12 @@ export default function SignalScorePage() {
 
       {/* Score History */}
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-2xl font-semibold mb-1">Score History</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4">Composite score over time. Green shading = bullish, red = bearish.</p>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          Score History
+          <TooltipWrapper text="Composite score over time. Green shading = bullish, red = bearish." placement="bottom">
+            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+        </h2>
         <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]" style={{ height: 320 }}>
           {chartData.length > 0 ? (
             <MobileScrollableChart>

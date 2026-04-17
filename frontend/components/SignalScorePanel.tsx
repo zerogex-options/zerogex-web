@@ -449,12 +449,12 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
 
   if (finalComposite != null) {
     const belowScalp = Math.abs(finalComposite) < scalpThreshold;
-    if (action === 'wait' || direction === 'flat' || (!hasAnalytics && belowScalp)) {
+    if ((action === 'wait' && belowScalp) || direction === 'flat' || (!hasAnalytics && belowScalp)) {
       verdictLabel = 'WAIT';
       verdictTone = 'neutral';
       verdictHeuristic = belowScalp
         ? 'Composite below scalp trigger — no edge worth paying the spread.'
-        : 'Calibration says no edge. Stand down.';
+        : 'Composite is below trigger — stand down until alignment improves.';
       VerdictIcon = Clock;
     } else if (action === 'watch' || isConflicted) {
       verdictLabel = direction === 'long' ? 'WATCH · LEAN LONG' : 'WATCH · LEAN SHORT';
@@ -551,12 +551,12 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
   return (
     <>
       <div className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2 flex items-center gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <div className="text-xl font-semibold mb-2 flex items-center gap-2">
               Current Market Feel
               <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
-                <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+                <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
               </TooltipWrapper>
             </div>
             <div
@@ -574,7 +574,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             <div className="mt-2 text-sm text-[var(--color-text-secondary)]">{verdictHeuristic}</div>
           </div>
 
-          <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
+          <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface-subtle)]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">Score Spectrum</div>
               <div className="text-xs text-[var(--color-text-secondary)]">Range: −100 to +100</div>
@@ -683,16 +683,15 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-                <Target size={12} /> Calibrated Edge · History
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <Target size={12} /> Calibrated Edge · History
+                </div>
+                <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
+                  <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+                </TooltipWrapper>
               </div>
-              <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
-                <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] cursor-help">
-                  {humanizeScope(analytics?.calibration_scope)}
-                </span>
-              </TooltipWrapper>
-            </div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mb-1">Scope: {humanizeScope(analytics?.calibration_scope)}</div>
             <div className="flex items-baseline gap-2 flex-wrap">
               <div className="text-2xl font-bold" style={{ color: hitRateTone }}>
                 {hitRatePct != null ? `${hitRatePct.toFixed(0)}%` : '—'}
