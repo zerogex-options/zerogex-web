@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Clock, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, Cpu, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -554,6 +554,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <div className="text-xl font-semibold mb-2 flex items-center gap-2">
+              <Activity size={18} className="text-[var(--color-text-secondary)]" />
               Current Market Feel
               <TooltipWrapper text="Aggregate weighted conviction of eight independent market signals. Positive = net bullish, negative = net bearish." placement="bottom">
                 <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
@@ -642,6 +643,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       <section className="zg-feature-shell mt-8 p-6">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
+            <Cpu size={18} className="text-[var(--color-text-secondary)]" />
             <h3 className="text-xl font-semibold">Signal Engine Inputs</h3>
             <TooltipWrapper text="How to read this: Regime = market structure backdrop; Calibrated Edge = historical hit-rate context; Consensus = component agreement depth." />
           </div>
