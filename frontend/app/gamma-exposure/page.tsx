@@ -5,7 +5,6 @@ import { Info } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
-  useGEXWalls,
   useMarketQuote,
   useVolatilityGauge,
   useApiData,
@@ -50,6 +49,15 @@ type StrikeAggregate = {
 
 type SortKey = keyof StrikeAggregate;
 
+type OpenInterestApiResponse = {
+  spot_price?: number | string;
+  contracts?: Record<string, unknown>[];
+  rows?: Record<string, unknown>[];
+  data?: Record<string, unknown>[];
+  items?: Record<string, unknown>[];
+  results?: Record<string, unknown>[];
+};
+
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
@@ -64,22 +72,36 @@ export default function GammaExposurePage() {
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
-  const { data: gexWalls } = useGEXWalls(symbol, 10000);
-  const { data: openInterestData } = useApiData<Record<string, unknown>[]>(
+  const { data: openInterestData } = useApiData<OpenInterestApiResponse | Record<string, unknown>[] | null>(
     `/api/market/open-interest?symbol=${symbol}`,
     { refreshInterval: 30000 },
   );
-  const normalizedOpenInterest = useMemo(() => {
-    if (Array.isArray(openInterestData)) return openInterestData;
+  const openInterestPayload = useMemo<OpenInterestApiResponse | null>(() => {
+    if (!openInterestData) return null;
+    if (Array.isArray(openInterestData)) {
+      return { contracts: openInterestData };
+    }
     if (openInterestData && typeof openInterestData === 'object') {
-      const payload = openInterestData as Record<string, unknown>;
+      return openInterestData as OpenInterestApiResponse;
+    }
+    return null;
+  }, [openInterestData]);
+  const normalizedOpenInterest = useMemo(() => {
+    if (openInterestPayload && typeof openInterestPayload === 'object') {
+      const payload = openInterestPayload as Record<string, unknown>;
+      if (Array.isArray(payload.contracts)) return payload.contracts as Record<string, unknown>[];
       if (Array.isArray(payload.rows)) return payload.rows as Record<string, unknown>[];
       if (Array.isArray(payload.data)) return payload.data as Record<string, unknown>[];
       if (Array.isArray(payload.items)) return payload.items as Record<string, unknown>[];
       if (Array.isArray(payload.results)) return payload.results as Record<string, unknown>[];
     }
     return [];
-  }, [openInterestData]);
+  }, [openInterestPayload]);
+  const openInterestSpotPrice = useMemo(() => {
+    if (!openInterestPayload) return null;
+    const value = Number(openInterestPayload.spot_price);
+    return Number.isFinite(value) ? value : null;
+  }, [openInterestPayload]);
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/vol-expansion?symbol=${symbol}`,
@@ -190,8 +212,8 @@ export default function GammaExposurePage() {
   const marketContextSummary = useMemo(() => {
     const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
     const spot = quoteData?.close;
-    const callWall = gexWalls?.call_wall?.strike ?? gexData?.call_wall ?? null;
-    const putWall = gexWalls?.put_wall?.strike ?? gexData?.put_wall ?? null;
+    const callWall = gexData?.call_wall ?? null;
+    const putWall = gexData?.put_wall ?? null;
     const netGex = gexData?.net_gex ?? null;
     const pcr = gexData?.put_call_ratio ?? null;
     const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
@@ -256,7 +278,7 @@ export default function GammaExposurePage() {
       : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
 
     return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
-  }, [quoteData?.close, gexWalls, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
+  }, [quoteData?.close, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -322,19 +344,7 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 3: Call/Put Walls + Strike×DTE Heatmap */}
-      <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-full">
-            <GexWallsChart wallsData={gexWalls} openInterestData={normalizedOpenInterest} byStrikeFallback={gexByStrike || []} />
-          </div>
-          <div className="lg:col-span-1 h-full">
-            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
-          </div>
-        </div>
-      </section>
-
-      {/* Section 4: GEX by Strike */}
+      {/* Section 3: GEX by Strike */}
       <section className="mb-8">
         <div className="grid grid-cols-1 gap-4">
           <GexStrikeChart
@@ -345,15 +355,33 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 5: Charm/Vanna Flows + Vol Surface */}
+      {/* Section 4: Call/Put Wall Map */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+        <div className="grid grid-cols-1 gap-4">
+          <GexWallsChart openInterestData={normalizedOpenInterest} spotPrice={openInterestSpotPrice} byStrikeFallback={gexByStrike || []} />
+        </div>
+      </section>
+
+      {/* Section 5: Strike×DTE Heatmap + Charm/Vanna Flows */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-3 h-full">
+            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+          </div>
+          <div className="lg:col-span-2 h-full">
+            <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+          </div>
+        </div>
+      </section>
+
+      {/* Section 6: Vol Surface */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
           <VolSurfaceChart symbol={symbol} />
         </div>
       </section>
 
-      {/* Section 6: Strike Data Table */}
+      {/* Section 7: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
@@ -422,7 +450,7 @@ export default function GammaExposurePage() {
         </ExpandableCard>
       </section>
 
-      {/* Section 7: Existing Time-Series Heatmap */}
+      {/* Section 8: Existing Time-Series Heatmap */}
       <section className="mb-8">
         <GammaHeatmap />
       </section>

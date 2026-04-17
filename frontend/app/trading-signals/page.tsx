@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTheme } from '@/core/ThemeContext';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 type TradeRow = Record<string, unknown>;
 type TimeframeFilter = 'today' | 'week' | 'month' | 'year';
@@ -121,8 +122,8 @@ export default function TradingSignalsPage() {
   const { theme } = useTheme();
   const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('today');
 
-  const { data: liveData, loading, error, refetch } = useTradesLive(symbol, 5000);
-  const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, 15000);
+  const { data: liveData, loading, error, refetch } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
+  const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
 
   const liveRows = useMemo(() => toRows(liveData), [liveData]);
   const historyRows = useMemo(() => toRows(historyData), [historyData]);

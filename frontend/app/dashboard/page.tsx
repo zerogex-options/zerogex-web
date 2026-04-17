@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -16,6 +16,7 @@ import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import VolatilityCard from '@/components/VolatilityCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 function toRows(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data as Record<string, unknown>[];
@@ -40,6 +41,37 @@ function formatUsd(value: number): string {
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
+  if (value == null || !Number.isFinite(value)) return '--';
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : showPositiveSign ? '+' : '';
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function getTradeTimestamp(row: Record<string, unknown>): Date | null {
+  const raw = row.closed_at ?? row.exit_at ?? row.opened_at ?? row.created_at ?? row.timestamp;
+  if (typeof raw !== 'string') return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function inTodayWindow(date: Date | null): boolean {
+  if (!date) return false;
+  return date.toDateString() === new Date().toDateString();
+}
+
+function getTradePnl(row: Record<string, unknown>): number {
+  const total = getNumber(row.total_pnl ?? row.pnl ?? row.net_pnl);
+  if (total != null) return total;
+  const realized = getNumber(row.realized_pnl) ?? 0;
+  const unrealized = getNumber(row.unrealized_pnl) ?? 0;
+  return realized + unrealized;
+}
+
 interface FlowByTypePoint {
   timestamp: string;
   cumulative_net_volume?: number | string;
@@ -55,24 +87,31 @@ export default function DashboardPage() {
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
-  const { data: scoreData } = useSignalScore(symbol, 10000);
-  const { data: tradesData } = useTradesLive(symbol, 5000);
-  const { data: volExpansionData } = useVolExpansionSignal(symbol, 10000);
-  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: 30000 });
+  const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
+  const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
+  const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
+  const { data: volExpansionData } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
+  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs });
 
-  const rows = toRows(tradesData);
-  const bullishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bull')).length;
-  const bearishCount = rows.filter((row) => String(row.flow_bias ?? row.trade_side ?? row.direction ?? '').toLowerCase().includes('bear')).length;
-  const directionalRows = bullishCount + bearishCount;
-  const bullishPct = directionalRows > 0 ? (bullishCount / directionalRows) * 100 : null;
-  const bearishPct = directionalRows > 0 ? (bearishCount / directionalRows) * 100 : null;
-  const cumulativePnl = rows.reduce((sum, row) => {
-    const totalPnl = getNumber(row.total_pnl);
-    if (totalPnl != null) return sum + totalPnl;
-    const realized = getNumber(row.realized_pnl) ?? 0;
-    const unrealized = getNumber(row.unrealized_pnl) ?? 0;
-    return sum + realized + unrealized;
-  }, 0);
+  const liveRows = toRows(tradesData);
+  const historyRows = toRows(tradesHistoryData);
+  const todayHistoryRows = historyRows.filter((row) => inTodayWindow(getTradeTimestamp(row)));
+  const signaledTradeRows = [...liveRows, ...todayHistoryRows];
+
+  const cumulativePnl = signaledTradeRows.reduce((sum, row) => sum + getTradePnl(row), 0);
+  const resolvedTradeOutcomes = signaledTradeRows
+    .map((row) => getTradePnl(row))
+    .filter((pnl) => Math.abs(pnl) > 1e-9);
+  const winRate = resolvedTradeOutcomes.length > 0
+    ? (resolvedTradeOutcomes.filter((pnl) => pnl > 0).length / resolvedTradeOutcomes.length) * 100
+    : null;
+  const winRateColor = winRate == null
+    ? 'var(--color-text-secondary)'
+    : winRate > 50
+      ? 'var(--color-bull)'
+      : winRate < 50
+        ? 'var(--color-bear)'
+        : 'var(--color-text-secondary)';
 
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
@@ -166,7 +205,7 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Net GEX"
-            value={gexData ? `$${(gexData.net_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.net_gex, true)}
             trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
             tooltip="Net Gamma Exposure across all strikes. Calculation: Sum of all call gamma minus put gamma, scaled by notional value. Positive GEX means dealers are net short gamma (bullish - creates resistance to price movement). Negative GEX means dealers are net long gamma (bearish - amplifies price swings)."
             theme={theme}
@@ -201,12 +240,21 @@ export default function DashboardPage() {
             trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
           />
           <MetricCard
-            title="Signaled Trades"
-            value={rows.length}
-            subtitle={directionalRows > 0
-              ? `${bullishPct!.toFixed(0)}% bullish / ${bearishPct!.toFixed(0)}% bearish · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`
-              : `No directional mix yet · PnL ${cumulativePnl >= 0 ? '+' : '-'}${formatUsd(Math.abs(cumulativePnl))}`}
-            tooltip="Live signaled trade count for the selected underlying, with bullish/bearish split and cumulative active-trade PnL."
+            title="Signaled Trades Today"
+            value={signaledTradeRows.length}
+            subtitle={(
+              <span>
+                PnL{' '}
+                <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                  {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
+                </span>
+                {' · Win Rate '}
+                <span style={{ color: winRateColor }}>
+                  {winRate != null ? `${winRate.toFixed(0)}%` : '—'}
+                </span>
+              </span>
+            )}
+            tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, showing cumulative PnL and win rate for today." 
             theme={theme}
             trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
           />
@@ -245,14 +293,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
             title="Call GEX"
-            value={gexData ? `$${(gexData.total_call_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.total_call_gex)}
             trend="neutral"
             tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
             theme={theme}
           />
           <MetricCard
             title="Put GEX"
-            value={gexData ? `$${(gexData.total_put_gex / 1000000).toFixed(1)}M` : '--'}
+            value={formatCompactUsd(gexData?.total_put_gex)}
             trend="neutral"
             tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
             theme={theme}
@@ -285,37 +333,6 @@ export default function DashboardPage() {
             trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
             tooltip="Cumulative put volume divided by cumulative call volume for the current session."
             theme={theme}
-          />
-        </div>
-      </section>
-
-      {/* Support/Resistance Levels */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Key Levels</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MetricCard
-            title="Call Wall (Resistance)"
-            value={gexData?.call_wall ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.call_wall && quoteData?.close
-                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy call open interest'
-            }
-            tooltip="Strike with the highest concentration of call open interest, acting as resistance. Calculation: Strike with maximum total call OI weighted by gamma. As price approaches this level, dealers must sell shares to hedge their short gamma exposure, creating selling pressure. Price often struggles to break through this level."
-            theme={theme}
-            trend="bearish"
-          />
-          <MetricCard
-            title="Put Wall (Support)"
-            value={gexData?.put_wall ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.put_wall && quoteData?.close
-                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy put open interest'
-            }
-            tooltip="Strike with the highest concentration of put open interest, acting as support. Calculation: Strike with maximum total put OI weighted by gamma. As price approaches this level, dealers must buy shares to hedge their short gamma exposure, creating buying pressure. Price often bounces off this level."
-            theme={theme}
-            trend="bullish"
           />
         </div>
       </section>

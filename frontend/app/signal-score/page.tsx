@@ -8,6 +8,7 @@ import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScoreHistory } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 
 function formatTime(value: unknown) {
   const d = new Date(String(value));
@@ -19,7 +20,7 @@ export default function SignalScorePage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const [marketContext, setMarketContext] = useState<'intraday' | 'swing'>('intraday');
-  const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, 30000);
+  const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeHistoryMs);
 
   const chartData = useMemo(() => {
     const payload = historyData as unknown as Record<string, unknown> | null;
