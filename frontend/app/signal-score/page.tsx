@@ -68,7 +68,7 @@ export default function SignalScorePage() {
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Gauge size={20} />
           Signal Engine Reference
-          <TooltipWrapper text="The composite score (−100 to +100) is the weighted sum of 15 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing." placement="bottom">
+          <TooltipWrapper text="The composite score (−100 to +100) is the weighted sum of 16 components. Positive = net bullish, negative = net bearish. The normalized score (absolute value, 0–100) represents conviction strength and drives position sizing." placement="bottom">
             <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
           </TooltipWrapper>
         </h2>
@@ -99,6 +99,7 @@ export default function SignalScorePage() {
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Positioning Trap</td><td>6%</td><td>Crowding squeeze/flush trap detector</td></tr>
                 <tr className="border-b border-[var(--color-border)]/30"><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Intraday Regime</td><td>5%</td><td>Time-of-day regime context multiplier</td></tr>
                 <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">Opportunity Quality</td><td>7%</td><td>Tradeability / structure quality from optimizer</td></tr>
+                <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">EOD Pressure</td><td>6%</td><td>Late-session pressure blend (charm + pin + calendar)</td></tr>
               </tbody>
             </table>
           </div>
@@ -106,7 +107,7 @@ export default function SignalScorePage() {
             <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
               <div className="font-semibold mb-3">How the Composite Is Built</div>
               <div className="space-y-2 text-xs text-[var(--color-text-secondary)]">
-                <div><span className="font-medium text-[var(--color-text-primary)]">Raw:</span> Flat weighted average of all 15 components (dormant components count as zero).</div>
+                <div><span className="font-medium text-[var(--color-text-primary)]">Raw:</span> Flat weighted average of all 16 components (dormant components count as zero).</div>
                 <div><span className="font-medium text-[var(--color-text-primary)]">Renormalized:</span> Dormant components are dropped and active weights are rescaled.</div>
                 <div><span className="font-medium text-[var(--color-text-primary)]">Agreement:</span> Multiplier shrinks split reads and boosts aligned reads.</div>
                 <div><span className="font-medium text-[var(--color-text-primary)]">Extremity:</span> Adds a boost when the loudest component is near ±1.0.</div>

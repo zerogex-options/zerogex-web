@@ -74,6 +74,7 @@ const COMPONENT_DISPLAY_ORDER: Record<string, number> = {
   'Positioning Trap': 13,
   'Intraday Regime': 14,
   'Opportunity Quality': 15,
+  'EOD Pressure': 16,
 };
 
 const COMPONENT_DETAILS: Record<string, { bucket: string; weight: number; what: string; math: string; why: string; abstains: string; spectrum: { negative: string; neutral: string; positive: string } }> = {
@@ -220,6 +221,19 @@ const COMPONENT_DETAILS: Record<string, { bucket: string; weight: number; what: 
       positive: 'Extreme positive: expansion regime where momentum and range extension are more likely.',
     },
   },
+  'EOD Pressure': {
+    bucket: 'Price Behavior',
+    weight: 0.06,
+    what: 'Projects directional pressure into the final ~75 minutes using charm-at-spot, pin gravity, and calendar amplifiers.',
+    math: 'Directional blend of charm flow + gamma-gated pin gravity, scaled by time-ramp and calendar flags.',
+    why: 'Improves close-direction context when dealer pinning and charm effects become dominant late in the session.',
+    abstains: 'Before ~14:30 ET, this component is gated and returns neutral.',
+    spectrum: {
+      negative: 'Extreme negative: bearish close-pressure into the bell.',
+      neutral: 'Net 0: gated window or balanced late-session forces.',
+      positive: 'Extreme positive: bullish close-pressure into the bell.',
+    },
+  },
   'Opportunity Quality': {
     bucket: 'Meta / Opportunity',
     weight: 0.07,
@@ -291,6 +305,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
     smart_money: 'Smart Money',
     vol_expansion: 'Vol Expansion',
     opportunity_quality: 'Opportunity Quality',
+    eod_pressure: 'EOD Pressure',
     gamma_flip: 'Gamma Flip',
     exhaustion: 'Exhaustion',
     positioning_trap: 'Positioning Trap',
@@ -313,6 +328,7 @@ function normalizeComponents(raw: unknown): SignalComponentRow[] {
     { name: 'Positioning Trap', weight: 0.06, score: null, contribution: null },
     { name: 'Intraday Regime', weight: 0.05, score: null, contribution: null },
     { name: 'Opportunity Quality', weight: 0.07, score: null, contribution: null },
+    { name: 'EOD Pressure', weight: 0.06, score: null, contribution: null },
   ];
 
   if (Array.isArray(raw) && raw.length > 0) {

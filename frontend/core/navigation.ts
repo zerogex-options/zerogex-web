@@ -19,6 +19,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/signal-score', label: 'Composite Score' },
       { id: '/trading-signals', label: 'Signaled Trades' },
       { id: '/volatility-expansion', label: 'Volatility Expansion' },
+      { id: '/eod-pressure', label: 'EOD Pressure' },
     ],
   },
   {

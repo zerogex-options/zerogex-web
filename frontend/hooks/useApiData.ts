@@ -603,6 +603,23 @@ export function useOptionContract(
 }
 
 
+
+export interface EodPressureSignalResponse {
+  score?: number;
+  direction?: 'bullish' | 'bearish' | 'neutral' | string;
+  charm_at_spot?: number;
+  pin_target?: number;
+  pin_distance_pct?: number;
+  gamma_regime?: 'positive' | 'negative' | string;
+  time_ramp?: number;
+  calendar_flags?: { opex?: boolean; quad_witching?: boolean } | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<EodPressureSignalResponse>(`/api/signals/eod-pressure?symbol=${symbol}`, { refreshInterval });
+}
+
 export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<VolExpansionSignalResponse>(`/api/signals/vol-expansion?symbol=${symbol}`, { refreshInterval });
 }
