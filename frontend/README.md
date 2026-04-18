@@ -667,11 +667,11 @@ Available API endpoints (configured in frontend):
 - `/api/market/quote` - Market quotes
 - `/api/flow/by-type` - Options flow by type
 - `/api/flow/smart-money` - Smart money flow
-- `/api/trading/vwap-deviation` - VWAP analysis
-- `/api/trading/opening-range` - ORB data
-- `/api/trading/gamma-levels` - Gamma levels
-- `/api/trading/volume-spikes` - Volume spikes
-- `/api/trading/momentum-divergence` - Divergence signals
+- `/api/technicals/vwap-deviation` - VWAP analysis
+- `/api/technicals/opening-range` - ORB data
+- `/api/technicals/gamma-levels` - Gamma levels
+- `/api/technicals/volume-spikes` - Volume spikes
+- `/api/technicals/momentum-divergence` - Divergence signals
 
 ## Logs
 

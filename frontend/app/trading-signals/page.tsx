@@ -67,19 +67,17 @@ function formatMoney(value: number | null) {
   return `$${value.toFixed(2)}`;
 }
 
+function formatMoneyFull(value: number | null) {
+  if (value == null) return '—';
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatPnl(value: number | null) {
   if (value == null) return '—';
   const formatted = formatMoney(value);
   if (value > 0) return `+${formatted}`;
   return formatted;
 }
-
-function formatPnlCell(value: number | null) {
-  if (value == null) return '—';
-  if (Math.abs(value) < 1e-9) return '-';
-  return formatPnl(value);
-}
-
 function formatOpenedAt(value: unknown): string {
   const parsed = typeof value === 'string' ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return getString(value);
@@ -146,15 +144,9 @@ export default function TradingSignalsPage() {
   const historyRows = useMemo(() => toRows(historyData), [historyData]);
 
   const portfolioSize = useMemo(() => {
-    const candidates = [
-      getNumber((historyData as Record<string, unknown> | null)?.portfolio_size),
-      getNumber((historyData as Record<string, unknown> | null)?.portfolio_value),
-      getNumber((liveData as Record<string, unknown> | null)?.portfolio_size),
-      getNumber((liveData as Record<string, unknown> | null)?.portfolio_value),
-    ].filter((value): value is number => value != null && value > 0);
-
-    return candidates[0] ?? 100_000;
-  }, [historyData, liveData]);
+    const value = getNumber((historyData as Record<string, unknown> | null)?.portfolio_size);
+    return value != null && value > 0 ? value : null;
+  }, [historyData]);
 
   const filteredLiveRows = useMemo(
     () => liveRows.filter((row) => inSelectedWindow(getTradeTimestamp(row), timeframeFilter)),
@@ -171,7 +163,7 @@ export default function TradingSignalsPage() {
     const totalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
     const wins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
     const winRate = historicalTrades > 0 ? (wins / historicalTrades) * 100 : null;
-    const pnlPct = portfolioSize > 0 ? (totalPnl / portfolioSize) * 100 : null;
+    const pnlPct = portfolioSize != null && portfolioSize > 0 ? (totalPnl / portfolioSize) * 100 : null;
 
     return {
       liveTrades: filteredLiveRows.length,
@@ -298,7 +290,7 @@ export default function TradingSignalsPage() {
           value={formatPnl(metrics.totalPnl)}
           subtitle={metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? '+' : ''}${metrics.pnlPct.toFixed(2)}% of portfolio` : '—'}
           trend={metrics.totalPnl > 0 ? 'bullish' : metrics.totalPnl < 0 ? 'bearish' : 'neutral'}
-          tooltip={`Net realized + unrealized PnL over selected timeframe. Portfolio size: ${formatMoney(portfolioSize)}.`}
+          tooltip={`Net realized + unrealized PnL over selected timeframe. Portfolio size: ${formatMoneyFull(portfolioSize)}.`}
           theme="dark"
         />
         <MetricCard
@@ -372,10 +364,10 @@ export default function TradingSignalsPage() {
                   <td className="py-2 pr-3 text-right">{contracts != null ? contracts.toLocaleString() : '—'}</td>
                   <td className="py-2 pr-3 text-right">{openContracts != null ? openContracts.toLocaleString() : (isLive ? '—' : '0')}</td>
                   <td className="py-2 pr-3 text-right" style={{ color: realizedPnl != null ? (realizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnlCell(realizedPnl)}
+                    {formatMoneyFull(realizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right" style={{ color: unrealizedPnl != null ? (unrealizedPnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)') : undefined }}>
-                    {formatPnlCell(unrealizedPnl)}
+                    {formatMoneyFull(unrealizedPnl)}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     <span className="inline-flex items-center gap-1" style={{ color: scoreColor }}>

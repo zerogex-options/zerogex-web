@@ -215,32 +215,32 @@ export default function IntradayToolsPage() {
   const divergenceWindowUnits = maxPoints;
 
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
-    `/api/trading/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+    `/api/technicals/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
   const { data: orbData, loading: orbLoading, error: orbError } = useApiData<OpeningRangeRow[]>(
-    `/api/trading/opening-range?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+    `/api/technicals/opening-range?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
   const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
-    `/api/trading/volume-spikes?symbol=${symbol}&limit=5`,
+    `/api/technicals/volume-spikes?symbol=${symbol}&limit=5`,
     { refreshInterval: 10000 }
   );
 
   const { data: divergenceResponse } = useApiData<unknown>(
-    `/api/trading/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
+    `/api/technicals/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
   );
 
   const { data: divergenceFallback } = useApiData<unknown>(
-    `/api/trading/momentum-divergence?symbol=${symbol}`,
+    `/api/technicals/momentum-divergence?symbol=${symbol}`,
     { refreshInterval: 5000 }
   );
 
   const { data: divergenceDefault } = useApiData<unknown>(
-    `/api/trading/momentum-divergence`,
+    `/api/technicals/momentum-divergence`,
     { refreshInterval: 5000 }
   );
 
