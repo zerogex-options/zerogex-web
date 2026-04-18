@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck } from 'lucide-react';
+import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck, TableProperties, TrendingUp } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -134,7 +134,7 @@ export default function TradingSignalsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const [timeframeFilter, setTimeframeFilter] = useState<TimeframeFilter>('today');
-  const [sortKey, setSortKey] = useState<TradeSortKey>('openedAt');
+  const [sortKey, setSortKey] = useState<TradeSortKey>('closedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const { data: liveData, loading, error, refetch } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
@@ -148,10 +148,6 @@ export default function TradingSignalsPage() {
     return value != null && value > 0 ? value : null;
   }, [historyData]);
 
-  const filteredLiveRows = useMemo(
-    () => liveRows.filter((row) => inSelectedWindow(getTradeTimestamp(row), timeframeFilter)),
-    [liveRows, timeframeFilter],
-  );
   const filteredHistoryRows = useMemo(
     () => historyRows.filter((row) => inSelectedWindow(getTradeTimestamp(row), timeframeFilter)),
     [historyRows, timeframeFilter],
@@ -159,20 +155,28 @@ export default function TradingSignalsPage() {
 
   const metrics = useMemo(() => {
     const historicalTrades = filteredHistoryRows.length;
-    const totalTrades = historicalTrades + liveRows.length;
-    const totalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
-    const wins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
-    const winRate = historicalTrades > 0 ? (wins / historicalTrades) * 100 : null;
+    const liveTrades = liveRows.length;
+    const totalTrades = historicalTrades + liveTrades;
+
+    const historicalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
+    const liveUnrealizedPnl = liveRows.reduce((sum, row) => sum + (getNumber(row.unrealized_pnl) ?? 0), 0);
+    const totalPnl = historicalPnl + liveUnrealizedPnl;
+
+    const historicalWins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
+    const liveWins = liveRows.filter((row) => getPnl(row) >= 0).length;
+    const wins = historicalWins + liveWins;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : null;
+
     const pnlPct = portfolioSize != null && portfolioSize > 0 ? (totalPnl / portfolioSize) * 100 : null;
 
     return {
-      liveTrades: filteredLiveRows.length,
+      liveTrades,
       totalTrades,
       totalPnl,
       pnlPct,
       winRate,
     };
-  }, [filteredHistoryRows, filteredLiveRows.length, liveRows.length, portfolioSize]);
+  }, [filteredHistoryRows, liveRows, portfolioSize]);
 
   const combinedRows = useMemo(() => {
     const live = liveRows.map((row) => ({ kind: 'live' as const, row }));
@@ -281,23 +285,23 @@ export default function TradingSignalsPage() {
       {(error || historyError) && <ErrorMessage message={error || historyError || 'Unable to load trades'} onRetry={() => { refetch(); refetchHistory(); }} />}
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-3">Performance Snapshot</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-xl font-semibold"><TrendingUp size={20} /> Performance Snapshot</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades in the selected timeframe window." theme="dark" />
+        <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades that have not closed yet." theme="dark" />
         <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Historical trades in selected timeframe plus all currently live trades." theme="dark" />
         <MetricCard
           title="PnL $"
           value={formatPnl(metrics.totalPnl)}
           subtitle={metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? '+' : ''}${metrics.pnlPct.toFixed(2)}% of portfolio` : '—'}
           trend={metrics.totalPnl > 0 ? 'bullish' : metrics.totalPnl < 0 ? 'bearish' : 'neutral'}
-          tooltip={`Net realized + unrealized PnL over selected timeframe. Portfolio size: ${formatMoneyFull(portfolioSize)}.`}
+          tooltip={`Realized PnL from selected historical timeframe + unrealized PnL from all currently live trades. Portfolio size: ${formatMoneyFull(portfolioSize)}.`}
           theme="dark"
         />
         <MetricCard
           title="Win Rate"
           value={metrics.winRate != null ? `${metrics.winRate.toFixed(1)}%` : '—'}
           trend={metrics.winRate != null ? (metrics.winRate >= 50 ? 'bullish' : 'bearish') : 'neutral'}
-          tooltip="Percentage of trades with positive PnL in selected timeframe."
+          tooltip="Win rate across selected historical trades plus all live trades (live up/flat = win, live down = loss)."
           theme="dark"
         />
         </div>
@@ -305,7 +309,7 @@ export default function TradingSignalsPage() {
 
       <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Trade Stream</h2>
+          <h2 className="flex items-center gap-2 text-xl font-semibold"><TableProperties size={20} /> Trade Stream</h2>
           <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Live first, then selected history</div>
         </div>
         <table className="w-full text-sm">
@@ -392,10 +396,15 @@ export default function TradingSignalsPage() {
       </section>
 
       <section className="zg-feature-shell mb-8 p-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><Brain size={20} /> Trade Execution Logic</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-          All five conditions must be true simultaneously to open a position. There are no fixed stop-losses or take-profits — positions close when the signal degrades.
-        </p>
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
+          <Brain size={20} />
+          Trade Execution Logic
+          <TooltipWrapper text="All five conditions must be true simultaneously to open a position. There are no fixed stop-losses or take-profits — positions close when the signal degrades.">
+            <button type="button" className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+              <Info size={12} />
+            </button>
+          </TooltipWrapper>
+        </h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
             <div className="font-semibold mb-3">Conditions to Open</div>
