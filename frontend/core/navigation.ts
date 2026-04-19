@@ -20,6 +20,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/trading-signals', label: 'Signaled Trades' },
       { id: '/volatility-expansion', label: 'Volatility Expansion' },
       { id: '/eod-pressure', label: 'EOD Pressure' },
+      { id: '/squeeze-setup', label: 'Squeeze Setup' },
+      { id: '/trap-detection', label: 'Trap Detection' },
+      { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance' },
+      { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence' },
     ],
   },
   {

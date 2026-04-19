@@ -616,12 +616,54 @@ export interface EodPressureSignalResponse {
   [key: string]: unknown;
 }
 
+export interface ProprietarySignalSnapshot {
+  underlying?: string;
+  timestamp?: string;
+  clamped_score?: number;
+  weighted_score?: number;
+  weight?: number;
+  direction?: 'bullish' | 'bearish' | 'neutral' | string;
+  score?: number;
+  triggered?: boolean;
+  signal?: string;
+  context_values?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<EodPressureSignalResponse>(`/api/signals/eod-pressure?symbol=${symbol}`, { refreshInterval });
 }
 
 export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<VolExpansionSignalResponse>(`/api/signals/vol-expansion?symbol=${symbol}`, { refreshInterval });
+}
+
+export function useSqueezeSetupSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/squeeze-setup?underlying=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useTrapDetectionSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/trap-detection?underlying=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useZeroDtePositionImbalanceSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/0dte-position-imbalance?underlying=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/gamma-vwap-confluence?underlying=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
 }
 
 export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
