@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 export type OAuthProvider = 'google' | 'apple';
 
 const STATE_COOKIE_PREFIX = 'zgx_oauth_state_';
+const NONCE_COOKIE_PREFIX = 'zgx_oauth_nonce_';
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -36,12 +37,74 @@ function decodeJwt<T = Record<string, unknown>>(token: string) {
   };
 }
 
+async function verifyJwtWithJwks<T extends { exp?: number; aud?: string; iss?: string; nonce?: string }>(
+  token: string,
+  params: {
+    jwksUrl: string;
+    expectedAudience: string;
+    expectedIssuers: string[];
+    expectedNonce?: string;
+  }
+) {
+  const decoded = decodeJwt<T>(token);
+  const kid = decoded.header.kid;
+  const alg = decoded.header.alg;
+
+  if (typeof kid !== 'string' || alg !== 'RS256') {
+    throw new Error('Invalid token header');
+  }
+
+  const keysResponse = await fetch(params.jwksUrl, { method: 'GET', cache: 'no-store' });
+  if (!keysResponse.ok) {
+    throw new Error('Unable to fetch JWKS');
+  }
+
+  const jwks = (await keysResponse.json()) as { keys?: Array<Record<string, string>> };
+  const jwk = jwks.keys?.find((key) => key.kid === kid && key.kty === 'RSA');
+  if (!jwk) {
+    throw new Error('JWK not found for token');
+  }
+
+  const publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+  const valid = verify('RSA-SHA256', decoded.signedContent, publicKey, decoded.signature);
+  if (!valid) {
+    throw new Error('Invalid token signature');
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!decoded.payload.exp || decoded.payload.exp < nowSeconds) {
+    throw new Error('Token expired');
+  }
+
+  if (!decoded.payload.aud || decoded.payload.aud !== params.expectedAudience) {
+    throw new Error('Invalid token audience');
+  }
+
+  if (!decoded.payload.iss || !params.expectedIssuers.includes(decoded.payload.iss)) {
+    throw new Error('Invalid token issuer');
+  }
+
+  if (params.expectedNonce && decoded.payload.nonce !== params.expectedNonce) {
+    throw new Error('Invalid token nonce');
+  }
+
+  return decoded.payload;
+}
+
 export function createOAuthState() {
   return randomBytes(24).toString('hex');
 }
 
+export function createOAuthNonce() {
+  return randomBytes(20).toString('hex');
+}
+
 export function getOAuthStateCookieName(provider: OAuthProvider) {
   return `${STATE_COOKIE_PREFIX}${provider}`;
+}
+
+export function getOAuthNonceCookieName(provider: OAuthProvider) {
+  return `${NONCE_COOKIE_PREFIX}${provider}`;
 }
 
 export function getOAuthConfig(provider: OAuthProvider) {
@@ -57,6 +120,7 @@ export function getOAuthConfig(provider: OAuthProvider) {
       authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
+      jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
       scope: 'openid email profile',
     };
   }
@@ -70,6 +134,7 @@ export function getOAuthConfig(provider: OAuthProvider) {
     redirectUri,
     authUrl: 'https://appleid.apple.com/auth/authorize',
     tokenUrl: 'https://appleid.apple.com/auth/token',
+    jwksUrl: 'https://appleid.apple.com/auth/keys',
     scope: 'name email',
     responseMode: 'form_post',
     clientSecret,
@@ -84,58 +149,56 @@ type AppleClaims = {
   sub?: string;
   email?: string;
   email_verified?: boolean | string;
+  nonce?: string;
 };
 
-export async function verifyAppleIdToken(idToken: string, expectedAudience: string) {
-  const decoded = decodeJwt<AppleClaims>(idToken);
-  const kid = decoded.header.kid;
-  const alg = decoded.header.alg;
-
-  if (typeof kid !== 'string' || alg !== 'RS256') {
-    throw new Error('Invalid Apple token header');
-  }
-
-  const keysResponse = await fetch('https://appleid.apple.com/auth/keys', {
-    method: 'GET',
-    cache: 'no-store',
+export async function verifyAppleIdToken(idToken: string, expectedAudience: string, expectedNonce?: string) {
+  const payload = await verifyJwtWithJwks<AppleClaims>(idToken, {
+    jwksUrl: 'https://appleid.apple.com/auth/keys',
+    expectedAudience,
+    expectedIssuers: ['https://appleid.apple.com'],
+    expectedNonce,
   });
 
-  if (!keysResponse.ok) {
-    throw new Error('Unable to fetch Apple JWKS');
-  }
-
-  const jwks = (await keysResponse.json()) as {
-    keys?: Array<Record<string, string>>;
-  };
-
-  const jwk = jwks.keys?.find((key) => key.kid === kid && key.kty === 'RSA');
-  if (!jwk) {
-    throw new Error('Apple key not found for token');
-  }
-
-  const publicKey = createPublicKey({ key: jwk, format: 'jwk' });
-  const valid = verify('RSA-SHA256', decoded.signedContent, publicKey, decoded.signature);
-  if (!valid) {
-    throw new Error('Invalid Apple token signature');
-  }
-
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  if (decoded.payload.iss !== 'https://appleid.apple.com') {
-    throw new Error('Invalid Apple token issuer');
-  }
-  if (decoded.payload.aud !== expectedAudience) {
-    throw new Error('Invalid Apple token audience');
-  }
-  if (!decoded.payload.exp || decoded.payload.exp < nowSeconds) {
-    throw new Error('Apple token expired');
-  }
-  if (!decoded.payload.sub || !decoded.payload.email) {
+  if (!payload.sub || !payload.email) {
     throw new Error('Apple token missing subject/email');
   }
 
   return {
-    sub: decoded.payload.sub,
-    email: decoded.payload.email,
-    emailVerified: decoded.payload.email_verified === true || decoded.payload.email_verified === 'true',
+    sub: payload.sub,
+    email: payload.email,
+    emailVerified: payload.email_verified === true || payload.email_verified === 'true',
+  };
+}
+
+type GoogleClaims = {
+  iss?: string;
+  aud?: string;
+  exp?: number;
+  sub?: string;
+  email?: string;
+  email_verified?: boolean;
+  nonce?: string;
+};
+
+export async function verifyGoogleIdToken(idToken: string, expectedAudience: string, expectedNonce?: string) {
+  const payload = await verifyJwtWithJwks<GoogleClaims>(idToken, {
+    jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
+    expectedAudience,
+    expectedIssuers: ['https://accounts.google.com', 'accounts.google.com'],
+    expectedNonce,
+  });
+
+  if (!payload.sub || !payload.email) {
+    throw new Error('Google token missing subject/email');
+  }
+
+  if (payload.email_verified !== true) {
+    throw new Error('Google email is not verified');
+  }
+
+  return {
+    sub: payload.sub,
+    email: payload.email,
   };
 }

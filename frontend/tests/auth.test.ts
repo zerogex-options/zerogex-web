@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hasRequiredTier, requiredTierForRoute, normalizeTier } from '../core/auth.ts';
-import { getOAuthStateCookieName } from '../core/oauth.ts';
+import { getOAuthNonceCookieName, getOAuthStateCookieName } from '../core/oauth.ts';
 
 test('public routes do not require auth tier', () => {
   assert.equal(requiredTierForRoute('/'), null);
@@ -32,4 +32,6 @@ test('normalizeTier falls back safely', () => {
 test('oauth state cookies are provider scoped', () => {
   assert.equal(getOAuthStateCookieName('google'), 'zgx_oauth_state_google');
   assert.equal(getOAuthStateCookieName('apple'), 'zgx_oauth_state_apple');
+  assert.equal(getOAuthNonceCookieName('google'), 'zgx_oauth_nonce_google');
+  assert.equal(getOAuthNonceCookieName('apple'), 'zgx_oauth_nonce_apple');
 });

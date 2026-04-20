@@ -372,7 +372,7 @@ export async function requireSession() {
 
   const data = getSessionByToken(token);
   if (!data || new Date(data.session.expiresAt).getTime() <= Date.now()) return null;
-  return { user: { ...data.user, provider: 'local' as const }, session: data.session };
+  return { user: data.user, session: data.session };
 }
 
 export async function updateUserTier(actorUserId: string, targetEmail: string, tier: TierId, ip = 'unknown') {

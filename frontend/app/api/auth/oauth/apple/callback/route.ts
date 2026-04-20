@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrLoginOAuthUser, attachSessionCookie, issueCsrfCookie } from '@/core/serverAuth';
-import { getOAuthConfig, getOAuthStateCookieName, verifyAppleIdToken } from '@/core/oauth';
+import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, verifyAppleIdToken } from '@/core/oauth';
 
 async function handleCallback(request: NextRequest, state: string | null, code: string | null) {
   const expectedState = request.cookies.get(getOAuthStateCookieName('apple'))?.value;
+  const expectedNonce = request.cookies.get(getOAuthNonceCookieName('apple'))?.value;
 
-  if (!state || !code || !expectedState || state !== expectedState) {
+  if (!state || !code || !expectedState || state !== expectedState || !expectedNonce) {
     return NextResponse.redirect(new URL('/login?error=apple_state_mismatch', request.url));
   }
 
@@ -33,7 +34,7 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
 
   let payload: { sub: string; email: string };
   try {
-    payload = await verifyAppleIdToken(tokenPayload.id_token, config.clientId);
+    payload = await verifyAppleIdToken(tokenPayload.id_token, config.clientId, expectedNonce);
   } catch {
     return NextResponse.redirect(new URL('/login?error=apple_profile_invalid', request.url));
   }
@@ -48,6 +49,7 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
   response.cookies.set({ name: getOAuthStateCookieName('apple'), value: '', path: '/', maxAge: 0 });
+  response.cookies.set({ name: getOAuthNonceCookieName('apple'), value: '', path: '/', maxAge: 0 });
   return response;
 }
 

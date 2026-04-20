@@ -257,6 +257,14 @@ Before OAuth will work in production:
    - For first deployment only, set bootstrap admin vars.
    - Remove bootstrap admin vars after creating your admin account.
 
+### Auth production go-live checklist
+
+- Enforce HTTPS end-to-end (secure cookies depend on production HTTPS).
+- Persist and back up `AUTH_DB_PATH` storage (SQLite DB file).
+- Keep a single-writer deployment model for SQLite, or migrate auth tables to a network DB if scaling horizontally.
+- Validate Google + Apple sign-in manually in staging before production cutover.
+- Restrict `/api/auth/audit` access to admin users only (already enforced) and connect logs to your monitoring pipeline.
+
 Edit if needed:
 
 ```bash
