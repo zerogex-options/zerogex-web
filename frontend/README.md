@@ -219,10 +219,51 @@ The application uses these environment variables (configured in `.env.local`):
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
 
+# Auth database + bootstrap admin
+AUTH_DB_PATH=./data/auth.db
+ADMIN_BOOTSTRAP_EMAIL=admin@example.com
+ADMIN_BOOTSTRAP_PASSWORD=change-me
+
+# OAuth providers
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://your-domain.com/api/auth/oauth/google/callback
+APPLE_CLIENT_ID=
+APPLE_CLIENT_SECRET=
+APPLE_REDIRECT_URI=https://your-domain.com/api/auth/oauth/apple/callback
 # Feature Flags
 NEXT_PUBLIC_ENABLE_WEBSOCKET=false
 NEXT_PUBLIC_ENABLE_GRAFANA=false
 ```
+
+### OAuth provider console setup checklist
+
+Before OAuth will work in production:
+
+1. **Google Cloud Console**
+   - Enable OAuth consent screen.
+   - Create Web OAuth client credentials.
+   - Add authorized redirect URI:  
+     `https://your-domain.com/api/auth/oauth/google/callback`
+
+2. **Apple Developer**
+   - Configure Sign in with Apple for your Service ID.
+   - Generate a client secret JWT and set `APPLE_CLIENT_SECRET`.
+   - Add redirect URI:  
+     `https://your-domain.com/api/auth/oauth/apple/callback`
+
+3. **Deploy environment variables**
+   - Set all values from `.env.example`.
+   - For first deployment only, set bootstrap admin vars.
+   - Remove bootstrap admin vars after creating your admin account.
+
+### Auth production go-live checklist
+
+- Enforce HTTPS end-to-end (secure cookies depend on production HTTPS).
+- Persist and back up `AUTH_DB_PATH` storage (SQLite DB file).
+- Keep a single-writer deployment model for SQLite, or migrate auth tables to a network DB if scaling horizontally.
+- Validate Google + Apple sign-in manually in staging before production cutover.
+- Restrict `/api/auth/audit` access to admin users only (already enforced) and connect logs to your monitoring pipeline.
 
 Edit if needed:
 
