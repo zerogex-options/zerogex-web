@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users clean deploy logo
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  make restart    - Restart PM2 process"
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
+	@echo "  make users      - Print auth users + entitlements"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -70,6 +71,11 @@ status:
 	@echo ""
 	@echo "Detailed info:"
 	pm2 describe zerogex-web
+
+# Print auth users and entitlements from SQLite
+users:
+	@echo "Listing auth users..."
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node scripts/list-auth-users.mjs'
 
 # Clean build artifacts
 clean:
