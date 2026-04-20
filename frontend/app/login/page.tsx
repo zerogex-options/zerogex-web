@@ -112,7 +112,7 @@ function LoginPageContent() {
 
           <button
             disabled={loading}
-            className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black disabled:opacity-60"
+            className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black transition-all duration-150 hover:brightness-110 hover:shadow-[0_8px_20px_var(--color-info-soft)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
             type="submit"
           >
             {loading ? 'Signing in...' : 'Sign in'}

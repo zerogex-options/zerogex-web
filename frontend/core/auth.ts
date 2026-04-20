@@ -15,7 +15,7 @@ export type RouteAccessRule = {
   minimumTier: TierId;
 };
 
-const PUBLIC_ROUTE_PATTERNS = ['/', '/about', '/login', '/register', '/unauthorized'] as const;
+const PUBLIC_ROUTE_PATTERNS = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized'] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // Keep only proprietary signal pages behind auth.

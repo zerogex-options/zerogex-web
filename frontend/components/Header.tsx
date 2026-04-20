@@ -12,6 +12,10 @@ import {
   ChevronDown,
   Moon,
   Sun,
+  CircleUserRound,
+  LogIn,
+  LogOut,
+  Rocket,
 } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import { Theme, MarketSession } from "@/core/types";
@@ -23,7 +27,7 @@ import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
-import { hasRequiredTier } from "@/core/auth";
+import { hasRequiredTier, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
 interface HeaderProps {
@@ -46,8 +50,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   });
   const headerRef = useRef<HTMLElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
   const mobileNavGroups = useMemo(
@@ -73,6 +79,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   });
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
+  const isPublicUser = normalizeTier(currentTier) === "public";
+  const shouldForcePricing = (id: string) => {
+    if (!isPublicUser) return false;
+    if (id === "https://api.zerogex.io/docs") return true;
+    return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
+  };
+  const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
   const filteredMobileNavGroups = useMemo(
     () =>
       mobileNavGroups
@@ -80,6 +93,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           ...group,
           items: group.items.filter((item) => {
             if ("external" in item && item.external) return true;
+            if (group.label === "Proprietary Signals") return true;
             return hasRequiredTier(item.id, currentTier);
           }),
         }))
@@ -147,6 +161,17 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       window.removeEventListener("resize", setHeaderHeight);
     };
   }, [isCollapsed, mobileMenuOpen]);
+
+  useEffect(() => {
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return;
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    return () => document.removeEventListener("mousedown", closeOnOutside);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -344,16 +369,62 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             {!isCollapsed && (
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
                 <WorldClocks theme={theme} session={session} compact={isCollapsed} />
-                {authSession?.authenticated && (
+                <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className="rounded-lg border px-3 py-1 text-xs font-semibold"
-                    style={{ borderColor: border, color: colors.muted }}
+                    onClick={() => setProfileMenuOpen((prev) => !prev)}
+                    className="rounded-full border p-1.5"
+                    style={{ borderColor: border, color: colors.muted, background: "transparent" }}
+                    aria-label="Open profile menu"
                   >
-                    Log out
+                    <CircleUserRound size={18} />
                   </button>
-                )}
+                  {profileMenuOpen && (
+                    <div
+                      className="rounded-lg border p-1.5"
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "calc(100% + 8px)",
+                        minWidth: "170px",
+                        borderColor: border,
+                        background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+                        boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
+                        zIndex: 60,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          router.push("/pricing");
+                        }}
+                        className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                        style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                      >
+                        <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          if (authSession?.authenticated) {
+                            void handleLogout();
+                            return;
+                          }
+                          router.push("/login");
+                        }}
+                        className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                        style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {authSession?.authenticated ? <LogOut size={14} /> : <LogIn size={14} />}
+                          {authSession?.authenticated ? "Logout" : "Login"}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -372,8 +443,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-1" style={{ minHeight: "36px" }}>
-            <Link href="/" className="flex items-center overflow-hidden flex-shrink" style={{ height: "36px", maxWidth: "min(68vw, 260px)", padding: 0, margin: 0, lineHeight: 0 }}>
+          <div className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
+            <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(66vw, 240px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <img
                 src="/title.svg"
                 alt="ZeroGEX"
@@ -399,10 +470,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               >
                 {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
               </button>
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-0 mr-2"
-              >
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-0 mr-1">
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
@@ -431,12 +499,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             const isExternal = 'external' in page && page.external;
 
                             if (isExternal) {
+                              const targetHref = resolveNavTarget(page.id);
                               return (
                                 <a
                                   key={page.id}
-                                  href={page.id}
-                                  target="_blank"
-                                  rel="noreferrer"
+                                  href={targetHref}
+                                  target={targetHref.startsWith("http") ? "_blank" : undefined}
+                                  rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                                   className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                                   style={{
                                     background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
@@ -453,7 +522,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               <button
                                 key={page.id}
                                 onClick={() => {
-                                  router.push(page.id);
+                                  router.push(resolveNavTarget(page.id));
                                   setMobileMenuOpen(false);
                                 }}
                                 className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
@@ -493,16 +562,34 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <option>QQQ</option>
                 </select>
               </div>
-              {authSession?.authenticated && (
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="w-full rounded-lg border px-3 py-2 text-sm font-semibold"
+                  onClick={() => {
+                    router.push("/pricing");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-lg border px-3 py-2 text-sm font-semibold"
                   style={{ borderColor: border, color: colors.muted }}
                 >
-                  Log out
+                  Upgrade
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authSession?.authenticated) {
+                      void handleLogout();
+                      return;
+                    }
+                    router.push("/login");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-lg border px-3 py-2 text-sm font-semibold"
+                  style={{ borderColor: border, color: colors.muted }}
+                >
+                  {authSession?.authenticated ? "Log out" : "Login"}
+                </button>
+              </div>
 
               {row1Price !== null && (
                 <div className="flex flex-col gap-1.5">
