@@ -88,7 +88,7 @@ function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): stri
 
 function getSessionMinuteTimeline(dateKey: string): string[] {
   const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
-  const endIso = etWallTimeToUtcISO(dateKey, 16, 0);
+  const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
   if (!startIso || !endIso) return [];
 
   const startMs = new Date(startIso).getTime();

@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
-import { hasRequiredTier } from "@/core/auth";
+import { hasRequiredTier, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -45,6 +45,13 @@ export default function Navigation({ theme }: NavigationProps) {
   });
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
+  const isPublicUser = normalizeTier(currentTier) === "public";
+  const shouldForcePricing = (id: string) => {
+    if (!isPublicUser) return false;
+    if (id === "https://api.zerogex.io/docs") return true;
+    return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
+  };
+  const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
 
   const navGroups = useMemo(
     () => [
@@ -66,6 +73,7 @@ export default function Navigation({ theme }: NavigationProps) {
           ...group,
           items: group.items.filter((item) => {
             if ("external" in item && item.external) return true;
+            if (group.label === "Proprietary Signals") return true;
             return hasRequiredTier(item.id, currentTier);
           }),
         }))
@@ -222,12 +230,13 @@ export default function Navigation({ theme }: NavigationProps) {
                         };
 
                         if (isExternal) {
+                          const targetHref = resolveNavTarget(page.id);
                           return (
                             <Link
                               key={page.id}
-                              href={page.id}
-                              target="_blank"
-                              rel="noreferrer"
+                              href={targetHref}
+                              target={targetHref.startsWith("http") ? "_blank" : undefined}
+                              rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                               onMouseEnter={() => setHoveredPage(page.id)}
                               onMouseLeave={() => setHoveredPage(null)}
                               className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
@@ -241,7 +250,7 @@ export default function Navigation({ theme }: NavigationProps) {
                         return (
                           <button
                             key={page.id}
-                            onClick={() => router.push(page.id)}
+                            onClick={() => router.push(resolveNavTarget(page.id))}
                             onMouseEnter={() => setHoveredPage(page.id)}
                             onMouseLeave={() => setHoveredPage(null)}
                             className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"

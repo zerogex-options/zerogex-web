@@ -75,7 +75,8 @@ export default function SignalScorePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm items-stretch">
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
             <div className="font-semibold mb-3">Signal Components</div>
-            <table className="w-full text-xs">
+            <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[520px] text-xs">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
                   <th className="pb-1.5">Component</th>
@@ -102,6 +103,7 @@ export default function SignalScorePage() {
                 <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">EOD Pressure</td><td>6%</td><td>Late-session pressure blend (charm + pin + calendar)</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
@@ -118,7 +120,8 @@ export default function SignalScorePage() {
             </div>
             <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
               <div className="font-semibold mb-3">Composite Score Zones</div>
-              <table className="w-full text-xs">
+              <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[420px] text-xs">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
                     <th className="pb-1.5">Range</th>
@@ -133,6 +136,7 @@ export default function SignalScorePage() {
                   <tr><td className="py-1.5"><span className="text-[var(--color-bear)] font-medium">−100 to −80</span></td><td>High conviction — strong alignment</td></tr>
                 </tbody>
               </table>
+              </div>
               <div className="mt-3 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-secondary)]">
                 <strong>Dynamic trigger:</strong> baseline 58; raised to 72 when IV rank &gt; 0.70, lowered to 52 when IV rank &lt; 0.25.
               </div>
@@ -140,7 +144,8 @@ export default function SignalScorePage() {
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: cardBg }}>
             <div className="font-semibold mb-3">Conviction & Strength</div>
-            <table className="w-full text-xs">
+            <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[520px] text-xs">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
                   <th className="pb-1.5">|Score|</th>
@@ -154,6 +159,7 @@ export default function SignalScorePage() {
                 <tr><td className="py-1.5 font-medium text-[var(--color-text-primary)]">&lt; 58</td><td className="text-[var(--color-bear)]">Low</td><td>Below trigger or mixed signals</td></tr>
               </tbody>
             </table>
+            </div>
             <div className="mt-3 pt-2 border-t border-[var(--color-border)]">
               <div className="text-[11px] font-semibold text-[var(--color-text-secondary)] mb-1.5">In Practice</div>
               <ul className="text-[11px] text-[var(--color-text-secondary)] space-y-1">

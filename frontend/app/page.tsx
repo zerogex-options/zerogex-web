@@ -357,6 +357,23 @@ export default function LandingPage() {
             </button>
           </Link>
 
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              Pricing
+            </button>
+          </Link>
+
           {/* Launch App CTA */}
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
@@ -500,7 +517,7 @@ export default function LandingPage() {
                 Open Dashboard <ArrowRight size={18} />
               </button>
             </Link>
-            <Link href="/about" style={{ textDecoration: 'none' }}>
+            <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: 'transparent',

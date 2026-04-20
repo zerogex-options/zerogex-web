@@ -224,6 +224,20 @@ export default function AboutPage() {
               Education
             </button>
           </Link>
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+            <button style={{
+              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              border: `1px solid ${C.border}`,
+              borderRadius: 10,
+              padding: '8px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
+              cursor: 'pointer',
+            }}>
+              Pricing
+            </button>
+          </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
               className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
@@ -278,21 +292,19 @@ export default function AboutPage() {
             fontSize: 'clamp(36px, 6vw, 72px)', fontWeight: 900,
             lineHeight: 1.08, letterSpacing: '-2px', margin: '0 0 24px', color: text,
           }}>
-            Built for Traders Who{' '}
+            Trade With Dealer Positioning —{' '}
             <span style={{
               background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             }}>
-              Demand More
+              Not Guesswork
             </span>
           </h1>
           <p style={{
             fontSize: 'clamp(16px, 2vw, 20px)', color: subtext,
             lineHeight: 1.7, maxWidth: 640, margin: '0 auto 36px',
           }}>
-            ZeroGEX was built on a simple premise: the analytics that move markets shouldn&apos;t be
-            locked behind institutional paywalls. We bring dealer-grade gamma intelligence
-            directly to every options trader.
+            Real-time gamma exposure, flow, and market structure used to anticipate moves before they happen.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
@@ -306,16 +318,28 @@ export default function AboutPage() {
                 Open Dashboard <ArrowRight size={16} />
               </button>
             </Link>
-            <a href="https://api.zerogex.io/docs" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button style={{
                 background: 'transparent', border: `1px solid ${C.border}`,
                 borderRadius: 12, padding: '14px 28px',
                 fontSize: 15, fontWeight: 600, color: C.light,
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                API Docs <ExternalLink size={14} />
+                View Price Tiers <ArrowRight size={14} />
               </button>
-            </a>
+            </Link>
+          </div>
+
+          <div style={{ marginTop: 26, textAlign: 'left', maxWidth: 700, marginInline: 'auto', background: isDark ? `${C.card}bf` : 'var(--bg-card)', border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.amber, marginBottom: 12 }}>
+              Why Traders Use ZeroGEX
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, color: subtext, lineHeight: 1.7 }}>
+              <li>Identify support/resistance before it happens.</li>
+              <li>Know when volatility will expand or compress.</li>
+              <li>Spot dealer hedging flows in real time.</li>
+              <li>Avoid getting trapped on the wrong side.</li>
+            </ul>
           </div>
         </div>
       </section>
@@ -693,16 +717,16 @@ export default function AboutPage() {
                 Launch Dashboard <ArrowRight size={18} />
               </button>
             </Link>
-            <a href="https://api.zerogex.io/docs" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button style={{
                 background: 'transparent', border: `1px solid ${C.border}`,
                 borderRadius: 14, padding: '16px 32px',
                 fontSize: 16, fontWeight: 600, color: C.light,
                 cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
               }}>
-                <BookOpen size={16} /> Read the API Docs
+                <BookOpen size={16} /> Review Tier Access
               </button>
-            </a>
+            </Link>
           </div>
         </div>
       </section>

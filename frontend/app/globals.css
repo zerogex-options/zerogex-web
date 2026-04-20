@@ -139,6 +139,10 @@ html, body {
   height: 100%;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   background-color: var(--background);
   background-image:
