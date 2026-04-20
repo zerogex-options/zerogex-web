@@ -312,7 +312,7 @@ export default function TradingSignalsPage() {
           <h2 className="flex items-center gap-2 text-xl font-semibold"><TableProperties size={20} /> Trade Stream</h2>
           <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1"><ShieldCheck size={14} /> Live first, then selected history</div>
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[920px] text-sm">
           <thead>
             <tr className="text-left border-b border-[var(--color-border)]">
               <th className="py-2 pr-3"><button type="button" onClick={() => toggleSort('symbol')} className="inline-flex items-center gap-1">Symbol <span className="opacity-70">{sortIndicator('symbol')}</span></button></th>

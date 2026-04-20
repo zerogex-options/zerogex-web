@@ -273,12 +273,14 @@ export default function VolatilityExpansionPage() {
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="text-sm font-semibold mb-3">Context Breakdown</div>
+            <div className="w-full overflow-x-auto">
+              <div className="min-w-[560px]">
             <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
-              <span>Metric</span>
-              <span className="text-right">Value</span>
-              <span className="text-center">Status</span>
-            </div>
-            <div className="divide-y divide-[var(--color-border)]">
+                <span>Metric</span>
+                <span className="text-right">Value</span>
+                <span className="text-center">Status</span>
+              </div>
+              <div className="divide-y divide-[var(--color-border)]">
               {/* Net GEX */}
               <div className="grid grid-cols-[minmax(130px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
                 <span className="font-medium">Net GEX</span>
@@ -377,6 +379,8 @@ export default function VolatilityExpansionPage() {
                     </span>
                   ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
                 </span>
+              </div>
+              </div>
               </div>
             </div>
           </div>

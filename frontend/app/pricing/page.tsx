@@ -180,7 +180,8 @@ export default function PricingPage() {
             />
             <TierCard
               title="Pro"
-              price="$45/mo"
+              original="$45/mo"
+              price="Coming Soon"
               highlight="Most Popular"
               accent="var(--color-brand-primary)"
               features={[
@@ -191,7 +192,8 @@ export default function PricingPage() {
             />
             <TierCard
               title="Elite"
-              price="$65/mo"
+              original="$65/mo"
+              price="Coming Soon"
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Pro.',
