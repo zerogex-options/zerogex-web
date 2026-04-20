@@ -23,6 +23,8 @@ import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
+import { hasRequiredTier } from "@/core/auth";
+import { useAuthSession } from "@/hooks/useAuthSession";
 
 interface HeaderProps {
   theme: Theme;
@@ -69,6 +71,21 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     });
     return initial;
   });
+  const { data: authSession, refresh: refreshAuth } = useAuthSession();
+  const currentTier = authSession?.user?.tier ?? "public";
+  const filteredMobileNavGroups = useMemo(
+    () =>
+      mobileNavGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => {
+            if ("external" in item && item.external) return true;
+            return hasRequiredTier(item.id, currentTier);
+          }),
+        }))
+        .filter((group) => group.items.length > 0),
+    [mobileNavGroups, currentTier],
+  );
 
 
   // Fetch real market data
@@ -92,6 +109,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
+  const handleLogout = async () => {
+    const csrfResponse = await fetch("/api/auth/csrf");
+    const csrf = (await csrfResponse.json()) as { csrfToken: string };
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrf.csrfToken,
+      },
+    });
+    await refreshAuth();
+    router.push("/login");
+  };
 
   useEffect(() => {
     const setHeaderHeight = () => {
@@ -315,6 +344,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             {!isCollapsed && (
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
                 <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+                {authSession?.authenticated && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-lg border px-3 py-1 text-xs font-semibold"
+                    style={{ borderColor: border, color: colors.muted }}
+                  >
+                    Log out
+                  </button>
+                )}
               </div>
             )}
 
@@ -372,7 +411,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           {mobileMenuOpen && (
             <div className="space-y-4">
               <div className="space-y-3">
-                {mobileNavGroups.map((group) => {
+                {filteredMobileNavGroups.map((group) => {
                   const isExpanded = mobileExpandedGroups[group.label] ?? false;
                   return (
                     <div key={group.label} className="rounded-lg border p-3" style={{ borderColor: border }}>
@@ -454,6 +493,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <option>QQQ</option>
                 </select>
               </div>
+              {authSession?.authenticated && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full rounded-lg border px-3 py-2 text-sm font-semibold"
+                  style={{ borderColor: border, color: colors.muted }}
+                >
+                  Log out
+                </button>
+              )}
 
               {row1Price !== null && (
                 <div className="flex flex-col gap-1.5">

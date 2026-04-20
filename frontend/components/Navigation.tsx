@@ -10,8 +10,10 @@ import Link from "next/link";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
+import { hasRequiredTier } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
+import { useAuthSession } from "@/hooks/useAuthSession";
 
 interface NavigationProps {
   theme: Theme;
@@ -41,6 +43,8 @@ export default function Navigation({ theme }: NavigationProps) {
       return false;
     }
   });
+  const { data: authSession } = useAuthSession();
+  const currentTier = authSession?.user?.tier ?? "public";
 
   const navGroups = useMemo(
     () => [
@@ -55,6 +59,19 @@ export default function Navigation({ theme }: NavigationProps) {
     ],
     [],
   );
+  const filteredNavGroups = useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => {
+            if ("external" in item && item.external) return true;
+            return hasRequiredTier(item.id, currentTier);
+          }),
+        }))
+        .filter((group) => group.items.length > 0),
+    [navGroups, currentTier],
+  );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -68,7 +85,6 @@ export default function Navigation({ theme }: NavigationProps) {
     const interval = setInterval(() => setSession(getMarketSession()), 60000);
     return () => clearInterval(interval);
   }, []);
-
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
   const quoteSession = quoteData?.session ?? null;
@@ -161,7 +177,7 @@ export default function Navigation({ theme }: NavigationProps) {
                 )}
               </div>
             )}
-            {navGroups.map((group) => {
+            {filteredNavGroups.map((group) => {
               const isExpanded = expandedGroups[group.label] ?? false;
               return (
                 <div key={group.label} className="mb-4 last:mb-0">
