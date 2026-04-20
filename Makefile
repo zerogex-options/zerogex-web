@@ -46,7 +46,7 @@ rebuild:
 # Start PM2 process
 start:
 	@echo "Starting PM2 process..."
-	cd frontend && pm2 start npm --name "zerogex-web" -- start
+	pm2 start ecosystem.config.js
 
 # Stop PM2 process
 stop:
