@@ -30,8 +30,14 @@ type SessionWithUser = {
   session: SessionRecord;
 };
 
-const SESSION_TTL_SECONDS = 60 * 15;
-const SESSION_ROTATE_AFTER_SECONDS = 60 * 5;
+function readPositiveInt(name: string, fallback: number) {
+  const raw = process.env[name];
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const SESSION_TTL_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
+const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_SECONDS', 60 * 60 * 24);
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';

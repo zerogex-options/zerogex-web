@@ -223,6 +223,9 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
 AUTH_DB_PATH=./data/auth.db
 ADMIN_BOOTSTRAP_EMAIL=admin@example.com
 ADMIN_BOOTSTRAP_PASSWORD=change-me
+# Session persistence (optional; defaults to 14 days TTL / 24h rotation)
+AUTH_SESSION_TTL_SECONDS=1209600
+AUTH_SESSION_ROTATE_AFTER_SECONDS=86400
 
 # OAuth providers
 GOOGLE_CLIENT_ID=

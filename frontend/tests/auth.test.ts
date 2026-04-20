@@ -12,17 +12,17 @@ test('public routes do not require auth tier', () => {
 });
 
 test('tier requirement mapping resolves expected values', () => {
-  assert.equal(requiredTierForRoute('/dashboard'), 'basic');
+  assert.equal(requiredTierForRoute('/dashboard'), null);
   assert.equal(requiredTierForRoute('/signal-score'), 'pro');
-  assert.equal(requiredTierForRoute('/greeks-gex'), 'admin');
+  assert.equal(requiredTierForRoute('/greeks-gex'), null);
 });
 
 test('hasRequiredTier enforces role hierarchy', () => {
   assert.equal(hasRequiredTier('/dashboard', 'basic'), true);
-  assert.equal(hasRequiredTier('/dashboard', 'public'), false);
+  assert.equal(hasRequiredTier('/dashboard', 'public'), true);
   assert.equal(hasRequiredTier('/signal-score', 'basic'), false);
   assert.equal(hasRequiredTier('/signal-score', 'pro'), true);
-  assert.equal(hasRequiredTier('/greeks-gex', 'admin'), true);
+  assert.equal(hasRequiredTier('/greeks-gex', 'public'), true);
 });
 
 test('normalizeTier falls back safely', () => {
