@@ -1,5 +1,5 @@
 declare module 'node:sqlite' {
-  export type SqliteValue = string | number | bigint | Uint8Array | null;
+  export type SqliteValue = string | number | bigint | Uint8Array | null | undefined;
 
   export interface StatementSync {
     run(...values: SqliteValue[]): unknown;
