@@ -90,10 +90,21 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm use 20 >/dev/null
 cd "$APP_DIR"
-if npm run test:auth >/dev/null 2>&1; then
+
+# If this step is re-run independently and dependencies are missing, install
+# them so auth tests can execute.
+if [ ! -d "node_modules" ]; then
+  log "     ℹ node_modules missing — installing dependencies"
+  npm ci >/dev/null
+fi
+
+if npm run test:auth >/tmp/zerogex-auth-test.log 2>&1; then
   log "     ✓ test:auth passed"
 else
   log "     ✗ test:auth failed"
+  log "       --- npm run test:auth output ---"
+  sed 's/^/       /' /tmp/zerogex-auth-test.log
+  log "       --- end output ---"
   exit 1
 fi
 
