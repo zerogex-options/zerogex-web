@@ -88,7 +88,8 @@ fi
 log "  → Running auth unit tests"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm use 20 >/dev/null
+nvm install 22 >/dev/null
+nvm use 22 >/dev/null
 cd "$APP_DIR"
 
 # If this step is re-run independently and dependencies are missing, install

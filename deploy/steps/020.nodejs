@@ -24,11 +24,11 @@ fi
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-# Install Node.js 20
-log "  → Installing Node.js 20..."
-nvm install 20
-nvm use 20
-nvm alias default 20
+# Install Node.js 22 (required for node:sqlite used by auth DB layer)
+log "  → Installing Node.js 22..."
+nvm install 22
+nvm use 22
+nvm alias default 22
 
 # Verify installation
 NODE_VERSION=$(node -v)

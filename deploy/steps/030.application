@@ -39,8 +39,8 @@ cd "$APP_DIR/frontend"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-# Use Node 20
-nvm use 20
+# Use Node 22 (required for node:sqlite used by auth DB layer)
+nvm use 22
 
 # Install dependencies
 log "  → Installing npm dependencies..."

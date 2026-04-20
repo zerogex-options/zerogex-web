@@ -6,7 +6,7 @@ Complete deployment automation for the ZeroGEX Web Platform on a fresh Ubuntu se
 
 This deployment system automates the complete setup of ZeroGEX Web including:
 - System configuration and package installation
-- Node.js 20+ installation via nvm
+- Node.js 22+ installation via nvm
 - Application cloning from git and dependency installation
 - Production build
 - PM2 process manager setup
@@ -100,8 +100,8 @@ The deployment process runs these steps in order:
 
 ### Step 020: Node.js Installation
 - Installs nvm (Node Version Manager)
-- Installs Node.js 20.x
-- Sets Node 20 as default
+- Installs Node.js 22.x
+- Sets Node 22 as default
 - Verifies installation
 
 ### Step 030: Application Setup
