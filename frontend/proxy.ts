@@ -4,6 +4,22 @@ import { getSessionFromRequest } from '@/core/serverAuth';
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
+
+  if (!authEnabled) {
+    if (pathname.startsWith('/api/auth/')) {
+      return new NextResponse(null, { status: 404 });
+    }
+
+    if (pathname === '/login' || pathname === '/register') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
+  }
 
   if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.includes('.')) {
     return NextResponse.next();
