@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# ==============================================
+# Step 035: Authentication Setup (idempotent)
+# ==============================================
+#
+# Prepares the SQLite auth database directory and merges any missing auth
+# env keys into frontend/.env.local. Safe to re-run — existing values are
+# never overwritten.
+#
+# Set ENABLE_AUTH=1 when invoking deploy to prompt for OAuth credentials
+# and flip NEXT_PUBLIC_AUTH_ENABLED=1. Otherwise auth stays dormant.
+
+set -euo pipefail
+
+log "Authentication Setup"
+
+APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
+AUTH_DATA_DIR="${AUTH_DATA_DIR:-/var/lib/zerogex}"
+AUTH_DB_PATH_DEFAULT="${AUTH_DATA_DIR}/auth.db"
+ENV_FILE="$APP_DIR/.env.local"
+
+if [ ! -f "$ENV_FILE" ]; then
+  log "  ✗ $ENV_FILE not found — run step 030.application first"
+  exit 1
+fi
+
+ensure_env_key() {
+  local key="$1"
+  local value="$2"
+  if ! grep -qE "^${key}=" "$ENV_FILE"; then
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+    log "     + Added $key"
+  else
+    log "     ✓ $key already set"
+  fi
+}
+
+# Create the SQLite data directory with safe permissions.
+log "  → Ensuring auth data dir: $AUTH_DATA_DIR"
+if [ ! -d "$AUTH_DATA_DIR" ]; then
+  sudo mkdir -p "$AUTH_DATA_DIR"
+  log "     + Created $AUTH_DATA_DIR"
+fi
+sudo chown "$USER:$USER" "$AUTH_DATA_DIR"
+sudo chmod 700 "$AUTH_DATA_DIR"
+log "     ✓ Owner=$USER, mode=700"
+
+# Always seed placeholders for the auth env keys so operators can fill them
+# in without guessing. The feature flag defaults to 0 (dormant).
+log "  → Merging auth keys into $ENV_FILE"
+ensure_env_key "NEXT_PUBLIC_AUTH_ENABLED" "0"
+ensure_env_key "AUTH_DB_PATH" "$AUTH_DB_PATH_DEFAULT"
+ensure_env_key "ADMIN_BOOTSTRAP_EMAIL" ""
+ensure_env_key "ADMIN_BOOTSTRAP_PASSWORD" ""
+ensure_env_key "GOOGLE_CLIENT_ID" ""
+ensure_env_key "GOOGLE_CLIENT_SECRET" ""
+ensure_env_key "GOOGLE_REDIRECT_URI" ""
+ensure_env_key "APPLE_CLIENT_ID" ""
+ensure_env_key "APPLE_CLIENT_SECRET" ""
+ensure_env_key "APPLE_REDIRECT_URI" ""
+chmod 600 "$ENV_FILE"
+
+# Optional interactive enable: set ENABLE_AUTH=1 to flip the flag and prompt
+# for OAuth credentials on this run. Skips prompts otherwise.
+if [ "${ENABLE_AUTH:-0}" = "1" ]; then
+  log "  → ENABLE_AUTH=1 — flipping NEXT_PUBLIC_AUTH_ENABLED to 1"
+  sed -i 's|^NEXT_PUBLIC_AUTH_ENABLED=.*|NEXT_PUBLIC_AUTH_ENABLED=1|' "$ENV_FILE"
+
+  read -p "  Domain (e.g. zerogex.io) for OAuth callback URLs: " AUTH_DOMAIN
+  while [ -z "$AUTH_DOMAIN" ]; do
+    echo "     ✗ Domain cannot be empty"
+    read -p "  Domain: " AUTH_DOMAIN
+  done
+
+  sed -i "s|^GOOGLE_REDIRECT_URI=.*|GOOGLE_REDIRECT_URI=https://${AUTH_DOMAIN}/api/auth/oauth/google/callback|" "$ENV_FILE"
+  sed -i "s|^APPLE_REDIRECT_URI=.*|APPLE_REDIRECT_URI=https://${AUTH_DOMAIN}/api/auth/oauth/apple/callback|" "$ENV_FILE"
+  log "     ✓ Callback URIs set for $AUTH_DOMAIN"
+  log "     ℹ Register these exact URLs in Google + Apple consoles"
+  log "     ℹ Fill in GOOGLE_CLIENT_ID/SECRET, APPLE_CLIENT_ID/SECRET,"
+  log "       and ADMIN_BOOTSTRAP_* manually, then rebuild."
+else
+  log "  ℹ Auth remains dormant (NEXT_PUBLIC_AUTH_ENABLED=0)"
+  log "     Re-run with ENABLE_AUTH=1 to flip the flag and set callback URLs"
+fi
+
+# Run the auth unit tests so regressions fail the deploy.
+log "  → Running auth unit tests"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use 20 >/dev/null
+cd "$APP_DIR"
+if npm run test:auth >/dev/null 2>&1; then
+  log "     ✓ test:auth passed"
+else
+  log "     ✗ test:auth failed"
+  exit 1
+fi
+
+# NEXT_PUBLIC_AUTH_ENABLED is inlined at build time. If this run flipped the
+# flag, rebuild so the client bundle picks up the new value.
+if [ "${ENABLE_AUTH:-0}" = "1" ]; then
+  log "  → Rebuilding for flipped NEXT_PUBLIC_AUTH_ENABLED"
+  rm -rf .next
+  npm run build
+  log "     ✓ Rebuild complete"
+fi
+
+log ""
+log "Auth setup complete!"
+log "Summary:"
+log "  ✓ $AUTH_DATA_DIR ready (mode 700)"
+log "  ✓ Auth keys merged into .env.local"
+log "  ✓ Auth unit tests pass"

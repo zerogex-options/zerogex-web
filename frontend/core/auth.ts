@@ -81,6 +81,10 @@ export function requiredTierForRoute(pathname: string): TierId | null {
 }
 
 export function hasTierAccess(currentTier: TierId, requiredTier: TierId | null) {
+  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') {
+    return true;
+  }
+
   if (!requiredTier) {
     return true;
   }

@@ -17,10 +17,13 @@ nvm use 20
 APP_NAME="${WEB_PM2_NAME:-zerogex-web}"
 APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
 WEB_PORT="${WEB_PORT:-3000}"
+REPO_ROOT="$(dirname "$APP_DIR")"
+ECOSYSTEM_FILE="$REPO_ROOT/ecosystem.config.js"
 
 log "  → App name: $APP_NAME"
 log "  → App dir: $APP_DIR"
 log "  → Port: $WEB_PORT"
+log "  → Ecosystem file: $ECOSYSTEM_FILE"
 
 # Install PM2 if needed
 if ! command -v pm2 >/dev/null; then
@@ -30,11 +33,16 @@ else
   log "  ℹ PM2 already installed"
 fi
 
-# Restart process idempotently
-cd "$APP_DIR"
+# Restart process idempotently using the checked-in ecosystem config
+if [ ! -f "$ECOSYSTEM_FILE" ]; then
+  log "  ✗ $ECOSYSTEM_FILE not found — expected at repo root"
+  exit 1
+fi
+
+cd "$REPO_ROOT"
 log "  → Restarting PM2 app: $APP_NAME"
 pm2 delete "$APP_NAME" 2>/dev/null || true
-PORT="$WEB_PORT" pm2 start npm --name "$APP_NAME" -- start
+PORT="$WEB_PORT" pm2 start "$ECOSYSTEM_FILE"
 
 # Persist PM2 config and boot startup
 log "  → Saving PM2 process list"

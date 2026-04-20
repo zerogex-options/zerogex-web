@@ -21,6 +21,11 @@ export function useAuthSession() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') {
+      setData({ authenticated: false });
+      setLoading(false);
+      return;
+    }
     try {
       const response = await fetch('/api/auth/session', { credentials: 'include' });
       const payload = (await response.json()) as SessionResponse;

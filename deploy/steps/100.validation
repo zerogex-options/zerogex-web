@@ -121,6 +121,65 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
+# Section 5b: Authentication Configuration
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "5b. Authentication Configuration"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+ENV_FILE="$APP_DIR/.env.local"
+ECOSYSTEM_FILE="$(dirname "$APP_DIR")/ecosystem.config.js"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -f "$ECOSYSTEM_FILE" ]; then
+    log "  ✓ ecosystem.config.js present"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ ecosystem.config.js not found at $ECOSYSTEM_FILE"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -f "$ENV_FILE" ]; then
+    AUTH_FLAG=$(grep -E "^NEXT_PUBLIC_AUTH_ENABLED=" "$ENV_FILE" | tail -1 | cut -d= -f2-)
+    if [ "$AUTH_FLAG" = "1" ]; then
+        log "  ℹ Auth enabled (NEXT_PUBLIC_AUTH_ENABLED=1)"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+
+        # When auth is enabled, AUTH_DB_PATH must be absolute and writable.
+        TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+        DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" | tail -1 | cut -d= -f2-)
+        if [ -z "$DB_PATH" ]; then
+            log "  ✗ AUTH_DB_PATH is empty"
+            FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        elif [[ "$DB_PATH" != /* ]]; then
+            log "  ✗ AUTH_DB_PATH must be absolute (got: $DB_PATH)"
+            FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        else
+            DB_DIR=$(dirname "$DB_PATH")
+            if [ -d "$DB_DIR" ] && [ -w "$DB_DIR" ]; then
+                log "  ✓ AUTH_DB_PATH dir exists and is writable: $DB_DIR"
+                PASSED_CHECKS=$((PASSED_CHECKS + 1))
+            else
+                log "  ✗ AUTH_DB_PATH dir missing or not writable: $DB_DIR"
+                FAILED_CHECKS=$((FAILED_CHECKS + 1))
+            fi
+        fi
+
+        # Warn loudly if bootstrap creds are still set — they should be removed
+        # after first admin login.
+        if grep -qE "^ADMIN_BOOTSTRAP_PASSWORD=.+" "$ENV_FILE"; then
+            log "  ⚠ ADMIN_BOOTSTRAP_PASSWORD is still set — remove after first login"
+        fi
+    else
+        log "  ℹ Auth dormant (NEXT_PUBLIC_AUTH_ENABLED=${AUTH_FLAG:-unset})"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+    fi
+else
+    log "  ✗ $ENV_FILE not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
 # Section 6: Firewall
 log ""
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

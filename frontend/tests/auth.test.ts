@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { hasRequiredTier, requiredTierForRoute, normalizeTier } from '../core/auth.ts';
 import { getOAuthNonceCookieName, getOAuthStateCookieName } from '../core/oauth.ts';
 
+process.env.NEXT_PUBLIC_AUTH_ENABLED = '1';
+
 test('public routes do not require auth tier', () => {
   assert.equal(requiredTierForRoute('/'), null);
   assert.equal(requiredTierForRoute('/about'), null);
@@ -34,4 +36,16 @@ test('oauth state cookies are provider scoped', () => {
   assert.equal(getOAuthStateCookieName('apple'), 'zgx_oauth_state_apple');
   assert.equal(getOAuthNonceCookieName('google'), 'zgx_oauth_nonce_google');
   assert.equal(getOAuthNonceCookieName('apple'), 'zgx_oauth_nonce_apple');
+});
+
+test('tier gates bypass when NEXT_PUBLIC_AUTH_ENABLED is not 1', () => {
+  const previous = process.env.NEXT_PUBLIC_AUTH_ENABLED;
+  try {
+    process.env.NEXT_PUBLIC_AUTH_ENABLED = '0';
+    assert.equal(hasRequiredTier('/dashboard', 'public'), true);
+    assert.equal(hasRequiredTier('/greeks-gex', 'public'), true);
+    assert.equal(hasRequiredTier('/signal-score', undefined), true);
+  } finally {
+    process.env.NEXT_PUBLIC_AUTH_ENABLED = previous;
+  }
 });

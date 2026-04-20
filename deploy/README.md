@@ -65,12 +65,23 @@ The deployment process runs these steps in order:
 - Clones/updates repository from git
 - Navigates to frontend directory
 - Installs npm dependencies
-- Creates `.env.local` file from template
+- Idempotently merges required keys into `.env.local` (never overwrites existing values)
+- Seeds `NEXT_PUBLIC_AUTH_ENABLED=0` so auth ships dormant
 - Builds application for production (`npm run build`)
+
+### Step 035: Authentication Setup (idempotent)
+- Creates `/var/lib/zerogex/` with mode 700 for the SQLite auth DB
+- Merges missing auth env keys (`AUTH_DB_PATH`, `ADMIN_BOOTSTRAP_*`, `GOOGLE_*`, `APPLE_*`) into `.env.local` as empty placeholders
+- Runs `npm run test:auth`
+- Re-run with `ENABLE_AUTH=1` to flip the flag, set callback URLs for a domain, and rebuild:
+  ```bash
+  ENABLE_AUTH=1 ./deploy/deploy.sh --start-from 035
+  ```
+  You still need to fill in `GOOGLE_CLIENT_*`, `APPLE_CLIENT_*`, and `ADMIN_BOOTSTRAP_*` by hand before the first `pm2 restart`.
 
 ### Step 040: PM2 Process Manager
 - Installs PM2 globally
-- Starts application with PM2
+- Starts the application via the checked-in `ecosystem.config.js`
 - Configures PM2 to start on boot
 - Saves PM2 process list
 
