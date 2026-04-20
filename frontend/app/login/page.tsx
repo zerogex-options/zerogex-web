@@ -27,13 +27,20 @@ function LoginPageContent() {
     return next;
   }, [searchParams]);
 
-  useEffect(() => {
-    const loadCsrf = async () => {
-      const response = await fetch('/api/auth/csrf');
-      const payload = (await response.json()) as { csrfToken: string };
+  const loadCsrf = async () => {
+    try {
+      const response = await fetch('/api/auth/csrf', { credentials: 'include' });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { csrfToken?: string };
+      if (!payload.csrfToken) return null;
       setCsrfToken(payload.csrfToken);
-    };
+      return payload.csrfToken;
+    } catch {
+      return null;
+    }
+  };
 
+  useEffect(() => {
     void loadCsrf();
   }, []);
 
@@ -43,11 +50,17 @@ function LoginPageContent() {
     setError(null);
 
     try {
+      const token = csrfToken || (await loadCsrf());
+      if (!token) {
+        setError('Unable to initialize secure login. Please refresh and try again.');
+        return;
+      }
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': token,
         },
         body: JSON.stringify({ email, password }),
       });
@@ -98,7 +111,7 @@ function LoginPageContent() {
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
-            disabled={loading || !csrfToken}
+            disabled={loading}
             className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black disabled:opacity-60"
             type="submit"
           >
