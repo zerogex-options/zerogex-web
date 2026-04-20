@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasTierAccess, isPublicRoute, requiredTierForRoute } from '@/core/auth';
 import { getSessionFromRequest } from '@/core/serverAuth';
 
+function readPositiveInt(name: string, fallback: number) {
+  const raw = process.env[name];
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const SESSION_COOKIE_MAX_AGE_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
@@ -29,6 +37,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const requiredTier = requiredTierForRoute(pathname);
+  if (!requiredTier) {
+    return NextResponse.next();
+  }
+
   const session = await getSessionFromRequest(request);
   if (!session) {
     const loginUrl = new URL('/login', request.url);
@@ -36,7 +49,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const requiredTier = requiredTierForRoute(pathname);
   if (!hasTierAccess(session.user.tier, requiredTier)) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
     unauthorizedUrl.searchParams.set('required', requiredTier ?? 'basic');
@@ -54,7 +66,7 @@ export async function proxy(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 15,
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
     });
   }
 
