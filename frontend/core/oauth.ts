@@ -3,6 +3,28 @@ import { randomBytes } from 'crypto';
 
 export type OAuthProvider = 'google' | 'apple';
 
+type GoogleOAuthConfig = {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  authUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+  jwksUrl: string;
+  scope: string;
+};
+
+type AppleOAuthConfig = {
+  clientId: string;
+  redirectUri: string;
+  authUrl: string;
+  tokenUrl: string;
+  jwksUrl: string;
+  scope: string;
+  responseMode: string;
+  clientSecret: string;
+};
+
 const STATE_COOKIE_PREFIX = 'zgx_oauth_state_';
 const NONCE_COOKIE_PREFIX = 'zgx_oauth_nonce_';
 
@@ -107,7 +129,9 @@ export function getOAuthNonceCookieName(provider: OAuthProvider) {
   return `${NONCE_COOKIE_PREFIX}${provider}`;
 }
 
-export function getOAuthConfig(provider: OAuthProvider) {
+export function getOAuthConfig(provider: 'google'): GoogleOAuthConfig;
+export function getOAuthConfig(provider: 'apple'): AppleOAuthConfig;
+export function getOAuthConfig(provider: OAuthProvider): GoogleOAuthConfig | AppleOAuthConfig {
   if (provider === 'google') {
     const clientId = requireEnv('GOOGLE_CLIENT_ID');
     const clientSecret = requireEnv('GOOGLE_CLIENT_SECRET');
