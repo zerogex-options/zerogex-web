@@ -21,24 +21,24 @@ help:
 # Install dependencies
 install:
 	@echo "Installing dependencies..."
-	cd frontend && npm install
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
 
 # Run development server
 dev:
 	@echo "Starting development server..."
-	cd frontend && npm run dev
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run dev'
 
 # Build for production
 build:
 	@echo "Building for production..."
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
 # Clean build and restart
 rebuild:
 	@echo "Cleaning build directory..."
 	rm -rf frontend/.next
 	@echo "Building for production..."
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "Restarting PM2 process..."
 	pm2 restart zerogex-web
 	@echo "Rebuild complete!"
@@ -95,12 +95,12 @@ deploy:
 	@echo "1. Pulling latest changes..."
 	git pull
 	@echo "2. Installing dependencies..."
-	cd frontend && npm install
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
 	@echo "3. Copying logos..."
 	@make logo
 	@echo "4. Rebuilding application..."
 	rm -rf frontend/.next
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "5. Restarting PM2..."
 	pm2 restart zerogex-web
 	@echo "6. Saving PM2 config..."
