@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users clean deploy logo
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  make restart    - Restart PM2 process"
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
+	@echo "  make users      - Print auth users + entitlements"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -21,24 +22,24 @@ help:
 # Install dependencies
 install:
 	@echo "Installing dependencies..."
-	cd frontend && npm install
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
 
 # Run development server
 dev:
 	@echo "Starting development server..."
-	cd frontend && npm run dev
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run dev'
 
 # Build for production
 build:
 	@echo "Building for production..."
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
 # Clean build and restart
 rebuild:
 	@echo "Cleaning build directory..."
 	rm -rf frontend/.next
 	@echo "Building for production..."
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "Restarting PM2 process..."
 	pm2 restart zerogex-web
 	@echo "Rebuild complete!"
@@ -71,6 +72,11 @@ status:
 	@echo "Detailed info:"
 	pm2 describe zerogex-web
 
+# Print auth users and entitlements from SQLite
+users:
+	@echo "Listing auth users..."
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node scripts/list-auth-users.mjs'
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
@@ -95,12 +101,12 @@ deploy:
 	@echo "1. Pulling latest changes..."
 	git pull
 	@echo "2. Installing dependencies..."
-	cd frontend && npm install
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
 	@echo "3. Copying logos..."
 	@make logo
 	@echo "4. Rebuilding application..."
 	rm -rf frontend/.next
-	cd frontend && npm run build
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "5. Restarting PM2..."
 	pm2 restart zerogex-web
 	@echo "6. Saving PM2 config..."

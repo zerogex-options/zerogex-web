@@ -108,7 +108,7 @@ chmod +x deploy/steps/*
 ```
 
 This will automatically:
-- ✅ Install Node.js 20 via nvm
+- ✅ Install Node.js 22 via nvm
 - ✅ Install dependencies and build application
 - ✅ Set up PM2 process manager
 - ✅ Configure Nginx reverse proxy
@@ -122,15 +122,15 @@ This will automatically:
 
 If you prefer manual deployment or need more control:
 
-### 1. Install Node.js 20+
+### 1. Install Node.js 22+
 
 ```bash
 # Using nvm (recommended)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 source ~/.bashrc
-nvm install 20
-nvm use 20
-nvm alias default 20
+nvm install 22
+nvm use 22
+nvm alias default 22
 ```
 
 ### 2. Clone and Build

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import { Info, X } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
@@ -253,15 +253,7 @@ export default function VolatilityCard() {
   const { theme } = useTheme();
   const { data } = useVolatilityGauge(30000);
   const isDark = theme === "dark";
-  const [fetchedAt, setFetchedAt] = useState<string>("");
-  const prevDataRef = useRef<typeof data>(null);
-
-  useEffect(() => {
-    if (data && data !== prevDataRef.current) {
-      prevDataRef.current = data;
-      setFetchedAt(new Date().toISOString());
-    }
-  }, [data]);
+  const fetchedAt = useMemo(() => data?.timestamp ?? "", [data]);
 
   if (!data) return null;
 

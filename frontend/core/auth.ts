@@ -18,26 +18,15 @@ export type RouteAccessRule = {
 const PUBLIC_ROUTE_PATTERNS = ['/', '/about', '/login', '/register', '/unauthorized'] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
-  { pattern: '/dashboard', minimumTier: 'basic' },
-  { pattern: '/education', minimumTier: 'basic' },
-  { pattern: '/education/*', minimumTier: 'basic' },
-  { pattern: '/gamma-exposure', minimumTier: 'basic' },
-  { pattern: '/flow-analysis', minimumTier: 'basic' },
-  { pattern: '/smart-money', minimumTier: 'basic' },
-  { pattern: '/max-pain', minimumTier: 'basic' },
+  // Keep only proprietary signal pages behind auth.
   { pattern: '/signal-score', minimumTier: 'pro' },
   { pattern: '/trading-signals', minimumTier: 'pro' },
-  { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/eod-pressure', minimumTier: 'pro' },
   { pattern: '/squeeze-setup', minimumTier: 'pro' },
   { pattern: '/trap-detection', minimumTier: 'pro' },
   { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
   { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
-  { pattern: '/intraday-tools', minimumTier: 'pro' },
-  { pattern: '/options-calculator', minimumTier: 'pro' },
-  { pattern: '/option-contracts', minimumTier: 'pro' },
-  { pattern: '/charts', minimumTier: 'admin' },
-  { pattern: '/greeks-gex', minimumTier: 'admin' },
+  { pattern: '/volatility-expansion', minimumTier: 'pro' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(
@@ -77,7 +66,7 @@ export function requiredTierForRoute(pathname: string): TierId | null {
   }
 
   const match = ROUTE_ACCESS_RULES.find((rule) => matchesPattern(normalized, rule.pattern));
-  return match?.minimumTier ?? 'basic';
+  return match?.minimumTier ?? null;
 }
 
 export function hasTierAccess(currentTier: TierId, requiredTier: TierId | null) {
