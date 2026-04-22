@@ -19,6 +19,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
       { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'pro' },
+      { id: '/advanced-signals', label: 'Advanced Signals', requiredTier: 'pro' },
+    ],
+  },
+  {
+    label: 'Advanced Signals',
+    items: [
       { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'pro' },
       { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'pro' },
       { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'pro' },

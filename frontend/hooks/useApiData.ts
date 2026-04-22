@@ -666,6 +666,101 @@ export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 1
   );
 }
 
+export type SignalEventName =
+  | 'vol_expansion'
+  | 'eod_pressure'
+  | 'squeeze_setup'
+  | 'trap_detection'
+  | 'zero_dte_position_imbalance'
+  | 'gamma_vwap_confluence'
+  | 'positioning_trap'
+  | 'vanna_charm_flow';
+
+export type SignalEventHorizon = '30m' | '60m' | '120m';
+
+export interface SignalEventRow {
+  underlying?: string;
+  timestamp?: string;
+  component_name?: string;
+  score?: number;
+  weighted_score?: number;
+  weight?: number;
+  direction?: 'bullish' | 'bearish' | 'neutral' | string;
+  direction_flip?: boolean;
+  inputs?: Record<string, unknown>;
+  close?: number | null;
+  horizon_close?: number | null;
+  realized_return?: number | null;
+  [key: string]: unknown;
+}
+
+export interface SignalEventsResponse {
+  underlying?: string;
+  signal_name?: string;
+  horizon?: string;
+  rows?: SignalEventRow[];
+  count?: number;
+  summary?: {
+    flips?: number;
+    bullish?: number;
+    bearish?: number;
+    neutral?: number;
+    latest_timestamp?: string | null;
+    latest_direction?: string | null;
+  };
+  [key: string]: unknown;
+}
+
+export function useSignalEvents(
+  signalName: SignalEventName,
+  symbol = 'SPY',
+  options: { limit?: number; horizon?: SignalEventHorizon; refreshInterval?: number; enabled?: boolean } = {},
+) {
+  const { limit = 100, horizon = '60m', refreshInterval = 30000, enabled = true } = options;
+  const params = new URLSearchParams({
+    symbol,
+    limit: String(Math.max(1, Math.min(1000, Math.floor(limit)))),
+    horizon,
+  });
+  return useApiData<SignalEventsResponse>(
+    `/api/signals/${signalName}/events?${params.toString()}`,
+    { refreshInterval, enabled },
+  );
+}
+
+export interface ConfluenceMatrixCell {
+  observations?: number;
+  active_observations?: number;
+  agreement_count?: number;
+  disagreement_count?: number;
+  neutral_count?: number;
+  agreement_ratio?: number | null;
+  disagreement_ratio?: number | null;
+  net_confluence?: number | null;
+}
+
+export interface ConfluenceMatrixResponse {
+  underlying?: string;
+  lookback?: number;
+  components?: string[];
+  row_order?: string[];
+  matrix?: Record<string, Record<string, ConfluenceMatrixCell>>;
+  sample_count?: number;
+  latest_timestamp?: string | null;
+  [key: string]: unknown;
+}
+
+export function useConfluenceMatrix(symbol = 'SPY', lookback = 120, refreshInterval = 30000) {
+  const params = new URLSearchParams({
+    symbol,
+    lookback: String(Math.max(10, Math.min(2000, Math.floor(lookback)))),
+  });
+  return useApiData<ConfluenceMatrixResponse>(
+    `/api/signals/confluence-matrix?${params.toString()}`,
+    { refreshInterval },
+  );
+}
+
 export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
     `/api/signals/vol-expansion/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
