@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import ExpandableCard from '@/components/ExpandableCard';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -59,19 +60,15 @@ export default function EodPressurePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">EOD Pressure</h1>
         <TooltipWrapper
-          text="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp."
+          text="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30
-        toward 1.0 by 15:45 ET.
-      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -102,10 +99,14 @@ export default function EodPressurePage() {
                 Amp <span className="font-mono ml-1">{calendarAmp != null ? `${calendarAmp.toFixed(2)}×` : '1.00×'}</span>
               </span>
             </div>
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3">
+            <ExpandableCard
+              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
               <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </div>
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">

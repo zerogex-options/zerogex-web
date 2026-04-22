@@ -167,25 +167,25 @@ export default function AdvancedSignalsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
-        <h1 className="text-3xl font-bold">Advanced Signals</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
         <TooltipWrapper
-          text="Dashboard of six advanced signals that extend the composite MSI, plus cross-component confluence analysis."
+          text="Dashboard of six advanced signals that extend the composite MSI, plus cross-component confluence analysis. The composite MSI banner sets the regime context. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        The composite MSI banner sets the regime context. Each card below is a standalone detector;
-        triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines.
-      </p>
 
       {msi.error && <ErrorMessage message={msi.error} onRetry={msi.refetch} />}
 
       <section className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_1fr] gap-6 items-center">
-          <MsiGauge score={msiScore} size={220} label="Composite MSI" />
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_1fr] gap-6 items-center">
+          <div className="overflow-x-auto md:overflow-visible -mx-2 md:mx-0">
+            <div className="min-w-[320px] md:min-w-0 flex justify-center px-2 md:px-0">
+              <MsiGauge score={msiScore} size={300} label="Composite MSI" />
+            </div>
+          </div>
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Regime banner</div>

@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import ExpandableCard from '@/components/ExpandableCard';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -82,18 +83,15 @@ export default function TrapDetectionPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Trap Detection</h1>
         <TooltipWrapper
-          text="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall."
+          text="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Invalidated when the relevant wall migrates with price (dealers repositioning)."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        Triggers at |score| ≥ 25. Invalidated when the relevant wall migrates with price (dealers repositioning).
-      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -116,10 +114,14 @@ export default function TrapDetectionPage() {
               )}
             </div>
             <div className="mt-3 text-sm font-semibold">{setupLabel(signal, score)}</div>
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3">
+            <ExpandableCard
+              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
               <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </div>
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">

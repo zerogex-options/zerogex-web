@@ -3,12 +3,13 @@
 import { useMemo } from 'react';
 import { Compass, Gauge, Magnet, TrendingDown, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useGammaVwapConfluenceSignal } from '@/hooks/useApiData';
+import { useGammaVwapConfluenceSignal, useGEXSummary, useGEXByStrike } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import ExpandableCard from '@/components/ExpandableCard';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -42,32 +43,66 @@ const LEVEL_COLORS: Record<string, string> = {
 export default function GammaVwapConfluencePage() {
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
+  // The signal payload often omits these magnet levels; fall back to the
+  // canonical gex-summary + by-strike endpoints so the UI stays populated.
+  const { data: gexSummary } = useGEXSummary(symbol, 15000);
+  const { data: gexByStrike } = useGEXByStrike(symbol, 50, 30000, 'impact');
 
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const signal = String(payload.signal ?? 'neutral');
   const triggered = payload.triggered === true || (score != null && Math.abs(score) >= 20);
   const confluenceLevel = getNumber(payload.confluence_level);
-  const clusterGapPct = getNumber(payload.cluster_gap_pct);
   const expectedTarget = getNumber(payload.expected_target);
+
+  const maxGammaFromStrikes = useMemo(() => {
+    if (!Array.isArray(gexByStrike) || gexByStrike.length === 0) return null;
+    let best: { strike: number; abs: number } | null = null;
+    for (const row of gexByStrike) {
+      const strike = getNumber(row?.strike);
+      const netGex = getNumber(row?.net_gex);
+      if (strike == null || netGex == null) continue;
+      const abs = Math.abs(netGex);
+      if (!best || abs > best.abs) best = { strike, abs };
+    }
+    return best?.strike ?? null;
+  }, [gexByStrike]);
 
   const ctx = useMemo(() => {
     const raw = asObject(payload.context_values) ?? {};
     const members = asArray(raw.cluster_members).map((m) => String(m));
+    const maxPain = getNumber(raw.max_pain) ?? getNumber(payload.max_pain) ?? getNumber(gexSummary?.max_pain);
+    const callWall = getNumber(raw.call_wall) ?? getNumber(payload.call_wall) ?? getNumber(gexSummary?.call_wall);
+    const maxGamma = getNumber(raw.max_gamma) ?? getNumber(payload.max_gamma) ?? maxGammaFromStrikes;
+    const gammaFlip = getNumber(raw.gamma_flip) ?? getNumber(gexSummary?.gamma_flip);
     return {
-      gammaFlip: getNumber(raw.gamma_flip),
+      gammaFlip,
       vwap: getNumber(raw.vwap),
-      maxPain: getNumber(raw.max_pain),
-      maxGamma: getNumber(raw.max_gamma),
-      callWall: getNumber(raw.call_wall),
-      close: getNumber(raw.close),
+      maxPain,
+      maxGamma,
+      callWall,
+      close: getNumber(raw.close) ?? getNumber(gexSummary?.spot_price),
       clusterMembers: members,
       clusterQuality: getNumber(raw.cluster_quality),
       distanceFromLevelPct: getNumber(raw.distance_from_level_pct),
       regimeDirection: String(raw.regime_direction ?? '—'),
-      netGex: getNumber(raw.net_gex),
+      netGex: getNumber(raw.net_gex) ?? getNumber(gexSummary?.net_gex),
     };
-  }, [payload]);
+  }, [payload, gexSummary, maxGammaFromStrikes]);
+
+  // cluster_gap_pct is the range spanned by the clustered levels, normalized
+  // by spot. Back-compute it when the backend omits it.
+  const clusterGapPct = useMemo(() => {
+    const raw = getNumber(payload.cluster_gap_pct);
+    if (raw != null) return raw;
+    const candidates = [ctx.gammaFlip, ctx.vwap, ctx.maxPain, ctx.maxGamma, ctx.callWall]
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    if (candidates.length < 2) return null;
+    const spot = ctx.close;
+    if (spot == null || spot === 0) return null;
+    const span = Math.max(...candidates) - Math.min(...candidates);
+    return span / spot;
+  }, [payload.cluster_gap_pct, ctx]);
 
   const trend = toTrend(payload.direction);
   const color = trendColor(trend);
@@ -85,19 +120,15 @@ export default function GammaVwapConfluencePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Gamma / VWAP Confluence</h1>
         <TooltipWrapper
-          text="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level."
+          text="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma
-        regimes it reverts.
-      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -127,10 +158,14 @@ export default function GammaVwapConfluencePage() {
               {' · '}
               Members: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterMembers.length || '—'}</span>
             </p>
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3">
+            <ExpandableCard
+              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
               <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </div>
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">

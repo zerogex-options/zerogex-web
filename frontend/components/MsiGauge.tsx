@@ -20,10 +20,13 @@ function regimeBand(score: number | null): { label: string; color: string; descr
 }
 
 export default function MsiGauge({ score, size = 260, label = 'Composite Score', subLabel }: MsiGaugeProps) {
-  const radius = size / 2 - 16;
+  const strokeWidth = Math.max(14, size * 0.06);
+  // Leave enough padding for the tick labels (0 / 100) that render just
+  // outside the arc; otherwise they clip at the SVG edges.
+  const tickPadding = 18;
+  const radius = size / 2 - strokeWidth / 2 - tickPadding;
   const cx = size / 2;
   const cy = size / 2;
-  const strokeWidth = Math.max(14, size * 0.06);
   const startAngle = 180;
   const endAngle = 360;
   const angleRange = endAngle - startAngle;
@@ -45,8 +48,14 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
   const needlePos = polar(cx, cy, radius - strokeWidth / 2 - 2, needleAngle);
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size / 1.6} viewBox={`0 0 ${size} ${size / 1.6}`}>
+    <div className="flex flex-col items-center" style={{ maxWidth: '100%' }}>
+      <svg
+        width={size}
+        height={size / 1.6}
+        viewBox={`0 0 ${size} ${size / 1.6}`}
+        style={{ maxWidth: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+        preserveAspectRatio="xMidYMid meet"
+      >
         {/* track */}
         <path
           d={arcPath(cx, cy, radius, startAngle, endAngle)}

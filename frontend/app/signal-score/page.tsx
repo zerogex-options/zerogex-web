@@ -129,25 +129,21 @@ export default function CompositeScorePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-8">
         <h1 className="text-3xl font-bold">Composite Score</h1>
         <TooltipWrapper
-          text="Market State Index (MSI): a 0–100 regime gauge built from six option-structure components. 50 = neutral; deviations reflect structural expansion or pinning bias."
+          text="Market State Index (MSI): a 0–100 regime gauge built from six option-structure components. 50 = neutral; deviations reflect structural expansion or pinning bias. Each component returns a raw score in [−1, +1], is multiplied by its weight, summed and added to a 50-point baseline, then clamped to [0, 100]."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-8 max-w-3xl">
-        Each component returns a raw score in [−1, +1], is multiplied by its weight, summed and added to a
-        50-point baseline, then clamped to [0, 100].
-      </p>
 
       {scoreError && <ErrorMessage message={scoreError} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr] gap-8 items-start">
-          <div className="flex flex-col items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-8 items-start">
+          <div className="flex flex-col items-center min-w-0 w-full">
             <MsiGauge score={compositeScore} size={280} label="MSI (0–100)" />
             <div className="mt-5 grid grid-cols-2 gap-2 text-[11px] w-full max-w-[320px]">
               <div className="rounded-lg border border-[var(--color-border)] p-2" style={{ background: 'var(--color-bear-soft)' }}>
@@ -169,7 +165,7 @@ export default function CompositeScorePage() {
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-3">
               <LayoutGrid size={18} />
               <h2 className="text-lg font-semibold">Component Contributions</h2>
@@ -186,10 +182,12 @@ export default function CompositeScorePage() {
                 No component data available yet for {symbol}.
               </div>
             ) : (
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] divide-y divide-[var(--color-border)]">
-                {components.map((c) => (
-                  <ComponentBar key={c.name} entry={c} />
-                ))}
+              <div className="overflow-x-auto md:overflow-visible -mx-2 md:mx-0 pb-1">
+                <div className="min-w-[420px] md:min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] divide-y divide-[var(--color-border)] mx-2 md:mx-0">
+                  {components.map((c) => (
+                    <ComponentBar key={c.name} entry={c} />
+                  ))}
+                </div>
               </div>
             )}
           </div>

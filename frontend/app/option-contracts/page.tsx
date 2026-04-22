@@ -87,7 +87,7 @@ function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): stri
 }
 
 function getSessionMinuteTimeline(dateKey: string): string[] {
-  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
+  const startIso = etWallTimeToUtcISO(dateKey, 7, 15);
   const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
   if (!startIso || !endIso) return [];
 
@@ -160,7 +160,7 @@ function isAtOrAfterMarketOpen(ts: string): boolean {
   }).formatToParts(d);
   const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
   const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return hour > 9 || (hour === 9 && minute >= 30);
+  return hour > 7 || (hour === 7 && minute >= 15);
 }
 
 function isAtOrBeforeMarketClose(ts: string): boolean {
@@ -347,6 +347,65 @@ function ContractLegend({
   );
 }
 
+// ── Tooltip ────────────────────────────────────────────────────────────────────
+
+interface TooltipPayloadItem {
+  name?: string | number;
+  dataKey?: string | number;
+  value?: number | string | null;
+  payload?: ChartRow;
+}
+
+interface TooltipContentProps {
+  active?: boolean;
+  label?: string | number;
+  payload?: readonly TooltipPayloadItem[];
+}
+
+function ContractTooltipContent({ active, payload, label }: TooltipContentProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  const timeLabel = safeTimeLabel(String(label ?? row.timestamp));
+  const last = typeof row.last === "number" && row.last > 0 ? row.last : null;
+  const bidVol = typeof row.bidVol === "number" ? row.bidVol : null;
+  const midVol = typeof row.midVol === "number" ? row.midVol : null;
+  const askVol = typeof row.askVol === "number" ? row.askVol : null;
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--color-chart-tooltip-bg)",
+        border: "1px solid var(--color-border)",
+        borderRadius: 8,
+        color: "var(--color-chart-tooltip-text)",
+        padding: "8px 10px",
+        fontSize: 11,
+        lineHeight: 1.35,
+        minWidth: 120,
+      }}
+    >
+      <div style={{ fontWeight: 600 }}>{timeLabel} ET</div>
+      {last != null && <div style={{ fontWeight: 600 }}>${last.toFixed(2)}</div>}
+      {bidVol != null && bidVol > 0 && (
+        <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
+          {bidVol.toLocaleString()}x @ Bid
+        </div>
+      )}
+      {midVol != null && midVol > 0 && (
+        <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
+          {midVol.toLocaleString()}x @ Mid
+        </div>
+      )}
+      {askVol != null && askVol > 0 && (
+        <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
+          {askVol.toLocaleString()}x @ Ask
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Chart ──────────────────────────────────────────────────────────────────────
 
 function ContractChart({
@@ -500,27 +559,13 @@ function ContractChart({
               }}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--color-chart-tooltip-bg)",
-                borderColor: "var(--color-border)",
-                borderRadius: 8,
-                color: "var(--color-chart-tooltip-text)",
-              }}
-              labelStyle={{ color: "var(--color-chart-tooltip-text)", fontWeight: 600, fontSize: 11 }}
-              itemStyle={{ color: "var(--color-chart-tooltip-muted)", fontSize: 11 }}
-              labelFormatter={(value) => safeTimeLabel(String(value))}
-              formatter={(value, name) => {
-                const n = Number(value ?? 0);
-                if (name === "Last")
-                  return n > 0 ? [`$${n.toFixed(2)}`, name] : [null, name];
-                if (n === 0) return [null, name];
-                return [n.toLocaleString(), name];
-              }}
-              itemSorter={(item) => {
-                // Define custom order: Last, Bid Vol, Mid Vol, Ask Vol
-                const order = { "Last": 0, "Bid Vol": 1, "Mid Vol": 2, "Ask Vol": 3 };
-                return order[item.name as keyof typeof order] ?? 99;
-              }}
+              content={(props: TooltipContentProps) => (
+                <ContractTooltipContent
+                  active={props.active}
+                  payload={props.payload}
+                  label={props.label}
+                />
+              )}
             />
 
             <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="var(--color-positive)" isAnimationActive={false} />

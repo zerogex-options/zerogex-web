@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import ExpandableCard from '@/components/ExpandableCard';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -61,19 +62,15 @@ export default function VolatilityExpansionPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Volatility Expansion</h1>
         <TooltipWrapper
-          text="Decomposes the composite score into expansion (GEX-driven readiness, 0–100) and direction (momentum-driven, −100..+100). Score is (expansion × direction) / 100."
+          text="Decomposes the composite score into expansion (GEX-driven readiness, 0–100) and direction (momentum-driven, −100..+100). Score is (expansion × direction) / 100. Answers two questions: Will vol expand? And if so, which way? Short-gamma regimes elevate expansion readiness; a 5-bar z-scored momentum picks the direction."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        Answers two questions: <em>Will vol expand?</em> and <em>If so, which way?</em> Short-gamma regimes elevate
-        expansion readiness; a 5-bar z-scored momentum picks the direction.
-      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -88,10 +85,14 @@ export default function VolatilityExpansionPage() {
             <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
               Range −100 to +100. Sign follows <code>direction_score</code>, magnitude is gated by <code>expansion</code>.
             </p>
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3">
+            <ExpandableCard
+              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
               <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </div>
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import ExpandableCard from '@/components/ExpandableCard';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -75,19 +76,15 @@ export default function ZeroDtePositionImbalancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">0DTE Position Imbalance</h1>
         <TooltipWrapper
-          text="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier."
+          text="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier. Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive the largest chase."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-6 max-w-3xl">
-        Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive
-        the largest chase.
-      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -133,10 +130,14 @@ export default function ZeroDtePositionImbalancePage() {
               </span>
             </div>
             <div className="mt-3 text-sm font-semibold">{label(signal, score)}</div>
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3">
+            <ExpandableCard
+              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
               <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </div>
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">

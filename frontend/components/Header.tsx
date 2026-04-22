@@ -290,6 +290,64 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
                 </button>
                 {isCollapsed && (
+                  <div ref={profileMenuRef} style={{ position: "relative" }}>
+                    <button
+                      type="button"
+                      onClick={() => setProfileMenuOpen((prev) => !prev)}
+                      className="rounded-full border p-2"
+                      style={{ borderColor: border, color: colors.muted, background: "transparent" }}
+                      aria-label="Open profile menu"
+                    >
+                      <CircleUserRound size={24} />
+                    </button>
+                    {profileMenuOpen && (
+                      <div
+                        className="rounded-lg border p-1.5"
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: "calc(100% + 8px)",
+                          minWidth: "170px",
+                          borderColor: border,
+                          background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+                          boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
+                          zIndex: 60,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            router.push("/pricing");
+                          }}
+                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                        >
+                          <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            if (authSession?.authenticated) {
+                              void handleLogout();
+                              return;
+                            }
+                            router.push("/login");
+                          }}
+                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            {authSession?.authenticated ? <LogOut size={14} /> : <LogIn size={14} />}
+                            {authSession?.authenticated ? "Logout" : "Login"}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isCollapsed && (
                   <select
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
@@ -373,11 +431,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="rounded-full border p-1.5"
+                    className="rounded-full border p-2"
                     style={{ borderColor: border, color: colors.muted, background: "transparent" }}
                     aria-label="Open profile menu"
                   >
-                    <CircleUserRound size={18} />
+                    <CircleUserRound size={24} />
                   </button>
                   {profileMenuOpen && (
                     <div
