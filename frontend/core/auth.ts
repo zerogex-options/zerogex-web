@@ -27,6 +27,13 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
   { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
+  { pattern: '/basic-signals', minimumTier: 'basic' },
+  { pattern: '/tape-flow-bias', minimumTier: 'basic' },
+  { pattern: '/skew-delta', minimumTier: 'basic' },
+  { pattern: '/vanna-charm-flow', minimumTier: 'basic' },
+  { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
+  { pattern: '/gex-gradient', minimumTier: 'basic' },
+  { pattern: '/positioning-trap', minimumTier: 'basic' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(

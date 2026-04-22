@@ -631,37 +631,37 @@ export interface ProprietarySignalSnapshot {
 }
 
 export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<EodPressureSignalResponse>(`/api/signals/eod-pressure?symbol=${symbol}`, { refreshInterval });
+  return useApiData<EodPressureSignalResponse>(`/api/signals/advanced/eod-pressure?symbol=${symbol}`, { refreshInterval });
 }
 
 export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<VolExpansionSignalResponse>(`/api/signals/vol-expansion?symbol=${symbol}`, { refreshInterval });
+  return useApiData<VolExpansionSignalResponse>(`/api/signals/advanced/vol-expansion?symbol=${symbol}`, { refreshInterval });
 }
 
 export function useSqueezeSetupSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/squeeze-setup?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/squeeze-setup?underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useTrapDetectionSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/trap-detection?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/trap-detection?underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useZeroDtePositionImbalanceSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/0dte-position-imbalance?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/0dte-position-imbalance?underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/gamma-vwap-confluence?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/gamma-vwap-confluence?underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval },
   );
 }
@@ -673,8 +673,12 @@ export type SignalEventName =
   | 'trap_detection'
   | 'zero_dte_position_imbalance'
   | 'gamma_vwap_confluence'
-  | 'positioning_trap'
-  | 'vanna_charm_flow';
+  | 'tape_flow_bias'
+  | 'skew_delta'
+  | 'vanna_charm_flow'
+  | 'dealer_delta_pressure'
+  | 'gex_gradient'
+  | 'positioning_trap';
 
 export type SignalEventHorizon = '30m' | '60m' | '120m';
 
@@ -756,14 +760,14 @@ export function useConfluenceMatrix(symbol = 'SPY', lookback = 120, refreshInter
     lookback: String(Math.max(10, Math.min(2000, Math.floor(lookback)))),
   });
   return useApiData<ConfluenceMatrixResponse>(
-    `/api/signals/confluence-matrix?${params.toString()}`,
+    `/api/signals/advanced/confluence-matrix?${params.toString()}`,
     { refreshInterval },
   );
 }
 
 export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
-    `/api/signals/vol-expansion/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    `/api/signals/advanced/vol-expansion/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
     { refreshInterval }
   );
 }
@@ -788,5 +792,88 @@ export function usePositionOptimizerAccuracy(symbol = 'SPY', lookbackDays = 30, 
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
     `/api/signals/position-optimizer/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
     { refreshInterval }
+  );
+}
+
+export type BasicSignalName =
+  | 'tape_flow_bias'
+  | 'skew_delta'
+  | 'vanna_charm_flow'
+  | 'dealer_delta_pressure'
+  | 'gex_gradient'
+  | 'positioning_trap';
+
+export interface BasicSignalBundleEntry {
+  score?: number | null;
+  clamped_score?: number | null;
+  direction?: 'bullish' | 'bearish' | 'neutral' | string | null;
+  timestamp?: string | null;
+  context_values?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+export interface BasicSignalsBundleResponse {
+  underlying?: string;
+  signals?: Partial<Record<BasicSignalName, BasicSignalBundleEntry | null>>;
+  [key: string]: unknown;
+}
+
+export function useBasicSignalsBundle(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<BasicSignalsBundleResponse>(
+    `/api/signals/basic?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useTapeFlowBiasSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/tape-flow-bias?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useSkewDeltaSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/skew-delta?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useVannaCharmFlowSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/vanna-charm-flow?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useDealerDeltaPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/dealer-delta-pressure?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useGexGradientSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/gex-gradient?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function usePositioningTrapSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/basic/positioning-trap?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export function useBasicConfluenceMatrix(symbol = 'SPY', lookback = 120, refreshInterval = 30000) {
+  const params = new URLSearchParams({
+    symbol,
+    lookback: String(Math.max(10, Math.min(2000, Math.floor(lookback)))),
+  });
+  return useApiData<ConfluenceMatrixResponse>(
+    `/api/signals/basic/confluence-matrix?${params.toString()}`,
+    { refreshInterval },
   );
 }

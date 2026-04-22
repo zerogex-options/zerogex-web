@@ -13,4 +13,12 @@ export const PROPRIETARY_SIGNALS_REFRESH = {
   liveTradesMs: 3000,
   tradeHistoryMs: 10000,
   flowByTypeMs: 10000,
+  basicBundleMs: 10000,
+  tapeFlowBiasMs: 5000,
+  skewDeltaMs: 5000,
+  vannaCharmFlowMs: 5000,
+  dealerDeltaPressureMs: 5000,
+  gexGradientMs: 5000,
+  positioningTrapMs: 5000,
+  basicConfluenceMatrixMs: 30000,
 } as const;

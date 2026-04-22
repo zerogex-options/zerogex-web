@@ -19,7 +19,19 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
       { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'pro' },
+      { id: '/basic-signals', label: 'Basic Signal Dashboard', requiredTier: 'basic' },
       { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'pro' },
+    ],
+  },
+  {
+    label: 'Basic Signals',
+    items: [
+      { id: '/tape-flow-bias', label: 'Tape Flow Bias', requiredTier: 'basic' },
+      { id: '/skew-delta', label: 'Skew Delta', requiredTier: 'basic' },
+      { id: '/vanna-charm-flow', label: 'Vanna/Charm Flow', requiredTier: 'basic' },
+      { id: '/dealer-delta-pressure', label: 'Dealer Delta Pressure', requiredTier: 'basic' },
+      { id: '/gex-gradient', label: 'GEX Gradient', requiredTier: 'basic' },
+      { id: '/positioning-trap', label: 'Positioning Trap', requiredTier: 'basic' },
     ],
   },
   {
