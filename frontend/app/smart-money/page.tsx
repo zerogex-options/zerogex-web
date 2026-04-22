@@ -6,7 +6,7 @@ import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YA
 import { useApiData } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-import { normalizeToMinute, getExtendedSessionTimestamps } from '@/core/utils';
+import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
@@ -71,6 +71,35 @@ const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
+
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
+  for (const utcHour of candidateHours) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+  if (timeline.length === 0) return timeline;
+  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
+  if (targetMs == null) return timeline;
+  const extended = [...timeline];
+  let cursor = new Date(extended[extended.length - 1]).getTime();
+  if (!Number.isFinite(cursor)) return timeline;
+  while (cursor < targetMs) {
+    cursor += 60_000;
+    extended.push(new Date(cursor).toISOString());
+  }
+  return extended;
+}
 
 const minClassOptions: Array<{ value: MinClassFilter; label: string }> = [
   { value: '500k', label: '💰 $500K+' },
@@ -162,7 +191,7 @@ export default function SmartMoneyPage() {
   }, [sessionPriceData, filteredSmartMoneyData]);
 
   const sessionTimeline = useMemo(
-    () => (sessionDateKey ? getExtendedSessionTimestamps(sessionDateKey) : []),
+    () => (sessionDateKey ? extendTimelineToSessionClose(getSessionTimestamps(sessionDateKey), sessionDateKey) : []),
     [sessionDateKey],
   );
 

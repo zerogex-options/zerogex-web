@@ -23,7 +23,7 @@ import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { normalizeToMinute, getExtendedSessionTimestamps } from "@/core/utils";
+import { normalizeToMinute, getSessionTimestamps } from "@/core/utils";
 
 // ── API shape ─────────────────────────────────────────────────────────────────
 
@@ -168,6 +168,44 @@ function flowRowTimestamp(row: {
   time_window_start?: string;
 }): string | null {
   return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
+}
+
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const etFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
+  for (const utcHour of candidateHours) {
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+  if (timeline.length === 0) return timeline;
+  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
+  if (targetMs == null) return timeline;
+
+  const result = [...timeline];
+  let cursor = new Date(result[result.length - 1]).getTime();
+  if (!Number.isFinite(cursor)) return timeline;
+
+  while (cursor < targetMs) {
+    cursor += 60_000;
+    result.push(new Date(cursor).toISOString());
+  }
+  return result;
 }
 
 /** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
@@ -1018,11 +1056,11 @@ export default function FlowAnalysisPage() {
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
 
-  // ── Session timeline (fixed 07:15–16:15 ET for selected date) ──────────────
+  // ── Session timeline (fixed 09:30–16:00 ET for selected date) ──────────────
 
   const sessionTimeline = useMemo(() => {
     if (!selectedDate) return [];
-    return getExtendedSessionTimestamps(selectedDate);
+    return extendTimelineToSessionClose(getSessionTimestamps(selectedDate), selectedDate);
   }, [selectedDate]);
 
   // ── Snapshot (most recent row's cumulative values) ──────────────────────────

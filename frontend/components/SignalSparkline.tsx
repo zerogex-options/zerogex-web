@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import type { ScoreHistoryPoint } from '@/core/signalHelpers';
+import { useExpandedCard } from './ExpandableCard';
 
 interface SignalSparklineProps {
   points: ScoreHistoryPoint[];
@@ -20,6 +30,34 @@ export default function SignalSparkline({
   strokeColor = 'var(--color-warning)',
   fillColor = 'rgba(255, 166, 0, 0.12)',
 }: SignalSparklineProps) {
+  const expanded = useExpandedCard();
+
+  if (expanded) {
+    return (
+      <ExpandedSparkline points={points} strokeColor={strokeColor} fillColor={fillColor} />
+    );
+  }
+
+  return (
+    <InlineSparkline
+      points={points}
+      height={height}
+      min={min}
+      max={max}
+      strokeColor={strokeColor}
+      fillColor={fillColor}
+    />
+  );
+}
+
+function InlineSparkline({
+  points,
+  height,
+  min,
+  max,
+  strokeColor,
+  fillColor,
+}: Required<Omit<SignalSparklineProps, 'points'>> & { points: ScoreHistoryPoint[] }) {
   const width = 200;
 
   const path = useMemo(() => {
@@ -57,5 +95,81 @@ export default function SignalSparkline({
       <path d={path.line} fill="none" stroke={strokeColor} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={path.lastX} cy={path.lastY} r={2.25} fill={strokeColor} />
     </svg>
+  );
+}
+
+function ExpandedSparkline({
+  points,
+  strokeColor,
+  fillColor,
+}: {
+  points: ScoreHistoryPoint[];
+  strokeColor: string;
+  fillColor: string;
+}) {
+  const data = useMemo(
+    () =>
+      points.map((p, i) => ({
+        index: i,
+        score: Math.max(0, Math.min(100, p.score)),
+      })),
+    [points],
+  );
+
+  if (!points.length) {
+    return (
+      <div
+        className="flex items-center justify-center text-sm text-[var(--color-text-secondary)]"
+        style={{ height: 420 }}
+      >
+        No history yet
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', height: 'min(70vh, 520px)', minHeight: 360 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+          <XAxis
+            dataKey="index"
+            tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+            stroke="var(--color-border)"
+          />
+          <YAxis
+            domain={[0, 100]}
+            ticks={[0, 20, 40, 60, 80, 100]}
+            tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+            stroke="var(--color-border)"
+            width={36}
+          />
+          <Tooltip
+            contentStyle={{
+              background: 'var(--color-chart-tooltip-bg)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 8,
+              color: 'var(--color-chart-tooltip-text)',
+              fontSize: 12,
+            }}
+            formatter={(value: number | string | undefined) => [
+              typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'),
+              'Score',
+            ]}
+            labelFormatter={(label) => `Snapshot #${label}`}
+          />
+          <Area
+            type="monotone"
+            dataKey="score"
+            stroke={strokeColor}
+            strokeWidth={2}
+            fill={fillColor}
+            dot={false}
+            activeDot={{ r: 4, stroke: strokeColor, fill: 'var(--color-surface)' }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

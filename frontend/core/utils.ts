@@ -79,44 +79,6 @@ export function normalizeToMinute(ts: string | undefined): string | null {
 }
 
 /**
- * Resolve a wall-clock ET hh:mm on the given YYYY-MM-DD date to the UTC
- * timestamp (ms) that represents it. Returns null if unresolved.
- */
-function etWallTimeToMs(dateKey: string, hour: number, minute: number): number | null {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  const etFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  for (const utcH of [hour, hour + 1, hour + 2, hour + 3, hour + 4, hour + 5]) {
-    const candidate = Date.UTC(y, m - 1, d, utcH, minute);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === hour && min === minute) return candidate;
-  }
-  return null;
-}
-
-/**
- * Generate an array of ISO timestamps for every minute of the extended US
- * equity session (07:15–16:15 ET) on the given YYYY-MM-DD date.
- */
-export function getExtendedSessionTimestamps(dateKey: string): string[] {
-  const startMs = etWallTimeToMs(dateKey, 7, 15);
-  const endMs = etWallTimeToMs(dateKey, 16, 15);
-  if (startMs == null || endMs == null || endMs < startMs) return [];
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) {
-    result.push(new Date(t).toISOString());
-  }
-  return result;
-}
-
-/**
  * Generate an array of ISO timestamps for every minute of a US-equity
  * regular session (09:30–16:00 ET) on the given YYYY-MM-DD date.
  */

@@ -87,7 +87,7 @@ function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): stri
 }
 
 function getSessionMinuteTimeline(dateKey: string): string[] {
-  const startIso = etWallTimeToUtcISO(dateKey, 7, 15);
+  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
   const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
   if (!startIso || !endIso) return [];
 
@@ -160,7 +160,7 @@ function isAtOrAfterMarketOpen(ts: string): boolean {
   }).formatToParts(d);
   const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
   const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return hour > 7 || (hour === 7 && minute >= 15);
+  return hour > 9 || (hour === 9 && minute >= 30);
 }
 
 function isAtOrBeforeMarketClose(ts: string): boolean {
