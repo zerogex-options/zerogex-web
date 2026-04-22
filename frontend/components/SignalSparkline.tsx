@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ScoreHistoryPoint } from '@/core/signalHelpers';
+import { formatEtTime, type ScoreHistoryPoint } from '@/core/signalHelpers';
 import { useExpandedCard } from './ExpandableCard';
 
 interface SignalSparklineProps {
@@ -121,10 +121,13 @@ function ExpandedSparkline({
     () =>
       points.map((p, i) => ({
         index: i,
+        timestamp: p.timestamp ?? null,
         score: Math.max(min, Math.min(max, p.score)),
       })),
     [points, min, max],
   );
+
+  const hasTimestamps = useMemo(() => data.every((d) => d.timestamp), [data]);
 
   const ticks = useMemo(() => {
     const span = max - min;
@@ -154,7 +157,9 @@ function ExpandedSparkline({
         <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
-            dataKey="index"
+            dataKey={hasTimestamps ? 'timestamp' : 'index'}
+            tickFormatter={hasTimestamps ? formatEtTime : undefined}
+            minTickGap={40}
             tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
             stroke="var(--color-border)"
           />
@@ -177,7 +182,7 @@ function ExpandedSparkline({
               typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'),
               'Score',
             ]}
-            labelFormatter={(label) => `Snapshot #${label}`}
+            labelFormatter={(label) => (hasTimestamps ? formatEtTime(label) : `Snapshot #${label}`)}
           />
           <Area
             type="monotone"

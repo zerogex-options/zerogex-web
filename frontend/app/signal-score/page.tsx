@@ -24,7 +24,7 @@ import MsiGauge from '@/components/MsiGauge';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScore, useSignalScoreHistory } from '@/hooks/useApiData';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { asObject, getNumber } from '@/core/signalHelpers';
+import { asObject, formatEtTime, getNumber } from '@/core/signalHelpers';
 
 interface ComponentEntry {
   name: string;
@@ -110,20 +110,29 @@ export default function CompositeScorePage() {
 
   const historyRows = useMemo(() => {
     const rows = Array.isArray(historyData) ? [...historyData] : [];
-    // Router returns rows in timestamp DESC order and spec notes no timestamps
-    // in the normalized payload — so reverse to show oldest→newest left→right.
+    // Router returns rows in timestamp DESC order — reverse to oldest→newest left→right.
     rows.reverse();
     return rows.map((row, i) => {
       const obj = asObject(row) ?? {};
       const composite = getNumber(obj.composite_score ?? obj.score);
       const comps = parseComponents(obj.components);
-      const rec: Record<string, number | null | string> = { index: i, composite: composite ?? 0 };
+      const ts = obj.timestamp ?? obj.time ?? obj.ts ?? null;
+      const rec: Record<string, number | null | string> = {
+        index: i,
+        timestamp: ts ? String(ts) : '',
+        composite: composite ?? 0,
+      };
       comps.forEach((c) => {
         rec[c.name] = c.contribution ?? 0;
       });
       return rec;
     });
   }, [historyData]);
+
+  const historyHasTimestamps = useMemo(
+    () => historyRows.length > 0 && historyRows.every((r) => r.timestamp),
+    [historyRows],
+  );
 
   if (scoreLoading && !scoreData) return <LoadingSpinner size="lg" />;
 
@@ -211,12 +220,18 @@ export default function CompositeScorePage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historyRows} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="index" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" />
+                  <XAxis
+                    dataKey={historyHasTimestamps ? 'timestamp' : 'index'}
+                    tickFormatter={historyHasTimestamps ? formatEtTime : undefined}
+                    minTickGap={40}
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    stroke="var(--color-border)"
+                  />
                   <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
                   <Tooltip
                     contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}
                     formatter={(value: number | string | undefined) => [typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'), 'Composite']}
-                    labelFormatter={(label) => `Snapshot #${label}`}
+                    labelFormatter={(label) => (historyHasTimestamps ? formatEtTime(label) : `Snapshot #${label}`)}
                   />
                   <ReferenceArea y1={0} y2={20} fill="var(--color-bear)" fillOpacity={0.08} />
                   <ReferenceArea y1={20} y2={40} fill="var(--color-warning)" fillOpacity={0.08} />
@@ -255,7 +270,13 @@ export default function CompositeScorePage() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={historyRows} margin={{ top: 8, right: 16, bottom: 4, left: 8 }} stackOffset="sign">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="index" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" />
+                  <XAxis
+                    dataKey={historyHasTimestamps ? 'timestamp' : 'index'}
+                    tickFormatter={historyHasTimestamps ? formatEtTime : undefined}
+                    minTickGap={40}
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    stroke="var(--color-border)"
+                  />
                   <YAxis tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
                   <Tooltip
                     contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}
@@ -263,7 +284,7 @@ export default function CompositeScorePage() {
                       const key = name ?? '';
                       return [typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'), COMPONENT_LABELS[key]?.label ?? key];
                     }}
-                    labelFormatter={(label) => `Snapshot #${label}`}
+                    labelFormatter={(label) => (historyHasTimestamps ? formatEtTime(label) : `Snapshot #${label}`)}
                   />
                   <ReferenceLine y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.5} />
                   <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value) => COMPONENT_LABELS[value]?.label ?? value} />
