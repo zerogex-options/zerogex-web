@@ -120,7 +120,7 @@ export default function TrapDetectionPage() {
               expandButtonLabel="Expand score history"
             >
               <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
+              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} min={-100} max={100} />
             </ExpandableCard>
           </div>
 

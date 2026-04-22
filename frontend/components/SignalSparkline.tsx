@@ -34,7 +34,13 @@ export default function SignalSparkline({
 
   if (expanded) {
     return (
-      <ExpandedSparkline points={points} strokeColor={strokeColor} fillColor={fillColor} />
+      <ExpandedSparkline
+        points={points}
+        min={min}
+        max={max}
+        strokeColor={strokeColor}
+        fillColor={fillColor}
+      />
     );
   }
 
@@ -100,10 +106,14 @@ function InlineSparkline({
 
 function ExpandedSparkline({
   points,
+  min,
+  max,
   strokeColor,
   fillColor,
 }: {
   points: ScoreHistoryPoint[];
+  min: number;
+  max: number;
   strokeColor: string;
   fillColor: string;
 }) {
@@ -111,10 +121,21 @@ function ExpandedSparkline({
     () =>
       points.map((p, i) => ({
         index: i,
-        score: Math.max(0, Math.min(100, p.score)),
+        score: Math.max(min, Math.min(max, p.score)),
       })),
-    [points],
+    [points, min, max],
   );
+
+  const ticks = useMemo(() => {
+    const span = max - min;
+    if (span <= 0) return [min, max];
+    const step = span / 5;
+    const result: number[] = [];
+    for (let i = 0; i <= 5; i += 1) {
+      result.push(min + step * i);
+    }
+    return result;
+  }, [min, max]);
 
   if (!points.length) {
     return (
@@ -138,11 +159,11 @@ function ExpandedSparkline({
             stroke="var(--color-border)"
           />
           <YAxis
-            domain={[0, 100]}
-            ticks={[0, 20, 40, 60, 80, 100]}
+            domain={[min, max]}
+            ticks={ticks}
             tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
             stroke="var(--color-border)"
-            width={36}
+            width={40}
           />
           <Tooltip
             contentStyle={{
@@ -167,6 +188,7 @@ function ExpandedSparkline({
             dot={false}
             activeDot={{ r: 4, stroke: strokeColor, fill: 'var(--color-surface)' }}
             isAnimationActive={false}
+            baseValue={Math.max(min, Math.min(max, 0))}
           />
         </AreaChart>
       </ResponsiveContainer>
