@@ -73,7 +73,7 @@ export default function Navigation({ theme }: NavigationProps) {
           ...group,
           items: group.items.filter((item) => {
             if ("external" in item && item.external) return true;
-            if (group.label === "Proprietary Signals") return true;
+            if (group.label === "Signals") return true;
             if (group.label === "Advanced Signals") return true;
             return hasRequiredTier(item.id, currentTier);
           }),

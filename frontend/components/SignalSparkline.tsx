@@ -10,7 +10,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { formatEtTime, type ScoreHistoryPoint } from '@/core/signalHelpers';
+import { computeTimeTicks, firstTicksOfEtDay, formatEtTime, type ScoreHistoryPoint } from '@/core/signalHelpers';
+import ChartTimeAxisTick from './ChartTimeAxisTick';
 import { useExpandedCard } from './ExpandableCard';
 
 interface SignalSparklineProps {
@@ -127,6 +128,13 @@ function ExpandedSparkline({
     [points, min, max],
   );
 
+  const timeTicks = useMemo(() => {
+    const stamps = data.map((d) => d.timestamp).filter((t): t is string => !!t);
+    return computeTimeTicks(stamps, 15);
+  }, [data]);
+
+  const dateTicks = useMemo(() => firstTicksOfEtDay(timeTicks), [timeTicks]);
+
   const ticks = useMemo(() => {
     const span = max - min;
     if (span <= 0) return [min, max];
@@ -156,9 +164,10 @@ function ExpandedSparkline({
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
             dataKey="timestamp"
-            tickFormatter={formatEtTime}
-            minTickGap={40}
-            tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+            ticks={timeTicks}
+            interval={0}
+            height={44}
+            tick={<ChartTimeAxisTick dateTicks={dateTicks} />}
             stroke="var(--color-border)"
           />
           <YAxis

@@ -93,7 +93,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           ...group,
           items: group.items.filter((item) => {
             if ("external" in item && item.external) return true;
-            if (group.label === "Proprietary Signals") return true;
+            if (group.label === "Signals") return true;
             return hasRequiredTier(item.id, currentTier);
           }),
         }))

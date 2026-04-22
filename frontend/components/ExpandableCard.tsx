@@ -57,7 +57,7 @@ export default function ExpandableCard({
           onClick={() => setExpanded(false)}
         >
           <div
-            className={`relative h-full w-full overflow-auto rounded-xl shadow-2xl ${expandClassName}`}
+            className={`relative h-full w-full rounded-xl shadow-2xl ${expandClassName}`}
             style={{ backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -65,12 +65,12 @@ export default function ExpandableCard({
               type="button"
               aria-label="Close expanded card"
               onClick={() => setExpanded(false)}
-              className="sticky top-2 float-right z-20 p-2 m-2 rounded-md"
+              className="absolute right-3 top-3 z-30 p-2 rounded-md"
               style={{ color: theme === 'dark' ? colors.light : colors.dark, backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}
             >
               <X size={18} />
             </button>
-            <div className="clear-both p-6 md:p-10 text-base md:text-lg leading-relaxed">
+            <div className="h-full w-full overflow-auto p-6 md:p-10 text-base md:text-lg leading-relaxed">
               <ExpandedCardContext.Provider value>{children}</ExpandedCardContext.Provider>
             </div>
           </div>

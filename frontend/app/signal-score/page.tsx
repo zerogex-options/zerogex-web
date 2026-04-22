@@ -24,7 +24,8 @@ import MsiGauge from '@/components/MsiGauge';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalScore, useSignalScoreHistory } from '@/hooks/useApiData';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { asObject, formatEtTime, getNumber } from '@/core/signalHelpers';
+import ChartTimeAxisTick from '@/components/ChartTimeAxisTick';
+import { asObject, computeTimeTicks, firstTicksOfEtDay, formatEtTime, getNumber } from '@/core/signalHelpers';
 
 interface ComponentEntry {
   name: string;
@@ -127,6 +128,12 @@ export default function CompositeScorePage() {
     });
   }, [historyData]);
 
+  const historyTimeTicks = useMemo(
+    () => computeTimeTicks(historyRows.map((r) => String(r.timestamp ?? '')).filter(Boolean), 15),
+    [historyRows],
+  );
+  const historyDateTicks = useMemo(() => firstTicksOfEtDay(historyTimeTicks), [historyTimeTicks]);
+
   if (scoreLoading && !scoreData) return <LoadingSpinner size="lg" />;
 
   return (
@@ -215,9 +222,10 @@ export default function CompositeScorePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis
                     dataKey="timestamp"
-                    tickFormatter={formatEtTime}
-                    minTickGap={40}
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    ticks={historyTimeTicks}
+                    interval={0}
+                    height={44}
+                    tick={<ChartTimeAxisTick dateTicks={historyDateTicks} />}
                     stroke="var(--color-border)"
                   />
                   <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
@@ -265,9 +273,10 @@ export default function CompositeScorePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis
                     dataKey="timestamp"
-                    tickFormatter={formatEtTime}
-                    minTickGap={40}
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                    ticks={historyTimeTicks}
+                    interval={0}
+                    height={44}
+                    tick={<ChartTimeAxisTick dateTicks={historyDateTicks} />}
                     stroke="var(--color-border)"
                   />
                   <YAxis tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />

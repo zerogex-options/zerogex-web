@@ -103,3 +103,78 @@ export function formatEtTime(value: unknown): string {
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
 }
+
+export function formatEtDate(value: unknown): string {
+  if (value == null) return '';
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+}
+
+function etDateKey(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+function etMinuteOfDay(value: string): number | null {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(d);
+  let hour = 0;
+  let minute = 0;
+  for (const p of parts) {
+    if (p.type === 'hour') hour = Number(p.value) % 24;
+    else if (p.type === 'minute') minute = Number(p.value);
+  }
+  return hour * 60 + minute;
+}
+
+// Pick tick timestamps from a sorted series that land on even `stepMinutes`
+// boundaries in ET (e.g. 9:00, 9:15, 9:30…). Falls back to sampling the
+// available points evenly when none line up.
+export function computeTimeTicks(timestamps: readonly string[], stepMinutes = 15): string[] {
+  if (timestamps.length === 0) return [];
+  const aligned: string[] = [];
+  let lastKey = '';
+  for (const ts of timestamps) {
+    const mod = etMinuteOfDay(ts);
+    if (mod == null) continue;
+    if (mod % stepMinutes !== 0) continue;
+    const bucket = `${etDateKey(ts)}#${mod}`;
+    if (bucket === lastKey) continue;
+    aligned.push(ts);
+    lastKey = bucket;
+  }
+  if (aligned.length >= 2) return aligned;
+  const targetCount = Math.min(6, timestamps.length);
+  const stride = Math.max(1, Math.floor((timestamps.length - 1) / (targetCount - 1 || 1)));
+  const sampled: string[] = [];
+  for (let i = 0; i < timestamps.length; i += stride) sampled.push(timestamps[i]);
+  if (sampled[sampled.length - 1] !== timestamps[timestamps.length - 1]) {
+    sampled.push(timestamps[timestamps.length - 1]);
+  }
+  return sampled;
+}
+
+// For a list of tick timestamps, returns the ones that are the first
+// occurrence of a new ET calendar day, so a date label can be rendered
+// once per day group.
+export function firstTicksOfEtDay(ticks: readonly string[]): Set<string> {
+  const result = new Set<string>();
+  let lastDay = '';
+  for (const ts of ticks) {
+    const day = etDateKey(ts);
+    if (!day) continue;
+    if (day !== lastDay) {
+      result.add(ts);
+      lastDay = day;
+    }
+  }
+  return result;
+}
