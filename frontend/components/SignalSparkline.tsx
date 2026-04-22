@@ -127,8 +127,6 @@ function ExpandedSparkline({
     [points, min, max],
   );
 
-  const hasTimestamps = useMemo(() => data.every((d) => d.timestamp), [data]);
-
   const ticks = useMemo(() => {
     const span = max - min;
     if (span <= 0) return [min, max];
@@ -157,8 +155,8 @@ function ExpandedSparkline({
         <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
-            dataKey={hasTimestamps ? 'timestamp' : 'index'}
-            tickFormatter={hasTimestamps ? formatEtTime : undefined}
+            dataKey="timestamp"
+            tickFormatter={formatEtTime}
             minTickGap={40}
             tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
             stroke="var(--color-border)"
@@ -182,7 +180,7 @@ function ExpandedSparkline({
               typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'),
               'Score',
             ]}
-            labelFormatter={(label) => (hasTimestamps ? formatEtTime(label) : `Snapshot #${label}`)}
+            labelFormatter={formatEtTime}
           />
           <Area
             type="monotone"

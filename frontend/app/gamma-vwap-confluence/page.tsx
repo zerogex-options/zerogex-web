@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Compass, Gauge, Magnet, TrendingDown, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useGammaVwapConfluenceSignal, useGEXSummary, useGEXByStrike } from '@/hooks/useApiData';
+import { useGammaVwapConfluenceSignal, useGEXSummary } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -43,10 +43,9 @@ const LEVEL_COLORS: Record<string, string> = {
 export default function GammaVwapConfluencePage() {
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
-  // The signal payload often omits these magnet levels; fall back to the
-  // canonical gex-summary + by-strike endpoints so the UI stays populated.
+  // Gamma-flip, close, and net GEX are still sourced from gex-summary so the
+  // level-stack stays populated even when the signal payload trims them.
   const { data: gexSummary } = useGEXSummary(symbol, 15000);
-  const { data: gexByStrike } = useGEXByStrike(symbol, 50, 30000, 'impact');
 
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
@@ -55,32 +54,16 @@ export default function GammaVwapConfluencePage() {
   const confluenceLevel = getNumber(payload.confluence_level);
   const expectedTarget = getNumber(payload.expected_target);
 
-  const maxGammaFromStrikes = useMemo(() => {
-    if (!Array.isArray(gexByStrike) || gexByStrike.length === 0) return null;
-    let best: { strike: number; abs: number } | null = null;
-    for (const row of gexByStrike) {
-      const strike = getNumber(row?.strike);
-      const netGex = getNumber(row?.net_gex);
-      if (strike == null || netGex == null) continue;
-      const abs = Math.abs(netGex);
-      if (!best || abs > best.abs) best = { strike, abs };
-    }
-    return best?.strike ?? null;
-  }, [gexByStrike]);
-
   const ctx = useMemo(() => {
     const raw = asObject(payload.context_values) ?? {};
     const members = asArray(raw.cluster_members).map((m) => String(m));
-    const maxPain = getNumber(raw.max_pain) ?? getNumber(payload.max_pain) ?? getNumber(gexSummary?.max_pain);
-    const callWall = getNumber(raw.call_wall) ?? getNumber(payload.call_wall) ?? getNumber(gexSummary?.call_wall);
-    const maxGamma = getNumber(raw.max_gamma) ?? getNumber(payload.max_gamma) ?? maxGammaFromStrikes;
     const gammaFlip = getNumber(raw.gamma_flip) ?? getNumber(gexSummary?.gamma_flip);
     return {
       gammaFlip,
       vwap: getNumber(raw.vwap),
-      maxPain,
-      maxGamma,
-      callWall,
+      maxPain: getNumber(raw.max_pain),
+      maxGamma: getNumber(raw.max_gamma),
+      callWall: getNumber(raw.call_wall),
       close: getNumber(raw.close) ?? getNumber(gexSummary?.spot_price),
       clusterMembers: members,
       clusterQuality: getNumber(raw.cluster_quality),
@@ -88,7 +71,7 @@ export default function GammaVwapConfluencePage() {
       regimeDirection: String(raw.regime_direction ?? '—'),
       netGex: getNumber(raw.net_gex) ?? getNumber(gexSummary?.net_gex),
     };
-  }, [payload, gexSummary, maxGammaFromStrikes]);
+  }, [payload, gexSummary]);
 
   // cluster_gap_pct is the range spanned by the clustered levels, normalized
   // by spot. Back-compute it when the backend omits it.
