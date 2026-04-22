@@ -169,8 +169,8 @@ export default function PricingPage() {
             <TierCard
               title="Basic"
               original="$25/mo"
-              price="FREE"
-              highlight="Limited Time"
+              price="0/mo"
+              highlight="Free"
               accent="var(--heat-mid)"
               features={[
                 'Access to all real-time metrics.',
@@ -181,8 +181,8 @@ export default function PricingPage() {
             <TierCard
               title="Pro"
               original="$45/mo"
-              price="Coming Soon"
-              highlight="Most Popular"
+              price="29/mo"
+              highlight="Coming Soon"
               accent="var(--color-brand-primary)"
               features={[
                 'Everything included in Basic.',
@@ -193,7 +193,8 @@ export default function PricingPage() {
             <TierCard
               title="Elite"
               original="$65/mo"
-              price="Coming Soon"
+              price="39/mo"
+              highlight="Coming Soon"
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Pro.',
