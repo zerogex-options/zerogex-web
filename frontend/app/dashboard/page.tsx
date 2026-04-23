@@ -87,7 +87,7 @@ export default function DashboardPage() {
   const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
   const { data: volExpansionData } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
   const { rows: flowByContractRows } = useFlowByContractCache(symbol, 'current', {
-    refreshIntervalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
+    incrementalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
   });
 
   const liveRows = toRows(tradesData);

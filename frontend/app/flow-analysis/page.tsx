@@ -20,7 +20,7 @@ import {
   useFlowByContractCache,
   computeFlowSnapshot,
   flowRowTimestamp,
-  forEachBarWithCarry,
+  forEachBar,
   latestRowDateKey,
   type FlowByContractPoint,
 } from "@/hooks/useFlowByContract";
@@ -66,22 +66,23 @@ interface NetPositionRow {
 }
 
 /**
- * Session-cumulative net directional premium per 5-minute bar. For each bar,
- * sums each contract's latest observed cumulative_net_premium (carries
- * contracts that stopped reporting into later bars).
+ * Running session total of net_premium per 5-minute bar, aggregated across
+ * every contract. Per-bar deltas from the API are accumulated into a rising
+ * session curve.
  */
 function buildNetDirectionalPremiumSeries(rows: FlowByContractPoint[]): NetDirectionalPremiumRow[] {
   const output: NetDirectionalPremiumRow[] = [];
-  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
-    let premium = 0;
-    for (const row of carriedMap.values()) {
-      premium += Number(row.cumulative_net_premium ?? 0);
+  let runningPremium = 0;
+  forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    for (const row of barRows) {
+      const v = Number(row.net_premium ?? 0);
+      if (Number.isFinite(v)) runningPremium += v;
     }
     output.push({
       timestamp,
-      premium,
-      positivePremium: premium > 0 ? premium : null,
-      negativePremium: premium < 0 ? premium : null,
+      premium: runningPremium,
+      positivePremium: runningPremium > 0 ? runningPremium : null,
+      negativePremium: runningPremium < 0 ? runningPremium : null,
     });
   });
   return output;
@@ -208,49 +209,52 @@ function safeTimeLabel(value?: string) {
 
 // ── Series builders ───────────────────────────────────────────────────────────
 
+export type NetVolumeMode = "raw" | "directional";
+
 /**
- * Aggregates the by-contract rows into a single timeseries.
- * Per interval across the filtered rows:
- *   callPremium = Σ(cumulative_call_premium)
- *   putPremium  = Σ(cumulative_put_premium)
- *   netVolume   = Σ(row[netVolumeMode])
- *   underlyingPrice = first non-null underlying_price in the interval
+ * Builds the Options Flow chart series from per-bar rows by accumulating:
+ *   callPremium(T) = Σ (per-bar net_premium or raw_premium) for calls up to T
+ *   putPremium(T)  = Σ (per-bar net_premium or raw_premium) for puts up to T
+ *   netVolume(T)   = Σ (per-bar net_volume or raw_volume) all contracts up to T
+ *   underlyingPrice(T) = latest observed underlying_price at or before T
+ * In directional mode the premium uses net_premium (signed by trade direction).
+ * In raw mode the premium uses raw_premium (gross transacted dollars).
  */
 function buildFlowTimeseries(
   rows: FlowByContractPoint[],
-  netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
+  mode: NetVolumeMode,
 ): TimeseriesRow[] {
-  // Track the most recent underlying price seen up to and including this bar.
-  let lastKnownUnderlying: number | null = null;
-  const output: TimeseriesRow[] = [];
+  const premiumField = mode === "raw" ? "raw_premium" : "net_premium";
+  const volumeField = mode === "raw" ? "raw_volume" : "net_volume";
 
-  forEachBarWithCarry(rows, ({ timestamp, carriedMap, currentBarRows }) => {
-    let callPremium = 0;
-    let putPremium = 0;
-    let netVolume = 0;
-    for (const row of carriedMap.values()) {
-      callPremium += Number(row.cumulative_call_premium ?? 0);
-      putPremium += Number(row.cumulative_put_premium ?? 0);
-      netVolume += Number(row[netVolumeMode] ?? 0);
-    }
-    // Prefer an underlying reading from the CURRENT bar (not carry-forward).
-    for (const row of currentBarRows) {
+  const output: TimeseriesRow[] = [];
+  let cumCallPremium = 0;
+  let cumPutPremium = 0;
+  let cumNetVolume = 0;
+  let lastKnownUnderlying: number | null = null;
+
+  forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    for (const row of barRows) {
+      const prem = Number(row[premiumField] ?? 0);
+      const vol = Number(row[volumeField] ?? 0);
+      if (Number.isFinite(prem)) {
+        if (row.option_type === "C") cumCallPremium += prem;
+        else if (row.option_type === "P") cumPutPremium += prem;
+      }
+      if (Number.isFinite(vol)) cumNetVolume += vol;
       if (row.underlying_price != null) {
         const u = Number(row.underlying_price);
-        if (Number.isFinite(u)) {
-          lastKnownUnderlying = u;
-          break;
-        }
+        if (Number.isFinite(u)) lastKnownUnderlying = u;
       }
     }
     output.push({
       timestamp,
       time: safeTimeLabel(timestamp),
-      callPremium,
-      putPremium,
-      netVolume,
-      positiveNetVolume: netVolume > 0 ? netVolume : 0,
-      negativeNetVolume: netVolume < 0 ? netVolume : 0,
+      callPremium: cumCallPremium,
+      putPremium: cumPutPremium,
+      netVolume: cumNetVolume,
+      positiveNetVolume: cumNetVolume > 0 ? cumNetVolume : 0,
+      negativeNetVolume: cumNetVolume < 0 ? cumNetVolume : 0,
       underlyingPrice: lastKnownUnderlying,
     });
   });
@@ -259,56 +263,46 @@ function buildFlowTimeseries(
 }
 
 /**
- * Session-cumulative put/call ratio per 5-minute bar. Total puts traded across
- * the whole trading day ÷ total calls traded, using each contract's latest
- * cumulative volume observed at or before the bar.
+ * Put/Call Ratio per 5-minute bar as session-cumulative raw volumes:
+ *   ratio(T) = Σ raw_volume for puts up to T ÷ Σ raw_volume for calls up to T
  */
 function buildPutCallRatioSeries(rows: FlowByContractPoint[]): PutCallRatioRow[] {
   const output: PutCallRatioRow[] = [];
-  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
-    let call = 0;
-    let put = 0;
-    for (const row of carriedMap.values()) {
-      const isCall = row.option_type === "C";
-      const isPut = row.option_type === "P";
-      const callVol = row.cumulative_call_volume != null
-        ? Number(row.cumulative_call_volume)
-        : isCall ? Number(row.cumulative_volume ?? 0) : 0;
-      const putVol = row.cumulative_put_volume != null
-        ? Number(row.cumulative_put_volume)
-        : isPut ? Number(row.cumulative_volume ?? 0) : 0;
-      if (Number.isFinite(callVol)) call += callVol;
-      if (Number.isFinite(putVol)) put += putVol;
+  let cumCallVolume = 0;
+  let cumPutVolume = 0;
+
+  forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    for (const row of barRows) {
+      const v = Number(row.raw_volume ?? 0);
+      if (!Number.isFinite(v)) continue;
+      if (row.option_type === "C") cumCallVolume += v;
+      else if (row.option_type === "P") cumPutVolume += v;
     }
-    output.push({ timestamp, ratio: call > 0 ? put / call : null });
+    output.push({
+      timestamp,
+      ratio: cumCallVolume > 0 ? cumPutVolume / cumCallVolume : null,
+    });
   });
   return output;
 }
 
 /**
- * Session-cumulative call volume vs put volume per 5-minute bar, aggregated
- * across every contract (carrying contracts that stopped reporting in earlier
- * bars forward). Uses cumulative_call_volume and cumulative_put_volume, which
- * are the raw volume buckets attached to each contract's type.
+ * Net Position (Buys vs Sells): running session totals of net_volume split
+ * by option_type. Positive = net buying pressure, negative = net selling.
  */
 function buildNetPositionSeries(rows: FlowByContractPoint[]): NetPositionRow[] {
   const output: NetPositionRow[] = [];
-  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
-    let callVol = 0;
-    let putVol = 0;
-    for (const row of carriedMap.values()) {
-      const isCall = row.option_type === "C";
-      const isPut = row.option_type === "P";
-      const cv = row.cumulative_call_volume != null
-        ? Number(row.cumulative_call_volume)
-        : isCall ? Number(row.cumulative_volume ?? 0) : 0;
-      const pv = row.cumulative_put_volume != null
-        ? Number(row.cumulative_put_volume)
-        : isPut ? Number(row.cumulative_volume ?? 0) : 0;
-      if (Number.isFinite(cv)) callVol += cv;
-      if (Number.isFinite(pv)) putVol += pv;
+  let cumCallNet = 0;
+  let cumPutNet = 0;
+
+  forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    for (const row of barRows) {
+      const v = Number(row.net_volume ?? 0);
+      if (!Number.isFinite(v)) continue;
+      if (row.option_type === "C") cumCallNet += v;
+      else if (row.option_type === "P") cumPutNet += v;
     }
-    output.push({ timestamp, callPosition: callVol, putPosition: putVol });
+    output.push({ timestamp, callPosition: cumCallNet, putPosition: cumPutNet });
   });
   return output;
 }
@@ -827,9 +821,7 @@ export default function FlowAnalysisPage() {
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
-  const [netVolumeMode, setNetVolumeMode] = useState<"cumulative_net_volume" | "cumulative_net_directional_volume">(
-    "cumulative_net_directional_volume",
-  );
+  const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
 
   // ── Options Flow / Snapshot / Net Directional Premium / Put-Call Ratio
   //    all derive from this shared cache of per-contract 5-minute rows.
@@ -837,7 +829,7 @@ export default function FlowAnalysisPage() {
     rows: flowByContract,
     loading: flowLoading,
     error: flowError,
-  } = useFlowByContractCache(symbol, flowSession, { refreshIntervalMs: 30_000 });
+  } = useFlowByContractCache(symbol, flowSession);
 
   // A cheap intervals=1 probe of the other session just to read its ET date
   // for the session dropdown label. Avoids a full-session fetch on mount.
@@ -1037,12 +1029,12 @@ export default function FlowAnalysisPage() {
           <span className="text-sm" style={{ color: mutedText }}>Net Volume Basis</span>
           <select
             value={netVolumeMode}
-            onChange={(e) => setNetVolumeMode(e.target.value as "cumulative_net_volume" | "cumulative_net_directional_volume")}
+            onChange={(e) => setNetVolumeMode(e.target.value as NetVolumeMode)}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
           >
-            <option value="cumulative_net_directional_volume">Directional</option>
-            <option value="cumulative_net_volume">Raw Net</option>
+            <option value="directional">Directional</option>
+            <option value="raw">Raw Net</option>
           </select>
         </div>
       </div>
@@ -1124,7 +1116,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Directional Premium"
-          tooltip="Cumulative net directional premium aggregated across every contract (sum of cumulative_net_premium per 5-minute interval). Positive values indicate net bullish premium, negative values indicate net bearish premium."
+          tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
         />
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
@@ -1346,7 +1338,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Position (Buys vs. Sells)"
-          tooltip="Session-cumulative call volume vs. session-cumulative put volume at each 5-minute bar, aggregated across every contract (Σ cumulative_call_volume and Σ cumulative_put_volume). The raw Put/Call Ratio above compresses both sides into a single ratio; this chart breaks them out as absolute volumes so you can see which side is carrying the activity and how far apart the totals are."
+          tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
         />
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
@@ -1412,12 +1404,13 @@ export default function FlowAnalysisPage() {
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
                     width={isMobile ? 42 : 62}
-                    domain={[0, "auto"]}
                     tickFormatter={(v) => {
                       const n = Number(v);
-                      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-                      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-                      return `${Math.round(n)}`;
+                      const abs = Math.abs(n);
+                      const sign = n < 0 ? "-" : "";
+                      if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+                      if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K`;
+                      return `${sign}${Math.round(abs)}`;
                     }}
                   />
                   <Tooltip
@@ -1427,17 +1420,18 @@ export default function FlowAnalysisPage() {
                       return (
                         <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Call Volume: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
-                          <div>Put Volume: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
+                          <div>Net Call Position: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
+                          <div>Net Put Position: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
                         </div>
                       );
                     }}
                   />
                   <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
+                  <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
                   <Line
                     type="monotone"
                     dataKey="callPosition"
-                    name="Call Volume"
+                    name="Net Call Position"
                     stroke="var(--color-positive)"
                     strokeWidth={2}
                     dot={false}
@@ -1446,7 +1440,7 @@ export default function FlowAnalysisPage() {
                   <Line
                     type="monotone"
                     dataKey="putPosition"
-                    name="Put Volume"
+                    name="Net Put Position"
                     stroke="var(--color-negative)"
                     strokeWidth={2}
                     dot={false}

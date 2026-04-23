@@ -580,7 +580,7 @@ export default function OptionContractsPage() {
     rows: byContractRows,
     loading: byContractLoading,
     error: byContractError,
-  } = useFlowByContractCache(symbol, "current", { refreshIntervalMs: 60_000 });
+  } = useFlowByContractCache(symbol, "current");
 
   const expirationLoading = byContractLoading && !byContractRows;
   const strikeLoading = expirationLoading;

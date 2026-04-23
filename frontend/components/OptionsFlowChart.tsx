@@ -4,7 +4,7 @@ import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
   useFlowByContractCache,
-  flowRowTimestamp,
+  forEachBar,
   type FlowByContractPoint,
 } from '@/hooks/useFlowByContract';
 import { useTheme } from '@/core/ThemeContext';
@@ -15,7 +15,7 @@ import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { useMemo } from 'react';
-import { omitClosedMarketTimes, normalizeToMinute } from '@/core/utils';
+import { omitClosedMarketTimes } from '@/core/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 function toTime(ts: string) {
@@ -24,19 +24,24 @@ function toTime(ts: string) {
 
 interface FlowChartRow { timestamp: string; time: string; calls: number; puts: number }
 
+/**
+ * Accumulates the running session totals of net_premium per 5-minute bar
+ * split by option_type, reported in millions.
+ */
 function aggregateFlow(rows: FlowByContractPoint[]): FlowChartRow[] {
-  const grouped = new Map<string, { calls: number; puts: number }>();
-  rows.forEach((row) => {
-    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
-    if (!ts) return;
-    const current = grouped.get(ts) ?? { calls: 0, puts: 0 };
-    current.calls += Number(row.cumulative_call_premium ?? 0) / 1_000_000;
-    current.puts += Number(row.cumulative_put_premium ?? 0) / 1_000_000;
-    grouped.set(ts, current);
+  const output: FlowChartRow[] = [];
+  let cumCalls = 0;
+  let cumPuts = 0;
+  forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    for (const row of barRows) {
+      const prem = Number(row.net_premium ?? 0);
+      if (!Number.isFinite(prem)) continue;
+      if (row.option_type === 'C') cumCalls += prem / 1_000_000;
+      else if (row.option_type === 'P') cumPuts += prem / 1_000_000;
+    }
+    output.push({ timestamp, time: toTime(timestamp), calls: cumCalls, puts: cumPuts });
   });
-  return Array.from(grouped.entries())
-    .map(([timestamp, value]) => ({ timestamp, time: toTime(timestamp), calls: value.calls, puts: value.puts }))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return output;
 }
 
 export default function OptionsFlowChart() {
@@ -45,7 +50,7 @@ export default function OptionsFlowChart() {
   const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
 
-  const { rows: flowRows, loading, error } = useFlowByContractCache(symbol, 'current', { refreshIntervalMs: 30_000 });
+  const { rows: flowRows, loading, error } = useFlowByContractCache(symbol, 'current');
 
   const chartData = useMemo(() => {
     const aggregated = aggregateFlow(flowRows ?? []);
@@ -66,7 +71,7 @@ export default function OptionsFlowChart() {
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
-          <TooltipWrapper text="Aggregated from the by-contract cache: sum of cumulative call premium and cumulative put premium across every contract per 5-minute interval."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Running session totals of net_premium split by call/put, accumulated across 5-minute bars from the by-contract feed."><Info size={14} /></TooltipWrapper>
         </div>
 
         <div className="overflow-x-auto">

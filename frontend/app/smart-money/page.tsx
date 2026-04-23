@@ -146,7 +146,7 @@ export default function SmartMoneyPage() {
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
-  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView, { refreshIntervalMs: 30_000 });
+  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
     `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,

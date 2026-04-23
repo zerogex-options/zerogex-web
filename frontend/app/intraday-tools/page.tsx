@@ -242,7 +242,7 @@ export default function IntradayToolsPage() {
     `/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`,
     { refreshInterval: 10000 }
   );
-  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView, { refreshIntervalMs: 30_000 });
+  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
     `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,

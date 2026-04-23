@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
+/**
+ * Row shape returned by GET /api/flow/by-contract. Each row represents a
+ * single 5-minute bar's contribution for one contract — the values are
+ * per-bar deltas, NOT running cumulatives. Running totals are accumulated
+ * client-side in the page builders.
+ */
 export interface FlowByContractPoint {
   timestamp?: string;
   time_window_start?: string;
@@ -9,14 +15,11 @@ export interface FlowByContractPoint {
   option_type?: 'C' | 'P' | string;
   strike?: number | string;
   expiration?: string;
-  cumulative_call_premium?: number | string;
-  cumulative_put_premium?: number | string;
-  cumulative_net_premium?: number | string;
-  cumulative_net_volume?: number | string;
-  cumulative_net_directional_volume?: number | string;
-  cumulative_call_volume?: number | string;
-  cumulative_put_volume?: number | string;
-  cumulative_volume?: number | string;
+  dte?: number | string;
+  raw_volume?: number | string;
+  raw_premium?: number | string;
+  net_volume?: number | string;
+  net_premium?: number | string;
   underlying_price?: number | string | null;
 }
 
@@ -36,10 +39,12 @@ interface CacheEntry {
   rows: FlowByContractPoint[];
   byKey: Map<string, number>;
   lastTimestampMs: number | null;
+  lastFullRefreshMs: number | null;
 }
 
 const BAR_MS = 5 * 60_000;
-const DEFAULT_REFRESH_MS = 30_000;
+const DEFAULT_INCREMENTAL_MS = 30_000;
+const DEFAULT_FULL_REFRESH_MS = 5 * 60_000;
 
 const globalCache = new Map<string, CacheEntry>();
 const inflightInitial = new Map<string, Promise<void>>();
@@ -103,7 +108,6 @@ function getETDateKey(ts: string): string {
   }).format(d);
 }
 
-/** Returns the ISO timestamp of the most recent row, or null. */
 export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefined): string | null {
   if (!rows || rows.length === 0) return null;
   let latestTs: string | null = null;
@@ -120,7 +124,6 @@ export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefine
   return latestTs;
 }
 
-/** Returns the ET date key (YYYY-MM-DD) of the most recent row, or null. */
 export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined): string | null {
   const ts = latestRowTimestamp(rows);
   if (!ts) return null;
@@ -129,10 +132,16 @@ export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined)
 }
 
 /**
- * Produces a session-cumulative snapshot across every contract that traded in
- * the selected session. For each contract its latest observed cumulative row
- * is used (so contracts that stopped reporting partway through the session
- * still contribute their final totals).
+ * Produces a session-cumulative snapshot by summing per-bar contributions
+ * across every contract and bar in the selected session.
+ *   callVolume   = Σ raw_volume where option_type === 'C'
+ *   putVolume    = Σ raw_volume where option_type === 'P'
+ *   callPremium  = Σ net_premium where option_type === 'C'
+ *   putPremium   = Σ net_premium where option_type === 'P'
+ *   netFlow      = Σ net_volume across all contracts
+ *   netPremium   = Σ net_premium across all contracts
+ *   putCallRatio = putVolume / callVolume
+ *   underlyingPrice = the most recent bar's underlying_price
  */
 export function computeFlowSnapshot(
   rows: FlowByContractPoint[] | null | undefined,
@@ -148,7 +157,12 @@ export function computeFlowSnapshot(
     : rows;
   if (scoped.length === 0) return null;
 
-  const latestByContract = new Map<string, FlowByContractPoint>();
+  let callVolume = 0;
+  let putVolume = 0;
+  let callPremium = 0;
+  let putPremium = 0;
+  let netFlow = 0;
+  let netPremium = 0;
   let latestTs: string | null = null;
   let latestMs = -Infinity;
   let latestUnderlying: number | null = null;
@@ -160,14 +174,18 @@ export function computeFlowSnapshot(
     const ms = new Date(ts).getTime();
     if (!Number.isFinite(ms)) continue;
 
-    const key = contractKey(row);
-    const existing = latestByContract.get(key);
-    if (!existing) {
-      latestByContract.set(key, row);
-    } else {
-      const existingMs = new Date(rowTimestamp(existing)!).getTime();
-      if (ms > existingMs) latestByContract.set(key, row);
+    const rv = Number(row.raw_volume ?? 0);
+    const nv = Number(row.net_volume ?? 0);
+    const np = Number(row.net_premium ?? 0);
+    if (row.option_type === 'C') {
+      if (Number.isFinite(rv)) callVolume += rv;
+      if (Number.isFinite(np)) callPremium += np;
+    } else if (row.option_type === 'P') {
+      if (Number.isFinite(rv)) putVolume += rv;
+      if (Number.isFinite(np)) putPremium += np;
     }
+    if (Number.isFinite(nv)) netFlow += nv;
+    if (Number.isFinite(np)) netPremium += np;
 
     if (ms > latestMs) {
       latestMs = ms;
@@ -184,36 +202,6 @@ export function computeFlowSnapshot(
 
   if (!latestTs) return null;
 
-  let callVolume = 0;
-  let putVolume = 0;
-  let callPremium = 0;
-  let putPremium = 0;
-  let netFlow = 0;
-  let netPremium = 0;
-
-  for (const row of latestByContract.values()) {
-    const isCall = row.option_type === 'C';
-    const isPut = row.option_type === 'P';
-    const rowCallVol =
-      row.cumulative_call_volume != null
-        ? Number(row.cumulative_call_volume)
-        : isCall
-          ? Number(row.cumulative_volume ?? 0)
-          : 0;
-    const rowPutVol =
-      row.cumulative_put_volume != null
-        ? Number(row.cumulative_put_volume)
-        : isPut
-          ? Number(row.cumulative_volume ?? 0)
-          : 0;
-    if (Number.isFinite(rowCallVol)) callVolume += rowCallVol;
-    if (Number.isFinite(rowPutVol)) putVolume += rowPutVol;
-    callPremium += Number(row.cumulative_call_premium ?? 0);
-    putPremium += Number(row.cumulative_put_premium ?? 0);
-    netFlow += Number(row.cumulative_net_volume ?? 0);
-    netPremium += Number(row.cumulative_net_premium ?? 0);
-  }
-
   return {
     timestamp: latestTs,
     callVolume,
@@ -228,9 +216,8 @@ export function computeFlowSnapshot(
 }
 
 /**
- * Returns a Map keyed by minute-floored ISO timestamp -> underlying_price.
- * When multiple contracts report a price for the same interval, the first
- * finite value wins (all contracts carry the same underlying per interval).
+ * Map of minute-floored ISO timestamp -> underlying_price for use by pages
+ * that need to overlay the underlying price on top of their own chart data.
  */
 export function buildUnderlyingPriceMap(rows: FlowByContractPoint[] | null | undefined): Map<string, number> {
   const out = new Map<string, number>();
@@ -254,7 +241,6 @@ function rowKey(row: FlowByContractPoint): string | null {
   return `${ts}|${ck ?? ''}`;
 }
 
-/** Stable identity for a contract regardless of timestamp. */
 export function contractKey(row: FlowByContractPoint): string {
   const type = row.option_type ?? '';
   const strike = row.strike ?? '';
@@ -265,18 +251,16 @@ export function contractKey(row: FlowByContractPoint): string {
 export interface BarInfo {
   /** Minute-floored ISO timestamp of this bar. */
   timestamp: string;
-  /** Contract rows observed in THIS bar only. */
-  currentBarRows: FlowByContractPoint[];
-  /** Carry-forward map: for each contract, the latest row at or before this bar. */
-  carriedMap: Map<string, FlowByContractPoint>;
+  /** Contract rows that fall in this 5-minute bar. */
+  rows: FlowByContractPoint[];
 }
 
 /**
- * Walks rows chronologically in bar order, maintaining a per-contract
- * carry-forward map. Lets callers compute session-cumulative aggregates that
- * include contracts which stopped reporting in earlier bars.
+ * Walks rows chronologically one 5-minute bar at a time. Each bar contains
+ * only the rows that landed in it (no carry-forward — the new API exposes
+ * per-bar deltas rather than cumulatives, so callers accumulate themselves).
  */
-export function forEachBarWithCarry(
+export function forEachBar(
   rows: FlowByContractPoint[],
   callback: (info: BarInfo) => void,
 ): void {
@@ -294,14 +278,9 @@ export function forEachBarWithCarry(
   const sortedTs = Array.from(buckets.keys()).sort(
     (a, b) => new Date(a).getTime() - new Date(b).getTime(),
   );
-  const carriedMap = new Map<string, FlowByContractPoint>();
 
   for (const ts of sortedTs) {
-    const currentBarRows = buckets.get(ts)!;
-    for (const row of currentBarRows) {
-      carriedMap.set(contractKey(row), row);
-    }
-    callback({ timestamp: ts, currentBarRows, carriedMap });
+    callback({ timestamp: ts, rows: buckets.get(ts)! });
   }
 }
 
@@ -317,7 +296,7 @@ function createEntry(rows: FlowByContractPoint[]): CacheEntry {
       if (Number.isFinite(ms) && (lastMs === null || ms > lastMs)) lastMs = ms;
     }
   });
-  return { rows, byKey, lastTimestampMs: lastMs };
+  return { rows, byKey, lastTimestampMs: lastMs, lastFullRefreshMs: Date.now() };
 }
 
 function mergeIncremental(entry: CacheEntry, incoming: FlowByContractPoint[]): CacheEntry {
@@ -347,7 +326,12 @@ function mergeIncremental(entry: CacheEntry, incoming: FlowByContractPoint[]): C
     }
   }
 
-  return { rows: merged, byKey, lastTimestampMs: lastMs };
+  return {
+    rows: merged,
+    byKey,
+    lastTimestampMs: lastMs,
+    lastFullRefreshMs: entry.lastFullRefreshMs,
+  };
 }
 
 /**
@@ -389,16 +373,33 @@ async function fetchByContract(
 }
 
 export interface UseFlowByContractOptions {
-  refreshIntervalMs?: number;
+  /** Incremental poll interval (intervals=1). Default 30s. */
+  incrementalMs?: number;
+  /** Full-session refetch interval. Default 5 minutes. */
+  fullRefreshMs?: number;
   enabled?: boolean;
 }
 
+/**
+ * Subscribes to a shared, module-level cache of /api/flow/by-contract rows
+ * for (symbol, session). Drives two independent background timers:
+ *   - intervals=1 every incrementalMs (default 30s) to pick up the latest bar
+ *   - full session every fullRefreshMs (default 5min) so any drift is healed
+ *
+ * Consumers render directly from the cache — the timers run asynchronously
+ * and don't block the UI. Switching pages or symbols does not discard the
+ * cache, so subsequent visits render instantly.
+ */
 export function useFlowByContractCache(
   symbol: string,
   session: 'current' | 'prior',
   options: UseFlowByContractOptions = {},
 ) {
-  const { refreshIntervalMs = DEFAULT_REFRESH_MS, enabled = true } = options;
+  const {
+    incrementalMs = DEFAULT_INCREMENTAL_MS,
+    fullRefreshMs = DEFAULT_FULL_REFRESH_MS,
+    enabled = true,
+  } = options;
   const cacheKey = `${symbol}:${session}`;
   const initialEntry = globalCache.get(cacheKey);
 
@@ -503,8 +504,6 @@ export function useFlowByContractCache(
         if (!current) return;
         const next = mergeIncremental(current, incoming);
 
-        // If the merge reveals missing bars inside the session, backfill by
-        // fetching the whole thing.
         if (hasInternalBarGaps(next.rows)) {
           await refetchFullSession();
           return;
@@ -520,13 +519,18 @@ export function useFlowByContractCache(
 
     runInitial();
 
-    if (refreshIntervalMs <= 0) return () => { cancelled = true; };
-    const timer = setInterval(runIncremental, refreshIntervalMs);
+    const timers: ReturnType<typeof setInterval>[] = [];
+    if (incrementalMs > 0) {
+      timers.push(setInterval(runIncremental, incrementalMs));
+    }
+    if (fullRefreshMs > 0) {
+      timers.push(setInterval(refetchFullSession, fullRefreshMs));
+    }
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      timers.forEach((t) => clearInterval(t));
     };
-  }, [cacheKey, symbol, session, enabled, refreshIntervalMs]);
+  }, [cacheKey, symbol, session, enabled, incrementalMs, fullRefreshMs]);
 
   return { rows, loading, error };
 }
