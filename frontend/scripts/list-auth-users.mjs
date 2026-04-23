@@ -6,8 +6,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 const TIER_ENTITLEMENTS = {
   public: 'Public pages only',
-  basic: 'Basic dashboard + standard tools',
-  pro: 'Basic + premium signal tools',
+  basic: 'Real-time metrics + full strategy tools',
+  pro: 'Basic + Proprietary Signals + ZeroGEX APIs',
+  elite: 'Pro + Advanced Signals',
   admin: 'Full admin access (all tools + auth audit)',
 };
 

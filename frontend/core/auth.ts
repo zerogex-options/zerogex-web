@@ -5,6 +5,7 @@ export const AUTH_TIERS = [
   { id: 'public', label: 'Public', rank: 0 },
   { id: 'basic', label: 'Basic', rank: 10 },
   { id: 'pro', label: 'Pro', rank: 20 },
+  { id: 'elite', label: 'Elite', rank: 25 },
   { id: 'admin', label: 'Admin', rank: 30 },
 ] as const;
 
@@ -18,15 +19,16 @@ export type RouteAccessRule = {
 const PUBLIC_ROUTE_PATTERNS = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized'] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
-  // Keep only proprietary signal pages behind auth.
+  // Proprietary Signals — Pro tier.
   { pattern: '/signal-score', minimumTier: 'pro' },
   { pattern: '/trading-signals', minimumTier: 'pro' },
-  { pattern: '/eod-pressure', minimumTier: 'pro' },
-  { pattern: '/squeeze-setup', minimumTier: 'pro' },
-  { pattern: '/trap-detection', minimumTier: 'pro' },
-  { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
-  { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
-  { pattern: '/volatility-expansion', minimumTier: 'pro' },
+  // Advanced Signals — Elite tier.
+  { pattern: '/eod-pressure', minimumTier: 'elite' },
+  { pattern: '/squeeze-setup', minimumTier: 'elite' },
+  { pattern: '/trap-detection', minimumTier: 'elite' },
+  { pattern: '/0dte-position-imbalance', minimumTier: 'elite' },
+  { pattern: '/gamma-vwap-confluence', minimumTier: 'elite' },
+  { pattern: '/volatility-expansion', minimumTier: 'elite' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },

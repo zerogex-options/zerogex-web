@@ -1,7 +1,7 @@
 export type NavItem = {
   id: string;
   label: string;
-  requiredTier?: 'basic' | 'pro' | 'admin';
+  requiredTier?: 'basic' | 'pro' | 'elite' | 'admin';
 };
 
 export type NavGroup = {
@@ -20,7 +20,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
       { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'pro' },
       { id: '/basic-signals', label: 'Basic Signal Dashboard', requiredTier: 'basic' },
-      { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'pro' },
+      { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'elite' },
     ],
   },
   {
@@ -37,12 +37,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Advanced Signals',
     items: [
-      { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'pro' },
-      { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'pro' },
-      { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'pro' },
-      { id: '/trap-detection', label: 'Trap Detection', requiredTier: 'pro' },
-      { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'pro' },
-      { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'pro' },
+      { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'elite' },
+      { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'elite' },
+      { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'elite' },
+      { id: '/trap-detection', label: 'Trap Detection', requiredTier: 'elite' },
+      { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'elite' },
+      { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'elite' },
     ],
   },
   {
