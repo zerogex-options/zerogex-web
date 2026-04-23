@@ -20,6 +20,7 @@ import {
   useFlowByContractCache,
   computeFlowSnapshot,
   flowRowTimestamp,
+  forEachBarWithCarry,
   latestRowDateKey,
   type FlowByContractPoint,
 } from "@/hooks/useFlowByContract";
@@ -31,7 +32,7 @@ import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { normalizeToMinute, getSessionTimestamps } from "@/core/utils";
+import { getSessionTimestamps } from "@/core/utils";
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -58,29 +59,32 @@ interface TimeseriesRow {
   underlyingPrice: number | null;
 }
 
+interface NetPositionRow {
+  timestamp: string;
+  callPosition: number | null;
+  putPosition: number | null;
+}
+
 /**
- * Aggregates cumulative_net_premium across all contracts for each 5-minute
- * interval in the by-contract dataset.
+ * Session-cumulative net directional premium per 5-minute bar. For each bar,
+ * sums each contract's latest observed cumulative_net_premium (carries
+ * contracts that stopped reporting into later bars).
  */
 function buildNetDirectionalPremiumSeries(rows: FlowByContractPoint[]): NetDirectionalPremiumRow[] {
-  const grouped = new Map<string, number>();
-
-  for (const row of rows) {
-    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
-    if (!ts) continue;
-    const value = Number(row.cumulative_net_premium ?? 0);
-    if (!Number.isFinite(value)) continue;
-    grouped.set(ts, (grouped.get(ts) ?? 0) + value);
-  }
-
-  return Array.from(grouped.entries())
-    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-    .map(([timestamp, premium]) => ({
+  const output: NetDirectionalPremiumRow[] = [];
+  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
+    let premium = 0;
+    for (const row of carriedMap.values()) {
+      premium += Number(row.cumulative_net_premium ?? 0);
+    }
+    output.push({
       timestamp,
       premium,
       positivePremium: premium > 0 ? premium : null,
       negativePremium: premium < 0 ? premium : null,
-    }));
+    });
+  });
+  return output;
 }
 
 // ── Date / session helpers ────────────────────────────────────────────────────
@@ -180,6 +184,13 @@ function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: stri
   });
 }
 
+function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]): NetPositionRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  return timeline.map(
+    (timestamp) => byTs.get(timestamp) ?? { timestamp, callPosition: null, putPosition: null },
+  );
+}
+
 // ── Label / axis helpers ──────────────────────────────────────────────────────
 
 function safeTimeLabel(value?: string) {
@@ -209,82 +220,91 @@ function buildFlowTimeseries(
   rows: FlowByContractPoint[],
   netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
 ): TimeseriesRow[] {
-  const grouped = new Map<
-    string,
-    { callPremium: number; putPremium: number; netVolume: number; underlyingPrice: number | null }
-  >();
+  // Track the most recent underlying price seen up to and including this bar.
+  let lastKnownUnderlying: number | null = null;
+  const output: TimeseriesRow[] = [];
 
-  rows.forEach((row) => {
-    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
-    if (!ts) return;
-
-    const current = grouped.get(ts) ?? {
-      callPremium: 0,
-      putPremium: 0,
-      netVolume: 0,
-      underlyingPrice: null,
-    };
-    current.callPremium += Number(row.cumulative_call_premium ?? 0);
-    current.putPremium += Number(row.cumulative_put_premium ?? 0);
-    current.netVolume += Number(row[netVolumeMode] ?? 0);
-    if (current.underlyingPrice === null && row.underlying_price != null) {
-      const u = Number(row.underlying_price);
-      if (Number.isFinite(u)) current.underlyingPrice = u;
+  forEachBarWithCarry(rows, ({ timestamp, carriedMap, currentBarRows }) => {
+    let callPremium = 0;
+    let putPremium = 0;
+    let netVolume = 0;
+    for (const row of carriedMap.values()) {
+      callPremium += Number(row.cumulative_call_premium ?? 0);
+      putPremium += Number(row.cumulative_put_premium ?? 0);
+      netVolume += Number(row[netVolumeMode] ?? 0);
     }
-    grouped.set(ts, current);
-  });
-
-  return Array.from(grouped.entries())
-    .map(([timestamp, value]) => ({
+    // Prefer an underlying reading from the CURRENT bar (not carry-forward).
+    for (const row of currentBarRows) {
+      if (row.underlying_price != null) {
+        const u = Number(row.underlying_price);
+        if (Number.isFinite(u)) {
+          lastKnownUnderlying = u;
+          break;
+        }
+      }
+    }
+    output.push({
       timestamp,
       time: safeTimeLabel(timestamp),
-      callPremium: value.callPremium,
-      putPremium: value.putPremium,
-      netVolume: value.netVolume,
-      positiveNetVolume: value.netVolume > 0 ? value.netVolume : 0,
-      negativeNetVolume: value.netVolume < 0 ? value.netVolume : 0,
-      underlyingPrice: value.underlyingPrice,
-    }))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      callPremium,
+      putPremium,
+      netVolume,
+      positiveNetVolume: netVolume > 0 ? netVolume : 0,
+      negativeNetVolume: netVolume < 0 ? netVolume : 0,
+      underlyingPrice: lastKnownUnderlying,
+    });
+  });
+
+  return output;
 }
 
 /**
- * Computes put/call ratio from by-contract rows per 5-minute interval.
- * ratio = Σ put_volume / Σ call_volume, grouped by option_type.
- * Uses cumulative_volume when present; falls back to cumulative_put_volume
- * or cumulative_call_volume if the API provides them explicitly.
+ * Session-cumulative put/call ratio per 5-minute bar. Total puts traded across
+ * the whole trading day ÷ total calls traded, using each contract's latest
+ * cumulative volume observed at or before the bar.
  */
 function buildPutCallRatioSeries(rows: FlowByContractPoint[]): PutCallRatioRow[] {
-  const grouped = new Map<string, { call: number; put: number }>();
-
-  rows.forEach((row) => {
-    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
-    if (!ts) return;
-
-    const current = grouped.get(ts) ?? { call: 0, put: 0 };
-    const callFromRow =
-      row.cumulative_call_volume != null
+  const output: PutCallRatioRow[] = [];
+  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
+    let call = 0;
+    let put = 0;
+    for (const row of carriedMap.values()) {
+      const isCall = row.option_type === "C";
+      const isPut = row.option_type === "P";
+      const callVol = row.cumulative_call_volume != null
         ? Number(row.cumulative_call_volume)
-        : row.option_type === "C"
-          ? Number(row.cumulative_volume ?? 0)
-          : 0;
-    const putFromRow =
-      row.cumulative_put_volume != null
+        : isCall ? Number(row.cumulative_volume ?? 0) : 0;
+      const putVol = row.cumulative_put_volume != null
         ? Number(row.cumulative_put_volume)
-        : row.option_type === "P"
-          ? Number(row.cumulative_volume ?? 0)
-          : 0;
-    if (Number.isFinite(callFromRow)) current.call += callFromRow;
-    if (Number.isFinite(putFromRow)) current.put += putFromRow;
-    grouped.set(ts, current);
+        : isPut ? Number(row.cumulative_volume ?? 0) : 0;
+      if (Number.isFinite(callVol)) call += callVol;
+      if (Number.isFinite(putVol)) put += putVol;
+    }
+    output.push({ timestamp, ratio: call > 0 ? put / call : null });
   });
+  return output;
+}
 
-  return Array.from(grouped.entries())
-    .map(([timestamp, { call, put }]) => ({
-      timestamp,
-      ratio: call > 0 ? put / call : null,
-    }))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+/**
+ * Session-cumulative net directional volume per 5-minute bar, split by option
+ * type. Positive values indicate net buying pressure (calls or puts), negative
+ * values indicate net selling pressure. Uses cumulative_net_directional_volume
+ * which is already signed at the trade level (+ buy, - sell).
+ */
+function buildNetPositionSeries(rows: FlowByContractPoint[]): NetPositionRow[] {
+  const output: NetPositionRow[] = [];
+  forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
+    let callPos = 0;
+    let putPos = 0;
+    for (const row of carriedMap.values()) {
+      const v = Number(row.cumulative_net_directional_volume ?? 0);
+      if (!Number.isFinite(v)) continue;
+      if (row.option_type === "C") callPos += v;
+      else if (row.option_type === "P") putPos += v;
+    }
+    output.push({ timestamp, callPosition: callPos, putPosition: putPos });
+  });
+  return output;
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
@@ -396,74 +416,94 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   );
 }
 
-function MultiSelectChips({
+function FilterRow({
+  label,
   options,
   selected,
   onToggle,
+  onSelectAll,
   onClear,
-  label,
-  isDark,
   renderOption,
 }: {
+  label: string;
   options: string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
-  onClear?: () => void;
-  label: string;
-  isDark: boolean;
-  renderOption?: (value: string) => string;
+  onSelectAll: () => void;
+  onClear: () => void;
+  renderOption?: (v: string) => string;
 }) {
-  if (options.length === 0) {
-    return <div className="text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No {label.toLowerCase()} available</div>;
-  }
+  const active = selected.size > 0;
+  const allSelected = active && selected.size === options.length;
+  const btnBase =
+    "shrink-0 px-2.5 py-1 text-xs rounded-full border transition whitespace-nowrap cursor-pointer";
+  const btnInactive: React.CSSProperties = {
+    backgroundColor: "transparent",
+    borderColor: "var(--color-border)",
+    color: "var(--color-text-secondary)",
+  };
+  const btnActive: React.CSSProperties = {
+    backgroundColor: "var(--color-info)",
+    borderColor: "var(--color-info)",
+    color: "#ffffff",
+  };
+  const controlBtn: React.CSSProperties = {
+    backgroundColor: "var(--color-surface)",
+    borderColor: "var(--color-border)",
+    color: "var(--color-text-secondary)",
+  };
 
   return (
-    <div>
-      <div className="mb-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
-        {selected.size > 0 ? `${selected.size} selected` : "All"}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => {
-          const active = selected.has(option);
-          const display = renderOption ? renderOption(option) : option;
-          return (
-            <button
-              key={option}
-              onClick={() => onToggle(option)}
-              style={active
-                ? {
-                    backgroundColor: "var(--color-info)",
-                    borderColor: "var(--color-info)",
-                    color: "#ffffff",
-                  }
-                : {
-                    backgroundColor: "var(--color-surface)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-text-secondary)",
-                  }}
-              className={`px-3 py-1.5 text-sm rounded-md border transition ${
-                active
-                  ? "shadow-sm"
-                  : "hover:border-[var(--border-strong)]"
-              }`}
-              type="button"
-              aria-pressed={active}
-            >
-              {display}
-            </button>
-          );
-        })}
-      </div>
-      {onClear && selected.size > 0 ? (
+    <div className="flex items-center gap-3">
+      <span
+        className="shrink-0 text-xs font-semibold uppercase tracking-wide"
+        style={{ color: "var(--color-text-secondary)", minWidth: 72 }}
+      >
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={onSelectAll}
+          disabled={options.length === 0 || allSelected}
+          className={`${btnBase} ${options.length === 0 || allSelected ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
+          style={controlBtn}
+        >
+          Select All
+        </button>
         <button
           type="button"
           onClick={onClear}
-          className="mt-2 text-xs underline underline-offset-2 hover:opacity-80"
-          style={{ color: "var(--color-text-secondary)" }}
+          disabled={!active}
+          className={`${btnBase} ${!active ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
+          style={controlBtn}
         >
           Clear
         </button>
-      ) : null}
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
+        {options.length === 0 ? (
+          <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
+            None available
+          </span>
+        ) : (
+          options.map((option) => {
+            const isActive = selected.has(option);
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onToggle(option)}
+                aria-pressed={isActive}
+                className={`${btnBase} ${isActive ? "" : "hover:border-[var(--border-strong)]"}`}
+                style={isActive ? btnActive : btnInactive}
+              >
+                {renderOption ? renderOption(option) : option}
+              </button>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -481,7 +521,9 @@ function FlowFilters({
   onClearTypes,
   onClearStrikes,
   onClearExpirations,
-  isDark,
+  onSelectAllTypes,
+  onSelectAllStrikes,
+  onSelectAllExpirations,
 }: {
   typeOptions: string[];
   strikeOptions: string[];
@@ -495,52 +537,42 @@ function FlowFilters({
   onClearTypes: () => void;
   onClearStrikes: () => void;
   onClearExpirations: () => void;
-  isDark: boolean;
+  onSelectAllTypes: () => void;
+  onSelectAllStrikes: () => void;
+  onSelectAllExpirations: () => void;
 }) {
   const typeLabelMap: Record<string, string> = { C: "Calls", P: "Puts" };
-  const labelStyle = { color: "var(--color-text-secondary)" } as const;
 
   return (
     <div
-      className="mb-4 rounded-md border p-3"
+      className="mb-4 rounded-lg border p-3 space-y-2.5"
       style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
     >
-      <div className="grid grid-cols-1 gap-4">
-        <div>
-          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Type</div>
-          <MultiSelectChips
-            options={typeOptions}
-            selected={selectedTypes}
-            onToggle={onToggleType}
-            onClear={onClearTypes}
-            label="Types"
-            isDark={isDark}
-            renderOption={(v) => typeLabelMap[v] ?? v}
-          />
-        </div>
-        <div>
-          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Strike</div>
-          <MultiSelectChips
-            options={strikeOptions}
-            selected={selectedStrikes}
-            onToggle={onToggleStrike}
-            onClear={onClearStrikes}
-            label="Strikes"
-            isDark={isDark}
-          />
-        </div>
-        <div>
-          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Expiration</div>
-          <MultiSelectChips
-            options={expirationOptions}
-            selected={selectedExpirations}
-            onToggle={onToggleExpiration}
-            onClear={onClearExpirations}
-            label="Expirations"
-            isDark={isDark}
-          />
-        </div>
-      </div>
+      <FilterRow
+        label="Type"
+        options={typeOptions}
+        selected={selectedTypes}
+        onToggle={onToggleType}
+        onSelectAll={onSelectAllTypes}
+        onClear={onClearTypes}
+        renderOption={(v) => typeLabelMap[v] ?? v}
+      />
+      <FilterRow
+        label="Strike"
+        options={strikeOptions}
+        selected={selectedStrikes}
+        onToggle={onToggleStrike}
+        onSelectAll={onSelectAllStrikes}
+        onClear={onClearStrikes}
+      />
+      <FilterRow
+        label="Expiration"
+        options={expirationOptions}
+        selected={selectedExpirations}
+        onToggle={onToggleExpiration}
+        onSelectAll={onSelectAllExpirations}
+        onClear={onClearExpirations}
+      />
     </div>
   );
 }
@@ -962,12 +994,26 @@ export default function FlowAnalysisPage() {
     return alignPremiumToTimeline(base, sessionTimeline);
   }, [selectedDate, dateScopedContractRows, sessionTimeline]);
 
+  // ── Net Position (Buys vs Sells) from cumulative_net_directional_volume ──
+  const netPositionSeries = useMemo(() => {
+    if (!selectedDate || sessionTimeline.length === 0) return [];
+    const base = buildNetPositionSeries(dateScopedContractRows);
+    return alignNetPositionToTimeline(base, sessionTimeline);
+  }, [selectedDate, dateScopedContractRows, sessionTimeline]);
+
   const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
   const hasRatioData = putCallRatioSeries.some((row) => row.ratio != null);
+  const hasNetPositionData = netPositionSeries.some(
+    (row) => row.callPosition != null || row.putPosition != null,
+  );
 
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
+  );
+  const netPositionDateMarkerMeta = useMemo(
+    () => getDateMarkerMeta(netPositionSeries.map((r) => r.timestamp)),
+    [netPositionSeries],
   );
 
   // ── Filter chip toggles ───────────────────────────────────────────────────
@@ -1104,7 +1150,9 @@ export default function FlowAnalysisPage() {
           onClearTypes={() => setSelectedTypes(new Set())}
           onClearStrikes={() => setSelectedStrikes(new Set())}
           onClearExpirations={() => setSelectedExpirations(new Set())}
-          isDark={isDark}
+          onSelectAllTypes={() => setSelectedTypes(new Set(typeOptions))}
+          onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
+          onSelectAllExpirations={() => setSelectedExpirations(new Set(expirationOptions))}
         />
         <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
       </section>
@@ -1119,7 +1167,7 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={directionalPremiumSeries}
@@ -1217,13 +1265,13 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Put/Call Ratio"
-          tooltip="Put/call volume ratio per 5-minute interval, calculated directly from the by-contract data (Σ put volume ÷ Σ call volume, grouped by option_type)."
+          tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
         />
         {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 580 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}
@@ -1323,6 +1371,125 @@ export default function FlowAnalysisPage() {
                     strokeWidth={2}
                     dot={false}
                     connectNulls={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
+      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+        <SectionTitle
+          title="Net Position (Buys vs. Sells)"
+          tooltip="Signed directional volume per 5-minute bar, split by option type. Unlike the volume-based Put/Call Ratio (which counts every transaction once), this uses cumulative_net_directional_volume — positive values indicate net buy-to-open pressure, negative values indicate net sell pressure. Lets you distinguish 'buying puts' from 'selling puts'."
+        />
+        {!hasNetPositionData ? (
+          <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
+        ) : (
+          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={netPositionSeries}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "var(--color-text-secondary)" : "var(--color-border)"} opacity={0.25} />
+                  <XAxis
+                    dataKey="timestamp"
+                    stroke={axisStroke}
+                    interval={0}
+                    minTickGap={24}
+                    tickLine={false}
+                    tick={(props: {
+                      x?: number | string;
+                      y?: number | string;
+                      payload?: { value?: string | number };
+                      index?: number;
+                    }) => {
+                      const x = Number(props?.x ?? 0);
+                      const y = Number(props?.y ?? 0);
+                      const payload = props?.payload;
+                      const index = Number(props?.index ?? -1);
+                      const ts = String(payload?.value || "");
+                      const timeLabel = safeTimeLabel(ts);
+                      const dateLabel = netPositionDateMarkerMeta.get(index);
+                      const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                          {showTime ? (
+                            <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                              {timeLabel}
+                            </text>
+                          ) : null}
+                          {dateLabel ? (
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                              {dateLabel}
+                            </text>
+                          ) : null}
+                        </g>
+                      );
+                    }}
+                  />
+                  {netPositionSeries
+                    .filter((row) => is30MinBoundary(row.timestamp))
+                    .map((row) => (
+                      <ReferenceLine
+                        key={`np-v-${row.timestamp}`}
+                        x={row.timestamp}
+                        stroke={axisStroke}
+                        opacity={0.18}
+                      />
+                    ))}
+                  <YAxis
+                    stroke={axisStroke}
+                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tickMargin={isMobile ? 2 : 8}
+                    width={isMobile ? 42 : 62}
+                    tickFormatter={(v) => {
+                      const n = Number(v);
+                      const abs = Math.abs(n);
+                      const sign = n < 0 ? "-" : "";
+                      if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+                      if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K`;
+                      return `${sign}${Math.round(abs)}`;
+                    }}
+                  />
+                  <Tooltip
+                    content={({ active, label, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const point = payload[0]?.payload as { callPosition?: number | null; putPosition?: number | null } | undefined;
+                      return (
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
+                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                          <div>Net Call Position: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
+                          <div>Net Put Position: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
+                  <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
+                  <Line
+                    type="monotone"
+                    dataKey="callPosition"
+                    name="Net Call Position"
+                    stroke="var(--color-positive)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="putPosition"
+                    name="Net Put Position"
+                    stroke="var(--color-negative)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
                   />
                 </ComposedChart>
               </ResponsiveContainer>

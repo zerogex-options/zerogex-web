@@ -124,9 +124,10 @@ export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined)
 }
 
 /**
- * Aggregates the latest 5-minute bar of the by-contract rows into a session
- * snapshot (totals across every contract). When dateKey is provided only rows
- * in that ET session are considered.
+ * Produces a session-cumulative snapshot across every contract that traded in
+ * the selected session. For each contract its latest observed cumulative row
+ * is used (so contracts that stopped reporting partway through the session
+ * still contribute their final totals).
  */
 export function computeFlowSnapshot(
   rows: FlowByContractPoint[] | null | undefined,
@@ -142,9 +143,41 @@ export function computeFlowSnapshot(
     : rows;
   if (scoped.length === 0) return null;
 
-  const latestTs = latestRowTimestamp(scoped);
+  const latestByContract = new Map<string, FlowByContractPoint>();
+  let latestTs: string | null = null;
+  let latestMs = -Infinity;
+  let latestUnderlying: number | null = null;
+  let latestUnderlyingMs = -Infinity;
+
+  for (const row of scoped) {
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    const ms = new Date(ts).getTime();
+    if (!Number.isFinite(ms)) continue;
+
+    const key = contractKey(row);
+    const existing = latestByContract.get(key);
+    if (!existing) {
+      latestByContract.set(key, row);
+    } else {
+      const existingMs = new Date(rowTimestamp(existing)!).getTime();
+      if (ms > existingMs) latestByContract.set(key, row);
+    }
+
+    if (ms > latestMs) {
+      latestMs = ms;
+      latestTs = ts;
+    }
+    if (row.underlying_price != null && ms >= latestUnderlyingMs) {
+      const u = Number(row.underlying_price);
+      if (Number.isFinite(u)) {
+        latestUnderlying = u;
+        latestUnderlyingMs = ms;
+      }
+    }
+  }
+
   if (!latestTs) return null;
-  const latestMinute = normalizeToMinuteIso(latestTs);
 
   let callVolume = 0;
   let putVolume = 0;
@@ -152,13 +185,8 @@ export function computeFlowSnapshot(
   let putPremium = 0;
   let netFlow = 0;
   let netPremium = 0;
-  let underlyingPrice: number | null = null;
 
-  for (const row of scoped) {
-    const ts = rowTimestamp(row);
-    if (!ts) continue;
-    if (normalizeToMinuteIso(ts) !== latestMinute) continue;
-
+  for (const row of latestByContract.values()) {
     const isCall = row.option_type === 'C';
     const isPut = row.option_type === 'P';
     const rowCallVol =
@@ -179,10 +207,6 @@ export function computeFlowSnapshot(
     putPremium += Number(row.cumulative_put_premium ?? 0);
     netFlow += Number(row.cumulative_net_volume ?? 0);
     netPremium += Number(row.cumulative_net_premium ?? 0);
-    if (underlyingPrice === null && row.underlying_price != null) {
-      const u = Number(row.underlying_price);
-      if (Number.isFinite(u)) underlyingPrice = u;
-    }
   }
 
   return {
@@ -194,7 +218,7 @@ export function computeFlowSnapshot(
     netFlow,
     netPremium,
     putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
-    underlyingPrice,
+    underlyingPrice: latestUnderlying,
   };
 }
 
@@ -221,10 +245,59 @@ export function buildUnderlyingPriceMap(rows: FlowByContractPoint[] | null | und
 function rowKey(row: FlowByContractPoint): string | null {
   const ts = rowTimestamp(row);
   if (!ts) return null;
+  const ck = contractKey(row);
+  return `${ts}|${ck ?? ''}`;
+}
+
+/** Stable identity for a contract regardless of timestamp. */
+export function contractKey(row: FlowByContractPoint): string {
   const type = row.option_type ?? '';
   const strike = row.strike ?? '';
   const exp = row.expiration ?? '';
-  return `${ts}|${type}|${strike}|${exp}`;
+  return `${type}|${strike}|${exp}`;
+}
+
+export interface BarInfo {
+  /** Minute-floored ISO timestamp of this bar. */
+  timestamp: string;
+  /** Contract rows observed in THIS bar only. */
+  currentBarRows: FlowByContractPoint[];
+  /** Carry-forward map: for each contract, the latest row at or before this bar. */
+  carriedMap: Map<string, FlowByContractPoint>;
+}
+
+/**
+ * Walks rows chronologically in bar order, maintaining a per-contract
+ * carry-forward map. Lets callers compute session-cumulative aggregates that
+ * include contracts which stopped reporting in earlier bars.
+ */
+export function forEachBarWithCarry(
+  rows: FlowByContractPoint[],
+  callback: (info: BarInfo) => void,
+): void {
+  const buckets = new Map<string, FlowByContractPoint[]>();
+  for (const row of rows) {
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    const minute = normalizeToMinuteIso(ts);
+    if (!minute) continue;
+    const bucket = buckets.get(minute) ?? [];
+    bucket.push(row);
+    buckets.set(minute, bucket);
+  }
+
+  const sortedTs = Array.from(buckets.keys()).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+  );
+  const carriedMap = new Map<string, FlowByContractPoint>();
+
+  for (const ts of sortedTs) {
+    const currentBarRows = buckets.get(ts)!;
+    for (const row of currentBarRows) {
+      carriedMap.set(contractKey(row), row);
+    }
+    callback({ timestamp: ts, currentBarRows, carriedMap });
+  }
 }
 
 function createEntry(rows: FlowByContractPoint[]): CacheEntry {

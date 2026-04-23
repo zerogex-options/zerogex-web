@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Mail } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 
@@ -16,6 +17,81 @@ const footerLinks = [
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
   { href: '/education', label: 'Education', external: false },
 ];
+
+const TWITTER_HANDLE = 'zero_gex70930';
+const TWITTER_URL = `https://x.com/${TWITTER_HANDLE}`;
+const CONTACT_EMAIL = 'zerogexoptions@gmail.com';
+
+function XIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function SocialLinks({
+  subtext,
+  size = 16,
+  align = 'start',
+}: {
+  subtext: string;
+  size?: number;
+  align?: 'start' | 'end';
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        justifyContent: align === 'end' ? 'flex-end' : 'flex-start',
+      }}
+    >
+      <a
+        href={TWITTER_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`ZeroGEX on X (@${TWITTER_HANDLE})`}
+        title={`@${TWITTER_HANDLE}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          color: subtext,
+          textDecoration: 'none',
+          fontSize: 13,
+        }}
+      >
+        <XIcon size={size} />
+        <span>@{TWITTER_HANDLE}</span>
+      </a>
+      <a
+        href={`mailto:${CONTACT_EMAIL}`}
+        aria-label={`Email ZeroGEX at ${CONTACT_EMAIL}`}
+        title={CONTACT_EMAIL}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          color: subtext,
+          textDecoration: 'none',
+          fontSize: 13,
+        }}
+      >
+        <Mail size={size} />
+        <span>{CONTACT_EMAIL}</span>
+      </a>
+    </div>
+  );
+}
 
 export default function Footer({ theme }: FooterProps) {
   const isDark = theme === 'dark';
@@ -76,6 +152,7 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <SocialLinks subtext={subtext} size={16} align="end" />
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, LLC. All rights reserved.
             </p>
@@ -105,6 +182,9 @@ export default function Footer({ theme }: FooterProps) {
               </div>
             ))}
 
+            <div style={{ marginTop: 10 }}>
+              <SocialLinks subtext={subtext} size={14} />
+            </div>
             <p style={{ fontSize: 12, color: subtext, margin: '10px 0 0 0', lineHeight: 1.6 }}>
               Trading involves substantial risk. Past performance is not indicative of future results.
               This platform is for informational purposes only, not investment advice.
