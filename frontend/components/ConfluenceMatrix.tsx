@@ -71,7 +71,7 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="text-[10px] border-collapse">
+        <table className="text-xs border-collapse">
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-[var(--color-surface-subtle)] p-1.5" />
@@ -79,7 +79,7 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
                 <th
                   key={c}
                   className="p-1 align-bottom text-[var(--color-text-secondary)] font-semibold"
-                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', height: 120 }}
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', height: 160 }}
                 >
                   {pretty(c)}
                 </th>
@@ -89,7 +89,7 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
           <tbody>
             {sortedComponents.map((row) => (
               <tr key={row}>
-                <th className="sticky left-0 z-10 bg-[var(--color-surface-subtle)] p-1.5 text-right font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">
+                <th className="sticky left-0 z-10 bg-[var(--color-surface-subtle)] p-2 text-right font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">
                   {pretty(row)}
                 </th>
                 {sortedComponents.map((col) => {
@@ -103,7 +103,7 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
                       onMouseEnter={() => !isDiag && setHover({ row, col, cell })}
                       onMouseLeave={() => setHover(null)}
                       className="border border-[var(--color-border)]/40 text-center font-mono"
-                      style={{ width: 26, height: 26, minWidth: 26, background: bg, color: Math.abs(net ?? 0) > 0.5 ? '#fff' : 'var(--color-text-primary)' }}
+                      style={{ width: 44, height: 44, minWidth: 44, background: bg, color: Math.abs(net ?? 0) > 0.5 ? '#fff' : 'var(--color-text-primary)' }}
                     >
                       {isDiag ? '·' : net != null ? net.toFixed(2) : '—'}
                     </td>

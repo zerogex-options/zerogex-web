@@ -6,22 +6,19 @@ import {
   AlertTriangle,
   CalendarClock,
   Compass,
-  Info,
   LayoutGrid,
   LineChart as LineChartIcon,
   Rocket,
+  ShieldAlert,
   Table,
   Zap,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import ErrorMessage from '@/components/ErrorMessage';
-import MsiGauge from '@/components/MsiGauge';
 import AdvancedSignalCard, { type AdvancedSignalContextRow } from '@/components/AdvancedSignalCard';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
 import { useTimeframe } from '@/core/TimeframeContext';
 import {
-  useSignalScore,
   useVolExpansionSignal,
   useEodPressureSignal,
   useSqueezeSetupSignal,
@@ -79,16 +76,12 @@ export default function AdvancedSignalsPage() {
   const { symbol } = useTimeframe();
   const [tab, setTab] = useState<TabId>('grid');
 
-  const msi = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const volExpansion = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
   const eodPressure = useEodPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.eodPressureMs);
   const squeezeSetup = useSqueezeSetupSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs);
   const trapDetection = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
   const zeroDte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
   const gammaVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
-
-  const msiPayload = useMemo(() => asObject(msi.data) ?? {}, [msi.data]);
-  const msiScore = getNumber(msiPayload.composite_score ?? msiPayload.score);
 
   const matrix = useConfluenceMatrix(symbol, 120, PROPRIETARY_SIGNALS_REFRESH.confluenceMatrixMs);
 
@@ -170,38 +163,47 @@ export default function AdvancedSignalsPage() {
       <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
         <TooltipWrapper
-          text="Dashboard of six advanced signals that extend the composite MSI, plus cross-component confluence analysis. The composite MSI banner sets the regime context. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
+          text="Dashboard of six advanced signals that extend the composite MSI, plus cross-component confluence analysis. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
 
-      {msi.error && <ErrorMessage message={msi.error} onRetry={msi.refetch} />}
-
       <section className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_1fr] gap-6 items-center">
-          <div className="overflow-x-auto md:overflow-visible -mx-2 md:mx-0">
-            <div className="min-w-[320px] md:min-w-0 flex justify-center px-2 md:px-0">
-              <MsiGauge score={msiScore} size={300} label="Composite MSI" />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_1fr] gap-6 items-center">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Regime banner</div>
-              <TooltipWrapper text="0–100 market-state index. Thresholds: 20 / 40 / 70 split chop / controlled trend / expansion." placement="bottom">
-                <Info size={12} className="text-[var(--color-text-secondary)]" />
-              </TooltipWrapper>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldAlert size={16} className="text-[var(--color-warning)]" />
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Signal Lens</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Use the MSI to decide how aggressively to trade the signals below. In trend/expansion regimes, lean into
-              directional triggers (squeeze, 0DTE tilt). In chop/range, prefer mean-reversion setups (traps, confluence
-              rejections at magnets).
+              Six weighted detectors extending the composite MSI with directional triggers and pin-risk setups.
+              Outlined tiles have crossed their activation threshold — interpret each alongside the current regime.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
               <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
-              {msiPayload.timestamp ? <span><span className="text-[var(--color-text-primary)] font-semibold">As of</span> {String(msiPayload.timestamp)}</span> : null}
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {cards.map((card) => {
+              const score = getNumber(card.payload.score);
+              const direction = String(card.payload.direction ?? 'neutral').toLowerCase();
+              const color = direction === 'bullish' ? 'var(--color-bull)' : direction === 'bearish' ? 'var(--color-bear)' : 'var(--color-warning)';
+              return (
+                <div
+                  key={card.title}
+                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 flex flex-col gap-1"
+                  style={{ borderColor: score != null && Math.abs(score) >= card.threshold ? color : 'var(--color-border)' }}
+                >
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">{card.title}</div>
+                  <div className="text-2xl font-black leading-none" style={{ color }}>
+                    {score != null ? formatSigned(score, 1) : '—'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
