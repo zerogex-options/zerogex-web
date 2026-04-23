@@ -286,23 +286,29 @@ function buildPutCallRatioSeries(rows: FlowByContractPoint[]): PutCallRatioRow[]
 }
 
 /**
- * Session-cumulative net directional volume per 5-minute bar, split by option
- * type. Positive values indicate net buying pressure (calls or puts), negative
- * values indicate net selling pressure. Uses cumulative_net_directional_volume
- * which is already signed at the trade level (+ buy, - sell).
+ * Session-cumulative call volume vs put volume per 5-minute bar, aggregated
+ * across every contract (carrying contracts that stopped reporting in earlier
+ * bars forward). Uses cumulative_call_volume and cumulative_put_volume, which
+ * are the raw volume buckets attached to each contract's type.
  */
 function buildNetPositionSeries(rows: FlowByContractPoint[]): NetPositionRow[] {
   const output: NetPositionRow[] = [];
   forEachBarWithCarry(rows, ({ timestamp, carriedMap }) => {
-    let callPos = 0;
-    let putPos = 0;
+    let callVol = 0;
+    let putVol = 0;
     for (const row of carriedMap.values()) {
-      const v = Number(row.cumulative_net_directional_volume ?? 0);
-      if (!Number.isFinite(v)) continue;
-      if (row.option_type === "C") callPos += v;
-      else if (row.option_type === "P") putPos += v;
+      const isCall = row.option_type === "C";
+      const isPut = row.option_type === "P";
+      const cv = row.cumulative_call_volume != null
+        ? Number(row.cumulative_call_volume)
+        : isCall ? Number(row.cumulative_volume ?? 0) : 0;
+      const pv = row.cumulative_put_volume != null
+        ? Number(row.cumulative_put_volume)
+        : isPut ? Number(row.cumulative_volume ?? 0) : 0;
+      if (Number.isFinite(cv)) callVol += cv;
+      if (Number.isFinite(pv)) putVol += pv;
     }
-    output.push({ timestamp, callPosition: callPos, putPosition: putPos });
+    output.push({ timestamp, callPosition: callVol, putPosition: putVol });
   });
   return output;
 }
@@ -956,7 +962,9 @@ export default function FlowAnalysisPage() {
     return alignPremiumToTimeline(base, sessionTimeline);
   }, [selectedDate, dateScopedContractRows, sessionTimeline]);
 
-  // ── Net Position (Buys vs Sells) from cumulative_net_directional_volume ──
+  // ── Net Position (Buys vs Sells): aggregated cumulative call vs put volume
+  //    across every contract, per 5-minute bar.
+
   const netPositionSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
     const base = buildNetPositionSeries(dateScopedContractRows);
@@ -1338,7 +1346,7 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Position (Buys vs. Sells)"
-          tooltip="Signed directional volume per 5-minute bar, split by option type. Unlike the volume-based Put/Call Ratio (which counts every transaction once), this uses cumulative_net_directional_volume — positive values indicate net buy-to-open pressure, negative values indicate net sell pressure. Lets you distinguish 'buying puts' from 'selling puts'."
+          tooltip="Session-cumulative call volume vs. session-cumulative put volume at each 5-minute bar, aggregated across every contract (Σ cumulative_call_volume and Σ cumulative_put_volume). The raw Put/Call Ratio above compresses both sides into a single ratio; this chart breaks them out as absolute volumes so you can see which side is carrying the activity and how far apart the totals are."
         />
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
@@ -1404,13 +1412,12 @@ export default function FlowAnalysisPage() {
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
                     width={isMobile ? 42 : 62}
+                    domain={[0, "auto"]}
                     tickFormatter={(v) => {
                       const n = Number(v);
-                      const abs = Math.abs(n);
-                      const sign = n < 0 ? "-" : "";
-                      if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
-                      if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K`;
-                      return `${sign}${Math.round(abs)}`;
+                      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+                      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+                      return `${Math.round(n)}`;
                     }}
                   />
                   <Tooltip
@@ -1420,18 +1427,17 @@ export default function FlowAnalysisPage() {
                       return (
                         <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Net Call Position: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
-                          <div>Net Put Position: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
+                          <div>Call Volume: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
+                          <div>Put Volume: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
                         </div>
                       );
                     }}
                   />
                   <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
-                  <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
                   <Line
                     type="monotone"
                     dataKey="callPosition"
-                    name="Net Call Position"
+                    name="Call Volume"
                     stroke="var(--color-positive)"
                     strokeWidth={2}
                     dot={false}
@@ -1440,7 +1446,7 @@ export default function FlowAnalysisPage() {
                   <Line
                     type="monotone"
                     dataKey="putPosition"
-                    name="Net Put Position"
+                    name="Put Volume"
                     stroke="var(--color-negative)"
                     strokeWidth={2}
                     dot={false}
