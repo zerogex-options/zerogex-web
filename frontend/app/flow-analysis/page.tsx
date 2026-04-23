@@ -509,54 +509,33 @@ function FilterRow({
 }
 
 function FlowFilters({
-  typeOptions,
   strikeOptions,
   expirationOptions,
-  selectedTypes,
   selectedStrikes,
   selectedExpirations,
-  onToggleType,
   onToggleStrike,
   onToggleExpiration,
-  onClearTypes,
   onClearStrikes,
   onClearExpirations,
-  onSelectAllTypes,
   onSelectAllStrikes,
   onSelectAllExpirations,
 }: {
-  typeOptions: string[];
   strikeOptions: string[];
   expirationOptions: string[];
-  selectedTypes: Set<string>;
   selectedStrikes: Set<string>;
   selectedExpirations: Set<string>;
-  onToggleType: (v: string) => void;
   onToggleStrike: (v: string) => void;
   onToggleExpiration: (v: string) => void;
-  onClearTypes: () => void;
   onClearStrikes: () => void;
   onClearExpirations: () => void;
-  onSelectAllTypes: () => void;
   onSelectAllStrikes: () => void;
   onSelectAllExpirations: () => void;
 }) {
-  const typeLabelMap: Record<string, string> = { C: "Calls", P: "Puts" };
-
   return (
     <div
       className="mb-4 rounded-lg border p-3 space-y-2.5"
       style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
     >
-      <FilterRow
-        label="Type"
-        options={typeOptions}
-        selected={selectedTypes}
-        onToggle={onToggleType}
-        onSelectAll={onSelectAllTypes}
-        onClear={onClearTypes}
-        renderOption={(v) => typeLabelMap[v] ?? v}
-      />
       <FilterRow
         label="Strike"
         options={strikeOptions}
@@ -910,15 +889,7 @@ export default function FlowAnalysisPage() {
       latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
     }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
 
-  // ── Filters (Type / Strike / Expiration) ──────────────────────────────────
-
-  const typeOptions = useMemo(() => {
-    const set = new Set<string>();
-    dateScopedContractRows.forEach((r) => {
-      if (r.option_type === "C" || r.option_type === "P") set.add(r.option_type);
-    });
-    return Array.from(set).sort();
-  }, [dateScopedContractRows]);
+  // ── Filters (Strike / Expiration) ─────────────────────────────────────────
 
   const strikeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -936,15 +907,10 @@ export default function FlowAnalysisPage() {
     return Array.from(set).sort();
   }, [dateScopedContractRows]);
 
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
 
   // Drop any previously-selected values that no longer appear in the current options
-  const effectiveSelectedTypes = useMemo(
-    () => new Set(typeOptions.filter((v) => selectedTypes.has(v))),
-    [typeOptions, selectedTypes],
-  );
   const effectiveSelectedStrikes = useMemo(
     () => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))),
     [strikeOptions, selectedStrikes],
@@ -956,10 +922,6 @@ export default function FlowAnalysisPage() {
 
   const filteredContractRows = useMemo(() => {
     return dateScopedContractRows.filter((r) => {
-      if (effectiveSelectedTypes.size > 0) {
-        const type = r.option_type ?? "";
-        if (!effectiveSelectedTypes.has(type)) return false;
-      }
       if (effectiveSelectedStrikes.size > 0) {
         if (!effectiveSelectedStrikes.has(String(r.strike ?? ""))) return false;
       }
@@ -968,7 +930,7 @@ export default function FlowAnalysisPage() {
       }
       return true;
     });
-  }, [dateScopedContractRows, effectiveSelectedTypes, effectiveSelectedStrikes, effectiveSelectedExpirations]);
+  }, [dateScopedContractRows, effectiveSelectedStrikes, effectiveSelectedExpirations]);
 
   // ── Options Flow series (filtered) ────────────────────────────────────────
 
@@ -1029,7 +991,6 @@ export default function FlowAnalysisPage() {
     },
     [],
   );
-  const toggleTypes = useMemo(() => makeToggler(setSelectedTypes), [makeToggler]);
   const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
   const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
 
@@ -1054,7 +1015,6 @@ export default function FlowAnalysisPage() {
             value={flowSession}
             onChange={(e) => {
               setFlowSession(e.target.value as "current" | "prior");
-              setSelectedTypes(new Set());
               setSelectedStrikes(new Set());
               setSelectedExpirations(new Set());
             }}
@@ -1135,22 +1095,17 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Options Flow"
-          tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by option type, strike, or expiration."
+          tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration."
         />
         <FlowFilters
-          typeOptions={typeOptions}
           strikeOptions={strikeOptions}
           expirationOptions={expirationOptions}
-          selectedTypes={effectiveSelectedTypes}
           selectedStrikes={effectiveSelectedStrikes}
           selectedExpirations={effectiveSelectedExpirations}
-          onToggleType={toggleTypes}
           onToggleStrike={toggleStrikes}
           onToggleExpiration={toggleExpirations}
-          onClearTypes={() => setSelectedTypes(new Set())}
           onClearStrikes={() => setSelectedStrikes(new Set())}
           onClearExpirations={() => setSelectedExpirations(new Set())}
-          onSelectAllTypes={() => setSelectedTypes(new Set(typeOptions))}
           onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
           onSelectAllExpirations={() => setSelectedExpirations(new Set(expirationOptions))}
         />

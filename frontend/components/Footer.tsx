@@ -38,20 +38,45 @@ function XIcon({ size = 16 }: { size?: number }) {
 }
 
 function SocialLinks({
-  subtext,
-  size = 16,
+  size = 38,
+  iconSize = 18,
   align = 'start',
 }: {
-  subtext: string;
   size?: number;
+  iconSize?: number;
   align?: 'start' | 'end';
 }) {
+  const baseStyle: React.CSSProperties = {
+    width: size,
+    height: size,
+    borderRadius: '50%',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    color: '#ffffff',
+    textDecoration: 'none',
+    transition: 'transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+  };
+
+  const onEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.transform = 'translateY(-1px)';
+    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0, 0, 0, 0.35)';
+    e.currentTarget.style.opacity = '0.92';
+  };
+  const onLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.transform = 'translateY(0)';
+    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.25)';
+    e.currentTarget.style.opacity = '1';
+  };
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
+        gap: 12,
         justifyContent: align === 'end' ? 'flex-end' : 'flex-start',
       }}
     >
@@ -61,33 +86,21 @@ function SocialLinks({
         rel="noreferrer"
         aria-label={`ZeroGEX on X (@${TWITTER_HANDLE})`}
         title={`@${TWITTER_HANDLE}`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          color: subtext,
-          textDecoration: 'none',
-          fontSize: 13,
-        }}
+        style={baseStyle}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
       >
-        <XIcon size={size} />
-        <span>@{TWITTER_HANDLE}</span>
+        <XIcon size={iconSize} />
       </a>
       <a
         href={`mailto:${CONTACT_EMAIL}`}
         aria-label={`Email ZeroGEX at ${CONTACT_EMAIL}`}
         title={CONTACT_EMAIL}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          color: subtext,
-          textDecoration: 'none',
-          fontSize: 13,
-        }}
+        style={baseStyle}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
       >
-        <Mail size={size} />
-        <span>{CONTACT_EMAIL}</span>
+        <Mail size={iconSize} strokeWidth={2.25} />
       </a>
     </div>
   );
@@ -152,7 +165,7 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-            <SocialLinks subtext={subtext} size={16} align="end" />
+            <SocialLinks align="end" />
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, LLC. All rights reserved.
             </p>
@@ -183,7 +196,7 @@ export default function Footer({ theme }: FooterProps) {
             ))}
 
             <div style={{ marginTop: 10 }}>
-              <SocialLinks subtext={subtext} size={14} />
+              <SocialLinks size={34} iconSize={16} />
             </div>
             <p style={{ fontSize: 12, color: subtext, margin: '10px 0 0 0', lineHeight: 1.6 }}>
               Trading involves substantial risk. Past performance is not indicative of future results.

@@ -224,14 +224,26 @@ export default function SmartMoneyPage() {
     });
     const priceByTs = buildUnderlyingPriceMap(byContractRows);
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
-    return sessionTimeline.map((ts) => {
+    // Forward-fill the underlying price across the 1-minute timeline so the
+    // line renders as a continuous series between 5-minute observations.
+    const filledPrices: Array<number | null> = new Array(sessionTimeline.length);
+    let running: number | null = null;
+    for (let i = 0; i < sessionTimeline.length; i += 1) {
+      const observed = priceByTs.get(sessionTimeline[i]);
+      if (observed != null && Number.isFinite(observed)) running = observed;
+      filledPrices[i] = running;
+    }
+    return sessionTimeline.map((ts, idx) => {
       // Sort largest -> smallest so any segment cap trims from the smallest tail.
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
-      const row: Record<string, number | string | null | SmartMoneyBlockMeta> = { timestamp: ts, underlyingPrice: priceByTs.get(ts) ?? null };
-      for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
-        const block = minuteBlocks[idx];
-        row[`block${idx + 1}`] = block?.notionalM ?? 0;
-        row[`blockMeta${idx + 1}`] = block ?? { rowKey: '', contract: '--', flow: 0, notionalM: 0, optionType: '' };
+      const row: Record<string, number | string | null | SmartMoneyBlockMeta> = {
+        timestamp: ts,
+        underlyingPrice: filledPrices[idx],
+      };
+      for (let j = 0; j < maxBlocksPerMinute; j += 1) {
+        const block = minuteBlocks[j];
+        row[`block${j + 1}`] = block?.notionalM ?? 0;
+        row[`blockMeta${j + 1}`] = block ?? { rowKey: '', contract: '--', flow: 0, notionalM: 0, optionType: '' };
       }
       return row;
     });
@@ -388,7 +400,7 @@ export default function SmartMoneyPage() {
                         })}
                       </Bar>
                     ))}
-                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" stroke="var(--color-warning)" dot={false} strokeWidth={2} />
+                    <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
                 </MobileScrollableChart>

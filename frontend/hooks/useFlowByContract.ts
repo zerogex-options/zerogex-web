@@ -40,7 +40,6 @@ interface CacheEntry {
 
 const BAR_MS = 5 * 60_000;
 const DEFAULT_REFRESH_MS = 30_000;
-const MAX_INTERVALS = 120;
 
 const globalCache = new Map<string, CacheEntry>();
 const inflightInitial = new Map<string, Promise<void>>();
@@ -58,7 +57,13 @@ function coerceNumber(value: unknown): unknown {
 function normalizeRow(row: Record<string, unknown>): FlowByContractPoint {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
-    if (k === 'symbol' || k === 'option_type' || k === 'expiration' ||
+    if (k === 'option_type') {
+      // Canonicalize to 'C' or 'P' so downstream comparisons are reliable.
+      const s = typeof v === 'string' ? v.trim().toUpperCase() : '';
+      if (s === 'C' || s === 'CALL' || s === 'CALLS') out[k] = 'C';
+      else if (s === 'P' || s === 'PUT' || s === 'PUTS') out[k] = 'P';
+      else out[k] = s || v;
+    } else if (k === 'symbol' || k === 'expiration' ||
         k === 'timestamp' || k === 'time_window_start' || k === 'time_window_end' ||
         k === 'interval_timestamp') {
       out[k] = v;
@@ -345,6 +350,25 @@ function mergeIncremental(entry: CacheEntry, incoming: FlowByContractPoint[]): C
   return { rows: merged, byKey, lastTimestampMs: lastMs };
 }
 
+/**
+ * True when the cached series has any missing 5-minute bar between its first
+ * and last observed bars. Used to trigger a full-session refetch.
+ */
+function hasInternalBarGaps(rows: FlowByContractPoint[]): boolean {
+  const bars = new Set<number>();
+  for (const row of rows) {
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    const ms = new Date(ts).getTime();
+    if (!Number.isFinite(ms)) continue;
+    bars.add(Math.floor(ms / BAR_MS) * BAR_MS);
+  }
+  if (bars.size < 2) return false;
+  const sorted = Array.from(bars).sort((a, b) => a - b);
+  const expectedCount = Math.round((sorted[sorted.length - 1] - sorted[0]) / BAR_MS) + 1;
+  return sorted.length < expectedCount;
+}
+
 async function fetchByContract(
   symbol: string,
   session: 'current' | 'prior',
@@ -438,24 +462,54 @@ export function useFlowByContractCache(
       }
     };
 
+    const refetchFullSession = async (): Promise<boolean> => {
+      try {
+        const data = await fetchByContract(symbol, session);
+        if (cancelled) return false;
+        globalCache.set(cacheKey, createEntry(data));
+        setRows(data);
+        setError(null);
+        return true;
+      } catch (e) {
+        if (cancelled) return false;
+        setError(e instanceof Error ? e.message : 'Failed to fetch flow data');
+        return false;
+      }
+    };
+
     const runIncremental = async (): Promise<void> => {
       const entry = globalCache.get(cacheKey);
-      if (!entry) return;
+      if (!entry) {
+        await refetchFullSession();
+        return;
+      }
 
-      let intervalsNeeded = 1;
+      // Any gap beyond a single bar -> refetch full session so we backfill
+      // the whole day, not just the tail.
       if (entry.lastTimestampMs != null) {
-        const gapBars = Math.floor((Date.now() - entry.lastTimestampMs) / BAR_MS);
-        if (gapBars > 1) intervalsNeeded = Math.min(gapBars + 1, MAX_INTERVALS);
+        const gapMs = Date.now() - entry.lastTimestampMs;
+        if (gapMs > 2 * BAR_MS) {
+          await refetchFullSession();
+          return;
+        }
       }
 
       try {
-        const incoming = await fetchByContract(symbol, session, intervalsNeeded);
+        const incoming = await fetchByContract(symbol, session, 1);
         if (cancelled) return;
         if (incoming.length === 0) return;
 
         const current = globalCache.get(cacheKey);
         if (!current) return;
         const next = mergeIncremental(current, incoming);
+
+        // If the merge reveals missing bars inside the session, backfill by
+        // fetching the whole thing.
+        if (hasInternalBarGaps(next.rows)) {
+          await refetchFullSession();
+          return;
+        }
+
         globalCache.set(cacheKey, next);
         setRows(next.rows);
         setError(null);
