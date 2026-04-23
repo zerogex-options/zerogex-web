@@ -9,6 +9,12 @@ import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
+import {
+  useFlowByContractCache,
+  buildUnderlyingPriceMap,
+  latestRowDateKey,
+  type FlowByContractPoint,
+} from '@/hooks/useFlowByContract';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
@@ -80,11 +86,6 @@ interface NormalizedSmartMoneyRow extends SmartMoneyRow {
   notionalM: number;
 }
 
-interface SessionFlowPoint {
-  timestamp: string;
-  underlying_price?: number | null;
-}
-
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
 
 const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
@@ -132,17 +133,6 @@ function smartMoneyEffectiveTimestamp(row: SmartMoneyRow): string | null {
   if (!raw) return null;
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-function getETDateKey(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d);
 }
 
 function getDateMarkerMeta(timestamps: string[]) {
@@ -252,27 +242,15 @@ export default function IntradayToolsPage() {
     `/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`,
     { refreshInterval: 10000 }
   );
-  const { data: sessionPriceData } = useApiData<SessionFlowPoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
-    { refreshInterval: 10000 }
-  );
+  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView, { refreshIntervalMs: 30_000 });
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
-  const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&session=${otherSession}`,
-    { refreshInterval: 60000 }
+  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
+    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    { refreshInterval: 60000 },
   );
 
-  const sessionDateLabel = useMemo(() => {
-    if (!sessionPriceData || sessionPriceData.length === 0) return null;
-    const sorted = [...sessionPriceData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return getETDateKey(sorted[0].timestamp) || null;
-  }, [sessionPriceData]);
-
-  const otherSessionDateLabel = useMemo(() => {
-    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
-    const sorted = [...otherSessionProbe].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return getETDateKey(sorted[0].timestamp) || null;
-  }, [otherSessionProbe]);
+  const sessionDateLabel = useMemo(() => latestRowDateKey(byContractRows), [byContractRows]);
+  const otherSessionDateLabel = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
 
   const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
   const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
@@ -332,8 +310,8 @@ export default function IntradayToolsPage() {
 
   const smartMoneySessionChart = useMemo(() => {
     const rows = filteredSmartMoneyData;
-    const priceRows = sessionPriceData || [];
-    if (rows.length === 0 && priceRows.length === 0) return [];
+    const priceByTs = buildUnderlyingPriceMap(byContractRows);
+    if (rows.length === 0 && priceByTs.size === 0) return [];
 
     const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string; optionType: string }>>();
     rows.forEach((row) => {
@@ -342,13 +320,6 @@ export default function IntradayToolsPage() {
       const blocks = blocksByTs.get(ts) ?? [];
       blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey, optionType: String(row.option_type || '').toLowerCase() });
       blocksByTs.set(ts, blocks);
-    });
-
-    const priceByTs = new Map<string, number>();
-    priceRows.forEach((row) => {
-      const ts = normalizeToMinute(row.timestamp);
-      if (!ts || row.underlying_price == null) return;
-      priceByTs.set(ts, Number(row.underlying_price));
     });
 
     const allTs = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
@@ -372,7 +343,7 @@ export default function IntradayToolsPage() {
       }
       return row;
     });
-  }, [sessionPriceData, filteredSmartMoneyData]);
+  }, [byContractRows, filteredSmartMoneyData]);
 
   const maxStackSegments = useMemo(() => {
     const raw = smartMoneySessionChart.reduce((max, row) => {

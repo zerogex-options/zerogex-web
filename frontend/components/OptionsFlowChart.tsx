@@ -2,7 +2,11 @@
 
 import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useOptionFlow } from '@/hooks/useApiData';
+import {
+  useFlowByContractCache,
+  flowRowTimestamp,
+  type FlowByContractPoint,
+} from '@/hooks/useFlowByContract';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { colors } from '@/core/colors';
@@ -11,11 +15,28 @@ import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import { useMemo } from 'react';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { omitClosedMarketTimes, normalizeToMinute } from '@/core/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 function toTime(ts: string) {
   return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' });
+}
+
+interface FlowChartRow { timestamp: string; time: string; calls: number; puts: number }
+
+function aggregateFlow(rows: FlowByContractPoint[]): FlowChartRow[] {
+  const grouped = new Map<string, { calls: number; puts: number }>();
+  rows.forEach((row) => {
+    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
+    if (!ts) return;
+    const current = grouped.get(ts) ?? { calls: 0, puts: 0 };
+    current.calls += Number(row.cumulative_call_premium ?? 0) / 1_000_000;
+    current.puts += Number(row.cumulative_put_premium ?? 0) / 1_000_000;
+    grouped.set(ts, current);
+  });
+  return Array.from(grouped.entries())
+    .map(([timestamp, value]) => ({ timestamp, time: toTime(timestamp), calls: value.calls, puts: value.puts }))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
 export default function OptionsFlowChart() {
@@ -24,21 +45,12 @@ export default function OptionsFlowChart() {
   const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
 
-  // Fetch the current trading session.
-  const { data: flowData, loading, error } = useOptionFlow(symbol, 'current', 5000);
+  const { rows: flowRows, loading, error } = useFlowByContractCache(symbol, 'current', { refreshIntervalMs: 30_000 });
 
   const chartData = useMemo(() => {
-    const rows = (flowData || [])
-      .map((row) => ({
-        timestamp: row.timestamp,
-        time: toTime(row.timestamp),
-        calls: Number(row.call_premium || 0) / 1_000_000,
-        puts: Number(row.put_premium || 0) / 1_000_000,
-      }))
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-    return omitClosedMarketTimes(rows, (row) => row.timestamp).slice(-maxPoints);
-  }, [flowData, maxPoints]);
+    const aggregated = aggregateFlow(flowRows ?? []);
+    return omitClosedMarketTimes(aggregated, (row) => row.timestamp).slice(-maxPoints);
+  }, [flowRows, maxPoints]);
 
   const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
 
@@ -54,7 +66,7 @@ export default function OptionsFlowChart() {
       <div className="rounded-lg p-6" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
         <div className="flex items-center gap-2 mb-4">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>Options Notional Flow by Type</h3>
-          <TooltipWrapper text="Polled from /api/flow/by-type across the selected timeframe and 90 units window."><Info size={14} /></TooltipWrapper>
+          <TooltipWrapper text="Aggregated from the by-contract cache: sum of cumulative call premium and cumulative put premium across every contract per 5-minute interval."><Info size={14} /></TooltipWrapper>
         </div>
 
         <div className="overflow-x-auto">

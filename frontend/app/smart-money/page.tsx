@@ -4,6 +4,12 @@ import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
+import {
+  useFlowByContractCache,
+  buildUnderlyingPriceMap,
+  latestRowDateKey,
+  type FlowByContractPoint,
+} from '@/hooks/useFlowByContract';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
@@ -34,7 +40,6 @@ interface SmartMoneyRow {
   time_window_end?: string;
   interval_timestamp?: string | null;
 }
-interface SessionFlowPoint { timestamp: string; underlying_price?: number | null; }
 interface NormalizedSmartMoneyRow extends SmartMoneyRow { rowKey: string; minuteTimestamp: string | null; notionalM: number; absNotional: number; }
 interface SmartMoneyBlockMeta {
   rowKey: string;
@@ -141,20 +146,15 @@ export default function SmartMoneyPage() {
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
-  const { data: sessionPriceDataRaw, error: sessionPriceError } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}`, { refreshInterval: 10000 });
-  const { data: sessionPriceDataNoSession } = useApiData<SessionFlowPoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&session=${sessionView}`,
-    { refreshInterval: 10000, enabled: Boolean(sessionPriceError) }
-  );
-  const sessionPriceData = useMemo(
-    () => sessionPriceDataRaw || sessionPriceDataNoSession || [],
-    [sessionPriceDataRaw, sessionPriceDataNoSession]
-  );
+  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView, { refreshIntervalMs: 30_000 });
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
-  const { data: otherSessionProbe } = useApiData<SessionFlowPoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${otherSession}`, { refreshInterval: 60000 });
+  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
+    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    { refreshInterval: 60000 },
+  );
 
-  const sessionDateLabel = useMemo(() => sessionPriceData?.length ? getETDateKey(latestTimestamp(sessionPriceData.map((row) => row.timestamp))) : null, [sessionPriceData]);
-  const otherSessionDateLabel = useMemo(() => otherSessionProbe?.length ? getETDateKey(latestTimestamp(otherSessionProbe.map((row) => row.timestamp))) : null, [otherSessionProbe]);
+  const sessionDateLabel = useMemo(() => latestRowDateKey(byContractRows), [byContractRows]);
+  const otherSessionDateLabel = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
   const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
   const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
@@ -182,13 +182,13 @@ export default function SmartMoneyPage() {
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => normalizedSmartMoneyRows.filter((row) => matchesMinClass(row.absNotional, minClass)), [normalizedSmartMoneyRows, minClass]);
 
   const sessionDateKey = useMemo(() => {
-    const candidates = [
-      ...(sessionPriceData || []).map((row) => row.timestamp),
-      ...filteredSmartMoneyData.map((row) => row.minuteTimestamp || row.timestamp || ''),
-    ].filter(Boolean);
+    if (sessionDateLabel) return sessionDateLabel;
+    const candidates = filteredSmartMoneyData
+      .map((row) => row.minuteTimestamp || row.timestamp || '')
+      .filter(Boolean);
     if (!candidates.length) return null;
     return getETDateKey(latestTimestamp(candidates));
-  }, [sessionPriceData, filteredSmartMoneyData]);
+  }, [sessionDateLabel, filteredSmartMoneyData]);
 
   const sessionTimeline = useMemo(
     () => (sessionDateKey ? extendTimelineToSessionClose(getSessionTimestamps(sessionDateKey), sessionDateKey) : []),
@@ -222,8 +222,7 @@ export default function SmartMoneyPage() {
       });
       blocksByTs.set(row.minuteTimestamp, blocks);
     });
-    const priceByTs = new Map<string, number>();
-    (sessionPriceData || []).forEach((row) => { const ts = normalizeToMinute(row.timestamp); if (ts && row.underlying_price != null) priceByTs.set(ts, Number(row.underlying_price)); });
+    const priceByTs = buildUnderlyingPriceMap(byContractRows);
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
     return sessionTimeline.map((ts) => {
       // Sort largest -> smallest so any segment cap trims from the smallest tail.
@@ -236,7 +235,7 @@ export default function SmartMoneyPage() {
       }
       return row;
     });
-  }, [sessionPriceData, filteredSmartMoneyData, sessionTimeline]);
+  }, [byContractRows, filteredSmartMoneyData, sessionTimeline]);
 
   const maxStackSegments = useMemo(
     () => Math.min(

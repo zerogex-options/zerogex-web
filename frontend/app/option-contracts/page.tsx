@@ -11,7 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useApiData, useMarketQuote, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
+import { useMarketQuote, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
+import { useFlowByContractCache } from "@/hooks/useFlowByContract";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
@@ -21,27 +22,6 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { normalizeToMinute } from "@/core/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-interface FlowByExpirationPoint {
-  timestamp?: string;
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  expiration: string;
-  dte?: number;
-  volume?: number;
-  total_volume?: number;
-}
-
-interface FlowByStrikePoint {
-  timestamp?: string;
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  strike: number | string;
-  volume?: number;
-  total_volume?: number;
-}
 
 interface ChartRow {
   timestamp: string;
@@ -595,63 +575,41 @@ export default function OptionContractsPage() {
 
   const { data: quoteData } = useMarketQuote(symbol, 1000);
 
-  // ── Fetch available expirations / strikes from current session flow data
-  const { data: expirationDataSession, error: expirationErrorSession, loading: expirationLoading } =
-    useApiData<FlowByExpirationPoint[]>(
-      `/api/flow/by-expiration?symbol=${symbol}&session=current&limit=500`,
-      { refreshInterval: 60000 },
-    );
-  const { data: expirationDataNoSession, error: expirationErrorNoSession } =
-    useApiData<FlowByExpirationPoint[]>(
-      `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
-      {
-        refreshInterval: 60000,
-        enabled: Boolean(expirationErrorSession) || (!expirationLoading && (expirationDataSession?.length ?? 0) === 0),
-      },
-    );
+  // ── Fetch available expirations / strikes from the shared by-contract cache
+  const {
+    rows: byContractRows,
+    loading: byContractLoading,
+    error: byContractError,
+  } = useFlowByContractCache(symbol, "current", { refreshIntervalMs: 60_000 });
 
-  const { data: strikeDataSession, error: strikeErrorSession, loading: strikeLoading } =
-    useApiData<FlowByStrikePoint[]>(
-      `/api/flow/by-strike?symbol=${symbol}&session=current&limit=500`,
-      { refreshInterval: 60000 },
-    );
-  const { data: strikeDataNoSession, error: strikeErrorNoSession } =
-    useApiData<FlowByStrikePoint[]>(
-      `/api/flow/by-strike?symbol=${symbol}&limit=500`,
-      {
-        refreshInterval: 60000,
-        enabled: Boolean(strikeErrorSession) || (!strikeLoading && (strikeDataSession?.length ?? 0) === 0),
-      },
-    );
-
-  const expirationData = expirationDataSession || expirationDataNoSession;
-  const strikeData = strikeDataSession || strikeDataNoSession;
-  const expirationError = expirationErrorSession && expirationErrorNoSession ? expirationErrorSession : null;
-  const strikeError = strikeErrorSession && strikeErrorNoSession ? strikeErrorSession : null;
+  const expirationLoading = byContractLoading && !byContractRows;
+  const strikeLoading = expirationLoading;
+  const expirationError = byContractError && (!byContractRows || byContractRows.length === 0) ? byContractError : null;
+  const strikeError = expirationError;
 
   // ── Derive available expirations (active only — expire today or later)
   const expirationOptions = useMemo(() => {
-    if (!expirationData) return [];
+    if (!byContractRows) return [];
     const todayKey = getCurrentETDateKey();
     return Array.from(
       new Set(
-        expirationData
-          .map((r) => r.expiration)
-          .filter((exp) => isActiveExpiration(exp, todayKey)),
+        byContractRows
+          .map((r) => r.expiration ?? "")
+          .filter((exp) => exp && isActiveExpiration(exp, todayKey)),
       ),
     ).sort();
-  }, [expirationData]);
+  }, [byContractRows]);
 
   const strikeOptions = useMemo(() => {
-    if (!strikeData) return [];
+    if (!byContractRows) return [];
     return Array.from(
       new Set(
-        strikeData
+        byContractRows
           .map((r) => (r.strike == null ? "" : String(r.strike).trim()))
           .filter((s) => s.length > 0 && !Number.isNaN(Number(s))),
       ),
     ).sort((a, b) => Number(a) - Number(b));
-  }, [strikeData]);
+  }, [byContractRows]);
 
   const defaultExpiration = useMemo(() => {
     const todayKey = getCurrentETDateKey();

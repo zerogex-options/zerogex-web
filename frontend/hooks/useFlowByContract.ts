@@ -20,6 +20,18 @@ export interface FlowByContractPoint {
   underlying_price?: number | string | null;
 }
 
+export interface FlowSnapshot {
+  timestamp: string;
+  callVolume: number;
+  putVolume: number;
+  callPremium: number;
+  putPremium: number;
+  netFlow: number;
+  netPremium: number;
+  putCallRatio: number;
+  underlyingPrice: number | null;
+}
+
 interface CacheEntry {
   rows: FlowByContractPoint[];
   byKey: Map<string, number>;
@@ -57,7 +69,7 @@ function normalizeRow(row: Record<string, unknown>): FlowByContractPoint {
   return out as FlowByContractPoint;
 }
 
-function rowTimestamp(row: FlowByContractPoint): string | null {
+export function flowRowTimestamp(row: FlowByContractPoint): string | null {
   return (
     row.timestamp ||
     row.time_window_end ||
@@ -65,6 +77,145 @@ function rowTimestamp(row: FlowByContractPoint): string | null {
     row.time_window_start ||
     null
   );
+}
+
+const rowTimestamp = flowRowTimestamp;
+
+function normalizeToMinuteIso(ts: string): string | null {
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
+}
+
+function getETDateKey(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+/** Returns the ISO timestamp of the most recent row, or null. */
+export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefined): string | null {
+  if (!rows || rows.length === 0) return null;
+  let latestTs: string | null = null;
+  let latestMs = -Infinity;
+  for (const row of rows) {
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    const ms = new Date(ts).getTime();
+    if (Number.isFinite(ms) && ms > latestMs) {
+      latestMs = ms;
+      latestTs = ts;
+    }
+  }
+  return latestTs;
+}
+
+/** Returns the ET date key (YYYY-MM-DD) of the most recent row, or null. */
+export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined): string | null {
+  const ts = latestRowTimestamp(rows);
+  if (!ts) return null;
+  const key = getETDateKey(ts);
+  return key || null;
+}
+
+/**
+ * Aggregates the latest 5-minute bar of the by-contract rows into a session
+ * snapshot (totals across every contract). When dateKey is provided only rows
+ * in that ET session are considered.
+ */
+export function computeFlowSnapshot(
+  rows: FlowByContractPoint[] | null | undefined,
+  dateKey?: string,
+): FlowSnapshot | null {
+  if (!rows || rows.length === 0) return null;
+
+  const scoped = dateKey
+    ? rows.filter((r) => {
+        const ts = rowTimestamp(r);
+        return ts ? getETDateKey(ts) === dateKey : false;
+      })
+    : rows;
+  if (scoped.length === 0) return null;
+
+  const latestTs = latestRowTimestamp(scoped);
+  if (!latestTs) return null;
+  const latestMinute = normalizeToMinuteIso(latestTs);
+
+  let callVolume = 0;
+  let putVolume = 0;
+  let callPremium = 0;
+  let putPremium = 0;
+  let netFlow = 0;
+  let netPremium = 0;
+  let underlyingPrice: number | null = null;
+
+  for (const row of scoped) {
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    if (normalizeToMinuteIso(ts) !== latestMinute) continue;
+
+    const isCall = row.option_type === 'C';
+    const isPut = row.option_type === 'P';
+    const rowCallVol =
+      row.cumulative_call_volume != null
+        ? Number(row.cumulative_call_volume)
+        : isCall
+          ? Number(row.cumulative_volume ?? 0)
+          : 0;
+    const rowPutVol =
+      row.cumulative_put_volume != null
+        ? Number(row.cumulative_put_volume)
+        : isPut
+          ? Number(row.cumulative_volume ?? 0)
+          : 0;
+    if (Number.isFinite(rowCallVol)) callVolume += rowCallVol;
+    if (Number.isFinite(rowPutVol)) putVolume += rowPutVol;
+    callPremium += Number(row.cumulative_call_premium ?? 0);
+    putPremium += Number(row.cumulative_put_premium ?? 0);
+    netFlow += Number(row.cumulative_net_volume ?? 0);
+    netPremium += Number(row.cumulative_net_premium ?? 0);
+    if (underlyingPrice === null && row.underlying_price != null) {
+      const u = Number(row.underlying_price);
+      if (Number.isFinite(u)) underlyingPrice = u;
+    }
+  }
+
+  return {
+    timestamp: latestTs,
+    callVolume,
+    putVolume,
+    callPremium,
+    putPremium,
+    netFlow,
+    netPremium,
+    putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
+    underlyingPrice,
+  };
+}
+
+/**
+ * Returns a Map keyed by minute-floored ISO timestamp -> underlying_price.
+ * When multiple contracts report a price for the same interval, the first
+ * finite value wins (all contracts carry the same underlying per interval).
+ */
+export function buildUnderlyingPriceMap(rows: FlowByContractPoint[] | null | undefined): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!rows) return out;
+  for (const row of rows) {
+    if (row.underlying_price == null) continue;
+    const ts = rowTimestamp(row);
+    if (!ts) continue;
+    const minute = normalizeToMinuteIso(ts);
+    if (!minute || out.has(minute)) continue;
+    const u = Number(row.underlying_price);
+    if (Number.isFinite(u)) out.set(minute, u);
+  }
+  return out;
 }
 
 function rowKey(row: FlowByContractPoint): string | null {

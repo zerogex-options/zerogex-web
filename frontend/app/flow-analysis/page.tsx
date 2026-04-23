@@ -16,7 +16,13 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData } from "@/hooks/useApiData";
-import { useFlowByContractCache, type FlowByContractPoint } from "@/hooks/useFlowByContract";
+import {
+  useFlowByContractCache,
+  computeFlowSnapshot,
+  flowRowTimestamp,
+  latestRowDateKey,
+  type FlowByContractPoint,
+} from "@/hooks/useFlowByContract";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
@@ -26,27 +32,6 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { normalizeToMinute, getSessionTimestamps } from "@/core/utils";
-
-// ── API shape ─────────────────────────────────────────────────────────────────
-
-interface FlowByTypePoint {
-  timestamp: string;
-  call_volume: number;
-  call_premium: number;
-  put_volume: number;
-  put_premium: number;
-  net_volume: number;
-  net_premium: number;
-  cumulative_call_volume?: number | string;
-  cumulative_put_volume?: number | string;
-  cumulative_call_premium?: number | string;
-  cumulative_put_premium?: number | string;
-  cumulative_net_volume?: number | string;
-  cumulative_net_directional_volume?: number | string;
-  cumulative_net_premium?: number | string;
-  running_put_call_ratio?: number | string;
-  underlying_price?: number | null;
-}
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -113,15 +98,6 @@ function getETDateKey(ts: string): string {
 
 function getCurrentETDateKey(): string {
   return getETDateKey(new Date().toISOString());
-}
-
-function flowRowTimestamp(row: {
-  timestamp?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  time_window_start?: string;
-}): string | null {
-  return row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || null;
 }
 
 function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
@@ -838,62 +814,28 @@ export default function FlowAnalysisPage() {
     "cumulative_net_directional_volume",
   );
 
-  // ── Flow Snapshot is still served by the lightweight by-type endpoint ─────
-  const {
-    data: flowByType,
-    loading: flowByTypeLoading,
-    error: flowByTypeError,
-  } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&session=${flowSession}`,
-    { refreshInterval: 30000 },
-  );
-
-  // Probe the other session to get its date for the dropdown label
-  const otherSession = flowSession === "current" ? "prior" : "current";
-  const { data: otherSessionProbe } = useApiData<FlowByTypePoint[]>(
-    `/api/flow/by-type?symbol=${symbol}&session=${otherSession}`,
-    { refreshInterval: 60000 },
-  );
-  const otherSessionDate = useMemo(() => {
-    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
-    const sorted = [...otherSessionProbe].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-    return getETDateKey(sorted[0].timestamp) || null;
-  }, [otherSessionProbe]);
-
-  // ── Options Flow / Net Directional Premium / Put-Call Ratio all share this cache
+  // ── Options Flow / Snapshot / Net Directional Premium / Put-Call Ratio
+  //    all derive from this shared cache of per-contract 5-minute rows.
   const {
     rows: flowByContract,
-    loading: flowByContractLoading,
-    error: flowByContractError,
+    loading: flowLoading,
+    error: flowError,
   } = useFlowByContractCache(symbol, flowSession, { refreshIntervalMs: 30_000 });
 
-  const flowLoading = flowByTypeLoading || flowByContractLoading;
-  const flowError = flowByTypeError || flowByContractError;
+  // A cheap intervals=1 probe of the other session just to read its ET date
+  // for the session dropdown label. Avoids a full-session fetch on mount.
+  const otherSession = flowSession === "current" ? "prior" : "current";
+  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
+    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    { refreshInterval: 60000 },
+  );
+  const otherSessionDate = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
 
-  // ── Derive the session date ───────────────────────────────────────────────
-  const selectedDate = useMemo(() => {
-    const pickLatest = (rows: Array<{ timestamp?: string }>): string | null => {
-      let latest: string | null = null;
-      for (const r of rows) {
-        const ts = typeof r.timestamp === "string" ? r.timestamp : null;
-        if (!ts) continue;
-        if (!latest || new Date(ts).getTime() > new Date(latest).getTime()) latest = ts;
-      }
-      return latest;
-    };
-
-    const fromContract = flowByContract
-      ? pickLatest(flowByContract.map((r) => ({ timestamp: flowRowTimestamp(r) ?? undefined })))
-      : null;
-    if (fromContract) return getETDateKey(fromContract) || getCurrentETDateKey();
-
-    const fromType = flowByType ? pickLatest(flowByType) : null;
-    if (fromType) return getETDateKey(fromType) || getCurrentETDateKey();
-
-    return getCurrentETDateKey();
-  }, [flowByContract, flowByType]);
+  // ── Derive the session date from cache ────────────────────────────────────
+  const selectedDate = useMemo(
+    () => latestRowDateKey(flowByContract) || getCurrentETDateKey(),
+    [flowByContract],
+  );
 
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
@@ -913,31 +855,12 @@ export default function FlowAnalysisPage() {
     });
   }, [flowByContract, selectedDate]);
 
-  // ── Snapshot (most recent row's cumulative values) ──────────────────────────
+  // ── Snapshot (aggregated across every contract at the latest 5-min bar) ─
 
-  const latestSnapshot = useMemo(() => {
-    if (!selectedDate || !flowByType || flowByType.length === 0) return null;
-    const dateRows = flowByType.filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    if (dateRows.length === 0) return null;
-
-    const latest = [...dateRows].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    )[0];
-
-    const callVolume = Number(latest.cumulative_call_volume || 0);
-    const putVolume = Number(latest.cumulative_put_volume || 0);
-
-    return {
-      timestamp: latest.timestamp,
-      callVolume,
-      putVolume,
-      callPremium: Number(latest.cumulative_call_premium || 0),
-      putPremium: Number(latest.cumulative_put_premium || 0),
-      netFlow: Number(latest.cumulative_net_volume || 0),
-      netPremium: Number(latest.cumulative_net_premium || 0),
-      putCallRatio: Number(latest.running_put_call_ratio || 0),
-    };
-  }, [selectedDate, flowByType]);
+  const latestSnapshot = useMemo(
+    () => computeFlowSnapshot(flowByContract, selectedDate),
+    [flowByContract, selectedDate],
+  );
   const flowTone: 'bullish' | 'bearish' | 'neutral' = !latestSnapshot
     ? 'neutral'
     : (Math.abs(latestSnapshot.netPremium) < 250_000 && Math.abs(latestSnapshot.netFlow) < 10_000)
@@ -1064,12 +987,12 @@ export default function FlowAnalysisPage() {
   const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
   const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
 
-  if (flowLoading && !flowByType && !flowByContract) return <LoadingSpinner size="lg" />;
+  if (flowLoading && !flowByContract) return <LoadingSpinner size="lg" />;
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
-      {flowError && <ErrorMessage message={flowError} />}
+      {flowError && !flowByContract && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
         title="Flow Analysis Regime"
         badge={flowBadge}
@@ -1168,7 +1091,6 @@ export default function FlowAnalysisPage() {
           title="Options Flow"
           tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by option type, strike, or expiration."
         />
-        {flowByContractError && <ErrorMessage message={flowByContractError} />}
         <FlowFilters
           typeOptions={typeOptions}
           strikeOptions={strikeOptions}

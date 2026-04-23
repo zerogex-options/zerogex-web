@@ -446,22 +446,6 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   return useApiData<MarketQuoteRow>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
 }
 
-export interface FlowByTypePoint {
-  timestamp: string;
-  symbol: string;
-  call_volume: number;
-  call_premium: number;
-  put_volume: number;
-  put_premium: number;
-  net_volume: number;
-  net_premium: number;
-  underlying_price?: number | null;
-}
-
-export function useOptionFlow(symbol = 'SPY', session: 'current' | 'prior' = 'current', refreshInterval = 5000) {
-  return useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=${session}`, { refreshInterval });
-}
-
 export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current' | 'prior' = 'current', refreshInterval = 10000) {
   return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${session}&limit=${limit}`, { refreshInterval });
 }

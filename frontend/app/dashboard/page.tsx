@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useFlowByContractCache, computeFlowSnapshot } from '@/hooks/useFlowByContract';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -73,13 +74,6 @@ function getTradePnl(row: Record<string, unknown>): number {
   return realized + unrealized;
 }
 
-interface FlowByTypePoint {
-  timestamp: string;
-  cumulative_net_volume?: number | string;
-  cumulative_net_premium?: number | string;
-  running_put_call_ratio?: number | string;
-}
-
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -92,7 +86,9 @@ export default function DashboardPage() {
   const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
   const { data: volExpansionData } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
-  const { data: flowByTypeData } = useApiData<FlowByTypePoint[]>(`/api/flow/by-type?symbol=${symbol}&session=current`, { refreshInterval: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs });
+  const { rows: flowByContractRows } = useFlowByContractCache(symbol, 'current', {
+    refreshIntervalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
+  });
 
   const liveRows = toRows(tradesData);
   const historyRows = toRows(tradesHistoryData);
@@ -140,16 +136,7 @@ export default function DashboardPage() {
     sessionCloses: sessionClosesData,
   });
 
-  const latestFlowSnapshot = (() => {
-    if (!flowByTypeData?.length) return null;
-    const sorted = [...flowByTypeData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    const latest = sorted[0];
-    return {
-      netFlow: Number(latest.cumulative_net_volume ?? 0),
-      netPremium: Number(latest.cumulative_net_premium ?? 0),
-      putCallRatio: Number(latest.running_put_call_ratio ?? 0),
-    };
-  })();
+  const latestFlowSnapshot = computeFlowSnapshot(flowByContractRows);
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {

@@ -50,20 +50,6 @@ export const gexAPI = {
  */
 export const flowAPI = {
   /**
-   * Get latest option flow by type (calls vs puts)
-   */
-  getByType: async (): Promise<OptionFlow[]> => {
-    return apiClient.get<OptionFlow[]>('/api/flow/by-type');
-  },
-
-  /**
-   * Get option flow by strike
-   */
-  getByStrike: async (symbol: string = 'SPY'): Promise<OptionFlow[]> => {
-    return apiClient.get<OptionFlow[]>(`/api/flow/by-strike?symbol=${symbol}`);
-  },
-
-  /**
    * Get smart money flow (unusual activity)
    */
   getSmartMoney: async (): Promise<OptionFlow[]> => {
