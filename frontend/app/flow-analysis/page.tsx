@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import {
   Area,
-  CartesianGrid,
   ComposedChart,
   Legend,
   Line,
@@ -19,12 +18,12 @@ import { useApiData } from "@/hooks/useApiData";
 import {
   useFlowByContractCache,
   computeFlowSnapshot,
+  etDateKeyFor,
   flowRowTimestamp,
   forEachBar,
   latestRowDateKey,
   type FlowByContractPoint,
 } from "@/hooks/useFlowByContract";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
@@ -90,19 +89,8 @@ function buildNetDirectionalPremiumSeries(rows: FlowByContractPoint[]): NetDirec
 
 // ── Date / session helpers ────────────────────────────────────────────────────
 
-function getETDateKey(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
 function getCurrentETDateKey(): string {
-  return getETDateKey(new Date().toISOString());
+  return etDateKeyFor(new Date().toISOString());
 }
 
 function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
@@ -213,18 +201,17 @@ export type NetVolumeMode = "raw" | "directional";
 
 /**
  * Builds the Options Flow chart series from per-bar rows by accumulating:
- *   callPremium(T) = Σ (per-bar net_premium or raw_premium) for calls up to T
- *   putPremium(T)  = Σ (per-bar net_premium or raw_premium) for puts up to T
- *   netVolume(T)   = Σ (per-bar net_volume or raw_volume) all contracts up to T
+ *   callPremium(T) = Σ net_premium for calls up to T
+ *   putPremium(T)  = Σ net_premium for puts up to T
+ *   netVolume(T)   = Σ (per-bar raw_volume or net_volume) for all contracts up to T
  *   underlyingPrice(T) = latest observed underlying_price at or before T
- * In directional mode the premium uses net_premium (signed by trade direction).
- * In raw mode the premium uses raw_premium (gross transacted dollars).
+ * The Net Put/Call Premium lines always use net_premium. The Net Volume
+ * area toggles between raw_volume (Raw mode) and net_volume (Directional).
  */
 function buildFlowTimeseries(
   rows: FlowByContractPoint[],
   mode: NetVolumeMode,
 ): TimeseriesRow[] {
-  const premiumField = mode === "raw" ? "raw_premium" : "net_premium";
   const volumeField = mode === "raw" ? "raw_volume" : "net_volume";
 
   const output: TimeseriesRow[] = [];
@@ -235,7 +222,7 @@ function buildFlowTimeseries(
 
   forEachBar(rows, ({ timestamp, rows: barRows }) => {
     for (const row of barRows) {
-      const prem = Number(row[premiumField] ?? 0);
+      const prem = Number(row.net_premium ?? 0);
       const vol = Number(row[volumeField] ?? 0);
       if (Number.isFinite(prem)) {
         if (row.option_type === "C") cumCallPremium += prem;
@@ -403,6 +390,37 @@ function getDateMarkerMeta(timestamps: string[]) {
   return indexToLabel;
 }
 
+// ── Gridline helper ──────────────────────────────────────────────────────────
+
+const GRID_STROKE_DASHARRAY = "2 4";
+const GRID_OPACITY = 0.28;
+
+/**
+ * Returns an array of ReferenceLine elements, one vertical dotted line at
+ * each 30-minute boundary in the provided series. Used by every chart on
+ * the page for a consistent dotted-gridline look that lines up with the
+ * time labels.
+ */
+function buildThirtyMinGridlines<T extends { timestamp: string }>(
+  data: T[],
+  stroke: string,
+  keyPrefix: string,
+  yAxisId?: string,
+) {
+  return data
+    .filter((row) => is30MinBoundary(row.timestamp))
+    .map((row) => (
+      <ReferenceLine
+        key={`${keyPrefix}-${row.timestamp}`}
+        x={row.timestamp}
+        {...(yAxisId ? { yAxisId } : {})}
+        stroke={stroke}
+        strokeDasharray={GRID_STROKE_DASHARRAY}
+        opacity={GRID_OPACITY}
+      />
+    ));
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
@@ -557,7 +575,6 @@ function FlowFilters({
 }
 
 function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[]; isDark: boolean; isMobile: boolean }) {
-  const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
 
   if (rows.length === 0) {
@@ -606,7 +623,6 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
       <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
       <ResponsiveContainer width="100%" height="62%">
         <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.25} />
           <XAxis
             dataKey="timestamp"
             stroke={axisStroke}
@@ -659,6 +675,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             }}
           />
           <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
+          {buildThirtyMinGridlines(rows, axisStroke, "flow-top", "premium")}
           <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
           <Line
             yAxisId="price"
@@ -695,7 +712,6 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
 
       <ResponsiveContainer width="100%" height="38%">
         <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.2} vertical={false} />
           <XAxis
             dataKey="timestamp"
             stroke={axisStroke}
@@ -773,6 +789,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               );
             }}
           />
+          {buildThirtyMinGridlines(rows, axisStroke, "flow-bottom", "volume")}
           <ReferenceLine yAxisId="volume" y={0} stroke={axisStroke} opacity={0.6} />
           <Area
             yAxisId="volume"
@@ -827,7 +844,6 @@ export default function FlowAnalysisPage() {
   //    all derive from this shared cache of per-contract 5-minute rows.
   const {
     rows: flowByContract,
-    loading: flowLoading,
     error: flowError,
   } = useFlowByContractCache(symbol, flowSession);
 
@@ -860,7 +876,7 @@ export default function FlowAnalysisPage() {
     if (!flowByContract || !selectedDate) return [] as FlowByContractPoint[];
     return flowByContract.filter((r) => {
       const ts = flowRowTimestamp(r);
-      return ts ? getETDateKey(ts) === selectedDate : false;
+      return ts ? etDateKeyFor(ts) === selectedDate : false;
     });
   }, [flowByContract, selectedDate]);
 
@@ -993,8 +1009,6 @@ export default function FlowAnalysisPage() {
   );
   const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
   const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
-
-  if (flowLoading && !flowByContract) return <LoadingSpinner size="lg" />;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1166,16 +1180,7 @@ export default function FlowAnalysisPage() {
                       return `$${Math.round(n)}`;
                     }}
                   />
-                  {directionalPremiumSeries
-                    .filter((row) => is30MinBoundary(row.timestamp))
-                    .map((row) => (
-                      <ReferenceLine
-                        key={`premium-v-${row.timestamp}`}
-                        x={row.timestamp}
-                        stroke={axisStroke}
-                        opacity={0.18}
-                      />
-                    ))}
+                  {buildThirtyMinGridlines(directionalPremiumSeries, axisStroke, "directional-premium")}
                   <Tooltip
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
@@ -1270,16 +1275,7 @@ export default function FlowAnalysisPage() {
                       );
                     }}
                   />
-                  {putCallRatioSeries
-                    .filter((row) => is30MinBoundary(row.timestamp))
-                    .map((row) => (
-                      <ReferenceLine
-                        key={`pcr-v-${row.timestamp}`}
-                        x={row.timestamp}
-                        stroke={axisStroke}
-                        opacity={0.18}
-                      />
-                    ))}
+                  {buildThirtyMinGridlines(putCallRatioSeries, axisStroke, "pcr")}
                   <YAxis
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
@@ -1350,7 +1346,6 @@ export default function FlowAnalysisPage() {
                   data={netPositionSeries}
                   margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "var(--color-text-secondary)" : "var(--color-border)"} opacity={0.25} />
                   <XAxis
                     dataKey="timestamp"
                     stroke={axisStroke}
@@ -1389,16 +1384,7 @@ export default function FlowAnalysisPage() {
                       );
                     }}
                   />
-                  {netPositionSeries
-                    .filter((row) => is30MinBoundary(row.timestamp))
-                    .map((row) => (
-                      <ReferenceLine
-                        key={`np-v-${row.timestamp}`}
-                        x={row.timestamp}
-                        stroke={axisStroke}
-                        opacity={0.18}
-                      />
-                    ))}
+                  {buildThirtyMinGridlines(netPositionSeries, axisStroke, "net-position")}
                   <YAxis
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}

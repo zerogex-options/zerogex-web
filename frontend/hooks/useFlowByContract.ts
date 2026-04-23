@@ -43,11 +43,40 @@ interface CacheEntry {
 }
 
 const BAR_MS = 5 * 60_000;
-const DEFAULT_INCREMENTAL_MS = 30_000;
+// Incremental intervals=1 polls land every few seconds to keep the latest
+// bar fresh; the full-session refetch runs every 5 minutes to guarantee
+// backfill and correct any drift between poll merges and API state.
+const DEFAULT_INCREMENTAL_MS = 5_000;
 const DEFAULT_FULL_REFRESH_MS = 5 * 60_000;
+const STORAGE_PREFIX = 'zerogex:flowByContract:v2:';
+const STORAGE_TTL_MS = 24 * 60 * 60_000;
 
 const globalCache = new Map<string, CacheEntry>();
 const inflightInitial = new Map<string, Promise<void>>();
+
+function readFromStorage(cacheKey: string): FlowByContractPoint[] | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.sessionStorage.getItem(STORAGE_PREFIX + cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: number; rows?: FlowByContractPoint[] };
+    if (!parsed || !Array.isArray(parsed.rows)) return null;
+    if (typeof parsed.savedAt === 'number' && Date.now() - parsed.savedAt > STORAGE_TTL_MS) return null;
+    return parsed.rows;
+  } catch {
+    return null;
+  }
+}
+
+function writeToStorage(cacheKey: string, rows: FlowByContractPoint[]): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const payload = JSON.stringify({ savedAt: Date.now(), rows });
+    window.sessionStorage.setItem(STORAGE_PREFIX + cacheKey, payload);
+  } catch {
+    // Quota or serialization failure — fine, cache stays in-memory only.
+  }
+}
 
 function coerceNumber(value: unknown): unknown {
   if (typeof value === 'string') {
@@ -97,15 +126,28 @@ function normalizeToMinuteIso(ts: string): string | null {
   return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
 }
 
+// Cached at the module level so hot paths don't pay the Intl formatter cost
+// for every row. Bounded so long-running sessions don't leak.
+const etDateKeyCache = new Map<string, string>();
+const ET_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/New_York',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 function getETDateKey(ts: string): string {
+  const cached = etDateKeyCache.get(ts);
+  if (cached != null) return cached;
   const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d);
+  const key = Number.isNaN(d.getTime()) ? '' : ET_DATE_FORMATTER.format(d);
+  if (etDateKeyCache.size > 20_000) etDateKeyCache.clear();
+  etDateKeyCache.set(ts, key);
+  return key;
+}
+
+export function etDateKeyFor(ts: string | null | undefined): string {
+  if (!ts) return '';
+  return getETDateKey(ts);
 }
 
 export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefined): string | null {
@@ -401,6 +443,14 @@ export function useFlowByContractCache(
     enabled = true,
   } = options;
   const cacheKey = `${symbol}:${session}`;
+
+  // Hydrate from sessionStorage on first subscribe if memory cache is empty.
+  if (!globalCache.has(cacheKey)) {
+    const stored = readFromStorage(cacheKey);
+    if (stored && stored.length > 0) {
+      globalCache.set(cacheKey, createEntry(stored));
+    }
+  }
   const initialEntry = globalCache.get(cacheKey);
 
   const [rows, setRows] = useState<FlowByContractPoint[] | null>(
@@ -412,6 +462,10 @@ export function useFlowByContractCache(
   const cacheKeyRef = useRef(cacheKey);
   if (cacheKeyRef.current !== cacheKey) {
     cacheKeyRef.current = cacheKey;
+    if (!globalCache.has(cacheKey)) {
+      const stored = readFromStorage(cacheKey);
+      if (stored && stored.length > 0) globalCache.set(cacheKey, createEntry(stored));
+    }
     const seed = globalCache.get(cacheKey);
     setRows(seed ? seed.rows : null);
     setLoading(!seed && enabled);
@@ -442,6 +496,7 @@ export function useFlowByContractCache(
           try {
             const data = await fetchByContract(symbol, session);
             globalCache.set(cacheKey, createEntry(data));
+            writeToStorage(cacheKey, data);
           } finally {
             inflightInitial.delete(cacheKey);
           }
@@ -468,6 +523,7 @@ export function useFlowByContractCache(
         const data = await fetchByContract(symbol, session);
         if (cancelled) return false;
         globalCache.set(cacheKey, createEntry(data));
+        writeToStorage(cacheKey, data);
         setRows(data);
         setError(null);
         return true;
@@ -510,6 +566,7 @@ export function useFlowByContractCache(
         }
 
         globalCache.set(cacheKey, next);
+        writeToStorage(cacheKey, next.rows);
         setRows(next.rows);
         setError(null);
       } catch {
