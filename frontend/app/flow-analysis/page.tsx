@@ -1,7 +1,8 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   Area,
   CartesianGrid,
@@ -15,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData } from "@/hooks/useApiData";
+import { useFlowByContractCache, type FlowByContractPoint } from "@/hooks/useFlowByContract";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MetricCard from "@/components/MetricCard";
@@ -46,52 +48,6 @@ interface FlowByTypePoint {
   underlying_price?: number | null;
 }
 
-interface FlowByExpirationPoint {
-  timestamp?: string;
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  expiration: string;
-  volume?: number | string;
-  total_volume?: number | string;
-  premium?: number | string;
-  total_premium?: number | string;
-  net_volume?: number | string;
-  net_premium?: number | string;
-  cumulative_volume?: number | string;
-  cumulative_net_volume?: number | string;
-  cumulative_net_directional_volume?: number | string;
-  cumulative_call_premium?: number | string;
-  cumulative_put_premium?: number | string;
-  cumulative_premium?: number | string;
-  cumulative_net_premium?: number | string;
-  flow_bias?: string;
-  underlying_price?: number | string | null;
-}
-
-interface FlowByStrikePoint {
-  timestamp?: string;
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-  strike: number | string;
-  volume?: number | string;
-  total_volume?: number | string;
-  premium?: number | string;
-  total_premium?: number | string;
-  net_volume?: number | string;
-  net_premium?: number | string;
-  cumulative_volume?: number | string;
-  cumulative_net_volume?: number | string;
-  cumulative_net_directional_volume?: number | string;
-  cumulative_call_premium?: number | string;
-  cumulative_put_premium?: number | string;
-  cumulative_premium?: number | string;
-  cumulative_net_premium?: number | string;
-  flow_bias?: string;
-  underlying_price?: number | string | null;
-}
-
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
 interface PutCallRatioRow {
@@ -117,30 +73,28 @@ interface TimeseriesRow {
   underlyingPrice: number | null;
 }
 
-function buildNetDirectionalPremiumSeries(rows: FlowByTypePoint[]): NetDirectionalPremiumRow[] {
-  const grouped = new Map<string, { timestamp: string; cumulative: number | null }>();
+/**
+ * Aggregates cumulative_net_premium across all contracts for each 5-minute
+ * interval in the by-contract dataset.
+ */
+function buildNetDirectionalPremiumSeries(rows: FlowByContractPoint[]): NetDirectionalPremiumRow[] {
+  const grouped = new Map<string, number>();
 
   for (const row of rows) {
-    const normalizedTs = normalizeToMinute(row.timestamp);
-    if (!normalizedTs) continue;
-    const cumulative = typeof row.cumulative_net_premium === "number"
-      ? row.cumulative_net_premium
-      : typeof row.cumulative_net_premium === "string"
-        ? Number(row.cumulative_net_premium)
-        : null;
-    grouped.set(normalizedTs, {
-      timestamp: normalizedTs,
-      cumulative: Number.isFinite(cumulative) ? (cumulative as number) : null,
-    });
+    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
+    if (!ts) continue;
+    const value = Number(row.cumulative_net_premium ?? 0);
+    if (!Number.isFinite(value)) continue;
+    grouped.set(ts, (grouped.get(ts) ?? 0) + value);
   }
 
-  return Array.from(grouped.values())
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    .map((row) => ({
-      timestamp: row.timestamp,
-      premium: row.cumulative,
-      positivePremium: row.cumulative != null && row.cumulative > 0 ? row.cumulative : null,
-      negativePremium: row.cumulative != null && row.cumulative < 0 ? row.cumulative : null,
+  return Array.from(grouped.entries())
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([timestamp, premium]) => ({
+      timestamp,
+      premium,
+      positivePremium: premium > 0 ? premium : null,
+      negativePremium: premium < 0 ? premium : null,
     }));
 }
 
@@ -192,7 +146,7 @@ function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): 
   return null;
 }
 
-function extendTimelineToSessionClose(timeline: string[], dateKey: string): string[] {
+function extendTimelineToSessionClose(timeline: string[], dateKey: string, stepMs: number = 60_000): string[] {
   if (timeline.length === 0) return timeline;
   const targetMs = getETTimeTimestamp(dateKey, 16, 15);
   if (targetMs == null) return timeline;
@@ -202,10 +156,17 @@ function extendTimelineToSessionClose(timeline: string[], dateKey: string): stri
   if (!Number.isFinite(cursor)) return timeline;
 
   while (cursor < targetMs) {
-    cursor += 60_000;
+    cursor += stepMs;
     result.push(new Date(cursor).toISOString());
   }
   return result;
+}
+
+/** Builds a 5-minute ET session timeline for the given date (09:30–16:15 ET). */
+function getFiveMinuteSessionTimeline(dateKey: string): string[] {
+  const minuteTimeline = getSessionTimestamps(dateKey);
+  const fiveMin = minuteTimeline.filter((_, idx) => idx % 5 === 0);
+  return extendTimelineToSessionClose(fiveMin, dateKey, 5 * 60_000);
 }
 
 /** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
@@ -243,35 +204,6 @@ function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: stri
   });
 }
 
-/**
- * Determines the default selected date.
- * If the market is currently open (≥ 09:30 ET on a weekday) and today is in availableDates → today.
- * Otherwise → the most recent available date.
- */
-function getDefaultDate(availableDates: string[]): string {
-  if (availableDates.length === 0) return getCurrentETDateKey();
-
-  const now = new Date();
-  const etParts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-
-  const weekday = etParts.find((p) => p.type === "weekday")?.value ?? "";
-  const etHour = Number(etParts.find((p) => p.type === "hour")?.value ?? 0);
-  const etMin = Number(etParts.find((p) => p.type === "minute")?.value ?? 0);
-  const isWeekday = weekday !== "Sat" && weekday !== "Sun";
-  const isMarketOpen = isWeekday && etHour * 60 + etMin >= 9 * 60 + 30;
-  const todayKey = getCurrentETDateKey();
-
-  if (isMarketOpen && availableDates.includes(todayKey)) return todayKey;
-  // Most recent available date (dates are sorted descending)
-  return availableDates[0];
-}
-
 // ── Label / axis helpers ──────────────────────────────────────────────────────
 
 function safeTimeLabel(value?: string) {
@@ -287,229 +219,96 @@ function safeTimeLabel(value?: string) {
       });
 }
 
-function isActiveExpiration(expiration?: string, todayKey: string = getCurrentETDateKey()) {
-  if (!expiration) return false;
-  const normalized = expiration.trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return true;
-  return normalized >= todayKey;
-}
-
 // ── Series builders ───────────────────────────────────────────────────────────
 
-function buildTimeseriesFromByType(
-  rows: FlowByTypePoint[],
+/**
+ * Aggregates the by-contract rows into a single timeseries.
+ * Per interval across the filtered rows:
+ *   callPremium = Σ(cumulative_call_premium)
+ *   putPremium  = Σ(cumulative_put_premium)
+ *   netVolume   = Σ(row[netVolumeMode])
+ *   underlyingPrice = first non-null underlying_price in the interval
+ */
+function buildFlowTimeseries(
+  rows: FlowByContractPoint[],
   netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
 ): TimeseriesRow[] {
-  // Use the last row per minute bucket for cumulative values (they are running totals).
   const grouped = new Map<
     string,
-    { callPremium: number; putPremium: number; netVolume: number; underlyingPrice: number | null; latestTs: number }
+    { callPremium: number; putPremium: number; netVolume: number; underlyingPrice: number | null }
   >();
 
   rows.forEach((row) => {
-    const ts = normalizeToMinute(row.timestamp);
+    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
     if (!ts) return;
 
-    const rowTime = new Date(row.timestamp).getTime();
-    const current = grouped.get(ts);
-
-    if (!current || rowTime > current.latestTs) {
-      grouped.set(ts, {
-        callPremium: Number(row.cumulative_call_premium || 0),
-        putPremium: Number(row.cumulative_put_premium || 0),
-        netVolume: Number(row[netVolumeMode] || 0),
-        underlyingPrice: row.underlying_price != null ? Number(row.underlying_price) : (current?.underlyingPrice ?? null),
-        latestTs: rowTime,
-      });
+    const current = grouped.get(ts) ?? {
+      callPremium: 0,
+      putPremium: 0,
+      netVolume: 0,
+      underlyingPrice: null,
+    };
+    current.callPremium += Number(row.cumulative_call_premium ?? 0);
+    current.putPremium += Number(row.cumulative_put_premium ?? 0);
+    current.netVolume += Number(row[netVolumeMode] ?? 0);
+    if (current.underlyingPrice === null && row.underlying_price != null) {
+      const u = Number(row.underlying_price);
+      if (Number.isFinite(u)) current.underlyingPrice = u;
     }
-  });
-
-  return Array.from(grouped.entries())
-    .map(([timestamp, value]) => {
-      const netVolume = value.netVolume;
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium: value.callPremium,
-        putPremium: value.putPremium,
-        netVolume,
-        positiveNetVolume: netVolume > 0 ? netVolume : 0,
-        negativeNetVolume: netVolume < 0 ? netVolume : 0,
-        underlyingPrice: value.underlyingPrice,
-      };
-    })
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-}
-
-function buildPutCallRatioSeries(rows: FlowByTypePoint[]): PutCallRatioRow[] {
-  const grouped = new Map<string, { ratio: number; latestTs: number }>();
-
-  rows.forEach((row) => {
-    const ts = normalizeToMinute(row.timestamp);
-    if (!ts) return;
-    const rowTime = new Date(row.timestamp).getTime();
-    const current = grouped.get(ts);
-    if (!current || rowTime > current.latestTs) {
-      grouped.set(ts, {
-        ratio: Number(row.running_put_call_ratio || 0),
-        latestTs: rowTime,
-      });
-    }
+    grouped.set(ts, current);
   });
 
   return Array.from(grouped.entries())
     .map(([timestamp, value]) => ({
       timestamp,
-      ratio: value.ratio,
+      time: safeTimeLabel(timestamp),
+      callPremium: value.callPremium,
+      putPremium: value.putPremium,
+      netVolume: value.netVolume,
+      positiveNetVolume: value.netVolume > 0 ? value.netVolume : 0,
+      negativeNetVolume: value.netVolume < 0 ? value.netVolume : 0,
+      underlyingPrice: value.underlyingPrice,
     }))
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
 /**
- * Builds a timeseries for the by-expiration / by-strike charts.
- *
- * New API format (5-min buckets): each row carries cumulative call/put premium
- * and cumulative net volume values. For each timestamp we aggregate those
- * across every row matching the current filter (selected strikes/expirations).
- *
- * Legacy API format: rows have only bucket-level premium/net_premium/net_volume
- * fields. We fall back to summing those and accumulating manually.
- *
- * For the new format:
- * - callPremium = Σ(cumulative_call_premium)
- * - putPremium = Σ(cumulative_put_premium)
- * - netVolume = Σ(cumulative_net_volume)
- * - underlyingPrice = first row's underlying_price for the interval
+ * Computes put/call ratio from by-contract rows per 5-minute interval.
+ * ratio = Σ put_volume / Σ call_volume, grouped by option_type.
+ * Uses cumulative_volume when present; falls back to cumulative_put_volume
+ * or cumulative_call_volume if the API provides them explicitly.
  */
-function buildTimeseriesFromCumulativeRows(
-  rows: Array<{
-    timestamp?: string;
-    time_window_start?: string;
-    time_window_end?: string;
-    interval_timestamp?: string | null;
-    // New format
-    cumulative_call_premium?: number | string;
-    cumulative_put_premium?: number | string;
-    cumulative_premium?: number | string;
-    cumulative_net_premium?: number | string;
-    cumulative_net_volume?: number | string;
-    cumulative_net_directional_volume?: number | string;
-    // Legacy format fallback
-    premium?: number | string;
-    total_premium?: number | string;
-    net_premium?: number | string;
-    net_volume?: number | string;
-    underlying_price?: number | string | null;
-  }>,
-  netVolumeMode: "cumulative_net_volume" | "cumulative_net_directional_volume",
-): TimeseriesRow[] {
-  const hasDirectCallPutCumulativeFields = rows.some(
-    (r) => r.cumulative_call_premium != null || r.cumulative_put_premium != null,
-  );
-
-  // ── New format: sum cumulative call/put + cumulative_net_volume per timestamp ───────
-  if (hasDirectCallPutCumulativeFields) {
-    const grouped = new Map<
-      string,
-      {
-        callPremium: number;
-        putPremium: number;
-        netVolume: number;
-        underlyingPrice: number | null;
-        hasUnderlying: boolean;
-      }
-    >();
-
-    rows.forEach((row) => {
-      const sourceTs = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
-      if (!sourceTs) return;
-      const ts = normalizeToMinute(sourceTs);
-      if (!ts) return;
-
-      const current = grouped.get(ts) ?? {
-        callPremium: 0,
-        putPremium: 0,
-        netVolume: 0,
-        underlyingPrice: null,
-        hasUnderlying: false,
-      };
-      current.callPremium += Number(row.cumulative_call_premium ?? 0);
-      current.putPremium += Number(row.cumulative_put_premium ?? 0);
-      current.netVolume += Number(row[netVolumeMode] ?? 0);
-      if (!current.hasUnderlying) {
-        current.underlyingPrice = row.underlying_price != null ? Number(row.underlying_price) : null;
-        current.hasUnderlying = true;
-      }
-      grouped.set(ts, current);
-    });
-
-    return Array.from(grouped.entries())
-      .map(([timestamp, value]) => {
-        const callPremium = value.callPremium;
-        const putPremium = value.putPremium;
-        const netVolume = value.netVolume;
-        return {
-          timestamp,
-          time: safeTimeLabel(timestamp),
-          callPremium,
-          putPremium,
-          netVolume,
-          positiveNetVolume: netVolume > 0 ? netVolume : 0,
-          negativeNetVolume: netVolume < 0 ? netVolume : 0,
-          underlyingPrice: value.underlyingPrice,
-        };
-      })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }
-
-  // ── Legacy format: sum bucket-level values then accumulate ────────────────
-  const grouped = new Map<
-    string,
-    { totalPremium: number; netPremium: number; netVolume: number; underlyingPrice: number | null }
-  >();
+function buildPutCallRatioSeries(rows: FlowByContractPoint[]): PutCallRatioRow[] {
+  const grouped = new Map<string, { call: number; put: number }>();
 
   rows.forEach((row) => {
-    const sourceTs = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
-    if (!sourceTs) return;
-    const ts = normalizeToMinute(sourceTs);
+    const ts = normalizeToMinute(flowRowTimestamp(row) ?? undefined);
     if (!ts) return;
 
-    const current = grouped.get(ts) ?? { totalPremium: 0, netPremium: 0, netVolume: 0, underlyingPrice: null };
-    current.totalPremium += Number(row.total_premium ?? row.premium ?? 0);
-    current.netPremium   += Number(row.net_premium ?? 0);
-    current.netVolume    += Number(row.net_volume ?? 0);
-    if (current.underlyingPrice === null && row.underlying_price != null) {
-      current.underlyingPrice = Number(row.underlying_price);
-    }
+    const current = grouped.get(ts) ?? { call: 0, put: 0 };
+    const callFromRow =
+      row.cumulative_call_volume != null
+        ? Number(row.cumulative_call_volume)
+        : row.option_type === "C"
+          ? Number(row.cumulative_volume ?? 0)
+          : 0;
+    const putFromRow =
+      row.cumulative_put_volume != null
+        ? Number(row.cumulative_put_volume)
+        : row.option_type === "P"
+          ? Number(row.cumulative_volume ?? 0)
+          : 0;
+    if (Number.isFinite(callFromRow)) current.call += callFromRow;
+    if (Number.isFinite(putFromRow)) current.put += putFromRow;
     grouped.set(ts, current);
   });
 
-  const perBucket = Array.from(grouped.entries())
-    .map(([timestamp, v]) => ({
+  return Array.from(grouped.entries())
+    .map(([timestamp, { call, put }]) => ({
       timestamp,
-      callBucket: Math.max(0, (v.totalPremium + v.netPremium) / 2),
-      putBucket:  Math.max(0, (v.totalPremium - v.netPremium) / 2),
-      netVolume:  v.netVolume,
-      underlyingPrice: v.underlyingPrice,
+      ratio: call > 0 ? put / call : null,
     }))
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-  let cumCall = 0, cumPut = 0, cumVol = 0;
-  return perBucket.map((row) => {
-    cumCall += row.callBucket;
-    cumPut  += row.putBucket;
-    cumVol  += row.netVolume;
-    return {
-      timestamp: row.timestamp,
-      time: safeTimeLabel(row.timestamp),
-      callPremium: cumCall,
-      putPremium:  cumPut,
-      netVolume:   cumVol,
-      positiveNetVolume: cumVol > 0 ? cumVol : 0,
-      negativeNetVolume: cumVol < 0 ? cumVol : 0,
-      underlyingPrice: row.underlyingPrice,
-    };
-  });
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
@@ -628,6 +427,7 @@ function MultiSelectChips({
   onClear,
   label,
   isDark,
+  renderOption,
 }: {
   options: string[];
   selected: Set<string>;
@@ -635,19 +435,21 @@ function MultiSelectChips({
   onClear?: () => void;
   label: string;
   isDark: boolean;
+  renderOption?: (value: string) => string;
 }) {
   if (options.length === 0) {
     return <div className="text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No {label.toLowerCase()} available</div>;
   }
 
   return (
-    <div className="mb-4">
+    <div>
       <div className="mb-2 text-xs" style={{ color: "var(--color-text-secondary)" }}>
-        {selected.size > 0 ? `${selected.size} selected` : "No filters selected"}
+        {selected.size > 0 ? `${selected.size} selected` : "All"}
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const active = selected.has(option);
+          const display = renderOption ? renderOption(option) : option;
           return (
             <button
               key={option}
@@ -659,7 +461,7 @@ function MultiSelectChips({
                     color: "#ffffff",
                   }
                 : {
-                    backgroundColor: "var(--color-surface-subtle)",
+                    backgroundColor: "var(--color-surface)",
                     borderColor: "var(--color-border)",
                     color: "var(--color-text-secondary)",
                   }}
@@ -671,7 +473,7 @@ function MultiSelectChips({
               type="button"
               aria-pressed={active}
             >
-              {active ? `✓ ${option}` : option}
+              {display}
             </button>
           );
         })}
@@ -690,37 +492,79 @@ function MultiSelectChips({
   );
 }
 
-function DateSelect({
-  dates,
-  value,
-  onChange,
+function FlowFilters({
+  typeOptions,
+  strikeOptions,
+  expirationOptions,
+  selectedTypes,
+  selectedStrikes,
+  selectedExpirations,
+  onToggleType,
+  onToggleStrike,
+  onToggleExpiration,
+  onClearTypes,
+  onClearStrikes,
+  onClearExpirations,
   isDark,
 }: {
-  dates: string[];
-  value: string;
-  onChange: (d: string) => void;
+  typeOptions: string[];
+  strikeOptions: string[];
+  expirationOptions: string[];
+  selectedTypes: Set<string>;
+  selectedStrikes: Set<string>;
+  selectedExpirations: Set<string>;
+  onToggleType: (v: string) => void;
+  onToggleStrike: (v: string) => void;
+  onToggleExpiration: (v: string) => void;
+  onClearTypes: () => void;
+  onClearStrikes: () => void;
+  onClearExpirations: () => void;
   isDark: boolean;
 }) {
-  if (dates.length === 0) return null;
+  const typeLabelMap: Record<string, string> = { C: "Calls", P: "Puts" };
+  const labelStyle = { color: "var(--color-text-secondary)" } as const;
+
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <span className="text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>Date</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
-        style={{
-          backgroundColor: "var(--color-surface-subtle)",
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-primary)",
-        }}
-      >
-        {dates.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
+    <div
+      className="mb-4 rounded-md border p-3"
+      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
+    >
+      <div className="grid grid-cols-1 gap-4">
+        <div>
+          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Type</div>
+          <MultiSelectChips
+            options={typeOptions}
+            selected={selectedTypes}
+            onToggle={onToggleType}
+            onClear={onClearTypes}
+            label="Types"
+            isDark={isDark}
+            renderOption={(v) => typeLabelMap[v] ?? v}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Strike</div>
+          <MultiSelectChips
+            options={strikeOptions}
+            selected={selectedStrikes}
+            onToggle={onToggleStrike}
+            onClear={onClearStrikes}
+            label="Strikes"
+            isDark={isDark}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-semibold" style={labelStyle}>Expiration</div>
+          <MultiSelectChips
+            options={expirationOptions}
+            selected={selectedExpirations}
+            onToggle={onToggleExpiration}
+            onClear={onClearExpirations}
+            label="Expirations"
+            isDark={isDark}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -994,11 +838,11 @@ export default function FlowAnalysisPage() {
     "cumulative_net_directional_volume",
   );
 
-  // Fetch all data for the selected session
+  // ── Flow Snapshot is still served by the lightweight by-type endpoint ─────
   const {
     data: flowByType,
-    loading: flowLoading,
-    error: flowError,
+    loading: flowByTypeLoading,
+    error: flowByTypeError,
   } = useApiData<FlowByTypePoint[]>(
     `/api/flow/by-type?symbol=${symbol}&session=${flowSession}`,
     { refreshInterval: 30000 },
@@ -1018,50 +862,56 @@ export default function FlowAnalysisPage() {
     return getETDateKey(sorted[0].timestamp) || null;
   }, [otherSessionProbe]);
 
-  const { data: flowByExpirationSession, error: expirationErrorSession } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&session=${flowSession}&limit=500`,
-    { refreshInterval: 30000 },
-  );
-  const { data: flowByExpirationNoSession, error: expirationErrorNoSession } = useApiData<FlowByExpirationPoint[]>(
-    `/api/flow/by-expiration?symbol=${symbol}&limit=500`,
-    { refreshInterval: 30000, enabled: Boolean(expirationErrorSession) },
-  );
+  // ── Options Flow / Net Directional Premium / Put-Call Ratio all share this cache
+  const {
+    rows: flowByContract,
+    loading: flowByContractLoading,
+    error: flowByContractError,
+  } = useFlowByContractCache(symbol, flowSession, { refreshIntervalMs: 30_000 });
 
-  const { data: flowByStrikeSession, error: strikeErrorSession } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&session=${flowSession}&limit=500`,
-    { refreshInterval: 30000 },
-  );
-  const { data: flowByStrikeNoSession, error: strikeErrorNoSession } = useApiData<FlowByStrikePoint[]>(
-    `/api/flow/by-strike?symbol=${symbol}&limit=500`,
-    { refreshInterval: 30000, enabled: Boolean(strikeErrorSession) },
-  );
+  const flowLoading = flowByTypeLoading || flowByContractLoading;
+  const flowError = flowByTypeError || flowByContractError;
 
-  const flowByExpiration = flowByExpirationSession || flowByExpirationNoSession;
-  const flowByStrike = flowByStrikeSession || flowByStrikeNoSession;
-  const expirationError = expirationErrorSession && expirationErrorNoSession ? expirationErrorSession : null;
-  const strikeError = strikeErrorSession && strikeErrorNoSession ? strikeErrorSession : null;
-
-  // ── Derive the session date from the returned data ──────────────────────────
-
-  /** ET date key for the session returned by the API (e.g. "2026-03-17"). */
+  // ── Derive the session date ───────────────────────────────────────────────
   const selectedDate = useMemo(() => {
-    if (!flowByType || flowByType.length === 0) return getCurrentETDateKey();
-    // Use the latest row's date as the canonical session date.
-    const sorted = [...flowByType].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-    return getETDateKey(sorted[0].timestamp) || getCurrentETDateKey();
-  }, [flowByType]);
+    const pickLatest = (rows: Array<{ timestamp?: string }>): string | null => {
+      let latest: string | null = null;
+      for (const r of rows) {
+        const ts = typeof r.timestamp === "string" ? r.timestamp : null;
+        if (!ts) continue;
+        if (!latest || new Date(ts).getTime() > new Date(latest).getTime()) latest = ts;
+      }
+      return latest;
+    };
+
+    const fromContract = flowByContract
+      ? pickLatest(flowByContract.map((r) => ({ timestamp: flowRowTimestamp(r) ?? undefined })))
+      : null;
+    if (fromContract) return getETDateKey(fromContract) || getCurrentETDateKey();
+
+    const fromType = flowByType ? pickLatest(flowByType) : null;
+    if (fromType) return getETDateKey(fromType) || getCurrentETDateKey();
+
+    return getCurrentETDateKey();
+  }, [flowByContract, flowByType]);
 
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
 
-  // ── Session timeline (fixed 09:30–16:00 ET for selected date) ──────────────
-
+  // ── Session timeline (5-minute, 09:30–16:15 ET) ───────────────────────────
   const sessionTimeline = useMemo(() => {
     if (!selectedDate) return [];
-    return extendTimelineToSessionClose(getSessionTimestamps(selectedDate), selectedDate);
+    return getFiveMinuteSessionTimeline(selectedDate);
   }, [selectedDate]);
+
+  // ── By-contract rows scoped to the selected date ──────────────────────────
+  const dateScopedContractRows = useMemo(() => {
+    if (!flowByContract || !selectedDate) return [] as FlowByContractPoint[];
+    return flowByContract.filter((r) => {
+      const ts = flowRowTimestamp(r);
+      return ts ? getETDateKey(ts) === selectedDate : false;
+    });
+  }, [flowByContract, selectedDate]);
 
   // ── Snapshot (most recent row's cumulative values) ──────────────────────────
 
@@ -1105,169 +955,116 @@ export default function FlowAnalysisPage() {
       latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
     }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
 
-  // ── Main options flow series ────────────────────────────────────────────────
+  // ── Filters (Type / Strike / Expiration) ──────────────────────────────────
+
+  const typeOptions = useMemo(() => {
+    const set = new Set<string>();
+    dateScopedContractRows.forEach((r) => {
+      if (r.option_type === "C" || r.option_type === "P") set.add(r.option_type);
+    });
+    return Array.from(set).sort();
+  }, [dateScopedContractRows]);
+
+  const strikeOptions = useMemo(() => {
+    const set = new Set<string>();
+    dateScopedContractRows.forEach((r) => {
+      if (r.strike != null && r.strike !== "") set.add(String(r.strike));
+    });
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
+  }, [dateScopedContractRows]);
+
+  const expirationOptions = useMemo(() => {
+    const set = new Set<string>();
+    dateScopedContractRows.forEach((r) => {
+      if (r.expiration) set.add(r.expiration);
+    });
+    return Array.from(set).sort();
+  }, [dateScopedContractRows]);
+
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
+  const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
+  const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+
+  // Drop any previously-selected values that no longer appear in the current options
+  const effectiveSelectedTypes = useMemo(
+    () => new Set(typeOptions.filter((v) => selectedTypes.has(v))),
+    [typeOptions, selectedTypes],
+  );
+  const effectiveSelectedStrikes = useMemo(
+    () => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))),
+    [strikeOptions, selectedStrikes],
+  );
+  const effectiveSelectedExpirations = useMemo(
+    () => new Set(expirationOptions.filter((v) => selectedExpirations.has(v))),
+    [expirationOptions, selectedExpirations],
+  );
+
+  const filteredContractRows = useMemo(() => {
+    return dateScopedContractRows.filter((r) => {
+      if (effectiveSelectedTypes.size > 0) {
+        const type = r.option_type ?? "";
+        if (!effectiveSelectedTypes.has(type)) return false;
+      }
+      if (effectiveSelectedStrikes.size > 0) {
+        if (!effectiveSelectedStrikes.has(String(r.strike ?? ""))) return false;
+      }
+      if (effectiveSelectedExpirations.size > 0) {
+        if (!effectiveSelectedExpirations.has(r.expiration ?? "")) return false;
+      }
+      return true;
+    });
+  }, [dateScopedContractRows, effectiveSelectedTypes, effectiveSelectedStrikes, effectiveSelectedExpirations]);
+
+  // ── Options Flow series (filtered) ────────────────────────────────────────
 
   const mainSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    const base = buildTimeseriesFromByType(dateRows, netVolumeMode);
+    const base = buildFlowTimeseries(filteredContractRows, netVolumeMode);
     return alignSeriesToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByType, sessionTimeline, netVolumeMode]);
+  }, [selectedDate, filteredContractRows, sessionTimeline, netVolumeMode]);
 
-  // ── By-expiration ───────────────────────────────────────────────────────────
-
-  const expirationOptions = useMemo(() => {
-    if (!selectedDate || !flowByExpiration) return [];
-    const dateRows = flowByExpiration.filter((r) => {
-      const ts = flowRowTimestamp(r);
-      return ts ? getETDateKey(ts) === selectedDate : false;
-    });
-    const todayKey = getCurrentETDateKey();
-    return Array.from(
-      new Set(dateRows.map((r) => r.expiration).filter((exp) => isActiveExpiration(exp, todayKey))),
-    ).sort();
-  }, [selectedDate, flowByExpiration]);
-
-  const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
-  const [expirationSelectionCleared, setExpirationSelectionCleared] = useState(false);
-  const effectiveSelectedExpirations = useMemo(() => {
-    const kept = expirationOptions.filter((exp) => selectedExpirations.has(exp));
-    if (kept.length > 0) return new Set(kept);
-    if (expirationSelectionCleared || expirationOptions.length === 0) return new Set<string>();
-    return new Set([expirationOptions[0]]);
-  }, [expirationOptions, selectedExpirations, expirationSelectionCleared]);
-
-  const expirationSeries = useMemo(() => {
-    if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByExpiration ?? []).filter((r) => {
-      const ts = flowRowTimestamp(r);
-      return ts ? getETDateKey(ts) === selectedDate : false;
-    });
-    const available = new Set(expirationOptions);
-    const activeSelection = new Set(Array.from(effectiveSelectedExpirations).filter((v) => available.has(v)));
-    const filtered =
-      activeSelection.size > 0
-        ? dateRows.filter((r) => activeSelection.has(r.expiration))
-        : dateRows.filter((r) => available.has(r.expiration));
-    const base = buildTimeseriesFromCumulativeRows(filtered, netVolumeMode);
-    const aligned = alignSeriesToTimeline(base, sessionTimeline);
-    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
-    return aligned.map((row) => ({
-      ...row,
-      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
-    }));
-  }, [selectedDate, flowByExpiration, effectiveSelectedExpirations, expirationOptions, sessionTimeline, mainSeries, netVolumeMode]);
-
-  // ── By-strike ───────────────────────────────────────────────────────────────
-
-  const strikeOptions = useMemo(() => {
-    if (!selectedDate || !flowByStrike) return [];
-    const dateRows = flowByStrike.filter((r) => {
-      const ts = flowRowTimestamp(r);
-      return ts ? getETDateKey(ts) === selectedDate : false;
-    });
-    return Array.from(new Set(dateRows.map((r) => String(r.strike)).filter(Boolean))).sort(
-      (a, b) => Number(a) - Number(b),
-    );
-  }, [selectedDate, flowByStrike]);
-
-  const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
-  const [strikeSelectionCleared, setStrikeSelectionCleared] = useState(false);
-
-  const latestUnderlyingPrice = useMemo(() => {
-    for (let i = mainSeries.length - 1; i >= 0; i -= 1) {
-      const p = mainSeries[i]?.underlyingPrice;
-      if (typeof p === "number" && Number.isFinite(p)) return p;
-    }
-    return null;
-  }, [mainSeries]);
-
-  const effectiveSelectedStrikes = useMemo(() => {
-    const kept = strikeOptions.filter((strike) => selectedStrikes.has(strike));
-    if (kept.length > 0) return new Set(kept);
-    if (strikeSelectionCleared || strikeOptions.length === 0) return new Set<string>();
-
-    if (latestUnderlyingPrice == null) return new Set([strikeOptions[0]]);
-    let closest = strikeOptions[0];
-    let closestDistance = Math.abs(Number(closest) - latestUnderlyingPrice);
-    for (const strike of strikeOptions) {
-      const strikeNum = Number(strike);
-      if (!Number.isFinite(strikeNum)) continue;
-      const distance = Math.abs(strikeNum - latestUnderlyingPrice);
-      if (distance < closestDistance) {
-        closest = strike;
-        closestDistance = distance;
-      }
-    }
-    return new Set([closest]);
-  }, [strikeOptions, selectedStrikes, strikeSelectionCleared, latestUnderlyingPrice]);
-
-  const strikeSeries = useMemo(() => {
-    if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByStrike ?? []).filter((r) => {
-      const ts = flowRowTimestamp(r);
-      return ts ? getETDateKey(ts) === selectedDate : false;
-    });
-    const filtered =
-      effectiveSelectedStrikes.size > 0
-        ? dateRows.filter((r) => effectiveSelectedStrikes.has(String(r.strike)))
-        : dateRows;
-    const base = buildTimeseriesFromCumulativeRows(filtered, netVolumeMode);
-    const aligned = alignSeriesToTimeline(base, sessionTimeline);
-    const mainPriceByTs = new Map(mainSeries.map((row) => [row.timestamp, row.underlyingPrice]));
-    return aligned.map((row) => ({
-      ...row,
-      underlyingPrice: row.underlyingPrice ?? mainPriceByTs.get(row.timestamp) ?? null,
-    }));
-  }, [selectedDate, flowByStrike, effectiveSelectedStrikes, sessionTimeline, mainSeries, netVolumeMode]);
-
-  // ── Put/Call ratio ──────────────────────────────────────────────────────────
+  // ── Put/Call ratio (from full by-contract cache, unfiltered) ──────────────
 
   const putCallRatioSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    const base = buildPutCallRatioSeries(dateRows);
+    const base = buildPutCallRatioSeries(dateScopedContractRows);
     return alignRatioToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByType, sessionTimeline]);
+  }, [selectedDate, dateScopedContractRows, sessionTimeline]);
+
+  // ── Net Directional Premium (from full by-contract cache, unfiltered) ────
 
   const directionalPremiumSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const dateRows = (flowByType ?? []).filter((r) => getETDateKey(r.timestamp) === selectedDate);
-    const base = buildNetDirectionalPremiumSeries(dateRows);
+    const base = buildNetDirectionalPremiumSeries(dateScopedContractRows);
     return alignPremiumToTimeline(base, sessionTimeline);
-  }, [selectedDate, flowByType, sessionTimeline]);
+  }, [selectedDate, dateScopedContractRows, sessionTimeline]);
 
   const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
+  const hasRatioData = putCallRatioSeries.some((row) => row.ratio != null);
 
   const ratioDateMarkerMeta = useMemo(
     () => getDateMarkerMeta(putCallRatioSeries.map((r) => r.timestamp)),
     [putCallRatioSeries],
   );
-  const ratioTimeTickStep = Math.max(1, Math.ceil(Math.max(1, putCallRatioSeries.length) / 10));
 
-  // ── Chip toggles ────────────────────────────────────────────────────────────
+  // ── Filter chip toggles ───────────────────────────────────────────────────
 
-  const toggleExpirations = (value: string) => {
-    setExpirationSelectionCleared(false);
-    setSelectedExpirations((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-  };
+  const makeToggler = useCallback(
+    (setter: Dispatch<SetStateAction<Set<string>>>) => (value: string) => {
+      setter((prev) => {
+        const next = new Set(prev);
+        if (next.has(value)) next.delete(value);
+        else next.add(value);
+        return next;
+      });
+    },
+    [],
+  );
+  const toggleTypes = useMemo(() => makeToggler(setSelectedTypes), [makeToggler]);
+  const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
+  const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
 
-  const toggleStrikes = (value: string) => {
-    setStrikeSelectionCleared(false);
-    setSelectedStrikes((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-  };
-
-  if (flowLoading && !flowByType) return <LoadingSpinner size="lg" />;
+  if (flowLoading && !flowByType && !flowByContract) return <LoadingSpinner size="lg" />;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1288,10 +1085,9 @@ export default function FlowAnalysisPage() {
             value={flowSession}
             onChange={(e) => {
               setFlowSession(e.target.value as "current" | "prior");
-              setExpirationSelectionCleared(false);
-              setSelectedExpirations(new Set());
-              setStrikeSelectionCleared(false);
+              setSelectedTypes(new Set());
               setSelectedStrikes(new Set());
+              setSelectedExpirations(new Set());
             }}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
@@ -1370,58 +1166,32 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Options Flow"
-          tooltip="Primary axis: call premium (green) and put premium (red). Bottom axis: net volume area, green above zero and red below zero. X-axis spans the full session from first bar to 16:15 ET."
+          tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by option type, strike, or expiration."
+        />
+        {flowByContractError && <ErrorMessage message={flowByContractError} />}
+        <FlowFilters
+          typeOptions={typeOptions}
+          strikeOptions={strikeOptions}
+          expirationOptions={expirationOptions}
+          selectedTypes={effectiveSelectedTypes}
+          selectedStrikes={effectiveSelectedStrikes}
+          selectedExpirations={effectiveSelectedExpirations}
+          onToggleType={toggleTypes}
+          onToggleStrike={toggleStrikes}
+          onToggleExpiration={toggleExpirations}
+          onClearTypes={() => setSelectedTypes(new Set())}
+          onClearStrikes={() => setSelectedStrikes(new Set())}
+          onClearExpirations={() => setSelectedExpirations(new Set())}
+          isDark={isDark}
         />
         <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
-      </section>
-
-      {/* ── Flow by Expiration ────────────────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
-          title="Flow by Expiration"
-          tooltip="Same chart format, filtered by one or more expiration dates."
-        />
-        <MultiSelectChips
-          options={expirationOptions}
-          selected={effectiveSelectedExpirations}
-          onToggle={toggleExpirations}
-          onClear={() => {
-            setExpirationSelectionCleared(true);
-            setSelectedExpirations(new Set());
-          }}
-          label="Expirations"
-          isDark={isDark}
-        />
-        {expirationError && <ErrorMessage message={expirationError} />}
-        <FullWidthFlowChart rows={expirationSeries} isDark={isDark} isMobile={isMobile} />
-      </section>
-
-      {/* ── Flow by Strike ────────────────────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
-          title="Flow by Strike"
-          tooltip="Same chart format, filtered by one or more strikes."
-        />
-        <MultiSelectChips
-          options={strikeOptions}
-          selected={effectiveSelectedStrikes}
-          onToggle={toggleStrikes}
-          onClear={() => {
-            setStrikeSelectionCleared(true);
-            setSelectedStrikes(new Set());
-          }}
-          label="Strikes"
-          isDark={isDark}
-        />
-        {strikeError && <ErrorMessage message={strikeError} />}
-        <FullWidthFlowChart rows={strikeSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
       {/* ── Net Directional Premium ───────────────────────────────────── */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Directional Premium"
-          tooltip="Cumulative net directional premium from flow-by-type, where positive values indicate net bullish premium and negative values indicate net bearish premium."
+          tooltip="Cumulative net directional premium aggregated across every contract (sum of cumulative_net_premium per 5-minute interval). Positive values indicate net bullish premium, negative values indicate net bearish premium."
         />
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
@@ -1525,9 +1295,9 @@ export default function FlowAnalysisPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Put/Call Ratio"
-          tooltip="Put/call volume ratio over time for the selected date."
+          tooltip="Put/call volume ratio per 5-minute interval, calculated directly from the by-contract data (Σ put volume ÷ Σ call volume, grouped by option_type)."
         />
-        {putCallRatioSeries.length === 0 ? (
+        {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
