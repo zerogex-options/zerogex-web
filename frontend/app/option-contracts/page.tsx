@@ -822,7 +822,7 @@ export default function OptionContractsPage() {
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner size="lg" />
           </div>
-        ) : contractError && contractError !== "No data available yet" ? (
+        ) : contractError && contractError !== "No data available yet" && (!contractRows || contractRows.length === 0) ? (
           <div className="p-6">
             <ErrorMessage message={contractError} />
           </div>

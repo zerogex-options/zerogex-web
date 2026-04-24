@@ -46,6 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/trap-detection', label: 'Trap Detection', requiredTier: 'elite' },
       { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'elite' },
       { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'elite' },
+      { id: '/range-break-imminence', label: 'Range Break Imminence', requiredTier: 'elite' },
     ],
   },
   {

@@ -650,6 +650,13 @@ export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 1
   );
 }
 
+export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/advanced/range-break-imminence?symbol=${encodeURIComponent(symbol)}`,
+    { refreshInterval },
+  );
+}
+
 export type SignalEventName =
   | 'vol_expansion'
   | 'eod_pressure'

@@ -7,6 +7,7 @@ export const PROPRIETARY_SIGNALS_REFRESH = {
   trapDetectionMs: 5000,
   zeroDteImbalanceMs: 5000,
   gammaVwapConfluenceMs: 5000,
+  rangeBreakImminenceMs: 5000,
   advancedDashboardMs: 10000,
   signalEventsMs: 30000,
   confluenceMatrixMs: 30000,

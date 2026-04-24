@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  ArrowLeftRight,
   CalendarClock,
   Compass,
   LayoutGrid,
@@ -25,6 +26,7 @@ import {
   useTrapDetectionSignal,
   useZeroDtePositionImbalanceSignal,
   useGammaVwapConfluenceSignal,
+  useRangeBreakImminenceSignal,
   useConfluenceMatrix,
   type SignalEventName,
 } from '@/hooks/useApiData';
@@ -82,6 +84,7 @@ export default function AdvancedSignalsPage() {
   const trapDetection = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
   const zeroDte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
   const gammaVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
+  const rangeBreak = useRangeBreakImminenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs);
 
   const matrix = useConfluenceMatrix(symbol, 120, PROPRIETARY_SIGNALS_REFRESH.confluenceMatrixMs);
 
@@ -92,6 +95,7 @@ export default function AdvancedSignalsPage() {
     const trapPayload = asObject(trapDetection.data) ?? {};
     const zeroDtePayload = asObject(zeroDte.data) ?? {};
     const gvcPayload = asObject(gammaVwap.data) ?? {};
+    const rbiPayload = asObject(rangeBreak.data) ?? {};
 
     const volRows: AdvancedSignalContextRow[] = [
       { label: 'Expansion (0–100)', value: formatSigned(getNumber(volPayload.expansion), 1) },
@@ -148,6 +152,21 @@ export default function AdvancedSignalsPage() {
       { label: 'Regime', value: String(gvcCtx.regime_direction ?? '—') },
     ];
 
+    const rbiCtx = asObject(rbiPayload.context_values) ?? {};
+    const rbiSkew = asObject(rbiCtx.skew) ?? {};
+    const rbiDealer = asObject(rbiCtx.dealer) ?? {};
+    const rbiTrap = asObject(rbiCtx.trap) ?? {};
+    const rbiCompression = asObject(rbiCtx.compression) ?? {};
+    const rbiRows: AdvancedSignalContextRow[] = [
+      { label: 'Imminence', value: (getNumber(rbiPayload.imminence) ?? 0).toFixed(1) },
+      { label: 'Label', value: String(rbiPayload.label ?? '—') },
+      { label: 'Bias', value: formatSigned(getNumber(rbiPayload.bias), 2), tone: toTrend(rbiPayload.direction) },
+      { label: 'Skew mag', value: (getNumber(rbiSkew.magnitude) ?? 0).toFixed(1) },
+      { label: 'Dealer mag', value: (getNumber(rbiDealer.magnitude) ?? 0).toFixed(1) },
+      { label: 'Trap side', value: String(rbiTrap.side ?? 'none') },
+      { label: 'Compression mag', value: (getNumber(rbiCompression.magnitude) ?? 0).toFixed(1) },
+    ];
+
     return [
       { payload: volPayload, title: 'Volatility Expansion', href: '/volatility-expansion', icon: Zap, threshold: 25, description: 'Short-gamma vol readiness × momentum direction.', rows: volRows, hook: volExpansion },
       { payload: eodPayload, title: 'EOD Pressure', href: '/eod-pressure', icon: CalendarClock, threshold: 25, description: 'Late-session pin/drift: charm + gamma-gated pin × time ramp.', rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) },
@@ -155,15 +174,16 @@ export default function AdvancedSignalsPage() {
       { payload: trapPayload, title: 'Trap Detection', href: '/trap-detection', icon: AlertTriangle, threshold: 25, description: 'Failed-breakout fades when dealer gamma reinforces reversal.', rows: trapRows, hook: trapDetection },
       { payload: zeroDtePayload, title: '0DTE Position Imbalance', href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: 'Same-day bucket-weighted flow tilt × time-of-day ramp.', rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) },
       { payload: gvcPayload, title: 'Gamma/VWAP Confluence', href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: 'Multi-level magnet: flip + VWAP + max pain + max gamma + call wall.', rows: gvcRows, hook: gammaVwap },
+      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0–100 imminence.', rows: rbiRows, hook: rangeBreak },
     ];
-  }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap]);
+  }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak]);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
         <TooltipWrapper
-          text="Dashboard of six advanced signals that extend the composite MSI, plus cross-component confluence analysis. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
+          text="Dashboard of seven advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence is a standalone regime-switch detector. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -178,8 +198,9 @@ export default function AdvancedSignalsPage() {
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Signal Lens</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Six weighted detectors extending the composite MSI with directional triggers and pin-risk setups.
-              Outlined tiles have crossed their activation threshold — interpret each alongside the current regime.
+              Seven weighted detectors with directional triggers and pin-risk setups — six extending the composite
+              MSI plus Range Break Imminence as a standalone regime-switch overlay. Outlined tiles have crossed
+              their activation threshold — interpret each alongside the current regime.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
               <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
