@@ -255,15 +255,29 @@ function safeTimeLabel(value?: string) {
 
 export type NetVolumeMode = "raw" | "directional";
 
+/**
+ * Round-trip the server's timestamp through `Date.toISOString()` so the chart
+ * row keys always carry the millisecond component (`…00.000Z`). Without this
+ * normalization, server timestamps formatted as `…00Z` never match the
+ * timeline keys built by `new Date(t).toISOString()` (which always emit
+ * `…00.000Z`), and `align*ToTimeline` drops every row into the null fallback —
+ * producing the all-charts-blank failure mode.
+ */
+function canonicalIso(ts: string): string {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+}
+
 function mapSeriesToFlowTimeseries(
   rows: FlowSeriesPoint[],
   mode: NetVolumeMode,
 ): TimeseriesRow[] {
   return rows.map((r) => {
     const netVolume = mode === "raw" ? r.raw_volume_cum : r.net_volume_cum;
+    const timestamp = canonicalIso(r.timestamp);
     return {
-      timestamp: r.timestamp,
-      time: safeTimeLabel(r.timestamp),
+      timestamp,
+      time: safeTimeLabel(timestamp),
       callPremium: r.call_premium_cum,
       putPremium: r.put_premium_cum,
       netVolume,
@@ -275,14 +289,14 @@ function mapSeriesToFlowTimeseries(
 }
 
 function mapSeriesToRatioRows(rows: FlowSeriesPoint[]): PutCallRatioRow[] {
-  return rows.map((r) => ({ timestamp: r.timestamp, ratio: r.put_call_ratio }));
+  return rows.map((r) => ({ timestamp: canonicalIso(r.timestamp), ratio: r.put_call_ratio }));
 }
 
 function mapSeriesToPremiumRows(rows: FlowSeriesPoint[]): NetDirectionalPremiumRow[] {
   return rows.map((r) => {
     const premium = r.net_premium_cum;
     return {
-      timestamp: r.timestamp,
+      timestamp: canonicalIso(r.timestamp),
       premium,
       positivePremium: premium > 0 ? premium : null,
       negativePremium: premium < 0 ? premium : null,
@@ -292,7 +306,7 @@ function mapSeriesToPremiumRows(rows: FlowSeriesPoint[]): NetDirectionalPremiumR
 
 function mapSeriesToNetPositionRows(rows: FlowSeriesPoint[]): NetPositionRow[] {
   return rows.map((r) => ({
-    timestamp: r.timestamp,
+    timestamp: canonicalIso(r.timestamp),
     callPosition: r.call_position_cum,
     putPosition: r.put_position_cum,
   }));
@@ -312,7 +326,7 @@ function snapshotFromSeries(rows: FlowSeriesPoint[] | null): FlowSnapshot | null
   const putCallRatio = last.put_call_ratio
     ?? (last.call_volume_cum > 0 ? last.put_volume_cum / last.call_volume_cum : 0);
   return {
-    timestamp: last.timestamp,
+    timestamp: canonicalIso(last.timestamp),
     callVolume: last.call_volume_cum,
     putVolume: last.put_volume_cum,
     callPremium: last.call_premium_cum,
