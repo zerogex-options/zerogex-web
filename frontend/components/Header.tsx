@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Moon,
   Sun,
+  User,
 } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import { Theme, MarketSession } from "@/core/types";
@@ -46,6 +47,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   });
   const headerRef = useRef<HTMLElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -110,6 +113,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
   const handleLogout = async () => {
+    setProfileMenuOpen(false);
     const csrfResponse = await fetch("/api/auth/csrf");
     const csrf = (await csrfResponse.json()) as { csrfToken: string };
     await fetch("/api/auth/logout", {
@@ -121,6 +125,20 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     await refreshAuth();
     router.push("/login");
   };
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     const setHeaderHeight = () => {
@@ -345,14 +363,53 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
                 <WorldClocks theme={theme} session={session} compact={isCollapsed} />
                 {authSession?.authenticated && (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="rounded-lg border px-3 py-1 text-xs font-semibold"
-                    style={{ borderColor: border, color: colors.muted }}
-                  >
-                    Log out
-                  </button>
+                  <div className="relative" ref={profileMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setProfileMenuOpen((open) => !open)}
+                      className="rounded-full border p-2 transition-colors"
+                      style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                      aria-label="Open profile menu"
+                      aria-haspopup="menu"
+                      aria-expanded={profileMenuOpen}
+                    >
+                      <User size={20} />
+                    </button>
+                    {profileMenuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 mt-2 w-40 rounded-lg border shadow-lg overflow-hidden z-50"
+                        style={{
+                          borderColor: border,
+                          background: theme === "dark" ? colors.cardDark : colors.cardLight,
+                          color: theme === "dark" ? colors.light : colors.dark,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            router.push("/account");
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm font-semibold hover:bg-[var(--bg-hover)]"
+                        >
+                          Account
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleLogout}
+                          className="w-full text-left px-3 py-2 text-sm font-semibold hover:bg-[var(--bg-hover)]"
+                          style={{ color: colors.muted }}
+                        >
+                          Log out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -494,14 +551,27 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 </select>
               </div>
               {authSession?.authenticated && (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{ borderColor: border, color: colors.muted }}
-                >
-                  Log out
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      router.push("/account");
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 text-sm font-semibold text-left flex items-center gap-2"
+                    style={{ borderColor: border, color: theme === "dark" ? colors.light : colors.dark }}
+                  >
+                    <User size={14} /> Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full rounded-lg border px-3 py-2 text-sm font-semibold"
+                    style={{ borderColor: border, color: colors.muted }}
+                  >
+                    Log out
+                  </button>
+                </div>
               )}
 
               {row1Price !== null && (
