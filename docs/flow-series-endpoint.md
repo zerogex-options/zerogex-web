@@ -66,9 +66,9 @@ GET /api/flow/series
 
 | Field               | Type               | Units             | Notes |
 | ------------------- | ------------------ | ----------------- | ----- |
-| `timestamp`         | ISO-8601 Z string  | —                 | **Bar start**, floored to 5-minute boundary. Use this as the primary chart X key. |
-| `bar_start`         | ISO-8601 Z string  | —                 | Identical to `timestamp`; included for clarity and future divergence. |
-| `bar_end`           | ISO-8601 Z string  | —                 | `bar_start + 5min`. |
+| `timestamp`         | ISO-8601 Z string  | —                 | **Bar start**, floored to 5-minute boundary. Use this as the primary chart X key. Always present. |
+| `bar_start`         | ISO-8601 Z string  | —                 | Identical to `timestamp`; included for clarity and future divergence. Always present. |
+| `bar_end`           | ISO-8601 Z string  | —                 | `bar_start + 5min`. Always present. |
 | `call_premium_cum`  | number             | USD (dollars)     | Σ of `net_premium` for `option_type='C'` rows up to and including this bar, across the selected contracts. |
 | `put_premium_cum`   | number             | USD (dollars)     | Σ of `net_premium` for `option_type='P'` rows up to this bar. |
 | `call_volume_cum`   | integer            | contracts         | Σ of `raw_volume` for calls up to this bar. |
@@ -428,15 +428,7 @@ rows (since the filtered-to set has no delta in that bar).
 
 ## Rollout
 
-1. Backend ships `/api/flow/series` behind a feature flag off by default.
-2. Backend team confirms staging parity: run both endpoints for the same
-   `(symbol, session)` and diff the derived cumulatives — they must match
-   the current client-computed values within floating-point tolerance.
-3. Frontend flips `NEXT_PUBLIC_FLOW_SERIES_ENABLED=1` in staging.
-4. Visual QA against production side-by-side.
-5. Promote the flag in production.
-6. After 1 week stable, merge the frontend deletion PR that rips out
-   `buildFlowTimeseries`, `buildPutCallRatioSeries`, `buildNetPositionSeries`,
-   `buildNetDirectionalPremiumSeries`, and the `useFlowByContract` accumulator
-   path. The legacy `/api/flow/by-contract` endpoint can stay for other
-   consumers (Smart Money, Intraday Tools) or be sunsetted separately.
+Shipped directly — no feature flag. The Flow Analysis page consumes this
+endpoint unconditionally. `/api/flow/by-contract` remains in use by Smart
+Money, Intraday Tools, the dashboard Options Flow card, and Option Contracts;
+it can be sunsetted independently.

@@ -1,22 +1,5 @@
 "use client";
 
-// DELETION QUEUE (tracked in docs/flow-series-endpoint.md §Rollout step 6).
-// Once NEXT_PUBLIC_FLOW_SERIES_ENABLED=1 has been stable in production for
-// one week, the following can all be removed from this file and from
-// hooks/useFlowByContract.ts:
-//   - buildFlowTimeseries, buildPutCallRatioSeries,
-//     buildNetPositionSeries, buildNetDirectionalPremiumSeries
-//   - alignSeriesToTimeline, alignRatioToTimeline,
-//     alignPremiumToTimeline, alignNetPositionToTimeline
-//     (once we no longer need to pad trailing future bars with null —
-//      the mappers can push raw rows straight to the charts if the
-//      server emits the full through-16:15 timeline)
-//   - forEachBar, computeFlowSnapshot, all client-side useFlowByContract
-//     consumers on this page (only the session-date probe for the dropdown
-//     stays), and the legacy branches of every useMemo below
-// Keep: the chart components (FullWidthFlowChart etc.), the mapSeriesTo*
-// helpers, the FlowSeriesPoint type, and useFlowSeries/useFlowContractOptions.
-
 import { Info } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
@@ -32,18 +15,8 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData } from "@/hooks/useApiData";
+import { etDateKeyFor, type FlowSnapshot } from "@/hooks/useFlowByContract";
 import {
-  useFlowByContractCache,
-  computeFlowSnapshot,
-  etDateKeyFor,
-  flowRowTimestamp,
-  forEachBar,
-  latestRowDateKey,
-  type FlowByContractPoint,
-  type FlowSnapshot,
-} from "@/hooks/useFlowByContract";
-import {
-  isFlowSeriesEnabled,
   useFlowContractOptions,
   useFlowSeries,
   type FlowSeriesPoint,
@@ -86,29 +59,6 @@ interface NetPositionRow {
   timestamp: string;
   callPosition: number | null;
   putPosition: number | null;
-}
-
-/**
- * Running session total of net_premium per 5-minute bar, aggregated across
- * every contract. Per-bar deltas from the API are accumulated into a rising
- * session curve.
- */
-function buildNetDirectionalPremiumSeries(rows: FlowByContractPoint[]): NetDirectionalPremiumRow[] {
-  const output: NetDirectionalPremiumRow[] = [];
-  let runningPremium = 0;
-  forEachBar(rows, ({ timestamp, rows: barRows }) => {
-    for (const row of barRows) {
-      const v = Number(row.net_premium ?? 0);
-      if (Number.isFinite(v)) runningPremium += v;
-    }
-    output.push({
-      timestamp,
-      premium: runningPremium,
-      positivePremium: runningPremium > 0 ? runningPremium : null,
-      negativePremium: runningPremium < 0 ? runningPremium : null,
-    });
-  });
-  return output;
 }
 
 // ── Date / session helpers ────────────────────────────────────────────────────
@@ -297,117 +247,13 @@ function safeTimeLabel(value?: string) {
       });
 }
 
-// ── Series builders ───────────────────────────────────────────────────────────
-
-export type NetVolumeMode = "raw" | "directional";
-
-/**
- * Builds the Options Flow chart series from per-bar rows by accumulating:
- *   callPremium(T) = Σ net_premium for calls up to T
- *   putPremium(T)  = Σ net_premium for puts up to T
- *   netVolume(T)   = Σ (per-bar raw_volume or net_volume) for all contracts up to T
- *   underlyingPrice(T) = average underlying_price across all contracts in bar T
- * The Net Put/Call Premium lines always use net_premium. The Net Volume
- * area toggles between raw_volume (Raw mode) and net_volume (Directional).
- */
-function buildFlowTimeseries(
-  rows: FlowByContractPoint[],
-  mode: NetVolumeMode,
-): TimeseriesRow[] {
-  const volumeField = mode === "raw" ? "raw_volume" : "net_volume";
-
-  const output: TimeseriesRow[] = [];
-  let cumCallPremium = 0;
-  let cumPutPremium = 0;
-  let cumNetVolume = 0;
-
-  forEachBar(rows, ({ timestamp, rows: barRows }) => {
-    let underlyingSum = 0;
-    let underlyingCount = 0;
-    for (const row of barRows) {
-      const prem = Number(row.net_premium ?? 0);
-      const vol = Number(row[volumeField] ?? 0);
-      if (Number.isFinite(prem)) {
-        if (row.option_type === "C") cumCallPremium += prem;
-        else if (row.option_type === "P") cumPutPremium += prem;
-      }
-      if (Number.isFinite(vol)) cumNetVolume += vol;
-      if (row.underlying_price != null) {
-        const u = Number(row.underlying_price);
-        if (Number.isFinite(u)) {
-          underlyingSum += u;
-          underlyingCount += 1;
-        }
-      }
-    }
-    output.push({
-      timestamp,
-      time: safeTimeLabel(timestamp),
-      callPremium: cumCallPremium,
-      putPremium: cumPutPremium,
-      netVolume: cumNetVolume,
-      positiveNetVolume: cumNetVolume > 0 ? cumNetVolume : 0,
-      negativeNetVolume: cumNetVolume < 0 ? cumNetVolume : 0,
-      underlyingPrice: underlyingCount > 0 ? underlyingSum / underlyingCount : null,
-    });
-  });
-
-  return output;
-}
-
-/**
- * Put/Call Ratio per 5-minute bar as session-cumulative raw volumes:
- *   ratio(T) = Σ raw_volume for puts up to T ÷ Σ raw_volume for calls up to T
- */
-function buildPutCallRatioSeries(rows: FlowByContractPoint[]): PutCallRatioRow[] {
-  const output: PutCallRatioRow[] = [];
-  let cumCallVolume = 0;
-  let cumPutVolume = 0;
-
-  forEachBar(rows, ({ timestamp, rows: barRows }) => {
-    for (const row of barRows) {
-      const v = Number(row.raw_volume ?? 0);
-      if (!Number.isFinite(v)) continue;
-      if (row.option_type === "C") cumCallVolume += v;
-      else if (row.option_type === "P") cumPutVolume += v;
-    }
-    output.push({
-      timestamp,
-      ratio: cumCallVolume > 0 ? cumPutVolume / cumCallVolume : null,
-    });
-  });
-  return output;
-}
-
-/**
- * Net Position (Buys vs Sells): running session totals of net_volume split
- * by option_type. Positive = net buying pressure, negative = net selling.
- */
-function buildNetPositionSeries(rows: FlowByContractPoint[]): NetPositionRow[] {
-  const output: NetPositionRow[] = [];
-  let cumCallNet = 0;
-  let cumPutNet = 0;
-
-  forEachBar(rows, ({ timestamp, rows: barRows }) => {
-    for (const row of barRows) {
-      const v = Number(row.net_volume ?? 0);
-      if (!Number.isFinite(v)) continue;
-      if (row.option_type === "C") cumCallNet += v;
-      else if (row.option_type === "P") cumPutNet += v;
-    }
-    output.push({ timestamp, callPosition: cumCallNet, putPosition: cumPutNet });
-  });
-  return output;
-}
-
 // ── FlowSeriesPoint → chart row mappers ──────────────────────────────────────
 //
-// When NEXT_PUBLIC_FLOW_SERIES_ENABLED=1, the backend returns rows whose fields
-// are already the session cumulatives the charts want to plot. These mappers
-// are trivial field renames — no accumulation, no gap-filling. Once the flag
-// is stable in production, all of the build*Series builders above and the
-// align*ToTimeline helpers can be deleted along with useFlowByContract's
-// client-side accumulation.
+// The backend at /api/flow/series returns rows whose fields are already the
+// session cumulatives the charts plot. These mappers are trivial field
+// renames — no accumulation, no gap-filling.
+
+export type NetVolumeMode = "raw" | "directional";
 
 function mapSeriesToFlowTimeseries(
   rows: FlowSeriesPoint[],
@@ -1024,50 +870,38 @@ export default function FlowAnalysisPage() {
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
   const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
 
-  // ── Data source selection ────────────────────────────────────────────────
-  // When NEXT_PUBLIC_FLOW_SERIES_ENABLED=1 the page gets ready-to-render
-  // session cumulatives from /api/flow/series and skips every client-side
-  // accumulator. When 0 (default) the legacy per-contract pipeline runs.
-  const flowSeriesEnabled = isFlowSeriesEnabled();
-
-  // ── Legacy path: per-contract rows + client-side accumulation ────────────
-  const {
-    rows: flowByContract,
-    error: legacyFlowError,
-  } = useFlowByContractCache(symbol, flowSession, { enabled: !flowSeriesEnabled });
-
-  // ── New path: server-computed session cumulatives (unfiltered) ───────────
+  // ── Server-computed session cumulatives (unfiltered) ─────────────────────
+  // Drives the Put/Call Ratio, Net Directional Premium, Net Position charts
+  // and the Flow Snapshot cards. Options Flow chart uses this when no
+  // strike/expiration filters are active.
   const {
     rows: flowSeriesUnfiltered,
-    error: seriesUnfilteredError,
-  } = useFlowSeries(symbol, flowSession, { enabled: flowSeriesEnabled });
+    error: flowError,
+  } = useFlowSeries(symbol, flowSession);
 
-  // Filter options (Strike / Expiration chips) — pulled from a dedicated
-  // endpoint in the new path, derived from per-contract rows in the legacy path.
-  const serverContractOptions = useFlowContractOptions(symbol, flowSession, flowSeriesEnabled);
-
-  const flowError = flowSeriesEnabled ? seriesUnfilteredError : legacyFlowError;
+  // Distinct strikes / expirations for the filter chips.
+  const serverContractOptions = useFlowContractOptions(symbol, flowSession);
 
   // A cheap intervals=1 probe of the other session just to read its ET date
-  // for the session dropdown label. Avoids a full-session fetch on mount.
+  // for the session dropdown label.
   const otherSession = flowSession === "current" ? "prior" : "current";
-  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
-    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+  const { data: otherSessionProbe } = useApiData<FlowSeriesPoint[]>(
+    `/api/flow/series?symbol=${symbol}&session=${otherSession}&intervals=1`,
     { refreshInterval: 60000 },
   );
-  const otherSessionDate = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
+  const otherSessionDate = useMemo(() => {
+    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
+    return etDateKeyFor(otherSessionProbe[otherSessionProbe.length - 1].timestamp) || null;
+  }, [otherSessionProbe]);
 
   // ── Derive the session date ──────────────────────────────────────────────
   const selectedDate = useMemo(() => {
-    if (flowSeriesEnabled) {
-      if (flowSeriesUnfiltered && flowSeriesUnfiltered.length > 0) {
-        const ts = flowSeriesUnfiltered[flowSeriesUnfiltered.length - 1].timestamp;
-        return etDateKeyFor(ts) || getCurrentETDateKey();
-      }
-      return getCurrentETDateKey();
+    if (flowSeriesUnfiltered && flowSeriesUnfiltered.length > 0) {
+      const ts = flowSeriesUnfiltered[flowSeriesUnfiltered.length - 1].timestamp;
+      return etDateKeyFor(ts) || getCurrentETDateKey();
     }
-    return latestRowDateKey(flowByContract) || getCurrentETDateKey();
-  }, [flowSeriesEnabled, flowSeriesUnfiltered, flowByContract]);
+    return getCurrentETDateKey();
+  }, [flowSeriesUnfiltered]);
 
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
@@ -1078,21 +912,11 @@ export default function FlowAnalysisPage() {
     return getFiveMinuteSessionTimeline(selectedDate);
   }, [selectedDate]);
 
-  // ── By-contract rows scoped to the selected date (legacy path only) ──────
-  const dateScopedContractRows = useMemo(() => {
-    if (flowSeriesEnabled) return [] as FlowByContractPoint[];
-    if (!flowByContract || !selectedDate) return [] as FlowByContractPoint[];
-    return flowByContract.filter((r) => {
-      const ts = flowRowTimestamp(r);
-      return ts ? etDateKeyFor(ts) === selectedDate : false;
-    });
-  }, [flowSeriesEnabled, flowByContract, selectedDate]);
-
-  // ── Snapshot (aggregated across every contract at the latest 5-min bar) ─
-  const latestSnapshot = useMemo(() => {
-    if (flowSeriesEnabled) return snapshotFromSeries(flowSeriesUnfiltered);
-    return computeFlowSnapshot(flowByContract, selectedDate);
-  }, [flowSeriesEnabled, flowSeriesUnfiltered, flowByContract, selectedDate]);
+  // ── Flow Snapshot cards ───────────────────────────────────────────────────
+  const latestSnapshot = useMemo(
+    () => snapshotFromSeries(flowSeriesUnfiltered),
+    [flowSeriesUnfiltered],
+  );
   const flowTone: 'bullish' | 'bearish' | 'neutral' = !latestSnapshot
     ? 'neutral'
     : (Math.abs(latestSnapshot.netPremium) < 250_000 && Math.abs(latestSnapshot.netFlow) < 10_000)
@@ -1110,30 +934,15 @@ export default function FlowAnalysisPage() {
       latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
     }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
 
-  // ── Filters (Strike / Expiration) ─────────────────────────────────────────
-  // New path pulls the filter chip values from /api/flow/contracts; legacy
-  // path derives them from the per-contract rows already in memory.
-  const strikeOptions = useMemo(() => {
-    if (flowSeriesEnabled) {
-      return serverContractOptions.strikes.map((n) => String(n));
-    }
-    const set = new Set<string>();
-    dateScopedContractRows.forEach((r) => {
-      if (r.strike != null && r.strike !== "") set.add(String(r.strike));
-    });
-    return Array.from(set).sort((a, b) => Number(a) - Number(b));
-  }, [flowSeriesEnabled, serverContractOptions, dateScopedContractRows]);
-
-  const expirationOptions = useMemo(() => {
-    if (flowSeriesEnabled) {
-      return serverContractOptions.expirations.slice().sort();
-    }
-    const set = new Set<string>();
-    dateScopedContractRows.forEach((r) => {
-      if (r.expiration) set.add(r.expiration);
-    });
-    return Array.from(set).sort();
-  }, [flowSeriesEnabled, serverContractOptions, dateScopedContractRows]);
+  // ── Filter chips (Strike / Expiration) ───────────────────────────────────
+  const strikeOptions = useMemo(
+    () => serverContractOptions.strikes.map((n) => String(n)),
+    [serverContractOptions],
+  );
+  const expirationOptions = useMemo(
+    () => serverContractOptions.expirations.slice().sort(),
+    [serverContractOptions],
+  );
 
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
   const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
@@ -1151,7 +960,7 @@ export default function FlowAnalysisPage() {
   const hasActiveFilters =
     effectiveSelectedStrikes.size > 0 || effectiveSelectedExpirations.size > 0;
 
-  // ── New-path filtered fetch (only when flag on and user has filters set) ─
+  // ── Filtered fetch (only when user has a strike/expiration chip active) ──
   const serverFilters = useMemo(
     () => ({
       strikes: Array.from(effectiveSelectedStrikes),
@@ -1160,81 +969,40 @@ export default function FlowAnalysisPage() {
     [effectiveSelectedStrikes, effectiveSelectedExpirations],
   );
   const { rows: flowSeriesFiltered } = useFlowSeries(symbol, flowSession, {
-    enabled: flowSeriesEnabled && hasActiveFilters,
+    enabled: hasActiveFilters,
     filters: serverFilters,
   });
 
-  // ── Legacy-path filtered rows (client-side filter of per-contract cache) ──
-  const filteredContractRows = useMemo(() => {
-    if (flowSeriesEnabled) return [] as FlowByContractPoint[];
-    return dateScopedContractRows.filter((r) => {
-      if (effectiveSelectedStrikes.size > 0) {
-        if (!effectiveSelectedStrikes.has(String(r.strike ?? ""))) return false;
-      }
-      if (effectiveSelectedExpirations.size > 0) {
-        if (!effectiveSelectedExpirations.has(r.expiration ?? "")) return false;
-      }
-      return true;
-    });
-  }, [flowSeriesEnabled, dateScopedContractRows, effectiveSelectedStrikes, effectiveSelectedExpirations]);
-
-  // ── Options Flow series (filtered) ────────────────────────────────────────
+  // ── Options Flow chart series (respects filter chips) ────────────────────
   const mainSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    if (flowSeriesEnabled) {
-      // Server already filtered and accumulated — just rename fields.
-      const sourceRows = hasActiveFilters
-        ? (flowSeriesFiltered ?? [])
-        : (flowSeriesUnfiltered ?? []);
-      const base = mapSeriesToFlowTimeseries(sourceRows, netVolumeMode);
-      return alignSeriesToTimeline(base, sessionTimeline);
-    }
-    const base = buildFlowTimeseries(filteredContractRows, netVolumeMode);
+    const sourceRows = hasActiveFilters
+      ? (flowSeriesFiltered ?? [])
+      : (flowSeriesUnfiltered ?? []);
+    const base = mapSeriesToFlowTimeseries(sourceRows, netVolumeMode);
     return alignSeriesToTimeline(base, sessionTimeline);
-  }, [
-    flowSeriesEnabled,
-    hasActiveFilters,
-    flowSeriesFiltered,
-    flowSeriesUnfiltered,
-    selectedDate,
-    filteredContractRows,
-    sessionTimeline,
-    netVolumeMode,
-  ]);
+  }, [hasActiveFilters, flowSeriesFiltered, flowSeriesUnfiltered, selectedDate, sessionTimeline, netVolumeMode]);
 
-  // ── Put/Call ratio (always unfiltered) ────────────────────────────────────
+  // ── Put/Call ratio (unfiltered) ──────────────────────────────────────────
   const putCallRatioSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    if (flowSeriesEnabled) {
-      const base = mapSeriesToRatioRows(flowSeriesUnfiltered ?? []);
-      return alignRatioToTimeline(base, sessionTimeline);
-    }
-    const base = buildPutCallRatioSeries(dateScopedContractRows);
+    const base = mapSeriesToRatioRows(flowSeriesUnfiltered ?? []);
     return alignRatioToTimeline(base, sessionTimeline);
-  }, [flowSeriesEnabled, flowSeriesUnfiltered, selectedDate, dateScopedContractRows, sessionTimeline]);
+  }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
-  // ── Net Directional Premium (always unfiltered) ──────────────────────────
+  // ── Net Directional Premium (unfiltered) ─────────────────────────────────
   const directionalPremiumSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    if (flowSeriesEnabled) {
-      const base = mapSeriesToPremiumRows(flowSeriesUnfiltered ?? []);
-      return alignPremiumToTimeline(base, sessionTimeline);
-    }
-    const base = buildNetDirectionalPremiumSeries(dateScopedContractRows);
+    const base = mapSeriesToPremiumRows(flowSeriesUnfiltered ?? []);
     return alignPremiumToTimeline(base, sessionTimeline);
-  }, [flowSeriesEnabled, flowSeriesUnfiltered, selectedDate, dateScopedContractRows, sessionTimeline]);
+  }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
-  // ── Net Position (Buys vs Sells): aggregated cumulative call vs put volume
-  //    across every contract, per 5-minute bar (always unfiltered).
+  // ── Net Position (Buys vs Sells), unfiltered ─────────────────────────────
   const netPositionSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    if (flowSeriesEnabled) {
-      const base = mapSeriesToNetPositionRows(flowSeriesUnfiltered ?? []);
-      return alignNetPositionToTimeline(base, sessionTimeline);
-    }
-    const base = buildNetPositionSeries(dateScopedContractRows);
+    const base = mapSeriesToNetPositionRows(flowSeriesUnfiltered ?? []);
     return alignNetPositionToTimeline(base, sessionTimeline);
-  }, [flowSeriesEnabled, flowSeriesUnfiltered, selectedDate, dateScopedContractRows, sessionTimeline]);
+  }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
   const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
   const hasRatioData = putCallRatioSeries.some((row) => row.ratio != null);
@@ -1270,7 +1038,7 @@ export default function FlowAnalysisPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
-      {flowError && !flowByContract && <ErrorMessage message={flowError} />}
+      {flowError && !flowSeriesUnfiltered && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
         title="Flow Analysis Regime"
         badge={flowBadge}

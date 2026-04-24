@@ -12,8 +12,8 @@ import { useEffect, useRef, useState } from 'react';
  */
 export interface FlowSeriesPoint {
   timestamp: string;
-  bar_start?: string;
-  bar_end?: string;
+  bar_start: string;
+  bar_end: string;
   call_premium_cum: number;
   put_premium_cum: number;
   call_volume_cum: number;
@@ -327,10 +327,6 @@ export function useFlowSeries(
   }, [cacheKey, symbol, session, enabled, incrementalMs, fullRefreshMs, filters]);
 
   return { rows, loading, error };
-}
-
-export function isFlowSeriesEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_FLOW_SERIES_ENABLED === '1';
 }
 
 /**
