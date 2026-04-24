@@ -210,7 +210,7 @@ export default function AccountPage() {
         <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Cancelling ends your paid subscription and moves you back to the Starter tier.
+            Cancelling ends your paid subscription and removes your access to premium features.
           </p>
           <button
             type="button"
