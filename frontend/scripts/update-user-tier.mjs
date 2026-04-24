@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const VALID_TIERS = ['public', 'starter', 'pro', 'elite', 'admin'];
 // Legacy tier ids that need to be rewritten to their current equivalent.
@@ -65,7 +65,43 @@ Examples:
   # Migrate every legacy "basic" user to "starter"
   node scripts/update-user-tier.mjs --all-from basic --tier starter
 
+Requires the sqlite3 CLI (\`apt-get install sqlite3\` on Ubuntu).
 Set AUTH_DB_PATH (env or frontend/.env.local) to override the default DB path.`);
+}
+
+function ensureSqlite3Cli() {
+  const probe = spawnSync('sqlite3', ['-version'], { stdio: 'ignore' });
+  if (probe.error || probe.status !== 0) {
+    console.error('Error: sqlite3 CLI not found on PATH.');
+    console.error('Install it with: sudo apt-get install sqlite3');
+    process.exit(1);
+  }
+}
+
+function escapeSqlLiteral(value) {
+  return String(value).replace(/'/g, "''");
+}
+
+function runSqlite(dbPath, sql) {
+  try {
+    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    const stderr = err.stderr?.toString?.() ?? '';
+    throw new Error(stderr.trim() || err.message);
+  }
+}
+
+function querySqlite(dbPath, sql) {
+  const output = runSqlite(dbPath, sql).trim();
+  if (!output) return [];
+  return JSON.parse(output);
+}
+
+function execSqlite(dbPath, sql) {
+  runSqlite(dbPath, sql);
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -108,17 +144,23 @@ if (!fs.existsSync(dbPath)) {
   process.exit(1);
 }
 
-const db = new DatabaseSync(dbPath);
+ensureSqlite3Cli();
+
 const nowIso = () => new Date().toISOString();
 
 function updateSingle(rawEmail) {
   const email = rawEmail.trim().toLowerCase();
-  const row = db.prepare('SELECT id, email, tier FROM users WHERE email = ?').get(email);
-  if (!row) {
+  const rows = querySqlite(
+    dbPath,
+    `SELECT id, email, tier FROM users WHERE email = '${escapeSqlLiteral(email)}';`
+  );
+
+  if (rows.length === 0) {
     console.error(`No user found with email: ${email}`);
     process.exit(2);
   }
 
+  const row = rows[0];
   if (row.tier === nextTier) {
     console.log(`No change: ${row.email} is already on tier "${nextTier}".`);
     return;
@@ -129,12 +171,19 @@ function updateSingle(rawEmail) {
     return;
   }
 
-  db.prepare('UPDATE users SET tier = ?, updated_at = ? WHERE id = ?').run(nextTier, nowIso(), row.id);
+  execSqlite(
+    dbPath,
+    `UPDATE users SET tier = '${escapeSqlLiteral(nextTier)}', updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(row.id)}';`
+  );
   console.log(`Updated ${row.email}: ${row.tier} -> ${nextTier}`);
 }
 
 function updateAllFrom(fromTier) {
-  const rows = db.prepare('SELECT id, email, tier FROM users WHERE tier = ?').all(fromTier);
+  const rows = querySqlite(
+    dbPath,
+    `SELECT id, email, tier FROM users WHERE tier = '${escapeSqlLiteral(fromTier)}';`
+  );
+
   if (rows.length === 0) {
     console.log(`No users currently on tier "${fromTier}".`);
     return;
@@ -146,16 +195,22 @@ function updateAllFrom(fromTier) {
     return;
   }
 
-  const update = db.prepare('UPDATE users SET tier = ?, updated_at = ? WHERE id = ?');
-  const ts = nowIso();
-  for (const r of rows) update.run(nextTier, ts, r.id);
+  execSqlite(
+    dbPath,
+    `UPDATE users SET tier = '${escapeSqlLiteral(nextTier)}', updated_at = '${escapeSqlLiteral(nowIso())}' WHERE tier = '${escapeSqlLiteral(fromTier)}';`
+  );
   console.log(`Updated ${rows.length} user(s) from "${fromTier}" to "${nextTier}".`);
 }
 
 console.log(`Auth DB: ${dbPath}`);
 
-if (cliArgs.email) {
-  updateSingle(cliArgs.email);
-} else {
-  updateAllFrom(cliArgs.all);
+try {
+  if (cliArgs.email) {
+    updateSingle(cliArgs.email);
+  } else {
+    updateAllFrom(cliArgs.all);
+  }
+} catch (err) {
+  console.error(`sqlite3 error: ${err.message}`);
+  process.exit(1);
 }
