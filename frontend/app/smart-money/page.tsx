@@ -224,14 +224,36 @@ export default function SmartMoneyPage() {
     });
     const priceByTs = buildUnderlyingPriceMap(byContractRows);
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
-    // Forward-fill the underlying price across the 1-minute timeline so the
-    // line renders as a continuous series between 5-minute observations.
-    const filledPrices: Array<number | null> = new Array(sessionTimeline.length);
-    let running: number | null = null;
+    // Linearly interpolate the underlying price between sparse observations so
+    // the line reads as a smooth curve instead of forward-filled plateaus.
+    const observedIdx: number[] = [];
+    const observedVal: number[] = [];
     for (let i = 0; i < sessionTimeline.length; i += 1) {
-      const observed = priceByTs.get(sessionTimeline[i]);
-      if (observed != null && Number.isFinite(observed)) running = observed;
-      filledPrices[i] = running;
+      const v = priceByTs.get(sessionTimeline[i]);
+      if (v != null && Number.isFinite(v)) {
+        observedIdx.push(i);
+        observedVal.push(v);
+      }
+    }
+    const filledPrices: Array<number | null> = new Array(sessionTimeline.length).fill(null);
+    if (observedIdx.length === 1) {
+      filledPrices.fill(observedVal[0]);
+    } else if (observedIdx.length > 1) {
+      for (let i = 0; i < observedIdx[0]; i += 1) filledPrices[i] = observedVal[0];
+      for (let seg = 0; seg < observedIdx.length - 1; seg += 1) {
+        const startIdx = observedIdx[seg];
+        const endIdx = observedIdx[seg + 1];
+        const startVal = observedVal[seg];
+        const endVal = observedVal[seg + 1];
+        const span = endIdx - startIdx;
+        for (let i = startIdx; i <= endIdx; i += 1) {
+          const t = span === 0 ? 0 : (i - startIdx) / span;
+          filledPrices[i] = startVal + (endVal - startVal) * t;
+        }
+      }
+      const lastIdx = observedIdx[observedIdx.length - 1];
+      const lastVal = observedVal[observedVal.length - 1];
+      for (let i = lastIdx + 1; i < sessionTimeline.length; i += 1) filledPrices[i] = lastVal;
     }
     return sessionTimeline.map((ts, idx) => {
       // Sort largest -> smallest so any segment cap trims from the smallest tail.
