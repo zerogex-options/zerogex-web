@@ -6,7 +6,6 @@ import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YA
 import { useApiData } from '@/hooks/useApiData';
 import {
   useFlowByContractCache,
-  buildUnderlyingPriceMap,
   latestRowDateKey,
   type FlowByContractPoint,
 } from '@/hooks/useFlowByContract';
@@ -222,7 +221,16 @@ export default function SmartMoneyPage() {
       });
       blocksByTs.set(row.minuteTimestamp, blocks);
     });
-    const priceByTs = buildUnderlyingPriceMap(byContractRows);
+    // Smart money rows report a single underlying_price per time interval;
+    // pick the first value observed per minute and plot it directly.
+    const priceByTs = new Map<string, number>();
+    for (const row of normalizedSmartMoneyRows) {
+      if (!row.minuteTimestamp) continue;
+      if (priceByTs.has(row.minuteTimestamp)) continue;
+      if (row.underlying_price == null) continue;
+      const u = Number(row.underlying_price);
+      if (Number.isFinite(u)) priceByTs.set(row.minuteTimestamp, u);
+    }
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
     // Leave gaps as nulls between observations; Recharts' connectNulls + type="monotone"
     // draws a true smooth curve across the sparse points (matching the Options Flow line).
@@ -241,7 +249,7 @@ export default function SmartMoneyPage() {
       }
       return row;
     });
-  }, [byContractRows, filteredSmartMoneyData, sessionTimeline]);
+  }, [filteredSmartMoneyData, normalizedSmartMoneyRows, sessionTimeline]);
 
   const maxStackSegments = useMemo(
     () => Math.min(

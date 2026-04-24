@@ -204,7 +204,7 @@ export type NetVolumeMode = "raw" | "directional";
  *   callPremium(T) = Σ net_premium for calls up to T
  *   putPremium(T)  = Σ net_premium for puts up to T
  *   netVolume(T)   = Σ (per-bar raw_volume or net_volume) for all contracts up to T
- *   underlyingPrice(T) = latest observed underlying_price at or before T
+ *   underlyingPrice(T) = average underlying_price across all contracts in bar T
  * The Net Put/Call Premium lines always use net_premium. The Net Volume
  * area toggles between raw_volume (Raw mode) and net_volume (Directional).
  */
@@ -218,9 +218,10 @@ function buildFlowTimeseries(
   let cumCallPremium = 0;
   let cumPutPremium = 0;
   let cumNetVolume = 0;
-  let lastKnownUnderlying: number | null = null;
 
   forEachBar(rows, ({ timestamp, rows: barRows }) => {
+    let underlyingSum = 0;
+    let underlyingCount = 0;
     for (const row of barRows) {
       const prem = Number(row.net_premium ?? 0);
       const vol = Number(row[volumeField] ?? 0);
@@ -231,7 +232,10 @@ function buildFlowTimeseries(
       if (Number.isFinite(vol)) cumNetVolume += vol;
       if (row.underlying_price != null) {
         const u = Number(row.underlying_price);
-        if (Number.isFinite(u)) lastKnownUnderlying = u;
+        if (Number.isFinite(u)) {
+          underlyingSum += u;
+          underlyingCount += 1;
+        }
       }
     }
     output.push({
@@ -242,7 +246,7 @@ function buildFlowTimeseries(
       netVolume: cumNetVolume,
       positiveNetVolume: cumNetVolume > 0 ? cumNetVolume : 0,
       negativeNetVolume: cumNetVolume < 0 ? cumNetVolume : 0,
-      underlyingPrice: lastKnownUnderlying,
+      underlyingPrice: underlyingCount > 0 ? underlyingSum / underlyingCount : null,
     });
   });
 
