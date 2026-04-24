@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { FlowSnapshot } from './useFlowByContract';
 
 /**
  * Row shape returned by GET /api/flow/series. Each row is a single 5-minute
@@ -27,6 +28,50 @@ export interface FlowSeriesPoint {
   underlying_price: number | null;
   contract_count?: number;
   is_synthetic?: boolean;
+}
+
+/**
+ * Round-trip a server ISO timestamp (`…00Z`) through `Date.toISOString()`
+ * (`…00.000Z`) so chart-row keys match the client-side session timeline
+ * built by `new Date(t).toISOString()`. Exported because every consumer of
+ * FlowSeriesPoint that then keys data by timestamp hits the same issue.
+ */
+export function canonicalIso(ts: string): string {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+}
+
+/**
+ * Flow Snapshot (call/put volume, premium, net flow, put-call ratio,
+ * underlying) derived from the most recent non-synthetic row in a
+ * /api/flow/series response. Returns null when there's no usable row.
+ * Drop-in replacement for `computeFlowSnapshot(rows, dateKey)` from the
+ * legacy useFlowByContract path — same shape, sourced from the aggregated
+ * endpoint so there's no client-side accumulation.
+ */
+export function snapshotFromSeries(rows: FlowSeriesPoint[] | null | undefined): FlowSnapshot | null {
+  if (!rows || rows.length === 0) return null;
+  let last: FlowSeriesPoint | null = null;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (!rows[i].is_synthetic) {
+      last = rows[i];
+      break;
+    }
+  }
+  if (!last) last = rows[rows.length - 1];
+  const putCallRatio = last.put_call_ratio
+    ?? (last.call_volume_cum > 0 ? last.put_volume_cum / last.call_volume_cum : 0);
+  return {
+    timestamp: canonicalIso(last.timestamp),
+    callVolume: last.call_volume_cum,
+    putVolume: last.put_volume_cum,
+    callPremium: last.call_premium_cum,
+    putPremium: last.put_premium_cum,
+    netFlow: last.net_volume_cum,
+    netPremium: last.net_premium_cum,
+    putCallRatio,
+    underlyingPrice: last.underlying_price,
+  };
 }
 
 interface CacheEntry {
@@ -358,43 +403,64 @@ async function fetchContractOptions(
   };
 }
 
+export interface UseFlowContractOptionsResult {
+  options: FlowContractOptions;
+  loading: boolean;
+  error: string | null;
+}
+
 /**
  * Polls /api/flow/contracts for the distinct strikes/expirations in the
  * selected session. Refreshed every 5 minutes — the set only grows slowly
  * as new contracts print during the day.
+ *
+ * Returns `{ options, loading, error }` so callers can render proper
+ * loading / error states on their filter dropdowns. `loading` is only true
+ * on the first fetch; subsequent refetches keep the prior options visible
+ * and update them in place.
  */
 export function useFlowContractOptions(
   symbol: string,
   session: 'current' | 'prior',
   enabled: boolean = true,
-) {
+): UseFlowContractOptionsResult {
   const cacheKey = `${symbol}:${session}`;
+  const cached = contractsCache.get(cacheKey);
   const [options, setOptions] = useState<FlowContractOptions>(
-    contractsCache.get(cacheKey) ?? { strikes: [], expirations: [] },
+    cached ?? { strikes: [], expirations: [] },
   );
+  const [loading, setLoading] = useState<boolean>(!cached && enabled);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
-    const run = async () => {
+    const run = async (isInitial: boolean) => {
       try {
         const next = await fetchContractOptions(symbol, session);
         if (cancelled) return;
         contractsCache.set(cacheKey, next);
         setOptions(next);
-      } catch {
-        // Silent — keep last known options.
+        setError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : 'Failed to fetch contract options');
+      } finally {
+        if (!cancelled && isInitial) setLoading(false);
       }
     };
 
-    run();
-    const timer = setInterval(run, DEFAULT_FULL_REFRESH_MS);
+    run(true);
+    const timer = setInterval(() => run(false), DEFAULT_FULL_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [cacheKey, symbol, session, enabled]);
 
-  return options;
+  return { options, loading, error };
 }

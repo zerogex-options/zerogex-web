@@ -15,8 +15,10 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData } from "@/hooks/useApiData";
-import { etDateKeyFor, type FlowSnapshot } from "@/hooks/useFlowByContract";
+import { etDateKeyFor } from "@/hooks/useFlowByContract";
 import {
+  canonicalIso,
+  snapshotFromSeries,
   useFlowContractOptions,
   useFlowSeries,
   type FlowSeriesPoint,
@@ -255,19 +257,6 @@ function safeTimeLabel(value?: string) {
 
 export type NetVolumeMode = "raw" | "directional";
 
-/**
- * Round-trip the server's timestamp through `Date.toISOString()` so the chart
- * row keys always carry the millisecond component (`…00.000Z`). Without this
- * normalization, server timestamps formatted as `…00Z` never match the
- * timeline keys built by `new Date(t).toISOString()` (which always emit
- * `…00.000Z`), and `align*ToTimeline` drops every row into the null fallback —
- * producing the all-charts-blank failure mode.
- */
-function canonicalIso(ts: string): string {
-  const d = new Date(ts);
-  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
-}
-
 function mapSeriesToFlowTimeseries(
   rows: FlowSeriesPoint[],
   mode: NetVolumeMode,
@@ -310,32 +299,6 @@ function mapSeriesToNetPositionRows(rows: FlowSeriesPoint[]): NetPositionRow[] {
     callPosition: r.call_position_cum,
     putPosition: r.put_position_cum,
   }));
-}
-
-/** Flow Snapshot derived from the most recent real (non-synthetic) server row. */
-function snapshotFromSeries(rows: FlowSeriesPoint[] | null): FlowSnapshot | null {
-  if (!rows || rows.length === 0) return null;
-  let last: FlowSeriesPoint | null = null;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    if (!rows[i].is_synthetic) {
-      last = rows[i];
-      break;
-    }
-  }
-  if (!last) last = rows[rows.length - 1];
-  const putCallRatio = last.put_call_ratio
-    ?? (last.call_volume_cum > 0 ? last.put_volume_cum / last.call_volume_cum : 0);
-  return {
-    timestamp: canonicalIso(last.timestamp),
-    callVolume: last.call_volume_cum,
-    putVolume: last.put_volume_cum,
-    callPremium: last.call_premium_cum,
-    putPremium: last.put_premium_cum,
-    netFlow: last.net_volume_cum,
-    netPremium: last.net_premium_cum,
-    putCallRatio,
-    underlyingPrice: last.underlying_price,
-  };
 }
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
@@ -894,7 +857,7 @@ export default function FlowAnalysisPage() {
   } = useFlowSeries(symbol, flowSession);
 
   // Distinct strikes / expirations for the filter chips.
-  const serverContractOptions = useFlowContractOptions(symbol, flowSession);
+  const { options: serverContractOptions } = useFlowContractOptions(symbol, flowSession);
 
   // A cheap intervals=1 probe of the other session just to read its ET date
   // for the session dropdown label.

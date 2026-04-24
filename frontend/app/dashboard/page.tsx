@@ -6,7 +6,7 @@
 'use client';
 
 import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
-import { useFlowByContractCache, computeFlowSnapshot } from '@/hooks/useFlowByContract';
+import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -85,7 +85,7 @@ export default function DashboardPage() {
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
-  const { rows: flowByContractRows } = useFlowByContractCache(symbol, 'current', {
+  const { rows: flowSeriesRows } = useFlowSeries(symbol, 'current', {
     incrementalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
   });
 
@@ -118,7 +118,7 @@ export default function DashboardPage() {
     sessionCloses: sessionClosesData,
   });
 
-  const latestFlowSnapshot = computeFlowSnapshot(flowByContractRows);
+  const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
