@@ -16,6 +16,7 @@ import {
 import { useSignalEvents, type SignalEventName, type SignalEventHorizon } from '@/hooks/useApiData';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { formatEtTime, getNumber } from '@/core/signalHelpers';
+import MobileScrollableChart from './MobileScrollableChart';
 
 interface SignalEventsPanelProps {
   signalName: SignalEventName;
@@ -94,6 +95,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
         {rows.length > 0 ? (
+          <MobileScrollableChart>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -117,6 +119,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               <Scatter yAxisId="score" dataKey="flipBearish" name="Flip ↓" fill="var(--color-bear)" shape="triangle" />
             </ComposedChart>
           </ResponsiveContainer>
+          </MobileScrollableChart>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-full text-sm text-[var(--color-text-secondary)] gap-1">
             <div>Unable to load event history.</div>

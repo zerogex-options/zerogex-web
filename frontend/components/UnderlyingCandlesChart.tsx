@@ -13,6 +13,7 @@ import { omitClosedMarketTimes } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import MobileScrollableChart from "./MobileScrollableChart";
 
 interface PriceBar {
   timestamp: string;
@@ -254,6 +255,7 @@ export default function UnderlyingCandlesChart() {
             </div>
           )}
         </div>
+        <MobileScrollableChart>
         <div className="relative w-full">
           <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMin meet" style={{ aspectRatio: `${width} / ${height}` }} className="block w-full" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             <text
@@ -451,6 +453,7 @@ export default function UnderlyingCandlesChart() {
             />
           </svg>
         </div>
+        </MobileScrollableChart>
       </div>
     </ExpandableCard>
   );
