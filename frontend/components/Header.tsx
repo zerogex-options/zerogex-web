@@ -16,6 +16,7 @@ import {
   LogIn,
   LogOut,
   Rocket,
+  User,
 } from "lucide-react";
 import { NAV_GROUPS } from "@/core/navigation";
 import { Theme, MarketSession } from "@/core/types";
@@ -314,6 +315,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           zIndex: 60,
                         }}
                       >
+                        {authSession?.authenticated && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProfileMenuOpen(false);
+                              router.push("/account");
+                            }}
+                            className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                            style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                          >
+                            <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -451,6 +465,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         zIndex: 60,
                       }}
                     >
+                      {authSession?.authenticated && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            router.push("/account");
+                          }}
+                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                        >
+                          <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -621,6 +648,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
+                {authSession?.authenticated && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push("/account");
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border px-3 py-2 text-sm font-semibold col-span-2"
+                    style={{ borderColor: border, color: colors.muted }}
+                  >
+                    Account
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
