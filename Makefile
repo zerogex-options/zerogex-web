@@ -74,8 +74,7 @@ status:
 
 # Print auth users and entitlements from SQLite
 users:
-	@echo "Listing auth users..."
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node scripts/list-auth-users.mjs'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
 
 # Clean build artifacts
 clean:

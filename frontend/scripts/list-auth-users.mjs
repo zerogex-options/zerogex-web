@@ -48,9 +48,6 @@ const rows = db
   )
   .all();
 
-console.log(`Auth DB: ${dbPath}`);
-console.log('');
-
 const byTier = Object.fromEntries(TIER_DISPLAY_ORDER.map((t) => [t, []]));
 for (const row of rows) {
   const tier = row.tier || 'public';
