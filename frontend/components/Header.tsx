@@ -18,7 +18,7 @@ import {
   Rocket,
   User,
 } from "lucide-react";
-import { NAV_GROUPS } from "@/core/navigation";
+import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -58,7 +58,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
-  const mobileNavGroups = useMemo(
+  const mobileNavGroups = useMemo<NavGroup[]>(
     () => [
       ...NAV_GROUPS,
       {
@@ -75,7 +75,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const [mobileExpandedGroups, setMobileExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     mobileNavGroups.forEach((group) => {
-      initial[group.label] = group.items.some((item) => pathname === item.id);
+      const directMatch = (group.items ?? []).some((item) => pathname === item.id);
+      const subMatch = (group.subgroups ?? []).some((sg) =>
+        sg.items.some((item) => pathname === item.id),
+      );
+      initial[group.label] = directMatch || subMatch;
+      (group.subgroups ?? []).forEach((sg) => {
+        initial[`${group.label}::${sg.label}`] = sg.items.some(
+          (item) => pathname === item.id,
+        );
+      });
     });
     return initial;
   });
@@ -91,15 +100,20 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const filteredMobileNavGroups = useMemo(
     () =>
       mobileNavGroups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => {
-            if ("external" in item && item.external) return true;
-            if (group.label === "Signals") return true;
+        .map((group) => {
+          const bypassTierCheck = group.label === "Signals";
+          const keepItem = (item: NavItem) => {
+            if (item.external) return true;
+            if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
-          }),
-        }))
-        .filter((group) => group.items.length > 0),
+          };
+          const items = (group.items ?? []).filter(keepItem);
+          const subgroups = (group.subgroups ?? [])
+            .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
+            .filter((sg) => sg.items.length > 0);
+          return { ...group, items, subgroups };
+        })
+        .filter((group) => group.items.length + group.subgroups.length > 0),
     [mobileNavGroups, currentTier],
   );
 
@@ -581,6 +595,49 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <div className="space-y-3">
                 {filteredMobileNavGroups.map((group) => {
                   const isExpanded = mobileExpandedGroups[group.label] ?? false;
+                  const renderItem = (page: NavItem) => {
+                    const active = pathname === page.id;
+                    const isExternal = page.external === true;
+
+                    if (isExternal) {
+                      const targetHref = resolveNavTarget(page.id);
+                      return (
+                        <a
+                          key={page.id}
+                          href={targetHref}
+                          target={targetHref.startsWith("http") ? "_blank" : undefined}
+                          rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
+                          className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                          style={{
+                            background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
+                            borderColor: border,
+                            color: theme === 'dark' ? colors.light : colors.dark,
+                          }}
+                        >
+                          {page.label}
+                        </a>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={page.id}
+                        onClick={() => {
+                          router.push(resolveNavTarget(page.id));
+                          setMobileMenuOpen(false);
+                        }}
+                        className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                        style={{
+                          background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
+                          borderColor: active ? `${colors.primary}60` : border,
+                          color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
+                        }}
+                      >
+                        {page.label}
+                      </button>
+                    );
+                  };
+
                   return (
                     <div key={group.label} className="rounded-lg border p-3" style={{ borderColor: border }}>
                       <button
@@ -594,46 +651,27 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       </button>
                       {isExpanded ? (
                         <div className="grid grid-cols-1 gap-2">
-                          {group.items.map((page) => {
-                            const active = pathname === page.id;
-                            const isExternal = 'external' in page && page.external;
-
-                            if (isExternal) {
-                              const targetHref = resolveNavTarget(page.id);
-                              return (
-                                <a
-                                  key={page.id}
-                                  href={targetHref}
-                                  target={targetHref.startsWith("http") ? "_blank" : undefined}
-                                  rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                                  className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                                  style={{
-                                    background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
-                                    borderColor: border,
-                                    color: theme === 'dark' ? colors.light : colors.dark,
-                                  }}
-                                >
-                                  {page.label}
-                                </a>
-                              );
-                            }
-
+                          {group.items.map(renderItem)}
+                          {group.subgroups.map((subgroup) => {
+                            const subKey = `${group.label}::${subgroup.label}`;
+                            const isSubExpanded = mobileExpandedGroups[subKey] ?? false;
                             return (
-                              <button
-                                key={page.id}
-                                onClick={() => {
-                                  router.push(resolveNavTarget(page.id));
-                                  setMobileMenuOpen(false);
-                                }}
-                                className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                                style={{
-                                  background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
-                                  borderColor: active ? `${colors.primary}60` : border,
-                                  color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
-                                }}
-                              >
-                                {page.label}
-                              </button>
+                              <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${colors.primary}33` }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }))}
+                                  className="mb-1 flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}
+                                >
+                                  {subgroup.label}
+                                  <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                                </button>
+                                {isSubExpanded ? (
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {subgroup.items.map(renderItem)}
+                                  </div>
+                                ) : null}
+                              </div>
                             );
                           })}
                         </div>

@@ -5,7 +5,7 @@ import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { NAV_GROUPS } from "@/core/navigation";
+import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Link from "next/link";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
@@ -54,7 +54,7 @@ export default function Navigation({ theme }: NavigationProps) {
   };
   const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
 
-  const navGroups = useMemo(
+  const navGroups = useMemo<NavGroup[]>(
     () => [
       ...NAV_GROUPS,
       {
@@ -70,23 +70,38 @@ export default function Navigation({ theme }: NavigationProps) {
   const filteredNavGroups = useMemo(
     () =>
       navGroups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => {
-            if ("external" in item && item.external) return true;
-            if (group.label === "Signals") return true;
-            if (group.label === "Advanced Signals") return true;
+        .map((group) => {
+          // "Signals" is always shown to every tier so the marketing surface
+          // stays intact; unentitled clicks are routed to /pricing instead.
+          const bypassTierCheck = group.label === "Signals";
+          const keepItem = (item: NavItem) => {
+            if (item.external) return true;
+            if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
-          }),
-        }))
-        .filter((group) => group.items.length > 0),
+          };
+          const items = (group.items ?? []).filter(keepItem);
+          const subgroups = (group.subgroups ?? [])
+            .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
+            .filter((sg) => sg.items.length > 0);
+          return { ...group, items, subgroups };
+        })
+        .filter((group) => group.items.length + group.subgroups.length > 0),
     [navGroups, currentTier],
   );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navGroups.forEach((group) => {
-      initial[group.label] = group.items.some((item) => pathname === item.id);
+      const directMatch = (group.items ?? []).some((item) => pathname === item.id);
+      const subMatch = (group.subgroups ?? []).some((sg) =>
+        sg.items.some((item) => pathname === item.id),
+      );
+      initial[group.label] = directMatch || subMatch;
+      (group.subgroups ?? []).forEach((sg) => {
+        initial[`${group.label}::${sg.label}`] = sg.items.some(
+          (item) => pathname === item.id,
+        );
+      });
     });
     return initial;
   });
@@ -189,6 +204,62 @@ export default function Navigation({ theme }: NavigationProps) {
             )}
             {filteredNavGroups.map((group) => {
               const isExpanded = expandedGroups[group.label] ?? false;
+              const renderItem = (page: NavItem) => {
+                const isExternal = page.external === true;
+                const isActive = pathname === page.id;
+                const isHovered = hoveredPage === page.id;
+                const commonStyle = {
+                  color: isActive || isHovered
+                    ? (theme === "light" ? colors.coral : colors.primary)
+                    : theme === "dark"
+                      ? colors.light
+                      : colors.dark,
+                  opacity: isActive || isHovered ? 1 : 0.72,
+                  background: isHovered && !isActive
+                    ? `${theme === "light" ? colors.coral : colors.primary}18`
+                    : isActive
+                      ? `${theme === "light" ? colors.coral : colors.primary}14`
+                      : "transparent",
+                  border: `1px solid ${
+                    isActive || isHovered
+                      ? `${theme === "light" ? colors.coral : colors.primary}40`
+                      : "transparent"
+                  }`,
+                };
+
+                if (isExternal) {
+                  const targetHref = resolveNavTarget(page.id);
+                  return (
+                    <Link
+                      key={page.id}
+                      href={targetHref}
+                      target={targetHref.startsWith("http") ? "_blank" : undefined}
+                      rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
+                      onMouseEnter={() => setHoveredPage(page.id)}
+                      onMouseLeave={() => setHoveredPage(null)}
+                      className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                      style={commonStyle}
+                    >
+                      {page.label}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <button
+                    key={page.id}
+                    onClick={() => router.push(resolveNavTarget(page.id))}
+                    onMouseEnter={() => setHoveredPage(page.id)}
+                    onMouseLeave={() => setHoveredPage(null)}
+                    className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                    style={commonStyle}
+                    type="button"
+                  >
+                    {page.label}
+                  </button>
+                );
+              };
+
               return (
                 <div key={group.label} className="mb-4 last:mb-0">
                   <button
@@ -208,59 +279,33 @@ export default function Navigation({ theme }: NavigationProps) {
                   </button>
                   {isExpanded ? (
                     <div className="space-y-1">
-                      {group.items.map((page) => {
-                        const isExternal = "external" in page && page.external;
-                        const isActive = pathname === page.id;
-                        const isHovered = hoveredPage === page.id;
-                        const commonStyle = {
-                          color: isActive || isHovered
-                            ? (theme === "light" ? colors.coral : colors.primary)
-                            : theme === "dark"
-                              ? colors.light
-                              : colors.dark,
-                          opacity: isActive || isHovered ? 1 : 0.72,
-                          background: isHovered && !isActive
-                            ? `${theme === "light" ? colors.coral : colors.primary}18`
-                            : isActive
-                              ? `${theme === "light" ? colors.coral : colors.primary}14`
-                              : "transparent",
-                          border: `1px solid ${
-                            isActive || isHovered
-                              ? `${theme === "light" ? colors.coral : colors.primary}40`
-                              : "transparent"
-                          }`,
-                        };
-
-                        if (isExternal) {
-                          const targetHref = resolveNavTarget(page.id);
-                          return (
-                            <Link
-                              key={page.id}
-                              href={targetHref}
-                              target={targetHref.startsWith("http") ? "_blank" : undefined}
-                              rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                              onMouseEnter={() => setHoveredPage(page.id)}
-                              onMouseLeave={() => setHoveredPage(null)}
-                              className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
-                              style={commonStyle}
-                            >
-                              {page.label}
-                            </Link>
-                          );
-                        }
-
+                      {group.items.map(renderItem)}
+                      {group.subgroups.map((subgroup) => {
+                        const subKey = `${group.label}::${subgroup.label}`;
+                        const isSubExpanded = expandedGroups[subKey] ?? false;
                         return (
-                          <button
-                            key={page.id}
-                            onClick={() => router.push(resolveNavTarget(page.id))}
-                            onMouseEnter={() => setHoveredPage(page.id)}
-                            onMouseLeave={() => setHoveredPage(null)}
-                            className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
-                            style={commonStyle}
-                            type="button"
-                          >
-                            {page.label}
-                          </button>
+                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? colors.coral : colors.primary}33` }}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }))}
+                              className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                              style={{
+                                color: theme === "dark" ? colors.light : colors.dark,
+                                opacity: 0.8,
+                              }}
+                            >
+                              {subgroup.label}
+                              <ChevronDown
+                                size={12}
+                                style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                              />
+                            </button>
+                            {isSubExpanded ? (
+                              <div className="space-y-1">
+                                {subgroup.items.map(renderItem)}
+                              </div>
+                            ) : null}
+                          </div>
                         );
                       })}
                     </div>

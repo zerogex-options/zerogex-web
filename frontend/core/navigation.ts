@@ -2,11 +2,18 @@ export type NavItem = {
   id: string;
   label: string;
   requiredTier?: 'starter' | 'pro' | 'elite' | 'admin';
+  external?: boolean;
+};
+
+export type NavSubgroup = {
+  label: string;
+  items: NavItem[];
 };
 
 export type NavGroup = {
   label: string;
-  items: NavItem[];
+  items?: NavItem[];
+  subgroups?: NavSubgroup[];
 };
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -22,31 +29,33 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'elite' },
       { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'elite' },
-      { id: '/basic-signals', label: 'Basic Signal Dashboard', requiredTier: 'pro' },
-      { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'elite' },
     ],
-  },
-  {
-    label: 'Basic Signals',
-    items: [
-      { id: '/tape-flow-bias', label: 'Tape Flow Bias', requiredTier: 'pro' },
-      { id: '/skew-delta', label: 'Skew Delta', requiredTier: 'pro' },
-      { id: '/vanna-charm-flow', label: 'Vanna/Charm Flow', requiredTier: 'pro' },
-      { id: '/dealer-delta-pressure', label: 'Dealer Delta Pressure', requiredTier: 'pro' },
-      { id: '/gex-gradient', label: 'GEX Gradient', requiredTier: 'pro' },
-      { id: '/positioning-trap', label: 'Positioning Trap', requiredTier: 'pro' },
-    ],
-  },
-  {
-    label: 'Advanced Signals',
-    items: [
-      { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'elite' },
-      { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'elite' },
-      { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'elite' },
-      { id: '/trap-detection', label: 'Trap Detection', requiredTier: 'elite' },
-      { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'elite' },
-      { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'elite' },
-      { id: '/range-break-imminence', label: 'Range Break Imminence', requiredTier: 'elite' },
+    subgroups: [
+      {
+        label: 'Basic Signals',
+        items: [
+          { id: '/basic-signals', label: 'Basic Signal Dashboard', requiredTier: 'pro' },
+          { id: '/tape-flow-bias', label: 'Tape Flow Bias', requiredTier: 'pro' },
+          { id: '/skew-delta', label: 'Skew Delta', requiredTier: 'pro' },
+          { id: '/vanna-charm-flow', label: 'Vanna/Charm Flow', requiredTier: 'pro' },
+          { id: '/dealer-delta-pressure', label: 'Dealer Delta Pressure', requiredTier: 'pro' },
+          { id: '/gex-gradient', label: 'GEX Gradient', requiredTier: 'pro' },
+          { id: '/positioning-trap', label: 'Positioning Trap', requiredTier: 'pro' },
+        ],
+      },
+      {
+        label: 'Advanced Signals',
+        items: [
+          { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'elite' },
+          { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'elite' },
+          { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'elite' },
+          { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'elite' },
+          { id: '/trap-detection', label: 'Trap Detection', requiredTier: 'elite' },
+          { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'elite' },
+          { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'elite' },
+          { id: '/range-break-imminence', label: 'Range Break Imminence', requiredTier: 'elite' },
+        ],
+      },
     ],
   },
   {
