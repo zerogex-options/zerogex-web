@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolExpansionSignal } from '@/hooks/useApiData';
+import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import { useFlowByContractCache, computeFlowSnapshot } from '@/hooks/useFlowByContract';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
@@ -13,8 +13,8 @@ import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
-import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import VolatilityCard from '@/components/VolatilityCard';
+import TradeBiasSection from '@/components/TradeBiasSection';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
@@ -85,7 +85,6 @@ export default function DashboardPage() {
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
-  const { data: volExpansionData } = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
   const { rows: flowByContractRows } = useFlowByContractCache(symbol, 'current', {
     incrementalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
   });
@@ -112,23 +111,6 @@ export default function DashboardPage() {
 
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
-
-  const volExpansionScore = typeof volExpansionData?.score === 'number'
-    ? volExpansionData.score
-    : typeof volExpansionData?.composite_score === 'number'
-      ? volExpansionData.composite_score
-      : null;
-  const volExpansionStatus = volExpansionScore == null
-    ? 'Awaiting regime data'
-    : volExpansionScore >= 70
-      ? 'Bullish Expansion'
-      : volExpansionScore >= 30
-        ? 'Amplification'
-        : volExpansionScore > -30
-          ? 'Neutral'
-          : volExpansionScore > -70
-            ? 'Downside Pressure'
-            : 'Bearish Expansion';
 
   const underlyingPrice = getPrimaryPriceChangeSummary({
     quoteClose: quoteData?.close,
@@ -216,64 +198,49 @@ export default function DashboardPage() {
       </section>
 
 
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Proprietary Signals</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard
-            title="Composite Score"
-            value={typeof compositeScore === 'number' ? compositeScore.toFixed(2) : '--'}
-            subtitle={compositeRegimeLabel}
-            tooltip="UnifiedSignalEngine composite signal score and current actionable regime label."
-            theme={theme}
-            trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
-          />
-          <MetricCard
-            title="Signaled Trades Today"
-            value={signaledTradeRows.length}
-            subtitle={(
-              <span>
-                PnL{' '}
-                <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                  {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
-                </span>
-                {' · Win Rate '}
-                <span style={{ color: winRateColor }}>
-                  {winRate != null ? `${winRate.toFixed(0)}%` : '—'}
-                </span>
-              </span>
-            )}
-            tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, showing cumulative PnL and win rate for today." 
-            theme={theme}
-            trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
-          />
-          <MetricCard
-            title="Volatility Expansion"
-            value={volExpansionScore != null ? volExpansionScore.toFixed(1) : '--'}
-            subtitle={volExpansionStatus}
-            subtitleColor={
-              volExpansionScore == null ? undefined
-              : volExpansionScore >= 70 ? 'var(--color-bull)'
-              : volExpansionScore >= 30 ? 'var(--color-positive)'
-              : volExpansionScore > -30 ? 'var(--color-warning)'
-              : volExpansionScore > -70 ? 'var(--color-negative)'
-              : 'var(--color-bear)'
-            }
-            tooltip="Volatility expansion regime score (−100 to +100). Bullish Expansion (+70 to +100), Amplification (+30 to +70), Neutral (−30 to +30), Downside Pressure (−70 to −30), Bearish Expansion (−100 to −70)."
-            theme={theme}
-            trend={volExpansionScore == null ? 'neutral' : volExpansionScore >= 30 ? 'bullish' : volExpansionScore <= -30 ? 'bearish' : 'neutral'}
-          />
-        </div>
-      </section>
+      {/* Trade Bias Engine */}
+      <TradeBiasSection />
 
-      {/* Volatility Monitor */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
-        <VolatilityCard />
-      </section>
+      {/* Proprietary Signals + Volatility Monitor side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Proprietary Signals</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <MetricCard
+              title="Composite Score"
+              value={typeof compositeScore === 'number' ? compositeScore.toFixed(2) : '--'}
+              subtitle={compositeRegimeLabel}
+              tooltip="UnifiedSignalEngine composite signal score and current actionable regime label."
+              theme={theme}
+              trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
+            />
+            <MetricCard
+              title="Signaled Trades Today"
+              value={signaledTradeRows.length}
+              subtitle={(
+                <span>
+                  PnL{' '}
+                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
+                  </span>
+                  {' · Win Rate '}
+                  <span style={{ color: winRateColor }}>
+                    {winRate != null ? `${winRate.toFixed(0)}%` : '—'}
+                  </span>
+                </span>
+              )}
+              tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, showing cumulative PnL and win rate for today."
+              theme={theme}
+              trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
+            />
+          </div>
+        </section>
 
-      <section className="mb-8">
-        <UnderlyingCandlesChart />
-      </section>
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
+          <VolatilityCard />
+        </section>
+      </div>
 
       {/* GEX Metrics */}
       <section className="mb-8">

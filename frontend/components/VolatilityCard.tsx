@@ -111,12 +111,29 @@ interface GaugeCardProps {
   value: number;
   zoneLabel: string;
   isDark: boolean;
+  vix?: number;
+  vixTimestamp?: string;
 }
 
-function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
+function formatEtTimestamp(ts: string): string {
+  try {
+    return new Date(ts).toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " ET";
+  } catch {
+    return "";
+  }
+}
+
+function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeCardProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const isSpeed = type === "speedometer";
   const valueColor = interpolateGaugeColor(value);
+  const textColor = isDark ? colors.light : colors.dark;
 
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
   const shadowBase = isDark
@@ -125,6 +142,8 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
   const shadowHover = isDark
     ? "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)"
     : "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)";
+
+  const showVix = isSpeed && typeof vix === "number" && Number.isFinite(vix);
 
   return (
     <div
@@ -143,7 +162,7 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: colors.muted }}
         >
-          {isSpeed ? "Level" : "Momentum"}
+          {isSpeed ? "Level / VIX" : "Momentum"}
         </h3>
         <button
           onClick={() => setPanelOpen((v) => !v)}
@@ -156,12 +175,25 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
         </button>
       </div>
 
-      {/* Zone label */}
-      <div
-        className="text-4xl font-bold mb-4"
-        style={{ color: valueColor }}
-      >
-        {zoneLabel}
+      {/* Zone label + optional VIX value */}
+      <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
+        <div
+          className="text-4xl font-bold"
+          style={{ color: valueColor }}
+        >
+          {zoneLabel}
+        </div>
+        {showVix && (
+          <div className="flex flex-col items-end">
+            <div className="text-3xl font-bold" style={{ color: textColor }}>
+              {vix!.toFixed(2)}
+            </div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+              VIX
+              {vixTimestamp ? ` · ${formatEtTimestamp(vixTimestamp)}` : ""}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Gauge icon */}
@@ -182,72 +214,7 @@ function GaugeCard({ type, value, zoneLabel, isDark }: GaugeCardProps) {
   );
 }
 
-// ── VIX card ──────────────────────────────────────────────────────────────────
-
-interface VixCardProps {
-  vix: number;
-  timestamp: string;
-  isDark: boolean;
-}
-
-function VixCard({ vix, timestamp, isDark }: VixCardProps) {
-  const textColor = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
-  const shadowBase = isDark
-    ? "0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)"
-    : "0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)";
-  const shadowHover = isDark
-    ? "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)"
-    : "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)";
-
-  const formatEt = (ts: string) => {
-    try {
-      return new Date(ts).toLocaleTimeString("en-US", {
-        timeZone: "America/New_York",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }) + " ET";
-    } catch {
-      return "";
-    }
-  };
-
-  return (
-    <div
-      className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
-      style={{
-        backgroundColor: cardBg,
-        border: `1px solid ${colors.muted}`,
-        boxShadow: shadowBase,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <h3
-          className="text-xs font-semibold tracking-wider uppercase"
-          style={{ color: colors.muted }}
-        >
-          VIX
-        </h3>
-      </div>
-
-      <div className="text-4xl font-bold mb-2" style={{ color: textColor }}>
-        {vix.toFixed(2)}
-      </div>
-
-      {timestamp && (
-        <div className="text-sm font-semibold" style={{ color: colors.muted }}>
-          as of {formatEt(timestamp)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Public export — three cards in a row ──────────────────────────────────────
+// ── Public export — combined level/VIX + momentum ─────────────────────────────
 
 export default function VolatilityCard() {
   const { theme } = useTheme();
@@ -258,22 +225,19 @@ export default function VolatilityCard() {
   if (!data) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <GaugeCard
         type="speedometer"
         value={data.level}
         zoneLabel={data.level_label}
         isDark={isDark}
+        vix={data.vix}
+        vixTimestamp={fetchedAt}
       />
       <GaugeCard
         type="tachometer"
         value={data.momentum}
         zoneLabel={data.momentum_label}
-        isDark={isDark}
-      />
-      <VixCard
-        vix={data.vix}
-        timestamp={fetchedAt}
         isDark={isDark}
       />
     </div>
