@@ -8,7 +8,8 @@
     "postbuild": "next-sitemap",
     "start": "next start",
     "lint": "eslint",
-    "test:auth": "bash scripts/test-auth.sh"
+    "test:auth": "bash scripts/test-auth.sh",
+    "test:trade-bias": "bash scripts/test-trade-bias.sh"
   },
   "dependencies": {
     "lucide-react": "^0.575.0",
