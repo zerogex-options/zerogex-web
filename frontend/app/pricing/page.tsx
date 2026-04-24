@@ -167,7 +167,7 @@ export default function PricingPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
             <TierCard
-              title="Basic"
+              title="Starter"
               original="$25/mo"
               price="$0/mo"
               highlight="Free (For Limited Time)"
@@ -185,8 +185,8 @@ export default function PricingPage() {
               highlight="Coming Soon"
               accent="var(--color-brand-primary)"
               features={[
-                'Everything included in Basic.',
-                'Access to Proprietary Signals.',
+                'Everything included in Starter.',
+                'Access to Basic Signals.',
                 'Direct access to ZeroGEX APIs.',
               ]}
             />

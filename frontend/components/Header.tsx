@@ -81,9 +81,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
   const shouldForcePricing = (id: string) => {
-    if (!isPublicUser) return false;
-    if (id === "https://api.zerogex.io/docs") return true;
-    return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
+    if (id === "https://api.zerogex.io/docs") return isPublicUser;
+    if (hasRequiredTier(id, currentTier)) return false;
+    const required = requiredTierForRoute(id);
+    return required === "pro" || required === "elite";
   };
   const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
   const filteredMobileNavGroups = useMemo(
@@ -94,6 +95,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           items: group.items.filter((item) => {
             if ("external" in item && item.external) return true;
             if (group.label === "Proprietary Signals") return true;
+            if (group.label === "Basic Signals") return true;
+            if (group.label === "Advanced Signals") return true;
             return hasRequiredTier(item.id, currentTier);
           }),
         }))
