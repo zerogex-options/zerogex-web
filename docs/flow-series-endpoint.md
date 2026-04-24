@@ -79,7 +79,7 @@ GET /api/flow/series
 | `put_position_cum`  | integer            | contracts, signed | Σ of `net_volume` for puts up to this bar. |
 | `net_premium_cum`   | number             | USD (dollars)     | `call_premium_cum + put_premium_cum`. Included pre-computed so clients don't drift. |
 | `put_call_ratio`    | number \| null     | ratio             | `put_volume_cum / call_volume_cum`. `null` if `call_volume_cum == 0` (avoid divide-by-zero; frontend renders as a break). |
-| `underlying_price`  | number \| null     | USD               | Last-observed underlying price within this bar. `null` only if no trades at all have printed since session open. |
+| `underlying_price`  | number \| null     | USD               | Last-observed underlying tick whose timestamp falls inside `[bar_start, bar_end)`. Must come from the tape / an underlying OHLC source — **never** from `flow_bar_contract.underlying_price`. Invariant under strike/expiration filters. See "Underlying price semantics" below. |
 | `contract_count`    | integer            | —                 | Distinct contracts contributing to this bar's *delta* (not cumulative). Used for diagnostics. |
 | `is_synthetic`      | boolean            | —                 | `true` when the row was emitted as a carry-forward (no activity in this bar). Charts don't need it; diagnostics pages do. |
 
@@ -149,6 +149,11 @@ filtered AS (
 ),
 
 -- 2. Aggregate per-bar deltas across the selected contracts.
+--    NOTE: `underlying_price` is NOT aggregated here — see "Underlying price
+--    semantics" below. The column on `flow_bar_contract` captures the price
+--    at each contract's last trade, which is stale for contracts that didn't
+--    trade in this bar. Pull the bar's actual last underlying tick from a
+--    dedicated source in step 2b instead.
 per_bar AS (
     SELECT
         bar_start,
@@ -160,15 +165,42 @@ per_bar AS (
         SUM(raw_volume) AS raw_volume_delta,
         SUM(CASE WHEN option_type='C' THEN net_volume ELSE 0 END) AS call_position_delta,
         SUM(CASE WHEN option_type='P' THEN net_volume ELSE 0 END) AS put_position_delta,
-        -- underlying is the same across contracts in a bar (by design); take any
-        (ARRAY_AGG(underlying_price ORDER BY bar_start) FILTER (WHERE underlying_price IS NOT NULL))[1] AS underlying_price,
         COUNT(*) AS contract_count
     FROM filtered
     GROUP BY bar_start
 ),
 
--- 3. Generate the full 5-minute timeline and LEFT JOIN per-bar so quiet bars
---    exist in the result set (deltas = 0) and carry-forward works downstream.
+-- 2b. Pull the actual last-observed underlying tick within each 5-minute
+--     window. Pick ONE of these two forms depending on what your data
+--     model exposes:
+--
+--     (a) If you already have a 5-minute underlying OHLC table populated
+--         from the tape, just left-join against it:
+--
+--         SELECT bar_start, close AS underlying_price
+--         FROM market_quote_bar_5min
+--         WHERE symbol = :symbol
+--           AND bar_start >= :ts_start
+--           AND bar_start <= :ts_end
+--
+--     (b) If you only have raw underlying ticks, window-aggregate them to
+--         the 5-minute grid. This is the "last observed price in the bar"
+--         the spec requires:
+underlying_by_bar AS (
+    SELECT
+        DATE_TRUNC('minute', ts)
+          - INTERVAL '1 minute'
+          * (EXTRACT(MINUTE FROM ts)::int % 5) AS bar_start,
+        (ARRAY_AGG(price ORDER BY ts DESC))[1] AS underlying_price
+    FROM underlying_tick
+    WHERE symbol = :symbol
+      AND ts >= (SELECT ts_start FROM session_bounds)
+      AND ts <  (SELECT ts_end   FROM session_bounds) + INTERVAL '5 minutes'
+    GROUP BY 1
+),
+
+-- 3. Generate the full 5-minute timeline and LEFT JOIN both per_bar (flow)
+--    and underlying_by_bar (price) so quiet bars still carry price.
 timeline AS (
     SELECT generate_series(
         (SELECT ts_start FROM session_bounds),
@@ -187,11 +219,12 @@ joined AS (
         COALESCE(pb.raw_volume_delta, 0)    AS raw_volume_delta,
         COALESCE(pb.call_position_delta, 0) AS call_position_delta,
         COALESCE(pb.put_position_delta, 0)  AS put_position_delta,
-        pb.underlying_price,
+        ub.underlying_price,
         COALESCE(pb.contract_count, 0)      AS contract_count,
         (pb.bar_start IS NULL)              AS is_synthetic
     FROM timeline t
-    LEFT JOIN per_bar pb USING (bar_start)
+    LEFT JOIN per_bar          pb USING (bar_start)
+    LEFT JOIN underlying_by_bar ub USING (bar_start)
 )
 
 -- 4. Running session cumulatives, with last-known underlying carry-forward.
@@ -237,6 +270,47 @@ Notes for implementers:
 - Cache the result per `(symbol, session, strikes, expirations)` with a TTL
   bounded by the next 5-min bar boundary (Redis: `expire_at = next_bar_start`).
   Incremental polls with `intervals=1` should bypass the cache.
+
+## Underlying price semantics
+
+This is the easiest field to get subtly wrong, so call it out explicitly.
+
+**What the client expects.** For each 5-minute bar, `underlying_price` must
+be the **last observed underlying tick whose timestamp falls inside the
+`[bar_start, bar_end)` window**. The yellow line on the Options Flow chart
+is supposed to track SPY's intraday path — it should never be flat for
+consecutive bars while the tape is actually moving.
+
+**What does NOT work.** Do not populate `underlying_price` from
+`flow_bar_contract.underlying_price`, whether via `MAX`, `MIN`, `ARRAY_AGG`,
+`FIRST_VALUE`, or any other per-contract aggregation. That column captures
+the underlying price at each contract's **last trade**, which can be far
+from the bar boundary. A bar whose contracts all last traded during the
+previous price regime will resolve to the old price; a bar that happens to
+include one contract that traded after the tape moved will jump to the
+new price. Observed failure mode: 20–30 minutes of flat `$709.65` followed
+by a single jump to `$714.21` that then holds flat for another 30 minutes,
+while SPY is actually ticking smoothly between those values.
+
+**What to use instead.** Join against your underlying tick source (or a
+pre-aggregated 5-minute underlying OHLC table) at the bar grain, as shown
+in step 2b of the SQL above. Conceptually:
+
+```
+underlying_price(bar) = tape.last_price WHERE ts ∈ [bar_start, bar_end)
+```
+
+If a bar has literally zero underlying ticks (pre-open, rare data gap,
+etc.), emit `null`. The client's carry-forward handles the visual
+continuation — do **not** fill it server-side from a contract row.
+
+**Filter invariance.** `underlying_price` is a property of the **tape**,
+not of the filtered option contracts. Applying `strikes` or `expirations`
+must not change the underlying value for a given `(symbol, bar_start)`.
+Two requests for the same session with different filters should return
+identical `underlying_price` across their overlapping bars. Implementation
+consequence: compute underlying in a subquery that does not see the
+strike/expiration filter.
 
 ## Session resolution
 
