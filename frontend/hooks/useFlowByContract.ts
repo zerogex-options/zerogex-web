@@ -126,6 +126,16 @@ function normalizeToMinuteIso(ts: string): string | null {
   return new Date(Math.floor(ms / 60_000) * 60_000).toISOString();
 }
 
+// Floors a timestamp to the 5-minute bar boundary the backend aggregates at,
+// so bucket keys line up exactly with the 09:30/09:35/09:40… session timeline
+// rendered on Flow Analysis. Used by forEachBar so any off-boundary timestamp
+// from the API still lands on the correct chart slot.
+function normalizeToFiveMinuteIso(ts: string): string | null {
+  const ms = new Date(ts).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(Math.floor(ms / BAR_MS) * BAR_MS).toISOString();
+}
+
 // Cached at the module level so hot paths don't pay the Intl formatter cost
 // for every row. Bounded so long-running sessions don't leak.
 const etDateKeyCache = new Map<string, string>();
@@ -291,7 +301,7 @@ export function contractKey(row: FlowByContractPoint): string {
 }
 
 export interface BarInfo {
-  /** Minute-floored ISO timestamp of this bar. */
+  /** ISO timestamp floored to the 5-minute bar boundary (09:30, 09:35, …). */
   timestamp: string;
   /** Contract rows that fall in this 5-minute bar. */
   rows: FlowByContractPoint[];
@@ -310,11 +320,11 @@ export function forEachBar(
   for (const row of rows) {
     const ts = rowTimestamp(row);
     if (!ts) continue;
-    const minute = normalizeToMinuteIso(ts);
-    if (!minute) continue;
-    const bucket = buckets.get(minute) ?? [];
+    const bar = normalizeToFiveMinuteIso(ts);
+    if (!bar) continue;
+    const bucket = buckets.get(bar) ?? [];
     bucket.push(row);
-    buckets.set(minute, bucket);
+    buckets.set(bar, bucket);
   }
 
   const sortedTs = Array.from(buckets.keys()).sort(

@@ -138,12 +138,50 @@ function getFiveMinuteSessionTimeline(dateKey: string): string[] {
   return extendTimelineToSessionClose(fiveMin, dateKey, 5 * 60_000);
 }
 
-/** Aligns a timeseries to the session timeline, filling missing slots with null data values. */
+/**
+ * Returns the millisecond timestamp of the latest row in `rows`, or -Infinity
+ * if the array is empty. Used so alignment functions can tell "internal gap"
+ * (carry-forward) slots apart from "trailing" (leave null) slots.
+ */
+function latestRowMs<T extends { timestamp: string }>(rows: T[]): number {
+  if (rows.length === 0) return -Infinity;
+  const last = rows[rows.length - 1].timestamp;
+  const ms = new Date(last).getTime();
+  return Number.isFinite(ms) ? ms : -Infinity;
+}
+
+/**
+ * Aligns a cumulative timeseries to the session timeline. Each chart on this
+ * page plots running session totals, so a 5-minute bar with no reported API
+ * activity should hold the previous cumulative value rather than punch a hole
+ * in the line. We only leave nulls for slots *after* the last real bar so the
+ * curve doesn't extrapolate into future market time.
+ */
 function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): TimeseriesRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  const lastMs = latestRowMs(rows);
+
+  let prev: TimeseriesRow | null = null;
   return timeline.map((timestamp) => {
-    const row = byTs.get(timestamp);
-    if (row) return row;
+    const exact = byTs.get(timestamp);
+    if (exact) {
+      prev = exact;
+      return exact;
+    }
+    const ms = new Date(timestamp).getTime();
+    if (prev && Number.isFinite(ms) && ms < lastMs) {
+      const netVolume = prev.netVolume;
+      return {
+        timestamp,
+        time: safeTimeLabel(timestamp),
+        callPremium: prev.callPremium,
+        putPremium: prev.putPremium,
+        netVolume,
+        positiveNetVolume: netVolume != null && netVolume > 0 ? netVolume : 0,
+        negativeNetVolume: netVolume != null && netVolume < 0 ? netVolume : 0,
+        underlyingPrice: prev.underlyingPrice,
+      } satisfies TimeseriesRow;
+    }
     return {
       timestamp,
       time: safeTimeLabel(timestamp),
@@ -157,27 +195,67 @@ function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): Times
   });
 }
 
-/** Aligns a put/call ratio series to the session timeline, filling missing slots with null. */
 function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  return timeline.map((timestamp) => byTs.get(timestamp) ?? { timestamp, ratio: null });
+  const lastMs = latestRowMs(rows);
+
+  let prev: PutCallRatioRow | null = null;
+  return timeline.map((timestamp) => {
+    const exact = byTs.get(timestamp);
+    if (exact) {
+      prev = exact;
+      return exact;
+    }
+    const ms = new Date(timestamp).getTime();
+    if (prev && Number.isFinite(ms) && ms < lastMs) {
+      return { timestamp, ratio: prev.ratio };
+    }
+    return { timestamp, ratio: null };
+  });
 }
 
 function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: string[]): NetDirectionalPremiumRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  return timeline.map((timestamp) => byTs.get(timestamp) ?? {
-    timestamp,
-    premium: null,
-    positivePremium: null,
-    negativePremium: null,
+  const lastMs = latestRowMs(rows);
+
+  let prev: NetDirectionalPremiumRow | null = null;
+  return timeline.map((timestamp) => {
+    const exact = byTs.get(timestamp);
+    if (exact) {
+      prev = exact;
+      return exact;
+    }
+    const ms = new Date(timestamp).getTime();
+    if (prev && Number.isFinite(ms) && ms < lastMs) {
+      const premium = prev.premium;
+      return {
+        timestamp,
+        premium,
+        positivePremium: premium != null && premium > 0 ? premium : null,
+        negativePremium: premium != null && premium < 0 ? premium : null,
+      };
+    }
+    return { timestamp, premium: null, positivePremium: null, negativePremium: null };
   });
 }
 
 function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]): NetPositionRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  return timeline.map(
-    (timestamp) => byTs.get(timestamp) ?? { timestamp, callPosition: null, putPosition: null },
-  );
+  const lastMs = latestRowMs(rows);
+
+  let prev: NetPositionRow | null = null;
+  return timeline.map((timestamp) => {
+    const exact = byTs.get(timestamp);
+    if (exact) {
+      prev = exact;
+      return exact;
+    }
+    const ms = new Date(timestamp).getTime();
+    if (prev && Number.isFinite(ms) && ms < lastMs) {
+      return { timestamp, callPosition: prev.callPosition, putPosition: prev.putPosition };
+    }
+    return { timestamp, callPosition: null, putPosition: null };
+  });
 }
 
 // ── Label / axis helpers ──────────────────────────────────────────────────────
