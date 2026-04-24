@@ -51,6 +51,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   });
   const headerRef = useRef<HTMLElement | null>(null);
+  const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -144,6 +145,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         "--zgx-header-height",
         `${h}px`,
       );
+      const topBar = mobileTopBarRef.current?.offsetHeight ?? 0;
+      document.documentElement.style.setProperty(
+        "--zgx-mobile-topbar-height",
+        `${topBar}px`,
+      );
     };
 
     setHeaderHeight();
@@ -154,6 +160,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
     if (headerRef.current) {
       observer.observe(headerRef.current);
+    }
+    if (mobileTopBarRef.current) {
+      observer.observe(mobileTopBarRef.current);
     }
 
     window.addEventListener("resize", setHeaderHeight);
@@ -528,7 +537,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
-          <div className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
+          <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
             <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(66vw, 240px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <img
                 src="/title.svg"
@@ -562,7 +571,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           </div>
 
           {mobileMenuOpen && (
-            <div className="space-y-4">
+            <div
+              className="space-y-4 overflow-y-auto overscroll-contain"
+              style={{
+                maxHeight:
+                  "calc(100dvh - var(--zgx-mobile-topbar-height, 44px))",
+              }}
+            >
               <div className="space-y-3">
                 {filteredMobileNavGroups.map((group) => {
                   const isExpanded = mobileExpandedGroups[group.label] ?? false;
