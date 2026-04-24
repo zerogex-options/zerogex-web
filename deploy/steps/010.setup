@@ -23,7 +23,8 @@ sudo apt install -y \
     jq \
     htop \
     vim \
-    nginx
+    nginx \
+    sqlite3
 
 # Update timezone
 log "  → Setting timezone to America/New_York..."
