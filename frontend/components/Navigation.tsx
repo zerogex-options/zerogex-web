@@ -49,7 +49,8 @@ export default function Navigation({ theme }: NavigationProps) {
   const shouldForcePricing = (id: string) => {
     if (!isPublicUser) return false;
     if (id === "https://api.zerogex.io/docs") return true;
-    return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
+    const required = requiredTierForRoute(id);
+    return !hasRequiredTier(id, currentTier) && (required === "pro" || required === "elite");
   };
   const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
 

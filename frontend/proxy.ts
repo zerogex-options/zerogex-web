@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
 
   if (!hasTierAccess(session.user.tier, requiredTier)) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
-    unauthorizedUrl.searchParams.set('required', requiredTier ?? 'basic');
+    unauthorizedUrl.searchParams.set('required', requiredTier ?? 'starter');
     unauthorizedUrl.searchParams.set('current', session.user.tier);
     unauthorizedUrl.searchParams.set('path', pathname);
     return NextResponse.redirect(unauthorizedUrl);
