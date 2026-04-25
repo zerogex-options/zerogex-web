@@ -46,6 +46,24 @@ db.exec(`
   );
 `);
 
+function ensureColumn(table: string, column: string, definition: string) {
+  const existing = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!existing.some((row) => row.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+ensureColumn('users', 'stripe_customer_id', 'TEXT');
+ensureColumn('users', 'stripe_subscription_id', 'TEXT');
+ensureColumn('users', 'stripe_price_id', 'TEXT');
+ensureColumn('users', 'subscription_status', 'TEXT');
+ensureColumn('users', 'current_period_end', 'TEXT');
+ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
+
+db.exec(
+  'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL'
+);
+
 export function getDb() {
   return db;
 }
