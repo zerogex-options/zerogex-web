@@ -4,9 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-// Includes legacy tier names (starter, elite) so pre-migration users still
-// group correctly when this script is run before `make migrate-tiers`.
-const TIER_DISPLAY_ORDER = ['admin', 'pro', 'elite', 'basic', 'starter', 'public'];
+const TIER_DISPLAY_ORDER = ['admin', 'pro', 'basic', 'public'];
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};

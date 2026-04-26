@@ -390,7 +390,9 @@ export default function PricingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <TierCard
               title="Basic"
-              price="$29/mo"
+              original="$29/mo"
+              price="$19/mo"
+              highlight="Limited Time Only"
               accent="var(--color-brand-primary)"
               features={[
                 'Real-time metrics and full strategy tools.',
@@ -404,7 +406,9 @@ export default function PricingPage() {
             />
             <TierCard
               title="Pro"
-              price="$39/mo"
+              original="$39/mo"
+              price="$24/mo"
+              highlight="Limited Time Only"
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',

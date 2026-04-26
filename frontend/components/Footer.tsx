@@ -16,6 +16,8 @@ const footerLinks = [
   { href: '/about', label: 'About', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
   { href: '/education', label: 'Education', external: false },
+  { href: '/privacy', label: 'Privacy', external: false },
+  { href: '/terms', label: 'Terms', external: false },
 ];
 
 const TWITTER_HANDLE = 'zero_gex70930';
