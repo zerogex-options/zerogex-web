@@ -29,8 +29,8 @@ export default function AccountPage() {
   const tier = useMemo(() => normalizeTier(authSession?.user?.tier), [authSession?.user?.tier]);
   const email = authSession?.user?.email ?? '';
   const tierLabel = TIER_LABELS[tier] ?? 'Public';
-  const canUpgrade = tier !== 'elite' && tier !== 'admin';
-  const hasPaidSubscription = tier === 'pro' || tier === 'elite';
+  const canUpgrade = tier !== 'pro' && tier !== 'admin';
+  const canManageBilling = tier !== 'public' && tier !== 'admin';
 
   const handleManageSubscription = async () => {
     setOpening(true);
@@ -207,14 +207,12 @@ export default function AccountPage() {
         <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            {hasPaidSubscription
-              ? 'Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes are pro-rated automatically.'
-              : 'You do not have an active paid subscription. Visit pricing to subscribe.'}
+            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes are pro-rated automatically.
           </p>
           <button
             type="button"
             onClick={handleManageSubscription}
-            disabled={!hasPaidSubscription || opening}
+            disabled={!canManageBilling || opening}
             style={{
               background: 'transparent',
               border: '1px solid',
@@ -224,8 +222,8 @@ export default function AccountPage() {
               padding: '10px 18px',
               fontWeight: 700,
               fontSize: 14,
-              cursor: hasPaidSubscription && !opening ? 'pointer' : 'not-allowed',
-              opacity: hasPaidSubscription && !opening ? 1 : 0.5,
+              cursor: canManageBilling && !opening ? 'pointer' : 'not-allowed',
+              opacity: canManageBilling && !opening ? 1 : 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,

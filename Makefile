@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers clean deploy logo
 
 # Default target
 help:
@@ -14,6 +14,7 @@ help:
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
 	@echo "  make users      - Print auth users + entitlements"
+	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -75,6 +76,16 @@ status:
 # Print auth users and entitlements from SQLite
 users:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+
+# Migrate users from the legacy three-tier scheme (starter/pro/elite) to the
+# current two-tier scheme (basic/pro). Idempotent: runs against any rows still
+# stored as 'starter' or 'elite'. Existing 'pro' users are unchanged.
+# Pass DRY_RUN=1 to preview without writing.
+migrate-tiers:
+	@echo "Migrating starter -> basic ..."
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from starter --tier basic $(if $(DRY_RUN),--dry-run,)'
+	@echo "Migrating elite -> pro ..."
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from elite --tier pro $(if $(DRY_RUN),--dry-run,)'
 
 # Clean build artifacts
 clean:

@@ -1,9 +1,9 @@
 import Stripe from 'stripe';
 import { TierId } from '@/core/auth';
 
-export type BillableTier = Extract<TierId, 'starter' | 'pro' | 'elite'>;
+export type BillableTier = Extract<TierId, 'basic' | 'pro'>;
 
-export const BILLABLE_TIERS: readonly BillableTier[] = ['starter', 'pro', 'elite'];
+export const BILLABLE_TIERS: readonly BillableTier[] = ['basic', 'pro'];
 
 let cachedClient: Stripe | null = null;
 
@@ -19,9 +19,8 @@ export function getStripe(): Stripe {
 
 export function tierToPriceId(tier: BillableTier): string {
   const map: Record<BillableTier, string | undefined> = {
-    starter: process.env.STRIPE_PRICE_STARTER,
+    basic: process.env.STRIPE_PRICE_BASIC,
     pro: process.env.STRIPE_PRICE_PRO,
-    elite: process.env.STRIPE_PRICE_ELITE,
   };
   const id = map[tier];
   if (!id) {
@@ -31,9 +30,8 @@ export function tierToPriceId(tier: BillableTier): string {
 }
 
 export function priceIdToTier(priceId: string): BillableTier | null {
-  if (priceId === process.env.STRIPE_PRICE_STARTER) return 'starter';
+  if (priceId === process.env.STRIPE_PRICE_BASIC) return 'basic';
   if (priceId === process.env.STRIPE_PRICE_PRO) return 'pro';
-  if (priceId === process.env.STRIPE_PRICE_ELITE) return 'elite';
   return null;
 }
 

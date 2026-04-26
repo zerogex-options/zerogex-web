@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-const VALID_TIERS = ['public', 'starter', 'pro', 'elite', 'admin'];
+const VALID_TIERS = ['public', 'basic', 'pro', 'admin'];
 // Legacy tier ids that need to be rewritten to their current equivalent.
-const TIER_ALIASES = { basic: 'starter' };
+// Accepted both as `--tier` targets and as `--all-from` source values.
+const TIER_ALIASES = { starter: 'basic', elite: 'pro' };
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
@@ -59,11 +60,13 @@ Options:
   -h, --help                Show this help.
 
 Examples:
-  # Promote a single user to elite
-  node scripts/update-user-tier.mjs --email trader@example.com --tier elite
+  # Promote a single user to pro
+  node scripts/update-user-tier.mjs --email trader@example.com --tier pro
 
-  # Migrate every legacy "basic" user to "starter"
-  node scripts/update-user-tier.mjs --all-from basic --tier starter
+  # Migrate every legacy "starter" user to "basic"
+  node scripts/update-user-tier.mjs --all-from starter --tier basic
+  # Migrate every legacy "elite" user to "pro"
+  node scripts/update-user-tier.mjs --all-from elite --tier pro
 
 Requires the sqlite3 CLI (\`apt-get install sqlite3\` on Ubuntu).
 Set AUTH_DB_PATH (env or frontend/.env.local) to override the default DB path.`);

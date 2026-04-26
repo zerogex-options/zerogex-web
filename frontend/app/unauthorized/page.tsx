@@ -30,7 +30,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
           </div>
           <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
             <dt className="text-[var(--color-text-secondary)]">Required tier</dt>
-            <dd className="font-medium">{params.required ?? 'starter'}</dd>
+            <dd className="font-medium">{params.required ?? 'basic'}</dd>
           </div>
         </dl>
 

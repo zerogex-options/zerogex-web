@@ -19,7 +19,7 @@ const C = {
 
 type TierAction =
   | { kind: 'link'; href: string; label: string }
-  | { kind: 'subscribe'; tier: 'pro' | 'elite'; label: string }
+  | { kind: 'subscribe'; tier: 'basic' | 'pro'; label: string }
   | { kind: 'portal'; label: string }
   | { kind: 'current'; label: string };
 
@@ -32,7 +32,7 @@ type TierCardProps = {
   accent: string;
   action: TierAction;
   busy: boolean;
-  onSubscribe: (tier: 'pro' | 'elite') => void;
+  onSubscribe: (tier: 'basic' | 'pro') => void;
   onPortal: () => void;
 };
 
@@ -46,7 +46,7 @@ function CtaButton({
   action: TierAction;
   busy: boolean;
   accent: string;
-  onSubscribe: (tier: 'pro' | 'elite') => void;
+  onSubscribe: (tier: 'basic' | 'pro') => void;
   onPortal: () => void;
 }) {
   const baseStyle = {
@@ -182,9 +182,8 @@ function TierCard({
 
 const TIER_RANK: Record<TierId, number> = {
   public: 0,
-  starter: 10,
+  basic: 10,
   pro: 20,
-  elite: 25,
   admin: 30,
 };
 
@@ -193,7 +192,7 @@ export default function PricingPage() {
   const router = useRouter();
   const isDark = theme === 'dark';
   const { data: authSession, loading: authLoading } = useAuthSession();
-  const [busyTier, setBusyTier] = useState<'pro' | 'elite' | 'portal' | null>(null);
+  const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const currentTier: TierId = useMemo(
@@ -201,7 +200,7 @@ export default function PricingPage() {
     [authSession?.user?.tier],
   );
   const isAuthed = !!authSession?.authenticated;
-  const hasPaidSubscription = currentTier === 'pro' || currentTier === 'elite';
+  const hasPaidSubscription = currentTier === 'pro';
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
@@ -229,7 +228,7 @@ export default function PricingPage() {
   );
 
   const handleSubscribe = useCallback(
-    async (tier: 'pro' | 'elite') => {
+    async (tier: 'basic' | 'pro') => {
       if (!isAuthed) {
         router.push(`/register?next=/pricing`);
         return;
@@ -265,7 +264,8 @@ export default function PricingPage() {
     }
   }, [callBilling]);
 
-  const actionForPaidTier = (tier: 'pro' | 'elite'): TierAction => {
+  const actionForPaidTier = (tier: 'basic' | 'pro'): TierAction => {
+    const label = tier === 'basic' ? 'Basic' : 'Pro';
     if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
     if (!isAuthed) {
       return { kind: 'link', href: `/register?next=/pricing`, label: 'Sign up to subscribe' };
@@ -276,17 +276,10 @@ export default function PricingPage() {
       return { kind: 'portal', label: 'Manage Subscription' };
     }
     if (hasPaidSubscription) {
-      return { kind: 'portal', label: `Switch to ${tier === 'pro' ? 'Pro' : 'Elite'}` };
+      return { kind: 'portal', label: `Switch to ${label}` };
     }
-    return { kind: 'subscribe', tier, label: `Subscribe to ${tier === 'pro' ? 'Pro' : 'Elite'}` };
+    return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
   };
-
-  const starterAction: TierAction = (() => {
-    if (authLoading || !isAuthed) return { kind: 'link', href: '/register', label: 'Get Started' };
-    if (currentTier === 'starter') return { kind: 'current', label: 'Current Plan' };
-    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
-    return { kind: 'portal', label: 'Manage Subscription' };
-  })();
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -394,50 +387,32 @@ export default function PricingPage() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <TierCard
-              title="Starter"
-              original="$25/mo"
-              price="$0/mo"
-              highlight="Free (For Limited Time)"
-              accent="var(--heat-mid)"
+              title="Basic"
+              price="$29/mo"
+              accent="var(--color-brand-primary)"
               features={[
-                'Access to all real-time metrics.',
-                'Full strategy tools coverage.',
+                'Real-time metrics and full strategy tools.',
+                'Access to Basic Signals.',
                 'Designed for disciplined daily execution.',
               ]}
-              action={starterAction}
-              busy={busyTier === 'portal'}
+              action={actionForPaidTier('basic')}
+              busy={busyTier === 'basic' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
             />
             <TierCard
               title="Pro"
-              original="$45/mo"
-              price="$29/mo"
-              accent="var(--color-brand-primary)"
+              price="$39/mo"
+              accent="var(--color-brand-accent)"
               features={[
-                'Everything included in Starter.',
-                'Access to Basic Signals.',
+                'Everything included in Basic.',
+                'Access to Advanced Signals.',
                 'Direct access to ZeroGEX APIs.',
               ]}
               action={actionForPaidTier('pro')}
               busy={busyTier === 'pro' || busyTier === 'portal'}
-              onSubscribe={handleSubscribe}
-              onPortal={handlePortal}
-            />
-            <TierCard
-              title="Elite"
-              original="$65/mo"
-              price="$39/mo"
-              accent="var(--color-brand-accent)"
-              features={[
-                'Everything included in Pro.',
-                'Access to Advanced Signals.',
-                'Built for high-conviction, high-frequency decision loops.',
-              ]}
-              action={actionForPaidTier('elite')}
-              busy={busyTier === 'elite' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
             />

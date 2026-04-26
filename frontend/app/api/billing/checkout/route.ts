@@ -20,13 +20,9 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as { tier?: unknown };
   if (!isBillableTier(body.tier)) {
-    return NextResponse.json({ error: 'tier must be one of starter, pro, elite' }, { status: 400 });
+    return NextResponse.json({ error: 'tier must be one of basic, pro' }, { status: 400 });
   }
   const tier = body.tier;
-
-  if (tier === 'starter') {
-    return NextResponse.json({ error: 'Starter tier is free and does not require checkout' }, { status: 400 });
-  }
 
   const db = getDb();
   const row = db
