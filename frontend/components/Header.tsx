@@ -403,26 +403,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   </select>
                 )}
                 {!isCollapsed && (
-                  <div className="flex flex-col gap-1">
-                    <select
-                      value={symbol}
-                      onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                      className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
-                      style={{
-                        background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
-                        borderColor: border,
-                        color: theme === "dark" ? colors.light : colors.dark,
-                        width: "96px",
-                        backdropFilter: "blur(8px)",
-                      }}
-                    >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
-                    </select>
-                    <div onClick={() => setShowCountdown(!showCountdown)}>
-                      <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
-                    </div>
+                  <div onClick={() => setShowCountdown(!showCountdown)}>
+                    <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
                   </div>
                 )}
                 {!isCollapsed && row1Price !== null && (
@@ -462,8 +444,34 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             )}
 
             {!isCollapsed && (
+              <div
+                className="absolute top-1/2 pointer-events-none"
+                style={{ left: "75%", transform: "translate(-50%, -50%)" }}
+              >
+                <div className="flex flex-col items-center gap-1.5" style={{ pointerEvents: "auto" }}>
+                  <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+                  <select
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                    className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
+                    style={{
+                      background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                      borderColor: border,
+                      color: theme === "dark" ? colors.light : colors.dark,
+                      width: "96px",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <option>SPY</option>
+                    <option>SPX</option>
+                    <option>QQQ</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {!isCollapsed && (
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
-                <WorldClocks theme={theme} session={session} compact={isCollapsed} />
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"

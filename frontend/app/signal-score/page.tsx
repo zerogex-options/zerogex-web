@@ -33,6 +33,7 @@ interface ComponentEntry {
   maxPoints: number;
   contribution: number | null;
   score: number | null;
+  context: Record<string, unknown> | null;
 }
 
 const COMPONENT_LABELS: Record<string, { label: string; description: string; sign: string }> = {
@@ -41,40 +42,46 @@ const COMPONENT_LABELS: Record<string, { label: string; description: string; sig
     description: 'Sign of dealer net gamma',
     sign: 'Negative GEX ⇒ +1 (expansion); Positive ⇒ −1 (pinning)',
   },
-  flip_distance: {
-    label: 'Flip Distance',
-    description: 'Distance from spot to gamma-flip strike',
-    sign: 'Near flip ⇒ +1 (fragile); Far ⇒ −1 (stable)',
-  },
-  local_gamma: {
-    label: 'Local Gamma',
-    description: 'Density of gamma near spot',
-    sign: 'Low local gamma ⇒ +1 (air pocket); High ⇒ −1',
+  gamma_anchor: {
+    label: 'Gamma Anchor',
+    description: 'Blended flip distance, local gamma, and price-vs-max-gamma',
+    sign: 'Fragile / air-pocket ⇒ +1; Stable / pinned ⇒ −1',
   },
   put_call_ratio: {
     label: 'Put/Call Ratio',
     description: 'OI-weighted put/call tilt',
     sign: 'Extreme ⇒ +1; Balanced ⇒ −1',
   },
-  price_vs_max_gamma: {
-    label: 'Price vs Max Gamma',
-    description: 'Distance from max-gamma strike',
-    sign: 'Far ⇒ +1; Pinned ⇒ −1',
-  },
   volatility_regime: {
     label: 'Volatility Regime',
     description: 'Realized / VIX regime',
     sign: 'High vol ⇒ +1; Dead ⇒ −1',
   },
+  order_flow_imbalance: {
+    label: 'Order Flow Imbalance',
+    description: 'Phase 3.1 leading indicator — net premium / smart-money flow',
+    sign: 'Buy-side imbalance ⇒ +1; Sell-side ⇒ −1',
+  },
+  dealer_delta_pressure: {
+    label: 'Dealer Delta Pressure',
+    description: 'Phase 3.1 leading indicator — dealer net delta exposure',
+    sign: 'Dealers short Δ ⇒ +1 (chase); Dealers long Δ ⇒ −1',
+  },
+};
+
+const GAMMA_ANCHOR_SUBSCORE_LABELS: Record<string, string> = {
+  flip_distance: 'Flip distance',
+  local_gamma: 'Local gamma',
+  price_vs_max_gamma: 'Price vs max gamma',
 };
 
 const COMPONENT_ORDER = [
   'net_gex_sign',
-  'flip_distance',
-  'local_gamma',
+  'gamma_anchor',
   'put_call_ratio',
-  'price_vs_max_gamma',
   'volatility_regime',
+  'order_flow_imbalance',
+  'dealer_delta_pressure',
 ];
 
 function parseComponents(raw: unknown): ComponentEntry[] {
@@ -88,6 +95,7 @@ function parseComponents(raw: unknown): ComponentEntry[] {
       maxPoints: getNumber(cObj.max_points) ?? 0,
       contribution: getNumber(cObj.contribution),
       score: getNumber(cObj.score),
+      context: asObject(cObj.context),
     };
   });
 }
@@ -375,6 +383,75 @@ function ComponentBar({ entry }: { entry: ComponentEntry }) {
         <div className="absolute inset-0 flex items-center justify-center text-[11px] font-mono" style={{ color: pct > 0.35 ? '#fff' : 'var(--color-text-primary)' }}>
           {contribution != null ? `${contribution >= 0 ? '+' : ''}${contribution.toFixed(2)} pts` : '—'}
         </div>
+      </div>
+      {entry.name === 'gamma_anchor' && entry.context && (
+        <GammaAnchorBreakdown context={entry.context} />
+      )}
+    </div>
+  );
+}
+
+function GammaAnchorBreakdown({ context }: { context: Record<string, unknown> }) {
+  const weights = asObject(context.blend_weights) ?? {};
+  const subKeys: Array<'flip_distance' | 'local_gamma' | 'price_vs_max_gamma'> = [
+    'flip_distance',
+    'local_gamma',
+    'price_vs_max_gamma',
+  ];
+  const subRows = subKeys.map((key) => ({
+    key,
+    label: GAMMA_ANCHOR_SUBSCORE_LABELS[key],
+    score: getNumber(context[`${key}_subscore`]),
+    weight: getNumber(weights[key]),
+  }));
+  const hasAny = subRows.some((r) => r.score != null || r.weight != null);
+  if (!hasAny) return null;
+
+  return (
+    <div className="mt-2 rounded-md border border-[var(--color-border)]/50 bg-[var(--color-surface)]/40 p-2">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1.5">
+        Sub-signal breakdown
+      </div>
+      <div className="space-y-1.5">
+        {subRows.map((row) => {
+          const sub = row.score ?? 0;
+          const subPct = Math.max(0, Math.min(1, Math.abs(sub)));
+          const subPositive = sub >= 0;
+          const subColor = subPositive ? 'var(--color-bull)' : 'var(--color-bear)';
+          return (
+            <div key={row.key}>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <span className="font-medium">
+                  {row.label}
+                  {row.weight != null && (
+                    <span className="ml-1.5 text-[10px] text-[var(--color-text-secondary)]">
+                      {(row.weight * 100).toFixed(0)}%
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-[var(--color-text-secondary)]">
+                  score <span className="text-[var(--color-text-primary)]">
+                    {row.score != null ? row.score.toFixed(2) : '—'}
+                  </span>
+                </span>
+              </div>
+              <div className="relative h-1.5 rounded bg-[var(--color-border)]/40 overflow-hidden">
+                <div className="absolute top-0 bottom-0" style={{ left: '50%', width: 1, background: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                {row.score != null && (
+                  <div
+                    className="absolute top-0 bottom-0"
+                    style={{
+                      background: subColor,
+                      left: subPositive ? '50%' : `${50 - subPct * 50}%`,
+                      width: `${subPct * 50}%`,
+                      opacity: 0.8,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

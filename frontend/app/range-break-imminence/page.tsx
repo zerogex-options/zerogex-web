@@ -155,6 +155,14 @@ export default function RangeBreakImminencePage() {
                 {playbook}
               </p>
             )}
+            <ExpandableCard
+              className="mt-4 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3 text-left"
+              expandTrigger="button"
+              expandButtonLabel="Expand score history"
+            >
+              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
+              <SignalSparkline points={history} strokeColor={accentColor} fillColor={`${accentColor}1f`} height={56} min={-100} max={100} />
+            </ExpandableCard>
           </div>
 
           <div className="lg:col-span-3">
@@ -174,15 +182,6 @@ export default function RangeBreakImminencePage() {
             </div>
           </div>
         </div>
-
-        <ExpandableCard
-          className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-          expandTrigger="button"
-          expandButtonLabel="Expand score history"
-        >
-          <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-          <SignalSparkline points={history} strokeColor={accentColor} fillColor={`${accentColor}1f`} height={56} min={-100} max={100} />
-        </ExpandableCard>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
