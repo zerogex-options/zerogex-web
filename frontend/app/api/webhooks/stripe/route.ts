@@ -56,7 +56,7 @@ function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const priceId = item?.price.id ?? null;
   const mappedTier = priceId ? priceIdToTier(priceId) : null;
   const isActive = ACTIVE_STATUSES.has(subscription.status);
-  const nextTier: TierId = isActive && mappedTier ? mappedTier : 'basic';
+  const nextTier: TierId = isActive && mappedTier ? mappedTier : 'public';
 
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
   const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
@@ -101,7 +101,7 @@ function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   getDb()
     .prepare(
       `UPDATE users SET
-         tier = 'basic',
+         tier = 'public',
          stripe_subscription_id = NULL,
          stripe_price_id = NULL,
          subscription_status = ?,
@@ -116,7 +116,7 @@ function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
     type: 'stripe_subscription_deleted',
     userId: user.id,
     email: user.email,
-    message: `Subscription ${subscription.id} ended; tier reset to basic`,
+    message: `Subscription ${subscription.id} ended; tier reset to public`,
   });
 }
 

@@ -78,9 +78,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Education',
     items: [
-      { id: '/education', label: 'Hub', requiredTier: 'basic' },
-      { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide', requiredTier: 'basic' },
-      { id: '/education/net-volume-vs-directional-flow', label: 'Flow Metrics Guide', requiredTier: 'basic' },
+      { id: '/education', label: 'Hub' },
+      { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' },
+      { id: '/education/net-volume-vs-directional-flow', label: 'Flow Metrics Guide' },
     ],
   },
 ];
