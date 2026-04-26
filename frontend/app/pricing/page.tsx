@@ -1,9 +1,13 @@
 'use client';
 
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
-import { ArrowRight, CheckCircle2, Moon, Sparkles, Sun } from 'lucide-react';
+import { normalizeTier, TierId } from '@/core/auth';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { ArrowRight, CheckCircle2, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
 
 const C = {
   card: 'var(--color-surface)',
@@ -13,6 +17,12 @@ const C = {
   border: 'var(--border-default)',
 };
 
+type TierAction =
+  | { kind: 'link'; href: string; label: string }
+  | { kind: 'subscribe'; tier: 'basic' | 'pro'; label: string }
+  | { kind: 'portal'; label: string }
+  | { kind: 'current'; label: string };
+
 type TierCardProps = {
   title: string;
   price: string;
@@ -20,9 +30,101 @@ type TierCardProps = {
   highlight?: string;
   features: string[];
   accent: string;
+  action: TierAction;
+  busy: boolean;
+  onSubscribe: (tier: 'basic' | 'pro') => void;
+  onPortal: () => void;
 };
 
-function TierCard({ title, price, original, highlight, features, accent }: TierCardProps) {
+function CtaButton({
+  action,
+  busy,
+  accent,
+  onSubscribe,
+  onPortal,
+}: {
+  action: TierAction;
+  busy: boolean;
+  accent: string;
+  onSubscribe: (tier: 'basic' | 'pro') => void;
+  onPortal: () => void;
+}) {
+  const baseStyle = {
+    marginTop: 22,
+    width: '100%',
+    border: 'none',
+    borderRadius: 12,
+    padding: '12px 18px',
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    color: 'var(--text-inverse)',
+    background: `linear-gradient(135deg, ${accent} 0%, var(--heat-mid) 100%)`,
+  } as const;
+
+  if (action.kind === 'current') {
+    return (
+      <button
+        type="button"
+        disabled
+        style={{
+          ...baseStyle,
+          background: 'transparent',
+          color: C.muted,
+          border: `1px solid ${C.border}`,
+          cursor: 'default',
+        }}
+      >
+        {action.label}
+      </button>
+    );
+  }
+
+  if (action.kind === 'link') {
+    return (
+      <Link href={action.href} style={{ textDecoration: 'none', display: 'block' }}>
+        <span style={baseStyle as React.CSSProperties}>
+          {action.label} <ArrowRight size={16} />
+        </span>
+      </Link>
+    );
+  }
+
+  const handleClick = () => {
+    if (busy) return;
+    if (action.kind === 'subscribe') onSubscribe(action.tier);
+    else onPortal();
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={busy}
+      style={{ ...baseStyle, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}
+    >
+      {busy ? <Loader2 size={16} className="animate-spin" /> : action.label}
+      {!busy && action.kind === 'subscribe' && <ArrowRight size={16} />}
+    </button>
+  );
+}
+
+function TierCard({
+  title,
+  price,
+  original,
+  highlight,
+  features,
+  accent,
+  action,
+  busy,
+  onSubscribe,
+  onPortal,
+}: TierCardProps) {
   return (
     <article
       style={{
@@ -31,6 +133,8 @@ function TierCard({ title, price, original, highlight, features, accent }: TierC
         borderRadius: 18,
         padding: 28,
         boxShadow: `0 12px 40px ${accent}20`,
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -62,7 +166,7 @@ function TierCard({ title, price, original, highlight, features, accent }: TierC
         <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>{price}</span>
       </div>
 
-      <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+      <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
           <li key={feature} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', color: C.muted, lineHeight: 1.55 }}>
             <CheckCircle2 size={18} style={{ color: accent, marginTop: 2, flexShrink: 0 }} />
@@ -70,13 +174,112 @@ function TierCard({ title, price, original, highlight, features, accent }: TierC
           </li>
         ))}
       </ul>
+
+      <CtaButton action={action} busy={busy} accent={accent} onSubscribe={onSubscribe} onPortal={onPortal} />
     </article>
   );
 }
 
+const TIER_RANK: Record<TierId, number> = {
+  public: 0,
+  basic: 10,
+  pro: 20,
+  admin: 30,
+};
+
 export default function PricingPage() {
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const isDark = theme === 'dark';
+  const { data: authSession, loading: authLoading } = useAuthSession();
+  const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const currentTier: TierId = useMemo(
+    () => normalizeTier(authSession?.user?.tier),
+    [authSession?.user?.tier],
+  );
+  const isAuthed = !!authSession?.authenticated;
+  const hasPaidSubscription = currentTier === 'pro';
+
+  const callBilling = useCallback(
+    async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        throw new Error('Could not obtain CSRF token. Refresh and try again.');
+      }
+      const response = await fetch(path, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          'x-csrf-token': csrf.csrfToken,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error ?? 'Billing request failed');
+      }
+      window.location.href = payload.url;
+    },
+    [],
+  );
+
+  const handleSubscribe = useCallback(
+    async (tier: 'basic' | 'pro') => {
+      if (!isAuthed) {
+        router.push(`/register?next=/pricing`);
+        return;
+      }
+      if (currentTier === 'admin') {
+        setError('Admin accounts do not subscribe.');
+        return;
+      }
+      setError(null);
+      setBusyTier(tier);
+      try {
+        if (hasPaidSubscription) {
+          await callBilling('/api/billing/portal');
+        } else {
+          await callBilling('/api/billing/checkout', { tier });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong.');
+        setBusyTier(null);
+      }
+    },
+    [callBilling, currentTier, hasPaidSubscription, isAuthed, router],
+  );
+
+  const handlePortal = useCallback(async () => {
+    setError(null);
+    setBusyTier('portal');
+    try {
+      await callBilling('/api/billing/portal');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setBusyTier(null);
+    }
+  }, [callBilling]);
+
+  const actionForPaidTier = (tier: 'basic' | 'pro'): TierAction => {
+    const label = tier === 'basic' ? 'Basic' : 'Pro';
+    if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
+    if (!isAuthed) {
+      return { kind: 'link', href: `/register?next=/pricing`, label: 'Sign up to subscribe' };
+    }
+    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
+    if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
+    if (TIER_RANK[currentTier] > TIER_RANK[tier]) {
+      return { kind: 'portal', label: 'Manage Subscription' };
+    }
+    if (hasPaidSubscription) {
+      return { kind: 'portal', label: `Switch to ${label}` };
+    }
+    return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
+  };
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -161,69 +364,62 @@ export default function PricingPage() {
               Clear Tiers. Institutional-Grade Value.
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
-              Choose the ZeroGEX access level that fits your workflow. Upgrade at any time to unlock deeper signal intelligence and API workflows.
+              Choose the ZeroGEX access level that fits your workflow. Upgrades and downgrades are pro-rated automatically.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
+          {error && (
+            <div
+              role="alert"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--color-bear)',
+                color: 'var(--color-bear)',
+                background: 'var(--color-bear-soft)',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <TierCard
-              title="Starter"
-              original="$25/mo"
-              price="$0/mo"
-              highlight="Free (For Limited Time)"
-              accent="var(--heat-mid)"
+              title="Basic"
+              original="$29/mo"
+              price="$19/mo"
+              highlight="Limited Time Only"
+              accent="var(--color-brand-primary)"
               features={[
-                'Access to all real-time metrics.',
-                'Full strategy tools coverage.',
+                'Real-time metrics and full strategy tools.',
+                'Access to Basic Signals.',
                 'Designed for disciplined daily execution.',
               ]}
+              action={actionForPaidTier('basic')}
+              busy={busyTier === 'basic' || busyTier === 'portal'}
+              onSubscribe={handleSubscribe}
+              onPortal={handlePortal}
             />
             <TierCard
               title="Pro"
-              original="$45/mo"
-              price="$29/mo"
-              highlight="Coming Soon"
-              accent="var(--color-brand-primary)"
-              features={[
-                'Everything included in Starter.',
-                'Access to Basic Signals.',
-                'Direct access to ZeroGEX APIs.',
-              ]}
-            />
-            <TierCard
-              title="Elite"
-              original="$65/mo"
-              price="$39/mo"
-              highlight="Coming Soon"
+              original="$39/mo"
+              price="$24/mo"
+              highlight="Limited Time Only"
               accent="var(--color-brand-accent)"
               features={[
-                'Everything included in Pro.',
+                'Everything included in Basic.',
                 'Access to Advanced Signals.',
-                'Built for high-conviction, high-frequency decision loops.',
+                'Direct access to ZeroGEX APIs.',
               ]}
+              action={actionForPaidTier('pro')}
+              busy={busyTier === 'pro' || busyTier === 'portal'}
+              onSubscribe={handleSubscribe}
+              onPortal={handlePortal}
             />
-          </div>
-
-          <div style={{ marginTop: 30, display: 'flex', justifyContent: 'center' }}>
-            <Link href="/register" style={{ textDecoration: 'none' }}>
-              <button
-                style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '14px 28px',
-                  color: 'var(--text-inverse)',
-                  fontWeight: 800,
-                  fontSize: 15,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                Get Started <ArrowRight size={16} />
-              </button>
-            </Link>
           </div>
         </div>
       </section>

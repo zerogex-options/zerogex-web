@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Rocket, ShieldCheck, XCircle } from 'lucide-react';
+import { Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 
@@ -22,19 +22,18 @@ const TIER_LABELS: Record<TierId, string> = AUTH_TIERS.reduce(
 
 export default function AccountPage() {
   const router = useRouter();
-  const { data: authSession, loading, refresh } = useAuthSession();
-  const [cancelling, setCancelling] = useState(false);
+  const { data: authSession, loading } = useAuthSession();
+  const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const tier = useMemo(() => normalizeTier(authSession?.user?.tier), [authSession?.user?.tier]);
   const email = authSession?.user?.email ?? '';
   const tierLabel = TIER_LABELS[tier] ?? 'Public';
-  const canUpgrade = tier !== 'elite' && tier !== 'admin';
-  const canCancel = tier === 'pro' || tier === 'elite';
+  const canUpgrade = tier !== 'pro' && tier !== 'admin';
+  const canManageBilling = tier !== 'public' && tier !== 'admin';
 
-  const handleCancelSubscription = async () => {
-    setCancelling(true);
+  const handleManageSubscription = async () => {
+    setOpening(true);
     setFeedback(null);
     try {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
@@ -44,24 +43,22 @@ export default function AccountPage() {
         return;
       }
 
-      const response = await fetch('/api/auth/subscription/cancel', {
+      const response = await fetch('/api/billing/portal', {
         method: 'POST',
         headers: { 'x-csrf-token': csrf.csrfToken },
         credentials: 'include',
       });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        setFeedback({ type: 'error', message: payload.error ?? 'Subscription cancellation failed' });
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        setFeedback({ type: 'error', message: payload.error ?? 'Could not open billing portal.' });
         return;
       }
 
-      await refresh();
-      setFeedback({ type: 'success', message: 'Your subscription has been cancelled. You are now on the Starter tier.' });
+      window.location.href = payload.url;
     } catch {
       setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
     } finally {
-      setCancelling(false);
-      setConfirmOpen(false);
+      setOpening(false);
     }
   };
 
@@ -210,110 +207,32 @@ export default function AccountPage() {
         <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Cancelling ends your paid subscription and removes your access to premium features.
+            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes are pro-rated automatically.
           </p>
           <button
             type="button"
-            onClick={() => setConfirmOpen(true)}
-            disabled={!canCancel || cancelling}
+            onClick={handleManageSubscription}
+            disabled={!canManageBilling || opening}
             style={{
               background: 'transparent',
               border: '1px solid',
-              borderColor: 'var(--color-bear)',
-              color: 'var(--color-bear)',
+              borderColor: C.border,
+              color: C.light,
               borderRadius: 10,
               padding: '10px 18px',
               fontWeight: 700,
               fontSize: 14,
-              cursor: canCancel && !cancelling ? 'pointer' : 'not-allowed',
-              opacity: canCancel && !cancelling ? 1 : 0.5,
+              cursor: canManageBilling && !opening ? 'pointer' : 'not-allowed',
+              opacity: canManageBilling && !opening ? 1 : 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
             }}
           >
-            <XCircle size={16} /> Cancel Subscription
+            <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
           </button>
-          {!canCancel && (
-            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 12 }}>
-              No active paid subscription to cancel.
-            </p>
-          )}
         </section>
       </div>
-
-      {confirmOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            zIndex: 1000,
-          }}
-          onClick={() => !cancelling && setConfirmOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 440,
-              width: '100%',
-              background: C.card,
-              border: `1px solid ${C.border}`,
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
-            }}
-          >
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Cancel subscription?</h3>
-            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 14, lineHeight: 1.5 }}>
-              You will lose access to paid features immediately and be moved to the Starter tier. This action cannot be undone.
-            </p>
-            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={cancelling}
-                style={{
-                  background: 'transparent',
-                  border: `1px solid ${C.border}`,
-                  color: C.light,
-                  borderRadius: 10,
-                  padding: '8px 16px',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: cancelling ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Keep subscription
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelSubscription}
-                disabled={cancelling}
-                style={{
-                  background: 'var(--color-bear)',
-                  border: 'none',
-                  color: 'var(--text-inverse)',
-                  borderRadius: 10,
-                  padding: '8px 16px',
-                  fontWeight: 800,
-                  fontSize: 13,
-                  cursor: cancelling ? 'not-allowed' : 'pointer',
-                  opacity: cancelling ? 0.7 : 1,
-                }}
-              >
-                {cancelling ? 'Cancelling...' : 'Yes, cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

@@ -90,6 +90,39 @@ server {
         proxy_read_timeout 60s;
     }
 
+    # Next.js Stripe billing API (Checkout + Customer Portal session creation)
+    location ^~ /api/billing/ {
+        proxy_pass http://127.0.0.1:${WEB_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Next.js webhook endpoints (Stripe signature verification needs the raw body)
+    location ^~ /api/webhooks/ {
+        proxy_pass http://127.0.0.1:${WEB_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_request_buffering off;
+        proxy_buffering off;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
     # Backend API reverse proxy
     location /api/ {
         proxy_pass ${API_UPSTREAM}/api/;
@@ -106,6 +139,12 @@ server {
         proxy_read_timeout 60s;
 
         limit_req zone=zerogex_api_per_ip burst=40 nodelay;
+
+        # Inject backend X-API-Key header if the snippet exists.
+        # Wildcard include is a no-op when no files match (won't error on hosts
+        # without the snippet). On hosts where it lives, the file must define
+        # `proxy_set_header X-API-Key "<value>";` for the FastAPI service.
+        include /etc/nginx/conf.d/zerogex-api-key*.conf;
     }
 
     # WebSocket reverse proxy
@@ -122,6 +161,8 @@ server {
         proxy_connect_timeout 15s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
+
+        include /etc/nginx/conf.d/zerogex-api-key*.conf;
     }
 
     # Frontend reverse proxy

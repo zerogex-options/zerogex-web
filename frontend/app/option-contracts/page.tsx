@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { useMarketQuote, useOptionContract, type OptionContractRow } from "@/hooks/useApiData";
-import { useFlowByContractCache } from "@/hooks/useFlowByContract";
+import { useFlowContractOptions } from "@/hooks/useFlowSeries";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
@@ -575,41 +575,30 @@ export default function OptionContractsPage() {
 
   const { data: quoteData } = useMarketQuote(symbol, 1000);
 
-  // ── Fetch available expirations / strikes from the shared by-contract cache
+  // ── Fetch available expirations / strikes from /api/flow/contracts.
+  //    The endpoint returns already-distinct, already-sorted lists scoped to
+  //    the current session, so no client-side de-duping or sorting is needed.
   const {
-    rows: byContractRows,
-    loading: byContractLoading,
-    error: byContractError,
-  } = useFlowByContractCache(symbol, "current");
+    options: contractOptions,
+    loading: contractsLoading,
+    error: contractsError,
+  } = useFlowContractOptions(symbol, "current");
 
-  const expirationLoading = byContractLoading && !byContractRows;
-  const strikeLoading = expirationLoading;
-  const expirationError = byContractError && (!byContractRows || byContractRows.length === 0) ? byContractError : null;
-  const strikeError = expirationError;
+  const expirationLoading = contractsLoading;
+  const strikeLoading = contractsLoading;
+  const expirationError = contractsError;
+  const strikeError = contractsError;
 
   // ── Derive available expirations (active only — expire today or later)
   const expirationOptions = useMemo(() => {
-    if (!byContractRows) return [];
     const todayKey = getCurrentETDateKey();
-    return Array.from(
-      new Set(
-        byContractRows
-          .map((r) => r.expiration ?? "")
-          .filter((exp) => exp && isActiveExpiration(exp, todayKey)),
-      ),
-    ).sort();
-  }, [byContractRows]);
+    return contractOptions.expirations.filter((exp) => isActiveExpiration(exp, todayKey));
+  }, [contractOptions]);
 
-  const strikeOptions = useMemo(() => {
-    if (!byContractRows) return [];
-    return Array.from(
-      new Set(
-        byContractRows
-          .map((r) => (r.strike == null ? "" : String(r.strike).trim()))
-          .filter((s) => s.length > 0 && !Number.isNaN(Number(s))),
-      ),
-    ).sort((a, b) => Number(a) - Number(b));
-  }, [byContractRows]);
+  const strikeOptions = useMemo(
+    () => contractOptions.strikes.map((n) => String(n)),
+    [contractOptions],
+  );
 
   const defaultExpiration = useMemo(() => {
     const todayKey = getCurrentETDateKey();

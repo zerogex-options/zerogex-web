@@ -3,9 +3,8 @@ export const CSRF_COOKIE_NAME = 'zgx_csrf';
 
 export const AUTH_TIERS = [
   { id: 'public', label: 'Public', rank: 0 },
-  { id: 'starter', label: 'Starter', rank: 10 },
+  { id: 'basic', label: 'Basic', rank: 10 },
   { id: 'pro', label: 'Pro', rank: 20 },
-  { id: 'elite', label: 'Elite', rank: 25 },
   { id: 'admin', label: 'Admin', rank: 30 },
 ] as const;
 
@@ -16,27 +15,38 @@ export type RouteAccessRule = {
   minimumTier: TierId;
 };
 
-const PUBLIC_ROUTE_PATTERNS = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized'] as const;
+const PUBLIC_ROUTE_PATTERNS = [
+  '/',
+  '/about',
+  '/education',
+  '/education/*',
+  '/pricing',
+  '/privacy',
+  '/terms',
+  '/login',
+  '/register',
+  '/unauthorized',
+] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
-  // Advanced Signals — gated to Elite.
-  { pattern: '/signal-score', minimumTier: 'elite' },
-  { pattern: '/trading-signals', minimumTier: 'elite' },
-  { pattern: '/advanced-signals', minimumTier: 'elite' },
-  { pattern: '/eod-pressure', minimumTier: 'elite' },
-  { pattern: '/squeeze-setup', minimumTier: 'elite' },
-  { pattern: '/trap-detection', minimumTier: 'elite' },
-  { pattern: '/0dte-position-imbalance', minimumTier: 'elite' },
-  { pattern: '/gamma-vwap-confluence', minimumTier: 'elite' },
-  { pattern: '/volatility-expansion', minimumTier: 'elite' },
-  // Basic Signals — gated to Pro.
-  { pattern: '/basic-signals', minimumTier: 'pro' },
-  { pattern: '/tape-flow-bias', minimumTier: 'pro' },
-  { pattern: '/skew-delta', minimumTier: 'pro' },
-  { pattern: '/vanna-charm-flow', minimumTier: 'pro' },
-  { pattern: '/dealer-delta-pressure', minimumTier: 'pro' },
-  { pattern: '/gex-gradient', minimumTier: 'pro' },
-  { pattern: '/positioning-trap', minimumTier: 'pro' },
+  // Advanced Signals — Pro only.
+  { pattern: '/signal-score', minimumTier: 'pro' },
+  { pattern: '/trading-signals', minimumTier: 'pro' },
+  { pattern: '/advanced-signals', minimumTier: 'pro' },
+  { pattern: '/eod-pressure', minimumTier: 'pro' },
+  { pattern: '/squeeze-setup', minimumTier: 'pro' },
+  { pattern: '/trap-detection', minimumTier: 'pro' },
+  { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
+  { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
+  { pattern: '/volatility-expansion', minimumTier: 'pro' },
+  // Basic Signals — included with Basic.
+  { pattern: '/basic-signals', minimumTier: 'basic' },
+  { pattern: '/tape-flow-bias', minimumTier: 'basic' },
+  { pattern: '/skew-delta', minimumTier: 'basic' },
+  { pattern: '/vanna-charm-flow', minimumTier: 'basic' },
+  { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
+  { pattern: '/gex-gradient', minimumTier: 'basic' },
+  { pattern: '/positioning-trap', minimumTier: 'basic' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(
@@ -60,8 +70,9 @@ function matchesPattern(pathname: string, pattern: string) {
 
 export function normalizeTier(tier?: string | null): TierId {
   if (!tier) return 'public';
-  // Back-compat: existing users stored as 'basic' map to 'starter'.
-  if (tier === 'basic') return 'starter';
+  // Back-compat: legacy tier ids fold into the current two-tier system.
+  if (tier === 'starter') return 'basic';
+  if (tier === 'elite') return 'pro';
   return AUTH_TIERS.some((candidate) => candidate.id === tier) ? (tier as TierId) : 'public';
 }
 

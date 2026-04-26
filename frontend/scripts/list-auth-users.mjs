@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const TIER_DISPLAY_ORDER = ['admin', 'elite', 'pro', 'starter', 'public'];
+const TIER_DISPLAY_ORDER = ['admin', 'pro', 'basic', 'public'];
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};

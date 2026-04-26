@@ -3,10 +3,10 @@
 import { Info } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
-  useFlowByContractCache,
-  forEachBar,
-  type FlowByContractPoint,
-} from '@/hooks/useFlowByContract';
+  canonicalIso,
+  useFlowSeries,
+  type FlowSeriesPoint,
+} from '@/hooks/useFlowSeries';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { colors } from '@/core/colors';
@@ -25,23 +25,21 @@ function toTime(ts: string) {
 interface FlowChartRow { timestamp: string; time: string; calls: number; puts: number }
 
 /**
- * Accumulates the running session totals of net_premium per 5-minute bar
- * split by option_type, reported in millions.
+ * Map server-computed session cumulatives onto the chart row shape — field
+ * renames only, reported in millions. /api/flow/series already returns
+ * call_premium_cum and put_premium_cum per 5-min bar, so no client-side
+ * accumulation is needed.
  */
-function aggregateFlow(rows: FlowByContractPoint[]): FlowChartRow[] {
-  const output: FlowChartRow[] = [];
-  let cumCalls = 0;
-  let cumPuts = 0;
-  forEachBar(rows, ({ timestamp, rows: barRows }) => {
-    for (const row of barRows) {
-      const prem = Number(row.net_premium ?? 0);
-      if (!Number.isFinite(prem)) continue;
-      if (row.option_type === 'C') cumCalls += prem / 1_000_000;
-      else if (row.option_type === 'P') cumPuts += prem / 1_000_000;
-    }
-    output.push({ timestamp, time: toTime(timestamp), calls: cumCalls, puts: cumPuts });
+function mapFlowRows(rows: FlowSeriesPoint[]): FlowChartRow[] {
+  return rows.map((r) => {
+    const timestamp = canonicalIso(r.timestamp);
+    return {
+      timestamp,
+      time: toTime(timestamp),
+      calls: r.call_premium_cum / 1_000_000,
+      puts: r.put_premium_cum / 1_000_000,
+    };
   });
-  return output;
 }
 
 export default function OptionsFlowChart() {
@@ -50,14 +48,19 @@ export default function OptionsFlowChart() {
   const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
 
-  const { rows: flowRows, loading, error } = useFlowByContractCache(symbol, 'current');
+  const { rows: flowRows, loading, error } = useFlowSeries(symbol, 'current');
 
   const chartData = useMemo(() => {
-    const aggregated = aggregateFlow(flowRows ?? []);
-    return omitClosedMarketTimes(aggregated, (row) => row.timestamp).slice(-maxPoints);
+    const mapped = mapFlowRows(flowRows ?? []);
+    return omitClosedMarketTimes(mapped, (row) => row.timestamp).slice(-maxPoints);
   }, [flowRows, maxPoints]);
 
-  const totals = useMemo(() => chartData.reduce((acc, row) => ({ calls: acc.calls + row.calls, puts: acc.puts + row.puts }), { calls: 0, puts: 0 }), [chartData]);
+  // Session totals = the last visible bar's cumulative value (server emits
+  // running cumulatives, so the tail row is the session-to-date total).
+  const totals = useMemo(() => {
+    const last = chartData[chartData.length - 1];
+    return last ? { calls: last.calls, puts: last.puts } : { calls: 0, puts: 0 };
+  }, [chartData]);
 
   if (loading && chartData.length === 0) return <LoadingSpinner size="lg" />;
   if (error && chartData.length === 0) return <ErrorMessage message={error} />;
