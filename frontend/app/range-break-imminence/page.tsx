@@ -6,8 +6,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useRangeBreakImminenceSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import SignalSparkline from '@/components/SignalSparkline';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalScoreHero from '@/components/SignalScoreHero';
 import SignalPageTitle from '@/components/SignalPageTitle';
 import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
@@ -125,61 +124,58 @@ export default function RangeBreakImminencePage() {
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      <section
-        className="zg-feature-shell p-6 transition-colors"
-        style={{ borderColor: accentColor }}
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-          <div className="lg:col-span-2 flex flex-col items-center text-center">
-            <ImminenceGauge
-              imminence={imminence}
-              color={accentColor}
-              directionalColor={directionalColor}
-              triggered={triggered}
+      <section className="zg-feature-shell p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
+          <div className="lg:col-span-2">
+            <SignalScoreHero
+              score={score}
+              trend={trend}
+              interpretation={label}
+              history={history}
+              badges={
+                <>
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
+                    style={{ background: `${accentColor}1f`, color: accentColor }}
+                  >
+                    {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
+                    {signalStr.replace(/_/g, ' ')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
+                    Imminence
+                    <span className="font-mono ml-1" style={{ color: accentColor }}>
+                      {imminence != null ? imminence.toFixed(1) : '—'}
+                    </span>
+                  </span>
+                </>
+              }
+              footnote={playbook ? <p className="leading-relaxed">{playbook}</p> : undefined}
             />
-            <span
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide"
-              style={{ background: `${accentColor}1f`, color: accentColor }}
-            >
-              {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
-              {label}
-            </span>
-            <div className="mt-2 text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">
-              Signal: <span className="text-[var(--color-text-primary)] font-semibold">{signalStr.replace(/_/g, ' ')}</span>
-            </div>
-            {playbook && (
-              <p className="mt-4 text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-sm">
-                {playbook}
-              </p>
-            )}
           </div>
 
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> Sub-score contributions</div>
-              <div className="text-[11px] text-[var(--color-text-secondary)]">
-                Imminence = weighted sum of absolute sub-scores
+          <div className="lg:col-span-3 h-full">
+            <div
+              className="rounded-xl border bg-[var(--color-surface-subtle)] p-5 flex flex-col h-full"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> Sub-score contributions</div>
+                <div className="text-[11px] text-[var(--color-text-secondary)]">
+                  Imminence = weighted sum of absolute sub-scores
+                </div>
               </div>
-            </div>
-            <SubScoreBars rows={subScores} />
-
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-              <MetricPill label="Score" value={score != null ? score.toFixed(1) : '—'} color={directionalColor} />
-              <MetricPill label="Imminence" value={imminence != null ? imminence.toFixed(1) : '—'} color={accentColor} />
-              <MetricPill label="Direction" value={directionRaw} color={directionalColor} capitalize />
-              <MetricPill label="Bias" value={bias != null ? bias.toFixed(2) : '—'} color="var(--color-text-primary)" />
+              <div className="flex-1 flex flex-col">
+                <SubScoreBars rows={subScores} />
+              </div>
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <MetricPill label="Score" value={score != null ? score.toFixed(1) : '—'} color={directionalColor} />
+                <MetricPill label="Imminence" value={imminence != null ? imminence.toFixed(1) : '—'} color={accentColor} />
+                <MetricPill label="Direction" value={directionRaw} color={directionalColor} capitalize />
+                <MetricPill label="Bias" value={bias != null ? bias.toFixed(2) : '—'} color="var(--color-text-primary)" />
+              </div>
             </div>
           </div>
         </div>
-
-        <ExpandableCard
-          className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-          expandTrigger="button"
-          expandButtonLabel="Expand score history"
-        >
-          <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-          <SignalSparkline points={history} strokeColor={accentColor} fillColor={`${accentColor}1f`} height={56} min={-100} max={100} />
-        </ExpandableCard>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
@@ -272,89 +268,6 @@ function MetricPill({ label, value, color, capitalize }: { label: string; value:
   );
 }
 
-interface ImminenceGaugeProps {
-  imminence: number | null;
-  color: string;
-  directionalColor: string;
-  triggered: boolean;
-}
-
-function ImminenceGauge({ imminence, color, directionalColor, triggered }: ImminenceGaugeProps) {
-  const width = 260;
-  const height = 150;
-  const cx = width / 2;
-  const cy = height - 10;
-  const r = 110;
-  const strokeWidth = 16;
-
-  const clamped = Math.max(0, Math.min(100, imminence ?? 0));
-  const angle = Math.PI * (1 - clamped / 100);
-  const endX = cx + r * Math.cos(angle);
-  const endY = cy - r * Math.sin(angle);
-
-  const arcPath = (start: { x: number; y: number }, end: { x: number; y: number }, largeArc: 0 | 1) =>
-    `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
-
-  const startPoint = { x: cx - r, y: cy };
-  const endPoint = { x: cx + r, y: cy };
-  const progressEnd = { x: endX, y: endY };
-
-  // Threshold marker for 65 (break-watch entry)
-  const thresholdAngle = Math.PI * (1 - 65 / 100);
-  const thrInner = {
-    x: cx + (r - strokeWidth / 2 - 2) * Math.cos(thresholdAngle),
-    y: cy - (r - strokeWidth / 2 - 2) * Math.sin(thresholdAngle),
-  };
-  const thrOuter = {
-    x: cx + (r + strokeWidth / 2 + 2) * Math.cos(thresholdAngle),
-    y: cy - (r + strokeWidth / 2 + 2) * Math.sin(thresholdAngle),
-  };
-
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path
-        d={arcPath(startPoint, endPoint, 1)}
-        stroke="var(--color-border)"
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeLinecap="round"
-      />
-      {imminence != null && (
-        <path
-          d={arcPath(startPoint, progressEnd, 0)}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeLinecap="round"
-        />
-      )}
-      <line
-        x1={thrInner.x}
-        y1={thrInner.y}
-        x2={thrOuter.x}
-        y2={thrOuter.y}
-        stroke={triggered ? directionalColor : 'var(--color-text-secondary)'}
-        strokeWidth={2}
-      />
-      <text x={cx} y={cy - r / 2 - 6} textAnchor="middle" fill="var(--color-text-primary)" fontSize={36} fontWeight={800}>
-        {imminence != null ? imminence.toFixed(1) : '—'}
-      </text>
-      <text x={cx} y={cy - r / 2 + 12} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10} letterSpacing={1.5}>
-        IMMINENCE 0–100
-      </text>
-      <text x={cx - r} y={cy + 12} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={9}>
-        0
-      </text>
-      <text x={cx + r} y={cy + 12} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={9}>
-        100
-      </text>
-      <text x={thrOuter.x} y={thrOuter.y - 4} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={9}>
-        65
-      </text>
-    </svg>
-  );
-}
-
 interface SubScoreRow {
   key: string;
   label: string;
@@ -366,7 +279,7 @@ interface SubScoreRow {
 
 function SubScoreBars({ rows }: { rows: SubScoreRow[] }) {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-4 h-full justify-around">
       {rows.map((row) => {
         const mag = row.magnitude ?? 0;
         const magClamped = Math.max(0, Math.min(100, mag));
@@ -381,9 +294,9 @@ function SubScoreBars({ rows }: { rows: SubScoreRow[] }) {
                 : '';
         return (
           <div key={row.key}>
-            <div className="flex items-center justify-between text-xs mb-1">
+            <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="flex items-center gap-2 text-[var(--color-text-primary)] font-semibold">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: row.color }} />
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
                 {row.label}
                 <span className="text-[10px] font-normal text-[var(--color-text-secondary)]">{row.weight}%</span>
               </span>
@@ -392,7 +305,7 @@ function SubScoreBars({ rows }: { rows: SubScoreRow[] }) {
                 <span className="ml-2 text-[10px]">contrib {contribution.toFixed(1)}</span>
               </span>
             </div>
-            <div className="h-2 rounded-full bg-[var(--color-surface-subtle)] overflow-hidden border border-[var(--color-border)]/40">
+            <div className="h-3 rounded-full bg-[var(--color-surface)] overflow-hidden border border-[var(--color-border)]/40">
               <div
                 className="h-full transition-all"
                 style={{ width: `${magClamped}%`, background: row.color }}

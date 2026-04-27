@@ -259,28 +259,6 @@ export default function CompositeScorePage() {
         )}
       </section>
 
-      {/* Intraday trend */}
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <LineChartIcon size={20} />
-          Intraday Trend
-          <TooltipWrapper text={INTRADAY_TOOLTIP} placement="bottom">
-            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
-          </TooltipWrapper>
-          <span
-            className="ml-auto text-xs text-[var(--color-text-secondary)] font-mono font-normal"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
-            {history.length} pts
-          </span>
-        </h2>
-        {loading && history.length === 0 ? (
-          <Skeleton height={320} label="Loading chart…" />
-        ) : (
-          <IntradayChart history={history} currentScore={composite} />
-        )}
-      </section>
-
       {/* Contribution stack */}
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -308,6 +286,28 @@ export default function CompositeScorePage() {
             <ComponentCard key={c.key} entry={c} />
           ))}
         </div>
+      </section>
+
+      {/* Intraday trend (moved to bottom for the page narrative) */}
+      <section className="zg-feature-shell mt-8 p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <LineChartIcon size={20} />
+          Intraday Trend
+          <TooltipWrapper text={INTRADAY_TOOLTIP} placement="bottom">
+            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+          <span
+            className="ml-auto text-xs text-[var(--color-text-secondary)] font-mono font-normal"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {history.length} pts
+          </span>
+        </h2>
+        {loading && history.length === 0 ? (
+          <Skeleton height={320} label="Loading chart…" />
+        ) : (
+          <IntradayChart history={history} currentScore={composite} />
+        )}
       </section>
     </div>
   );
