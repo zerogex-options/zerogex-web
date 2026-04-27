@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CalendarClock, Info, Pin, Timer, TrendingDown, TrendingUp, Gauge } from 'lucide-react';
+import { CalendarClock, Pin, Timer, Gauge, Hourglass } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useEodPressureSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -17,7 +17,6 @@ import {
   getBool,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatPct,
   formatPrice,
 } from '@/core/signalHelpers';
@@ -51,7 +50,6 @@ export default function EodPressurePage() {
   const atmBandPct = getNumber(ctx.atm_band_pct);
 
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const inactive = timeRamp === 0 && (score == null || score === 0);
@@ -60,15 +58,11 @@ export default function EodPressurePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">EOD Pressure</h1>
-        <TooltipWrapper
-          text="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="EOD Pressure"
+        icon={Hourglass}
+        tooltip="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -87,26 +81,22 @@ export default function EodPressurePage() {
       <section className="zg-feature-shell p-6" style={{ opacity: inactive ? 0.75 : 1 }}>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">EOD Pressure Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{pressureLabel(score)}</div>
-            <div className="mt-4 flex items-center gap-2 flex-wrap">
-              {isOpex && <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-warning-soft)', color: 'var(--color-warning)' }}>OpEx</span>}
-              {isQuadWitching && <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>Quad Witching</span>}
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)]">
-                Amp <span className="font-mono ml-1">{calendarAmp != null ? `${calendarAmp.toFixed(2)}×` : '1.00×'}</span>
-              </span>
-            </div>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="EOD Pressure Score"
+              trend={trend}
+              interpretation={pressureLabel(score)}
+              history={history}
+              badges={
+                <>
+                  {isOpex && <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-warning-soft)', color: 'var(--color-warning)' }}>OpEx</span>}
+                  {isQuadWitching && <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>Quad Witching</span>}
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)]">
+                    Amp <span className="font-mono ml-1">{calendarAmp != null ? `${calendarAmp.toFixed(2)}×` : '1.00×'}</span>
+                  </span>
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -145,48 +135,13 @@ export default function EodPressurePage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">How This Signal Works</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Info size={14} /> Charm at spot</div>
-            <p className="text-[var(--color-text-secondary)] text-xs">
-              <code>charm_score = tanh(charm_at_spot / 20M)</code> across an ATM band. Captures accelerating delta decay
-              into the close.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Pin size={14} /> Pin gravity</div>
-            <p className="text-[var(--color-text-secondary)] text-xs">
-              <code>pin_gravity = sign(net_gex) × min(1.0, pin_distance_pct / 0.3%)</code>. Flips direction when dealers
-              cross to short gamma.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><CalendarClock size={14} /> Time × calendar</div>
-            <p className="text-[var(--color-text-secondary)] text-xs">
-              <code>score = (0.6·charm + 0.4·pin) × calendar_amp × time_ramp</code>. OpEx 1.5×, quad-witching 2.0×.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 text-xs text-[var(--color-text-secondary)] flex items-center gap-2">
-          <Timer size={14} /> Activation window: 14:30 ET → 16:00 ET. Ramp reaches 1.0 by ~15:45 ET.
-        </div>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Bullish close</div>
-            <p className="text-[var(--color-text-secondary)]">
-              <code>time_ramp &gt; 0.5</code> and <code>score &gt; 50</code> → trade the drift toward <code>pin_target</code>.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Bearish close</div>
-            <p className="text-[var(--color-text-secondary)]">
-              Mirror setup. On quad-witching days, treat |score| &gt; 60 as high-conviction pin.
-            </p>
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>Activation window: 14:30 ET → 16:00 ET. Ramp reaches 1.0 by ~15:45 ET. Outside the window the score is forced to 0.</>}
+      >
+        <div><code>charm_score = tanh(charm_at_spot / 20M)</code> across an ATM band — captures accelerating delta decay into the close.</div>
+        <div><code>pin_gravity = sign(net_gex) × min(1.0, pin_distance_pct / 0.3%)</code> — flips direction when dealers cross to short gamma.</div>
+        <div><code>score = (0.6·charm + 0.4·pin) × calendar_amp × time_ramp</code>. OpEx 1.5×, quad-witching 2.0×.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="eod_pressure" symbol={symbol} title="Event Timeline" />
     </div>

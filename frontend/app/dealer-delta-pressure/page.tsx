@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Compass, Info } from 'lucide-react';
+import { Compass } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useDealerDeltaPressureSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -44,7 +44,6 @@ export default function DealerDeltaPressurePage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const dealerNetDelta = getNumber(payload.dealer_net_delta_estimated);
@@ -58,41 +57,33 @@ export default function DealerDeltaPressurePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <Compass size={24} />
-        <h1 className="text-3xl font-bold">Dealer Delta Pressure</h1>
-        <TooltipWrapper
-          text="Estimates dealers' aggregate net-delta position. Score is inverted: positive = dealers short delta = mechanical buying on rallies (bullish). Delta flow leads gamma exposure by minutes, so this is the closest thing to a leading indicator for 0DTE regimes."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Dealer Delta Pressure"
+        icon={Compass}
+        tooltip="Estimates dealers' aggregate net-delta position. Score is inverted: positive = dealers short delta = mechanical buying on rallies (bullish). Delta flow leads gamma exposure by minutes, so this is the closest thing to a leading indicator for 0DTE regimes."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{interpretation(score)}</div>
-            <div className="mt-3 inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]" style={{ color: trendColor(quality.tone) }}>
-              <span className="font-semibold uppercase tracking-wide">Source</span>
-              <span className="font-mono">{source}</span>
-              <span>· {quality.label}</span>
-            </div>
-
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              trend={trend}
+              interpretation={interpretation(score)}
+              history={history}
+              badges={
+                <span
+                  className="inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]"
+                  style={{ color: trendColor(quality.tone) }}
+                >
+                  <span className="font-semibold uppercase tracking-wide">Source</span>
+                  <span className="font-mono">{source}</span>
+                  <span>· {quality.label}</span>
+                </span>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
@@ -133,16 +124,12 @@ export default function DealerDeltaPressurePage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2"><Info size={16} /> How it&apos;s built</h2>
-        <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
-          <div>Three data paths in priority order: <code>dealer_net_delta</code> field → <code>gex_by_strike.delta_oi</code> sum → distance-proxy fallback.</div>
-          <div><code>score = −clip(dni / DNI_NORM, [−1, 1]) × 100</code> (DNI_NORM default $3e8).</div>
-          <div className="pt-2 border-t border-[var(--color-border)]">
-            When this disagrees with GEX Gradient (structural view), trust Dealer Delta Pressure on a shorter (≤ 30m) horizon.
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>When this disagrees with GEX Gradient (structural view), trust Dealer Delta Pressure on a shorter (≤ 30m) horizon.</>}
+      >
+        <div>Three data paths in priority order: <code>dealer_net_delta</code> field → <code>gex_by_strike.delta_oi</code> sum → distance-proxy fallback.</div>
+        <div><code>score = −clip(dni / DNI_NORM, [−1, 1]) × 100</code> (DNI_NORM default $3e8).</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="dealer_delta_pressure" symbol={symbol} title="Event Timeline" />
     </div>

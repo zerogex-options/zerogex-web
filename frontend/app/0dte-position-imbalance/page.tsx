@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Activity, AlertCircle, Brain, Clock, Gauge, TrendingDown, TrendingUp } from 'lucide-react';
+import { Activity, AlertCircle, Brain, Clock, Gauge } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useZeroDtePositionImbalanceSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -76,15 +76,11 @@ export default function ZeroDtePositionImbalancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">0DTE Position Imbalance</h1>
-        <TooltipWrapper
-          text="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier. Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive the largest chase."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="0DTE Position Imbalance"
+        icon={Activity}
+        tooltip="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier. Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive the largest chase."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -115,29 +111,25 @@ export default function ZeroDtePositionImbalancePage() {
       <section className="zg-feature-shell p-6" style={{ opacity: inactive ? 0.75 : 1 }}>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Imbalance Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
-                {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {signal.replace(/_/g, ' ')}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
-                <Clock size={11} />
-                ToD <span className="font-mono ml-1">{ctx.todMultiplier != null ? ctx.todMultiplier.toFixed(2) : '—'}</span>
-              </span>
-            </div>
-            <div className="mt-3 text-sm font-semibold">{label(signal, score)}</div>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} min={-100} max={100} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="Imbalance Score"
+              trend={trend}
+              interpretation={label(signal, score)}
+              history={history}
+              badges={
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                    {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
+                    {signal.replace(/_/g, ' ')}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
+                    <Clock size={11} />
+                    ToD <span className="font-mono ml-1">{ctx.todMultiplier != null ? ctx.todMultiplier.toFixed(2) : '—'}</span>
+                  </span>
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
@@ -202,23 +194,14 @@ export default function ZeroDtePositionImbalancePage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Call heavy + close</div>
-            <p className="text-[var(--color-text-secondary)]">
-              Rising momentum + call-heavy near close → dealers short 0DTE calls chase; lean long.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Put heavy + close</div>
-            <p className="text-[var(--color-text-secondary)]">
-              Falling momentum + put-heavy near close → dealers short 0DTE puts chase down; lean short.
-            </p>
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>Time-of-day multiplier is 0 outside the 0DTE window (forces score to 0). When the all-expiry fallback fires, the picture is inferred — not measured same-day — and conviction should be discounted.</>}
+      >
+        <div>Net premium per moneyness bucket; weighted <code>0.6 × OTM + 0.3 × ATM + 0.1 × ITM</code> for both calls and puts.</div>
+        <div><code>flow_imbalance = (weighted_call_net − weighted_put_net) / (|...| + |...|)</code>, gated above $50k gross premium.</div>
+        <div><code>blended = 0.55 × flow + 0.30 × smart + 0.15 × pcr_tilt</code>, then × time-of-day multiplier.</div>
+        <div><code>score = clip(blended, [−1, 1]) × 100</code>. Triggers at |score| ≥ 25.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="zero_dte_position_imbalance" symbol={symbol} title="Event Timeline" />
     </div>

@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeftRight, Compass, Gauge, Layers, Radar, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, Compass, Gauge, Layers, Radar, Radio } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useRangeBreakImminenceSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalSparkline from '@/components/SignalSparkline';
 import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -116,15 +117,11 @@ export default function RangeBreakImminencePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Range Break Imminence</h1>
-        <TooltipWrapper
-          text="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0–100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Range Break Imminence"
+        icon={Radio}
+        tooltip="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0–100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
@@ -236,34 +233,21 @@ export default function RangeBreakImminencePage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2" style={{ color: FADE_COLOR }}>
-              Fade band (&lt;65)
-            </div>
-            <p className="text-[var(--color-text-secondary)]">
-              <span className="font-semibold text-[var(--color-text-primary)]">Range Fade</span> (0–39): fade
-              extremes normally. <span className="font-semibold text-[var(--color-text-primary)]">Weak Range</span>
-              {' '}(40–64): still fade, but smaller size / faster targets.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-text-primary)]">
-              <TrendingUp size={14} className="text-[var(--color-bull)]" />
-              <TrendingDown size={14} className="text-[var(--color-bear)]" />
-              Follow band (≥65)
-            </div>
-            <p className="text-[var(--color-text-secondary)]">
-              <span className="font-semibold text-[var(--color-text-primary)]">Break Watch</span> (65–79): stop
-              blindly fading; prepare retest trades. <span className="font-semibold text-[var(--color-text-primary)]">
-              Breakout Mode</span> (80–100) with direction set: trade the retest of the broken level rather than
-              fading back into the range.
-            </p>
-          </div>
+      <SignalHowItsBuilt
+        caveat={
+          <>
+            <strong>Bands:</strong> 0–39 Range Fade · 40–64 Weak Range · 65–79 Break Watch · 80–100 Breakout Mode.
+            Triggers at imminence ≥ 65 — stop blindly fading and prepare retest trades.
+          </>
+        }
+      >
+        <div>Four sub-signals are computed independently as 0–100 magnitudes with optional signed direction:
+          IV skew (30%), dealer delta pressure (25%), trap detection (25%), volatility compression (20%, directionless).
         </div>
-      </section>
+        <div><code>imminence = Σ (magnitude_i × weight_i) / 100</code> in 0–100.</div>
+        <div><code>bias = Σ (signed_i × weight_i) / 100</code> in [−1, +1] — drives the directional <code>score</code>.</div>
+        <div><code>score = imminence × bias</code> (sign carried by bias). Direction is derived from sign of bias.</div>
+      </SignalHowItsBuilt>
     </div>
   );
 }

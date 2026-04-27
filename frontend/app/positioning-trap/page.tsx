@@ -1,22 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { usePositioningTrapSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatSigned,
   formatPct,
   formatPrice,
@@ -39,7 +38,6 @@ export default function PositioningTrapPage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const ctx = asObject(payload.context_values) ?? {};
@@ -67,39 +65,25 @@ export default function PositioningTrapPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <AlertTriangle size={24} />
-        <h1 className="text-3xl font-bold">Positioning Trap</h1>
-        <TooltipWrapper
-          text="Flags crowded one-way positioning where tape behavior is starting to invalidate crowd direction. Positive score = upside squeeze setup (crowd short, upside breaking). Negative score = downside flush setup (crowd long, downside breaking)."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Positioning Trap"
+        icon={AlertTriangle}
+        tooltip="Flags crowded one-way positioning where tape behavior is starting to invalidate crowd direction. Positive score = upside squeeze setup (crowd short, upside breaking). Negative score = downside flush setup (crowd long, downside breaking)."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Trap Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{interpretation(score)}</div>
-            <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-              Smart imbalance source: <span className="font-mono">{smartSource}</span>
-            </p>
-
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="Trap Score"
+              trend={trend}
+              interpretation={interpretation(score)}
+              history={history}
+              footnote={<>Smart imbalance source: <span className="font-mono">{smartSource}</span></>}
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
@@ -156,20 +140,20 @@ export default function PositioningTrapPage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2"><Info size={16} /> How it&apos;s built</h2>
-        <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
-          <div>
-            Two sub-scores (squeeze, flush) combine crowding (0.45), signed smart-money skew (0.25),
-            5-bar momentum (0.15), gamma-flip location (0.10), and GEX regime (0.05).
-          </div>
-          <div><code>score = clip(squeeze − flush, [−1, 1]) × 100</code>.</div>
-          <div className="pt-2 border-t border-[var(--color-border)]">
+      <SignalHowItsBuilt
+        caveat={
+          <>
             Smart imbalance = <code>(smart_call_net − smart_put_net) / (|call_net| + |put_net|)</code>, abstaining when denominator &lt; $100K.
             Signed imbalance this snapshot: <span className="font-mono">{formatSigned(smartImbalance, 3)}</span>.
-          </div>
+          </>
+        }
+      >
+        <div>
+          Two sub-scores (squeeze, flush) combine crowding (0.45), signed smart-money skew (0.25),
+          5-bar momentum (0.15), gamma-flip location (0.10), and GEX regime (0.05).
         </div>
-      </section>
+        <div><code>score = clip(squeeze − flush, [−1, 1]) × 100</code>.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="positioning_trap" symbol={symbol} title="Event Timeline" />
     </div>

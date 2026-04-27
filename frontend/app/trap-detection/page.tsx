@@ -6,10 +6,10 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTrapDetectionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -83,45 +83,37 @@ export default function TrapDetectionPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Trap Detection</h1>
-        <TooltipWrapper
-          text="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Invalidated when the relevant wall migrates with price (dealers repositioning)."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Trap Detection"
+        icon={AlertTriangle}
+        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Invalidated when the relevant wall migrates with price (dealers repositioning)."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Trap Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
-                {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {signal.replace(/_/g, ' ') || 'none'}
-              </span>
-              {triggered && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>
-                  <AlertTriangle size={12} /> TRAP
-                </span>
-              )}
-            </div>
-            <div className="mt-3 text-sm font-semibold">{setupLabel(signal, score)}</div>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} min={-100} max={100} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="Trap Score"
+              trend={trend}
+              interpretation={setupLabel(signal, score)}
+              history={history}
+              badges={
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                    {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
+                    {signal.replace(/_/g, ' ') || 'none'}
+                  </span>
+                  {triggered && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>
+                      <AlertTriangle size={12} /> TRAP
+                    </span>
+                  )}
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
@@ -204,6 +196,15 @@ export default function TrapDetectionPage() {
           </div>
         </div>
       </section>
+
+      <SignalHowItsBuilt
+        caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
+      >
+        <div>Detects upside / downside breakouts beyond resistance / support by at least the buffer band.</div>
+        <div>Requires dealer long gamma (<code>net_gex &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction.</div>
+        <div>Optional confirmation: same-side flow decelerating into the wall.</div>
+        <div><code>score = ±confidence × 100</code> where confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
     </div>

@@ -1,22 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ScatterChart, Info } from 'lucide-react';
+import { ScatterChart } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useGexGradientSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatGexCompact,
   formatSigned,
   formatPct,
@@ -38,7 +37,6 @@ export default function GexGradientPage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const ctx = asObject(payload.context_values) ?? {};
@@ -61,46 +59,35 @@ export default function GexGradientPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <ScatterChart size={24} />
-        <h1 className="text-3xl font-bold">GEX Gradient</h1>
-        <TooltipWrapper
-          text="Decomposes per-strike dealer gamma into four zones (above / below spot × ATM / wings) and scores the asymmetry. Short-gamma regimes: heavy above-spot gamma means dealers chase rallies (bullish). Long-gamma regimes flip the signal (above-spot = resistance)."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="GEX Gradient"
+        icon={ScatterChart}
+        tooltip="Decomposes per-strike dealer gamma into four zones (above / below spot × ATM / wings) and scores the asymmetry. Short-gamma regimes: heavy above-spot gamma means dealers chase rallies (bullish). Long-gamma regimes flip the signal (above-spot = resistance)."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{interpretation(score, netGex)}</div>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)]">
-                Regime: <span className="font-mono" style={{ color: (netGex ?? 0) < 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
-                  {netGex != null ? (netGex < 0 ? 'Short gamma' : 'Long gamma') : '—'}
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)]">
-                Strikes: <span className="font-mono">{strikeCount != null ? Math.floor(strikeCount) : '—'}</span>
-              </span>
-            </div>
-
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              trend={trend}
+              interpretation={interpretation(score, netGex)}
+              history={history}
+              badges={
+                <>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[11px]">
+                    Regime: <span className="font-mono" style={{ color: (netGex ?? 0) < 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
+                      {netGex != null ? (netGex < 0 ? 'Short gamma' : 'Long gamma') : '—'}
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[11px]">
+                    Strikes: <span className="font-mono">{strikeCount != null ? Math.floor(strikeCount) : '—'}</span>
+                  </span>
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
@@ -165,15 +152,12 @@ export default function GexGradientPage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2"><Info size={16} /> How it&apos;s built</h2>
-        <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
-          <div><code>asymmetry = (above_abs − below_abs) / (above_abs + below_abs)</code>.</div>
-          <div>Short-gamma regime: <code>raw = asymmetry</code>. Long-gamma: <code>raw = −asymmetry × damping</code> (damping 0.40).</div>
-          <div><code>confidence = max(0.25, 1 − wing_fraction)</code>. Wings pin, so they kill directional edge.</div>
-          <div><code>score = clip(raw × confidence, [−1, 1]) × 100</code>. Abstains if total gamma below threshold.</div>
-        </div>
-      </section>
+      <SignalHowItsBuilt>
+        <div><code>asymmetry = (above_abs − below_abs) / (above_abs + below_abs)</code>.</div>
+        <div>Short-gamma regime: <code>raw = asymmetry</code>. Long-gamma: <code>raw = −asymmetry × damping</code> (damping 0.40).</div>
+        <div><code>confidence = max(0.25, 1 − wing_fraction)</code>. Wings pin, so they kill directional edge.</div>
+        <div><code>score = clip(raw × confidence, [−1, 1]) × 100</code>. Abstains if total gamma below threshold.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gex_gradient" symbol={symbol} title="Event Timeline" />
     </div>

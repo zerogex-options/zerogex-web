@@ -1,22 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Scale, Info, ShieldAlert } from 'lucide-react';
+import { Scale, ShieldAlert } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSkewDeltaSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatPct,
   formatSigned,
 } from '@/core/signalHelpers';
@@ -37,7 +36,6 @@ export default function SkewDeltaPage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const otmPutIv = getNumber(payload.otm_put_iv);
@@ -52,35 +50,23 @@ export default function SkewDeltaPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <Scale size={24} />
-        <h1 className="text-3xl font-bold">Skew Delta</h1>
-        <TooltipWrapper
-          text="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Skew Delta"
+        icon={Scale}
+        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{interpretation(score)}</div>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              trend={trend}
+              interpretation={interpretation(score)}
+              history={history}
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
@@ -133,17 +119,13 @@ export default function SkewDeltaPage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2"><Info size={16} /> How it&apos;s built</h2>
-        <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
-          <div><code>spread = otm_put_iv − otm_call_iv</code></div>
-          <div><code>deviation = spread − baseline</code> (baseline default 0.02)</div>
-          <div><code>score = −clip(deviation / saturation, [−1, 1]) × 100</code> (saturation default 0.04).</div>
-          <div className="pt-2 border-t border-[var(--color-border)]">
-            The negative sign means elevated put skew → bearish score. Null IV → no short-dated data that cycle (not the same as neutral).
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>The negative sign means elevated put skew → bearish score. Null IV → no short-dated data that cycle (not the same as neutral).</>}
+      >
+        <div><code>spread = otm_put_iv − otm_call_iv</code></div>
+        <div><code>deviation = spread − baseline</code> (baseline default 0.02)</div>
+        <div><code>score = −clip(deviation / saturation, [−1, 1]) × 100</code> (saturation default 0.04).</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="skew_delta" symbol={symbol} title="Event Timeline" />
     </div>

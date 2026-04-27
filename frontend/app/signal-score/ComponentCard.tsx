@@ -60,12 +60,24 @@ export default function ComponentCard({ entry }: Props) {
       ? '●'
       : score > 0 ? '▲' : '▼';
 
+  // Shade the card by the component's directional bias, mirroring the
+  // basic / advanced signal dashboards. Treat |score| ≥ 0.25 as a
+  // confident lean, anything below that as neutral.
+  const TRIGGER = 0.25;
+  const triggered = score != null && Number.isFinite(score) && Math.abs(score) >= TRIGGER;
+  const cardBg = triggered
+    ? score! > 0
+      ? 'var(--color-bull-soft)'
+      : 'var(--color-bear-soft)'
+    : 'var(--color-surface-elevated)';
+  const cardBorder = triggered ? color : 'var(--color-border)';
+
   return (
     <div
-      className="rounded-xl border p-4 flex flex-col gap-3 h-full"
+      className="rounded-xl border p-4 flex flex-col gap-3 h-full transition-colors"
       style={{
-        borderColor: 'var(--color-border)',
-        background: 'var(--color-surface-elevated)',
+        borderColor: cardBorder,
+        background: cardBg,
       }}
       aria-label={`${label.title}. Score ${score?.toFixed(3) ?? 'unavailable'}, contribution ${contribution >= 0 ? '+' : ''}${contribution.toFixed(2)} of ${entry.maxPoints}.`}
     >

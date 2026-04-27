@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Compass, Gauge, Magnet, TrendingDown, TrendingUp, ArrowUp, ArrowDown } from 'lucide-react';
+import { Compass, Gauge, Magnet, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useGammaVwapConfluenceSignal, useGEXSummary } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -103,52 +103,46 @@ export default function GammaVwapConfluencePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Gamma / VWAP Confluence</h1>
-        <TooltipWrapper
-          text="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Gamma / VWAP Confluence"
+        icon={Magnet}
+        tooltip="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Confluence Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
-                {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {signal.replace(/_/g, ' ')}
-              </span>
-              {ctx.regimeDirection !== '—' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)] capitalize">
-                  {ctx.regimeDirection.replace(/_/g, ' ')}
-                </span>
-              )}
-            </div>
-            <div className="mt-3 text-sm font-semibold">{label(signal, score)}</div>
-            <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-              Cluster gap: <span className="font-mono text-[var(--color-text-primary)]">{formatPct(clusterGapPct, 3, false)}</span>
-              {' · '}
-              Quality: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'}</span>
-              {' · '}
-              Members: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterMembers.length || '—'}</span>
-            </p>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} min={-100} max={100} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="Confluence Score"
+              trend={trend}
+              interpretation={label(signal, score)}
+              history={history}
+              badges={
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                    {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
+                    {signal.replace(/_/g, ' ')}
+                  </span>
+                  {ctx.regimeDirection !== '—' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)] capitalize">
+                      {ctx.regimeDirection.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </>
+              }
+              footnote={
+                <>
+                  Cluster gap: <span className="font-mono text-[var(--color-text-primary)]">{formatPct(clusterGapPct, 3, false)}</span>
+                  {' · '}
+                  Quality: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'}</span>
+                  {' · '}
+                  Members: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterMembers.length || '—'}</span>
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
@@ -205,25 +199,14 @@ export default function GammaVwapConfluencePage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Bullish confluence</div>
-            <p className="text-[var(--color-text-secondary)]">
-              Cluster quality &gt; 0.8 + mean-reversion regime → <code>confluence_level</code> is a buy zone;
-              <code> expected_target</code> is the reversion target.
-            </p>
-          </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Bearish confluence</div>
-            <p className="text-[var(--color-text-secondary)]">
-              In continuation regimes (<code>net_gex &lt; 0</code>) a break through the level tends to run —
-              <code>expected_target</code> acts as a first profit taker instead.
-            </p>
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>Short-gamma regime → breakout continues past the level (continuation). Long-gamma regime → reverts to the level (mean-reversion, ×0.7 conviction).</>}
+      >
+        <div>Cluster the five reference levels (gamma flip, VWAP, max pain, max gamma, call wall) by their pairwise gap relative to spot.</div>
+        <div><code>cluster_quality = (members_in_cluster / 5) × (1 − cluster_gap_pct / max_gap)</code>.</div>
+        <div><code>raw = cluster_quality × sign(close − confluence_level) × regime_factor</code>, regime_factor depends on dealer net GEX sign.</div>
+        <div><code>score = clip(raw, [−1, 1]) × 100</code>. Triggers at |score| ≥ 20.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title="Event Timeline" />
     </div>

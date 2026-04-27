@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowRightLeft, Gauge, Rocket, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRightLeft, Gauge, Rocket, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSqueezeSetupSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
@@ -76,43 +76,35 @@ export default function SqueezeSetupPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Squeeze Setup</h1>
-        <TooltipWrapper
-          text="Standalone detector — not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Squeeze Setup"
+        icon={Zap}
+        tooltip="Standalone detector — not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Squeeze Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
-                {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {signal.replace(/_/g, ' ') || 'none'}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]" style={{ color: vix.color }}>
-                VIX {vix.label}
-              </span>
-            </div>
-            <div className="mt-3 text-sm font-semibold">{regimeLabel(signal, score)}</div>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} min={-100} max={100} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              scoreLabel="Squeeze Score"
+              trend={trend}
+              interpretation={regimeLabel(signal, score)}
+              history={history}
+              badges={
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                    {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
+                    {signal.replace(/_/g, ' ') || 'none'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]" style={{ color: vix.color }}>
+                    VIX {vix.label}
+                  </span>
+                </>
+              }
+            />
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -189,6 +181,15 @@ export default function SqueezeSetupPage() {
           </div>
         </div>
       </section>
+
+      <SignalHowItsBuilt
+        caveat={<>Dead-VIX regimes attenuate conviction ~50%. The signal abstains when no directional flow z-score crosses ±0.5 or there&apos;s no detectable momentum acceleration in the same direction.</>}
+      >
+        <div>Direction picked from the larger of <code>|call_flow_z|</code>, <code>|put_flow_z|</code>; same-side momentum required.</div>
+        <div><code>conviction = clip(|flow_z| × momentum_align × accel_boost × vix_factor, [0, 1])</code>.</div>
+        <div><code>accel_boost = 1.2 if accelerating in signal direction, else 1.0</code>.</div>
+        <div><code>score = ±conviction × 100</code> (sign matches direction). Triggers at |score| ≥ 25.</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="squeeze_setup" symbol={symbol} title="Event Timeline" />
     </div>

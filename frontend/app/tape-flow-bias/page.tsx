@@ -1,22 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Waves, Info } from 'lucide-react';
+import { Waves } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTapeFlowBiasSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import SignalSparkline from '@/components/SignalSparkline';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
-import ExpandableCard from '@/components/ExpandableCard';
+import SignalPageTitle from '@/components/SignalPageTitle';
+import SignalScoreHero from '@/components/SignalScoreHero';
+import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatGexCompact,
 } from '@/core/signalHelpers';
 
@@ -36,7 +35,6 @@ export default function TapeFlowBiasPage() {
   const payload = useMemo(() => asObject(data) ?? {}, [data]);
   const score = getNumber(payload.score);
   const trend = toTrend(payload.direction);
-  const color = trendColor(trend);
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const callNet = getNumber(payload.call_net_premium);
@@ -57,38 +55,24 @@ export default function TapeFlowBiasPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <Waves size={24} />
-        <h1 className="text-3xl font-bold">Tape Flow Bias</h1>
-        <TooltipWrapper
-          text="Continuous aggressive-vs-passive option-tape premium imbalance. Calls bought aggressively + puts sold aggressively = bullish. Abstains when total premium falls below the minimum threshold."
-          placement="bottom"
-        >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
+      <SignalPageTitle
+        title="Tape Flow Bias"
+        icon={Waves}
+        tooltip="Continuous aggressive-vs-passive option-tape premium imbalance. Calls bought aggressively + puts sold aggressively = bullish. Abstains when total premium falls below the minimum threshold."
+      />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
-            <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
-              {score != null ? score.toFixed(2) : '—'}
-            </div>
-            <div className="mt-2 text-lg font-semibold">{interpretation(score)}</div>
-            <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-              Range −100 to +100. Source: <span className="font-mono">{source}</span>
-            </p>
-            <ExpandableCard
-              className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3"
-              expandTrigger="button"
-              expandButtonLabel="Expand score history"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Score history</div>
-              <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1f`} height={56} />
-            </ExpandableCard>
+            <SignalScoreHero
+              score={score}
+              trend={trend}
+              interpretation={interpretation(score)}
+              history={history}
+              footnote={<>Source: <span className="font-mono">{source}</span></>}
+            />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
@@ -131,18 +115,14 @@ export default function TapeFlowBiasPage() {
         </div>
       </section>
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2"><Info size={16} /> How it&apos;s built</h2>
-        <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
-          <div><code>call_net = call_buy_premium − call_sell_premium</code></div>
-          <div><code>put_net = put_buy_premium − put_sell_premium</code></div>
-          <div><code>directional = call_net − put_net</code>, <code>ratio = directional / (|call_net| + |put_net|)</code></div>
-          <div><code>score = clip(ratio / saturation, [−1, 1]) × 100</code>. Saturation default 0.6 (60% one-sided imbalance saturates).</div>
-          <div className="pt-2 border-t border-[var(--color-border)]">
-            Score ≈ 0 during market hours means premium below minimum (thin tape), not &ldquo;neutral conviction&rdquo;.
-          </div>
-        </div>
-      </section>
+      <SignalHowItsBuilt
+        caveat={<>Score ≈ 0 during market hours means premium below minimum (thin tape), not &ldquo;neutral conviction&rdquo;.</>}
+      >
+        <div><code>call_net = call_buy_premium − call_sell_premium</code></div>
+        <div><code>put_net = put_buy_premium − put_sell_premium</code></div>
+        <div><code>directional = call_net − put_net</code>, <code>ratio = directional / (|call_net| + |put_net|)</code></div>
+        <div><code>score = clip(ratio / saturation, [−1, 1]) × 100</code>. Saturation default 0.6 (60% one-sided imbalance saturates).</div>
+      </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="tape_flow_bias" symbol={symbol} title="Event Timeline" />
     </div>
