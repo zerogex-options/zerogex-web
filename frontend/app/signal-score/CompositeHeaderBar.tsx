@@ -63,10 +63,8 @@ export default function CompositeHeaderBar({ symbol, onSymbolChange, connection,
       className="flex flex-wrap items-center justify-between gap-4 rounded-xl border px-4 py-3"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-elevated)' }}
     >
-      <div className="flex items-center gap-3">
-        <div className="text-sm uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">Composite Score</div>
-        <span className="hidden sm:inline text-[var(--color-text-secondary)] opacity-50">/</span>
-        <div className="text-sm font-semibold hidden sm:inline">MSI</div>
+      <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+        <span className="uppercase tracking-[0.18em]">Underlying</span>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

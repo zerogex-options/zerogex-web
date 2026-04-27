@@ -45,20 +45,15 @@ export default function ContributionStack({ components, composite }: Props) {
 
   return (
     <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
       role="img"
       aria-label={`Component contribution stack. Composite ${compositeAria}.`}
     >
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-          Component Contributions
-        </h3>
+      <div className="flex items-baseline justify-end mb-3">
         <div className="text-xs text-[var(--color-text-secondary)] font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
           50 + Σ contrib ≈ {composite != null ? composite.toFixed(2) : '—'}
         </div>
       </div>
-      <div className="relative h-10 w-full overflow-hidden rounded-md" style={{ background: 'var(--color-border)', opacity: 0.95 }}>
+      <div className="relative h-10 w-full overflow-hidden rounded-md border" style={{ background: 'var(--color-surface-subtle)', borderColor: 'var(--color-border)' }}>
         {[...negativeLayout, ...positiveLayout].map(({ entry, width, left }) => {
           if (width <= 0) return null;
           const positive = (entry.contribution ?? 0) >= 0;
