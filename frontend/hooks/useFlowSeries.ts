@@ -279,13 +279,19 @@ export function useFlowSeries(
     let cancelled = false;
 
     const runInitial = async (): Promise<void> => {
+      // Render any cached rows immediately so the page paints without waiting
+      // on the network — but always issue a fresh full-session fetch below.
+      // Skipping the fetch when the cache is non-empty (the previous behavior)
+      // left the chart pinned to whatever sessionStorage happened to hold —
+      // a partial bar window from earlier in the day, a stale prior session,
+      // or a transient incomplete server response — until the next
+      // refetchFullSession tick (up to fullRefreshMs / 5 min away).
       if (globalCache.has(cacheKey)) {
         const entry = globalCache.get(cacheKey)!;
         if (!cancelled) {
           setRows(entry.rows);
           setLoading(false);
         }
-        return;
       }
 
       let pending = inflightInitial.get(cacheKey);
