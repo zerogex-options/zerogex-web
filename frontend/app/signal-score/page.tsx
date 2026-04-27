@@ -1,393 +1,227 @@
 'use client';
 
-import { useMemo } from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ReferenceArea,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { Info, LineChart as LineChartIcon, LayoutGrid } from 'lucide-react';
-import TooltipWrapper from '@/components/TooltipWrapper';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
-import MsiGauge from '@/components/MsiGauge';
-import { useTimeframe } from '@/core/TimeframeContext';
-import { useSignalScore, useSignalScoreHistory } from '@/hooks/useApiData';
-import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import ChartTimeAxisTick from '@/components/ChartTimeAxisTick';
-import { asObject, computeTimeTicks, firstTicksOfEtDay, formatEtTime, getNumber } from '@/core/signalHelpers';
+import { useEffect, useMemo, useState } from 'react';
+import CompositeGauge from './CompositeGauge';
+import CompositeHeaderBar, { CompositeSymbol } from './CompositeHeaderBar';
+import IntradayChart from './IntradayChart';
+import ContributionStack from './ContributionStack';
+import ComponentCard from './ComponentCard';
+import { useCompositeData } from './useCompositeData';
+import { classifyRegime } from './regime';
+import { COMPONENT_KEYS, ComponentEntry } from './data';
 
-interface ComponentEntry {
-  name: string;
-  label: string;
-  maxPoints: number;
-  contribution: number | null;
-  score: number | null;
+const NEUTRAL_DELTA_THRESHOLD = 0.5;
+
+function findOpenScore(history: { timestamp: string; composite: number }[]): number | null {
+  if (history.length === 0) return null;
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  // History is ASC, so the first row whose ET date matches today and whose
+  // ET minute-of-day is >= 09:30 (570) is the opening bar.
+  for (const row of history) {
+    const ms = Date.parse(row.timestamp);
+    if (!Number.isFinite(ms)) continue;
+    const dKey = new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    if (dKey !== todayKey) continue;
+    const parts = fmt.formatToParts(new Date(ms));
+    const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+    if (hour * 60 + min >= 9 * 60 + 30) return row.composite;
+  }
+  return null;
 }
 
-const COMPONENT_LABELS: Record<string, { label: string; description: string; sign: string }> = {
-  net_gex_sign: {
-    label: 'Net GEX Sign',
-    description: 'Sign of dealer net gamma',
-    sign: 'Negative GEX ⇒ +1 (expansion); Positive ⇒ −1 (pinning)',
-  },
-  flip_distance: {
-    label: 'Flip Distance',
-    description: 'Distance from spot to gamma-flip strike',
-    sign: 'Near flip ⇒ +1 (fragile); Far ⇒ −1 (stable)',
-  },
-  local_gamma: {
-    label: 'Local Gamma',
-    description: 'Density of gamma near spot',
-    sign: 'Low local gamma ⇒ +1 (air pocket); High ⇒ −1',
-  },
-  put_call_ratio: {
-    label: 'Put/Call Ratio',
-    description: 'OI-weighted put/call tilt',
-    sign: 'Extreme ⇒ +1; Balanced ⇒ −1',
-  },
-  price_vs_max_gamma: {
-    label: 'Price vs Max Gamma',
-    description: 'Distance from max-gamma strike',
-    sign: 'Far ⇒ +1; Pinned ⇒ −1',
-  },
-  volatility_regime: {
-    label: 'Volatility Regime',
-    description: 'Realized / VIX regime',
-    sign: 'High vol ⇒ +1; Dead ⇒ −1',
-  },
-};
+function findScoreAt(history: { timestamp: string; composite: number }[], cutoffMs: number): number | null {
+  // Pick the row with timestamp closest to (and not after) cutoffMs.
+  let best: { dist: number; score: number } | null = null;
+  for (const row of history) {
+    const ms = Date.parse(row.timestamp);
+    if (!Number.isFinite(ms)) continue;
+    if (ms > cutoffMs) continue;
+    const dist = cutoffMs - ms;
+    if (!best || dist < best.dist) best = { dist, score: row.composite };
+  }
+  return best?.score ?? null;
+}
 
-const COMPONENT_ORDER = [
-  'net_gex_sign',
-  'flip_distance',
-  'local_gamma',
-  'put_call_ratio',
-  'price_vs_max_gamma',
-  'volatility_regime',
-];
+function emptyComponents(): ComponentEntry[] {
+  return COMPONENT_KEYS.map((key) => ({ key, maxPoints: 0, contribution: null, score: null }));
+}
 
-function parseComponents(raw: unknown): ComponentEntry[] {
-  const obj = asObject(raw);
-  if (!obj) return [];
-  return COMPONENT_ORDER.filter((name) => obj[name] != null).map((name) => {
-    const cObj = asObject(obj[name]) ?? {};
-    return {
-      name,
-      label: COMPONENT_LABELS[name]?.label ?? name,
-      maxPoints: getNumber(cObj.max_points) ?? 0,
-      contribution: getNumber(cObj.contribution),
-      score: getNumber(cObj.score),
-    };
-  });
+function DeltaBadge({ label, value }: { label: string; value: number | null }) {
+  let color = 'var(--color-text-secondary)';
+  let glyph: '▲' | '▼' | '●' = '●';
+  let display = '—';
+  if (value != null && Number.isFinite(value)) {
+    if (Math.abs(value) < NEUTRAL_DELTA_THRESHOLD) {
+      color = 'var(--color-text-secondary)';
+      glyph = '●';
+    } else if (value > 0) {
+      color = '#16A34A';
+      glyph = '▲';
+    } else {
+      color = '#DC2626';
+      glyph = '▼';
+    }
+    display = `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">{label}</span>
+      <span aria-hidden style={{ color, fontSize: 12 }}>{glyph}</span>
+      <span
+        className="font-mono font-semibold text-sm"
+        style={{ color, fontVariantNumeric: 'tabular-nums' }}
+        aria-label={`${label} ${display}`}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
+function Skeleton({ height = 200, label }: { height?: number; label?: string }) {
+  return (
+    <div
+      className="rounded-xl border animate-pulse flex items-center justify-center text-xs text-[var(--color-text-secondary)]"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height }}
+    >
+      {label}
+    </div>
+  );
 }
 
 export default function CompositeScorePage() {
-  const { symbol } = useTimeframe();
+  const [symbol, setSymbol] = useState<CompositeSymbol>('SPY');
+  const { payload, history, lastUpdatedAt, intervalMs, connection, loading, refetch } = useCompositeData(symbol);
 
-  const { data: scoreData, loading: scoreLoading, error: scoreError, refetch } = useSignalScore(
-    symbol,
-    PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs,
-  );
-  const { data: historyData, loading: historyLoading, error: historyError } = useSignalScoreHistory(
-    symbol,
-    PROPRIETARY_SIGNALS_REFRESH.compositeHistoryMs,
-    100,
-  );
+  // Tick state so deltas/age refresh on a clock instead of via Date.now() in render.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
-  const payload = useMemo(() => asObject(scoreData) ?? {}, [scoreData]);
-  const compositeScore = getNumber(payload.composite_score ?? payload.score);
-  const components = useMemo(() => parseComponents(payload.components), [payload]);
+  const composite = payload?.composite ?? null;
+  const components = payload?.components ?? emptyComponents();
+  const regime = classifyRegime(composite);
+  const noData = !loading && composite == null && history.length === 0;
 
-  const historyRows = useMemo(() => {
-    const rows = Array.isArray(historyData) ? [...historyData] : [];
-    // Router returns rows in timestamp DESC order — reverse to oldest→newest left→right.
-    rows.reverse();
-    return rows.map((row) => {
-      const obj = asObject(row) ?? {};
-      const composite = getNumber(obj.composite_score ?? obj.score);
-      const comps = parseComponents(obj.components);
-      const rec: Record<string, number | null | string> = {
-        timestamp: String(obj.timestamp ?? ''),
-        composite: composite ?? 0,
-      };
-      comps.forEach((c) => {
-        rec[c.name] = c.contribution ?? 0;
-      });
-      return rec;
-    });
-  }, [historyData]);
-
-  const historyTimeTicks = useMemo(
-    () => computeTimeTicks(historyRows.map((r) => String(r.timestamp ?? '')).filter(Boolean), 15),
-    [historyRows],
-  );
-  const historyDateTicks = useMemo(() => firstTicksOfEtDay(historyTimeTicks), [historyTimeTicks]);
-
-  if (scoreLoading && !scoreData) return <LoadingSpinner size="lg" />;
+  const openScore = useMemo(() => findOpenScore(history), [history]);
+  const fiveMinAgoScore = useMemo(() => {
+    if (now == null) return null;
+    return findScoreAt(history, now - 5 * 60 * 1000);
+  }, [history, now]);
+  const deltaSinceOpen = composite != null && openScore != null ? composite - openScore : null;
+  const deltaFiveMin = composite != null && fiveMinAgoScore != null ? composite - fiveMinAgoScore : null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-8">
-        <h1 className="text-3xl font-bold">Composite Score</h1>
-        <TooltipWrapper
-          text="Market State Index (MSI): a 0–100 regime gauge built from six option-structure components. 50 = neutral; deviations reflect structural expansion or pinning bias. Each component returns a raw score in [−1, +1], is multiplied by its weight, summed and added to a 50-point baseline, then clamped to [0, 100]."
-          placement="bottom"
+    <div className="container mx-auto px-4 py-6 max-w-[1400px]">
+      <CompositeHeaderBar
+        symbol={symbol}
+        onSymbolChange={setSymbol}
+        connection={connection}
+        lastUpdatedAt={lastUpdatedAt}
+        intervalMs={intervalMs}
+      />
+
+      {connection === 'disconnected' && (
+        <div
+          className="mt-3 rounded-md border px-3 py-2 text-xs"
+          style={{ borderColor: '#D97706', background: 'rgba(217, 119, 6, 0.08)', color: '#92400E' }}
+          role="status"
         >
-          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
-        </TooltipWrapper>
-      </div>
-
-      {scoreError && <ErrorMessage message={scoreError} onRetry={refetch} />}
-
-      <section className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-8 items-start">
-          <div className="flex flex-col items-center min-w-0 w-full">
-            <MsiGauge score={compositeScore} size={280} label="MSI (0–100)" />
-            <div className="mt-5 grid grid-cols-2 gap-2 text-[11px] w-full max-w-[320px]">
-              <div className="rounded-lg border border-[var(--color-border)] p-2" style={{ background: 'var(--color-bear-soft)' }}>
-                <div className="font-semibold text-[var(--color-bear)]">0–20</div>
-                <div className="text-[var(--color-text-secondary)]">High-risk reversal</div>
-              </div>
-              <div className="rounded-lg border border-[var(--color-border)] p-2" style={{ background: 'var(--color-warning-soft)' }}>
-                <div className="font-semibold text-[var(--color-warning)]">20–40</div>
-                <div className="text-[var(--color-text-secondary)]">Chop / range</div>
-              </div>
-              <div className="rounded-lg border border-[var(--color-border)] p-2 bg-[var(--color-surface-subtle)]">
-                <div className="font-semibold">40–70</div>
-                <div className="text-[var(--color-text-secondary)]">Controlled trend</div>
-              </div>
-              <div className="rounded-lg border border-[var(--color-border)] p-2" style={{ background: 'var(--color-bull-soft)' }}>
-                <div className="font-semibold text-[var(--color-bull)]">70–100</div>
-                <div className="text-[var(--color-text-secondary)]">Trend / expansion</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <LayoutGrid size={18} />
-              <h2 className="text-lg font-semibold">Component Contributions</h2>
-              <TooltipWrapper
-                text="Each bar shows a component's signed contribution to the 50-point baseline. Bar length is |contribution|/max_points. Positive contributions push toward expansion; negative toward pinning/stability."
-                placement="bottom"
-              >
-                <Info size={13} className="text-[var(--color-text-secondary)]" />
-              </TooltipWrapper>
-            </div>
-
-            {components.length === 0 ? (
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-                No component data available yet for {symbol}.
-              </div>
-            ) : (
-              <div className="overflow-x-auto md:overflow-visible -mx-2 md:mx-0 pb-1">
-                <div className="min-w-[420px] md:min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] divide-y divide-[var(--color-border)] mx-2 md:mx-0">
-                  {components.map((c) => (
-                    <ComponentBar key={c.name} entry={c} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          Reconnecting… last values shown may be stale.{' '}
+          <button onClick={refetch} className="underline ml-1">Retry now</button>
         </div>
-      </section>
-
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <LineChartIcon size={20} />
-          Score History
-          <TooltipWrapper
-            text="Recent composite score path with regime bands at 20 / 40 / 70. Rows are ordered oldest → newest."
-            placement="bottom"
-          >
-            <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
-          </TooltipWrapper>
-        </h2>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
-          {historyRows.length > 0 ? (
-            <MobileScrollableChart>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={historyRows} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis
-                    dataKey="timestamp"
-                    ticks={historyTimeTicks}
-                    interval={0}
-                    height={44}
-                    tick={<ChartTimeAxisTick dateTicks={historyDateTicks} />}
-                    stroke="var(--color-border)"
-                  />
-                  <YAxis domain={[0, 100]} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}
-                    formatter={(value: number | string | undefined) => [typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'), 'Composite']}
-                    labelFormatter={formatEtTime}
-                  />
-                  <ReferenceArea y1={0} y2={20} fill="var(--color-bear)" fillOpacity={0.08} />
-                  <ReferenceArea y1={20} y2={40} fill="var(--color-warning)" fillOpacity={0.08} />
-                  <ReferenceArea y1={70} y2={100} fill="var(--color-bull)" fillOpacity={0.08} />
-                  <ReferenceLine y={50} stroke="var(--color-text-secondary)" strokeOpacity={0.5} strokeDasharray="4 4" />
-                  <Line type="monotone" dataKey="composite" stroke="var(--color-warning)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: 'var(--color-warning)', fill: 'var(--color-surface)' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </MobileScrollableChart>
-          ) : historyError ? (
-            <div className="flex flex-col items-center justify-center h-full text-sm text-[var(--color-text-secondary)] gap-1">
-              <div>Unable to load score history.</div>
-              <div className="text-xs opacity-80">{historyError}</div>
-            </div>
-          ) : historyLoading ? (
-            <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">Loading score history…</div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">No score history available.</div>
-          )}
-        </div>
-      </section>
-
-      {historyRows.length > 0 && components.length > 0 && (
-        <section className="zg-feature-shell mt-8 p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            Component Stack
-            <TooltipWrapper
-              text="Stacked area of each component's contribution over time. Surfaces which component flipped the regime."
-              placement="bottom"
-            >
-              <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
-            </TooltipWrapper>
-          </h2>
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
-            <MobileScrollableChart>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historyRows} margin={{ top: 8, right: 16, bottom: 4, left: 8 }} stackOffset="sign">
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis
-                    dataKey="timestamp"
-                    ticks={historyTimeTicks}
-                    interval={0}
-                    height={44}
-                    tick={<ChartTimeAxisTick dateTicks={historyDateTicks} />}
-                    stroke="var(--color-border)"
-                  />
-                  <YAxis tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}
-                    formatter={(value: number | string | undefined, name: string | undefined) => {
-                      const key = name ?? '';
-                      return [typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'), COMPONENT_LABELS[key]?.label ?? key];
-                    }}
-                    labelFormatter={formatEtTime}
-                  />
-                  <ReferenceLine y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.5} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value) => COMPONENT_LABELS[value]?.label ?? value} />
-                  {components.map((c, i) => (
-                    <Area key={c.name} type="monotone" stackId="1" dataKey={c.name} stroke={stackColor(i)} fill={stackColor(i)} fillOpacity={0.55} />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </MobileScrollableChart>
-          </div>
-        </section>
       )}
 
-      <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Component Reference</h2>
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[560px] text-xs">
-            <thead>
-              <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-secondary)]">
-                <th className="pb-2">Component</th>
-                <th className="pb-2">Max Points</th>
-                <th className="pb-2">What It Measures</th>
-                <th className="pb-2">Sign Convention</th>
-              </tr>
-            </thead>
-            <tbody>
-              {COMPONENT_ORDER.map((name) => {
-                const def = COMPONENT_LABELS[name];
-                const live = components.find((c) => c.name === name);
-                return (
-                  <tr key={name} className="border-b border-[var(--color-border)]/30">
-                    <td className="py-1.5 font-medium">{def.label}</td>
-                    <td className="py-1.5">{live?.maxPoints ?? '—'}</td>
-                    <td className="py-1.5 text-[var(--color-text-secondary)]">{def.description}</td>
-                    <td className="py-1.5 text-[var(--color-text-secondary)]">{def.sign}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Hero section */}
+      <section className="zg-feature-shell mt-4 p-6">
+        {loading && composite == null ? (
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8">
+            <Skeleton height={300} label="Loading gauge…" />
+            <Skeleton height={300} label="Loading regime…" />
+          </div>
+        ) : noData ? (
+          <div className="rounded-xl border p-12 text-center" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}>
+            <div className="text-lg font-semibold mb-1">No score data for {symbol} yet.</div>
+            <div className="text-sm text-[var(--color-text-secondary)]">The signal engine has no rows for this underlying. Try another symbol or check back during market hours.</div>
+          </div>
+        ) : (
+          <div
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8 items-center"
+            style={{ opacity: connection === 'disconnected' ? 0.6 : 1, transition: 'opacity 200ms' }}
+          >
+            <CompositeGauge score={composite} size={320} />
+            <div className="min-w-0 flex flex-col gap-4">
+              <div
+                className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-semibold"
+                style={{
+                  borderColor: regime.color,
+                  background: `${regime.color}1A`,
+                  color: regime.color,
+                  transition: 'all 250ms ease-out',
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                <span aria-hidden>{regime.glyph}</span>
+                <span>{regime.label}</span>
+                <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
+              </div>
+              <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
+                {regime.copy}
+              </p>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2">
+                <DeltaBadge label="Δ since open" value={deltaSinceOpen} />
+                <DeltaBadge label="Δ last 5 min" value={deltaFiveMin} />
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Intraday trend */}
+      <section className="zg-feature-shell mt-6 p-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold">Intraday Trend</h2>
+          <div className="text-xs text-[var(--color-text-secondary)] font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {history.length} pts
+          </div>
+        </div>
+        {loading && history.length === 0 ? (
+          <Skeleton height={320} label="Loading chart…" />
+        ) : (
+          <IntradayChart history={history} currentScore={composite} />
+        )}
+      </section>
+
+      {/* Contribution stack */}
+      <section className="mt-6">
+        {loading && composite == null ? (
+          <Skeleton height={120} label="Loading contributions…" />
+        ) : (
+          <ContributionStack components={components} composite={composite} />
+        )}
+      </section>
+
+      {/* Component cards: gamma_anchor (key 1) is double-height. */}
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold mb-3">Components</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+          {components.map((c) => (
+            <ComponentCard key={c.key} entry={c} />
+          ))}
         </div>
       </section>
     </div>
   );
-}
-
-function ComponentBar({ entry }: { entry: ComponentEntry }) {
-  const { label, maxPoints, contribution, score } = entry;
-  const def = COMPONENT_LABELS[entry.name];
-  const pct = maxPoints > 0 && contribution != null
-    ? Math.max(0, Math.min(1, Math.abs(contribution) / maxPoints))
-    : 0;
-  const positive = (contribution ?? 0) >= 0;
-  const color = positive ? 'var(--color-bull)' : 'var(--color-bear)';
-
-  return (
-    <div className="p-3">
-      <div className="flex items-baseline justify-between gap-2 mb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{label}</span>
-          {def && (
-            <TooltipWrapper text={`${def.description}. ${def.sign}`} placement="bottom">
-              <Info size={11} className="text-[var(--color-text-secondary)]" />
-            </TooltipWrapper>
-          )}
-        </div>
-        <div className="font-mono text-xs text-[var(--color-text-secondary)]">
-          score <span className="text-[var(--color-text-primary)]">{score != null ? score.toFixed(2) : '—'}</span>
-          {' · '}
-          max <span className="text-[var(--color-text-primary)]">{maxPoints}</span>
-        </div>
-      </div>
-      <div className="relative h-5 rounded-md bg-[var(--color-border)]/40 overflow-hidden">
-        <div className="absolute top-0 bottom-0" style={{ left: '50%', width: 1, background: 'var(--color-text-secondary)', opacity: 0.5 }} />
-        {contribution != null && (
-          <div
-            className="absolute top-0 bottom-0"
-            style={{
-              background: color,
-              left: positive ? '50%' : `${50 - pct * 50}%`,
-              width: `${pct * 50}%`,
-              opacity: 0.85,
-            }}
-          />
-        )}
-        <div className="absolute inset-0 flex items-center justify-center text-[11px] font-mono" style={{ color: pct > 0.35 ? '#fff' : 'var(--color-text-primary)' }}>
-          {contribution != null ? `${contribution >= 0 ? '+' : ''}${contribution.toFixed(2)} pts` : '—'}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function stackColor(i: number): string {
-  const palette = [
-    'var(--color-bull)',
-    'var(--color-bear)',
-    'var(--color-warning)',
-    '#6EA8FE',
-    '#C084FC',
-    '#F59E0B',
-  ];
-  return palette[i % palette.length];
 }
