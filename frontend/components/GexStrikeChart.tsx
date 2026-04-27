@@ -75,37 +75,13 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
           border: `1px solid ${colors.muted}`,
         }}
       >
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              GEX BY STRIKE
-            </h3>
-            <TooltipWrapper text="Per-strike dealer gamma exposure. The horizontal bar shows net GEX centered at zero — green pushes right (positive / pinning), red pushes left (negative / acceleration). Highest strike is at the top.">
-              <Info size={14} />
-            </TooltipWrapper>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs" style={{ color: textColor }}>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
-              Positive GEX
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
-              Negative GEX
-            </div>
-            {spotStrike != null && (
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colors.warning }} />
-                Spot
-              </div>
-            )}
-            {flipStrike != null && (
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-0.5 w-4" style={{ backgroundColor: colors.primary }} />
-                Gamma flip
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
+            GEX BY STRIKE
+          </h3>
+          <TooltipWrapper text="Per-strike dealer gamma exposure. The horizontal bar shows net GEX centered at zero — green pushes right (positive / pinning), red pushes left (negative / acceleration). Highest strike is at the top.">
+            <Info size={14} />
+          </TooltipWrapper>
         </div>
 
         {sorted.length === 0 ? (
