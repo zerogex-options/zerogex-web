@@ -294,11 +294,19 @@ export default function LandingPage() {
       (spyStrikeData || []).map((row) => ({
         strike: Number(row.strike),
         netGex: Number(row.net_gex || 0),
+        callGex: Number(row.call_gex || 0),
+        putGex: Number(row.put_gex || 0),
       })),
     [spyStrikeData],
   );
   const previewStrikeChartData = useMemo(
-    () => previewStrikeBars.map((row) => ({ strike: row.strike, netGexB: row.netGex / 1_000_000_000 })),
+    () =>
+      previewStrikeBars.map((row) => ({
+        strike: row.strike,
+        netGexB: row.netGex / 1_000_000_000,
+        callGexB: row.callGex / 1_000_000_000,
+        putGexB: row.putGex / 1_000_000_000,
+      })),
     [previewStrikeBars],
   );
 

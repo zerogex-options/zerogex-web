@@ -39,6 +39,8 @@ type StrikeAggregate = {
   strike: number;
   distanceFromSpot: number;
   netGexM: number;
+  callGexM: number;
+  putGexM: number;
   callOi: number;
   putOi: number;
   callVolume: number;
@@ -133,6 +135,8 @@ export default function GammaExposurePage() {
           strike,
           distanceFromSpot: Number(row.distance_from_spot || 0),
           netGexM: 0,
+          callGexM: 0,
+          putGexM: 0,
           callOi: 0,
           putOi: 0,
           callVolume: 0,
@@ -143,6 +147,8 @@ export default function GammaExposurePage() {
       }
       const current = grouped.get(key)!;
       current.netGexM += Number(row.net_gex || 0) / 1000000;
+      current.callGexM += Number(row.call_gex || 0) / 1000000;
+      current.putGexM += Number(row.put_gex || 0) / 1000000;
       current.callOi += Number(row.call_oi || 0);
       current.putOi += Number(row.put_oi || 0);
       current.callVolume += Number(row.call_volume || 0);
@@ -166,9 +172,16 @@ export default function GammaExposurePage() {
     return cloned;
   }, [strikeData, sortKey, sortDir]);
 
-  // Prepare chart data (in $B for the strike chart)
+  // Prepare chart data — keep the per-strike call / put / net split so the
+  // strike chart can render Net/Call/Put columns alongside the bar.
   const chartStrikeData = useMemo(
-    () => strikeData.map((row) => ({ strike: row.strike, netGexB: row.netGexM / 1000 })),
+    () =>
+      strikeData.map((row) => ({
+        strike: row.strike,
+        netGexB: row.netGexM / 1000,
+        callGexB: row.callGexM / 1000,
+        putGexB: row.putGexM / 1000,
+      })),
     [strikeData],
   );
 
