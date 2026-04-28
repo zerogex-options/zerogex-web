@@ -13,8 +13,9 @@ import ExpandableCard from './ExpandableCard';
 import { omitClosedMarketTimes } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 
-interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; }
+interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
+interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; }
 
 type RGB = { r: number; g: number; b: number };
 const BEARISH: RGB = { r: 44, g: 72, b: 117 };   // negative GEX (cool)
@@ -58,6 +59,10 @@ export default function GammaHeatmapCanvas() {
   );
   const { data: priceData } = useApiData<PriceDataPoint[]>(
     `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    { refreshInterval: 5000 },
+  );
+  const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
+    `/api/gex/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
 
@@ -126,6 +131,52 @@ export default function GammaHeatmapCanvas() {
     return { timestamps, minStrike, maxStrike, stride, matrix, clip };
   }, [gexData, maxPoints]);
 
+  const gammaFlipByTs = useMemo(() => {
+    const fromHeatmap = new Map<string, number[]>();
+    (gexData || []).forEach((row) => {
+      if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+      const arr = fromHeatmap.get(row.timestamp) ?? [];
+      arr.push(Number(row.gamma_flip));
+      fromHeatmap.set(row.timestamp, arr);
+    });
+    const result = new Map<string, number>();
+    fromHeatmap.forEach((vals, ts) => {
+      const avg = vals.reduce((s, v) => s + v, 0) / Math.max(1, vals.length);
+      result.set(ts, avg);
+    });
+    if (result.size === 0) {
+      (gexHistoricalData || []).forEach((row) => {
+        if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+        result.set(row.timestamp, Number(row.gamma_flip));
+      });
+    }
+    return result;
+  }, [gexData, gexHistoricalData]);
+
+  // Crop the y-axis to ±2% of the underlying price range so the chart reads
+  // less flattened. Falls back to the full strike range when price data is missing.
+  const bounds = useMemo(() => {
+    if (!grid) return null;
+    const prices: number[] = [];
+    (priceData || []).forEach((p) => {
+      [p.high, p.low, p.close, p.open].forEach((v) => {
+        const n = Number(v);
+        if (Number.isFinite(n)) prices.push(n);
+      });
+    });
+    if (prices.length === 0) {
+      return { yMin: grid.minStrike, yMax: grid.maxStrike };
+    }
+    const priceMin = Math.min(...prices);
+    const priceMax = Math.max(...prices);
+    const yMin = priceMin * 0.98;
+    const yMax = priceMax * 1.02;
+    if (yMax - yMin < 1) {
+      return { yMin: grid.minStrike, yMax: grid.maxStrike };
+    }
+    return { yMin, yMax };
+  }, [grid, priceData]);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [size, setSize] = useState({ w: 1300, h: 720 });
@@ -147,7 +198,7 @@ export default function GammaHeatmapCanvas() {
 
   useEffect(() => {
     const cv = canvasRef.current;
-    if (!cv || !grid) return;
+    if (!cv || !grid || !bounds) return;
 
     const dpr = window.devicePixelRatio || 1;
     const cssW = size.w;
@@ -171,6 +222,9 @@ export default function GammaHeatmapCanvas() {
 
     const T = grid.timestamps.length;
     const S = grid.stride;
+    const { yMin, yMax } = bounds;
+    const yRange = Math.max(1e-9, yMax - yMin);
+    const yForStrike = (s: number) => PAD_T + plotH * (1 - (s - yMin) / yRange);
 
     // Render the (time × strike) value matrix into a small offscreen canvas, then
     // upscale with bilinear smoothing to produce the SpotGamma-style soft heatmap.
@@ -201,9 +255,21 @@ export default function GammaHeatmapCanvas() {
     }
     offCtx.putImageData(img, 0, 0);
 
+    // Map the offscreen image (which only spans [minStrike, maxStrike]) into
+    // the visible strike range (yMin..yMax). When the y-axis extends past the
+    // available strike data, the heatmap is drawn into a sub-rect of the plot
+    // and the rest stays empty.
+    const heatmapTop = Math.min(grid.maxStrike, yMax);
+    const heatmapBottom = Math.max(grid.minStrike, yMin);
+    const sy = grid.maxStrike - heatmapTop;
+    const sh = Math.max(0, heatmapTop - heatmapBottom);
+    const dy = yForStrike(heatmapTop);
+    const dh = Math.max(0, yForStrike(heatmapBottom) - dy);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(off, PAD_L, PAD_T, plotW, plotH);
+    if (sh > 0 && dh > 0) {
+      ctx.drawImage(off, 0, sy, T, sh, PAD_L, dy, plotW, dh);
+    }
 
     // Axes
     const axisColor = isDark ? '#FFF1E6' : '#1E293B';
@@ -214,10 +280,12 @@ export default function GammaHeatmapCanvas() {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
 
-    const strikeRange = Math.max(1, grid.maxStrike - grid.minStrike);
-    const labelStep = Math.max(1, Math.ceil((strikeRange + 1) / 12));
-    for (let s = grid.minStrike; s <= grid.maxStrike; s += labelStep) {
-      const py = PAD_T + plotH * (1 - (s - grid.minStrike) / strikeRange);
+    const labelLow = Math.ceil(yMin);
+    const labelHigh = Math.floor(yMax);
+    const labelSpan = Math.max(1, labelHigh - labelLow);
+    const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
+    for (let s = labelLow; s <= labelHigh; s += labelStep) {
+      const py = yForStrike(s);
       ctx.fillText(`$${s}`, PAD_L - 6, py);
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
@@ -237,22 +305,65 @@ export default function GammaHeatmapCanvas() {
       ctx.fillText(label, px, PAD_T + plotH + 6);
     }
 
-    // Underlying price line on top of the heatmap.
+    // Underlying candlesticks on top of the heatmap.
     if (priceData && priceData.length > 0) {
       const priceByTs = new Map(priceData.map((p) => [p.timestamp, p]));
+      const cellW = plotW / T;
+      const candleW = Math.max(2, Math.min(8, cellW * 0.42));
+      grid.timestamps.forEach((ts, i) => {
+        const row = priceByTs.get(ts);
+        if (!row) return;
+        const open = Number(row.open ?? row.close);
+        const close = Number(row.close ?? row.open);
+        const high = Number(row.high ?? close);
+        const low = Number(row.low ?? close);
+        if (!Number.isFinite(open) || !Number.isFinite(close) || !Number.isFinite(high) || !Number.isFinite(low)) return;
+
+        const cx = PAD_L + (i + 0.5) * cellW;
+        const yOpen = yForStrike(open);
+        const yClose = yForStrike(close);
+        const yHigh = yForStrike(high);
+        const yLow = yForStrike(low);
+        const up = close >= open;
+        const c = up ? colors.bullish : colors.bearish;
+        const bodyTop = Math.min(yOpen, yClose);
+        const bodyBottom = Math.max(yOpen, yClose);
+        const bodyH = Math.max(1, bodyBottom - bodyTop);
+
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, yHigh);
+        ctx.lineTo(cx, bodyTop);
+        ctx.moveTo(cx, bodyBottom);
+        ctx.lineTo(cx, yLow);
+        ctx.stroke();
+
+        ctx.fillStyle = c;
+        ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+      });
+    }
+
+    // Gamma flip line.
+    if (gammaFlipByTs.size > 0) {
+      const flipColor = (() => {
+        if (typeof window !== 'undefined') {
+          const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim();
+          if (v) return v;
+        }
+        return colors.accent;
+      })();
       ctx.beginPath();
       let started = false;
       grid.timestamps.forEach((ts, i) => {
-        const row = priceByTs.get(ts);
-        const close = Number(row?.close ?? row?.open ?? NaN);
-        if (!Number.isFinite(close)) return;
-        if (close < grid.minStrike || close > grid.maxStrike) return;
-        const py = PAD_T + plotH * (1 - (close - grid.minStrike) / strikeRange);
+        const v = gammaFlipByTs.get(ts);
+        if (v == null || !Number.isFinite(v)) return;
+        const py = yForStrike(v);
         const px = PAD_L + (i + 0.5) * (plotW / T);
         if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
       });
-      ctx.lineWidth = 1.6;
-      ctx.strokeStyle = isDark ? '#FFFFFF' : '#0F172A';
+      ctx.lineWidth = 2.25;
+      ctx.strokeStyle = flipColor;
       ctx.stroke();
     }
 
@@ -305,10 +416,10 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, priceData, theme, size, hover]);
+  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover]);
 
   const tooltip = useMemo(() => {
-    if (!hover || !grid) return null;
+    if (!hover || !grid || !bounds) return null;
     const plotW = Math.max(10, size.w - PAD_L - PAD_R);
     const plotH = Math.max(10, size.h - PAD_T - PAD_B);
     if (hover.x < PAD_L || hover.x > PAD_L + plotW || hover.y < PAD_T || hover.y > PAD_T + plotH) return null;
@@ -319,14 +430,15 @@ export default function GammaHeatmapCanvas() {
     const ts = grid.timestamps[tIdx];
 
     const yRatio = (hover.y - PAD_T) / plotH;
-    const strike = grid.maxStrike - yRatio * (grid.maxStrike - grid.minStrike);
+    const strike = bounds.yMax - yRatio * (bounds.yMax - bounds.yMin);
     const sIdx = Math.round(strike) - grid.minStrike;
     const safeS = Math.min(grid.stride - 1, Math.max(0, sIdx));
     const value = grid.matrix[tIdx * grid.stride + safeS];
 
     const priceRow = priceData?.find((p) => p.timestamp === ts);
-    return { ts, strike: Math.round(strike), value, close: priceRow?.close };
-  }, [hover, grid, priceData, size]);
+    const gammaFlip = gammaFlipByTs.get(ts);
+    return { ts, strike: Math.round(strike), value, priceRow, gammaFlip };
+  }, [hover, grid, bounds, priceData, gammaFlipByTs, size]);
 
   if (loading && !gexData) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
@@ -348,7 +460,7 @@ export default function GammaHeatmapCanvas() {
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
             GEX Heatmap (Smooth)
           </h3>
-          <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. The color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. White line is the underlying close.">
+          <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. The color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. The y-axis is cropped to ±2% of the underlying price range. Candlesticks show the underlying OHLC and the colored line marks the gamma flip.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -384,8 +496,16 @@ export default function GammaHeatmapCanvas() {
                   ? `${(tooltip.value / 1_000_000).toFixed(2)}M`
                   : '—'}
               </div>
-              {tooltip.close != null && Number.isFinite(Number(tooltip.close)) && (
-                <div>Underlying: ${Number(tooltip.close).toFixed(2)}</div>
+              {tooltip.priceRow && (
+                <div>
+                  O:{Number(tooltip.priceRow.open ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                  {' '}H:{Number(tooltip.priceRow.high ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                  {' '}L:{Number(tooltip.priceRow.low ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                  {' '}C:{Number(tooltip.priceRow.close ?? tooltip.priceRow.open ?? 0).toFixed(2)}
+                </div>
+              )}
+              {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip) && (
+                <div>Gamma Flip: ${tooltip.gammaFlip.toFixed(2)}</div>
               )}
             </div>
           )}

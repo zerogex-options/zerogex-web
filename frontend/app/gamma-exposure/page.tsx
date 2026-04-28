@@ -13,7 +13,6 @@ import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import GammaHeatmap from '@/components/GammaHeatmap';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexStrikeChart from '@/components/GexStrikeChart';
@@ -120,7 +119,6 @@ export default function GammaExposurePage() {
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [heatmapTab, setHeatmapTab] = useState<'smooth' | 'classic'>('smooth');
 
   // Aggregate by-strike data for the chart and table
   const strikeData = useMemo(() => {
@@ -465,34 +463,9 @@ export default function GammaExposurePage() {
         </ExpandableCard>
       </section>
 
-      {/* Section 8: Time-Series Heatmap (tabbed: smooth canvas vs. classic SVG) */}
+      {/* Section 8: Time-Series Heatmap */}
       <section className="mb-8">
-        <div role="tablist" aria-label="Heatmap renderer" className="mb-3 inline-flex rounded-lg border" style={{ borderColor }}>
-          {([
-            { key: 'smooth', label: 'Smooth (Canvas)' },
-            { key: 'classic', label: 'Classic' },
-          ] as const).map(({ key, label }) => {
-            const active = heatmapTab === key;
-            return (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={active}
-                type="button"
-                onClick={() => setHeatmapTab(key)}
-                className="px-3 py-1.5 text-sm font-semibold first:rounded-l-lg last:rounded-r-lg"
-                style={{
-                  backgroundColor: active ? 'var(--color-info-soft)' : 'transparent',
-                  color: active ? textColor : mutedText,
-                  borderRight: key === 'smooth' ? `1px solid ${borderColor}` : undefined,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        {heatmapTab === 'smooth' ? <GammaHeatmapCanvas /> : <GammaHeatmap />}
+        <GammaHeatmapCanvas />
       </section>
     </div>
   );
