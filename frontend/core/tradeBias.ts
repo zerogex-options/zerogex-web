@@ -205,7 +205,7 @@ export function computeBias(inp: BiasInput): BiasResult {
       push(netGEX, 1);
       push(msi, -1);
       break;
-    case 'CHOP':
+    case 'CHOP': {
       trend = 'neutral';
       bias = 'RANGE_FADE';
       biasLabel = 'Range Fade';
@@ -222,7 +222,21 @@ export function computeBias(inp: BiasInput): BiasResult {
         'VWAP magnetism',
         'Failed breakout attempts',
       ];
+      // Chop confidence rises as directional signals sit near zero; extreme
+      // readings on either side reduce conviction in the range thesis.
+      const pushChop = (v: number | null | undefined) => {
+        if (v == null) return;
+        biasScores.push(Math.max(0, (100 - Math.abs(v)) / 100));
+      };
+      pushChop(tapeFlow);
+      pushChop(vannaCharm);
+      pushChop(odtePositioning);
+      pushChop(positioningTrap);
+      pushChop(trapDetection);
+      pushChop(gammaVWAP);
+      pushChop(msi);
       break;
+    }
     default:
       break;
   }

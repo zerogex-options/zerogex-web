@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   AlertTriangle,
   Compass,
@@ -84,12 +84,11 @@ export default function TradeBiasSection() {
   const trap = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
   const gVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
 
-  const bias = useMemo(() => {
+  const biasInputs = useMemo(() => {
     const get = (raw: unknown): number | null => getNumber((asObject(raw) ?? {}).score);
-    const netGEX = gex.data?.net_gex != null ? (gex.data.net_gex > 0 ? 50 : -50) : null;
-
-    return computeBias({
-      netGEX,
+    return {
+      netGEX: gex.data?.net_gex != null ? (gex.data.net_gex > 0 ? 50 : -50) : null,
+      netGexRaw: gex.data?.net_gex ?? null,
       gexGradient: get(gexGrad.data),
       tapeFlow: get(tape.data),
       vannaCharm: get(vc.data),
@@ -98,8 +97,60 @@ export default function TradeBiasSection() {
       trapDetection: get(trap.data),
       gammaVWAP: get(gVwap.data),
       msi: getNumber(msi.data?.composite_score ?? msi.data?.score),
-    });
+    };
   }, [gex.data, msi.data, tape.data, vc.data, odte.data, gexGrad.data, posTrap.data, trap.data, gVwap.data]);
+
+  const bias = useMemo(() => computeBias({
+    netGEX: biasInputs.netGEX,
+    gexGradient: biasInputs.gexGradient,
+    tapeFlow: biasInputs.tapeFlow,
+    vannaCharm: biasInputs.vannaCharm,
+    odtePositioning: biasInputs.odtePositioning,
+    positioningTrap: biasInputs.positioningTrap,
+    trapDetection: biasInputs.trapDetection,
+    gammaVWAP: biasInputs.gammaVWAP,
+    msi: biasInputs.msi,
+  }), [biasInputs]);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEBUG_TRADE_BIAS !== '1') return;
+    const errors = {
+      gex: gex.error,
+      gexGradient: gexGrad.error,
+      tapeFlow: tape.error,
+      vannaCharm: vc.error,
+      odtePositioning: odte.error,
+      positioningTrap: posTrap.error,
+      trapDetection: trap.error,
+      gammaVWAP: gVwap.error,
+      msi: msi.error,
+    };
+    const missing = Object.entries(biasInputs)
+      .filter(([k, v]) => k !== 'netGexRaw' && v == null)
+      .map(([k]) => k);
+    console.groupCollapsed(
+      `[TradeBias] ${symbol} → ${bias.marketState} (${bias.biasLabel}, conf ${bias.confidence.toFixed(1)}/${bias.maxConfidence})`,
+    );
+    console.table(biasInputs);
+    if (missing.length) console.warn('Missing signals:', missing);
+    const failedEndpoints = Object.entries(errors).filter(([, v]) => v);
+    if (failedEndpoints.length) console.warn('Endpoint errors:', Object.fromEntries(failedEndpoints));
+    console.log('Result:', bias);
+    console.groupEnd();
+  }, [
+    symbol,
+    bias,
+    biasInputs,
+    gex.error,
+    gexGrad.error,
+    tape.error,
+    vc.error,
+    odte.error,
+    posTrap.error,
+    trap.error,
+    gVwap.error,
+    msi.error,
+  ]);
 
   const anyLoading =
     (gex.loading && !gex.data) ||

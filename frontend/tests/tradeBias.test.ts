@@ -102,6 +102,37 @@ test('CHOP — mixed signals with ≥4 inputs → neutral/amber', () => {
   assert.equal(result.bias, 'RANGE_FADE');
 });
 
+test('CHOP confidence — near-zero signals score high, extremes score low', () => {
+  const calm = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60,
+    tapeFlow: 5,
+    vannaCharm: -5,
+    odtePositioning: 5,
+    positioningTrap: 5,
+    trapDetection: -5,
+    gammaVWAP: 5,
+    msi: 0,
+  });
+  const noisy = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60,
+    tapeFlow: 90,
+    vannaCharm: -90,
+    odtePositioning: 90,
+    positioningTrap: -90,
+    trapDetection: 90,
+    gammaVWAP: -90,
+    msi: 90,
+  });
+  assert.equal(calm.marketState, 'CHOP');
+  assert.equal(noisy.marketState, 'CHOP');
+  assert.ok(calm.confidence > 0, 'calm chop should accumulate confidence');
+  assert.ok(calm.confidence > noisy.confidence, 'calm chop > noisy chop');
+});
+
 test('UNKNOWN — too few inputs → neutral/amber + hasData false', () => {
   const result = computeBias({
     ...empty,
