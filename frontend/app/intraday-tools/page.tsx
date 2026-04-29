@@ -170,6 +170,16 @@ function getDynamicStep(min: number, max: number): number {
   return 10 * magnitude;
 }
 
+function safeNum(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtFixed(value: unknown, digits = 2): string {
+  const n = safeNum(value);
+  return n == null ? '--' : n.toFixed(digits);
+}
+
 function generateNiceTicks(min: number, max: number): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
   if (min === max) return [min];
@@ -402,10 +412,10 @@ export default function IntradayToolsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <MetricCard title="Current Price" value={`$${vwap.price.toFixed(2)}`} tooltip="Current market price" />
-            <MetricCard title="VWAP" value={`$${vwap.vwap.toFixed(2)}`} tooltip="Volume weighted average price" />
-            <MetricCard title="Deviation" value={`${vwap.vwap_deviation_pct.toFixed(2)}%`} trend={Math.abs(vwap.vwap_deviation_pct) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-            <MetricCard title="Position" value={vwap.vwap_position} tooltip="Price position relative to VWAP" />
+            <MetricCard title="Current Price" value={`$${fmtFixed(vwap.price)}`} tooltip="Current market price" />
+            <MetricCard title="VWAP" value={`$${fmtFixed(vwap.vwap)}`} tooltip="Volume weighted average price" />
+            <MetricCard title="Deviation" value={`${fmtFixed(vwap.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwap.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
+            <MetricCard title="Position" value={vwap.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
           </div>
         )}
       </section>
@@ -421,14 +431,14 @@ export default function IntradayToolsPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${orb.current_price.toFixed(2)}`} tooltip="Current market price" />
-              <MetricCard title="ORB High" value={`$${orb.orb_high.toFixed(2)}`} subtitle={`+${orb.distance_above_orb_high.toFixed(2)}`} tooltip="Opening range high" />
-              <MetricCard title="ORB Low" value={`$${orb.orb_low.toFixed(2)}`} subtitle={`-${orb.distance_below_orb_low.toFixed(2)}`} tooltip="Opening range low" />
-              <MetricCard title="ORB Range" value={`$${orb.orb_range.toFixed(2)}`} tooltip="Opening range size" />
+              <MetricCard title="Current Price" value={`$${fmtFixed(orb.current_price)}`} tooltip="Current market price" />
+              <MetricCard title="ORB High" value={`$${fmtFixed(orb.orb_high)}`} subtitle={`+${fmtFixed(orb.distance_above_orb_high)}`} tooltip="Opening range high" />
+              <MetricCard title="ORB Low" value={`$${fmtFixed(orb.orb_low)}`} subtitle={`-${fmtFixed(orb.distance_below_orb_low)}`} tooltip="Opening range low" />
+              <MetricCard title="ORB Range" value={`$${fmtFixed(orb.orb_range)}`} tooltip="Opening range size" />
             </div>
             <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
               <div className="text-xl font-semibold text-center">
-                Status: <span className={`${orb.orb_status.includes('🚀') ? 'text-[var(--color-bull)]' : orb.orb_status.includes('💥') ? 'text-[var(--color-bear)]' : 'text-[var(--color-warning)]'}`}>{orb.orb_status}</span>
+                Status: <span className={`${(orb.orb_status ?? '').includes('🚀') ? 'text-[var(--color-bull)]' : (orb.orb_status ?? '').includes('💥') ? 'text-[var(--color-bear)]' : 'text-[var(--color-warning)]'}`}>{orb.orb_status ?? '--'}</span>
               </div>
             </div>
           </>
@@ -444,18 +454,24 @@ export default function IntradayToolsPage() {
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {volumeSpikes.map((spike, idx) => (
-                <div key={idx} className="flex items-center justify-between border-b pb-3" style={{ borderColor: borderColor }}>
-                  <div>
-                    <div className="font-semibold">{new Date(spike.time_et).toLocaleTimeString()}</div>
-                    <div className="text-sm" style={{ color: mutedText }}>Volume: {spike.current_volume.toLocaleString()} ({spike.volume_ratio.toFixed(1)}x avg)</div>
+              {volumeSpikes.map((spike, idx) => {
+                const volume = safeNum(spike.current_volume);
+                const ratio = safeNum(spike.volume_ratio);
+                const sigma = safeNum(spike.volume_sigma);
+                const timeLabel = spike.time_et ? new Date(spike.time_et).toLocaleTimeString() : '--';
+                return (
+                  <div key={idx} className="flex items-center justify-between border-b pb-3" style={{ borderColor: borderColor }}>
+                    <div>
+                      <div className="font-semibold">{timeLabel}</div>
+                      <div className="text-sm" style={{ color: mutedText }}>Volume: {volume != null ? volume.toLocaleString() : '--'} ({ratio != null ? `${ratio.toFixed(1)}x` : '--'} avg)</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">{sigma != null ? `${sigma.toFixed(1)}σ` : '--'}</div>
+                      <div className="text-sm">{spike.volume_class ?? '--'}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold">{spike.volume_sigma.toFixed(1)}σ</div>
-                    <div className="text-sm">{spike.volume_class}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

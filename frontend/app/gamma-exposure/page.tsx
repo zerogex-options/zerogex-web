@@ -75,7 +75,7 @@ export default function GammaExposurePage() {
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
   const { data: openInterestData } = useApiData<OpenInterestApiResponse | Record<string, unknown>[] | null>(
-    `/api/market/open-interest?symbol=${symbol}`,
+    `/api/market/open-interest?symbol=${symbol}&underlying=${symbol}`,
     { refreshInterval: 30000 },
   );
   const openInterestPayload = useMemo<OpenInterestApiResponse | null>(() => {
