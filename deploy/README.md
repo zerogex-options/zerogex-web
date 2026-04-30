@@ -46,6 +46,58 @@ chmod +x deploy/steps/*
 ./deploy/deploy.sh
 ```
 
+## Zero-touch fresh deploy
+
+For a fully unattended end-to-end install on a brand-new box, set every
+operator input as an env var so no step prompts:
+
+### Preconditions (must be true *before* you run the script)
+
+1. **DNS** — `<domain>` and `www.<domain>` A/AAAA records already point at
+   the server's public IP. Step 070 (Let's Encrypt) fails fast if DNS
+   isn't ready.
+2. **Inbound ports** — the AWS security group / firewall allows 22 / 80 /
+   443.
+3. **`frontend/.env.local`** — created from `frontend/.env.example` with
+   the secrets you have *now* filled in. Every secret you skip will end up
+   as an empty placeholder after deploy and surface as a runtime error the
+   first time someone exercises that feature (e.g. an empty
+   `STRIPE_PRICE_BASIC` returns `Stripe price not configured for tier:
+   basic` from `/api/billing/checkout`). Specifically, populate at least:
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+     `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `NEXT_PUBLIC_APP_URL`
+     (from your Stripe dashboard; webhook endpoint is
+     `https://<domain>/api/webhooks/stripe`).
+   - `GOOGLE_CLIENT_*`, `APPLE_CLIENT_*`, `ADMIN_BOOTSTRAP_*` if you
+     intend to enable auth (`ENABLE_AUTH=1`).
+4. **OAuth consoles** — if `ENABLE_AUTH=1`, the Google and Apple OAuth
+   apps already have `https://<domain>/api/auth/oauth/{google,apple}/callback`
+   registered as authorized redirect URIs.
+
+### One-liner
+
+```bash
+git clone <repo-url> zerogex-web && cd zerogex-web
+cp frontend/.env.example frontend/.env.local
+# ... fill in frontend/.env.local with secrets ...
+chmod +x deploy/deploy.sh deploy/steps/*
+
+WEB_DOMAIN=zerogex.io \
+LETSENCRYPT_EMAIL=admin@zerogex.io \
+ENABLE_AUTH=1 \
+./deploy/deploy.sh
+```
+
+| Env var              | Step(s) it silences | Required for unattended? |
+| -------------------- | ------------------- | ------------------------ |
+| `WEB_DOMAIN`         | 030, 050, 070       | yes                      |
+| `LETSENCRYPT_EMAIL`  | 070                 | yes                      |
+| `ENABLE_AUTH=1`      | 035                 | only if enabling auth    |
+
+If any of these are unset, the corresponding step falls back to an
+interactive `read -p` prompt — convenient for hands-on installs, fatal
+for unattended ones.
+
 ## Deployment Steps
 
 The deployment process runs these steps in order:
@@ -78,6 +130,12 @@ The deployment process runs these steps in order:
   ENABLE_AUTH=1 ./deploy/deploy.sh --start-from 035
   ```
   You still need to fill in `GOOGLE_CLIENT_*`, `APPLE_CLIENT_*`, and `ADMIN_BOOTSTRAP_*` by hand before the first `pm2 restart`.
+
+### Step 036: Billing / Stripe Setup (idempotent)
+- Idempotently merges Stripe + public-app-URL keys into `.env.local` as empty placeholders (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC`, `STRIPE_PRICE_PRO`, `NEXT_PUBLIC_APP_URL`)
+- Defaults `NEXT_PUBLIC_APP_URL` to `https://${WEB_DOMAIN}` when `WEB_DOMAIN` is set; leaves it blank otherwise
+- Prints the Stripe webhook URL operators must register: `https://<domain>/api/webhooks/stripe`
+- Reminder: `NEXT_PUBLIC_APP_URL` is inlined at build time — fill it in *before* the first `npm run build`, or `make rebuild` after editing
 
 ### Step 040: PM2 Process Manager
 - Installs PM2 globally **under the active nvm Node (currently v22)**

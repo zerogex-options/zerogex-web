@@ -50,8 +50,13 @@ npm install
 log "  → Clearing Next.js build cache..."
 rm -rf .next
 
-# Prompt for domain name for .env.local
-read -p "  Enter your domain name for API configuration (e.g., zerogex.io): " DOMAIN_NAME
+# Domain for .env.local. Reads WEB_DOMAIN from env first (matches the bypass
+# convention 050.nginx and 070.ssl already use), only prompts if unset so the
+# whole deploy can run unattended.
+DOMAIN_NAME="${WEB_DOMAIN:-}"
+if [ -z "$DOMAIN_NAME" ]; then
+    read -p "  Enter your domain name for API configuration (e.g., zerogex.io): " DOMAIN_NAME
+fi
 while [ -z "$DOMAIN_NAME" ]; do
     echo "     ✗ Domain name cannot be empty"
     read -p "  Enter your domain name: " DOMAIN_NAME

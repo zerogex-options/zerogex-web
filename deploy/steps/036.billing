@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# ==============================================
+# Step 036: Billing / Stripe Setup (idempotent)
+# ==============================================
+#
+# Seeds the Stripe and public-app-URL env keys into frontend/.env.local so
+# operators have every key the app reads visible in one file. Safe to re-run
+# — existing values are never overwritten. Empty placeholders are added for
+# secret keys; operators fill them in from the Stripe dashboard before going
+# live. Without these, /api/billing/checkout 500s with
+# "Stripe price not configured for tier: <tier>".
+
+set -euo pipefail
+
+log "Billing / Stripe Setup"
+
+APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
+ENV_FILE="$APP_DIR/.env.local"
+DOMAIN_NAME="${WEB_DOMAIN:-}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  log "  ✗ $ENV_FILE not found — run step 030.application first"
+  exit 1
+fi
+
+ensure_env_key() {
+  local key="$1"
+  local value="$2"
+  if ! grep -qE "^${key}=" "$ENV_FILE"; then
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+    log "     + Added $key"
+  else
+    log "     ✓ $key already set"
+  fi
+}
+
+# Public app URL is inlined into the client bundle at build time and used to
+# build Stripe success/cancel/return URLs. Derive from WEB_DOMAIN if available
+# so a fully-env-driven deploy ends up with a sensible default; otherwise
+# leave blank for the operator to fill.
+APP_URL_DEFAULT=""
+if [ -n "$DOMAIN_NAME" ]; then
+  APP_URL_DEFAULT="https://${DOMAIN_NAME}"
+fi
+
+log "  → Merging billing keys into $ENV_FILE"
+ensure_env_key "NEXT_PUBLIC_APP_URL" "$APP_URL_DEFAULT"
+ensure_env_key "STRIPE_SECRET_KEY" ""
+ensure_env_key "STRIPE_WEBHOOK_SECRET" ""
+ensure_env_key "STRIPE_PRICE_BASIC" ""
+ensure_env_key "STRIPE_PRICE_PRO" ""
+chmod 600 "$ENV_FILE"
+
+log ""
+log "Billing setup complete!"
+log "Summary:"
+log "  ✓ Stripe + app URL keys present in .env.local"
+log ""
+log "Before going live, fill in from the Stripe dashboard:"
+log "  • STRIPE_SECRET_KEY        (https://dashboard.stripe.com/apikeys)"
+log "  • STRIPE_WEBHOOK_SECRET    (webhook endpoint -> signing secret)"
+log "  • STRIPE_PRICE_BASIC       (Product -> Price ID for the basic tier)"
+log "  • STRIPE_PRICE_PRO         (Product -> Price ID for the pro tier)"
+log ""
+log "Webhook endpoint to register in Stripe:"
+if [ -n "$DOMAIN_NAME" ]; then
+  log "  https://${DOMAIN_NAME}/api/webhooks/stripe"
+else
+  log "  https://<your-domain>/api/webhooks/stripe"
+fi
+log ""
+log "After filling in keys, rebuild so NEXT_PUBLIC_APP_URL is inlined:"
+log "  make rebuild"
