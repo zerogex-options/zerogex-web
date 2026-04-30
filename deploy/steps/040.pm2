@@ -25,12 +25,15 @@ log "  → App dir: $APP_DIR"
 log "  → Port: $WEB_PORT"
 log "  → Ecosystem file: $ECOSYSTEM_FILE"
 
-# Install PM2 if needed
-if ! command -v pm2 >/dev/null; then
-  log "  → Installing PM2..."
+# Install PM2 under the active Node (v22). We check `npm ls -g` instead of
+# `command -v pm2` so a stale system-wide pm2 (e.g. from `sudo npm install -g`
+# under a different Node) doesn't make us skip installing the nvm-scoped copy
+# and silently re-introduce a Node-version mismatch between pm2 and the app.
+if ! npm ls -g --depth=0 pm2 >/dev/null 2>&1; then
+  log "  → Installing PM2 under Node $(node -v)..."
   npm install -g pm2
 else
-  log "  ℹ PM2 already installed"
+  log "  ℹ PM2 already installed under Node $(node -v)"
 fi
 
 # Restart process idempotently using the checked-in ecosystem config

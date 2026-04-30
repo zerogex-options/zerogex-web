@@ -80,10 +80,29 @@ The deployment process runs these steps in order:
   You still need to fill in `GOOGLE_CLIENT_*`, `APPLE_CLIENT_*`, and `ADMIN_BOOTSTRAP_*` by hand before the first `pm2 restart`.
 
 ### Step 040: PM2 Process Manager
-- Installs PM2 globally
+- Installs PM2 globally **under the active nvm Node (currently v22)**
 - Starts the application via the checked-in `ecosystem.config.js`
 - Configures PM2 to start on boot
 - Saves PM2 process list
+
+> **Bumping the Node major version later (e.g. 22 → 24)**
+>
+> PM2 is installed inside `~/.nvm/versions/node/<version>/bin/`, and `pm2 startup`
+> bakes that exact path into the systemd unit it generates. If you switch the
+> default nvm Node version after deployment, the boot-time pm2 will still run
+> against the old Node — including any global pm2 you reinstall under the new
+> version. To migrate:
+>
+> ```bash
+> source $HOME/.nvm/nvm.sh
+> nvm use <new-version>
+> npm install -g pm2
+> pm2 update                           # respawn daemon under new Node
+> sudo env PATH=$PATH:$(dirname $(which node)) \
+>     $(which pm2) unstartup systemd -u ubuntu --hp /home/ubuntu
+> pm2 startup                          # generate a new unit, then run the printed sudo command
+> pm2 save
+> ```
 
 ### Step 050: Nginx Reverse Proxy
 - Prompts for domain name
