@@ -14,7 +14,7 @@ const C = {
 };
 
 const EFFECTIVE_DATE = 'April 25, 2026';
-const CONTACT_EMAIL = 'zerogexoptions@gmail.com';
+const CONTACT_EMAIL = 'support@zerogex.io';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
