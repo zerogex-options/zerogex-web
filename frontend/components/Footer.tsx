@@ -22,7 +22,7 @@ const footerLinks = [
 
 const TWITTER_HANDLE = 'zero_gex70930';
 const TWITTER_URL = `https://x.com/${TWITTER_HANDLE}`;
-const CONTACT_EMAIL = 'zerogexoptions@gmail.com';
+const CONTACT_EMAIL = 'support@zerogex.io';
 
 function XIcon({ size = 16 }: { size?: number }) {
   return (
