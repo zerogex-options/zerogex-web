@@ -82,7 +82,7 @@ export default function Navigation({ theme }: NavigationProps) {
           const items = (group.items ?? []).filter(keepItem);
           const subgroups = (group.subgroups ?? [])
             .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
-            .filter((sg) => sg.items.length > 0);
+            .filter((sg) => sg.items.length > 0 || (sg.id != null && (bypassTierCheck || hasRequiredTier(sg.id, currentTier))));
           return { ...group, items, subgroups };
         })
         .filter((group) => group.items.length + group.subgroups.length > 0),
@@ -94,13 +94,12 @@ export default function Navigation({ theme }: NavigationProps) {
     navGroups.forEach((group) => {
       const directMatch = (group.items ?? []).some((item) => pathname === item.id);
       const subMatch = (group.subgroups ?? []).some((sg) =>
-        sg.items.some((item) => pathname === item.id),
+        sg.id === pathname || sg.items.some((item) => pathname === item.id),
       );
       initial[group.label] = directMatch || subMatch;
       (group.subgroups ?? []).forEach((sg) => {
-        initial[`${group.label}::${sg.label}`] = sg.items.some(
-          (item) => pathname === item.id,
-        );
+        initial[`${group.label}::${sg.label}`] =
+          sg.id === pathname || sg.items.some((item) => pathname === item.id);
       });
     });
     return initial;
@@ -283,23 +282,75 @@ export default function Navigation({ theme }: NavigationProps) {
                       {group.subgroups.map((subgroup) => {
                         const subKey = `${group.label}::${subgroup.label}`;
                         const isSubExpanded = expandedGroups[subKey] ?? false;
+                        const subgroupId = subgroup.id;
+                        const subgroupActive = subgroupId != null && pathname === subgroupId;
+                        const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
+                        const subgroupStyle = subgroupId != null
+                          ? {
+                              color: subgroupActive || subgroupHovered
+                                ? (theme === "light" ? colors.coral : colors.primary)
+                                : theme === "dark"
+                                  ? colors.light
+                                  : colors.dark,
+                              opacity: subgroupActive || subgroupHovered ? 1 : 0.72,
+                              background: subgroupHovered && !subgroupActive
+                                ? `${theme === "light" ? colors.coral : colors.primary}18`
+                                : subgroupActive
+                                  ? `${theme === "light" ? colors.coral : colors.primary}14`
+                                  : "transparent",
+                              border: `1px solid ${
+                                subgroupActive || subgroupHovered
+                                  ? `${theme === "light" ? colors.coral : colors.primary}40`
+                                  : "transparent"
+                              }`,
+                            }
+                          : {
+                              color: theme === "dark" ? colors.light : colors.dark,
+                              opacity: 0.72,
+                              background: "transparent",
+                              border: "1px solid transparent",
+                            };
                         return (
                           <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? colors.coral : colors.primary}33` }}>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }))}
-                              className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
-                              style={{
-                                color: theme === "dark" ? colors.light : colors.dark,
-                                opacity: 0.8,
-                              }}
+                            <div
+                              className="mb-1 flex w-full items-center rounded-xl text-sm font-semibold transition-all duration-200"
+                              style={subgroupStyle}
+                              onMouseEnter={() => subgroupId && setHoveredPage(subgroupId)}
+                              onMouseLeave={() => setHoveredPage(null)}
                             >
-                              {subgroup.label}
-                              <ChevronDown
-                                size={12}
-                                style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
-                              />
-                            </button>
+                              {subgroupId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    router.push(resolveNavTarget(subgroupId));
+                                    setExpandedGroups((prev) => ({ ...prev, [subKey]: true }));
+                                  }}
+                                  className="flex-1 px-3 py-3 text-left bg-transparent"
+                                  style={{ color: "inherit" }}
+                                >
+                                  {subgroup.label}
+                                </button>
+                              ) : (
+                                <span className="flex-1 px-3 py-3" style={{ color: "inherit" }}>
+                                  {subgroup.label}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                aria-label={isSubExpanded ? `Collapse ${subgroup.label}` : `Expand ${subgroup.label}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent"
+                                style={{ color: "inherit" }}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                                />
+                              </button>
+                            </div>
                             {isSubExpanded ? (
                               <div className="space-y-1">
                                 {subgroup.items.map(renderItem)}

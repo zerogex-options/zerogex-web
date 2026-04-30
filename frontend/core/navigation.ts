@@ -6,7 +6,9 @@ export type NavItem = {
 };
 
 export type NavSubgroup = {
+  id?: string;
   label: string;
+  requiredTier?: 'basic' | 'pro' | 'admin';
   items: NavItem[];
 };
 
@@ -32,9 +34,10 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
     subgroups: [
       {
-        label: 'Basic Signals',
+        id: '/basic-signals',
+        label: 'Basic Signal Dashboard',
+        requiredTier: 'basic',
         items: [
-          { id: '/basic-signals', label: 'Basic Signal Dashboard', requiredTier: 'basic' },
           { id: '/tape-flow-bias', label: 'Tape Flow Bias', requiredTier: 'basic' },
           { id: '/skew-delta', label: 'Skew Delta', requiredTier: 'basic' },
           { id: '/vanna-charm-flow', label: 'Vanna/Charm Flow', requiredTier: 'basic' },
@@ -44,9 +47,10 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
-        label: 'Advanced Signals',
+        id: '/advanced-signals',
+        label: 'Advanced Signal Dashboard',
+        requiredTier: 'pro',
         items: [
-          { id: '/advanced-signals', label: 'Advanced Signal Dashboard', requiredTier: 'pro' },
           { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'pro' },
           { id: '/eod-pressure', label: 'EOD Pressure', requiredTier: 'pro' },
           { id: '/squeeze-setup', label: 'Squeeze Setup', requiredTier: 'pro' },
@@ -61,7 +65,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Metrics',
     items: [
-      { id: '/gamma-exposure', label: 'Dealer Exposure', requiredTier: 'basic' },
+      { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
+      { id: '/greeks-gex', label: 'Greeks & GEX', requiredTier: 'basic' },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },

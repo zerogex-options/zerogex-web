@@ -305,7 +305,7 @@ export default function GammaExposurePage() {
   if (gexLoading && !gexData) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Dealer Exposure Analysis</h1>
+        <h1 className="text-3xl font-bold mb-8">Dealer Positioning Analysis</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
         </div>
@@ -315,7 +315,7 @@ export default function GammaExposurePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Dealer Exposure Analysis</h1>
+      <h1 className="text-3xl font-bold mb-6">Dealer Positioning Analysis</h1>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
       {/* Section 1: Regime Header */}
       <GexRegimeHeader

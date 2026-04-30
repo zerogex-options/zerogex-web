@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   Compass,
   ListChecks,
-  Target,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
@@ -24,12 +23,14 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { asObject, getNumber, trendColor } from '@/core/signalHelpers';
 import { computeBias } from '@/core/tradeBias';
+import TooltipWrapper from './TooltipWrapper';
 
 function BiasCard({
   title,
   icon: Icon,
   color,
   loading,
+  tooltip,
   children,
   footer,
 }: {
@@ -37,6 +38,7 @@ function BiasCard({
   icon: typeof Compass;
   color: string;
   loading?: boolean;
+  tooltip?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -60,6 +62,7 @@ function BiasCard({
             <div className="text-sm font-semibold">{title}</div>
           </div>
         </div>
+        {tooltip ? <TooltipWrapper text={tooltip} /> : null}
       </div>
       {loading ? (
         <div className="text-xs text-[var(--color-text-secondary)]">Loading…</div>
@@ -70,6 +73,15 @@ function BiasCard({
     </div>
   );
 }
+
+const REGIME_TOOLTIP =
+  'Market State derived from the confluence of net GEX, gradient, tape flow, vanna/charm, 0DTE positioning, and trap signals. Possible regimes: Trend Up (long gamma + bullish flow), Trend Down (long gamma + bearish flow), Trap / Reversal (short gamma + bullish flow into crowded structure → fade strength), Trap / Squeeze (short gamma + bearish flow into trapped shorts → fade weakness), Chop / Range (mixed signals → mean reversion), or Awaiting confluence (insufficient data). The checklist below shows which key conditions are currently met.';
+
+const BIAS_TOOLTIP =
+  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Fade Strength (Trap / Reversal), Fade Weakness (Trap / Squeeze), Range Fade (Chop), or Neutral / Wait (low confluence). Confidence is scored 0–10 based on how aligned the underlying signals are with the active regime — higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum.';
+
+const PLAYBOOK_TOOLTIP =
+  'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it — entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
 
 export default function TradeBiasSection() {
   const { symbol } = useTimeframe();
@@ -168,7 +180,7 @@ export default function TradeBiasSection() {
       <h2 className="text-2xl font-semibold mb-4">Trade Bias</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {/* Regime card */}
-        <BiasCard title="Regime" icon={Compass} color={color} loading={anyLoading && !bias.hasData}>
+        <BiasCard title="Regime" icon={Compass} color={color} loading={anyLoading && !bias.hasData} tooltip={REGIME_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-3xl font-black leading-tight" style={{ color }}>
@@ -201,7 +213,7 @@ export default function TradeBiasSection() {
         </BiasCard>
 
         {/* Bias card */}
-        <BiasCard title="Bias" icon={biasIcon} color={color} loading={anyLoading && !bias.hasData}>
+        <BiasCard title="Bias" icon={biasIcon} color={color} loading={anyLoading && !bias.hasData} tooltip={BIAS_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-4xl font-black leading-none" style={{ color }}>
@@ -248,7 +260,7 @@ export default function TradeBiasSection() {
         </BiasCard>
 
         {/* Playbook card */}
-        <BiasCard title="Playbook" icon={ListChecks} color={color} loading={anyLoading && !bias.hasData}>
+        <BiasCard title="Playbook" icon={ListChecks} color={color} loading={anyLoading && !bias.hasData} tooltip={PLAYBOOK_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-3xl font-black leading-tight" style={{ color }}>
@@ -258,7 +270,6 @@ export default function TradeBiasSection() {
                 Setup
               </div>
             </div>
-            <Target size={24} style={{ color }} />
           </div>
           <ol className="flex flex-col gap-1.5 text-xs text-[var(--color-text-primary)]">
             {bias.playbook.map((step, idx) => (

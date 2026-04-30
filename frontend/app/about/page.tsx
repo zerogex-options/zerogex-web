@@ -495,7 +495,7 @@ export default function AboutPage() {
               desc: 'Real-time smart money tracker. Identifies unusual options activity — large premium blocks, sweep orders, and sentiment-shifting prints — filtered by size, expiry, and directional bias.',
             },
             {
-              icon: BarChart2, href: '/gamma-exposure', label: 'Dealer Exposure', color: C.green,
+              icon: BarChart2, href: '/gamma-exposure', label: 'Dealer Positioning', color: C.green,
               desc: 'Full strike-by-strike GEX heatmap across all expirations. Visualize exactly where dealer gamma is concentrated, how it\'s distributed, and which levels are most likely to influence price.',
             },
             {
