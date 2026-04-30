@@ -43,36 +43,36 @@ rebuild:
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "Restarting PM2 process..."
-	pm2 restart zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
 	@echo "Rebuild complete!"
 
 # Start PM2 process
 start:
 	@echo "Starting PM2 process..."
-	pm2 start ecosystem.config.js
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 start ecosystem.config.js'
 
 # Stop PM2 process
 stop:
 	@echo "Stopping PM2 process..."
-	pm2 stop zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 stop zerogex-web'
 
 # Restart PM2 process
 restart:
 	@echo "Restarting PM2 process..."
-	pm2 restart zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
 
 # View logs
 logs:
 	@echo "Viewing PM2 logs (Ctrl+C to exit)..."
-	pm2 logs zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 logs zerogex-web'
 
 # Check PM2 status
 status:
 	@echo "PM2 process status:"
-	pm2 status zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 status zerogex-web'
 	@echo ""
 	@echo "Detailed info:"
-	pm2 describe zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 describe zerogex-web'
 
 # Print auth users and entitlements from SQLite
 users:
@@ -133,9 +133,9 @@ deploy:
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "5. Restarting PM2..."
-	pm2 restart zerogex-web
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
 	@echo "6. Saving PM2 config..."
-	pm2 save
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 save'
 	@echo "Deployment complete!"
 	@echo ""
 	@make status
