@@ -863,7 +863,7 @@ export default function FlowAnalysisPage() {
   // for the session dropdown label.
   const otherSession = flowSession === "current" ? "prior" : "current";
   const { data: otherSessionProbe } = useApiData<FlowSeriesPoint[]>(
-    `/api/flow/series?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    `/api/flow/series?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&session=${otherSession}&intervals=1`,
     { refreshInterval: 60000 },
   );
   const otherSessionDate = useMemo(() => {

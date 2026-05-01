@@ -190,7 +190,7 @@ async function fetchSeries(
   intervals?: number,
 ): Promise<FlowSeriesPoint[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  const params = new URLSearchParams({ symbol, session });
+  const params = new URLSearchParams({ symbol, underlying: symbol, session });
   const { strikes, expirations } = normalizeFilters(filters);
   if (strikes.length > 0) params.set('strikes', strikes.join(','));
   if (expirations.length > 0) params.set('expirations', expirations.join(','));
@@ -398,9 +398,8 @@ async function fetchContractOptions(
   session: 'current' | 'prior',
 ): Promise<FlowContractOptions> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  const resp = await fetch(
-    `${baseUrl}/api/flow/contracts?symbol=${encodeURIComponent(symbol)}&session=${session}`,
-  );
+  const params = new URLSearchParams({ symbol, underlying: symbol, session });
+  const resp = await fetch(`${baseUrl}/api/flow/contracts?${params.toString()}`);
   if (!resp.ok) throw new Error(`API error: ${resp.status}`);
   const raw = (await resp.json()) as Partial<FlowContractOptions>;
   return {

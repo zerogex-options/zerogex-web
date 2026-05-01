@@ -187,7 +187,7 @@ export default function OptionsCalculatorPage() {
 
   const { data: quoteData } = useMarketQuote(symbol, 3000);
   const { data: maxPainData, error: chainError } = useApiData<MaxPainCurrentResponse>(
-    `/api/max-pain/current?symbol=${symbol}&strike_limit=500`,
+    `/api/max-pain/current?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&strike_limit=500`,
     { refreshInterval: 30000 }
   );
 
@@ -240,7 +240,7 @@ export default function OptionsCalculatorPage() {
   const mkUrl = (idx: number, exp: string, strike: number) => {
     const leg = optLegs[idx];
     if (!leg) return '/api/option/quote';
-    return `/api/option/quote?underlying=${symbol}&strike=${strike}&expiration=${exp}&type=${leg.right === 'call' ? 'C' : 'P'}`;
+    return `/api/option/quote?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&strike=${strike}&expiration=${exp}&type=${leg.right === 'call' ? 'C' : 'P'}`;
   };
 
   const { data: quote0 } = useApiData<OptionQuote>(mkUrl(0, opt0Exp, opt0Strike), { refreshInterval: 5000, enabled: !!optLegs[0] && !!opt0Exp && opt0Strike > 0 });

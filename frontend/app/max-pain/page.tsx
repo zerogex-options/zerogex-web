@@ -118,18 +118,19 @@ export default function MaxPainPage() {
 
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
 
+  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: maxPainCurrent, loading: oiLoading, error: oiError } = useApiData<MaxPainCurrentResponse>(
-    `/api/max-pain/current?symbol=${symbol}&strike_limit=500`,
+    `/api/max-pain/current?${symParam}&strike_limit=500`,
     { refreshInterval: 30000 },
   );
 
   const { data: maxPainSeries, loading: seriesLoading, error: seriesError } = useApiData<MaxPainTimeRow[]>(
-    `/api/max-pain/timeseries?symbol=${symbol}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
+    `/api/max-pain/timeseries?${symParam}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
     { refreshInterval: 10000 },
   );
 
   const { data: priceSeries } = useApiData<MarketHistoryRow[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
+    `/api/market/historical?${symParam}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
     { refreshInterval: 10000 },
   );
 

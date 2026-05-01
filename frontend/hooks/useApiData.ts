@@ -92,6 +92,28 @@ interface UseApiDataOptions<T = unknown> {
 const REFRESH_ACCELERATION_FACTOR = 0.5;
 const MIN_REFRESH_INTERVAL_MS = 1000;
 
+/**
+ * Build a query string for an endpoint that takes an underlying symbol.
+ * Different signal endpoints in the ZeroGEX API expect either `symbol` or
+ * `underlying` as the query-parameter name; passing the wrong name silently
+ * falls back to SPY on the server side. To stay robust regardless of which
+ * parameter the endpoint cares about, every signal hook sends BOTH names
+ * with the same value.
+ */
+function symbolQuery(
+  symbol: string,
+  extras: Record<string, string | number | undefined> = {},
+): string {
+  const params = new URLSearchParams();
+  params.set('symbol', symbol);
+  params.set('underlying', symbol);
+  for (const [key, value] of Object.entries(extras)) {
+    if (value == null) continue;
+    params.set(key, String(value));
+  }
+  return params.toString();
+}
+
 export type SignalTimeframe = 'intraday' | 'swing' | 'multi_day';
 
 interface SignalComponent {
@@ -423,7 +445,7 @@ function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: Signal
 }
 
 export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
-  return useApiData<GEXSummaryRow>(`/api/gex/summary?symbol=${symbol}`, { refreshInterval });
+  return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export function useGEXByStrike(
@@ -432,22 +454,28 @@ export function useGEXByStrike(
   refreshInterval = 10000,
   sortBy: 'distance' | 'impact' = 'distance'
 ) {
-  return useApiData<GEXStrikeRow[]>(`/api/gex/by-strike?symbol=${symbol}&limit=${limit}&sort_by=${sortBy}`, {
-    refreshInterval,
-    shouldAcceptData: shouldAcceptGexStrikeSnapshot,
-  });
+  return useApiData<GEXStrikeRow[]>(
+    `/api/gex/by-strike?${symbolQuery(symbol, { limit, sort_by: sortBy })}`,
+    {
+      refreshInterval,
+      shouldAcceptData: shouldAcceptGexStrikeSnapshot,
+    },
+  );
 }
 
 export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
-  return useApiData<GEXWallsRow>(`/api/gex/walls?symbol=${symbol}`, { refreshInterval });
+  return useApiData<GEXWallsRow>(`/api/gex/walls?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
-  return useApiData<MarketQuoteRow>(`/api/market/quote?symbol=${symbol}`, { refreshInterval });
+  return useApiData<MarketQuoteRow>(`/api/market/quote?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current' | 'prior' = 'current', refreshInterval = 10000) {
-  return useApiData<OptionFlowRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${session}&limit=${limit}`, { refreshInterval });
+  return useApiData<OptionFlowRow[]>(
+    `/api/flow/smart-money?${symbolQuery(symbol, { session, limit })}`,
+    { refreshInterval },
+  );
 }
 
 export interface SessionClosesData {
@@ -462,18 +490,21 @@ export interface SessionClosesData {
 
 export function useSessionCloses(symbol = 'SPY', refreshInterval = 60000) {
   return useApiData<SessionClosesData>(
-    `/api/market/session-closes?symbol=${symbol}`,
+    `/api/market/session-closes?${symbolQuery(symbol)}`,
     { refreshInterval }
   );
 }
 
 export function useTradeSignal(symbol = 'SPY', timeframe: SignalTimeframe = 'intraday', refreshInterval = 15000) {
-  return useApiData<TradeSignalResponse>(`/api/signals/trade?symbol=${symbol}&timeframe=${timeframe}`, { refreshInterval });
+  return useApiData<TradeSignalResponse>(
+    `/api/signals/trade?${symbolQuery(symbol, { timeframe })}`,
+    { refreshInterval },
+  );
 }
 
 export function useSignalAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<SignalAccuracyPoint[] | Record<string, unknown>>(
-    `/api/signals/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    `/api/signals/accuracy?${symbolQuery(symbol, { lookback_days: lookbackDays })}`,
     { refreshInterval }
   );
 }
@@ -495,11 +526,11 @@ export function useVolatilityGauge(refreshInterval = 30000) {
 
 
 export function useTradesLive(symbol = 'SPY', refreshInterval = 5000) {
-  return useApiData<unknown>(`/api/signals/trades-live?symbol=${symbol}`, { refreshInterval });
+  return useApiData<unknown>(`/api/signals/trades-live?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export function useTradesHistory(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<unknown>(`/api/signals/trades-history?symbol=${symbol}`, { refreshInterval });
+  return useApiData<unknown>(`/api/signals/trades-history?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export interface SignalScoreComponent {
@@ -524,7 +555,7 @@ export interface SignalScoreResponse {
 }
 
 export function useSignalScore(symbol = 'SPY', refreshInterval = 10000) {
-  return useApiData<SignalScoreResponse>(`/api/signals/score?underlying=${symbol}`, {
+  return useApiData<SignalScoreResponse>(`/api/signals/score?${symbolQuery(symbol)}`, {
     refreshInterval,
     shouldAcceptData: shouldAcceptSignalScoreSnapshot,
   });
@@ -540,9 +571,8 @@ export interface SignalScoreHistoryPoint {
 }
 
 export function useSignalScoreHistory(symbol = 'SPY', refreshInterval = 30000, limit = 100) {
-  const encoded = encodeURIComponent(symbol);
   return useApiData<SignalScoreHistoryPoint[]>(
-    `/api/signals/score-history?underlying=${encoded}&limit=${Math.max(1, Math.floor(limit))}`,
+    `/api/signals/score-history?${symbolQuery(symbol, { limit: Math.max(1, Math.floor(limit)) })}`,
     { refreshInterval }
   );
 }
@@ -579,7 +609,13 @@ export function useOptionContract(
   refreshInterval = 30000,
 ) {
   const enabled = Boolean(underlying && expiration && strike);
-  const params = new URLSearchParams({ underlying, expiration, strike, option_type: optionType });
+  const params = new URLSearchParams({
+    symbol: underlying,
+    underlying,
+    expiration,
+    strike,
+    option_type: optionType,
+  });
   return useApiData<OptionContractRow[]>(
     `/api/option/contract?${params.toString()}`,
     { refreshInterval, enabled },
@@ -615,44 +651,50 @@ export interface ProprietarySignalSnapshot {
 }
 
 export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<EodPressureSignalResponse>(`/api/signals/advanced/eod-pressure?symbol=${symbol}`, { refreshInterval });
+  return useApiData<EodPressureSignalResponse>(
+    `/api/signals/advanced/eod-pressure?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
 }
 
 export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
-  return useApiData<VolExpansionSignalResponse>(`/api/signals/advanced/vol-expansion?symbol=${symbol}`, { refreshInterval });
+  return useApiData<VolExpansionSignalResponse>(
+    `/api/signals/advanced/vol-expansion?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
 }
 
 export function useSqueezeSetupSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/advanced/squeeze-setup?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/squeeze-setup?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useTrapDetectionSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/advanced/trap-detection?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/trap-detection?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useZeroDtePositionImbalanceSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/advanced/0dte-position-imbalance?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/0dte-position-imbalance?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/advanced/gamma-vwap-confluence?underlying=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/gamma-vwap-confluence?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/advanced/range-break-imminence?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/advanced/range-break-imminence?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
@@ -712,13 +754,12 @@ export function useSignalEvents(
   options: { limit?: number; horizon?: SignalEventHorizon; refreshInterval?: number; enabled?: boolean } = {},
 ) {
   const { limit = 100, horizon = '60m', refreshInterval = 30000, enabled = true } = options;
-  const params = new URLSearchParams({
-    symbol,
-    limit: String(Math.max(1, Math.min(1000, Math.floor(limit)))),
+  const query = symbolQuery(symbol, {
+    limit: Math.max(1, Math.min(1000, Math.floor(limit))),
     horizon,
   });
   return useApiData<SignalEventsResponse>(
-    `/api/signals/${signalName}/events?${params.toString()}`,
+    `/api/signals/${signalName}/events?${query}`,
     { refreshInterval, enabled },
   );
 }
@@ -746,19 +787,17 @@ export interface ConfluenceMatrixResponse {
 }
 
 export function useConfluenceMatrix(symbol = 'SPY', lookback = 120, refreshInterval = 30000) {
-  const params = new URLSearchParams({
-    symbol,
-    lookback: String(Math.max(10, Math.min(2000, Math.floor(lookback)))),
-  });
   return useApiData<ConfluenceMatrixResponse>(
-    `/api/signals/advanced/confluence-matrix?${params.toString()}`,
+    `/api/signals/advanced/confluence-matrix?${symbolQuery(symbol, {
+      lookback: Math.max(10, Math.min(2000, Math.floor(lookback))),
+    })}`,
     { refreshInterval },
   );
 }
 
 export function useVolExpansionAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
-    `/api/signals/advanced/vol-expansion/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    `/api/signals/advanced/vol-expansion/accuracy?${symbolQuery(symbol, { lookback_days: lookbackDays })}`,
     { refreshInterval }
   );
 }
@@ -768,20 +807,15 @@ export function usePositionOptimizerSignal(
   portfolioValue = 100000,
   refreshInterval = 15000,
 ) {
-  const params = new URLSearchParams({
-    symbol,
-    portfolio_value: String(portfolioValue),
-  });
-
   return useApiData<PositionOptimizerSignalResponse>(
-    `/api/signals/position-optimizer?${params.toString()}`,
+    `/api/signals/position-optimizer?${symbolQuery(symbol, { portfolio_value: portfolioValue })}`,
     { refreshInterval }
   );
 }
 
 export function usePositionOptimizerAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInterval = 60000) {
   return useApiData<GenericAccuracyPoint[] | Record<string, unknown>>(
-    `/api/signals/position-optimizer/accuracy?symbol=${symbol}&lookback_days=${lookbackDays}`,
+    `/api/signals/position-optimizer/accuracy?${symbolQuery(symbol, { lookback_days: lookbackDays })}`,
     { refreshInterval }
   );
 }
@@ -811,60 +845,58 @@ export interface BasicSignalsBundleResponse {
 
 export function useBasicSignalsBundle(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<BasicSignalsBundleResponse>(
-    `/api/signals/basic?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useTapeFlowBiasSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/tape-flow-bias?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/tape-flow-bias?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useSkewDeltaSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/skew-delta?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/skew-delta?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useVannaCharmFlowSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/vanna-charm-flow?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/vanna-charm-flow?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useDealerDeltaPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/dealer-delta-pressure?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/dealer-delta-pressure?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useGexGradientSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/gex-gradient?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/gex-gradient?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function usePositioningTrapSignal(symbol = 'SPY', refreshInterval = 15000) {
   return useApiData<ProprietarySignalSnapshot>(
-    `/api/signals/basic/positioning-trap?symbol=${encodeURIComponent(symbol)}`,
+    `/api/signals/basic/positioning-trap?${symbolQuery(symbol)}`,
     { refreshInterval },
   );
 }
 
 export function useBasicConfluenceMatrix(symbol = 'SPY', lookback = 120, refreshInterval = 30000) {
-  const params = new URLSearchParams({
-    symbol,
-    lookback: String(Math.max(10, Math.min(2000, Math.floor(lookback)))),
-  });
   return useApiData<ConfluenceMatrixResponse>(
-    `/api/signals/basic/confluence-matrix?${params.toString()}`,
+    `/api/signals/basic/confluence-matrix?${symbolQuery(symbol, {
+      lookback: Math.max(10, Math.min(2000, Math.floor(lookback))),
+    })}`,
     { refreshInterval },
   );
 }

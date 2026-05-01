@@ -106,7 +106,7 @@ export default function GammaExposurePage() {
   }, [openInterestPayload]);
   const { data: volGauge } = useVolatilityGauge(30000);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
-    `/api/signals/advanced/vol-expansion?symbol=${symbol}`,
+    `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval: 30000 },
   );
 

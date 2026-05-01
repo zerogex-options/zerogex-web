@@ -53,16 +53,17 @@ export default function GammaHeatmapCanvas() {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
   const maxPoints = getMaxDataPoints();
 
+  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/gex/heatmap?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
   const { data: priceData } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/market/historical?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
-    `/api/gex/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${maxPoints}`,
+    `/api/gex/historical?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
     { refreshInterval: 5000 },
   );
 

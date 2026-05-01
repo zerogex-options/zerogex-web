@@ -37,29 +37,30 @@ export default function GammaHeatmap() {
     return '1d';
   }, [timeframe]);
 
+  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    `/api/gex/heatmap?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
   const { data: gexDataAlt, loading: loadingAlt, error: errorAlt } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    `/api/gex/heatmap?${symParam}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000, enabled: Boolean(error) }
   );
 
   const { data: priceDataRaw, error: priceError } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    `/api/market/historical?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
   const { data: priceDataAlt } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    `/api/market/historical?${symParam}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000, enabled: Boolean(priceError) }
   );
   const { data: gexHistoricalDataRaw } = useApiData<GexHistoricalPoint[]>(
-    `/api/gex/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    `/api/gex/historical?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
   const { data: gexHistoricalDataAlt } = useApiData<GexHistoricalPoint[]>(
-    `/api/gex/historical?symbol=${symbol}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
+    `/api/gex/historical?${symParam}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000, enabled: !gexHistoricalDataRaw || gexHistoricalDataRaw.length === 0 }
   );
 

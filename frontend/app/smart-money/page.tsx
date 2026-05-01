@@ -139,16 +139,17 @@ export default function SmartMoneyPage() {
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}`, { refreshInterval: 10000 });
+  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}`, { refreshInterval: 10000 });
   const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&limit=100`,
+    `/api/flow/smart-money?${symParam}&limit=100`,
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
+  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
-    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    `/api/flow/by-contract?${symParam}&session=${otherSession}&intervals=1`,
     { refreshInterval: 60000 },
   );
 

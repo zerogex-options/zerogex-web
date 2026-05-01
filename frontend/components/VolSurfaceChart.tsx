@@ -289,7 +289,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
 
   const { data, loading, error } = useApiData<VolSurfaceResponse | VolSurfaceRawPoint[]>(
-    `/api/gex/vol_surface?symbol=${symbol}`,
+    `/api/gex/vol_surface?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval: 30000 },
   );
 

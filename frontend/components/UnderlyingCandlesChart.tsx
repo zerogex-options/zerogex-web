@@ -89,7 +89,7 @@ export default function UnderlyingCandlesChart() {
   const fetchWindowUnits = maxPoints;
 
   const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${symbol}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
+    `/api/market/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 },
   );
 

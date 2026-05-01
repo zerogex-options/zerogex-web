@@ -47,7 +47,10 @@ export function useCompositeData(symbol: string): CompositeState {
 
   const fetchScore = useCallback(async (sym: string): Promise<boolean> => {
     try {
-      const res = await fetch(`${apiBaseUrl()}/api/signals/score?underlying=${encodeURIComponent(sym)}`);
+      const params = new URLSearchParams();
+      params.set('symbol', sym);
+      params.set('underlying', sym);
+      const res = await fetch(`${apiBaseUrl()}/api/signals/score?${params.toString()}`);
       if (!res.ok) {
         if (res.status === 404) {
           if (symbolRef.current === sym) {
@@ -87,9 +90,11 @@ export function useCompositeData(symbol: string): CompositeState {
 
   const fetchHistory = useCallback(async (sym: string) => {
     try {
-      const res = await fetch(
-        `${apiBaseUrl()}/api/signals/score-history?underlying=${encodeURIComponent(sym)}&limit=${HISTORY_LIMIT}`,
-      );
+      const params = new URLSearchParams();
+      params.set('symbol', sym);
+      params.set('underlying', sym);
+      params.set('limit', String(HISTORY_LIMIT));
+      const res = await fetch(`${apiBaseUrl()}/api/signals/score-history?${params.toString()}`);
       if (!res.ok) return;
       const json = await res.json();
       if (symbolRef.current !== sym) return;

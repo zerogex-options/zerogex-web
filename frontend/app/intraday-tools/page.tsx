@@ -214,28 +214,29 @@ export default function IntradayToolsPage() {
   const maxPoints = getMaxDataPoints();
   const divergenceWindowUnits = maxPoints;
 
+  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
-    `/api/technicals/vwap-deviation?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+    `/api/technicals/vwap-deviation?${symParam}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
   const { data: orbData, loading: orbLoading, error: orbError } = useApiData<OpeningRangeRow[]>(
-    `/api/technicals/opening-range?symbol=${symbol}&timeframe=${timeframe}&window_units=20`,
+    `/api/technicals/opening-range?${symParam}&timeframe=${timeframe}&window_units=20`,
     { refreshInterval: 5000 }
   );
 
   const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
-    `/api/technicals/volume-spikes?symbol=${symbol}&limit=5`,
+    `/api/technicals/volume-spikes?${symParam}&limit=5`,
     { refreshInterval: 10000 }
   );
 
   const { data: divergenceResponse } = useApiData<unknown>(
-    `/api/technicals/momentum-divergence?symbol=${symbol}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
+    `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
   );
 
   const { data: divergenceFallback } = useApiData<unknown>(
-    `/api/technicals/momentum-divergence?symbol=${symbol}`,
+    `/api/technicals/momentum-divergence?${symParam}`,
     { refreshInterval: 5000 }
   );
 
@@ -245,17 +246,17 @@ export default function IntradayToolsPage() {
   );
 
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&session=${sessionView}&limit=100`,
+    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
     { refreshInterval: 10000 }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?symbol=${symbol}&session=prior&limit=100`,
+    `/api/flow/smart-money?${symParam}&session=prior&limit=100`,
     { refreshInterval: 10000 }
   );
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
-    `/api/flow/by-contract?symbol=${symbol}&session=${otherSession}&intervals=1`,
+    `/api/flow/by-contract?${symParam}&session=${otherSession}&intervals=1`,
     { refreshInterval: 60000 },
   );
 
