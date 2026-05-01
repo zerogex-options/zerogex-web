@@ -18,6 +18,11 @@ function colorFor(score: number | null): string {
   return score >= 0 ? POSITIVE : NEGATIVE;
 }
 
+function regimePushLabel(score: number | null): string {
+  if (score == null || !Number.isFinite(score) || Math.abs(score) < 0.05) return 'Neutral push';
+  return score > 0 ? 'Pushes toward trend / expansion' : 'Pushes toward chop / reversal';
+}
+
 function ScoreBar({ score }: { score: number | null }) {
   const safe = score != null && Number.isFinite(score) ? Math.max(-1, Math.min(1, score)) : null;
   const color = colorFor(score);
@@ -85,7 +90,10 @@ export default function ComponentCard({ entry }: Props) {
         <div>
           <h3 className="text-base font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
             {label.title}
-            <TooltipWrapper text={`+: ${label.positive}\n−: ${label.negative}`} placement="bottom">
+            <TooltipWrapper
+              text={`${label.description}\n\n+1 score: ${label.positive}\n−1 score: ${label.negative}\n\nIn the MSI, +score pushes the composite toward the trend / expansion regime; −score pushes it toward chop / pinning / high-risk reversal.`}
+              placement="bottom"
+            >
               <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
             </TooltipWrapper>
           </h3>
@@ -94,6 +102,14 @@ export default function ComponentCard({ entry }: Props) {
         <span aria-hidden className="font-bold text-base" style={{ color }}>
           {glyph}
         </span>
+      </div>
+
+      <div
+        className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+        style={{ color }}
+        aria-label={regimePushLabel(score)}
+      >
+        {regimePushLabel(score)}
       </div>
 
       <ScoreBar score={score} />

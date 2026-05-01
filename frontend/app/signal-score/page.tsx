@@ -4,28 +4,44 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Info, LayoutGrid, LineChart as LineChartIcon } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import CompositeGauge from './CompositeGauge';
-import CompositeHeaderBar, { CompositeSymbol } from './CompositeHeaderBar';
 import IntradayChart from './IntradayChart';
 import ContributionStack from './ContributionStack';
 import ComponentCard from './ComponentCard';
 import { useCompositeData } from './useCompositeData';
 import { REGIME_BANDS, classifyRegime } from './regime';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
+import { useTimeframe } from '@/core/TimeframeContext';
+import { getMarketSession } from '@/core/utils';
 
 const NEUTRAL_DELTA_THRESHOLD = 0.5;
 
 const TITLE_TOOLTIP =
-  'Composite Score, also known as the Market State Index (MSI), is a single 0–100 number that summarizes today\'s option-structure regime. ' +
-  'It blends six independent components — net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, ' +
-  'and dealer delta pressure — each weighted to a max-points cap that sums to 100. 50 is neutral; readings above 50 indicate an expansion / directional bias, ' +
-  'readings below 50 indicate pinning, chop, or reversal risk. MSI = "Market State Index".';
+  'Composite Score, also known as the Market State Index (MSI), is a single 0–100 number that reads the current option-structure regime — not market direction. ' +
+  'It blends six independent components — net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure — ' +
+  'each weighted to a max-points cap that sums to 100. ' +
+  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40–70 a controlled trend, 20–40 chop / range, and <20 high-risk reversal (mean-reversion only, fragile tape). ' +
+  'A high MSI does not mean "bullish" — it means trends can run. A low MSI does not mean "bearish" — it means trends are unlikely to work.';
 
 const INTRADAY_TOOLTIP =
   "The MSI's path through today's session, plotted as 0–100 with shaded regime bands at <20 (high-risk reversal), 20–40 (chop), 40–70 (controlled trend), and ≥70 (trend / expansion). " +
   "Hover any point for the timestamp, score, regime, and the top-3 components that drove the reading.";
 
 const CONTRIB_TOOLTIP =
-  'Single horizontal bar showing each component\'s signed point contribution around the 50-baseline. Positives (green) push right, negatives (red) push left; total visual offset equals |composite − 50|. Hover any segment for its raw score, contribution, and weight share.';
+  'Single horizontal bar showing each component\'s signed point contribution around the 50-baseline. ' +
+  'Right-pushers (green) argue for a tradable / trending regime; left-pushers (red) argue for chop / pinning / reversal. ' +
+  'Total visual offset equals |composite − 50|. Hover any segment for its raw score, contribution, and weight share.';
+
+type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
+
+const SESSION_LABEL: Record<string, string> = {
+  open: 'Market Open',
+  'pre-market': 'Pre-market',
+  'after-hours': 'After-hours',
+  closed: 'Closed',
+  'closed-weekend': 'Closed',
+  'closed-holiday': 'Closed',
+  halted: 'Halted',
+};
 
 function findOpenScore(history: { timestamp: string; composite: number }[]): number | null {
   if (history.length === 0) return null;
@@ -148,9 +164,64 @@ function Skeleton({ height = 200, label }: { height?: number; label?: string }) 
   );
 }
 
+function LiveIndicator({
+  connection,
+  lastUpdatedAt,
+}: {
+  connection: ConnectionState;
+  lastUpdatedAt: number | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const [session, setSession] = useState(getMarketSession());
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+      setSession(getMarketSession());
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const ageSec = lastUpdatedAt != null ? Math.max(0, Math.floor((now - lastUpdatedAt) / 1000)) : null;
+
+  let dotColor = '#6B7280';
+  let statusText = 'Connecting…';
+  let statusGlyph: '●' | '◐' | '○' = '○';
+  if (connection === 'disconnected') {
+    dotColor = '#DC2626';
+    statusText = 'Disconnected — retrying';
+    statusGlyph = '○';
+  } else if (connection === 'stale') {
+    dotColor = '#D97706';
+    statusText = ageSec != null ? `Stale • ${ageSec}s ago` : 'Stale';
+    statusGlyph = '◐';
+  } else if (connection === 'live') {
+    dotColor = '#16A34A';
+    statusText = ageSec != null ? `LIVE • updated ${ageSec}s ago` : 'LIVE';
+    statusGlyph = '●';
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span aria-hidden style={{ color: dotColor, fontSize: 14 }}>{statusGlyph}</span>
+      <span
+        className="font-mono"
+        style={{ color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}
+        aria-label={statusText}
+      >
+        {statusText}
+      </span>
+      <span className="hidden md:inline text-[var(--color-text-secondary)] opacity-60">·</span>
+      <span className="hidden md:inline text-[var(--color-text-secondary)]">
+        {SESSION_LABEL[session] ?? 'Market'}
+      </span>
+    </div>
+  );
+}
+
 export default function CompositeScorePage() {
-  const [symbol, setSymbol] = useState<CompositeSymbol>('SPY');
-  const { payload, history, lastUpdatedAt, intervalMs, connection, loading, refetch } = useCompositeData(symbol);
+  const { symbol } = useTimeframe();
+  const { payload, history, lastUpdatedAt, connection, loading, refetch } = useCompositeData(symbol);
 
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -175,26 +246,21 @@ export default function CompositeScorePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Composite Score</h1>
         <span className="text-[var(--color-text-secondary)] text-base">·</span>
         <span className="text-[var(--color-text-secondary)] text-lg font-semibold">MSI</span>
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
+        <div className="ml-auto">
+          <LiveIndicator connection={connection} lastUpdatedAt={lastUpdatedAt} />
+        </div>
       </div>
-
-      <CompositeHeaderBar
-        symbol={symbol}
-        onSymbolChange={setSymbol}
-        connection={connection}
-        lastUpdatedAt={lastUpdatedAt}
-        intervalMs={intervalMs}
-      />
 
       {connection === 'disconnected' && (
         <div
-          className="mt-3 rounded-md border px-3 py-2 text-xs"
+          className="mb-3 rounded-md border px-3 py-2 text-xs"
           style={{ borderColor: 'var(--color-warning)', background: 'var(--color-warning-soft)', color: 'var(--color-text-primary)' }}
           role="status"
         >
@@ -206,7 +272,7 @@ export default function CompositeScorePage() {
       )}
 
       {/* Hero section */}
-      <section className="zg-feature-shell mt-6 p-6">
+      <section className="zg-feature-shell p-6">
         {loading && composite == null ? (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8">
             <Skeleton height={300} label="Loading gauge…" />

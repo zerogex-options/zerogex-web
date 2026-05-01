@@ -102,12 +102,17 @@ export function parseHistory(raw: unknown): CompositeHistoryRow[] {
   return rows;
 }
 
+// Each component returns a raw score in [-1, +1]. By the MSI's convention
+// (see scoring_engine.py): +1 pushes the composite toward the trending /
+// expansion regime; -1 pushes it toward chop / pinning / high-risk reversal.
+// The MSI is a regime gauge, not a directional (bull/bear) gauge — except
+// for order_flow_imbalance, which is the one truly directional input.
 const COMPONENT_LABELS: Record<ComponentKey, { title: string; description: string; positive: string; negative: string }> = {
   net_gex_sign: {
     title: 'Net GEX Sign',
-    description: 'Sign of dealer net gamma across all strikes.',
-    positive: 'Dealers short gamma → must buy rallies → bullish.',
-    negative: 'Dealers long gamma → must sell rallies → bearish.',
+    description: 'Sign of dealer aggregate gamma — does the book pin price (long γ) or amplify it (short γ)?',
+    positive: 'Net GEX < 0 → dealers short gamma, hedges amplify moves → trends can run.',
+    negative: 'Net GEX > 0 → dealers long gamma, hedges damp moves → pinning / mean reversion.',
   },
   gamma_anchor: {
     title: 'Gamma Anchor',
@@ -117,27 +122,27 @@ const COMPONENT_LABELS: Record<ComponentKey, { title: string; description: strin
   },
   put_call_ratio: {
     title: 'Put/Call Ratio',
-    description: 'OI-weighted put-to-call tilt.',
-    positive: 'High PCR → fragile market, move expected.',
-    negative: 'Low PCR → stable.',
+    description: 'OI-weighted put-to-call tilt as a structural-fragility proxy.',
+    positive: 'High PCR → fear-hedged book → larger moves possible.',
+    negative: 'Low PCR → call-heavy / complacent → setup leans to mean-reversion.',
   },
   volatility_regime: {
     title: 'Volatility Regime',
-    description: 'VIX or realized vol vs neutral baseline.',
-    positive: 'High vol regime (VIX > 20).',
-    negative: 'Calm regime (VIX < 20).',
+    description: 'VIX (or realized σ fallback) vs the 20-vol pivot.',
+    positive: 'VIX > 20 → live vol regime, trends extend.',
+    negative: 'VIX < 20 → calm tape, trends die into chop.',
   },
   order_flow_imbalance: {
     title: 'Order Flow Imbalance',
-    description: 'Lee-Ready classified, premium-weighted smart-money call vs put flow.',
-    positive: 'Smart-money call buying dominates → bullish lead.',
-    negative: 'Smart-money put buying dominates → bearish lead.',
+    description: 'Smart-money call vs put premium imbalance — the only directional component.',
+    positive: 'Smart-money calls dominate → bullish lead, MSI shifts toward expansion.',
+    negative: 'Smart-money puts dominate → bearish lead, MSI shifts toward reversal.',
   },
   dealer_delta_pressure: {
     title: 'Dealer Delta Pressure',
     description: 'Dealer net delta forced-hedge direction. Leads gamma intraday.',
-    positive: 'Dealers short delta → must buy rallies → bullish.',
-    negative: 'Dealers long delta → must sell rallies → bearish.',
+    positive: 'Dealers short delta → must buy rallies → bullish hedge tailwind.',
+    negative: 'Dealers long delta → must sell rallies → bearish hedge headwind.',
   },
 };
 

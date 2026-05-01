@@ -102,16 +102,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               <XAxis dataKey="time" tickFormatter={formatEtTime} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" minTickGap={40} />
               <YAxis yAxisId="score" domain={[-100, 100]} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
               <YAxis yAxisId="ret" orientation="right" tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={60} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}
-                labelFormatter={formatEtTime}
-                formatter={(value: number | string | undefined, name: string | undefined) => {
-                  const key = name ?? '';
-                  if (key === 'Realized') return [typeof value === 'number' ? `${(value * 100).toFixed(3)}%` : '—', key];
-                  if (key === 'Flip ↑' || key === 'Flip ↓') return [typeof value === 'number' ? value.toFixed(2) : '—', key];
-                  return [typeof value === 'number' ? value.toFixed(2) : String(value ?? '—'), key];
-                }}
-              />
+              <Tooltip content={<EventsTooltip />} />
               <ReferenceLine yAxisId="score" y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.4} />
               <Bar yAxisId="ret" dataKey="realized" name="Realized" fill="var(--color-border)" opacity={0.6} />
               <Line yAxisId="score" type="monotone" dataKey="score" name="Score" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
@@ -132,5 +123,107 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         )}
       </div>
     </section>
+  );
+}
+
+interface EventsTooltipRow {
+  label: string;
+  value: string;
+  valueColor?: string;
+}
+
+interface EventsTooltipPayloadItem {
+  name?: string;
+  value?: number | string | null;
+}
+
+function EventsTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: EventsTooltipPayloadItem[];
+  label?: string | number;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const rows: EventsTooltipRow[] = [];
+  const seen = new Set<string>();
+  for (const item of payload) {
+    const name = item?.name;
+    if (typeof name !== 'string' || !name) continue;
+    if (seen.has(name)) continue;
+    const raw = item?.value;
+    if (raw == null) continue;
+    if (name === 'Realized') {
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+      rows.push({
+        label: 'Realized',
+        value: `${(raw * 100).toFixed(3)}%`,
+        valueColor: raw >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+      });
+      seen.add(name);
+      continue;
+    }
+    if (name === 'Score') {
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+      rows.push({
+        label: 'Score',
+        value: raw.toFixed(2),
+        valueColor: 'var(--color-chart-tooltip-text)',
+      });
+      seen.add(name);
+      continue;
+    }
+    if (name === 'Flip ↑' || name === 'Flip ↓') {
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+      rows.push({
+        label: name,
+        value: raw.toFixed(2),
+        valueColor: name === 'Flip ↑' ? 'var(--color-bull)' : 'var(--color-bear)',
+      });
+      seen.add(name);
+      continue;
+    }
+  }
+
+  if (rows.length === 0) return null;
+
+  const headerLabel =
+    typeof label === 'string' || typeof label === 'number'
+      ? formatEtTime(label)
+      : '';
+
+  return (
+    <div
+      className="rounded-md border px-3 py-2 text-xs shadow-lg"
+      style={{
+        background: 'var(--color-chart-tooltip-bg)',
+        borderColor: 'var(--color-border)',
+        color: 'var(--color-chart-tooltip-text)',
+        fontVariantNumeric: 'tabular-nums',
+        minWidth: 180,
+      }}
+    >
+      {headerLabel && (
+        <div className="font-mono mb-1.5" style={{ color: 'var(--color-chart-tooltip-text)' }}>
+          {headerLabel}
+        </div>
+      )}
+      <div className="space-y-0.5">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3">
+            <span style={{ color: 'var(--color-chart-tooltip-muted)' }}>{row.label}</span>
+            <span
+              className="font-semibold"
+              style={{ color: row.valueColor ?? 'var(--color-chart-tooltip-text)' }}
+            >
+              {row.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
