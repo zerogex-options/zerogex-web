@@ -169,7 +169,7 @@ export default function Footer({ theme }: FooterProps) {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <SocialLinks align="end" />
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
-              © 2026 ZeroGEX, LLC. All rights reserved.
+              © 2026 ZeroGEX, All rights reserved.
             </p>
             <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right', maxWidth: 260 }}>
               Trading involves substantial risk. Past performance is not indicative of future results.
@@ -205,7 +205,7 @@ export default function Footer({ theme }: FooterProps) {
               This platform is for informational purposes only, not investment advice.
             </p>
             <p style={{ fontSize: 12, color: subtext, margin: 0 }}>
-              © 2026 ZeroGEX, LLC. All rights reserved.
+              © 2026 ZeroGEX All rights reserved.
             </p>
           </div>
 

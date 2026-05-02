@@ -151,7 +151,7 @@ export default function TermsPage() {
 
           <Section title="1. Acceptance of Terms">
             <p>
-              These Terms of Service (&ldquo;Terms&rdquo;) form a binding agreement between you and ZeroGEX, LLC
+              These Terms of Service (&ldquo;Terms&rdquo;) form a binding agreement between you and ZeroGEX
               (&ldquo;ZeroGEX,&rdquo; &ldquo;we,&rdquo; or &ldquo;us&rdquo;). By creating an account or using
               the website at zerogex.io and any related products and services (collectively, the
               &ldquo;Services&rdquo;), you accept these Terms and our{' '}

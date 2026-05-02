@@ -151,7 +151,7 @@ export default function PrivacyPage() {
 
           <Section title="1. Introduction">
             <p>
-              This Privacy Policy describes how ZeroGEX, LLC (&ldquo;ZeroGEX,&rdquo; &ldquo;we,&rdquo; or
+              This Privacy Policy describes how ZeroGEX (&ldquo;ZeroGEX,&rdquo; &ldquo;we,&rdquo; or
               &ldquo;us&rdquo;) collects, uses, and shares information about you when you use the website at
               zerogex.io and related products and services (collectively, the &ldquo;Services&rdquo;). By using
               the Services, you agree to this Privacy Policy.

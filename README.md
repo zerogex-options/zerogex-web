@@ -472,7 +472,7 @@ sudo journalctl -f
 
 ## 📄 License
 
-© 2026 ZeroGEX, LLC. All rights reserved.
+© 2026 ZeroGEX All rights reserved.
 
 ## 🔗 Links
 
