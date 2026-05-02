@@ -24,7 +24,6 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import ExpandableCard from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-import { colors } from '@/core/colors';
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -64,7 +63,6 @@ export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
   const inputBg = isDark ? 'var(--color-bg)' : 'var(--color-surface-subtle)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
@@ -405,16 +403,30 @@ export default function GammaExposurePage() {
               <>
                 <div className="mb-5 flex flex-wrap gap-2 items-center">
                   <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
-                  <button onClick={() => setSelectedExpirations(null)} className="px-2 py-1 text-xs rounded" style={{ backgroundColor: inputBg, color: textColor }}>All</button>
+                  {(() => {
+                    const allActive = selectedExpirations === null;
+                    return (
+                      <button
+                        onClick={() => setSelectedExpirations(null)}
+                        style={allActive ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
+                        className={`px-3 py-1 text-xs rounded border ${allActive ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
+                      >
+                        All
+                      </button>
+                    );
+                  })()}
                   {expirationOptions.map((exp) => {
-                    const active = selectedExpirations === null || selectedExpirations.includes(exp);
+                    const active = selectedExpirations !== null && selectedExpirations.includes(exp);
                     return (
                       <button
                         key={exp}
                         onClick={() => setSelectedExpirations((current) => {
-                          const base = current === null ? [...expirationOptions] : [...current];
-                          const updated = active ? base.filter((v) => v !== exp) : [...base, exp];
-                          return updated.length === 0 ? null : updated;
+                          if (current === null) return [exp];
+                          if (current.includes(exp)) {
+                            const next = current.filter((v) => v !== exp);
+                            return next.length === 0 ? null : next;
+                          }
+                          return [...current, exp];
                         })}
                         style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
                         className={`px-3 py-1 text-xs rounded border ${active ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
