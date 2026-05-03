@@ -449,25 +449,86 @@ export default function MarketMakerExposures() {
   }, [timeBounds]);
 
   const keyLevels = useMemo(() => {
-    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; emphasized?: boolean }>;
+    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
-    const items: Array<{ y: number; price: number; color: string; emphasized?: boolean }> = [];
+    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }> = [];
     const flip = gexSummary?.gamma_flip;
     if (flip != null && Number.isFinite(flip)) {
-      items.push({ y: yFor(flip), price: flip, color: FLIP_LINE });
+      items.push({ y: yFor(flip), price: flip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
     if (gexSummary?.call_wall != null && Number.isFinite(gexSummary.call_wall)) {
-      items.push({ y: yFor(gexSummary.call_wall), price: gexSummary.call_wall, color: KEY_LEVEL });
+      items.push({ y: yFor(gexSummary.call_wall), price: gexSummary.call_wall, color: KEY_LEVEL, label: 'Call Wall' });
     }
     if (spot != null) {
-      items.push({ y: yFor(spot), price: spot, color: SPOT_LINE, emphasized: true });
+      items.push({ y: yFor(spot), price: spot, color: SPOT_LINE, label: 'Spot', emphasized: true });
     }
     if (gexSummary?.put_wall != null && Number.isFinite(gexSummary.put_wall)) {
-      items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL });
+      items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     return items;
   }, [gexSummary, spot, yBounds]);
+
+  // ── Hover tracking for tooltips/crosshair ──
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  type HoverState = {
+    pxX: number;
+    pxY: number;
+    svgX: number;
+    svgY: number;
+    panel: 'left' | 'middle' | 'right' | null;
+  };
+  const [hover, setHover] = useState<HoverState | null>(null);
+
+  const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+    const pxX = e.clientX - containerRect.left;
+    const pxY = e.clientY - containerRect.top;
+    const svgX = ((e.clientX - rect.left) / Math.max(1, rect.width)) * CW;
+    const svgY = ((e.clientY - rect.top) / Math.max(1, rect.height)) * CH;
+    let panel: HoverState['panel'] = null;
+    if (svgY >= PLOT_TOP && svgY <= PLOT_BOTTOM) {
+      if (svgX >= LEFT_X && svgX <= LEFT_X + LEFT_W) panel = 'left';
+      else if (svgX >= MID_X && svgX <= MID_X + MID_W) panel = 'middle';
+      else if (svgX >= RIGHT_X && svgX <= RIGHT_X + RIGHT_W) panel = 'right';
+    }
+    setHover({ pxX, pxY, svgX, svgY, panel });
+  };
+
+  // Linear scans — cheap enough to compute on every render without useMemo, and
+  // avoids tripping the manual-memoization lint rule on the inline closures.
+  const hoveredCandle = (() => {
+    if (!hover || hover.panel !== 'left' || !timeBounds || visibleCandles.length === 0) return null;
+    let best: (typeof visibleCandles)[number] | null = null;
+    let bestDist = Infinity;
+    for (const c of visibleCandles) {
+      const cx = xForTime(new Date(c.timestamp).getTime());
+      const dist = Math.abs(cx - hover.svgX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = c;
+      }
+    }
+    return best;
+  })();
+
+  const hoveredStrike = (() => {
+    if (!hover || (hover.panel !== 'middle' && hover.panel !== 'right') || visibleStrikes.length === 0) return null;
+    let best: (typeof visibleStrikes)[number] | null = null;
+    let bestDist = Infinity;
+    for (const s of visibleStrikes) {
+      const sy = yForPrice(s.strike);
+      const dist = Math.abs(sy - hover.svgY);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = s;
+      }
+    }
+    return best;
+  })();
 
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
   const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
@@ -789,12 +850,14 @@ export default function MarketMakerExposures() {
       </div>
 
       {/* Composite chart */}
-      <div className="overflow-x-auto px-2 pb-2">
+      <div ref={containerRef} className="relative overflow-x-auto px-2 pb-2">
         <svg
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMidYMid meet"
           className="block w-full"
           style={{ minWidth: 760 }}
+          onMouseMove={onSvgMouseMove}
+          onMouseLeave={() => setHover(null)}
         >
           {/* Shared horizontal grid + strike labels */}
           {strikeLabels.map((p) => {
@@ -833,11 +896,12 @@ export default function MarketMakerExposures() {
             const color = up ? colors.bullish : colors.bearish;
             const bodyTop = Math.min(yO, yC);
             const bodyH = Math.max(1, Math.abs(yO - yC));
-            const candleW = 2.2;
+            const isHovered = hoveredCandle?.timestamp === c.timestamp;
+            const candleW = isHovered ? 4 : 2.2;
             const opacity = isPrevSession(c.timestamp) ? 0.35 : 1;
             return (
               <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
-                <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={1} />
+                <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />
                 <rect x={x - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
               </g>
             );
@@ -869,6 +933,8 @@ export default function MarketMakerExposures() {
           {visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
+            const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
+            const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
             if (gexMode === 'net') {
               const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
               const positive = s.netGex >= 0;
@@ -884,7 +950,7 @@ export default function MarketMakerExposures() {
                       width={Math.max(0, w)}
                       height={barH}
                       fill={positive ? colors.bullish : colors.bearish}
-                      opacity={0.95}
+                      opacity={barOpacity}
                     />
                   )}
                 </g>
@@ -904,7 +970,7 @@ export default function MarketMakerExposures() {
                     width={Math.max(0, callW)}
                     height={barH}
                     fill={colors.bullish}
-                    opacity={0.95}
+                    opacity={barOpacity}
                   />
                 )}
                 {s.putGex !== 0 && (
@@ -914,7 +980,7 @@ export default function MarketMakerExposures() {
                     width={Math.max(0, putW)}
                     height={barH}
                     fill={colors.bearish}
-                    opacity={0.95}
+                    opacity={barOpacity}
                   />
                 )}
               </g>
@@ -954,6 +1020,8 @@ export default function MarketMakerExposures() {
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const callW = (s.callOi / positionsXMax) * (RIGHT_W / 2);
             const putW = (s.putOi / positionsXMax) * (RIGHT_W / 2);
+            const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'right';
+            const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'right' ? 0.55 : 0.95;
             return (
               <g key={`pos-${s.strike}`}>
                 {s.callOi > 0 && (
@@ -963,7 +1031,7 @@ export default function MarketMakerExposures() {
                     width={Math.max(0, callW)}
                     height={barH}
                     fill={colors.bullish}
-                    opacity={0.95}
+                    opacity={barOpacity}
                   />
                 )}
                 {s.putOi > 0 && (
@@ -973,7 +1041,7 @@ export default function MarketMakerExposures() {
                     width={Math.max(0, putW)}
                     height={barH}
                     fill={colors.bearish}
-                    opacity={0.95}
+                    opacity={barOpacity}
                   />
                 )}
               </g>
@@ -1000,31 +1068,204 @@ export default function MarketMakerExposures() {
           </text>
 
           {/* ── Shared horizontal price level lines (drawn last so they sit on top) ── */}
-          {keyLevels.map((lvl, i) => (
-            <g key={`lvl-${i}-${lvl.price}`}>
+          {keyLevels.map((lvl, i) => {
+            const text = `${lvl.label} ${lvl.price.toFixed(2)}`;
+            const pillW = Math.max(72, text.length * 5.6);
+            const pillX = CW - pillW - 2;
+            return (
+              <g key={`lvl-${i}-${lvl.price}`}>
+                <line
+                  x1={LEFT_X}
+                  x2={pillX}
+                  y1={lvl.y}
+                  y2={lvl.y}
+                  stroke={lvl.color}
+                  strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
+                  strokeWidth={lvl.emphasized ? 1.4 : 1}
+                  opacity={0.85}
+                />
+                <rect
+                  x={pillX}
+                  y={lvl.y - 8}
+                  width={pillW}
+                  height={16}
+                  rx={3}
+                  fill={lvl.color}
+                  opacity={lvl.emphasized ? 1 : 0.92}
+                />
+                <text
+                  x={pillX + pillW / 2}
+                  y={lvl.y + 3.5}
+                  fontSize={10}
+                  textAnchor="middle"
+                  fill="#0b1620"
+                  fontWeight={700}
+                >
+                  {text}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* ── Crosshair (drawn after levels so it overlays everything) ── */}
+          {hover && hover.panel && (
+            <g pointerEvents="none">
               <line
                 x1={LEFT_X}
                 x2={CW}
-                y1={lvl.y}
-                y2={lvl.y}
-                stroke={lvl.color}
-                strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
-                strokeWidth={lvl.emphasized ? 1.4 : 1}
-                opacity={0.85}
+                y1={hover.svgY}
+                y2={hover.svgY}
+                stroke={subtle}
+                strokeDasharray="3 3"
+                opacity={0.55}
               />
-              <text
-                x={CW - 4}
-                y={lvl.y - 3}
-                fontSize={10}
-                textAnchor="end"
-                fill={lvl.color}
-                fontWeight={600}
-              >
-                {lvl.price.toFixed(2)}
-              </text>
+              {hover.panel === 'left' && hoveredCandle && (
+                <line
+                  x1={xForTime(new Date(hoveredCandle.timestamp).getTime())}
+                  x2={xForTime(new Date(hoveredCandle.timestamp).getTime())}
+                  y1={PLOT_TOP}
+                  y2={PLOT_BOTTOM}
+                  stroke={subtle}
+                  strokeDasharray="3 3"
+                  opacity={0.55}
+                />
+              )}
+              {(hover.panel === 'middle' || hover.panel === 'right') && hoveredStrike && (
+                <line
+                  x1={LEFT_X}
+                  x2={CW}
+                  y1={yForPrice(hoveredStrike.strike)}
+                  y2={yForPrice(hoveredStrike.strike)}
+                  stroke={subtle}
+                  strokeDasharray="3 3"
+                  opacity={0.75}
+                />
+              )}
             </g>
-          ))}
+          )}
         </svg>
+
+        {/* Tooltip */}
+        {hover && (hoveredCandle || hoveredStrike) && (() => {
+          const TOOLTIP_W = 200;
+          const placeRight = hover.svgX < CW * 0.65;
+          const tooltipLeft = placeRight ? hover.pxX + 14 : Math.max(8, hover.pxX - TOOLTIP_W - 14);
+          const tooltipTop = Math.max(8, hover.pxY - 12);
+          return (
+            <div
+              className="absolute z-20 pointer-events-none rounded-md px-3 py-2 text-xs"
+              style={{
+                left: tooltipLeft,
+                top: tooltipTop,
+                width: TOOLTIP_W,
+                backgroundColor: popoverBg,
+                border: `1px solid ${border}`,
+                color: textPrimary,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+              }}
+            >
+              {hover.panel === 'left' && hoveredCandle && (
+                <>
+                  <div className="font-semibold mb-1">
+                    {new Date(hoveredCandle.timestamp).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                  <div className="font-mono tabular-nums">
+                    O {hoveredCandle.open.toFixed(2)} &nbsp; H {hoveredCandle.high.toFixed(2)}
+                  </div>
+                  <div className="font-mono tabular-nums">
+                    L {hoveredCandle.low.toFixed(2)} &nbsp; C {hoveredCandle.close.toFixed(2)}
+                  </div>
+                  <div
+                    className="font-mono tabular-nums mt-1"
+                    style={{
+                      color: hoveredCandle.close >= hoveredCandle.open ? colors.bullish : colors.bearish,
+                    }}
+                  >
+                    {hoveredCandle.close - hoveredCandle.open >= 0 ? '+' : ''}
+                    {(hoveredCandle.close - hoveredCandle.open).toFixed(2)} (
+                    {(((hoveredCandle.close - hoveredCandle.open) / Math.max(1e-9, hoveredCandle.open)) * 100).toFixed(2)}%)
+                  </div>
+                </>
+              )}
+              {hover.panel === 'middle' && hoveredStrike && (
+                <>
+                  <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
+                  {gexMode === 'split' ? (
+                    <>
+                      <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                        Call GEX: {formatExposure(hoveredStrike.callGex)}
+                      </div>
+                      <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                        Put GEX: {formatExposure(hoveredStrike.putGex)}
+                      </div>
+                      <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                        Net: {formatExposure(hoveredStrike.netGex)}
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      className="font-mono tabular-nums"
+                      style={{ color: hoveredStrike.netGex >= 0 ? colors.bullish : colors.bearish }}
+                    >
+                      Net GEX: {formatExposure(hoveredStrike.netGex)}
+                    </div>
+                  )}
+                </>
+              )}
+              {hover.panel === 'right' && hoveredStrike && (
+                <>
+                  <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
+                  <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                    Call OI: {hoveredStrike.callOi.toLocaleString()}
+                  </div>
+                  <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                    Put OI: {hoveredStrike.putOi.toLocaleString()}
+                  </div>
+                  <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                    Net: {(hoveredStrike.callOi - hoveredStrike.putOi).toLocaleString()}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Legend strip */}
+      <div
+        className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
+        style={{ borderTop: `1px solid ${border}`, color: subtle }}
+      >
+        <span className="flex items-center gap-1.5" title="Current spot price for the underlying">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={SPOT_LINE} strokeDasharray="5 3" strokeWidth="1.6" />
+          </svg>
+          <span style={{ color: textPrimary }}>Spot</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Price where dealer net gamma flips sign — above it dealers dampen volatility, below it they amplify it">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={FLIP_LINE} strokeDasharray="4 4" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Gamma Flip</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Strike with the heaviest call OI — tends to act as resistance">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Call Wall</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Strike with the heaviest put OI — tends to act as support">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Put Wall</span>
+        </span>
+        <span className="ml-auto">Hover any panel for details</span>
       </div>
 
       {/* Bottom strip */}
