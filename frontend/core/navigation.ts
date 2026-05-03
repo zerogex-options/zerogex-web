@@ -65,7 +65,6 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Metrics',
     items: [
-      { id: '/market-maker-exposures', label: 'Market Maker Exposures', requiredTier: 'basic' },
       { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
       { id: '/greeks-gex', label: 'Greeks & GEX', requiredTier: 'basic' },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },

@@ -459,7 +459,7 @@ export default function GammaHeatmapCanvas() {
       >
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
-            GEX Heatmap (Smooth)
+            GEX Heatmap Timeseries
           </h3>
           <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. The color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. The y-axis is cropped to ±2% of the underlying price range. Candlesticks show the underlying OHLC and the colored line marks the gamma flip.">
             <Info size={14} />

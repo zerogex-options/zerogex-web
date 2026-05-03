@@ -482,8 +482,8 @@ export default function GammaExposurePage() {
         <div className="flex items-center gap-1 mb-4 border-b" style={{ borderColor: borderColor }}>
           {(
             [
-              { id: 'heatmap' as const, label: 'GEX Heatmap (Smooth)' },
-              { id: 'mmx' as const, label: 'Market Maker Exposures' },
+              { id: 'heatmap' as const, label: 'GEX Heatmap Timeseries' },
+              { id: 'mmx' as const, label: 'MM Exposures Composite' },
             ]
           ).map((tab) => {
             const active = vizTab === tab.id;
