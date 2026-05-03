@@ -942,7 +942,7 @@ export default function LandingPage() {
             <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
             <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
             <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
-            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="Greeks & GEX — Deep Dive"            color={C.green} />
+            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="GEX Summary — Headline Levels"       color={C.green} />
           </div>
         </div>
       </section>

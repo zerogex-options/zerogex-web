@@ -599,7 +599,7 @@ export default function MarketMakerExposures() {
         className="flex items-center justify-between px-5 py-3"
         style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
       >
-        <div className="text-sm font-semibold tracking-wide">{symbol} Market Maker Exposures</div>
+        <div className="text-sm font-semibold tracking-wide">{symbol} Strike Profile</div>
         <button
           type="button"
           onClick={() => setFullscreen((v) => !v)}

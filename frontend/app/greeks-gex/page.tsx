@@ -1,6 +1,6 @@
 /**
- * Greeks & GEX Analysis Page
- * Detailed gamma exposure analysis by strike
+ * GEX Summary Page
+ * Headline GEX numbers, key dealer levels, and options sentiment.
  */
 
 'use client';
@@ -33,7 +33,7 @@ export default function GreeksGEXPage() {
   if (gexLoading && !gexData) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Greeks & GEX</h1>
+        <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard />
           <LoadingCard />
@@ -46,7 +46,7 @@ export default function GreeksGEXPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Greeks & GEX Analysis</h1>
+      <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
 
       {/* Error Messages */}
       {gexError && (

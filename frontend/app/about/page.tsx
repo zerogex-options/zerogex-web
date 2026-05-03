@@ -511,8 +511,8 @@ export default function AboutPage() {
               desc: 'Price options in real time using Black-Scholes with live IV surfaces. Model P&L at expiry, calculate break-even prices, and analyze all five Greeks for any strike or expiration.',
             },
             {
-              icon: Layers, href: '/greeks-gex', label: 'Greeks & GEX', color: C.green,
-              desc: 'Deep-dive into the relationship between individual Greeks and aggregate gamma exposure. See how Delta, Gamma, Theta, Vega, and Charm interact across the options surface.',
+              icon: Layers, href: '/greeks-gex', label: 'GEX Summary', color: C.green,
+              desc: 'Headline GEX numbers (Net, Call, Put) plus the day\'s key dealer levels — gamma flip, max pain, and the call/put walls — at a glance.',
             },
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>

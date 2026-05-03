@@ -483,7 +483,7 @@ export default function GammaExposurePage() {
           {(
             [
               { id: 'heatmap' as const, label: 'GEX Heatmap Timeseries' },
-              { id: 'mmx' as const, label: 'MM Exposures Composite' },
+              { id: 'mmx' as const, label: 'Strike Profile' },
             ]
           ).map((tab) => {
             const active = vizTab === tab.id;
