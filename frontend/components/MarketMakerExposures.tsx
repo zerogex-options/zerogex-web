@@ -9,6 +9,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  RotateCcw,
   Settings2,
   ZoomIn,
   ZoomOut,
@@ -120,6 +121,17 @@ const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
 const ZOOM_STEP = 1.43; // ≈ 1/0.7
 
+const DEFAULTS = {
+  tf: '1m' as ChartTf,
+  withPrev: false,
+  selectedExpiry: 'all',
+  zoomMul: 1.6,
+  paused: false,
+  gexMode: 'split' as 'split' | 'net',
+  showOiDots: true,
+  showGrid: true,
+};
+
 export default function MarketMakerExposures() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -132,17 +144,28 @@ export default function MarketMakerExposures() {
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
   // ── User-controlled view state ──
-  const [tf, setTf] = useState<ChartTf>('1m');
-  const [withPrev, setWithPrev] = useState<boolean>(false);
-  const [selectedExpiry, setSelectedExpiry] = useState<string>('all');
-  const [zoomMul, setZoomMul] = useState<number>(1.6);
-  const [paused, setPaused] = useState<boolean>(false);
-  const [gexMode, setGexMode] = useState<'split' | 'net'>('split');
-  const [showOiDots, setShowOiDots] = useState<boolean>(true);
-  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
+  const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
+  const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
+  const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
+  const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
+  const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
+  const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
+  const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+
+  const resetAll = () => {
+    setTf(DEFAULTS.tf);
+    setWithPrev(DEFAULTS.withPrev);
+    setSelectedExpiry(DEFAULTS.selectedExpiry);
+    setZoomMul(DEFAULTS.zoomMul);
+    setPaused(DEFAULTS.paused);
+    setGexMode(DEFAULTS.gexMode);
+    setShowOiDots(DEFAULTS.showOiDots);
+    setShowGrid(DEFAULTS.showGrid);
+  };
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -696,6 +719,17 @@ export default function MarketMakerExposures() {
           {paused ? <Play size={12} /> : <Pause size={12} />}
         </button>
 
+        {/* Reset all */}
+        <button
+          type="button"
+          title="Reset all settings to default"
+          onClick={resetAll}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+        >
+          <RotateCcw size={12} />
+        </button>
+
         {/* Settings */}
         <div ref={settingsRef} className="relative">
           <button
@@ -735,13 +769,14 @@ export default function MarketMakerExposures() {
                 <button
                   type="button"
                   onClick={() => {
-                    setZoomMul(1.6);
+                    resetAll();
                     setSettingsOpen(false);
                   }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
-                  style={{ color: subtle }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+                  style={{ color: textPrimary }}
                 >
-                  Reset zoom
+                  <RotateCcw size={12} />
+                  <span>Reset all settings</span>
                 </button>
               </div>
             </div>
