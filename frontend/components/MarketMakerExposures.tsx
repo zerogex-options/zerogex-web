@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Clock,
+  Maximize2,
+  Minimize2,
+  Pause,
   Play,
   Settings2,
   ZoomIn,
@@ -65,6 +66,12 @@ function tfToApi(tf: ChartTf): string {
   return tf === '1m' ? '1min' : tf === '5m' ? '5min' : tf === '15m' ? '15min' : tf === '1h' ? '1hr' : '1day';
 }
 
+function tfWindow(tf: ChartTf): number {
+  // Always fetch enough bars to cover ~2 trading sessions so the "With Prev"
+  // toggle never has to refire the request.
+  return tf === '1m' ? 800 : tf === '5m' ? 200 : tf === '15m' ? 80 : tf === '1h' ? 30 : 60;
+}
+
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
   if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
@@ -82,6 +89,10 @@ function niceStep(range: number, targetCount = 10): number {
   if (norm < 3.5) return 2 * magnitude;
   if (norm < 7.5) return 5 * magnitude;
   return 10 * magnitude;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 // SVG layout constants — chosen to match the reference screenshot proportions.
@@ -105,6 +116,10 @@ const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
 
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 4.0;
+const ZOOM_STEP = 1.43; // ≈ 1/0.7
+
 export default function MarketMakerExposures() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -114,21 +129,62 @@ export default function MarketMakerExposures() {
   const border = colors.muted;
   const subtle = colors.muted;
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+  const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
+  // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>('1m');
-  const [withPrev, setWithPrev] = useState(true);
+  const [withPrev, setWithPrev] = useState<boolean>(false);
+  const [selectedExpiry, setSelectedExpiry] = useState<string>('all');
+  const [zoomMul, setZoomMul] = useState<number>(1.6);
+  const [paused, setPaused] = useState<boolean>(false);
+  const [gexMode, setGexMode] = useState<'split' | 'net'>('split');
+  const [showOiDots, setShowOiDots] = useState<boolean>(true);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [fullscreen, setFullscreen] = useState<boolean>(false);
+  const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+
+  const expiryRef = useRef<HTMLDivElement | null>(null);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!expiryOpen && !settingsOpen) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (expiryOpen && !expiryRef.current?.contains(target)) setExpiryOpen(false);
+      if (settingsOpen && !settingsRef.current?.contains(target)) setSettingsOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [expiryOpen, settingsOpen]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
+
+  // ── Pause-aware polling intervals (passing 0 disables the interval after the initial fetch) ──
+  const summaryInterval = paused ? 0 : 5000;
+  const quoteInterval = paused ? 0 : 1000;
+  const strikeInterval = paused ? 0 : 10000;
+  const oiInterval = paused ? 0 : 30000;
+  const priceInterval = paused ? 0 : 5000;
 
   // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexStrikeChart, GexWallsChart) ──
-  const { data: gexSummary } = useGEXSummary(symbol, 5000);
-  const { data: quote } = useMarketQuote(symbol, 1000);
-  const { data: gexByStrike } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
+  const { data: quote } = useMarketQuote(symbol, quoteInterval);
+  const { data: gexByStrike } = useGEXByStrike(symbol, 200, strikeInterval, 'impact');
   const { data: openInterestData } = useApiData<OpenInterestApiResponse | OpenInterestRow[] | null>(
     `/api/market/open-interest?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: 30000 },
+    { refreshInterval: oiInterval },
   );
   const { data: priceBars } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=400`,
-    { refreshInterval: 5000 },
+    `/api/market/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${tfWindow(tf)}`,
+    { refreshInterval: priceInterval },
   );
 
   const openInterestRows = useMemo<OpenInterestRow[]>(() => {
@@ -141,9 +197,30 @@ export default function MarketMakerExposures() {
     return [];
   }, [openInterestData]);
 
-  const oiByStrike = useMemo(() => {
-    const grouped = new Map<number, { callOi: number; putOi: number }>();
+  const availableExpirations = useMemo(() => {
+    const exps = new Set<string>();
+    (gexByStrike || []).forEach((row) => {
+      const exp = String(row.expiration || '').trim();
+      if (exp) exps.add(exp);
+    });
     openInterestRows.forEach((row) => {
+      const exp = String(row.expiration || '').trim();
+      if (exp) exps.add(exp);
+    });
+    return Array.from(exps).sort();
+  }, [gexByStrike, openInterestRows]);
+
+  const filteredGexByStrike = useMemo(() => {
+    if (selectedExpiry === 'all') return gexByStrike || [];
+    return (gexByStrike || []).filter((row) => String(row.expiration || '') === selectedExpiry);
+  }, [gexByStrike, selectedExpiry]);
+
+  const filteredOiByStrike = useMemo(() => {
+    const grouped = new Map<number, { callOi: number; putOi: number }>();
+    const source = selectedExpiry === 'all'
+      ? openInterestRows
+      : openInterestRows.filter((row) => String(row.expiration || '') === selectedExpiry);
+    source.forEach((row) => {
       const strike = Number(row.strike);
       if (!Number.isFinite(strike) || strike <= 0) return;
       const existing = grouped.get(strike) ?? { callOi: 0, putOi: 0 };
@@ -158,11 +235,11 @@ export default function MarketMakerExposures() {
       grouped.set(strike, existing);
     });
     return grouped;
-  }, [openInterestRows]);
+  }, [openInterestRows, selectedExpiry]);
 
   const strikeAggregations = useMemo<StrikeAggregation[]>(() => {
     const grouped = new Map<number, StrikeAggregation>();
-    (gexByStrike || []).forEach((row) => {
+    filteredGexByStrike.forEach((row) => {
       const strike = Number(row.strike);
       if (!Number.isFinite(strike)) return;
       const existing = grouped.get(strike) ?? { strike, netGex: 0, callGex: 0, putGex: 0, callOi: 0, putOi: 0 };
@@ -173,9 +250,9 @@ export default function MarketMakerExposures() {
       existing.putOi += Number(row.put_oi || 0);
       grouped.set(strike, existing);
     });
-    if (oiByStrike.size > 0) {
+    if (filteredOiByStrike.size > 0) {
       grouped.forEach((value, key) => {
-        const oi = oiByStrike.get(key);
+        const oi = filteredOiByStrike.get(key);
         if (oi) {
           value.callOi = oi.callOi;
           value.putOi = oi.putOi;
@@ -183,7 +260,7 @@ export default function MarketMakerExposures() {
       });
     }
     return Array.from(grouped.values()).sort((a, b) => b.strike - a.strike);
-  }, [gexByStrike, oiByStrike]);
+  }, [filteredGexByStrike, filteredOiByStrike]);
 
   const spot = useMemo(() => {
     const candidates = [quote?.close, gexSummary?.spot_price].filter((v) => Number.isFinite(Number(v)));
@@ -198,7 +275,7 @@ export default function MarketMakerExposures() {
     return { value: c - o, pct: ((c - o) / o) * 100 };
   }, [quote]);
 
-  const candles = useMemo(() => {
+  const allCandles = useMemo(() => {
     const filtered = omitClosedMarketTimes(priceBars || [], (b) => b.timestamp);
     return filtered
       .map((b) => ({
@@ -211,9 +288,31 @@ export default function MarketMakerExposures() {
       .filter((c) => Number.isFinite(c.open) && c.open > 0);
   }, [priceBars]);
 
+  const nyDateFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    [],
+  );
+
+  const todaySessionDate = useMemo(() => {
+    if (allCandles.length === 0) return '';
+    return nyDateFmt.format(new Date(allCandles[allCandles.length - 1].timestamp));
+  }, [allCandles, nyDateFmt]);
+
+  const visibleCandles = useMemo(() => {
+    if (allCandles.length === 0 || !todaySessionDate) return allCandles;
+    if (withPrev) return allCandles;
+    return allCandles.filter((c) => nyDateFmt.format(new Date(c.timestamp)) === todaySessionDate);
+  }, [allCandles, withPrev, todaySessionDate, nyDateFmt]);
+
   const yBounds = useMemo(() => {
     const prices: number[] = [];
-    candles.forEach((c) => prices.push(c.high, c.low));
+    visibleCandles.forEach((c) => prices.push(c.high, c.low));
     if (spot != null) prices.push(spot);
 
     if (prices.length === 0 && strikeAggregations.length === 0) return null;
@@ -222,7 +321,7 @@ export default function MarketMakerExposures() {
       const baseSpread = prices.length > 0
         ? Math.max(Math.max(...prices) - spot, spot - Math.min(...prices))
         : spot * 0.02;
-      const halfRange = Math.max(baseSpread, spot * 0.012) * 1.6;
+      const halfRange = Math.max(baseSpread, spot * 0.012) * zoomMul;
       return { yMin: spot - halfRange, yMax: spot + halfRange };
     }
 
@@ -230,7 +329,7 @@ export default function MarketMakerExposures() {
       const pMin = Math.min(...prices);
       const pMax = Math.max(...prices);
       const center = (pMin + pMax) / 2;
-      const halfRange = Math.max((pMax - pMin) / 2, center * 0.02) * 1.4;
+      const halfRange = Math.max((pMax - pMin) / 2, center * 0.02) * zoomMul;
       return { yMin: center - halfRange, yMax: center + halfRange };
     }
 
@@ -238,7 +337,7 @@ export default function MarketMakerExposures() {
       yMin: Math.min(...strikeAggregations.map((s) => s.strike)),
       yMax: Math.max(...strikeAggregations.map((s) => s.strike)),
     };
-  }, [candles, strikeAggregations, spot]);
+  }, [visibleCandles, strikeAggregations, spot, zoomMul]);
 
   const yForPrice = (price: number): number => {
     if (!yBounds) return PLOT_TOP;
@@ -277,11 +376,11 @@ export default function MarketMakerExposures() {
   }, [visibleStrikes]);
 
   const timeBounds = useMemo(() => {
-    if (candles.length === 0) return null;
-    const times = candles.map((c) => new Date(c.timestamp).getTime()).filter(Number.isFinite);
+    if (visibleCandles.length === 0) return null;
+    const times = visibleCandles.map((c) => new Date(c.timestamp).getTime()).filter(Number.isFinite);
     if (times.length === 0) return null;
     return { tMin: Math.min(...times), tMax: Math.max(...times) };
-  }, [candles]);
+  }, [visibleCandles]);
 
   const xForTime = (t: number): number => {
     if (!timeBounds) return LEFT_X;
@@ -295,17 +394,32 @@ export default function MarketMakerExposures() {
     if (!timeBounds) return [] as Array<{ t: number; label: string }>;
     const { tMin, tMax } = timeBounds;
     const out: Array<{ t: number; label: string }> = [];
-    const start = new Date(tMin);
-    start.setHours(0, 0, 0, 0);
-    for (let h = 9; h <= 16; h += 2) {
-      const d = new Date(start);
-      d.setHours(h);
-      const t = d.getTime();
-      if (t >= tMin && t <= tMax) {
-        out.push({
-          t,
-          label: d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).replace(/\s/, ' '),
-        });
+    const span = tMax - tMin;
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (span <= oneDay * 1.5) {
+      // Intraday: hourly labels
+      const start = new Date(tMin);
+      start.setHours(0, 0, 0, 0);
+      for (let day = 0; day < 3; day++) {
+        for (let h = 9; h <= 16; h += 2) {
+          const d = new Date(start);
+          d.setDate(d.getDate() + day);
+          d.setHours(h);
+          const t = d.getTime();
+          if (t >= tMin && t <= tMax) {
+            out.push({
+              t,
+              label: d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).replace(/\s/, ' '),
+            });
+          }
+        }
+      }
+    } else {
+      // Multi-day: date labels
+      const step = Math.max(oneDay, span / 6);
+      for (let t = tMin; t <= tMax; t += step) {
+        const d = new Date(t);
+        out.push({ t, label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
       }
     }
     return out;
@@ -332,19 +446,12 @@ export default function MarketMakerExposures() {
     return items;
   }, [gexSummary, spot, yBounds]);
 
-  const expiryLabel = useMemo(() => {
-    const exps = new Set<string>();
-    (gexByStrike || []).forEach((row) => {
-      const exp = String(row.expiration || '').trim();
-      if (exp) exps.add(exp);
-    });
-    return exps.size === 0 ? '—' : Array.from(exps).sort()[0];
-  }, [gexByStrike]);
-
+  const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
+  const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
   const now = new Date();
   const dteLabel = (() => {
-    if (!expiryLabel || expiryLabel === '—') return '—';
-    const expDate = new Date(expiryLabel);
+    if (!dteSourceExpiry) return '—';
+    const expDate = new Date(dteSourceExpiry);
     if (Number.isNaN(expDate.getTime())) return '—';
     const days = Math.max(0, Math.round((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
     return `${days}d`;
@@ -374,22 +481,50 @@ export default function MarketMakerExposures() {
   });
   const toolbarBtnClass = 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors';
 
+  const containerStyle: React.CSSProperties = fullscreen
+    ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        borderRadius: 0,
+        overflow: 'auto',
+        backgroundColor: cardBg,
+        border: 'none',
+      }
+    : {
+        backgroundColor: cardBg,
+        border: `1px solid ${border}`,
+        overflow: 'hidden',
+      };
+
+  const popoverStyle: React.CSSProperties = {
+    backgroundColor: popoverBg,
+    border: `1px solid ${border}`,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+  };
+
+  const isPrevSession = (ts: string): boolean => {
+    if (!todaySessionDate) return false;
+    return nyDateFmt.format(new Date(ts)) !== todaySessionDate;
+  };
+
   return (
-    <div
-      className="rounded-2xl"
-      style={{ backgroundColor: cardBg, border: `1px solid ${border}`, overflow: 'hidden' }}
-    >
+    <div className="rounded-2xl" style={containerStyle}>
       {/* Title bar */}
       <div
         className="flex items-center justify-between px-5 py-3"
         style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
       >
         <div className="text-sm font-semibold tracking-wide">{symbol} Market Maker Exposures</div>
-        <div className="flex items-center gap-3 text-xs" style={{ color: subtle }}>
-          <span>↗</span>
-          <span>⤢</span>
-          <span>×</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => setFullscreen((v) => !v)}
+          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+          className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
+          style={{ color: subtle }}
+        >
+          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
       </div>
 
       {/* Symbol + price banner */}
@@ -406,31 +541,98 @@ export default function MarketMakerExposures() {
             {change.pct.toFixed(2)}%)
           </span>
         )}
+        {paused && (
+          <span
+            className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+            style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+          >
+            Paused
+          </span>
+        )}
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
-        <button type="button" title="Date selector" className={toolbarBtnClass} style={toolbarBtnStyle()}>
-          <ChevronLeft size={12} />
-          <Calendar size={12} />
+        {/* Date label (informational, no nav — historical date selection requires a backend date param) */}
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
+          <Clock size={12} />
           <span>{todayLabel}</span>
-          <ChevronRight size={12} />
-        </button>
-        <button type="button" title="Timeframe window" className={toolbarBtnClass} style={toolbarBtnStyle()}>
-          <ChevronLeft size={12} />
-          <span>Live</span>
-          <Clock size={12} />
-        </button>
-        <button type="button" title="Front expiry" className={toolbarBtnClass} style={toolbarBtnStyle()}>
-          <span>Expiry {expiryLabel}</span>
-        </button>
-        <button type="button" title="DTE" className={toolbarBtnClass} style={toolbarBtnStyle()}>
+        </div>
+
+        {/* Expiry dropdown */}
+        <div ref={expiryRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setExpiryOpen((v) => !v);
+              setSettingsOpen(false);
+            }}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(selectedExpiry !== 'all')}
+            title="Filter by expiration"
+            disabled={availableExpirations.length === 0}
+          >
+            <span>Expiry {expiryDisplay}</span>
+            <ChevronDown size={12} />
+          </button>
+          {expiryOpen && (
+            <div
+              className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
+              style={{ ...popoverStyle, minWidth: 160, maxHeight: 260, overflowY: 'auto' }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExpiry('all');
+                  setExpiryOpen(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                style={{
+                  color: selectedExpiry === 'all' ? textPrimary : subtle,
+                  fontWeight: selectedExpiry === 'all' ? 600 : 400,
+                }}
+              >
+                All expirations
+              </button>
+              {availableExpirations.map((exp) => (
+                <button
+                  key={exp}
+                  type="button"
+                  onClick={() => {
+                    setSelectedExpiry(exp);
+                    setExpiryOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                  style={{
+                    color: selectedExpiry === exp ? textPrimary : subtle,
+                    fontWeight: selectedExpiry === exp ? 600 : 400,
+                  }}
+                >
+                  {exp}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* DTE label (auto-derived) */}
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry (front month or selected)">
           <span>DTE {dteLabel}</span>
-          <Clock size={12} />
-        </button>
-        <button type="button" title="Chart options" className={toolbarBtnClass} style={toolbarBtnStyle()}>
+        </div>
+
+        {/* Gamma display mode toggle */}
+        <button
+          type="button"
+          onClick={() => setGexMode((m) => (m === 'split' ? 'net' : 'split'))}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle(gexMode === 'net')}
+          title={`Gamma mode: ${gexMode === 'split' ? 'Call/Put split' : 'Net only'} (click to toggle)`}
+        >
           <BarChart3 size={12} />
+          <span>{gexMode === 'split' ? 'Split' : 'Net'}</span>
         </button>
+
+        {/* Timeframe selector */}
         <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
           {TIMEFRAME_OPTIONS.map((option) => (
             <button
@@ -447,27 +649,105 @@ export default function MarketMakerExposures() {
             </button>
           ))}
         </div>
+
+        {/* With Prev */}
         <button
           type="button"
-          title="Toggle previous session overlay"
+          title="Overlay the previous trading session's candles"
           onClick={() => setWithPrev((v) => !v)}
           className={toolbarBtnClass}
           style={toolbarBtnStyle(withPrev)}
         >
           <span>With Prev</span>
         </button>
-        <button type="button" title="Zoom out" className={toolbarBtnClass} style={toolbarBtnStyle()}>
+
+        {/* Zoom out */}
+        <button
+          type="button"
+          title="Zoom out (wider strike/price range)"
+          onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+          disabled={zoomMul >= ZOOM_MAX - 1e-6}
+        >
           <ZoomOut size={12} />
         </button>
-        <button type="button" title="Zoom in" className={toolbarBtnClass} style={toolbarBtnStyle()}>
+
+        {/* Zoom in */}
+        <button
+          type="button"
+          title="Zoom in (tighter strike/price range)"
+          onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+          disabled={zoomMul <= ZOOM_MIN + 1e-6}
+        >
           <ZoomIn size={12} />
         </button>
-        <button type="button" title="Play / replay" className={toolbarBtnClass} style={toolbarBtnStyle()}>
-          <Play size={12} />
+
+        {/* Pause / Play */}
+        <button
+          type="button"
+          title={paused ? 'Resume live updates' : 'Pause live updates'}
+          onClick={() => setPaused((v) => !v)}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle(paused)}
+        >
+          {paused ? <Play size={12} /> : <Pause size={12} />}
         </button>
-        <button type="button" title="Settings" className={toolbarBtnClass} style={toolbarBtnStyle()}>
-          <Settings2 size={12} />
-        </button>
+
+        {/* Settings */}
+        <div ref={settingsRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen((v) => !v);
+              setExpiryOpen(false);
+            }}
+            title="Display settings"
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(settingsOpen)}
+          >
+            <Settings2 size={12} />
+          </button>
+          {settingsOpen && (
+            <div
+              className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
+              style={{ ...popoverStyle, minWidth: 200 }}
+            >
+              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <input
+                  type="checkbox"
+                  checked={showOiDots}
+                  onChange={(e) => setShowOiDots(e.target.checked)}
+                />
+                <span>Show OI dots</span>
+              </label>
+              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={(e) => setShowGrid(e.target.checked)}
+                />
+                <span>Show grid lines</span>
+              </label>
+              <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setZoomMul(1.6);
+                    setSettingsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                  style={{ color: subtle }}
+                >
+                  Reset zoom
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="ml-auto text-xs" style={{ color: subtle }}>
           Updated {updatedLabel}
         </div>
@@ -486,9 +766,13 @@ export default function MarketMakerExposures() {
             const y = yForPrice(p);
             return (
               <g key={`grid-${p}`}>
-                <line x1={LEFT_X} x2={STRIKE_X} y1={y} y2={y} stroke={gridStroke} />
-                <line x1={MID_X} x2={MID_X + MID_W} y1={y} y2={y} stroke={gridStroke} />
-                <line x1={RIGHT_X} x2={RIGHT_X + RIGHT_W} y1={y} y2={y} stroke={gridStroke} />
+                {showGrid && (
+                  <>
+                    <line x1={LEFT_X} x2={STRIKE_X} y1={y} y2={y} stroke={gridStroke} />
+                    <line x1={MID_X} x2={MID_X + MID_W} y1={y} y2={y} stroke={gridStroke} />
+                    <line x1={RIGHT_X} x2={RIGHT_X + RIGHT_W} y1={y} y2={y} stroke={gridStroke} />
+                  </>
+                )}
                 <text
                   x={STRIKE_X + STRIKE_W / 2}
                   y={y + 3.5}
@@ -504,7 +788,7 @@ export default function MarketMakerExposures() {
           })}
 
           {/* ── LEFT PANEL: candlestick price chart ── */}
-          {candles.map((c, i) => {
+          {visibleCandles.map((c, i) => {
             const x = xForTime(new Date(c.timestamp).getTime());
             const yO = yForPrice(c.open);
             const yC = yForPrice(c.close);
@@ -515,8 +799,9 @@ export default function MarketMakerExposures() {
             const bodyTop = Math.min(yO, yC);
             const bodyH = Math.max(1, Math.abs(yO - yC));
             const candleW = 2.2;
+            const opacity = isPrevSession(c.timestamp) ? 0.35 : 1;
             return (
-              <g key={`cdl-${i}-${c.timestamp}`}>
+              <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
                 <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={1} />
                 <rect x={x - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
               </g>
@@ -549,11 +834,34 @@ export default function MarketMakerExposures() {
           {visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
+            if (gexMode === 'net') {
+              const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
+              const positive = s.netGex >= 0;
+              return (
+                <g key={`gex-${s.strike}`}>
+                  {showOiDots && (
+                    <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                  )}
+                  {s.netGex !== 0 && (
+                    <rect
+                      x={positive ? MID_X + MID_W / 2 : MID_X + MID_W / 2 - Math.max(0, w)}
+                      y={y - barH / 2}
+                      width={Math.max(0, w)}
+                      height={barH}
+                      fill={positive ? colors.bullish : colors.bearish}
+                      opacity={0.95}
+                    />
+                  )}
+                </g>
+              );
+            }
             const callW = (Math.abs(s.callGex) / gammaXMax) * (MID_W / 2);
             const putW = (Math.abs(s.putGex) / gammaXMax) * (MID_W / 2);
             return (
               <g key={`gex-${s.strike}`}>
-                <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                {showOiDots && (
+                  <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                )}
                 {s.callGex !== 0 && (
                   <rect
                     x={MID_X + MID_W / 2}
@@ -594,7 +902,7 @@ export default function MarketMakerExposures() {
             textAnchor="middle"
             fontWeight={600}
           >
-            Gamma
+            Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
           </text>
 
           {/* ── RIGHT PANEL: Positions horizontal bars ── */}
