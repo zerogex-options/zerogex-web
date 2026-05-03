@@ -1068,44 +1068,86 @@ export default function MarketMakerExposures() {
           </text>
 
           {/* ── Shared horizontal price level lines (drawn last so they sit on top) ── */}
-          {keyLevels.map((lvl, i) => {
-            const text = `${lvl.label} ${lvl.price.toFixed(2)}`;
-            const pillW = Math.max(72, text.length * 5.6);
-            const pillX = CW - pillW - 2;
-            return (
-              <g key={`lvl-${i}-${lvl.price}`}>
-                <line
-                  x1={LEFT_X}
-                  x2={pillX}
-                  y1={lvl.y}
-                  y2={lvl.y}
-                  stroke={lvl.color}
-                  strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
-                  strokeWidth={lvl.emphasized ? 1.4 : 1}
-                  opacity={0.85}
-                />
-                <rect
-                  x={pillX}
-                  y={lvl.y - 8}
-                  width={pillW}
-                  height={16}
-                  rx={3}
-                  fill={lvl.color}
-                  opacity={lvl.emphasized ? 1 : 0.92}
-                />
-                <text
-                  x={pillX + pillW / 2}
-                  y={lvl.y + 3.5}
-                  fontSize={10}
-                  textAnchor="middle"
-                  fill="#0b1620"
-                  fontWeight={700}
-                >
-                  {text}
-                </text>
-              </g>
-            );
-          })}
+          {(() => {
+            // Filter to in-bounds levels and stagger their labels vertically so
+            // overlapping pills always remain readable. The line itself stays
+            // at the original y; a thin leader connects it to the offset pill.
+            const inBounds = keyLevels.filter((lvl) => lvl.y >= PLOT_TOP && lvl.y <= PLOT_BOTTOM);
+            const sorted = [...inBounds].sort((a, b) => a.y - b.y);
+            const PILL_H = 16;
+            const MIN_GAP = PILL_H + 2;
+            const minY = PLOT_TOP + PILL_H / 2;
+            const maxY = PLOT_BOTTOM - PILL_H / 2;
+            const positioned = sorted.map((lvl) => ({ ...lvl, labelY: lvl.y }));
+
+            // Top-down: never let a label sit above the previous one's bottom edge.
+            for (let i = 0; i < positioned.length; i++) {
+              if (i === 0) {
+                positioned[i].labelY = Math.max(minY, positioned[i].labelY);
+              } else {
+                positioned[i].labelY = Math.max(positioned[i].labelY, positioned[i - 1].labelY + MIN_GAP);
+              }
+            }
+            // Bottom-up: clamp to plot bottom and push earlier labels up if needed.
+            for (let i = positioned.length - 1; i >= 0; i--) {
+              if (positioned[i].labelY > maxY) positioned[i].labelY = maxY;
+              if (i > 0 && positioned[i - 1].labelY > positioned[i].labelY - MIN_GAP) {
+                positioned[i - 1].labelY = positioned[i].labelY - MIN_GAP;
+              }
+            }
+
+            return positioned.map((lvl, i) => {
+              const text = `${lvl.label} ${lvl.price.toFixed(2)}`;
+              const pillW = Math.max(72, text.length * 5.6);
+              const pillX = CW - pillW - 2;
+              const lineEndX = pillX - 8;
+              const offset = Math.abs(lvl.labelY - lvl.y) > 0.5;
+              return (
+                <g key={`lvl-${i}-${lvl.price}`}>
+                  <line
+                    x1={LEFT_X}
+                    x2={lineEndX}
+                    y1={lvl.y}
+                    y2={lvl.y}
+                    stroke={lvl.color}
+                    strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
+                    strokeWidth={lvl.emphasized ? 1.4 : 1}
+                    opacity={0.85}
+                  />
+                  {offset && (
+                    <line
+                      x1={lineEndX}
+                      x2={pillX}
+                      y1={lvl.y}
+                      y2={lvl.labelY}
+                      stroke={lvl.color}
+                      strokeWidth={1}
+                      opacity={0.65}
+                    />
+                  )}
+                  <rect
+                    x={pillX}
+                    y={lvl.labelY - PILL_H / 2}
+                    width={pillW}
+                    height={PILL_H}
+                    rx={3}
+                    fill={lvl.color}
+                    opacity={lvl.emphasized ? 1 : 0.92}
+                  />
+                  <text
+                    x={pillX + pillW / 2}
+                    y={lvl.labelY + 3.5}
+                    fontSize={10}
+                    textAnchor="middle"
+                    fill="#0b1620"
+                    fontWeight={700}
+                  >
+                    {text}
+                  </text>
+                </g>
+              );
+            });
+          })()}
 
           {/* ── Crosshair (drawn after levels so it overlays everything) ── */}
           {hover && hover.panel && (
