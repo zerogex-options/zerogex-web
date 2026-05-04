@@ -193,12 +193,13 @@ export default function MarketMakerExposures() {
     return () => document.removeEventListener('keydown', onKey);
   }, [fullscreen]);
 
-  // ── Pause-aware polling intervals (passing 0 disables the interval after the initial fetch) ──
-  const summaryInterval = paused ? 0 : 5000;
+  // ── Pause-aware polling intervals (passing 0 disables the interval after the initial fetch).
+  // Default to 1s on every hook so candles, gamma bars, and OI bars all tick in real time.
+  const summaryInterval = paused ? 0 : 1000;
   const quoteInterval = paused ? 0 : 1000;
-  const strikeInterval = paused ? 0 : 10000;
-  const oiInterval = paused ? 0 : 30000;
-  const priceInterval = paused ? 0 : 5000;
+  const strikeInterval = paused ? 0 : 1000;
+  const oiInterval = paused ? 0 : 1000;
+  const priceInterval = paused ? 0 : 1000;
 
   // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexStrikeChart, GexWallsChart) ──
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);

@@ -1,17 +1,27 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import {
+  ChevronDown,
+  Clock,
+  Info,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
+  RotateCcw,
+  Settings2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useApiData } from '@/hooks/useApiData';
+import { useApiData, useGEXByStrike } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
-import ExpandableCard from './ExpandableCard';
 import { omitClosedMarketTimes } from '@/core/utils';
-import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
@@ -41,6 +51,30 @@ function percentile(values: number[], p: number): number {
   return sorted[idx];
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+const TIMEFRAME_OPTIONS = ['1m', '5m', '15m', '1h', '1d'] as const;
+type ChartTf = (typeof TIMEFRAME_OPTIONS)[number];
+
+function tfToApi(tf: ChartTf): string {
+  return tf === '1m' ? '1min' : tf === '5m' ? '5min' : tf === '15m' ? '15min' : tf === '1h' ? '1hr' : '1day';
+}
+
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 4.0;
+const ZOOM_STEP = 1.43;
+
+const DEFAULTS = {
+  tf: '5m' as ChartTf,
+  withPrev: false,
+  selectedExpiry: 'all',
+  zoomMul: 1.0,
+  paused: false,
+  showGrid: true,
+};
+
 // Padding in CSS pixels
 const PAD_L = 56;
 const PAD_R = 64;
@@ -50,22 +84,92 @@ const PAD_B = 32;
 export default function GammaHeatmapCanvas() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>('5min');
-  const maxPoints = getMaxDataPoints();
+  const isDark = theme === 'dark';
+  const textPrimary = isDark ? colors.light : colors.dark;
+  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const border = colors.muted;
+  const subtle = colors.muted;
+  const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
+
+  // ── User-controlled view state ──
+  const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
+  const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
+  const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
+  const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
+  const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
+  const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  const [fullscreen, setFullscreen] = useState<boolean>(false);
+  const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+
+  const resetAll = () => {
+    setTf(DEFAULTS.tf);
+    setWithPrev(DEFAULTS.withPrev);
+    setSelectedExpiry(DEFAULTS.selectedExpiry);
+    setZoomMul(DEFAULTS.zoomMul);
+    setPaused(DEFAULTS.paused);
+    setShowGrid(DEFAULTS.showGrid);
+  };
+
+  const expiryRef = useRef<HTMLDivElement | null>(null);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!expiryOpen && !settingsOpen) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (expiryOpen && !expiryRef.current?.contains(target)) setExpiryOpen(false);
+      if (settingsOpen && !settingsRef.current?.contains(target)) setSettingsOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [expiryOpen, settingsOpen]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
+
+  // ── Pause-aware polling intervals — 1s on every hook so the heatmap stays live. ──
+  const heatmapInterval = paused ? 0 : 1000;
+  const priceInterval = paused ? 0 : 1000;
+  const historicalInterval = paused ? 0 : 1000;
+  const byStrikeInterval = paused ? 0 : 10000; // only used to source expiration list
+
+  const baseMaxPoints = getMaxDataPoints();
+  // With-Prev doubles the time window so the heatmap reaches into the prior session.
+  const maxPoints = withPrev ? baseMaxPoints * 2 : baseMaxPoints;
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
+  const expiryParam = selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
+  const apiTf = tfToApi(tf);
+
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
-    { refreshInterval: 5000 },
+    `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}${expiryParam}`,
+    { refreshInterval: heatmapInterval },
   );
   const { data: priceData } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
-    { refreshInterval: 5000 },
+    `/api/market/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
+    { refreshInterval: priceInterval },
   );
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
-    `/api/gex/historical?${symParam}&timeframe=${timeframe}&window_units=${maxPoints}`,
-    { refreshInterval: 5000 },
+    `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
+    { refreshInterval: historicalInterval },
   );
+  const { data: gexByStrike } = useGEXByStrike(symbol, 200, byStrikeInterval, 'impact');
+
+  const availableExpirations = useMemo(() => {
+    const exps = new Set<string>();
+    (gexByStrike || []).forEach((row) => {
+      const exp = String(row.expiration || '').trim();
+      if (exp) exps.add(exp);
+    });
+    return Array.from(exps).sort();
+  }, [gexByStrike]);
 
   // Build the dense (time × strike) matrix once per fetch.
   const grid = useMemo(() => {
@@ -170,13 +274,15 @@ export default function GammaHeatmapCanvas() {
     }
     const priceMin = Math.min(...prices);
     const priceMax = Math.max(...prices);
-    const yMin = priceMin * 0.98;
-    const yMax = priceMax * 1.02;
+    // Margin is the ±2% baseline scaled by the user-controlled zoom (default 1.0).
+    const margin = 0.02 * zoomMul;
+    const yMin = priceMin * (1 - margin);
+    const yMax = priceMax * (1 + margin);
     if (yMax - yMin < 1) {
       return { yMin: grid.minStrike, yMax: grid.maxStrike };
     }
     return { yMin, yMax };
-  }, [grid, priceData]);
+  }, [grid, priceData, zoomMul]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -288,12 +394,14 @@ export default function GammaHeatmapCanvas() {
     for (let s = labelLow; s <= labelHigh; s += labelStep) {
       const py = yForStrike(s);
       ctx.fillText(`$${s}`, PAD_L - 6, py);
-      ctx.strokeStyle = gridColor;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(PAD_L, py);
-      ctx.lineTo(PAD_L + plotW, py);
-      ctx.stroke();
+      if (showGrid) {
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD_L, py);
+        ctx.lineTo(PAD_L + plotW, py);
+        ctx.stroke();
+      }
     }
 
     ctx.textAlign = 'center';
@@ -417,7 +525,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover]);
+  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover, showGrid]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
@@ -441,33 +549,274 @@ export default function GammaHeatmapCanvas() {
     return { ts, strike: Math.round(strike), value, priceRow, gammaFlip };
   }, [hover, grid, bounds, priceData, gammaFlipByTs, size]);
 
+  // ── Toolbar derived labels ──
+  const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
+  const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
+  const now = new Date();
+  const dteLabel = (() => {
+    if (!dteSourceExpiry) return '—';
+    const expDate = new Date(dteSourceExpiry);
+    if (Number.isNaN(expDate.getTime())) return '—';
+    const days = Math.max(0, Math.round((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    return `${days}d`;
+  })();
+  const todayLabel = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const latestTs = grid?.timestamps?.[grid.timestamps.length - 1];
+  const updatedLabel = latestTs ? new Date(latestTs).toLocaleTimeString() : '—';
+
   if (loading && !gexData) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
-  if (!grid) {
-    return (
-      <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
-        <p style={{ color: colors.muted }}>No heatmap data available</p>
-      </div>
-    );
-  }
+
+  const toolbarBtnClass = 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors';
+  const toolbarBtnStyle = (active = false): React.CSSProperties => ({
+    border: `1px solid ${border}`,
+    color: active ? textPrimary : subtle,
+    backgroundColor: active ? 'var(--color-info-soft)' : 'transparent',
+  });
+  const containerStyle: React.CSSProperties = fullscreen
+    ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        borderRadius: 0,
+        overflow: 'auto',
+        backgroundColor: cardBg,
+        border: 'none',
+      }
+    : {
+        backgroundColor: cardBg,
+        border: `1px solid ${border}`,
+        overflow: 'hidden',
+      };
+  const popoverStyle: React.CSSProperties = {
+    backgroundColor: popoverBg,
+    border: `1px solid ${border}`,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+  };
 
   return (
-    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
+    <div className="rounded-lg" style={containerStyle}>
+      {/* Title bar */}
       <div
-        className="rounded-lg overflow-hidden"
-        style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}
+        className="flex items-center justify-between px-5 py-3"
+        style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
       >
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <h3 className="text-xl font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>
-            GEX Heatmap Timeseries
-          </h3>
-          <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. The color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. The y-axis is cropped to ±2% of the underlying price range. Candlesticks show the underlying OHLC and the colored line marks the gamma flip.">
+        <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+          <span>{symbol} GEX Heatmap Timeseries</span>
+          <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. Color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. The y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons). Candlesticks show the underlying OHLC and the colored line marks the gamma flip.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
+        <button
+          type="button"
+          onClick={() => setFullscreen((v) => !v)}
+          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+          className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
+          style={{ color: subtle }}
+        >
+          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+      </div>
 
-        <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="px-4 pt-1 pb-2 flex justify-end" />
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
+          <Clock size={12} />
+          <span>{todayLabel}</span>
+        </div>
 
+        {/* Expiry dropdown */}
+        <div ref={expiryRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setExpiryOpen((v) => !v);
+              setSettingsOpen(false);
+            }}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(selectedExpiry !== 'all')}
+            title="Filter by expiration (best-effort — depends on /api/gex/heatmap supporting the param)"
+            disabled={availableExpirations.length === 0}
+          >
+            <span>Expiry {expiryDisplay}</span>
+            <ChevronDown size={12} />
+          </button>
+          {expiryOpen && (
+            <div
+              className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
+              style={{ ...popoverStyle, minWidth: 160, maxHeight: 260, overflowY: 'auto' }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExpiry('all');
+                  setExpiryOpen(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                style={{
+                  color: selectedExpiry === 'all' ? textPrimary : subtle,
+                  fontWeight: selectedExpiry === 'all' ? 600 : 400,
+                }}
+              >
+                All expirations
+              </button>
+              {availableExpirations.map((exp) => (
+                <button
+                  key={exp}
+                  type="button"
+                  onClick={() => {
+                    setSelectedExpiry(exp);
+                    setExpiryOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                  style={{
+                    color: selectedExpiry === exp ? textPrimary : subtle,
+                    fontWeight: selectedExpiry === exp ? 600 : 400,
+                  }}
+                >
+                  {exp}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry (front month or selected)">
+          <span>DTE {dteLabel}</span>
+        </div>
+
+        <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
+          {TIMEFRAME_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setTf(option)}
+              className="px-2.5 py-1.5 text-xs font-semibold"
+              style={{
+                color: option === tf ? textPrimary : subtle,
+                backgroundColor: option === tf ? 'var(--color-info-soft)' : 'transparent',
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          title="Double the time window so the heatmap reaches into the prior session"
+          onClick={() => setWithPrev((v) => !v)}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle(withPrev)}
+        >
+          <span>With Prev</span>
+        </button>
+
+        <button
+          type="button"
+          title="Zoom out (wider price-range margin)"
+          onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+          disabled={zoomMul >= ZOOM_MAX - 1e-6}
+        >
+          <ZoomOut size={12} />
+        </button>
+        <button
+          type="button"
+          title="Zoom in (tighter price-range margin)"
+          onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+          disabled={zoomMul <= ZOOM_MIN + 1e-6}
+        >
+          <ZoomIn size={12} />
+        </button>
+
+        <button
+          type="button"
+          title={paused ? 'Resume live updates' : 'Pause live updates'}
+          onClick={() => setPaused((v) => !v)}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle(paused)}
+        >
+          {paused ? <Play size={12} /> : <Pause size={12} />}
+        </button>
+
+        <button
+          type="button"
+          title="Reset all settings to default"
+          onClick={resetAll}
+          className={toolbarBtnClass}
+          style={toolbarBtnStyle()}
+        >
+          <RotateCcw size={12} />
+        </button>
+
+        {/* Settings */}
+        <div ref={settingsRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen((v) => !v);
+              setExpiryOpen(false);
+            }}
+            title="Display settings"
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(settingsOpen)}
+          >
+            <Settings2 size={12} />
+          </button>
+          {settingsOpen && (
+            <div
+              className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
+              style={{ ...popoverStyle, minWidth: 200 }}
+            >
+              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={(e) => setShowGrid(e.target.checked)}
+                />
+                <span>Show grid lines</span>
+              </label>
+              <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetAll();
+                    setSettingsOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+                  style={{ color: textPrimary }}
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset all settings</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
+          {paused && (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+            >
+              Paused
+            </span>
+          )}
+          <span>Updated {updatedLabel}</span>
+        </div>
+      </div>
+
+      {/* Heatmap canvas */}
+      {!grid ? (
+        <div className="px-5 py-12 text-center" style={{ color: subtle }}>
+          No heatmap data available
+        </div>
+      ) : (
         <div ref={containerRef} className="relative w-full px-4 pb-4">
           <canvas
             ref={canvasRef}
@@ -511,7 +860,7 @@ export default function GammaHeatmapCanvas() {
             </div>
           )}
         </div>
-      </div>
-    </ExpandableCard>
+      )}
+    </div>
   );
 }
