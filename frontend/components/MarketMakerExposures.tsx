@@ -312,7 +312,7 @@ export default function MarketMakerExposures() {
 
   const allCandles = useMemo(() => {
     const filtered = omitClosedMarketTimes(priceBars || [], (b) => b.timestamp);
-    return filtered
+    const normalized = filtered
       .map((b) => ({
         timestamp: b.timestamp,
         open: Number(b.open ?? b.close ?? 0),
@@ -321,6 +321,12 @@ export default function MarketMakerExposures() {
         low: Number(b.low ?? b.close ?? 0),
       }))
       .filter((c) => Number.isFinite(c.open) && c.open > 0);
+    // Defensive sort: the historical endpoint isn't guaranteed to return rows
+    // in chronological order, and slice(-78) below relies on the newest bars
+    // sitting at the end of the array — otherwise we'd drop the newest 12
+    // bars and anchor the Spot line to the oldest visible candle's close.
+    normalized.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return normalized;
   }, [priceBars]);
 
   const nyDateFmt = useMemo(
