@@ -60,11 +60,11 @@ interface StrikeAggregation {
   putOi: number;
 }
 
-const TIMEFRAME_OPTIONS = ['1m', '5m', '15m', '1h', '1d'] as const;
+const TIMEFRAME_OPTIONS = ['1m', '5m', '15m'] as const;
 type ChartTf = (typeof TIMEFRAME_OPTIONS)[number];
 
 function tfToApi(tf: ChartTf): string {
-  return tf === '1m' ? '1min' : tf === '5m' ? '5min' : tf === '15m' ? '15min' : tf === '1h' ? '1hr' : '1day';
+  return tf === '1m' ? '1min' : tf === '5m' ? '5min' : '15min';
 }
 
 // Render exactly this many candles regardless of interval. At 78 the 5m
@@ -97,6 +97,22 @@ function niceStep(range: number, targetCount = 10): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+// Compute days-to-expiry by comparing the contract's expiration date to today's
+// date in ET. Anchoring both at UTC noon avoids timezone-induced off-by-one
+// (parsing "2026-05-05" as UTC midnight would put it 5 hours behind any
+// afternoon-ET viewer and round to 0 for tomorrow's expiry).
+function computeDte(expiryStr: string | null | undefined): number | null {
+  if (!expiryStr) return null;
+  const m = expiryStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const expUtcNoon = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  const tm = todayStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!tm) return null;
+  const todayUtcNoon = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 12);
+  return Math.max(0, Math.round((expUtcNoon - todayUtcNoon) / 86400000));
 }
 
 // SVG layout constants — sized to fit on a standard desktop without scrolling.
@@ -325,20 +341,12 @@ export default function MarketMakerExposures() {
 
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // With-Prev OFF prefers today's NY session; ON keeps every fetched bar.
-    // If the today filter would return nothing (e.g. pre-market with no
-    // today bars yet), fall back to all candles so the panel never renders
-    // empty. Always cap to TARGET_VISIBLE_CANDLES so X density stays even
-    // across intervals.
-    let pool: typeof allCandles = allCandles;
-    if (!withPrev && todaySessionDate) {
-      const todayPool = allCandles.filter(
-        (c) => nyDateFmt.format(new Date(c.timestamp)) === todaySessionDate,
-      );
-      if (todayPool.length > 0) pool = todayPool;
-    }
-    return pool.slice(-TARGET_VISIBLE_CANDLES);
-  }, [allCandles, withPrev, todaySessionDate, nyDateFmt]);
+    // Always render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
+    // tracks "now" regardless of session boundaries. With-Prev controls the
+    // opacity of prior-session bars in the render pass instead of dropping them
+    // (so the user can still see the full window).
+    return allCandles.slice(-TARGET_VISIBLE_CANDLES);
+  }, [allCandles]);
 
   const yBounds = useMemo(() => {
     const prices: number[] = [];
@@ -455,6 +463,18 @@ export default function MarketMakerExposures() {
     return out;
   }, [timeBounds]);
 
+  // The spot line is anchored to the latest visible candle's close so it never
+  // drifts out of sync with the candles (the live quote ticks on a separate
+  // 1s timer than /api/market/historical). Falls back to the live quote when
+  // no candles are loaded.
+  const chartSpot = useMemo(() => {
+    if (visibleCandles.length > 0) {
+      const last = visibleCandles[visibleCandles.length - 1];
+      if (Number.isFinite(last.close)) return last.close;
+    }
+    return spot;
+  }, [visibleCandles, spot]);
+
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
     const yFor = (price: number) =>
@@ -467,14 +487,14 @@ export default function MarketMakerExposures() {
     if (gexSummary?.call_wall != null && Number.isFinite(gexSummary.call_wall)) {
       items.push({ y: yFor(gexSummary.call_wall), price: gexSummary.call_wall, color: KEY_LEVEL, label: 'Call Wall' });
     }
-    if (spot != null) {
-      items.push({ y: yFor(spot), price: spot, color: SPOT_LINE, label: 'Spot', emphasized: true });
+    if (chartSpot != null) {
+      items.push({ y: yFor(chartSpot), price: chartSpot, color: SPOT_LINE, label: 'Spot', emphasized: true });
     }
     if (gexSummary?.put_wall != null && Number.isFinite(gexSummary.put_wall)) {
       items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     return items;
-  }, [gexSummary, spot, yBounds]);
+  }, [gexSummary, chartSpot, yBounds]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -539,15 +559,9 @@ export default function MarketMakerExposures() {
 
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
   const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
-  const now = new Date();
-  const dteLabel = (() => {
-    if (!dteSourceExpiry) return '—';
-    const expDate = new Date(dteSourceExpiry);
-    if (Number.isNaN(expDate.getTime())) return '—';
-    const days = Math.max(0, Math.round((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    return `${days}d`;
-  })();
-  const todayLabel = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dteValue = computeDte(dteSourceExpiry);
+  const dteLabel = dteValue != null ? `${dteValue}d` : '—';
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   const updatedLabel = useMemo(() => {
     const ts = quote?.timestamp || gexSummary?.timestamp;
@@ -903,7 +917,7 @@ export default function MarketMakerExposures() {
                 const bodyH = Math.max(1, Math.abs(yO - yC));
                 const isHovered = hoveredCandle?.timestamp === c.timestamp;
                 const candleW = isHovered ? baseCandleW * 1.6 : baseCandleW;
-                const opacity = isPrevSession(c.timestamp) ? 0.35 : 1;
+                const opacity = isPrevSession(c.timestamp) && !withPrev ? 0.35 : 1;
                 return (
                   <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
                     <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />

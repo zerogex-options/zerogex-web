@@ -417,6 +417,32 @@ export default function GammaExposurePage() {
                       </button>
                     );
                   })()}
+                  {(() => {
+                    const canClear = selectedExpirations !== null && selectedExpirations.length > 1;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedExpirations((current) => {
+                            if (!current || current.length <= 1) return current;
+                            return [current[0]];
+                          });
+                        }}
+                        disabled={!canClear}
+                        style={{
+                          backgroundColor: inputBg,
+                          borderColor: borderColor,
+                          color: mutedText,
+                          opacity: canClear ? 1 : 0.5,
+                          cursor: canClear ? 'pointer' : 'not-allowed',
+                        }}
+                        className="px-3 py-1 text-xs rounded border"
+                        title="Clear all selections except the first one"
+                      >
+                        Clear
+                      </button>
+                    );
+                  })()}
                   {expirationOptions.map((exp) => {
                     const active = selectedExpirations !== null && selectedExpirations.includes(exp);
                     return (

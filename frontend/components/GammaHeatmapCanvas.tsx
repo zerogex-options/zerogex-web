@@ -55,11 +55,26 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-const TIMEFRAME_OPTIONS = ['1m', '5m', '15m', '1h', '1d'] as const;
+// Compute days-to-expiry from a YYYY-MM-DD expiration string against today in
+// ET, anchoring both at UTC noon so timezone offsets can't round tomorrow down
+// to 0DTE.
+function computeDte(expiryStr: string | null | undefined): number | null {
+  if (!expiryStr) return null;
+  const m = expiryStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const expUtcNoon = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  const tm = todayStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!tm) return null;
+  const todayUtcNoon = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 12);
+  return Math.max(0, Math.round((expUtcNoon - todayUtcNoon) / 86400000));
+}
+
+const TIMEFRAME_OPTIONS = ['1m', '5m', '15m'] as const;
 type ChartTf = (typeof TIMEFRAME_OPTIONS)[number];
 
 function tfToApi(tf: ChartTf): string {
-  return tf === '1m' ? '1min' : tf === '5m' ? '5min' : tf === '15m' ? '15min' : tf === '1h' ? '1hr' : '1day';
+  return tf === '1m' ? '1min' : tf === '5m' ? '5min' : '15min';
 }
 
 const ZOOM_MIN = 0.4;
@@ -552,15 +567,9 @@ export default function GammaHeatmapCanvas() {
   // ── Toolbar derived labels ──
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
   const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
-  const now = new Date();
-  const dteLabel = (() => {
-    if (!dteSourceExpiry) return '—';
-    const expDate = new Date(dteSourceExpiry);
-    if (Number.isNaN(expDate.getTime())) return '—';
-    const days = Math.max(0, Math.round((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    return `${days}d`;
-  })();
-  const todayLabel = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dteValue = computeDte(dteSourceExpiry);
+  const dteLabel = dteValue != null ? `${dteValue}d` : '—';
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const latestTs = grid?.timestamps?.[grid.timestamps.length - 1];
   const updatedLabel = latestTs ? new Date(latestTs).toLocaleTimeString() : '—';
 
