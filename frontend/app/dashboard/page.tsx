@@ -245,7 +245,7 @@ export default function DashboardPage() {
       {/* GEX Metrics */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Gamma Exposure</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Call GEX"
             value={formatCompactUsd(gexData?.total_call_gex)}
@@ -259,6 +259,30 @@ export default function DashboardPage() {
             trend="neutral"
             tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
             theme={theme}
+          />
+          <MetricCard
+            title="Call Wall (Resistance)"
+            value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
+            subtitle={
+              gexData?.call_wall && quoteData?.close
+                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                : 'Heavy call open interest'
+            }
+            tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+            theme={theme}
+            trend="bearish"
+          />
+          <MetricCard
+            title="Put Wall (Support)"
+            value={gexData?.put_wall != null ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
+            subtitle={
+              gexData?.put_wall && quoteData?.close
+                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                : 'Heavy put open interest'
+            }
+            tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+            theme={theme}
+            trend="bullish"
           />
         </div>
       </section>
