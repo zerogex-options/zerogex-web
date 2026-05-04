@@ -72,9 +72,9 @@ function tfToApi(tf: ChartTf): string {
 // proportionally — 1m → ~1.3h, 15m → ~3 sessions, 1h → ~12 sessions, 1d → ~16 weeks.
 const TARGET_VISIBLE_CANDLES = 78;
 
-// Fetch ~2× the visible target so With-Prev can reach into prior sessions
-// without an extra round trip. A single value works across all intervals.
-const FETCH_WINDOW = 200;
+// Match UnderlyingCandlesChart's proven baseline so the historical endpoint
+// reliably returns data for every interval (1m through 1d).
+const FETCH_WINDOW = 90;
 
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
@@ -99,9 +99,9 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-// SVG layout constants — chosen to match the reference screenshot proportions.
+// SVG layout constants — sized to fit on a standard desktop without scrolling.
 const CW = 1200;
-const CH = 720;
+const CH = 648;
 const PLOT_TOP = 24;
 const PLOT_BOTTOM = CH - 72;
 const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
@@ -293,14 +293,6 @@ export default function MarketMakerExposures() {
     return candidates.length > 0 ? Number(candidates[0]) : null;
   }, [quote, gexSummary]);
 
-  const change = useMemo(() => {
-    if (!quote) return null;
-    const c = Number(quote.close);
-    const o = Number(quote.open);
-    if (!Number.isFinite(c) || !Number.isFinite(o) || o === 0) return null;
-    return { value: c - o, pct: ((c - o) / o) * 100 };
-  }, [quote]);
-
   const allCandles = useMemo(() => {
     const filtered = omitClosedMarketTimes(priceBars || [], (b) => b.timestamp);
     return filtered
@@ -332,12 +324,18 @@ export default function MarketMakerExposures() {
 
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // With-Prev OFF restricts to today's NY session; ON keeps every fetched bar.
-    // Either way, cap to the latest TARGET_VISIBLE_CANDLES so the X-axis density
-    // is consistent across intervals.
-    const pool = !withPrev && todaySessionDate
-      ? allCandles.filter((c) => nyDateFmt.format(new Date(c.timestamp)) === todaySessionDate)
-      : allCandles;
+    // With-Prev OFF prefers today's NY session; ON keeps every fetched bar.
+    // If the today filter would return nothing (e.g. pre-market with no
+    // today bars yet), fall back to all candles so the panel never renders
+    // empty. Always cap to TARGET_VISIBLE_CANDLES so X density stays even
+    // across intervals.
+    let pool: typeof allCandles = allCandles;
+    if (!withPrev && todaySessionDate) {
+      const todayPool = allCandles.filter(
+        (c) => nyDateFmt.format(new Date(c.timestamp)) === todaySessionDate,
+      );
+      if (todayPool.length > 0) pool = todayPool;
+    }
     return pool.slice(-TARGET_VISIBLE_CANDLES);
   }, [allCandles, withPrev, todaySessionDate, nyDateFmt]);
 
@@ -619,30 +617,6 @@ export default function MarketMakerExposures() {
         </button>
       </div>
 
-      {/* Symbol + price banner */}
-      <div className="flex items-baseline gap-3 px-5 pt-4" style={{ color: textPrimary }}>
-        <span className="font-semibold text-base">{symbol}</span>
-        <span className="font-bold text-2xl tabular-nums">{spot != null ? spot.toFixed(2) : '--'}</span>
-        {change && (
-          <span
-            className="text-base font-semibold tabular-nums"
-            style={{ color: change.value >= 0 ? colors.bullish : colors.bearish }}
-          >
-            {change.value >= 0 ? '+' : ''}
-            {change.value.toFixed(2)} ({change.value >= 0 ? '+' : ''}
-            {change.pct.toFixed(2)}%)
-          </span>
-        )}
-        {paused && (
-          <span
-            className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-            style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
-          >
-            Paused
-          </span>
-        )}
-      </div>
-
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
         {/* Date label (informational, no nav — historical date selection requires a backend date param) */}
@@ -852,8 +826,16 @@ export default function MarketMakerExposures() {
           )}
         </div>
 
-        <div className="ml-auto text-xs" style={{ color: subtle }}>
-          Updated {updatedLabel}
+        <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
+          {paused && (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+            >
+              Paused
+            </span>
+          )}
+          <span>Updated {updatedLabel}</span>
         </div>
       </div>
 
@@ -894,30 +876,42 @@ export default function MarketMakerExposures() {
           })}
 
           {/* ── LEFT PANEL: candlestick price chart ── */}
-          {(() => {
-            const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
-            const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
-            return visibleCandles.map((c, i) => {
-              const x = xForTime(new Date(c.timestamp).getTime());
-              const yO = yForPrice(c.open);
-              const yC = yForPrice(c.close);
-              const yH = yForPrice(c.high);
-              const yL = yForPrice(c.low);
-              const up = c.close >= c.open;
-              const color = up ? colors.bullish : colors.bearish;
-              const bodyTop = Math.min(yO, yC);
-              const bodyH = Math.max(1, Math.abs(yO - yC));
-              const isHovered = hoveredCandle?.timestamp === c.timestamp;
-              const candleW = isHovered ? baseCandleW * 1.6 : baseCandleW;
-              const opacity = isPrevSession(c.timestamp) ? 0.35 : 1;
-              return (
-                <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
-                  <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />
-                  <rect x={x - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
-                </g>
-              );
-            });
-          })()}
+          {visibleCandles.length === 0 ? (
+            <text
+              x={LEFT_X + LEFT_W / 2}
+              y={(PLOT_TOP + PLOT_BOTTOM) / 2}
+              textAnchor="middle"
+              fontSize={12}
+              fill={subtle}
+            >
+              No price data available
+            </text>
+          ) : (
+            (() => {
+              const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
+              const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
+              return visibleCandles.map((c, i) => {
+                const x = xForTime(new Date(c.timestamp).getTime());
+                const yO = yForPrice(c.open);
+                const yC = yForPrice(c.close);
+                const yH = yForPrice(c.high);
+                const yL = yForPrice(c.low);
+                const up = c.close >= c.open;
+                const color = up ? colors.bullish : colors.bearish;
+                const bodyTop = Math.min(yO, yC);
+                const bodyH = Math.max(1, Math.abs(yO - yC));
+                const isHovered = hoveredCandle?.timestamp === c.timestamp;
+                const candleW = isHovered ? baseCandleW * 1.6 : baseCandleW;
+                const opacity = isPrevSession(c.timestamp) ? 0.35 : 1;
+                return (
+                  <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
+                    <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />
+                    <rect x={x - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
+                  </g>
+                );
+              });
+            })()
+          )}
 
           {/* Time axis labels */}
           {timeLabels.map((tl) => (
