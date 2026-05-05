@@ -30,7 +30,7 @@ type TierCardProps = {
   title: string;
   price: string;
   original?: string;
-  highlight?: string;
+  highlight?: string | string[];
   features: string[];
   accent: string;
   action: TierAction;
@@ -143,20 +143,26 @@ function TierCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
         {highlight && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              border: `1px solid ${accent}66`,
-              color: accent,
-              borderRadius: 999,
-              padding: '4px 10px',
-            }}
-          >
-            {highlight}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            {(Array.isArray(highlight) ? highlight : [highlight]).map((h) => (
+              <span
+                key={h}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  border: `1px solid ${accent}66`,
+                  color: accent,
+                  borderRadius: 999,
+                  padding: '4px 10px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {h}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
@@ -405,7 +411,7 @@ export default function PricingPage() {
             <TierCard
               title="Basic"
               price="Free"
-              highlight="No-Obligation"
+              highlight={['No Obligation', 'Limited Time Only']}
               accent="var(--color-brand-primary)"
               features={[
                 'No credit card required.',
