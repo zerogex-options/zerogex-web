@@ -61,6 +61,22 @@ limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
 LIMITEOF
 fi
 
+# Proxy response cache. The same zone is also defined by zerogex-oa
+# (deploy/steps/120.nginx_api). Whichever repo deploys first writes the
+# snippet; the other skips. The cache directory is created unconditionally
+# so the proxy_cache_path directive can always start cleanly.
+sudo mkdir -p /var/cache/nginx/zerogex
+sudo chown www-data:www-data /var/cache/nginx/zerogex
+
+if [ ! -f /etc/nginx/conf.d/zerogex-cache-zone.conf ]; then
+  sudo tee /etc/nginx/conf.d/zerogex-cache-zone.conf > /dev/null <<'CACHEEOF'
+# Response cache for idempotent GETs. 5s TTL + use_stale + background_update
+# keeps users on slightly-stale data when the upstream is slow or briefly down.
+proxy_cache_path /var/cache/nginx/zerogex levels=1:2 keys_zone=zerogex_cache:10m
+                 max_size=200m inactive=30s use_temp_path=off;
+CACHEEOF
+fi
+
 # Write HTTP bootstrap config (TLS hardened config comes in step 070)
 log "  → Writing HTTP bootstrap nginx config: $CONF_PATH"
 sudo tee "$CONF_PATH" >/dev/null <<EOF_CONF
