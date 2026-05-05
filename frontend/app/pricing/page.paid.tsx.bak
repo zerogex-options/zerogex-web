@@ -1,8 +1,5 @@
 'use client';
 
-// TEMP: Basic tier displayed as Free / no-obligation. To restore paid pricing,
-// copy contents of page.paid.tsx.bak (same folder) over this file.
-
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -267,17 +264,6 @@ export default function PricingPage() {
     }
   }, [callBilling]);
 
-  // TEMP: Free Basic action — restore by deleting this and switching the Basic
-  // TierCard back to actionForPaidTier('basic').
-  const actionForFreeBasic = (): TierAction => {
-    if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
-    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
-    if (isAuthed && TIER_RANK[currentTier] >= TIER_RANK.basic) {
-      return { kind: 'current', label: 'Active' };
-    }
-    return { kind: 'link', href: '/register?next=/pricing', label: 'Sign up — Free' };
-  };
-
   const actionForPaidTier = (tier: 'basic' | 'pro'): TierAction => {
     const label = tier === 'basic' ? 'Basic' : 'Pro';
     if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
@@ -404,16 +390,16 @@ export default function PricingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <TierCard
               title="Basic"
-              price="Free"
-              highlight="No-Obligation"
+              original="$29/mo"
+              price="$19/mo"
+              highlight="Limited Time Only"
               accent="var(--color-brand-primary)"
               features={[
-                'No credit card required.',
                 'Real-time metrics and full strategy tools.',
                 'Access to Basic Signals.',
                 'Designed for disciplined daily execution.',
               ]}
-              action={actionForFreeBasic()}
+              action={actionForPaidTier('basic')}
               busy={busyTier === 'basic' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
