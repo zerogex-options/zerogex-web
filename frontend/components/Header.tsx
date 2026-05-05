@@ -655,17 +655,49 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           {group.subgroups.map((subgroup) => {
                             const subKey = `${group.label}::${subgroup.label}`;
                             const isSubExpanded = mobileExpandedGroups[subKey] ?? false;
+                            const subgroupId = subgroup.id;
+                            const subgroupActive = subgroupId != null && pathname === subgroupId;
+                            const subgroupLabelStyle = {
+                              color: subgroupActive
+                                ? colors.primary
+                                : theme === "dark"
+                                  ? colors.light
+                                  : colors.dark,
+                              opacity: subgroupActive ? 1 : 0.8,
+                            };
                             return (
                               <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${colors.primary}33` }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }))}
-                                  className="mb-1 flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em]"
-                                  style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}
-                                >
-                                  {subgroup.label}
-                                  <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
-                                </button>
+                                <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
+                                  {subgroupId ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        router.push(resolveNavTarget(subgroupId));
+                                        setMobileMenuOpen(false);
+                                      }}
+                                      className="flex-1 text-left bg-transparent"
+                                      style={subgroupLabelStyle}
+                                    >
+                                      {subgroup.label}
+                                    </button>
+                                  ) : (
+                                    <span className="flex-1" style={subgroupLabelStyle}>
+                                      {subgroup.label}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    aria-label={isSubExpanded ? `Collapse ${subgroup.label}` : `Expand ${subgroup.label}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                                    }}
+                                    className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
+                                    style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}
+                                  >
+                                    <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                                  </button>
+                                </div>
                                 {isSubExpanded ? (
                                   <div className="grid grid-cols-1 gap-2">
                                     {subgroup.items.map(renderItem)}

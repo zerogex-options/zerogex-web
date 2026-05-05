@@ -21,6 +21,7 @@ import { colors } from '@/core/colors';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
+import MobileScrollableChart from './MobileScrollableChart';
 import { omitClosedMarketTimes } from '@/core/utils';
 
 interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
@@ -826,49 +827,51 @@ export default function GammaHeatmapCanvas() {
           No heatmap data available
         </div>
       ) : (
-        <div ref={containerRef} className="relative w-full px-4 pb-4">
-          <canvas
-            ref={canvasRef}
-            className="block w-full"
-            onMouseMove={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setHover({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-            }}
-            onMouseLeave={() => setHover(null)}
-          />
-          {tooltip && hover && (
-            <div
-              className="absolute z-10 rounded-lg px-3 py-2 text-xs pointer-events-none"
-              style={{
-                left: Math.min(size.w - 220, hover.x + 16),
-                top: Math.max(0, hover.y - 12),
-                backgroundColor: 'var(--color-chart-tooltip-bg)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-chart-tooltip-text)',
-                boxShadow: '0 8px 24px var(--color-info-soft)',
+        <MobileScrollableChart minWidthClass="min-w-[900px]">
+          <div ref={containerRef} className="relative w-full px-4 pb-4">
+            <canvas
+              ref={canvasRef}
+              className="block w-full"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHover({ x: e.clientX - rect.left, y: e.clientY - rect.top });
               }}
-            >
-              <div className="font-semibold">{new Date(tooltip.ts).toLocaleString()}</div>
-              <div>Strike: ${tooltip.strike}</div>
-              <div>
-                Net GEX: {Number.isFinite(tooltip.value)
-                  ? `${(tooltip.value / 1_000_000).toFixed(2)}M`
-                  : '—'}
-              </div>
-              {tooltip.priceRow && (
+              onMouseLeave={() => setHover(null)}
+            />
+            {tooltip && hover && (
+              <div
+                className="absolute z-10 rounded-lg px-3 py-2 text-xs pointer-events-none"
+                style={{
+                  left: Math.min(size.w - 220, hover.x + 16),
+                  top: Math.max(0, hover.y - 12),
+                  backgroundColor: 'var(--color-chart-tooltip-bg)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-chart-tooltip-text)',
+                  boxShadow: '0 8px 24px var(--color-info-soft)',
+                }}
+              >
+                <div className="font-semibold">{new Date(tooltip.ts).toLocaleString()}</div>
+                <div>Strike: ${tooltip.strike}</div>
                 <div>
-                  O:{Number(tooltip.priceRow.open ?? tooltip.priceRow.close ?? 0).toFixed(2)}
-                  {' '}H:{Number(tooltip.priceRow.high ?? tooltip.priceRow.close ?? 0).toFixed(2)}
-                  {' '}L:{Number(tooltip.priceRow.low ?? tooltip.priceRow.close ?? 0).toFixed(2)}
-                  {' '}C:{Number(tooltip.priceRow.close ?? tooltip.priceRow.open ?? 0).toFixed(2)}
+                  Net GEX: {Number.isFinite(tooltip.value)
+                    ? `${(tooltip.value / 1_000_000).toFixed(2)}M`
+                    : '—'}
                 </div>
-              )}
-              {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip) && (
-                <div>Gamma Flip: ${tooltip.gammaFlip.toFixed(2)}</div>
-              )}
-            </div>
-          )}
-        </div>
+                {tooltip.priceRow && (
+                  <div>
+                    O:{Number(tooltip.priceRow.open ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                    {' '}H:{Number(tooltip.priceRow.high ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                    {' '}L:{Number(tooltip.priceRow.low ?? tooltip.priceRow.close ?? 0).toFixed(2)}
+                    {' '}C:{Number(tooltip.priceRow.close ?? tooltip.priceRow.open ?? 0).toFixed(2)}
+                  </div>
+                )}
+                {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip) && (
+                  <div>Gamma Flip: ${tooltip.gammaFlip.toFixed(2)}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </MobileScrollableChart>
       )}
     </div>
   );
