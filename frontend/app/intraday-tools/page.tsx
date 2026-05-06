@@ -235,6 +235,11 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
+  const { data: volumeSpikesPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
+    `/api/market/historical?${symParam}&timeframe=5min&window_units=300`,
+    { refreshInterval: 30000 }
+  );
+
   const { data: divergenceResponse } = useApiData<unknown>(
     `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
@@ -410,14 +415,21 @@ export default function IntradayToolsPage() {
 
     if (spikeByTs.size === 0) return [];
 
-    const priceByTs = buildUnderlyingPriceMap(byContractRows);
+    const priceByTs = new Map<string, number>();
+    (volumeSpikesPriceBars || []).forEach((bar) => {
+      const minute = normalizeToMinute(bar.timestamp);
+      if (!minute) return;
+      const close = safeNum(bar.close ?? bar.price);
+      if (close == null) return;
+      priceByTs.set(minute, close);
+    });
 
     const sortedKeys = Array.from(spikeByTs.keys()).sort();
     const startMs = new Date(sortedKeys[0]).getTime();
     const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
 
-    const FORWARD_FILL_WINDOW_MS = 10 * 60_000;
+    const FORWARD_FILL_WINDOW_MS = 5 * 60_000;
     let lastPrice: number | null = null;
     let lastPriceMs: number | null = null;
 
@@ -458,7 +470,18 @@ export default function IntradayToolsPage() {
         underlyingPrice,
       };
     });
-  }, [volumeSpikes, byContractRows]);
+  }, [volumeSpikes, volumeSpikesPriceBars]);
+
+  const volumeSpikeVolumeTicks = useMemo(() => {
+    const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
+    if (max <= 0) return [0];
+    const step = 500_000;
+    const ticks: number[] = [];
+    for (let t = step; t <= Math.ceil(max / step) * step; t += step) {
+      ticks.push(t);
+    }
+    return ticks;
+  }, [volumeSpikesChart]);
 
   const volumeSpikeLabelStepMin = useMemo(() => {
     const len = volumeSpikesChart.length;
@@ -474,7 +497,9 @@ export default function IntradayToolsPage() {
       .map((row) => row.underlyingPrice)
       .filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
     if (values.length === 0) return [];
-    return generateNiceTicks(Math.min(...values), Math.max(...values));
+    const ticks = generateNiceTicks(Math.min(...values), Math.max(...values));
+    if (ticks.length <= 2) return ticks;
+    return ticks.slice(1, -1);
   }, [volumeSpikesChart]);
 
   const volumeSpikeDateMarkerMeta = useMemo(() => {
@@ -571,7 +596,7 @@ export default function IntradayToolsPage() {
                     if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                     return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}</g>;
                   }} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => {
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
                     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -615,7 +640,7 @@ export default function IntradayToolsPage() {
                       );
                     }}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" maxBarSize={3} isAnimationActive={false}>
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={5} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
                       const sigma = row.volumeSigma ?? 0;
                       const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';
@@ -623,7 +648,7 @@ export default function IntradayToolsPage() {
                       return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
                     })}
                   </Bar>
-                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
+                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={false} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
