@@ -408,14 +408,25 @@ export default function IntradayToolsPage() {
       }
     });
 
-    const sortedTs = Array.from(spikeByTs.keys()).sort((a, b) => a.localeCompare(b));
-    return sortedTs.map((ts) => {
-      const spike = spikeByTs.get(ts) as VolumeSpikeRow;
-      const volume = safeNum(spike.current_volume);
-      const ratio = safeNum(spike.volume_ratio);
-      const sigma = safeNum(spike.volume_sigma);
-      const price = safeNum(spike.price);
-      const buyingPressure = safeNum(spike.buying_pressure_pct);
+    if (spikeByTs.size === 0) return [];
+
+    const sortedKeys = Array.from(spikeByTs.keys()).sort();
+    const startMs = new Date(sortedKeys[0]).getTime();
+    const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
+
+    const allTs: string[] = [];
+    for (let t = startMs; t <= endMs; t += 60_000) {
+      allTs.push(new Date(t).toISOString());
+    }
+
+    return allTs.map((ts) => {
+      const spike = spikeByTs.get(ts);
+      const volume = spike ? safeNum(spike.current_volume) : null;
+      const ratio = spike ? safeNum(spike.volume_ratio) : null;
+      const sigma = spike ? safeNum(spike.volume_sigma) : null;
+      const price = spike ? safeNum(spike.price) : null;
+      const buyingPressure = spike ? safeNum(spike.buying_pressure_pct) : null;
       return {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
@@ -423,7 +434,7 @@ export default function IntradayToolsPage() {
         volumeRaw: volume,
         volumeRatio: ratio,
         volumeSigma: sigma,
-        volumeClass: spike.volume_class ?? null,
+        volumeClass: spike?.volume_class ?? null,
         buyingPressurePct: buyingPressure,
         underlyingPrice: price,
       };
@@ -548,7 +559,7 @@ export default function IntradayToolsPage() {
                         buyingPressurePct: number | null;
                         underlyingPrice: number | null;
                       } | undefined;
-                      if (!point) return null;
+                      if (!point || point.volumeRaw == null) return null;
                       const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
                       return (
                         <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
@@ -575,11 +586,11 @@ export default function IntradayToolsPage() {
                       );
                     }}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume">
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" maxBarSize={3} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
                       const sigma = row.volumeSigma ?? 0;
                       const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';
-                      const opacity = row.volumeRaw == null ? 0 : 0.85;
+                      const opacity = row.volumeRaw == null ? 0 : 0.95;
                       return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
                     })}
                   </Bar>
