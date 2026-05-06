@@ -429,34 +429,17 @@ export default function IntradayToolsPage() {
     const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
 
-    const FORWARD_FILL_WINDOW_MS = 30 * 60_000;
-    let lastPrice: number | null = null;
-    let lastPriceMs: number | null = null;
-
     const allTs: string[] = [];
     for (let t = startMs; t <= endMs; t += 60_000) {
       allTs.push(new Date(t).toISOString());
     }
 
     return allTs.map((ts) => {
-      const tsMs = new Date(ts).getTime();
       const spike = spikeByTs.get(ts);
       const volume = spike ? safeNum(spike.current_volume) : null;
       const ratio = spike ? safeNum(spike.volume_ratio) : null;
       const sigma = spike ? safeNum(spike.volume_sigma) : null;
       const buyingPressure = spike ? safeNum(spike.buying_pressure_pct) : null;
-      const directPrice = priceByTs.get(ts) ?? (spike ? safeNum(spike.price) : null);
-
-      let underlyingPrice: number | null;
-      if (directPrice != null) {
-        underlyingPrice = directPrice;
-        lastPrice = directPrice;
-        lastPriceMs = tsMs;
-      } else if (lastPrice != null && lastPriceMs != null && tsMs - lastPriceMs <= FORWARD_FILL_WINDOW_MS) {
-        underlyingPrice = lastPrice;
-      } else {
-        underlyingPrice = null;
-      }
 
       return {
         timestamp: ts,
@@ -467,7 +450,7 @@ export default function IntradayToolsPage() {
         volumeSigma: sigma,
         volumeClass: spike?.volume_class ?? null,
         buyingPressurePct: buyingPressure,
-        underlyingPrice,
+        underlyingPrice: priceByTs.get(ts) ?? null,
       };
     });
   }, [volumeSpikes, volumeSpikesPriceBars]);
@@ -648,7 +631,7 @@ export default function IntradayToolsPage() {
                       return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
                     })}
                   </Bar>
-                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={false} isAnimationActive={false} />
+                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={true} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
