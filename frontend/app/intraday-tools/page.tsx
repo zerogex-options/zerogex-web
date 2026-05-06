@@ -43,9 +43,13 @@ interface OpeningRangeRow {
 
 interface VolumeSpikeRow {
   time_et: string;
+  timestamp?: string;
+  price?: number;
   current_volume: number;
+  avg_volume?: number;
   volume_ratio: number;
   volume_sigma: number;
+  buying_pressure_pct?: number;
   volume_class: string;
 }
 
@@ -389,13 +393,14 @@ export default function IntradayToolsPage() {
   }, [smartMoneySessionChart]);
 
   const volumeSpikesChart = useMemo(() => {
-    const spikes = (volumeSpikes || []).filter((spike) => spike.time_et);
-    const priceByTs = buildUnderlyingPriceMap(byContractRows);
-    if (spikes.length === 0 && priceByTs.size === 0) return [];
+    const spikes = volumeSpikes || [];
+    if (spikes.length === 0) return [];
 
     const spikeByTs = new Map<string, VolumeSpikeRow>();
     spikes.forEach((spike) => {
-      const minute = normalizeToMinute(spike.time_et);
+      const ts = spike.timestamp || spike.time_et;
+      if (!ts) return;
+      const minute = normalizeToMinute(ts);
       if (!minute) return;
       const existing = spikeByTs.get(minute);
       if (!existing || (safeNum(spike.volume_sigma) ?? 0) > (safeNum(existing.volume_sigma) ?? 0)) {
@@ -403,12 +408,14 @@ export default function IntradayToolsPage() {
       }
     });
 
-    const allTs = Array.from(new Set([...spikeByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
-    return allTs.map((ts) => {
-      const spike = spikeByTs.get(ts);
-      const volume = spike ? safeNum(spike.current_volume) : null;
-      const ratio = spike ? safeNum(spike.volume_ratio) : null;
-      const sigma = spike ? safeNum(spike.volume_sigma) : null;
+    const sortedTs = Array.from(spikeByTs.keys()).sort((a, b) => a.localeCompare(b));
+    return sortedTs.map((ts) => {
+      const spike = spikeByTs.get(ts) as VolumeSpikeRow;
+      const volume = safeNum(spike.current_volume);
+      const ratio = safeNum(spike.volume_ratio);
+      const sigma = safeNum(spike.volume_sigma);
+      const price = safeNum(spike.price);
+      const buyingPressure = safeNum(spike.buying_pressure_pct);
       return {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
@@ -416,11 +423,12 @@ export default function IntradayToolsPage() {
         volumeRaw: volume,
         volumeRatio: ratio,
         volumeSigma: sigma,
-        volumeClass: spike?.volume_class ?? null,
-        underlyingPrice: priceByTs.get(ts) ?? null,
+        volumeClass: spike.volume_class ?? null,
+        buyingPressurePct: buyingPressure,
+        underlyingPrice: price,
       };
     });
-  }, [volumeSpikes, byContractRows]);
+  }, [volumeSpikes]);
 
   const volumeSpikePriceTicks = useMemo(() => {
     const values = volumeSpikesChart
@@ -495,7 +503,11 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
-        {!volumeSpikes || volumeSpikes.length === 0 ? (
+        {volumeSpikes == null ? (
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+            Loading volume spikes...
+          </div>
+        ) : volumeSpikesChart.length === 0 ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No unusual volume detected
           </div>
@@ -531,6 +543,7 @@ export default function IntradayToolsPage() {
                         volumeRatio: number | null;
                         volumeSigma: number | null;
                         volumeClass: string | null;
+                        buyingPressurePct: number | null;
                         underlyingPrice: number | null;
                       } | undefined;
                       if (!point) return null;
@@ -549,6 +562,9 @@ export default function IntradayToolsPage() {
                           ) : null}
                           {point.volumeClass ? (
                             <div>Class: {point.volumeClass}</div>
+                          ) : null}
+                          {point.buyingPressurePct != null ? (
+                            <div>Buying Pressure: {point.buyingPressurePct.toFixed(1)}%</div>
                           ) : null}
                           {point.underlyingPrice != null ? (
                             <div>Underlying Price: ${point.underlyingPrice.toFixed(2)}</div>
