@@ -230,8 +230,8 @@ export default function IntradayToolsPage() {
     { refreshInterval: 5000 }
   );
 
-  const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
-    `/api/technicals/volume-spikes?${symParam}&limit=200`,
+  const { data: volumeSpikes, loading: volumeSpikesLoading, error: volumeSpikesError } = useApiData<VolumeSpikeRow[]>(
+    `/api/technicals/volume-spikes?${symParam}&limit=50`,
     { refreshInterval: 10000 }
   );
 
@@ -503,7 +503,9 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
-        {volumeSpikes == null ? (
+        {volumeSpikesError ? (
+          <ErrorMessage message={volumeSpikesError} />
+        ) : volumeSpikes == null && volumeSpikesLoading ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             Loading volume spikes...
           </div>
