@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import {
   useFlowByContractCache,
@@ -18,6 +18,7 @@ import {
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import MobileScrollableChart from '@/components/MobileScrollableChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes, normalizeToMinute } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -226,7 +227,7 @@ export default function IntradayToolsPage() {
   );
 
   const { data: volumeSpikes } = useApiData<VolumeSpikeRow[]>(
-    `/api/technicals/volume-spikes?${symParam}&limit=5`,
+    `/api/technicals/volume-spikes?${symParam}&limit=200`,
     { refreshInterval: 10000 }
   );
 
@@ -387,6 +388,52 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
   }, [smartMoneySessionChart]);
 
+  const volumeSpikesChart = useMemo(() => {
+    const spikes = (volumeSpikes || []).filter((spike) => spike.time_et);
+    const priceByTs = buildUnderlyingPriceMap(byContractRows);
+    if (spikes.length === 0 && priceByTs.size === 0) return [];
+
+    const spikeByTs = new Map<string, VolumeSpikeRow>();
+    spikes.forEach((spike) => {
+      const minute = normalizeToMinute(spike.time_et);
+      if (!minute) return;
+      const existing = spikeByTs.get(minute);
+      if (!existing || (safeNum(spike.volume_sigma) ?? 0) > (safeNum(existing.volume_sigma) ?? 0)) {
+        spikeByTs.set(minute, spike);
+      }
+    });
+
+    const allTs = Array.from(new Set([...spikeByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
+    return allTs.map((ts) => {
+      const spike = spikeByTs.get(ts);
+      const volume = spike ? safeNum(spike.current_volume) : null;
+      const ratio = spike ? safeNum(spike.volume_ratio) : null;
+      const sigma = spike ? safeNum(spike.volume_sigma) : null;
+      return {
+        timestamp: ts,
+        time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
+        volume: volume ?? 0,
+        volumeRaw: volume,
+        volumeRatio: ratio,
+        volumeSigma: sigma,
+        volumeClass: spike?.volume_class ?? null,
+        underlyingPrice: priceByTs.get(ts) ?? null,
+      };
+    });
+  }, [volumeSpikes, byContractRows]);
+
+  const volumeSpikePriceTicks = useMemo(() => {
+    const values = volumeSpikesChart
+      .map((row) => row.underlyingPrice)
+      .filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
+    if (values.length === 0) return [];
+    return generateNiceTicks(Math.min(...values), Math.max(...values));
+  }, [volumeSpikesChart]);
+
+  const volumeSpikeDateMarkerMeta = useMemo(() => {
+    return getDateMarkerMeta(volumeSpikesChart.map((row) => String(row.timestamp)));
+  }, [volumeSpikesChart]);
+
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
       setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -454,26 +501,74 @@ export default function IntradayToolsPage() {
           </div>
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {volumeSpikes.map((spike, idx) => {
-                const volume = safeNum(spike.current_volume);
-                const ratio = safeNum(spike.volume_ratio);
-                const sigma = safeNum(spike.volume_sigma);
-                const timeLabel = spike.time_et ? new Date(spike.time_et).toLocaleTimeString() : '--';
-                return (
-                  <div key={idx} className="flex items-center justify-between border-b pb-3" style={{ borderColor: borderColor }}>
-                    <div>
-                      <div className="font-semibold">{timeLabel}</div>
-                      <div className="text-sm" style={{ color: mutedText }}>Volume: {volume != null ? volume.toLocaleString() : '--'} ({ratio != null ? `${ratio.toFixed(1)}x` : '--'} avg)</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">{sigma != null ? `${sigma.toFixed(1)}σ` : '--'}</div>
-                      <div className="text-sm">{spike.volume_class ?? '--'}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VOLUME SPIKES VS UNDERLYING PRICE</h3>
+              <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color reflects how unusual the spike is in standard deviations. The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
             </div>
+            <MobileScrollableChart>
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart data={volumeSpikesChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+                    const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || ''); const index = Number(props?.index ?? -1);
+                    const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+                    const dateLabel = volumeSpikeDateMarkerMeta.get(index);
+                    if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                    return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}</g>;
+                  }} />
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => {
+                    const n = Number(v);
+                    if (!Number.isFinite(n)) return '--';
+                    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+                    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+                    return String(n);
+                  }} />
+                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+                  <Tooltip
+                    content={({ active, label, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const point = payload[0]?.payload as {
+                        volumeRaw: number | null;
+                        volumeRatio: number | null;
+                        volumeSigma: number | null;
+                        volumeClass: string | null;
+                        underlyingPrice: number | null;
+                      } | undefined;
+                      if (!point) return null;
+                      const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                      return (
+                        <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
+                          <div className="font-semibold mb-1">{labelStr}</div>
+                          {point.volumeRaw != null ? (
+                            <div>Volume: {point.volumeRaw.toLocaleString()}</div>
+                          ) : null}
+                          {point.volumeRatio != null ? (
+                            <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div>
+                          ) : null}
+                          {point.volumeSigma != null ? (
+                            <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div>
+                          ) : null}
+                          {point.volumeClass ? (
+                            <div>Class: {point.volumeClass}</div>
+                          ) : null}
+                          {point.underlyingPrice != null ? (
+                            <div>Underlying Price: ${point.underlyingPrice.toFixed(2)}</div>
+                          ) : null}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume">
+                    {volumeSpikesChart.map((row, idx) => {
+                      const sigma = row.volumeSigma ?? 0;
+                      const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';
+                      const opacity = row.volumeRaw == null ? 0 : 0.85;
+                      return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
+                    })}
+                  </Bar>
+                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </MobileScrollableChart>
           </div>
         )}
       </section>
