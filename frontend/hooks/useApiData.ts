@@ -699,6 +699,60 @@ export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 1
   );
 }
 
+export interface SignalActionLeg {
+  expiry: string;
+  strike: number;
+  right: 'C' | 'P' | string;
+  side: 'BUY' | 'SELL' | string;
+  qty: number;
+}
+
+export interface SignalActionPriceLevel {
+  ref_price?: number;
+  trigger?: string;
+  kind?: string;
+  level_name?: string;
+  [key: string]: unknown;
+}
+
+export interface SignalActionNearMiss {
+  pattern: string;
+  missing: string[];
+}
+
+export interface SignalActionAlternative {
+  pattern: string;
+  reason: string;
+}
+
+export interface SignalActionResponse {
+  underlying?: string;
+  timestamp?: string;
+  action?: string;
+  pattern?: string;
+  tier?: string;
+  direction?: 'bullish' | 'bearish' | 'non_directional' | string;
+  confidence?: number;
+  size_multiplier?: number;
+  max_hold_minutes?: number;
+  legs?: SignalActionLeg[];
+  entry?: SignalActionPriceLevel;
+  target?: SignalActionPriceLevel;
+  stop?: SignalActionPriceLevel;
+  rationale?: string;
+  context?: Record<string, unknown>;
+  alternatives_considered?: SignalActionAlternative[];
+  near_misses?: SignalActionNearMiss[];
+  [key: string]: unknown;
+}
+
+export function useSignalAction(symbol = 'SPY', refreshInterval = 60000) {
+  return useApiData<SignalActionResponse>(
+    `/api/signals/action?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
 export type SignalEventName =
   | 'vol_expansion'
   | 'eod_pressure'

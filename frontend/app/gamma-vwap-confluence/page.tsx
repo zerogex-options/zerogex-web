@@ -38,6 +38,7 @@ const LEVEL_COLORS: Record<string, string> = {
   max_pain: '#C084FC',
   max_gamma: '#6EA8FE',
   call_wall: 'var(--color-bear)',
+  spot: 'var(--color-text-primary)',
 };
 
 export default function GammaVwapConfluencePage() {
@@ -94,12 +95,18 @@ export default function GammaVwapConfluencePage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   const levels: Array<{ name: string; value: number | null; color: string }> = [
-    { name: 'Gamma flip', value: ctx.gammaFlip, color: LEVEL_COLORS.gamma_flip },
-    { name: 'VWAP', value: ctx.vwap, color: LEVEL_COLORS.vwap },
-    { name: 'Max pain', value: ctx.maxPain, color: LEVEL_COLORS.max_pain },
-    { name: 'Max gamma', value: ctx.maxGamma, color: LEVEL_COLORS.max_gamma },
     { name: 'Call wall', value: ctx.callWall, color: LEVEL_COLORS.call_wall },
-  ];
+    { name: 'Max gamma', value: ctx.maxGamma, color: LEVEL_COLORS.max_gamma },
+    { name: 'VWAP', value: ctx.vwap, color: LEVEL_COLORS.vwap },
+    { name: 'Spot', value: ctx.close, color: LEVEL_COLORS.spot },
+    { name: 'Gamma flip', value: ctx.gammaFlip, color: LEVEL_COLORS.gamma_flip },
+    { name: 'Max pain', value: ctx.maxPain, color: LEVEL_COLORS.max_pain },
+  ].sort((a, b) => {
+    if (a.value == null && b.value == null) return 0;
+    if (a.value == null) return 1;
+    if (b.value == null) return -1;
+    return b.value - a.value;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -259,6 +266,7 @@ function LevelStack({ levels, close, confluence, expectedTarget, members }: Leve
         )}
         {levels.map((l) => {
           if (l.value == null) return null;
+          if (l.name === 'Spot') return null; // close circle already represents spot
           const y = toY(l.value);
           return (
             <g key={l.name}>

@@ -122,7 +122,7 @@ export default function GammaExposurePage() {
 
   // Aggregate by-strike data for the chart and table
   const strikeData = useMemo(() => {
-    const selected = selectedExpirations && selectedExpirations.length > 0 ? selectedExpirations : expirationOptions;
+    const selected = selectedExpirations === null ? expirationOptions : selectedExpirations;
     const activeExpirations = new Set(selected);
     const filteredSource = (gexByStrike || []).filter((row) => activeExpirations.has(String(row.expiration)));
 
@@ -399,35 +399,38 @@ export default function GammaExposurePage() {
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
             <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
-            {byStrikeError ? <ErrorMessage message={byStrikeError} /> : strikeData.length === 0 ? (
+            {byStrikeError ? <ErrorMessage message={byStrikeError} /> : expirationOptions.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
             ) : (
               <>
                 <div className="mb-5 flex flex-wrap gap-2 items-center">
                   <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
                   {(() => {
-                    const allActive = selectedExpirations === null;
+                    const allSelected =
+                      selectedExpirations === null ||
+                      (expirationOptions.length > 0 && selectedExpirations.length === expirationOptions.length);
                     return (
                       <button
                         onClick={() => setSelectedExpirations(null)}
-                        style={allActive ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
-                        className={`px-3 py-1 text-xs rounded border ${allActive ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
+                        disabled={allSelected}
+                        style={
+                          allSelected
+                            ? { backgroundColor: inputBg, borderColor: borderColor, color: mutedText, opacity: 0.5, cursor: 'not-allowed' }
+                            : undefined
+                        }
+                        className={`px-3 py-1 text-xs rounded border ${allSelected ? '' : 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]'}`}
                       >
                         All
                       </button>
                     );
                   })()}
                   {(() => {
-                    const canClear = selectedExpirations !== null && selectedExpirations.length > 1;
+                    const isEmpty = Array.isArray(selectedExpirations) && selectedExpirations.length === 0;
+                    const canClear = !isEmpty;
                     return (
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedExpirations((current) => {
-                            if (!current || current.length <= 1) return current;
-                            return [current[0]];
-                          });
-                        }}
+                        onClick={() => setSelectedExpirations([])}
                         disabled={!canClear}
                         style={{
                           backgroundColor: inputBg,
@@ -437,22 +440,23 @@ export default function GammaExposurePage() {
                           cursor: canClear ? 'pointer' : 'not-allowed',
                         }}
                         className="px-3 py-1 text-xs rounded border"
-                        title="Clear all selections except the first one"
+                        title="Clear all expiration selections"
                       >
                         Clear
                       </button>
                     );
                   })()}
                   {expirationOptions.map((exp) => {
-                    const active = selectedExpirations !== null && selectedExpirations.includes(exp);
+                    const active = selectedExpirations === null || selectedExpirations.includes(exp);
                     return (
                       <button
                         key={exp}
                         onClick={() => setSelectedExpirations((current) => {
-                          if (current === null) return [exp];
+                          if (current === null) {
+                            return expirationOptions.filter((v) => v !== exp);
+                          }
                           if (current.includes(exp)) {
-                            const next = current.filter((v) => v !== exp);
-                            return next.length === 0 ? null : next;
+                            return current.filter((v) => v !== exp);
                           }
                           return [...current, exp];
                         })}
@@ -481,19 +485,27 @@ export default function GammaExposurePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedRows.map((row) => (
-                        <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
-                          <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
-                          <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>
-                          <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.charmM.toFixed(2)}M</td>
-                          <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
-                          <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
-                          <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
-                          <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
+                      {sortedRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="text-center py-8" style={{ color: mutedText }}>
+                            No expirations selected. Click an expiration or &ldquo;All&rdquo; to display data.
+                          </td>
                         </tr>
-                      ))}
+                      ) : (
+                        sortedRows.map((row) => (
+                          <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
+                            <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
+                            <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
+                            <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
+                            <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>
+                            <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.charmM.toFixed(2)}M</td>
+                            <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
+                            <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
+                            <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
+                            <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

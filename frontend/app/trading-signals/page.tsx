@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck, TableProperties, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Brain, Crosshair, Info, ShieldCheck, TableProperties, Target, TrendingUp, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useTradesHistory, useTradesLive } from '@/hooks/useApiData';
+import { useSignalAction, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
+import type { SignalActionAlternative, SignalActionLeg, SignalActionNearMiss, SignalActionPriceLevel, SignalActionResponse } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
@@ -137,8 +138,11 @@ export default function TradingSignalsPage() {
   const [sortKey, setSortKey] = useState<TradeSortKey>('closedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+  const [hideLowConfidence, setHideLowConfidence] = useState(false);
+
   const { data: liveData, loading, error, refetch } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
+  const { data: actionData, error: actionError, refetch: refetchAction } = useSignalAction(symbol, 60000);
 
   const liveRows = useMemo(() => toRows(liveData), [liveData]);
   const historyRows = useMemo(() => toRows(historyData), [historyData]);
@@ -260,6 +264,14 @@ export default function TradingSignalsPage() {
           </button>
         </TooltipWrapper>
       </div>
+
+      <ActionCardSection
+        data={actionData}
+        error={actionError}
+        onRetry={refetchAction}
+        hideLowConfidence={hideLowConfidence}
+        onToggleHide={() => setHideLowConfidence((prev) => !prev)}
+      />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {TIMEFRAME_OPTIONS.map((option) => {
@@ -436,6 +448,279 @@ export default function TradingSignalsPage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function structureLabel(legCount: number): string {
+  if (legCount === 1) return 'Single';
+  if (legCount === 2) return 'Vertical';
+  if (legCount === 3) return 'Butterfly';
+  if (legCount === 4) return 'Condor';
+  return `${legCount}-leg`;
+}
+
+function directionColor(direction: string | undefined): string {
+  const d = String(direction ?? '').toLowerCase();
+  if (d.includes('bull')) return 'var(--color-bull)';
+  if (d.includes('bear')) return 'var(--color-bear)';
+  return 'var(--color-warning)';
+}
+
+function formatPriceUsd(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `$${value.toFixed(2)}`;
+}
+
+interface ActionCardSectionProps {
+  data: SignalActionResponse | null | undefined;
+  error: string | null;
+  onRetry: () => void;
+  hideLowConfidence: boolean;
+  onToggleHide: () => void;
+}
+
+function ActionCardSection({ data, error, onRetry, hideLowConfidence, onToggleHide }: ActionCardSectionProps) {
+  const action = String(data?.action ?? '').toUpperCase();
+  const isStandDown = action === 'STAND_DOWN';
+  const confidence = typeof data?.confidence === 'number' ? data.confidence : null;
+  const hidden = !isStandDown && hideLowConfidence && confidence != null && confidence < 0.5;
+
+  return (
+    <section className="zg-feature-shell mb-8 p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <Zap size={20} />
+          Decisive Trade Card
+          <TooltipWrapper text="One decisive trade card per cycle, per underlying. Either an actionable trade or a STAND_DOWN with near-misses. Refreshes every minute (~/api/signals/action).">
+            <button type="button" className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)]">
+              <Info size={12} />
+            </button>
+          </TooltipWrapper>
+        </h2>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+          <input type="checkbox" checked={hideLowConfidence} onChange={onToggleHide} className="h-3.5 w-3.5 cursor-pointer" />
+          Hide cards with confidence &lt; 0.5
+        </label>
+      </div>
+
+      {error && <ErrorMessage message={error} onRetry={onRetry} />}
+
+      {!data && !error && (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-6 text-sm text-[var(--color-text-secondary)]">
+          Waiting for the next signal cycle…
+        </div>
+      )}
+
+      {data && hidden && (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-6 text-sm text-[var(--color-text-secondary)]">
+          Card hidden by confidence filter (&lt; 0.5). Confidence: {confidence != null ? confidence.toFixed(2) : '—'}.
+        </div>
+      )}
+
+      {data && !hidden && (isStandDown ? <StandDownCard data={data} /> : <TradeCard data={data} />)}
+    </section>
+  );
+}
+
+function ConfidenceRing({ value }: { value: number | null }) {
+  const pct = value == null ? 0 : Math.max(0, Math.min(1, value));
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const dash = circumference * pct;
+  const color = pct >= 0.7 ? 'var(--color-bull)' : pct >= 0.5 ? 'var(--color-warning)' : 'var(--color-bear)';
+
+  return (
+    <div className="relative inline-flex items-center justify-center" style={{ width: 96, height: 96 }}>
+      <svg width="96" height="96" viewBox="0 0 96 96">
+        <circle cx="48" cy="48" r={radius} stroke="var(--color-border)" strokeWidth="8" fill="none" />
+        <circle
+          cx="48"
+          cy="48"
+          r={radius}
+          stroke={color}
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          transform="rotate(-90 48 48)"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-bold" style={{ color }}>
+          {value != null ? value.toFixed(2) : '—'}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">conf</span>
+      </div>
+    </div>
+  );
+}
+
+function PriceRung({ label, level, color }: { label: string; level: SignalActionPriceLevel | undefined; color: string }) {
+  if (!level || level.ref_price == null) return null;
+  const detail = level.level_name ?? level.kind ?? level.trigger ?? '';
+  return (
+    <div className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+      <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{label}</span>
+      <span className="font-mono text-sm">{formatPriceUsd(level.ref_price)}</span>
+      {detail && <span className="text-[10px] text-[var(--color-text-secondary)]">{detail}</span>}
+    </div>
+  );
+}
+
+function ActionPriceLadder({ entry, target, stop }: { entry?: SignalActionPriceLevel; target?: SignalActionPriceLevel; stop?: SignalActionPriceLevel }) {
+  const rungs: Array<{ key: 'stop' | 'entry' | 'target'; level: SignalActionPriceLevel | undefined; label: string; color: string }> = [
+    { key: 'stop', level: stop, label: 'Stop', color: 'var(--color-bear)' },
+    { key: 'entry', level: entry, label: 'Entry', color: 'var(--color-warning)' },
+    { key: 'target', level: target, label: 'Target', color: 'var(--color-bull)' },
+  ].filter((r) => r.level && r.level.ref_price != null) as typeof rungs;
+
+  if (rungs.length === 0) return null;
+  rungs.sort((a, b) => (b.level!.ref_price ?? 0) - (a.level!.ref_price ?? 0));
+
+  return (
+    <div className="flex flex-col gap-2">
+      {rungs.map((r) => (
+        <PriceRung key={r.key} label={r.label} level={r.level} color={r.color} />
+      ))}
+    </div>
+  );
+}
+
+function LegRow({ leg }: { leg: SignalActionLeg }) {
+  const isBuy = String(leg.side).toUpperCase() === 'BUY';
+  const sideColor = isBuy ? 'var(--color-bull)' : 'var(--color-bear)';
+  const right = String(leg.right).toUpperCase();
+  const rightLabel = right === 'C' ? 'Call' : right === 'P' ? 'Put' : right;
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
+      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `${sideColor}1f`, color: sideColor }}>
+        {String(leg.side).toUpperCase()}
+      </span>
+      <span className="font-mono">{leg.qty}×</span>
+      <span className="font-mono">${Number(leg.strike).toFixed(2)} {rightLabel}</span>
+      <span className="ml-auto text-xs text-[var(--color-text-secondary)]">{leg.expiry}</span>
+    </div>
+  );
+}
+
+function TradeCard({ data }: { data: SignalActionResponse }) {
+  const action = String(data.action ?? '');
+  const pattern = String(data.pattern ?? '—');
+  const tier = String(data.tier ?? '—');
+  const direction = String(data.direction ?? '—');
+  const dirColor = directionColor(direction);
+  const legs = Array.isArray(data.legs) ? data.legs : [];
+  const alternatives = Array.isArray(data.alternatives_considered) ? data.alternatives_considered : [];
+  const sizeMultiplier = typeof data.size_multiplier === 'number' ? data.size_multiplier : null;
+  const maxHold = typeof data.max_hold_minutes === 'number' ? data.max_hold_minutes : null;
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-bold uppercase tracking-wide" style={{ background: `${dirColor}1f`, color: dirColor }}>
+              <Crosshair size={14} />
+              {action.replace(/_/g, ' ')}
+            </span>
+            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{pattern.replace(/_/g, ' ')}</span>
+            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{tier}</span>
+            <span className="capitalize rounded-md border px-2 py-0.5 text-xs font-medium" style={{ borderColor: dirColor, color: dirColor }}>
+              {direction.replace(/_/g, ' ')}
+            </span>
+            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{structureLabel(legs.length)}</span>
+          </div>
+          {data.rationale && (
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{data.rationale}</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
+            {sizeMultiplier != null && <span>Size multiplier: <span className="font-mono text-[var(--color-text-primary)]">{sizeMultiplier.toFixed(2)}</span></span>}
+            {maxHold != null && <span>Max hold: <span className="font-mono text-[var(--color-text-primary)]">{maxHold} min</span></span>}
+            {data.timestamp && <span>Cycle: <span className="font-mono text-[var(--color-text-primary)]">{data.timestamp}</span></span>}
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-start gap-2 lg:col-span-2">
+          <ConfidenceRing value={typeof data.confidence === 'number' ? data.confidence : null} />
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <Target size={14} /> Price ladder
+          </div>
+          <ActionPriceLadder entry={data.entry} target={data.target} stop={data.stop} />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+            <TableProperties size={14} /> Legs · {structureLabel(legs.length)}
+          </div>
+          <div className="flex flex-col gap-2">
+            {legs.length === 0 ? (
+              <div className="text-xs text-[var(--color-text-secondary)]">No legs reported.</div>
+            ) : (
+              legs.map((leg, idx) => <LegRow key={idx} leg={leg} />)
+            )}
+          </div>
+        </div>
+      </div>
+
+      {alternatives.length > 0 && (
+        <div className="mt-5 border-t border-[var(--color-border)]/40 pt-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Alternatives considered</div>
+          <ul className="space-y-1 text-xs text-[var(--color-text-secondary)]">
+            {alternatives.map((alt: SignalActionAlternative, idx) => (
+              <li key={idx}>
+                <span className="font-mono text-[var(--color-text-primary)]">{alt.pattern}</span>
+                {alt.reason ? <span> — {alt.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StandDownCard({ data }: { data: SignalActionResponse }) {
+  const nearMisses = Array.isArray(data.near_misses) ? data.near_misses : [];
+
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-md bg-[var(--color-warning-soft)] px-2.5 py-1 text-sm font-bold uppercase tracking-wide text-[var(--color-warning)]">
+          <ShieldCheck size={14} />
+          STAND DOWN
+        </span>
+        <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">non-directional</span>
+        <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">confidence 0.00</span>
+        {data.timestamp && <span className="text-[11px] text-[var(--color-text-secondary)] ml-auto font-mono">{data.timestamp}</span>}
+      </div>
+      {data.rationale && (
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{data.rationale}</p>
+      )}
+      <div className="mt-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Near misses</div>
+        {nearMisses.length === 0 ? (
+          <div className="text-xs text-[var(--color-text-secondary)]">No close patterns reported.</div>
+        ) : (
+          <ul className="space-y-2 text-xs">
+            {nearMisses.map((nm: SignalActionNearMiss, idx) => (
+              <li key={idx} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                <div className="font-mono text-sm text-[var(--color-text-primary)]">{nm.pattern}</div>
+                {Array.isArray(nm.missing) && nm.missing.length > 0 && (
+                  <ul className="mt-1 list-disc pl-4 text-[var(--color-text-secondary)]">
+                    {nm.missing.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

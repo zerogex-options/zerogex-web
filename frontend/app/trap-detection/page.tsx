@@ -44,8 +44,8 @@ export default function TrapDetectionPage() {
   const breakoutDown = getBool(payload.breakout_down);
   const netGexDelta = getNumber(payload.net_gex_delta);
   const netGexDeltaPct = getNumber(payload.net_gex_delta_pct);
-  const resistance = getNumber(payload.resistance_level);
-  const support = getNumber(payload.support_level);
+  const priorResistance = getNumber(payload.broken_resistance_level) ?? getNumber(payload.resistance_level);
+  const priorSupport = getNumber(payload.broken_support_level) ?? getNumber(payload.support_level);
   const bufferPct = getNumber(payload.breakout_buffer_pct);
   const wallMigratedUp = getBool(payload.wall_migrated_up);
   const wallMigratedDown = getBool(payload.wall_migrated_down);
@@ -70,14 +70,18 @@ export default function TrapDetectionPage() {
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const ladderRange = useMemo(() => {
-    const vals = [resistance, support, ctx.close].filter((v): v is number => v != null);
+    const vals = [
+      breakoutUp ? priorResistance : null,
+      breakoutDown ? priorSupport : null,
+      ctx.close,
+    ].filter((v): v is number => v != null);
     if (vals.length === 0) return null;
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     if (min === max) return { min: min - 1, max: max + 1 };
     const pad = (max - min) * 0.2;
     return { min: min - pad, max: max + pad };
-  }, [resistance, support, ctx.close]);
+  }, [breakoutUp, breakoutDown, priorResistance, priorSupport, ctx.close]);
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
@@ -122,9 +126,9 @@ export default function TrapDetectionPage() {
               <PriceLadder
                 min={ladderRange.min}
                 max={ladderRange.max}
-                close={ctx.close}
-                resistance={resistance}
-                support={support}
+                spot={ctx.close}
+                priorResistance={priorResistance}
+                priorSupport={priorSupport}
                 bufferPct={bufferPct}
                 breakoutUp={breakoutUp}
                 breakoutDown={breakoutDown}
@@ -148,9 +152,9 @@ export default function TrapDetectionPage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2"><Radar size={16} /> Structure</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Close" value={formatPrice(ctx.close)} />
-              <Row label="Resistance" value={formatPrice(resistance)} />
-              <Row label="Support" value={formatPrice(support)} />
+              <Row label="Spot" value={formatPrice(ctx.close)} />
+              <Row label="Prior Resistance" value={formatPrice(priorResistance)} />
+              <Row label="Prior Support" value={formatPrice(priorSupport)} />
               <Row label="Buffer %" value={formatPct(bufferPct, 3, false)} />
               <Row label="Realized σ" value={ctx.realizedSigma != null ? ctx.realizedSigma.toFixed(4) : '—'} />
             </div>
@@ -234,59 +238,62 @@ function Chip({ label, on, color }: { label: string; on: boolean; color: string 
 interface PriceLadderProps {
   min: number;
   max: number;
-  close: number;
-  resistance: number | null;
-  support: number | null;
+  spot: number;
+  priorResistance: number | null;
+  priorSupport: number | null;
   bufferPct: number | null;
   breakoutUp: boolean;
   breakoutDown: boolean;
 }
 
-function PriceLadder({ min, max, close, resistance, support, bufferPct, breakoutUp, breakoutDown }: PriceLadderProps) {
+function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct, breakoutUp, breakoutDown }: PriceLadderProps) {
   const height = 180;
   const range = max - min;
   const toY = (v: number) => height - ((v - min) / range) * height;
-  const buffer = bufferPct != null ? bufferPct * close : 0;
+  const buffer = bufferPct != null ? bufferPct * spot : 0;
+
+  const showResistance = breakoutUp && priorResistance != null;
+  const showSupport = breakoutDown && priorSupport != null;
 
   return (
     <div className="relative flex items-start gap-4">
       <svg width="48" height={height} viewBox={`0 0 48 ${height}`}>
         <line x1={24} y1={0} x2={24} y2={height} stroke="var(--color-border)" strokeWidth={2} />
-        {resistance != null && (
+        {showResistance && (
           <g>
-            <line x1={6} y1={toY(resistance)} x2={42} y2={toY(resistance)} stroke="var(--color-bear)" strokeWidth={2} />
+            <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} />
             {buffer > 0 && (
-              <rect x={6} y={toY(resistance + buffer)} width={36} height={toY(resistance) - toY(resistance + buffer)} fill="var(--color-bear)" opacity={0.12} />
+              <rect x={6} y={toY(priorResistance! + buffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + buffer)} fill="var(--color-bull)" opacity={0.12} />
             )}
           </g>
         )}
-        {support != null && (
+        {showSupport && (
           <g>
-            <line x1={6} y1={toY(support)} x2={42} y2={toY(support)} stroke="var(--color-bull)" strokeWidth={2} />
+            <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} />
             {buffer > 0 && (
-              <rect x={6} y={toY(support)} width={36} height={toY(support - buffer) - toY(support)} fill="var(--color-bull)" opacity={0.12} />
+              <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - buffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={0.12} />
             )}
           </g>
         )}
-        <circle cx={24} cy={toY(close)} r={5} fill="var(--color-warning)" stroke="var(--color-surface)" strokeWidth={2} />
+        <circle cx={24} cy={toY(spot)} r={5} fill="var(--color-warning)" stroke="var(--color-surface)" strokeWidth={2} />
       </svg>
       <div className="flex flex-col gap-3 text-xs">
-        {resistance != null && (
+        {showResistance && (
           <div className="flex items-baseline gap-3">
-            <span className="text-[var(--color-bear)] font-semibold w-20">Resistance</span>
-            <span className="font-mono">{formatPrice(resistance)}</span>
-            {breakoutUp && <span className="text-[var(--color-bear)] text-[10px] font-semibold uppercase tracking-wide">Broken ↑</span>}
+            <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
+            <span className="font-mono">{formatPrice(priorResistance)}</span>
+            <span className="text-[var(--color-bull)] text-[10px] font-semibold uppercase tracking-wide">Broken ↑</span>
           </div>
         )}
         <div className="flex items-baseline gap-3">
-          <span className="text-[var(--color-warning)] font-semibold w-20">Close</span>
-          <span className="font-mono">{formatPrice(close)}</span>
+          <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
+          <span className="font-mono">{formatPrice(spot)}</span>
         </div>
-        {support != null && (
+        {showSupport && (
           <div className="flex items-baseline gap-3">
-            <span className="text-[var(--color-bull)] font-semibold w-20">Support</span>
-            <span className="font-mono">{formatPrice(support)}</span>
-            {breakoutDown && <span className="text-[var(--color-bull)] text-[10px] font-semibold uppercase tracking-wide">Broken ↓</span>}
+            <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
+            <span className="font-mono">{formatPrice(priorSupport)}</span>
+            <span className="text-[var(--color-bear)] text-[10px] font-semibold uppercase tracking-wide">Broken ↓</span>
           </div>
         )}
         <div className="text-[11px] text-[var(--color-text-secondary)] border-t border-[var(--color-border)]/40 pt-2">
