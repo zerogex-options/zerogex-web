@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { asObject, getNumber, trendColor } from '@/core/signalHelpers';
+import { asObject, getNumber, humanize, trendColor } from '@/core/signalHelpers';
 import { computeBias } from '@/core/tradeBias';
 import TooltipWrapper from './TooltipWrapper';
 
@@ -220,7 +220,7 @@ export default function TradeBiasSection() {
                 {bias.biasLabel}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
-                {bias.bias.replace(/_/g, ' ')}
+                {humanize(bias.bias)}
               </div>
             </div>
             <div className="text-right">

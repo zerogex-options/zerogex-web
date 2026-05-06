@@ -14,6 +14,7 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -172,7 +173,7 @@ export default function VolatilityExpansionPage() {
                 ) : <span className="text-xs text-[var(--color-text-secondary)]">—</span>}
               </ContextRow>
               <ContextRow label="GEX regime" value={ctx.gex_regime}>
-                <span className="text-xs capitalize text-[var(--color-text-secondary)]">{ctx.gex_regime}</span>
+                <span className="text-xs text-[var(--color-text-secondary)]">{humanize(ctx.gex_regime)}</span>
               </ContextRow>
               <ContextRow label="GEX readiness" value={ctx.gex_readiness != null ? ctx.gex_readiness.toFixed(3) : '—'}>
                 {ctx.gex_readiness != null ? (

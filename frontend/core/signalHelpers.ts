@@ -71,6 +71,17 @@ export function formatPrice(value: number | null | undefined, digits = 2): strin
   return value.toFixed(digits);
 }
 
+// Convert snake_case codes ("positioning_trap_squeeze") into Title Case for
+// display ("Positioning Trap Squeeze"). Already-uppercase tokens like "0DTE"
+// or "VWAP" are preserved because the regex only forces the first letter of
+// each word to upper case.
+export function humanize(value: unknown): string {
+  if (value == null) return '';
+  const str = String(value).trim();
+  if (!str) return '';
+  return str.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 export interface ScoreHistoryPoint {
   score: number;
   timestamp?: string | null;

@@ -14,6 +14,7 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -121,7 +122,7 @@ export default function ZeroDtePositionImbalancePage() {
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {signal.replace(/_/g, ' ')}
+                    {humanize(signal)}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
                     <Clock size={11} />
@@ -188,7 +189,7 @@ export default function ZeroDtePositionImbalancePage() {
             <div className="text-[var(--color-text-secondary)] text-xs space-y-2">
               <div><strong className="text-[var(--color-text-primary)]">Blend:</strong> 0.55 × flow + 0.30 × smart + 0.15 × PCR tilt, then × time-of-day multiplier.</div>
               <div><strong className="text-[var(--color-text-primary)]">Weights:</strong> 0.6 × OTM, 0.3 × ATM, 0.1 × ITM.</div>
-              <div><strong className="text-[var(--color-text-primary)]">Flow source:</strong> <span className="capitalize">{ctx.flowSource.replace(/_/g, ' ')}</span></div>
+              <div><strong className="text-[var(--color-text-primary)]">Flow source:</strong> {humanize(ctx.flowSource)}</div>
             </div>
           </div>
         </div>

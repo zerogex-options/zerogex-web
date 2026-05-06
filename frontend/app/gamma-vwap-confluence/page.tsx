@@ -15,6 +15,7 @@ import {
   asObject,
   asArray,
   getNumber,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -131,11 +132,11 @@ export default function GammaVwapConfluencePage() {
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {signal.replace(/_/g, ' ')}
+                    {humanize(signal)}
                   </span>
                   {ctx.regimeDirection !== '—' && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)] capitalize">
-                      {ctx.regimeDirection.replace(/_/g, ' ')}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
+                      {humanize(ctx.regimeDirection)}
                     </span>
                   )}
                 </>
@@ -196,7 +197,7 @@ export default function GammaVwapConfluencePage() {
             <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Regime</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               <Row label="Net GEX" value={formatGexCompact(ctx.netGex)} />
-              <Row label="Direction" value={<span className="capitalize">{ctx.regimeDirection.replace(/_/g, ' ')}</span>} />
+              <Row label="Direction" value={humanize(ctx.regimeDirection)} />
               <Row label="Close vs level" value={ctx.close != null && confluenceLevel != null ? (ctx.close > confluenceLevel ? 'Above' : 'Below') : '—'} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">

@@ -15,6 +15,7 @@ import {
   asObject,
   getNumber,
   getBool,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -108,7 +109,7 @@ export default function TrapDetectionPage() {
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {signal.replace(/_/g, ' ') || 'none'}
+                    {humanize(signal) || 'None'}
                   </span>
                   {triggered && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>

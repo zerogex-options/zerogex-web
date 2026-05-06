@@ -15,6 +15,7 @@ import {
   asObject,
   getNumber,
   getBool,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -97,7 +98,7 @@ export default function SqueezeSetupPage() {
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {signal.replace(/_/g, ' ') || 'none'}
+                    {humanize(signal) || 'None'}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]" style={{ color: vix.color }}>
                     VIX {vix.label}
@@ -135,7 +136,7 @@ export default function SqueezeSetupPage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> State</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Signal" value={signal.replace(/_/g, ' ')} />
+              <Row label="Signal" value={humanize(signal)} />
               <Row label="Triggered" value={triggered ? 'Yes' : 'No'} />
               <Row label="VIX regime" value={vix.label} />
             </div>

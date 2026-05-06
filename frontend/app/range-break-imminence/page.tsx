@@ -13,6 +13,7 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import {
   asObject,
   getNumber,
+  humanize,
   parseScoreHistory,
   toTrend,
   trendColor,
@@ -139,7 +140,7 @@ export default function RangeBreakImminencePage() {
                     style={{ background: `${accentColor}1f`, color: accentColor }}
                   >
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
-                    {signalStr.replace(/_/g, ' ')}
+                    {humanize(signalStr)}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
                     Imminence

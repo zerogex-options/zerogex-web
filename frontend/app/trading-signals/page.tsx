@@ -11,6 +11,7 @@ import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTheme } from '@/core/ThemeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { humanize } from '@/core/signalHelpers';
 
 type TradeRow = Record<string, unknown>;
 type TimeframeFilter = 'today' | 'week' | 'month' | 'year';
@@ -568,7 +569,7 @@ function PriceCell({ label, level, accent }: { label: string; level: SignalActio
       </div>
       {detail && (
         <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
-          {String(detail).replace(/_/g, ' ')}
+          {humanize(detail)}
         </div>
       )}
     </div>
@@ -625,14 +626,14 @@ function TradeCard({ data }: { data: SignalActionResponse }) {
             className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight"
             style={{ color: dirColor }}
           >
-            {action.replace(/_/g, ' ')}
+            {humanize(action)}
           </h3>
           <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-[0.14em] font-semibold text-[var(--color-text-secondary)]">
-            {pattern && <span className="font-mono text-[var(--color-text-primary)]">{pattern.replace(/_/g, ' ')}</span>}
+            {pattern && <span className="font-mono text-[var(--color-text-primary)]">{humanize(pattern)}</span>}
             {pattern && tier && <span className="text-[var(--color-border)]">|</span>}
-            {tier && <span className="font-mono text-[var(--color-text-primary)]">{tier}</span>}
+            {tier && <span className="font-mono text-[var(--color-text-primary)]">{humanize(tier)}</span>}
             {(pattern || tier) && direction && <span className="text-[var(--color-border)]">|</span>}
-            {direction && <span style={{ color: dirColor }}>{direction.replace(/_/g, ' ')}</span>}
+            {direction && <span style={{ color: dirColor }}>{humanize(direction)}</span>}
             <span className="text-[var(--color-border)]">|</span>
             <span className="font-mono text-[var(--color-text-primary)]">{structureLabel(legs.length)}</span>
           </div>
@@ -690,7 +691,7 @@ function TradeCard({ data }: { data: SignalActionResponse }) {
           {alternatives.map((alt: SignalActionAlternative, idx) => (
             <span key={idx}>
               {idx > 0 && <span className="text-[var(--color-border)] mr-2">·</span>}
-              <span className="font-mono text-[var(--color-text-primary)]">{alt.pattern}</span>
+              <span className="font-mono text-[var(--color-text-primary)]">{humanize(alt.pattern)}</span>
               {alt.reason ? <span> ({alt.reason})</span> : null}
             </span>
           ))}
@@ -737,7 +738,7 @@ function StandDownCard({ data }: { data: SignalActionResponse }) {
           <ul className="space-y-2 text-sm">
             {nearMisses.map((nm: SignalActionNearMiss, idx) => (
               <li key={idx} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-                <div className="font-mono font-semibold">{nm.pattern}</div>
+                <div className="font-mono font-semibold">{humanize(nm.pattern)}</div>
                 {Array.isArray(nm.missing) && nm.missing.length > 0 && (
                   <ul className="mt-1 list-disc pl-4 text-xs text-[var(--color-text-secondary)]">
                     {nm.missing.map((m, i) => (

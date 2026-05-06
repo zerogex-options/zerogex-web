@@ -15,6 +15,7 @@ import {
   asObject,
   getNumber,
   getBool,
+  humanize,
   parseScoreHistory,
   toTrend,
   formatPct,
@@ -115,7 +116,7 @@ export default function EodPressurePage() {
               <div className="mt-2 text-xs text-[var(--color-text-secondary)]">
                 Distance: <span className="font-mono text-[var(--color-text-primary)]">{formatPct(pinDistancePct, 3)}</span>
               </div>
-              <div className="mt-1 text-xs text-[var(--color-text-secondary)] capitalize">Source: {pinSource}</div>
+              <div className="mt-1 text-xs text-[var(--color-text-secondary)]">Source: {humanize(pinSource)}</div>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
@@ -128,7 +129,7 @@ export default function EodPressurePage() {
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><CalendarClock size={14} /> Gamma regime</div>
-              <div className="text-3xl font-black capitalize" style={{ color: gammaRegime === 'positive' ? 'var(--color-bull)' : gammaRegime === 'negative' ? 'var(--color-bear)' : 'var(--color-warning)' }}>{gammaRegime}</div>
+              <div className="text-3xl font-black" style={{ color: gammaRegime === 'positive' ? 'var(--color-bull)' : gammaRegime === 'negative' ? 'var(--color-bear)' : 'var(--color-warning)' }}>{humanize(gammaRegime)}</div>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Positive → dealers pull toward pin. Negative → dealers amplify moves away.</p>
             </div>
           </div>

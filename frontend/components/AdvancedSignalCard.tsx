@@ -7,6 +7,7 @@ import SignalSparkline from './SignalSparkline';
 import {
   asObject,
   getNumber,
+  humanize,
   parseScoreHistory,
   scoreTrend,
   trendColor,
@@ -98,7 +99,7 @@ export default function AdvancedSignalCard({
                 style={{ background: `${color}1f`, color }}
               >
                 {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {signalStr.replace(/_/g, ' ')}
+                {humanize(signalStr)}
               </div>
             ) : null}
           </div>
