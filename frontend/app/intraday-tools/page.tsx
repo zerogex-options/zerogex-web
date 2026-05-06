@@ -236,7 +236,7 @@ export default function IntradayToolsPage() {
   );
 
   const { data: volumeSpikesPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
-    `/api/market/historical?${symParam}&timeframe=5min&window_units=300`,
+    `/api/market/historical?${symParam}&timeframe=5min&window_units=500`,
     { refreshInterval: 30000 }
   );
 
@@ -429,7 +429,7 @@ export default function IntradayToolsPage() {
     const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
 
-    const FORWARD_FILL_WINDOW_MS = 5 * 60_000;
+    const FORWARD_FILL_WINDOW_MS = 30 * 60_000;
     let lastPrice: number | null = null;
     let lastPriceMs: number | null = null;
 
