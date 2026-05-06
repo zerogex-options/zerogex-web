@@ -82,6 +82,20 @@ export function humanize(value: unknown): string {
   return str.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+// Like humanize() but operates on free-form prose: finds snake_case tokens
+// (lowercase identifiers with at least one underscore) inside the string and
+// rewrites only those to Title Case, leaving punctuation, numbers, and
+// natural-language words untouched. Useful for rationale strings or
+// diagnostic messages from the API that embed field/pattern names.
+export function humanizeText(value: unknown): string {
+  if (value == null) return '';
+  const str = String(value);
+  if (!str) return '';
+  return str.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (token) =>
+    token.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()),
+  );
+}
+
 export interface ScoreHistoryPoint {
   score: number;
   timestamp?: string | null;

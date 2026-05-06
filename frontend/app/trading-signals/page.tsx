@@ -11,7 +11,7 @@ import MetricCard from '@/components/MetricCard';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useTheme } from '@/core/ThemeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { humanize } from '@/core/signalHelpers';
+import { humanize, humanizeText } from '@/core/signalHelpers';
 
 type TradeRow = Record<string, unknown>;
 type TimeframeFilter = 'today' | 'week' | 'month' | 'year';
@@ -639,7 +639,7 @@ function TradeCard({ data }: { data: SignalActionResponse }) {
           </div>
           {data.rationale && (
             <p className="mt-4 text-sm italic leading-relaxed text-[var(--color-text-secondary)] border-l-2 pl-3" style={{ borderColor: dirColor }}>
-              {data.rationale}
+              {humanizeText(data.rationale)}
             </p>
           )}
         </div>
@@ -692,7 +692,7 @@ function TradeCard({ data }: { data: SignalActionResponse }) {
             <span key={idx}>
               {idx > 0 && <span className="text-[var(--color-border)] mr-2">·</span>}
               <span className="font-mono text-[var(--color-text-primary)]">{humanize(alt.pattern)}</span>
-              {alt.reason ? <span> ({alt.reason})</span> : null}
+              {alt.reason ? <span> ({humanizeText(alt.reason)})</span> : null}
             </span>
           ))}
         </div>
@@ -725,7 +725,7 @@ function StandDownCard({ data }: { data: SignalActionResponse }) {
       </div>
       {data.rationale && (
         <p className="mt-4 text-sm italic leading-relaxed text-[var(--color-text-secondary)] border-l-2 pl-3 border-[var(--color-warning)]">
-          {data.rationale}
+          {humanizeText(data.rationale)}
         </p>
       )}
       <div className="mt-6">
@@ -742,7 +742,7 @@ function StandDownCard({ data }: { data: SignalActionResponse }) {
                 {Array.isArray(nm.missing) && nm.missing.length > 0 && (
                   <ul className="mt-1 list-disc pl-4 text-xs text-[var(--color-text-secondary)]">
                     {nm.missing.map((m, i) => (
-                      <li key={i}>{m}</li>
+                      <li key={i}>{humanizeText(m)}</li>
                     ))}
                   </ul>
                 )}
