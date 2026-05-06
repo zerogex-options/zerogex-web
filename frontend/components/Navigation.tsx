@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
-import { hasRequiredTier, normalizeTier, requiredTierForRoute } from "@/core/auth";
+import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -47,8 +47,12 @@ export default function Navigation({ theme }: NavigationProps) {
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
   const shouldForcePricing = (id: string) => {
+    // API Specs is a Pro-tier entitlement per the pricing page, so anyone
+    // below Pro (public + basic) is routed to /pricing instead of the docs.
+    if (id === "https://api.zerogex.io/docs") {
+      return !hasTierAccess(normalizeTier(currentTier), "pro");
+    }
     if (!isPublicUser) return false;
-    if (id === "https://api.zerogex.io/docs") return true;
     const required = requiredTierForRoute(id);
     return !hasRequiredTier(id, currentTier) && (required === "basic" || required === "pro");
   };

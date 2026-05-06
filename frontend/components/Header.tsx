@@ -28,7 +28,7 @@ import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
-import { hasRequiredTier, normalizeTier, requiredTierForRoute } from "@/core/auth";
+import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
 interface HeaderProps {
@@ -92,8 +92,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
   const shouldForcePricing = (id: string) => {
+    // API Specs is a Pro-tier entitlement per the pricing page, so anyone
+    // below Pro (public + basic) is routed to /pricing instead of the docs.
+    if (id === "https://api.zerogex.io/docs") {
+      return !hasTierAccess(normalizeTier(currentTier), "pro");
+    }
     if (!isPublicUser) return false;
-    if (id === "https://api.zerogex.io/docs") return true;
     return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
   };
   const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
