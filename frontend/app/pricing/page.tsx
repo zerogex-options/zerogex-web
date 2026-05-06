@@ -273,33 +273,20 @@ export default function PricingPage() {
     }
   }, [callBilling]);
 
-  // TEMP: Free Basic action — restore by deleting this and switching the Basic
-  // TierCard back to actionForPaidTier('basic').
+  const registerHref = (tier: 'basic' | 'pro') => `/register?tier=${tier}&next=/pricing`;
+
+  // TEMP: Both tiers below are simplified for the launch promo. The full paid
+  // pricing logic lives in page.paid.tsx.bak — copy that over to restore.
   const actionForFreeBasic = (): TierAction => {
-    if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
+    if (authLoading) return { kind: 'link', href: registerHref('basic'), label: 'Get Started' };
     if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
     if (isAuthed && TIER_RANK[currentTier] >= TIER_RANK.basic) {
       return { kind: 'current', label: 'Active' };
     }
-    return { kind: 'link', href: '/register?next=/pricing', label: 'Sign up — Free' };
+    return { kind: 'link', href: registerHref('basic'), label: 'Sign up — Free' };
   };
 
-  const actionForPaidTier = (tier: 'basic' | 'pro'): TierAction => {
-    const label = tier === 'basic' ? 'Basic' : 'Pro';
-    if (authLoading) return { kind: 'link', href: '/register?next=/pricing', label: 'Get Started' };
-    if (!isAuthed) {
-      return { kind: 'link', href: `/register?next=/pricing`, label: 'Sign up to subscribe' };
-    }
-    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
-    if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
-    if (TIER_RANK[currentTier] > TIER_RANK[tier]) {
-      return { kind: 'portal', label: 'Manage Subscription' };
-    }
-    if (hasPaidSubscription) {
-      return { kind: 'portal', label: `Switch to ${label}` };
-    }
-    return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
-  };
+  const actionForProComingSoon = (): TierAction => ({ kind: 'current', label: 'Coming Soon' });
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -426,16 +413,15 @@ export default function PricingPage() {
             />
             <TierCard
               title="Pro"
-              original="$39/mo"
-              price="$24/mo"
-              highlight="Limited Time Only"
+              price="Coming Soon"
+              highlight="Coming Soon"
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',
                 'Access to Advanced Signals.',
                 'Direct access to ZeroGEX APIs.',
               ]}
-              action={actionForPaidTier('pro')}
+              action={actionForProComingSoon()}
               busy={busyTier === 'pro' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
