@@ -118,10 +118,10 @@ export default function TapeFlowBiasPage() {
       <SignalHowItsBuilt
         caveat={<>Score ≈ 0 during market hours means premium below minimum (thin tape), not &ldquo;neutral conviction&rdquo;.</>}
       >
-        <div><code>call_net = call_buy_premium − call_sell_premium</code></div>
-        <div><code>put_net = put_buy_premium − put_sell_premium</code></div>
-        <div><code>directional = call_net − put_net</code>, <code>ratio = directional / (|call_net| + |put_net|)</code></div>
-        <div><code>score = clip(ratio / saturation, [−1, 1]) × 100</code>. Saturation default 0.6 (60% one-sided imbalance saturates).</div>
+        <div><code>Call Net = Call Buy Premium − Call Sell Premium</code></div>
+        <div><code>Put Net = Put Buy Premium − Put Sell Premium</code></div>
+        <div><code>Directional = Call Net − Put Net</code>, <code>Ratio = Directional / (|Call Net| + |Put Net|)</code></div>
+        <div><code>Score = clip(Ratio / Saturation, [−1, 1]) × 100</code>. Saturation default 0.6 (60% one-sided imbalance saturates).</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="tape_flow_bias" symbol={symbol} title="Event Timeline" />

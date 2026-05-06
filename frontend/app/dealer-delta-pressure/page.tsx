@@ -127,8 +127,8 @@ export default function DealerDeltaPressurePage() {
       <SignalHowItsBuilt
         caveat={<>When this disagrees with GEX Gradient (structural view), trust Dealer Delta Pressure on a shorter (≤ 30m) horizon.</>}
       >
-        <div>Three data paths in priority order: <code>dealer_net_delta</code> field → <code>gex_by_strike.delta_oi</code> sum → distance-proxy fallback.</div>
-        <div><code>score = −clip(dni / DNI_NORM, [−1, 1]) × 100</code> (DNI_NORM default $3e8).</div>
+        <div>Three data paths in priority order: Dealer Net Delta field → GEX-by-Strike Delta OI sum → distance-proxy fallback.</div>
+        <div><code>Score = −clip(DNI / DNI Norm, [−1, 1]) × 100</code> (DNI Norm default $3e8).</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="dealer_delta_pressure" symbol={symbol} title="Event Timeline" />

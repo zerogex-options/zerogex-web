@@ -143,16 +143,16 @@ export default function PositioningTrapPage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            Smart imbalance = <code>(smart_call_net − smart_put_net) / (|call_net| + |put_net|)</code>, abstaining when denominator &lt; $100K.
+            Smart Imbalance = <code>(Smart Call Net − Smart Put Net) / (|Call Net| + |Put Net|)</code>, abstaining when denominator &lt; $100K.
             Signed imbalance this snapshot: <span className="font-mono">{formatSigned(smartImbalance, 3)}</span>.
           </>
         }
       >
         <div>
-          Two sub-scores (squeeze, flush) combine crowding (0.45), signed smart-money skew (0.25),
+          Two sub-scores (Squeeze, Flush) combine crowding (0.45), signed smart-money skew (0.25),
           5-bar momentum (0.15), gamma-flip location (0.10), and GEX regime (0.05).
         </div>
-        <div><code>score = clip(squeeze − flush, [−1, 1]) × 100</code>.</div>
+        <div><code>Score = clip(Squeeze − Flush, [−1, 1]) × 100</code>.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="positioning_trap" symbol={symbol} title="Event Timeline" />

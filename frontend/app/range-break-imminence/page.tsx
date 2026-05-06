@@ -241,9 +241,9 @@ export default function RangeBreakImminencePage() {
         <div>Four sub-signals are computed independently as 0–100 magnitudes with optional signed direction:
           IV skew (30%), dealer delta pressure (25%), trap detection (25%), volatility compression (20%, directionless).
         </div>
-        <div><code>imminence = Σ (magnitude_i × weight_i) / 100</code> in 0–100.</div>
-        <div><code>bias = Σ (signed_i × weight_i) / 100</code> in [−1, +1] — drives the directional <code>score</code>.</div>
-        <div><code>score = imminence × bias</code> (sign carried by bias). Direction is derived from sign of bias.</div>
+        <div><code>Imminence = Σ (Magnitude<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in 0–100.</div>
+        <div><code>Bias = Σ (Signed<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in [−1, +1] — drives the directional <code>Score</code>.</div>
+        <div><code>Score = Imminence × Bias</code> (sign carried by Bias). Direction is derived from sign of Bias.</div>
       </SignalHowItsBuilt>
     </div>
   );

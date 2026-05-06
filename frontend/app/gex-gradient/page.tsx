@@ -153,10 +153,10 @@ export default function GexGradientPage() {
       </section>
 
       <SignalHowItsBuilt>
-        <div><code>asymmetry = (above_abs − below_abs) / (above_abs + below_abs)</code>.</div>
-        <div>Short-gamma regime: <code>raw = asymmetry</code>. Long-gamma: <code>raw = −asymmetry × damping</code> (damping 0.40).</div>
-        <div><code>confidence = max(0.25, 1 − wing_fraction)</code>. Wings pin, so they kill directional edge.</div>
-        <div><code>score = clip(raw × confidence, [−1, 1]) × 100</code>. Abstains if total gamma below threshold.</div>
+        <div><code>Asymmetry = (Above Abs − Below Abs) / (Above Abs + Below Abs)</code>.</div>
+        <div>Short-gamma regime: <code>Raw = Asymmetry</code>. Long-gamma: <code>Raw = −Asymmetry × Damping</code> (damping 0.40).</div>
+        <div><code>Confidence = max(0.25, 1 − Wing Fraction)</code>. Wings pin, so they kill directional edge.</div>
+        <div><code>Score = clip(Raw × Confidence, [−1, 1]) × 100</code>. Abstains if total gamma below threshold.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gex_gradient" symbol={symbol} title="Event Timeline" />

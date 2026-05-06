@@ -206,9 +206,9 @@ export default function TrapDetectionPage() {
         caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
       >
         <div>Detects upside / downside breakouts beyond resistance / support by at least the buffer band.</div>
-        <div>Requires dealer long gamma (<code>net_gex &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction.</div>
+        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction.</div>
         <div>Optional confirmation: same-side flow decelerating into the wall.</div>
-        <div><code>score = ±confidence × 100</code> where confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
+        <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />

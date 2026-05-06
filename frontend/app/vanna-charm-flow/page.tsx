@@ -107,11 +107,11 @@ export default function VannaCharmFlowPage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Source <code>market_exposure_negated</code> = legacy fallback path; signal is still valid but less precise than <code>dealer_exposure</code>.</>}
+        caveat={<>Source <code>Market Exposure Negated</code> = legacy fallback path; signal is still valid but less precise than <code>Dealer Exposure</code>.</>}
       >
-        <div><code>vanna_total = Σ dealer_vanna_exposure</code>, <code>charm_total = Σ dealer_charm_exposure</code></div>
-        <div><code>amp = charm_amplification(session_time)</code> — 1.0 morning, ramps to 1.5 in the final ~40% of session.</div>
-        <div><code>combined = vanna_total + charm_total × amp</code>, <code>score = clip(combined / vc_norm, [−1, 1]) × 100</code>.</div>
+        <div><code>Vanna Total = Σ Dealer Vanna Exposure</code>, <code>Charm Total = Σ Dealer Charm Exposure</code></div>
+        <div><code>Amp = Charm Amplification(Session Time)</code> — 1.0 morning, ramps to 1.5 in the final ~40% of session.</div>
+        <div><code>Combined = Vanna Total + Charm Total × Amp</code>, <code>Score = clip(Combined / VC Norm, [−1, 1]) × 100</code>.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="vanna_charm_flow" symbol={symbol} title="Event Timeline" />

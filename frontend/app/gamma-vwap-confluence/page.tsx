@@ -210,10 +210,10 @@ export default function GammaVwapConfluencePage() {
       <SignalHowItsBuilt
         caveat={<>Short-gamma regime → breakout continues past the level (continuation). Long-gamma regime → reverts to the level (mean-reversion, ×0.7 conviction).</>}
       >
-        <div>Cluster the five reference levels (gamma flip, VWAP, max pain, max gamma, call wall) by their pairwise gap relative to spot.</div>
-        <div><code>cluster_quality = (members_in_cluster / 5) × (1 − cluster_gap_pct / max_gap)</code>.</div>
-        <div><code>raw = cluster_quality × sign(close − confluence_level) × regime_factor</code>, regime_factor depends on dealer net GEX sign.</div>
-        <div><code>score = clip(raw, [−1, 1]) × 100</code>. Triggers at |score| ≥ 20.</div>
+        <div>Cluster the five reference levels (Gamma Flip, VWAP, Max Pain, Max Gamma, Call Wall) by their pairwise gap relative to spot.</div>
+        <div><code>Cluster Quality = (Members in Cluster / 5) × (1 − Cluster Gap % / Max Gap)</code>.</div>
+        <div><code>Raw = Cluster Quality × sign(Close − Confluence Level) × Regime Factor</code>, where Regime Factor depends on dealer Net GEX sign.</div>
+        <div><code>Score = clip(Raw, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 20.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title="Event Timeline" />

@@ -122,9 +122,9 @@ export default function SkewDeltaPage() {
       <SignalHowItsBuilt
         caveat={<>The negative sign means elevated put skew → bearish score. Null IV → no short-dated data that cycle (not the same as neutral).</>}
       >
-        <div><code>spread = otm_put_iv − otm_call_iv</code></div>
-        <div><code>deviation = spread − baseline</code> (baseline default 0.02)</div>
-        <div><code>score = −clip(deviation / saturation, [−1, 1]) × 100</code> (saturation default 0.04).</div>
+        <div><code>Spread = OTM Put IV − OTM Call IV</code></div>
+        <div><code>Deviation = Spread − Baseline</code> (baseline default 0.02)</div>
+        <div><code>Score = −clip(Deviation / Saturation, [−1, 1]) × 100</code> (saturation default 0.04).</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="skew_delta" symbol={symbol} title="Event Timeline" />

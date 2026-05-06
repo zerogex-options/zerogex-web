@@ -312,14 +312,6 @@ export default function TradingSignalsPage() {
         </div>
       </section>
 
-      <ActionCardSection
-        data={actionData}
-        error={actionError}
-        onRetry={refetchAction}
-        hideLowConfidence={hideLowConfidence}
-        onToggleHide={() => setHideLowConfidence((prev) => !prev)}
-      />
-
       <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-xl font-semibold"><TableProperties size={20} /> Trade Stream</h2>
@@ -407,6 +399,14 @@ export default function TradingSignalsPage() {
           </tbody>
         </table>
       </section>
+
+      <ActionCardSection
+        data={actionData}
+        error={actionError}
+        onRetry={refetchAction}
+        hideLowConfidence={hideLowConfidence}
+        onToggleHide={() => setHideLowConfidence((prev) => !prev)}
+      />
 
       <section className="zg-feature-shell mb-8 p-6">
         <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">

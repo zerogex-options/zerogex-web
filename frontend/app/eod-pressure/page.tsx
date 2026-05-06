@@ -139,9 +139,9 @@ export default function EodPressurePage() {
       <SignalHowItsBuilt
         caveat={<>Activation window: 14:30 ET → 16:00 ET. Ramp reaches 1.0 by ~15:45 ET. Outside the window the score is forced to 0.</>}
       >
-        <div><code>charm_score = tanh(charm_at_spot / 20M)</code> across an ATM band — captures accelerating delta decay into the close.</div>
-        <div><code>pin_gravity = sign(net_gex) × min(1.0, pin_distance_pct / 0.3%)</code> — flips direction when dealers cross to short gamma.</div>
-        <div><code>score = (0.6·charm + 0.4·pin) × calendar_amp × time_ramp</code>. OpEx 1.5×, quad-witching 2.0×.</div>
+        <div><code>Charm Score = tanh(Charm at Spot / 20M)</code> across an ATM band — captures accelerating delta decay into the close.</div>
+        <div><code>Pin Gravity = sign(Net GEX) × min(1.0, Pin Distance % / 0.3%)</code> — flips direction when dealers cross to short gamma.</div>
+        <div><code>Score = (0.6 · Charm + 0.4 · Pin) × Calendar Amp × Time Ramp</code>. OpEx 1.5×, quad-witching 2.0×.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="eod_pressure" symbol={symbol} title="Event Timeline" />

@@ -186,10 +186,10 @@ export default function SqueezeSetupPage() {
       <SignalHowItsBuilt
         caveat={<>Dead-VIX regimes attenuate conviction ~50%. The signal abstains when no directional flow z-score crosses ±0.5 or there&apos;s no detectable momentum acceleration in the same direction.</>}
       >
-        <div>Direction picked from the larger of <code>|call_flow_z|</code>, <code>|put_flow_z|</code>; same-side momentum required.</div>
-        <div><code>conviction = clip(|flow_z| × momentum_align × accel_boost × vix_factor, [0, 1])</code>.</div>
-        <div><code>accel_boost = 1.2 if accelerating in signal direction, else 1.0</code>.</div>
-        <div><code>score = ±conviction × 100</code> (sign matches direction). Triggers at |score| ≥ 25.</div>
+        <div>Direction picked from the larger of <code>|Call Flow Z|</code>, <code>|Put Flow Z|</code>; same-side momentum required.</div>
+        <div><code>Conviction = clip(|Flow Z| × Momentum Align × Accel Boost × VIX Factor, [0, 1])</code>.</div>
+        <div><code>Accel Boost = 1.2 if accelerating in signal direction, else 1.0</code>.</div>
+        <div><code>Score = ±Conviction × 100</code> (sign matches direction). Triggers at |Score| ≥ 25.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="squeeze_setup" symbol={symbol} title="Event Timeline" />

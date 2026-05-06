@@ -199,9 +199,9 @@ export default function ZeroDtePositionImbalancePage() {
         caveat={<>Time-of-day multiplier is 0 outside the 0DTE window (forces score to 0). When the all-expiry fallback fires, the picture is inferred — not measured same-day — and conviction should be discounted.</>}
       >
         <div>Net premium per moneyness bucket; weighted <code>0.6 × OTM + 0.3 × ATM + 0.1 × ITM</code> for both calls and puts.</div>
-        <div><code>flow_imbalance = (weighted_call_net − weighted_put_net) / (|...| + |...|)</code>, gated above $50k gross premium.</div>
-        <div><code>blended = 0.55 × flow + 0.30 × smart + 0.15 × pcr_tilt</code>, then × time-of-day multiplier.</div>
-        <div><code>score = clip(blended, [−1, 1]) × 100</code>. Triggers at |score| ≥ 25.</div>
+        <div><code>Flow Imbalance = (Weighted Call Net − Weighted Put Net) / (|...| + |...|)</code>, gated above $50k gross premium.</div>
+        <div><code>Blended = 0.55 × Flow + 0.30 × Smart + 0.15 × PCR Tilt</code>, then × time-of-day multiplier.</div>
+        <div><code>Score = clip(Blended, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 25.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="zero_dte_position_imbalance" symbol={symbol} title="Event Timeline" />
