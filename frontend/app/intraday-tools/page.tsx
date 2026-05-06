@@ -410,10 +410,16 @@ export default function IntradayToolsPage() {
 
     if (spikeByTs.size === 0) return [];
 
+    const priceByTs = buildUnderlyingPriceMap(byContractRows);
+
     const sortedKeys = Array.from(spikeByTs.keys()).sort();
     const startMs = new Date(sortedKeys[0]).getTime();
     const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
+
+    const FORWARD_FILL_WINDOW_MS = 10 * 60_000;
+    let lastPrice: number | null = null;
+    let lastPriceMs: number | null = null;
 
     const allTs: string[] = [];
     for (let t = startMs; t <= endMs; t += 60_000) {
@@ -421,12 +427,25 @@ export default function IntradayToolsPage() {
     }
 
     return allTs.map((ts) => {
+      const tsMs = new Date(ts).getTime();
       const spike = spikeByTs.get(ts);
       const volume = spike ? safeNum(spike.current_volume) : null;
       const ratio = spike ? safeNum(spike.volume_ratio) : null;
       const sigma = spike ? safeNum(spike.volume_sigma) : null;
-      const price = spike ? safeNum(spike.price) : null;
       const buyingPressure = spike ? safeNum(spike.buying_pressure_pct) : null;
+      const directPrice = priceByTs.get(ts) ?? (spike ? safeNum(spike.price) : null);
+
+      let underlyingPrice: number | null;
+      if (directPrice != null) {
+        underlyingPrice = directPrice;
+        lastPrice = directPrice;
+        lastPriceMs = tsMs;
+      } else if (lastPrice != null && lastPriceMs != null && tsMs - lastPriceMs <= FORWARD_FILL_WINDOW_MS) {
+        underlyingPrice = lastPrice;
+      } else {
+        underlyingPrice = null;
+      }
+
       return {
         timestamp: ts,
         time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
@@ -436,10 +455,19 @@ export default function IntradayToolsPage() {
         volumeSigma: sigma,
         volumeClass: spike?.volume_class ?? null,
         buyingPressurePct: buyingPressure,
-        underlyingPrice: price,
+        underlyingPrice,
       };
     });
-  }, [volumeSpikes]);
+  }, [volumeSpikes, byContractRows]);
+
+  const volumeSpikeLabelStepMin = useMemo(() => {
+    const len = volumeSpikesChart.length;
+    if (len <= 0) return 60;
+    if (len <= 120) return 15;
+    if (len <= 480) return 60;
+    if (len <= 1440) return 120;
+    return 240;
+  }, [volumeSpikesChart]);
 
   const volumeSpikePriceTicks = useMemo(() => {
     const values = volumeSpikesChart
@@ -535,7 +563,10 @@ export default function IntradayToolsPage() {
                 <ComposedChart data={volumeSpikesChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                   <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
                     const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || ''); const index = Number(props?.index ?? -1);
-                    const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+                    const d = ts ? new Date(ts) : null;
+                    const minOfDay = d && !Number.isNaN(d.getTime()) ? d.getUTCHours() * 60 + d.getUTCMinutes() : -1;
+                    const showTime = minOfDay >= 0 && minOfDay % volumeSpikeLabelStepMin === 0;
+                    const timeLabel = showTime ? d!.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
                     const dateLabel = volumeSpikeDateMarkerMeta.get(index);
                     if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                     return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}</g>;
@@ -549,6 +580,7 @@ export default function IntradayToolsPage() {
                   }} />
                   <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
                   <Tooltip
+                    cursor={{ stroke: axisStroke, strokeWidth: 1, strokeOpacity: 0.5 }}
                     content={({ active, label, payload }) => {
                       if (!active || !payload?.length) return null;
                       const point = payload[0]?.payload as {
@@ -559,26 +591,23 @@ export default function IntradayToolsPage() {
                         buyingPressurePct: number | null;
                         underlyingPrice: number | null;
                       } | undefined;
-                      if (!point || point.volumeRaw == null) return null;
+                      if (!point) return null;
                       const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                      const hasSpike = point.volumeRaw != null;
                       return (
                         <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
                           <div className="font-semibold mb-1">{labelStr}</div>
-                          {point.volumeRaw != null ? (
-                            <div>Volume: {point.volumeRaw.toLocaleString()}</div>
-                          ) : null}
-                          {point.volumeRatio != null ? (
-                            <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div>
-                          ) : null}
-                          {point.volumeSigma != null ? (
-                            <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div>
-                          ) : null}
-                          {point.volumeClass ? (
-                            <div>Class: {point.volumeClass}</div>
-                          ) : null}
-                          {point.buyingPressurePct != null ? (
-                            <div>Buying Pressure: {point.buyingPressurePct.toFixed(1)}%</div>
-                          ) : null}
+                          {hasSpike ? (
+                            <>
+                              <div>Volume: {point.volumeRaw!.toLocaleString()}</div>
+                              {point.volumeRatio != null ? <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div> : null}
+                              {point.volumeSigma != null ? <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div> : null}
+                              {point.volumeClass ? <div>Class: {point.volumeClass}</div> : null}
+                              {point.buyingPressurePct != null ? <div>Buying Pressure: {point.buyingPressurePct.toFixed(1)}%</div> : null}
+                            </>
+                          ) : (
+                            <div style={{ color: mutedText }}>No spike at this minute</div>
+                          )}
                           {point.underlyingPrice != null ? (
                             <div>Underlying Price: ${point.underlyingPrice.toFixed(2)}</div>
                           ) : null}
