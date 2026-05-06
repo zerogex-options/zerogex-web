@@ -255,6 +255,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
   const showResistance = breakoutUp && priorResistance != null;
   const showSupport = breakoutDown && priorSupport != null;
 
+  type Rung =
+    | { kind: 'resistance'; value: number }
+    | { kind: 'spot'; value: number }
+    | { kind: 'support'; value: number };
+
+  const rungs: Rung[] = [{ kind: 'spot', value: spot }];
+  if (showResistance) rungs.push({ kind: 'resistance', value: priorResistance! });
+  if (showSupport) rungs.push({ kind: 'support', value: priorSupport! });
+  rungs.sort((a, b) => b.value - a.value);
+
   return (
     <div className="relative flex items-start gap-4">
       <svg width="48" height={height} viewBox={`0 0 48 ${height}`}>
@@ -278,24 +288,32 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
         <circle cx={24} cy={toY(spot)} r={5} fill="var(--color-warning)" stroke="var(--color-surface)" strokeWidth={2} />
       </svg>
       <div className="flex flex-col gap-3 text-xs">
-        {showResistance && (
-          <div className="flex items-baseline gap-3">
-            <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
-            <span className="font-mono">{formatPrice(priorResistance)}</span>
-            <span className="text-[var(--color-bull)] text-[10px] font-semibold uppercase tracking-wide">Broken ↑</span>
-          </div>
-        )}
-        <div className="flex items-baseline gap-3">
-          <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
-          <span className="font-mono">{formatPrice(spot)}</span>
-        </div>
-        {showSupport && (
-          <div className="flex items-baseline gap-3">
-            <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
-            <span className="font-mono">{formatPrice(priorSupport)}</span>
-            <span className="text-[var(--color-bear)] text-[10px] font-semibold uppercase tracking-wide">Broken ↓</span>
-          </div>
-        )}
+        {rungs.map((r) => {
+          if (r.kind === 'resistance') {
+            return (
+              <div key="resistance" className="flex items-baseline gap-3">
+                <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
+                <span className="font-mono">{formatPrice(r.value)}</span>
+                <span className="text-[var(--color-bull)] text-[10px] font-semibold uppercase tracking-wide">Broken ↑</span>
+              </div>
+            );
+          }
+          if (r.kind === 'support') {
+            return (
+              <div key="support" className="flex items-baseline gap-3">
+                <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
+                <span className="font-mono">{formatPrice(r.value)}</span>
+                <span className="text-[var(--color-bear)] text-[10px] font-semibold uppercase tracking-wide">Broken ↓</span>
+              </div>
+            );
+          }
+          return (
+            <div key="spot" className="flex items-baseline gap-3">
+              <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
+              <span className="font-mono">{formatPrice(r.value)}</span>
+            </div>
+          );
+        })}
         <div className="text-[11px] text-[var(--color-text-secondary)] border-t border-[var(--color-border)]/40 pt-2">
           Buffer band = min(0.1%, 0.15 × realized σ × √5).
         </div>

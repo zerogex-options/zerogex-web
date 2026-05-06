@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Brain, Crosshair, Info, ShieldCheck, TableProperties, Target, TrendingUp, Zap } from 'lucide-react';
+import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck, TableProperties, TrendingUp, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalAction, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import type { SignalActionAlternative, SignalActionLeg, SignalActionNearMiss, SignalActionPriceLevel, SignalActionResponse } from '@/hooks/useApiData';
@@ -265,14 +265,6 @@ export default function TradingSignalsPage() {
         </TooltipWrapper>
       </div>
 
-      <ActionCardSection
-        data={actionData}
-        error={actionError}
-        onRetry={refetchAction}
-        hideLowConfidence={hideLowConfidence}
-        onToggleHide={() => setHideLowConfidence((prev) => !prev)}
-      />
-
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {TIMEFRAME_OPTIONS.map((option) => {
           const active = option.key === timeframeFilter;
@@ -318,6 +310,14 @@ export default function TradingSignalsPage() {
         />
         </div>
       </section>
+
+      <ActionCardSection
+        data={actionData}
+        error={actionError}
+        onRetry={refetchAction}
+        hideLowConfidence={hideLowConfidence}
+        onToggleHide={() => setHideLowConfidence((prev) => !prev)}
+      />
 
       <section className="zg-feature-shell overflow-x-auto p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
@@ -448,6 +448,48 @@ export default function TradingSignalsPage() {
           </div>
         </div>
       </section>
+
+      <section className="zg-feature-shell mb-8 p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
+          <Zap size={20} />
+          About the Decisive Trade Card
+        </h2>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4 max-w-3xl">
+          Every cycle (~1 minute) the engine evaluates 12 patterns against current dealer positioning, flow, and price
+          structure, then emits the single highest-conviction pattern as one trade card per underlying — or a
+          STAND_DOWN when nothing clears its activation gate. Use the confidence filter to hide low-conviction
+          cards while keeping STAND_DOWNs visible for situational awareness.
+        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">What you&rsquo;re seeing</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• <strong>Action</strong> — one of 14 enums (e.g. SELL_CALL_SPREAD, BUY_PUT_DEBIT).</li>
+              <li>• <strong>Pattern</strong> — the playbook entry that fired (12 possible).</li>
+              <li>• <strong>Tier</strong> — holding window: 0DTE, intraday, swing.</li>
+              <li>• <strong>Stop / Entry / Target</strong> — reference prices anchored to a level or trigger.</li>
+              <li>• <strong>Legs</strong> — structure pill: 1 = single, 2 = vertical, 3 = butterfly, 4 = condor.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">How patterns are scored</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• <strong>Confidence</strong> in [0.20, 0.95] — higher means stronger structural setup plus supporting flow.</li>
+              <li>• <strong>Size multiplier</strong> scales the optimizer&rsquo;s contract count by confidence and regime.</li>
+              <li>• <strong>Max hold</strong> caps how long a card stays valid before re-evaluation.</li>
+              <li>• <strong>Alternatives</strong> lists patterns that almost won — useful to gauge crowding.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-[var(--color-border)] p-4" style={{ background: theme === 'light' ? '#FFFFFF' : 'var(--color-surface-subtle)' }}>
+            <div className="font-semibold mb-3">STAND_DOWN</div>
+            <ul className="text-xs text-[var(--color-text-secondary)] space-y-2">
+              <li>• Issued when no pattern crosses its activation threshold.</li>
+              <li>• <strong>Near misses</strong> show which patterns came closest and what gates they failed (e.g. &ldquo;price 0.45% from call_wall, needs ≤ 0.20%&rdquo;).</li>
+              <li>• Confirms the engine is actively monitoring structure even when it stays flat — never hidden by design.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -467,11 +509,6 @@ function directionColor(direction: string | undefined): string {
   return 'var(--color-warning)';
 }
 
-function formatPriceUsd(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  return `$${value.toFixed(2)}`;
-}
-
 interface ActionCardSectionProps {
   data: SignalActionResponse | null | undefined;
   error: string | null;
@@ -487,16 +524,11 @@ function ActionCardSection({ data, error, onRetry, hideLowConfidence, onToggleHi
   const hidden = !isStandDown && hideLowConfidence && confidence != null && confidence < 0.5;
 
   return (
-    <section className="zg-feature-shell mb-8 p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="mb-8">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-xl font-semibold">
           <Zap size={20} />
           Decisive Trade Card
-          <TooltipWrapper text="One decisive trade card per cycle, per underlying. Either an actionable trade or a STAND_DOWN with near-misses. Refreshes every minute (~/api/signals/action).">
-            <button type="button" className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-secondary)]">
-              <Info size={12} />
-            </button>
-          </TooltipWrapper>
         </h2>
         <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--color-text-secondary)]">
           <input type="checkbox" checked={hideLowConfidence} onChange={onToggleHide} className="h-3.5 w-3.5 cursor-pointer" />
@@ -523,66 +555,22 @@ function ActionCardSection({ data, error, onRetry, hideLowConfidence, onToggleHi
   );
 }
 
-function ConfidenceRing({ value }: { value: number | null }) {
-  const pct = value == null ? 0 : Math.max(0, Math.min(1, value));
-  const radius = 36;
-  const circumference = 2 * Math.PI * radius;
-  const dash = circumference * pct;
-  const color = pct >= 0.7 ? 'var(--color-bull)' : pct >= 0.5 ? 'var(--color-warning)' : 'var(--color-bear)';
-
+function PriceCell({ label, level, accent }: { label: string; level: SignalActionPriceLevel | undefined; accent: string }) {
+  const detail = level?.level_name ?? level?.kind ?? level?.trigger ?? '';
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: 96, height: 96 }}>
-      <svg width="96" height="96" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r={radius} stroke="var(--color-border)" strokeWidth="8" fill="none" />
-        <circle
-          cx="48"
-          cy="48"
-          r={radius}
-          stroke={color}
-          strokeWidth="8"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${circumference - dash}`}
-          transform="rotate(-90 48 48)"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold" style={{ color }}>
-          {value != null ? value.toFixed(2) : '—'}
-        </span>
-        <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">conf</span>
+    <div
+      className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3"
+      style={{ borderLeft: `3px solid ${accent}` }}
+    >
+      <div className="text-[10px] uppercase tracking-[0.18em] font-bold" style={{ color: accent }}>{label}</div>
+      <div className="mt-1 font-mono text-2xl font-bold tracking-tight">
+        {level?.ref_price != null ? `$${level.ref_price.toFixed(2)}` : '—'}
       </div>
-    </div>
-  );
-}
-
-function PriceRung({ label, level, color }: { label: string; level: SignalActionPriceLevel | undefined; color: string }) {
-  if (!level || level.ref_price == null) return null;
-  const detail = level.level_name ?? level.kind ?? level.trigger ?? '';
-  return (
-    <div className="flex items-baseline justify-between gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-      <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{label}</span>
-      <span className="font-mono text-sm">{formatPriceUsd(level.ref_price)}</span>
-      {detail && <span className="text-[10px] text-[var(--color-text-secondary)]">{detail}</span>}
-    </div>
-  );
-}
-
-function ActionPriceLadder({ entry, target, stop }: { entry?: SignalActionPriceLevel; target?: SignalActionPriceLevel; stop?: SignalActionPriceLevel }) {
-  const rungs: Array<{ key: 'stop' | 'entry' | 'target'; level: SignalActionPriceLevel | undefined; label: string; color: string }> = [
-    { key: 'stop', level: stop, label: 'Stop', color: 'var(--color-bear)' },
-    { key: 'entry', level: entry, label: 'Entry', color: 'var(--color-warning)' },
-    { key: 'target', level: target, label: 'Target', color: 'var(--color-bull)' },
-  ].filter((r) => r.level && r.level.ref_price != null) as typeof rungs;
-
-  if (rungs.length === 0) return null;
-  rungs.sort((a, b) => (b.level!.ref_price ?? 0) - (a.level!.ref_price ?? 0));
-
-  return (
-    <div className="flex flex-col gap-2">
-      {rungs.map((r) => (
-        <PriceRung key={r.key} label={r.label} level={r.level} color={r.color} />
-      ))}
+      {detail && (
+        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+          {String(detail).replace(/_/g, ' ')}
+        </div>
+      )}
     </div>
   );
 }
@@ -594,92 +582,121 @@ function LegRow({ leg }: { leg: SignalActionLeg }) {
   const rightLabel = right === 'C' ? 'Call' : right === 'P' ? 'Put' : right;
   return (
     <div className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
-      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `${sideColor}1f`, color: sideColor }}>
+      <span
+        className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+        style={{ background: `${sideColor}1f`, color: sideColor }}
+      >
         {String(leg.side).toUpperCase()}
       </span>
-      <span className="font-mono">{leg.qty}×</span>
-      <span className="font-mono">${Number(leg.strike).toFixed(2)} {rightLabel}</span>
-      <span className="ml-auto text-xs text-[var(--color-text-secondary)]">{leg.expiry}</span>
+      <span className="font-mono text-[var(--color-text-secondary)]">{leg.qty}×</span>
+      <span className="font-mono font-semibold">${Number(leg.strike).toFixed(2)} {rightLabel}</span>
+      <span className="ml-auto font-mono text-xs text-[var(--color-text-secondary)]">{leg.expiry}</span>
     </div>
   );
 }
 
 function TradeCard({ data }: { data: SignalActionResponse }) {
   const action = String(data.action ?? '');
-  const pattern = String(data.pattern ?? '—');
-  const tier = String(data.tier ?? '—');
-  const direction = String(data.direction ?? '—');
+  const pattern = String(data.pattern ?? '');
+  const tier = String(data.tier ?? '');
+  const direction = String(data.direction ?? '');
   const dirColor = directionColor(direction);
   const legs = Array.isArray(data.legs) ? data.legs : [];
   const alternatives = Array.isArray(data.alternatives_considered) ? data.alternatives_considered : [];
+  const confidence = typeof data.confidence === 'number' ? data.confidence : null;
   const sizeMultiplier = typeof data.size_multiplier === 'number' ? data.size_multiplier : null;
   const maxHold = typeof data.max_hold_minutes === 'number' ? data.max_hold_minutes : null;
+  const confidencePct = confidence != null ? Math.max(0, Math.min(1, confidence)) : 0;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-bold uppercase tracking-wide" style={{ background: `${dirColor}1f`, color: dirColor }}>
-              <Crosshair size={14} />
-              {action.replace(/_/g, ' ')}
-            </span>
-            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{pattern.replace(/_/g, ' ')}</span>
-            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{tier}</span>
-            <span className="capitalize rounded-md border px-2 py-0.5 text-xs font-medium" style={{ borderColor: dirColor, color: dirColor }}>
-              {direction.replace(/_/g, ' ')}
-            </span>
-            <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">{structureLabel(legs.length)}</span>
+    <article
+      className="rounded-xl border-2 p-6 shadow-sm"
+      style={{ borderColor: dirColor, background: `linear-gradient(135deg, ${dirColor}0d 0%, transparent 55%)` }}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
+            <span style={{ color: dirColor }}>● {data.underlying || 'SPY'}</span>
+            <span>·</span>
+            <span>Decisive Trade</span>
+            {data.timestamp && <span className="font-mono normal-case tracking-normal text-[var(--color-text-secondary)]">{data.timestamp}</span>}
+          </div>
+          <h3
+            className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight"
+            style={{ color: dirColor }}
+          >
+            {action.replace(/_/g, ' ')}
+          </h3>
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-[0.14em] font-semibold text-[var(--color-text-secondary)]">
+            {pattern && <span className="font-mono text-[var(--color-text-primary)]">{pattern.replace(/_/g, ' ')}</span>}
+            {pattern && tier && <span className="text-[var(--color-border)]">|</span>}
+            {tier && <span className="font-mono text-[var(--color-text-primary)]">{tier}</span>}
+            {(pattern || tier) && direction && <span className="text-[var(--color-border)]">|</span>}
+            {direction && <span style={{ color: dirColor }}>{direction.replace(/_/g, ' ')}</span>}
+            <span className="text-[var(--color-border)]">|</span>
+            <span className="font-mono text-[var(--color-text-primary)]">{structureLabel(legs.length)}</span>
           </div>
           {data.rationale && (
-            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{data.rationale}</p>
+            <p className="mt-4 text-sm italic leading-relaxed text-[var(--color-text-secondary)] border-l-2 pl-3" style={{ borderColor: dirColor }}>
+              {data.rationale}
+            </p>
           )}
-          <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-            {sizeMultiplier != null && <span>Size multiplier: <span className="font-mono text-[var(--color-text-primary)]">{sizeMultiplier.toFixed(2)}</span></span>}
-            {maxHold != null && <span>Max hold: <span className="font-mono text-[var(--color-text-primary)]">{maxHold} min</span></span>}
-            {data.timestamp && <span>Cycle: <span className="font-mono text-[var(--color-text-primary)]">{data.timestamp}</span></span>}
-          </div>
         </div>
-        <div className="flex flex-col items-center justify-start gap-2 lg:col-span-2">
-          <ConfidenceRing value={typeof data.confidence === 'number' ? data.confidence : null} />
+        <div className="lg:col-span-4 flex flex-col gap-2 lg:items-end">
+          <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--color-text-secondary)]">Confidence</div>
+          <div className="font-mono text-5xl font-black leading-none" style={{ color: dirColor }}>
+            {confidence != null ? confidence.toFixed(2) : '—'}
+          </div>
+          <div className="w-full max-w-[180px] h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
+            <div className="h-full" style={{ width: `${confidencePct * 100}%`, background: dirColor }} />
+          </div>
+          {(sizeMultiplier != null || maxHold != null) && (
+            <div className="mt-2 flex gap-4 text-[11px] text-[var(--color-text-secondary)] lg:justify-end">
+              {sizeMultiplier != null && (
+                <span>Size <span className="font-mono font-semibold text-[var(--color-text-primary)]">×{sizeMultiplier.toFixed(2)}</span></span>
+              )}
+              {maxHold != null && (
+                <span>Max hold <span className="font-mono font-semibold text-[var(--color-text-primary)]">{maxHold}m</span></span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <Target size={14} /> Price ladder
-          </div>
-          <ActionPriceLadder entry={data.entry} target={data.target} stop={data.stop} />
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <PriceCell label="Stop" level={data.stop} accent="var(--color-bear)" />
+        <PriceCell label="Entry" level={data.entry} accent="var(--color-warning)" />
+        <PriceCell label="Target" level={data.target} accent="var(--color-bull)" />
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-2 text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--color-text-secondary)]">
+          Legs · {structureLabel(legs.length)}
         </div>
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <TableProperties size={14} /> Legs · {structureLabel(legs.length)}
+        {legs.length === 0 ? (
+          <div className="text-xs text-[var(--color-text-secondary)]">No legs reported.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {legs.map((leg, idx) => (
+              <LegRow key={idx} leg={leg} />
+            ))}
           </div>
-          <div className="flex flex-col gap-2">
-            {legs.length === 0 ? (
-              <div className="text-xs text-[var(--color-text-secondary)]">No legs reported.</div>
-            ) : (
-              legs.map((leg, idx) => <LegRow key={idx} leg={leg} />)
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
       {alternatives.length > 0 && (
-        <div className="mt-5 border-t border-[var(--color-border)]/40 pt-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Alternatives considered</div>
-          <ul className="space-y-1 text-xs text-[var(--color-text-secondary)]">
-            {alternatives.map((alt: SignalActionAlternative, idx) => (
-              <li key={idx}>
-                <span className="font-mono text-[var(--color-text-primary)]">{alt.pattern}</span>
-                {alt.reason ? <span> — {alt.reason}</span> : null}
-              </li>
-            ))}
-          </ul>
+        <div className="mt-5 pt-3 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)] flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-bold uppercase tracking-[0.18em]">Alternatives</span>
+          {alternatives.map((alt: SignalActionAlternative, idx) => (
+            <span key={idx}>
+              {idx > 0 && <span className="text-[var(--color-border)] mr-2">·</span>}
+              <span className="font-mono text-[var(--color-text-primary)]">{alt.pattern}</span>
+              {alt.reason ? <span> ({alt.reason})</span> : null}
+            </span>
+          ))}
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -687,30 +704,42 @@ function StandDownCard({ data }: { data: SignalActionResponse }) {
   const nearMisses = Array.isArray(data.near_misses) ? data.near_misses : [];
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1 rounded-md bg-[var(--color-warning-soft)] px-2.5 py-1 text-sm font-bold uppercase tracking-wide text-[var(--color-warning)]">
-          <ShieldCheck size={14} />
-          STAND DOWN
-        </span>
-        <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">non-directional</span>
-        <span className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-xs font-medium">confidence 0.00</span>
-        {data.timestamp && <span className="text-[11px] text-[var(--color-text-secondary)] ml-auto font-mono">{data.timestamp}</span>}
+    <article
+      className="rounded-xl border-2 p-6 shadow-sm"
+      style={{ borderColor: 'var(--color-warning)', background: 'linear-gradient(135deg, var(--color-warning-soft) 0%, transparent 55%)' }}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
+        <span style={{ color: 'var(--color-warning)' }}>● {data.underlying || 'SPY'}</span>
+        <span>·</span>
+        <span>No Trade</span>
+        {data.timestamp && <span className="font-mono normal-case tracking-normal">{data.timestamp}</span>}
+      </div>
+      <h3 className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight text-[var(--color-warning)]">
+        Stand Down
+      </h3>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-[0.14em] font-semibold text-[var(--color-text-secondary)]">
+        <span>Non-directional</span>
+        <span className="text-[var(--color-border)]">|</span>
+        <span>Confidence <span className="font-mono text-[var(--color-text-primary)]">0.00</span></span>
       </div>
       {data.rationale && (
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{data.rationale}</p>
+        <p className="mt-4 text-sm italic leading-relaxed text-[var(--color-text-secondary)] border-l-2 pl-3 border-[var(--color-warning)]">
+          {data.rationale}
+        </p>
       )}
-      <div className="mt-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Near misses</div>
+      <div className="mt-6">
+        <div className="mb-2 text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--color-text-secondary)]">
+          Near misses
+        </div>
         {nearMisses.length === 0 ? (
           <div className="text-xs text-[var(--color-text-secondary)]">No close patterns reported.</div>
         ) : (
-          <ul className="space-y-2 text-xs">
+          <ul className="space-y-2 text-sm">
             {nearMisses.map((nm: SignalActionNearMiss, idx) => (
               <li key={idx} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-                <div className="font-mono text-sm text-[var(--color-text-primary)]">{nm.pattern}</div>
+                <div className="font-mono font-semibold">{nm.pattern}</div>
                 {Array.isArray(nm.missing) && nm.missing.length > 0 && (
-                  <ul className="mt-1 list-disc pl-4 text-[var(--color-text-secondary)]">
+                  <ul className="mt-1 list-disc pl-4 text-xs text-[var(--color-text-secondary)]">
                     {nm.missing.map((m, i) => (
                       <li key={i}>{m}</li>
                     ))}
@@ -721,6 +750,6 @@ function StandDownCard({ data }: { data: SignalActionResponse }) {
           </ul>
         )}
       </div>
-    </div>
+    </article>
   );
 }
