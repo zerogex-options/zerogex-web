@@ -721,7 +721,7 @@ export default function IntradayToolsPage() {
                       return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
                     })}
                   </Bar>
-                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={true} isAnimationActive={false} />
+                  <Line yAxisId="price" type="linear" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={true} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
