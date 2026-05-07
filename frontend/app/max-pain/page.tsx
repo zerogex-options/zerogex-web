@@ -23,7 +23,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
-import { omitClosedMarketTimes } from "@/core/utils";
+import { omitOutOfHoursForSymbol } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
 
 interface MaxPainPoint {
@@ -76,20 +76,22 @@ function safeNum(v: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function nearestCandle(ts: string, prices: MarketHistoryRow[]) {
+function nearestCandle(ts: string, prices: MarketHistoryRow[], maxDeltaMs: number) {
   const target = new Date(ts).getTime();
   if (!Number.isFinite(target) || prices.length === 0) return null;
 
-  let best = prices[0];
-  let bestDelta = Math.abs(new Date(best.timestamp).getTime() - target);
+  let best: MarketHistoryRow | null = null;
+  let bestDelta = Number.POSITIVE_INFINITY;
 
-  for (let i = 1; i < prices.length; i += 1) {
+  for (let i = 0; i < prices.length; i += 1) {
     const delta = Math.abs(new Date(prices[i].timestamp).getTime() - target);
     if (delta < bestDelta) {
       best = prices[i];
       bestDelta = delta;
     }
   }
+
+  if (!best || bestDelta > maxDeltaMs) return null;
 
   const close = safeNum(best.close ?? best.price);
   const open = safeNum(best.open ?? close);
@@ -103,6 +105,14 @@ function nearestCandle(ts: string, prices: MarketHistoryRow[]) {
     close,
   };
 }
+
+const TIMEFRAME_DURATION_MS: Record<ChartTimeframe, number> = {
+  "1min": 60_000,
+  "5min": 5 * 60_000,
+  "15min": 15 * 60_000,
+  "1hr": 60 * 60_000,
+  "1day": 24 * 60 * 60_000,
+};
 
 function svgPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return "";
@@ -169,13 +179,14 @@ export default function MaxPainPage() {
   const maxPainLabelDy = labelsNeedExtraOffset ? 0 : 8;
   const underlyingLabelDy = labelsNeedExtraOffset ? 22 : 8;
 
-  const filteredMaxPainRows = omitClosedMarketTimes(maxPainSeries || [], (row) => row.timestamp || "");
-  const filteredPriceRows = omitClosedMarketTimes(priceSeries || [], (row) => row.timestamp);
+  const filteredMaxPainRows = omitOutOfHoursForSymbol(maxPainSeries || [], (row) => row.timestamp || "", symbol);
+  const filteredPriceRows = omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol);
 
+  const candleMatchToleranceMs = TIMEFRAME_DURATION_MS[timeseriesTimeframe] ?? 5 * 60_000;
   const seriesChart = filteredMaxPainRows
     .map((row) => {
       const ts = row.timestamp || "";
-      const candle = nearestCandle(ts, filteredPriceRows);
+      const candle = nearestCandle(ts, filteredPriceRows, candleMatchToleranceMs);
       if (!candle) return null;
       return {
         timestamp: ts,

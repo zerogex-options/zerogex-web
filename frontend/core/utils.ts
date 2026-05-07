@@ -60,10 +60,49 @@ export const isWithinExtendedMarketHours = (timestamp: string | Date): boolean =
   return totalMinutes >= 4 * 60 && totalMinutes <= 20 * 60;
 };
 
+export const isWithinRegularMarketHours = (timestamp: string | Date): boolean => {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const parts = etFormatter.formatToParts(date);
+  const weekday = parts.find((p) => p.type === 'weekday')?.value;
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+
+  if (weekday === 'Sat' || weekday === 'Sun') return false;
+
+  const totalMinutes = hour * 60 + minute;
+  return totalMinutes >= 9 * 60 + 30 && totalMinutes <= 16 * 60;
+};
+
+const INDEX_SYMBOLS: ReadonlySet<string> = new Set([
+  'SPX', 'NDX', 'DJX', 'RUT', 'VIX', 'XSP', 'OEX', 'COMP',
+]);
+
+export const isIndexSymbol = (symbol: string | null | undefined): boolean => {
+  if (!symbol) return false;
+  const normalized = symbol.toUpperCase().replace(/^\$/, '');
+  return INDEX_SYMBOLS.has(normalized);
+};
+
+export const isWithinTradingHoursForSymbol = (
+  timestamp: string | Date,
+  symbol: string | null | undefined,
+): boolean =>
+  isIndexSymbol(symbol)
+    ? isWithinRegularMarketHours(timestamp)
+    : isWithinExtendedMarketHours(timestamp);
+
 export const omitClosedMarketTimes = <T>(
   data: T[],
   getTimestamp: (item: T) => string | Date
 ): T[] => data.filter((item) => isWithinExtendedMarketHours(getTimestamp(item)));
+
+export const omitOutOfHoursForSymbol = <T>(
+  data: T[],
+  getTimestamp: (item: T) => string | Date,
+  symbol: string | null | undefined,
+): T[] => data.filter((item) => isWithinTradingHoursForSymbol(getTimestamp(item), symbol));
 
 /**
  * Truncate an ISO timestamp to minute precision.
