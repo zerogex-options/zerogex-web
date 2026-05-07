@@ -21,7 +21,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import { omitClosedMarketTimes, normalizeToMinute } from '@/core/utils';
+import { omitClosedMarketTimes, normalizeToMinute, isIndexSymbol } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 
@@ -193,6 +193,17 @@ function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): 
 function getExtendedSessionTimestamps(dateKey: string): string[] {
   const startMs = getETTimeTimestamp(dateKey, 4, 0);
   const endMs = getETTimeTimestamp(dateKey, 20, 0);
+  if (startMs == null || endMs == null) return [];
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
+
+function getRegularSessionTimestamps(dateKey: string): string[] {
+  const startMs = getETTimeTimestamp(dateKey, 9, 30);
+  const endMs = getETTimeTimestamp(dateKey, 16, 0);
   if (startMs == null || endMs == null) return [];
   const result: string[] = [];
   for (let t = startMs; t <= endMs; t += 60_000) {
@@ -488,7 +499,9 @@ export default function IntradayToolsPage() {
   }, [volumeSpikes, volumeSpikesPriceBars]);
 
   const volumeSpikesChart = useMemo(() => {
-    const sessionTimeline = getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
+    const sessionTimeline = isIndexSymbol(symbol)
+      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
+      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
     if (sessionTimeline.length === 0) return [];
 
     const sessionStartMs = new Date(sessionTimeline[0]).getTime();
@@ -539,7 +552,7 @@ export default function IntradayToolsPage() {
         underlyingPrice: observedPrice != null && Number.isFinite(observedPrice) ? observedPrice : null,
       };
     });
-  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey]);
+  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey, symbol]);
 
   const volumeSpikesHasAnySpike = useMemo(
     () => volumeSpikesChart.some((row) => row.volumeRaw != null),

@@ -49,7 +49,43 @@ interface SmartMoneyBlockMeta {
   optionType: string;
 }
 type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
+type SortLevel = { key: SmartMoneySortKey; dir: 'asc' | 'desc' };
+const MAX_SORT_LEVELS = 3;
 type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
+
+type SmartMoneyColumn = { key: SmartMoneySortKey; label: string; align: 'left' | 'right'; placeholder: string };
+const smartMoneyColumns: SmartMoneyColumn[] = [
+  { key: 'timestamp', label: 'Time', align: 'left', placeholder: 'e.g. 14:30' },
+  { key: 'contract', label: 'Contract', align: 'left', placeholder: 'Filter' },
+  { key: 'strike', label: 'Strike', align: 'left', placeholder: 'Filter' },
+  { key: 'expiration', label: 'Expiration', align: 'left', placeholder: 'Filter' },
+  { key: 'dte', label: 'DTE', align: 'left', placeholder: 'Filter' },
+  { key: 'option_type', label: 'Type', align: 'left', placeholder: 'put/call' },
+  { key: 'flow', label: 'Contracts', align: 'right', placeholder: 'Filter' },
+  { key: 'notional', label: 'Notional', align: 'right', placeholder: 'Filter' },
+  { key: 'notional_class', label: 'Class', align: 'left', placeholder: 'Filter' },
+];
+
+function getCellDisplayValue(row: SmartMoneyRow, key: SmartMoneySortKey): string {
+  switch (key) {
+    case 'timestamp': {
+      const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
+      return ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+    }
+    case 'contract': return row.contract || '';
+    case 'strike': return row.strike != null ? Number(row.strike).toFixed(0) : '';
+    case 'expiration': return row.expiration || '';
+    case 'dte': return row.dte != null ? String(row.dte) : '';
+    case 'option_type': {
+      const t = String(row.option_type || '').toUpperCase();
+      return t === 'P' ? 'Put' : t === 'C' ? 'Call' : (row.option_type || '');
+    }
+    case 'flow': return Number(row.flow || 0).toLocaleString();
+    case 'notional': return `$${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M`;
+    case 'notional_class': return row.notional_class || '';
+    default: return '';
+  }
+}
 
 function getRowContracts(row: SmartMoneyRow): number {
   return Number(row.flow ?? row.total_volume ?? 0);
@@ -133,8 +169,10 @@ export default function SmartMoneyPage() {
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
-  const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
-  const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortStack, setSortStack] = useState<SortLevel[]>([{ key: 'notional', dir: 'desc' }]);
+  const [columnFilters, setColumnFilters] = useState<Record<SmartMoneySortKey, string>>({
+    timestamp: '', contract: '', strike: '', expiration: '', dte: '', option_type: '', flow: '', notional: '', notional_class: '',
+  });
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
@@ -198,17 +236,28 @@ export default function SmartMoneyPage() {
   );
 
   const sortedSmartMoneyRows = useMemo(() => {
-    const rows = [...filteredSmartMoneyData];
+    const activeFilters = (Object.entries(columnFilters) as Array<[SmartMoneySortKey, string]>)
+      .filter(([, value]) => value.trim() !== '')
+      .map(([key, value]) => [key, value.trim().toLowerCase()] as const);
+    const rows = filteredSmartMoneyData.filter((row) => {
+      for (const [key, needle] of activeFilters) {
+        if (!getCellDisplayValue(row, key).toLowerCase().includes(needle)) return false;
+      }
+      return true;
+    });
     rows.sort((a, b) => {
-      const valueA = a[smartMoneySortKey];
-      const valueB = b[smartMoneySortKey];
-      const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : (valueA ?? 0);
-      const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : (valueB ?? 0);
-      const comparison = normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
-      return smartMoneySortDir === 'asc' ? comparison : -comparison;
+      for (const { key, dir } of sortStack) {
+        const valueA = a[key];
+        const valueB = b[key];
+        const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : (valueA ?? 0);
+        const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : (valueB ?? 0);
+        const comparison = normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
+        if (comparison !== 0) return dir === 'asc' ? comparison : -comparison;
+      }
+      return 0;
     });
     return rows;
-  }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
+  }, [filteredSmartMoneyData, sortStack, columnFilters]);
 
   const smartMoneySessionChart = useMemo(() => {
     const blocksByTs = new Map<string, SmartMoneyBlockMeta[]>();
@@ -294,7 +343,35 @@ export default function SmartMoneyPage() {
         ? 'Call-heavy institutional flow supports dip-buying and upside continuation if price holds key supports.'
         : 'Put-heavy institutional flow supports defensive or downside setups unless price decisively reclaims resistance.'
   } Day traders can use this for intraday bias, while swing traders can treat sustained multi-session imbalance as a potential trend filter.`;
-  const toggleSmartMoneySort = (key: SmartMoneySortKey) => smartMoneySortKey === key ? setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc')) : (setSmartMoneySortKey(key), setSmartMoneySortDir('desc'));
+  const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
+    setSortStack((stack) => {
+      if (stack.length > 0 && stack[0].key === key) {
+        const flipped: SortLevel = { key, dir: stack[0].dir === 'asc' ? 'desc' : 'asc' };
+        return [flipped, ...stack.slice(1)];
+      }
+      const rest = stack.filter((level) => level.key !== key);
+      const next: SortLevel = { key, dir: 'desc' };
+      return [next, ...rest].slice(0, MAX_SORT_LEVELS);
+    });
+  };
+  const sortIndexByKey = useMemo(() => {
+    const map = new Map<SmartMoneySortKey, number>();
+    sortStack.forEach((level, idx) => map.set(level.key, idx));
+    return map;
+  }, [sortStack]);
+  const renderSortIndicator = (key: SmartMoneySortKey) => {
+    const idx = sortIndexByKey.get(key);
+    if (idx === undefined) return null;
+    const arrow = sortStack[idx].dir === 'asc' ? '↑' : '↓';
+    return (
+      <span className="ml-1 text-xs font-normal" style={{ color: textColor }}>
+        {arrow}{sortStack.length > 1 ? <sup>{idx + 1}</sup> : null}
+      </span>
+    );
+  };
+  const setColumnFilter = (key: SmartMoneySortKey, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -410,10 +487,31 @@ export default function SmartMoneyPage() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY FLOW TABLE</h3>
-                <TooltipWrapper text="Table rows are filtered by Session and Min Class and sorted by the selected column."><Info size={14} /></TooltipWrapper>
+                <TooltipWrapper text="Filter any column with the inputs below the headers. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">
-                <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('timestamp')}>Time</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('contract')}>Contract</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('strike')}>Strike</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('expiration')}>Expiration</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('dte')}>DTE</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('option_type')}>Type</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('flow')}>Contracts</th><th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional')}>Notional</th><th className="py-2 px-2 cursor-pointer" onClick={() => toggleSmartMoneySort('notional_class')}>Class</th></tr></thead>
+                <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
+                  {smartMoneyColumns.map((col) => (
+                    <th key={col.key} className={`${col.align === 'right' ? 'text-right' : ''} py-2 px-2 cursor-pointer select-none`} onClick={() => toggleSmartMoneySort(col.key)}>
+                      <span>{col.label}</span>{renderSortIndicator(col.key)}
+                    </th>
+                  ))}
+                </tr><tr className="border-b" style={{ borderColor: `${inputBorder}66` }}>
+                  {smartMoneyColumns.map((col) => (
+                    <th key={`filter-${col.key}`} className={`${col.align === 'right' ? 'text-right' : ''} py-1 px-2 font-normal`}>
+                      <input
+                        type="text"
+                        value={columnFilters[col.key]}
+                        onChange={(e) => setColumnFilter(col.key, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder={col.placeholder}
+                        aria-label={`Filter ${col.label}`}
+                        className="w-full rounded px-1 py-0.5 text-xs"
+                        style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
+                      />
+                    </th>
+                  ))}
+                </tr></thead>
                   <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const isHovered = hoveredRowKey === row.rowKey; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b" onMouseEnter={() => setHoveredRowKey(row.rowKey)} onMouseLeave={() => setHoveredRowKey(null)} style={{ borderColor: `${inputBorder}66`, backgroundColor: isHovered ? (isDark ? 'var(--color-warning-soft)' : 'var(--color-warning-soft)') : 'transparent' }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
               </div>
               {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
