@@ -130,7 +130,8 @@ export default function AdvancedSignalsPage() {
       { label: 'Buffer', value: formatPct(getNumber(trapPayload.breakout_buffer_pct), 3, false) },
       { label: 'Breakout ↑', value: trapPayload.breakout_up === true ? 'Yes' : 'No' },
       { label: 'Breakout ↓', value: trapPayload.breakout_down === true ? 'Yes' : 'No' },
-      { label: 'Wall migrated ↑', value: trapPayload.wall_migrated_up === true ? 'Yes' : 'No' },
+      { label: 'Call wall migrated ↑', value: trapPayload.call_wall_migrated_up === true ? 'Yes' : 'No' },
+      { label: 'Put wall migrated ↓', value: trapPayload.put_wall_migrated_down === true ? 'Yes' : 'No' },
       { label: 'Gamma strengthening', value: tCtx.gamma_strengthening === true ? 'Yes' : 'No' },
     ];
 
