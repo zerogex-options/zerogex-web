@@ -134,10 +134,30 @@ export default function TrapDetectionPage() {
               <div className="text-sm text-[var(--color-text-secondary)]">Price levels not available.</div>
             )}
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-              <Chip label="Gamma strengthening" on={ctx.gammaStrengthening} color="var(--color-bull)" />
-              <Chip label="Wall migrated ↑" on={wallMigratedUp} color="var(--color-bear)" />
-              <Chip label="Wall migrated ↓" on={wallMigratedDown} color="var(--color-bear)" />
-              <Chip label="Long gamma" on={ctx.longGamma} color="var(--color-bull)" />
+              <Chip
+                label="Gamma strengthening"
+                on={ctx.gammaStrengthening}
+                color="var(--color-bull)"
+                tooltip="Net GEX is rising session-over-session — dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
+              />
+              <Chip
+                label="Wall migrated ↑"
+                on={wallMigratedUp}
+                color="var(--color-bear)"
+                tooltip="Call wall has migrated higher with price — dealers are repositioning, which invalidates the bearish-fade setup at the prior resistance."
+              />
+              <Chip
+                label="Wall migrated ↓"
+                on={wallMigratedDown}
+                color="var(--color-bear)"
+                tooltip="Put wall has migrated lower with price — dealers are repositioning, which invalidates the bullish-fade setup at the prior support."
+              />
+              <Chip
+                label="Long gamma"
+                on={ctx.longGamma}
+                color="var(--color-bull)"
+                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility — supportive of fade behavior at walls."
+              />
             </div>
           </div>
         </div>
@@ -181,15 +201,43 @@ export default function TrapDetectionPage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Bearish fade</div>
+          <div
+            className="rounded-xl border p-4 bg-[var(--color-surface-subtle)]"
+            style={{ borderColor: signal === 'bearish_fade' ? 'var(--color-bear)' : 'var(--color-border)' }}
+          >
+            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]">
+              <TrendingDown size={16} />
+              <span>Bearish fade</span>
+              {signal === 'bearish_fade' && (
+                <span
+                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
+                >
+                  Active
+                </span>
+              )}
+            </div>
             <p className="text-[var(--color-text-secondary)]">
               Price popped above the prior resistance (now sitting below close) but failed to hold + dealers long
               gamma + call wall not migrating → fade the failed break with a short-call-spread or put-debit.
             </p>
           </div>
-          <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Bullish fade</div>
+          <div
+            className="rounded-xl border p-4 bg-[var(--color-surface-subtle)]"
+            style={{ borderColor: signal === 'bullish_fade' ? 'var(--color-bull)' : 'var(--color-border)' }}
+          >
+            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]">
+              <TrendingUp size={16} />
+              <span>Bullish fade</span>
+              {signal === 'bullish_fade' && (
+                <span
+                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
+                >
+                  Active
+                </span>
+              )}
+            </div>
             <p className="text-[var(--color-text-secondary)]">
               Mirror: price slipped beneath the prior support (now sitting above close) but failed to hold, with
               reinforcing long gamma → fade the failed break. Invalidate on wall migration with price.
@@ -222,11 +270,17 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Chip({ label, on, color }: { label: string; on: boolean; color: string }) {
+function Chip({ label, on, color, tooltip }: { label: string; on: boolean; color: string; tooltip?: string }) {
   return (
     <span
+      title={tooltip}
       className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border"
-      style={{ borderColor: on ? color : 'var(--color-border)', color: on ? color : 'var(--color-text-secondary)', background: on ? `${color}14` : 'transparent' }}
+      style={{
+        borderColor: on ? color : 'var(--color-border)',
+        color: on ? color : 'var(--color-text-secondary)',
+        background: on ? `${color}14` : 'transparent',
+        cursor: tooltip ? 'help' : undefined,
+      }}
     >
       {label}
     </span>
@@ -248,10 +302,11 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
   const height = 180;
   const range = max - min;
   const toY = (v: number) => height - ((v - min) / range) * height;
-  const buffer = bufferPct != null ? bufferPct * spot : 0;
 
   const showResistance = priorResistance != null;
   const showSupport = priorSupport != null;
+  const resistanceBuffer = bufferPct != null && priorResistance != null ? bufferPct * priorResistance : 0;
+  const supportBuffer = bufferPct != null && priorSupport != null ? bufferPct * priorSupport : 0;
   const resistanceLineOpacity = breakoutUp ? 1 : 0.45;
   const supportLineOpacity = breakoutDown ? 1 : 0.45;
   const resistanceBandOpacity = breakoutUp ? 0.12 : 0.04;
@@ -274,16 +329,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
         {showResistance && (
           <g>
             <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} strokeDasharray="4 3" opacity={resistanceLineOpacity} />
-            {buffer > 0 && (
-              <rect x={6} y={toY(priorResistance! + buffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + buffer)} fill="var(--color-bull)" opacity={resistanceBandOpacity} />
+            {resistanceBuffer > 0 && (
+              <rect x={6} y={toY(priorResistance! + resistanceBuffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + resistanceBuffer)} fill="var(--color-bull)" opacity={resistanceBandOpacity} />
             )}
           </g>
         )}
         {showSupport && (
           <g>
             <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} strokeDasharray="4 3" opacity={supportLineOpacity} />
-            {buffer > 0 && (
-              <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - buffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={supportBandOpacity} />
+            {supportBuffer > 0 && (
+              <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - supportBuffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={supportBandOpacity} />
             )}
           </g>
         )}
