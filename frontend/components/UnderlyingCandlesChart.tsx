@@ -2,7 +2,8 @@
 
 import { Info } from "lucide-react";
 import { useMemo, useState, type MouseEvent } from "react";
-import { useApiData, useMarketQuote } from "@/hooks/useApiData";
+import { useMarketQuote } from "@/hooks/useApiData";
+import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import TooltipWrapper from "./TooltipWrapper";
@@ -88,10 +89,8 @@ export default function UnderlyingCandlesChart() {
   const maxPoints = getMaxDataPoints();
   const fetchWindowUnits = maxPoints;
 
-  const { data, loading, error } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
-    { refreshInterval: 5000 },
-  );
+  const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
+  const data = useMemo(() => dataAll.slice(-fetchWindowUnits), [dataAll, fetchWindowUnits]);
 
   const bars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);

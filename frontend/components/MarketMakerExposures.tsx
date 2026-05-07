@@ -20,6 +20,7 @@ import {
   useGEXSummary,
   useMarketQuote,
 } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -215,7 +216,6 @@ export default function MarketMakerExposures() {
   const quoteInterval = paused ? 0 : 1000;
   const strikeInterval = paused ? 0 : 1000;
   const oiInterval = paused ? 0 : 1000;
-  const priceInterval = paused ? 0 : 1000;
 
   // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexStrikeChart, GexWallsChart) ──
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
@@ -225,10 +225,8 @@ export default function MarketMakerExposures() {
     `/api/market/open-interest?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval: oiInterval },
   );
-  const { data: priceBars } = useApiData<PriceBar[]>(
-    `/api/market/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${FETCH_WINDOW}`,
-    { refreshInterval: priceInterval },
-  );
+  const { rows: priceBarsAll } = useMarketHistorical(symbol, tfToApi(tf));
+  const priceBars: PriceBar[] = useMemo(() => priceBarsAll.slice(-FETCH_WINDOW), [priceBarsAll]);
 
   const openInterestRows = useMemo<OpenInterestRow[]>(() => {
     if (!openInterestData) return [];

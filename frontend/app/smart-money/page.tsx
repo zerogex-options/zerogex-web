@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import {
   useFlowByContractCache,
   latestRowDateKey,
@@ -146,10 +147,7 @@ export default function SmartMoneyPage() {
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
-  const { data: smartMoneyPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
-    `/api/market/historical?${symParam}&window_units=90&timeframe=5min`,
-    { refreshInterval: 30000 }
-  );
+  const { rows: smartMoneyPriceBars } = useMarketHistorical(symbol, '5min');
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(

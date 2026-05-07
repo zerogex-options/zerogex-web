@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApiData, useGEXByStrike } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -152,7 +153,6 @@ export default function GammaHeatmapCanvas() {
 
   // ── Pause-aware polling intervals — 1s on every hook so the heatmap stays live. ──
   const heatmapInterval = paused ? 0 : 1000;
-  const priceInterval = paused ? 0 : 1000;
   const historicalInterval = paused ? 0 : 1000;
   const byStrikeInterval = paused ? 0 : 10000; // only used to source expiration list
 
@@ -168,9 +168,10 @@ export default function GammaHeatmapCanvas() {
     `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}${expiryParam}`,
     { refreshInterval: heatmapInterval },
   );
-  const { data: priceData } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
-    { refreshInterval: priceInterval },
+  const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
+  const priceData: PriceDataPoint[] = useMemo(
+    () => priceRowsAll.slice(-maxPoints),
+    [priceRowsAll, maxPoints],
   );
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,

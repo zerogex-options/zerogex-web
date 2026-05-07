@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import {
   useFlowByContractCache,
   buildUnderlyingPriceMap,
@@ -302,10 +303,7 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
-  const { data: volumeSpikesPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
-    `/api/market/historical?${symParam}&window_units=90&timeframe=5min`,
-    { refreshInterval: 30000 }
-  );
+  const { rows: volumeSpikesPriceBars } = useMarketHistorical(symbol, '5min');
 
   const { data: divergenceResponse } = useApiData<unknown>(
     `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,

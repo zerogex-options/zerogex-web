@@ -3,6 +3,7 @@
 import { Info } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useApiData } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -47,14 +48,12 @@ export default function GammaHeatmap() {
     { refreshInterval: 5000, enabled: Boolean(error) }
   );
 
-  const { data: priceDataRaw, error: priceError } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
-    { refreshInterval: 5000 }
+  const { rows: priceRowsAll } = useMarketHistorical(symbol, timeframe);
+  const priceDataRaw: PriceDataPoint[] = useMemo(
+    () => priceRowsAll.slice(-fetchWindowUnits),
+    [priceRowsAll, fetchWindowUnits],
   );
-  const { data: priceDataAlt } = useApiData<PriceDataPoint[]>(
-    `/api/market/historical?${symParam}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
-    { refreshInterval: 5000, enabled: Boolean(priceError) }
-  );
+  const priceDataAlt: PriceDataPoint[] = priceDataRaw;
   const { data: gexHistoricalDataRaw } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }

@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData, useGEXSummary } from "@/hooks/useApiData";
+import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import MetricCard from "@/components/MetricCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -139,10 +140,8 @@ export default function MaxPainPage() {
     { refreshInterval: 10000 },
   );
 
-  const { data: priceSeries } = useApiData<MarketHistoryRow[]>(
-    `/api/market/historical?${symParam}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
-    { refreshInterval: 10000 },
-  );
+  const { rows: priceSeriesAll } = useMarketHistorical(symbol, timeseriesTimeframe);
+  const priceSeries: MarketHistoryRow[] = priceSeriesAll.slice(-maxPoints);
 
   const currentMaxPain = safeNum(maxPainCurrent?.max_pain || gexSummary?.max_pain);
   const currentUnderlying = safeNum(maxPainCurrent?.underlying_price);
