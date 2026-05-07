@@ -141,12 +141,12 @@ export default function SmartMoneyPage() {
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}`, { refreshInterval: 10000 });
-  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?${symParam}&limit=100`,
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000 });
+  const { data: smartMoneyLimitedData, error: smartMoneyLimitedError } = useApiData<SmartMoneyRow[]>(
+    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
+  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length });
   const { rows: smartMoneyPriceBars } = useMarketHistorical(symbol, '5min');
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
@@ -161,10 +161,10 @@ export default function SmartMoneyPage() {
   const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
 
   const effectiveSmartMoneyRows = useMemo(
-    () => (smartMoneyError ? (smartMoneyNoSessionData || smartMoneyFallbackData || []) : (smartMoneyData || [])),
-    [smartMoneyError, smartMoneyNoSessionData, smartMoneyFallbackData, smartMoneyData]
+    () => (smartMoneyError ? (smartMoneyLimitedData || smartMoneyNoSessionData || []) : (smartMoneyData || [])),
+    [smartMoneyError, smartMoneyLimitedData, smartMoneyNoSessionData, smartMoneyData]
   );
-  const effectiveSmartMoneyError = smartMoneyError && smartMoneyNoSessionError && smartMoneyFallbackError ? smartMoneyError : null;
+  const effectiveSmartMoneyError = smartMoneyError && smartMoneyLimitedError && smartMoneyNoSessionError ? smartMoneyError : null;
 
   const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => effectiveSmartMoneyRows.map((row, idx) => {
     const rowNotional = Math.abs(getRowNotional(row));
@@ -360,14 +360,10 @@ export default function SmartMoneyPage() {
                             };
                           })
                           .filter(Boolean) as Array<{ name: string; value: number; optionType: string }>;
-                        const underlying = payload.find((entry) => String(entry.dataKey || '').toLowerCase().includes('underlyingprice'));
 
                         return (
                           <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
                             <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                            {underlying ? (
-                              <div>Underlying Price: ${Number(underlying.value || 0).toFixed(2)}</div>
-                            ) : null}
                             {blockEntries.map((block) => (
                               <div key={block.name}>
                                 {block.name}: ${block.value.toFixed(2)}M

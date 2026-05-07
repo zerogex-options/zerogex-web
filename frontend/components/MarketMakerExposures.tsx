@@ -424,16 +424,44 @@ export default function MarketMakerExposures() {
     return { tMin: Math.min(...times), tMax: Math.max(...times) };
   }, [visibleCandles]);
 
-  const xForTime = (t: number): number => {
-    if (!timeBounds) return LEFT_X;
-    const { tMin, tMax } = timeBounds;
+  // Index-based time positioning: candles are placed at evenly spaced slots so
+  // any time interval missing an underlying price is omitted from the x-axis
+  // entirely (no horizontal gap). Time labels snap to the nearest candle index.
+  const candleIndexByTime = useMemo(() => {
+    const map = new Map<number, number>();
+    visibleCandles.forEach((c, i) => {
+      const t = new Date(c.timestamp).getTime();
+      if (Number.isFinite(t)) map.set(t, i);
+    });
+    return map;
+  }, [visibleCandles]);
+
+  const xForIndex = (idx: number): number => {
+    if (visibleCandles.length === 0) return LEFT_X;
     const usableW = LEFT_W - 24;
-    const ratio = (t - tMin) / Math.max(1, tMax - tMin);
+    const ratio = visibleCandles.length === 1 ? 0.5 : idx / (visibleCandles.length - 1);
     return LEFT_X + 12 + ratio * usableW;
   };
 
+  const xForTime = (t: number): number => {
+    if (visibleCandles.length === 0) return LEFT_X;
+    const direct = candleIndexByTime.get(t);
+    if (direct != null) return xForIndex(direct);
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < visibleCandles.length; i += 1) {
+      const ct = new Date(visibleCandles[i].timestamp).getTime();
+      const dist = Math.abs(ct - t);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    return xForIndex(bestIdx);
+  };
+
   const timeLabels = useMemo(() => {
-    if (!timeBounds) return [] as Array<{ t: number; label: string }>;
+    if (!timeBounds || visibleCandles.length === 0) return [] as Array<{ t: number; label: string }>;
     const { tMin, tMax } = timeBounds;
     const out: Array<{ t: number; label: string }> = [];
     const span = tMax - tMin;
@@ -465,7 +493,7 @@ export default function MarketMakerExposures() {
       }
     }
     return out;
-  }, [timeBounds]);
+  }, [timeBounds, visibleCandles.length]);
 
   // The spot line is anchored to the latest visible candle's close so it never
   // drifts out of sync with the candles (the live quote ticks on a separate

@@ -193,10 +193,18 @@ export default function GammaHeatmapCanvas() {
     const rows = (gexData || []).slice(-5000);
     if (rows.length === 0) return null;
 
+    const priceTsSet = new Set<string>();
+    (priceData || []).forEach((p) => {
+      const close = Number(p.close ?? p.open);
+      if (Number.isFinite(close) && close > 0) priceTsSet.add(p.timestamp);
+    });
+
     const timestamps = omitClosedMarketTimes(
       Array.from(new Set(rows.map((r) => r.timestamp))).sort(),
       (ts) => ts,
-    ).slice(-maxPoints);
+    )
+      .filter((ts) => priceTsSet.size === 0 || priceTsSet.has(ts))
+      .slice(-maxPoints);
     if (timestamps.length === 0) return null;
 
     const reportedStrikes = Array.from(new Set(rows.map((r) => Number(r.strike))))
@@ -251,7 +259,7 @@ export default function GammaHeatmapCanvas() {
     const clip = Math.max(1, percentile(finiteAbs, 0.98));
 
     return { timestamps, minStrike, maxStrike, stride, matrix, clip };
-  }, [gexData, maxPoints]);
+  }, [gexData, maxPoints, priceData]);
 
   const gammaFlipByTs = useMemo(() => {
     const fromHeatmap = new Map<string, number[]>();

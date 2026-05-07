@@ -699,9 +699,6 @@ export default function IntradayToolsPage() {
                           ) : (
                             <div style={{ color: mutedText }}>No spike at this minute</div>
                           )}
-                          {point.underlyingPrice != null ? (
-                            <div>Underlying Price: ${point.underlyingPrice.toFixed(2)}</div>
-                          ) : null}
                         </div>
                       );
                     }}
