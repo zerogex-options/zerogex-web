@@ -463,20 +463,28 @@ export default function IntradayToolsPage() {
   }, [smartMoneySessionChart]);
 
   const volumeSpikesSessionDateKey = useMemo(() => {
-    let latestMs = 0;
+    // Prefer the latest spike's date so the session timeline matches actual
+    // spike data. If the latest price bar is on a newer day but no spikes
+    // landed there yet (common for SPX outside its narrow RTH window), the
+    // chart used to anchor on that newer day and filter every spike out.
+    let latestSpikeMs = 0;
     (volumeSpikes || []).forEach((spike) => {
       const ts = spike.timestamp || spike.time_et;
       if (!ts) return;
       const ms = new Date(ts).getTime();
-      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
+      if (Number.isFinite(ms) && ms > latestSpikeMs) latestSpikeMs = ms;
     });
+    if (latestSpikeMs > 0) return getETDateKey(new Date(latestSpikeMs).toISOString());
+
+    let latestPriceMs = 0;
     (volumeSpikesPriceBars || []).forEach((bar) => {
       if (!bar.timestamp) return;
       const ms = new Date(bar.timestamp).getTime();
-      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
+      if (Number.isFinite(ms) && ms > latestPriceMs) latestPriceMs = ms;
     });
-    if (latestMs === 0) return getCurrentSessionDateKey();
-    return getETDateKey(new Date(latestMs).toISOString());
+    if (latestPriceMs > 0) return getETDateKey(new Date(latestPriceMs).toISOString());
+
+    return getCurrentSessionDateKey();
   }, [volumeSpikes, volumeSpikesPriceBars]);
 
   const volumeSpikesChart = useMemo(() => {
@@ -671,7 +679,7 @@ export default function IntradayToolsPage() {
                   }} />
                   <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
                   <Tooltip
-                    cursor={{ stroke: axisStroke, strokeWidth: 1, strokeOpacity: 0.5 }}
+                    cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
                     content={({ active, label, payload }) => {
                       if (!active || !payload?.length) return null;
                       const point = payload[0]?.payload as {
@@ -703,7 +711,7 @@ export default function IntradayToolsPage() {
                       );
                     }}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={5} isAnimationActive={false}>
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={10} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
                       const sigma = row.volumeSigma ?? 0;
                       const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';

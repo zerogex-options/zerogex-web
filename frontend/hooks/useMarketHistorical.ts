@@ -85,6 +85,48 @@ function rowTimestampMs(row: PriceBar): number {
   return Number.isFinite(ms) ? ms : -Infinity;
 }
 
+/**
+ * Merge an updated quote for the live (in-progress) bar into the cached bar.
+ *
+ * The intraday API can return an updated `open` (or omit `high`/`low`) for the
+ * live bar on every poll; that would visually "jump" the bar each tick. A real
+ * candle's open is fixed at the bar's start, so we keep the cached open once
+ * set, only widen high/low past the cached extremes, and let close (and the
+ * cumulative volume fields) update freely.
+ */
+function mergeLiveBar(cached: PriceBar, incoming: PriceBar): PriceBar {
+  const cachedOpen = Number(cached.open);
+  const incomingOpen = Number(incoming.open);
+  const cachedHigh = Number(cached.high);
+  const incomingHigh = Number(incoming.high);
+  const cachedLow = Number(cached.low);
+  const incomingLow = Number(incoming.low);
+  const incomingClose = Number(incoming.close ?? incoming.price);
+  const cachedClose = Number(cached.close ?? cached.price);
+
+  const open = Number.isFinite(cachedOpen)
+    ? cachedOpen
+    : Number.isFinite(incomingOpen)
+      ? incomingOpen
+      : Number.isFinite(cachedClose)
+        ? cachedClose
+        : incomingClose;
+
+  const candidatesHigh = [cachedHigh, incomingHigh, incomingClose, cachedClose].filter(Number.isFinite);
+  const candidatesLow = [cachedLow, incomingLow, incomingClose, cachedClose].filter(Number.isFinite);
+  const high = candidatesHigh.length ? Math.max(...candidatesHigh) : incomingClose;
+  const low = candidatesLow.length ? Math.min(...candidatesLow) : incomingClose;
+
+  return {
+    ...incoming,
+    timestamp: cached.timestamp,
+    open,
+    high,
+    low,
+    close: Number.isFinite(incomingClose) ? incomingClose : cachedClose,
+  };
+}
+
 function normalizeNumbers(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeNumbers);
   if (value && typeof value === 'object') {
@@ -125,6 +167,16 @@ async function performFullReload(symbol: string, timeframe: string): Promise<voi
     const sorted = [...fetched].sort((a, b) => rowTimestampMs(a) - rowTimestampMs(b));
     const lastFetchedMs = sorted.length ? rowTimestampMs(sorted[sorted.length - 1]) : -Infinity;
 
+    // Preserve the live bar's accumulated OHLC: if the latest fetched bar
+    // matches a cached bar, merge so the cached open/high/low aren't reset by
+    // whatever the API reports for the in-progress bar this instant.
+    if (sorted.length > 0) {
+      const cachedAtSameTs = entry.rows.find((r) => rowTimestampMs(r) === lastFetchedMs);
+      if (cachedAtSameTs) {
+        sorted[sorted.length - 1] = mergeLiveBar(cachedAtSameTs, sorted[sorted.length - 1]);
+      }
+    }
+
     // Replace-but-keep-newer: preserve any cached bars strictly newer than the
     // latest fetched bar so a just-arrived 1s-poll bar doesn't get dropped.
     const tail = entry.rows.filter((r) => rowTimestampMs(r) > lastFetchedMs);
@@ -146,27 +198,39 @@ async function pollLatestBar(symbol: string, timeframe: string): Promise<void> {
   const entry = caches.get(getCacheKey(symbol, timeframe));
   if (!entry) return;
   try {
-    const fetched = await fetchBars(symbol, timeframe, 1);
+    // Fetch a small tail (not just 1 bar) so that a bar boundary crossing
+    // between polls doesn't cause us to skip the bar that just completed.
+    const fetched = await fetchBars(symbol, timeframe, 3);
     if (fetched.length === 0) return;
-    const newest = fetched[fetched.length - 1];
-    const newestMs = rowTimestampMs(newest);
-    if (!Number.isFinite(newestMs)) return;
+    const sorted = [...fetched].sort((a, b) => rowTimestampMs(a) - rowTimestampMs(b));
 
-    const idx = entry.rows.findIndex((r) => rowTimestampMs(r) === newestMs);
     let changed = false;
-    if (idx >= 0) {
-      const updated = [...entry.rows];
-      updated[idx] = newest;
-      entry.rows = updated;
-      changed = true;
-    } else {
-      const lastMs = entry.rows.length ? rowTimestampMs(entry.rows[entry.rows.length - 1]) : -Infinity;
-      if (newestMs > lastMs) {
-        entry.rows = [...entry.rows, newest];
+    let updatedRows = entry.rows;
+    const lastCachedMs = updatedRows.length ? rowTimestampMs(updatedRows[updatedRows.length - 1]) : -Infinity;
+
+    for (const incoming of sorted) {
+      const ms = rowTimestampMs(incoming);
+      if (!Number.isFinite(ms)) continue;
+      const idx = updatedRows.findIndex((r) => rowTimestampMs(r) === ms);
+      if (idx >= 0) {
+        // Merge into the cached bar so the in-progress open/high/low stay
+        // anchored to the values we've been accumulating between polls.
+        const merged = mergeLiveBar(updatedRows[idx], incoming);
+        if (merged !== updatedRows[idx]) {
+          updatedRows = [...updatedRows];
+          updatedRows[idx] = merged;
+          changed = true;
+        }
+      } else if (ms > lastCachedMs) {
+        updatedRows = [...updatedRows, incoming];
         changed = true;
       }
     }
-    if (changed) notifyListeners(entry);
+
+    if (changed) {
+      entry.rows = updatedRows;
+      notifyListeners(entry);
+    }
   } catch {
     // Silent failure; we'll try again on the next 1s tick.
   }

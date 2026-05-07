@@ -126,6 +126,10 @@ export default function MaxPainPage() {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
+  // Over-fetch so symbols whose price data is only available during regular
+  // hours (e.g., SPX) still have enough joined bars to fill the visible
+  // window after `omitOutOfHoursForSymbol` and the candle-tolerance join.
+  const fetchUnits = maxPoints * 3;
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [timeseriesTimeframe, setTimeseriesTimeframe] = useState<ChartTimeframe>("5min");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -139,12 +143,12 @@ export default function MaxPainPage() {
   );
 
   const { data: maxPainSeries, loading: seriesLoading, error: seriesError } = useApiData<MaxPainTimeRow[]>(
-    `/api/max-pain/timeseries?${symParam}&timeframe=${timeseriesTimeframe}&window_units=${maxPoints}`,
+    `/api/max-pain/timeseries?${symParam}&timeframe=${timeseriesTimeframe}&window_units=${fetchUnits}`,
     { refreshInterval: 10000 },
   );
 
   const { rows: priceSeriesAll } = useMarketHistorical(symbol, timeseriesTimeframe);
-  const priceSeries: MarketHistoryRow[] = priceSeriesAll.slice(-maxPoints);
+  const priceSeries: MarketHistoryRow[] = priceSeriesAll.slice(-fetchUnits);
 
   const currentMaxPain = safeNum(maxPainCurrent?.max_pain || gexSummary?.max_pain);
   const currentUnderlying = safeNum(maxPainCurrent?.underlying_price);
@@ -185,7 +189,7 @@ export default function MaxPainPage() {
   const filteredPriceRows = omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol);
 
   const candleMatchToleranceMs = TIMEFRAME_DURATION_MS[timeseriesTimeframe] ?? 5 * 60_000;
-  const seriesChart = filteredMaxPainRows
+  const seriesChart = (filteredMaxPainRows
     .map((row) => {
       const ts = row.timestamp || "";
       const candle = nearestCandle(ts, filteredPriceRows, candleMatchToleranceMs);
@@ -209,7 +213,7 @@ export default function MaxPainPage() {
     high: number;
     low: number;
     close: number;
-  }>;
+  }>).slice(-maxPoints);
 
   const latest = seriesChart[seriesChart.length - 1];
   const impliedMove = currentMaxPain - currentUnderlying;
