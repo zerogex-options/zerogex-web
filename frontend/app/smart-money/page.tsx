@@ -146,6 +146,10 @@ export default function SmartMoneyPage() {
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
   );
   const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyNoSessionData?.length });
+  const { data: smartMoneyPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
+    `/api/market/historical?${symParam}&window_units=90&timeframe=5min`,
+    { refreshInterval: 30000 }
+  );
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
   const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
@@ -222,15 +226,17 @@ export default function SmartMoneyPage() {
       });
       blocksByTs.set(row.minuteTimestamp, blocks);
     });
-    // Smart money rows report a single underlying_price per time interval;
-    // pick the first value observed per minute and plot it directly.
+    // Pull underlying price from /api/market/historical 5-min bars: plot each
+    // bar's close at the bar's normalized minute, leave the 4 in-between
+    // minutes null, and let connectNulls + type="monotone" smooth across them.
     const priceByTs = new Map<string, number>();
-    for (const row of normalizedSmartMoneyRows) {
-      if (!row.minuteTimestamp) continue;
-      if (priceByTs.has(row.minuteTimestamp)) continue;
-      if (row.underlying_price == null) continue;
-      const u = Number(row.underlying_price);
-      if (Number.isFinite(u)) priceByTs.set(row.minuteTimestamp, u);
+    for (const bar of smartMoneyPriceBars || []) {
+      const minute = normalizeToMinute(bar.timestamp);
+      if (!minute) continue;
+      const close = bar.close ?? bar.price;
+      if (close == null) continue;
+      const u = Number(close);
+      if (Number.isFinite(u)) priceByTs.set(minute, u);
     }
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
     // Leave gaps as nulls between observations; Recharts' connectNulls + type="monotone"
@@ -250,7 +256,7 @@ export default function SmartMoneyPage() {
       }
       return row;
     });
-  }, [filteredSmartMoneyData, normalizedSmartMoneyRows, sessionTimeline]);
+  }, [filteredSmartMoneyData, smartMoneyPriceBars, sessionTimeline]);
 
   const maxStackSegments = useMemo(
     () => Math.min(

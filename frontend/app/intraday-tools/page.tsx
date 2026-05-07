@@ -302,6 +302,11 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
+  const { data: volumeSpikesPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
+    `/api/market/historical?${symParam}&window_units=90&timeframe=5min`,
+    { refreshInterval: 30000 }
+  );
+
   const { data: divergenceResponse } = useApiData<unknown>(
     `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
@@ -467,9 +472,14 @@ export default function IntradayToolsPage() {
       const ms = new Date(ts).getTime();
       if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
     });
+    (volumeSpikesPriceBars || []).forEach((bar) => {
+      if (!bar.timestamp) return;
+      const ms = new Date(bar.timestamp).getTime();
+      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
+    });
     if (latestMs === 0) return getCurrentSessionDateKey();
     return getETDateKey(new Date(latestMs).toISOString());
-  }, [volumeSpikes]);
+  }, [volumeSpikes, volumeSpikesPriceBars]);
 
   const volumeSpikesChart = useMemo(() => {
     const sessionTimeline = getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
@@ -493,15 +503,14 @@ export default function IntradayToolsPage() {
     });
 
     const priceByTs = new Map<string, number>();
-    for (const spike of volumeSpikes || []) {
-      const ts = spike.timestamp || spike.time_et;
-      if (!ts) continue;
-      const minute = normalizeToMinute(ts);
+    for (const bar of volumeSpikesPriceBars || []) {
+      const minute = normalizeToMinute(bar.timestamp);
       if (!minute) continue;
-      if (priceByTs.has(minute)) continue;
-      const u = safeNum(spike.price);
-      if (u == null) continue;
-      priceByTs.set(minute, u);
+      const ms = new Date(minute).getTime();
+      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) continue;
+      const close = safeNum(bar.close ?? bar.price);
+      if (close == null) continue;
+      priceByTs.set(minute, close);
     }
 
     return sessionTimeline.map((ts) => {
@@ -524,7 +533,7 @@ export default function IntradayToolsPage() {
         underlyingPrice: observedPrice != null && Number.isFinite(observedPrice) ? observedPrice : null,
       };
     });
-  }, [volumeSpikes, volumeSpikesSessionDateKey]);
+  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey]);
 
   const volumeSpikesHasAnySpike = useMemo(
     () => volumeSpikesChart.some((row) => row.volumeRaw != null),
