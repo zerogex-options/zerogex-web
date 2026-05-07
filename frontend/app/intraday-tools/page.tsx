@@ -211,6 +211,16 @@ function getCurrentSessionDateKey(): string {
   return `${yParts.find((p) => p.type === 'year')?.value ?? ''}-${yParts.find((p) => p.type === 'month')?.value ?? ''}-${yParts.find((p) => p.type === 'day')?.value ?? ''}`;
 }
 
+function getETDateKey(ts: string): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return fmt.format(new Date(ts));
+}
+
 function getDynamicStep(min: number, max: number): number {
   const range = Math.max(1e-9, Math.abs(max - min));
   const rawStep = range / 6;
@@ -444,7 +454,22 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
   }, [smartMoneySessionChart]);
 
-  const volumeSpikesSessionDateKey = useMemo(() => getCurrentSessionDateKey(), []);
+  const volumeSpikesSessionDateKey = useMemo(() => {
+    let latestMs = 0;
+    (volumeSpikes || []).forEach((spike) => {
+      const ts = spike.timestamp || spike.time_et;
+      if (!ts) return;
+      const ms = new Date(ts).getTime();
+      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
+    });
+    (volumeSpikesPriceBars || []).forEach((bar) => {
+      if (!bar.timestamp) return;
+      const ms = new Date(bar.timestamp).getTime();
+      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
+    });
+    if (latestMs === 0) return getCurrentSessionDateKey();
+    return getETDateKey(new Date(latestMs).toISOString());
+  }, [volumeSpikes, volumeSpikesPriceBars]);
 
   const volumeSpikesChart = useMemo(() => {
     const sessionTimeline = getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
