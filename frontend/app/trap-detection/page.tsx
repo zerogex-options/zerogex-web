@@ -127,6 +127,8 @@ export default function TrapDetectionPage() {
                 priorResistance={priorResistance}
                 priorSupport={priorSupport}
                 bufferPct={bufferPct}
+                breakoutUp={breakoutUp}
+                breakoutDown={breakoutDown}
               />
             ) : (
               <div className="text-sm text-[var(--color-text-secondary)]">Price levels not available.</div>
@@ -238,9 +240,11 @@ interface PriceLadderProps {
   priorResistance: number | null;
   priorSupport: number | null;
   bufferPct: number | null;
+  breakoutUp: boolean;
+  breakoutDown: boolean;
 }
 
-function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct }: PriceLadderProps) {
+function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct, breakoutUp, breakoutDown }: PriceLadderProps) {
   const height = 180;
   const range = max - min;
   const toY = (v: number) => height - ((v - min) / range) * height;
@@ -248,6 +252,10 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct 
 
   const showResistance = priorResistance != null;
   const showSupport = priorSupport != null;
+  const resistanceLineOpacity = breakoutUp ? 1 : 0.45;
+  const supportLineOpacity = breakoutDown ? 1 : 0.45;
+  const resistanceBandOpacity = breakoutUp ? 0.12 : 0.04;
+  const supportBandOpacity = breakoutDown ? 0.12 : 0.04;
 
   type Rung =
     | { kind: 'resistance'; value: number }
@@ -265,17 +273,17 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct 
         <line x1={24} y1={0} x2={24} y2={height} stroke="var(--color-border)" strokeWidth={2} />
         {showResistance && (
           <g>
-            <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} strokeDasharray="4 3" />
+            <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} strokeDasharray="4 3" opacity={resistanceLineOpacity} />
             {buffer > 0 && (
-              <rect x={6} y={toY(priorResistance! + buffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + buffer)} fill="var(--color-bull)" opacity={0.12} />
+              <rect x={6} y={toY(priorResistance! + buffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + buffer)} fill="var(--color-bull)" opacity={resistanceBandOpacity} />
             )}
           </g>
         )}
         {showSupport && (
           <g>
-            <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} strokeDasharray="4 3" />
+            <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} strokeDasharray="4 3" opacity={supportLineOpacity} />
             {buffer > 0 && (
-              <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - buffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={0.12} />
+              <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - buffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={supportBandOpacity} />
             )}
           </g>
         )}
@@ -293,6 +301,14 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct 
                   <span className="text-[var(--color-bull)]">Broken ↑</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
+                {breakoutUp && (
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
+                  >
+                    Active
+                  </span>
+                )}
               </div>
             );
           }
@@ -306,6 +322,14 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct 
                   <span className="text-[var(--color-bear)]">Broken ↓</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
+                {breakoutDown && (
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
+                  >
+                    Active
+                  </span>
+                )}
               </div>
             );
           }
