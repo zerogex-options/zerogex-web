@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Filter, Info } from 'lucide-react';
 import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
@@ -52,18 +52,20 @@ type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'd
 type SortLevel = { key: SmartMoneySortKey; dir: 'asc' | 'desc' };
 const MAX_SORT_LEVELS = 3;
 type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
+type FilterableKey = 'strike' | 'expiration' | 'option_type';
+const FILTERABLE_KEYS: readonly FilterableKey[] = ['strike', 'expiration', 'option_type'] as const;
 
-type SmartMoneyColumn = { key: SmartMoneySortKey; label: string; align: 'left' | 'right'; placeholder: string };
+type SmartMoneyColumn = { key: SmartMoneySortKey; label: string; align: 'left' | 'right'; filterable?: boolean };
 const smartMoneyColumns: SmartMoneyColumn[] = [
-  { key: 'timestamp', label: 'Time', align: 'left', placeholder: 'e.g. 14:30' },
-  { key: 'contract', label: 'Contract', align: 'left', placeholder: 'Filter' },
-  { key: 'strike', label: 'Strike', align: 'left', placeholder: 'Filter' },
-  { key: 'expiration', label: 'Expiration', align: 'left', placeholder: 'Filter' },
-  { key: 'dte', label: 'DTE', align: 'left', placeholder: 'Filter' },
-  { key: 'option_type', label: 'Type', align: 'left', placeholder: 'put/call' },
-  { key: 'flow', label: 'Contracts', align: 'right', placeholder: 'Filter' },
-  { key: 'notional', label: 'Notional', align: 'right', placeholder: 'Filter' },
-  { key: 'notional_class', label: 'Class', align: 'left', placeholder: 'Filter' },
+  { key: 'timestamp', label: 'Time', align: 'left' },
+  { key: 'contract', label: 'Contract', align: 'left' },
+  { key: 'strike', label: 'Strike', align: 'left', filterable: true },
+  { key: 'expiration', label: 'Expiration', align: 'left', filterable: true },
+  { key: 'dte', label: 'DTE', align: 'left' },
+  { key: 'option_type', label: 'Type', align: 'left', filterable: true },
+  { key: 'flow', label: 'Contracts', align: 'right' },
+  { key: 'notional', label: 'Notional', align: 'right' },
+  { key: 'notional_class', label: 'Class', align: 'left' },
 ];
 
 function getCellDisplayValue(row: SmartMoneyRow, key: SmartMoneySortKey): string {
@@ -170,10 +172,19 @@ export default function SmartMoneyPage() {
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
   const [sortStack, setSortStack] = useState<SortLevel[]>([{ key: 'notional', dir: 'desc' }]);
-  const [columnFilters, setColumnFilters] = useState<Record<SmartMoneySortKey, string>>({
-    timestamp: '', contract: '', strike: '', expiration: '', dte: '', option_type: '', flow: '', notional: '', notional_class: '',
-  });
+  const [columnFilters, setColumnFilters] = useState<Record<FilterableKey, string>>({ strike: '', expiration: '', option_type: '' });
+  const [openFilter, setOpenFilter] = useState<FilterableKey | null>(null);
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
+
+  useEffect(() => {
+    if (!openFilter) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('[data-smart-money-filter]')) setOpenFilter(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openFilter]);
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
@@ -235,13 +246,26 @@ export default function SmartMoneyPage() {
     [sessionDateKey],
   );
 
+  const uniqueFilterValues = useMemo(() => {
+    const sets: Record<FilterableKey, Set<string>> = { strike: new Set(), expiration: new Set(), option_type: new Set() };
+    for (const row of filteredSmartMoneyData) {
+      for (const key of FILTERABLE_KEYS) {
+        const value = getCellDisplayValue(row, key);
+        if (value) sets[key].add(value);
+      }
+    }
+    return {
+      strike: Array.from(sets.strike).sort((a, b) => Number(a) - Number(b)),
+      expiration: Array.from(sets.expiration).sort(),
+      option_type: Array.from(sets.option_type).sort(),
+    } as Record<FilterableKey, string[]>;
+  }, [filteredSmartMoneyData]);
+
   const sortedSmartMoneyRows = useMemo(() => {
-    const activeFilters = (Object.entries(columnFilters) as Array<[SmartMoneySortKey, string]>)
-      .filter(([, value]) => value.trim() !== '')
-      .map(([key, value]) => [key, value.trim().toLowerCase()] as const);
     const rows = filteredSmartMoneyData.filter((row) => {
-      for (const [key, needle] of activeFilters) {
-        if (!getCellDisplayValue(row, key).toLowerCase().includes(needle)) return false;
+      for (const key of FILTERABLE_KEYS) {
+        const selected = columnFilters[key];
+        if (selected && getCellDisplayValue(row, key) !== selected) return false;
       }
       return true;
     });
@@ -369,7 +393,7 @@ export default function SmartMoneyPage() {
       </span>
     );
   };
-  const setColumnFilter = (key: SmartMoneySortKey, value: string) => {
+  const setColumnFilter = (key: FilterableKey, value: string) => {
     setColumnFilters((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -487,30 +511,63 @@ export default function SmartMoneyPage() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY FLOW TABLE</h3>
-                <TooltipWrapper text="Filter any column with the inputs below the headers. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
+                <TooltipWrapper text="Click the funnel icon on Strike, Expiration, or Type to pick a value to filter by. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">
                 <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
-                  {smartMoneyColumns.map((col) => (
-                    <th key={col.key} className={`${col.align === 'right' ? 'text-right' : ''} py-2 px-2 cursor-pointer select-none`} onClick={() => toggleSmartMoneySort(col.key)}>
-                      <span>{col.label}</span>{renderSortIndicator(col.key)}
-                    </th>
-                  ))}
-                </tr><tr className="border-b" style={{ borderColor: `${inputBorder}66` }}>
-                  {smartMoneyColumns.map((col) => (
-                    <th key={`filter-${col.key}`} className={`${col.align === 'right' ? 'text-right' : ''} py-1 px-2 font-normal`}>
-                      <input
-                        type="text"
-                        value={columnFilters[col.key]}
-                        onChange={(e) => setColumnFilter(col.key, e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        placeholder={col.placeholder}
-                        aria-label={`Filter ${col.label}`}
-                        className="w-full rounded px-1 py-0.5 text-xs"
-                        style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
-                      />
-                    </th>
-                  ))}
+                  {smartMoneyColumns.map((col) => {
+                    const filterKey = col.filterable ? (col.key as FilterableKey) : null;
+                    const activeFilter = filterKey ? columnFilters[filterKey] : '';
+                    return (
+                      <th key={col.key} className={`${col.align === 'right' ? 'text-right' : ''} py-2 px-2 cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSmartMoneySort(col.key)}>
+                        <span>{col.label}</span>{renderSortIndicator(col.key)}
+                        {filterKey ? (
+                          <span data-smart-money-filter className="relative inline-block ml-1 align-middle">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setOpenFilter((curr) => (curr === filterKey ? null : filterKey)); }}
+                              aria-label={`Filter ${col.label}`}
+                              className="inline-flex items-center"
+                              style={{ color: activeFilter ? 'var(--color-brand-primary)' : mutedText }}
+                            >
+                              <Filter size={12} fill={activeFilter ? 'currentColor' : 'none'} />
+                            </button>
+                            {openFilter === filterKey ? (
+                              <div
+                                className="absolute z-20 mt-1 rounded border max-h-60 overflow-y-auto text-left shadow"
+                                style={{ backgroundColor: cardBg, borderColor: inputBorder, color: inputColor, minWidth: '120px', top: '100%', left: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  className="block w-full text-left px-3 py-1.5 text-xs"
+                                  style={{ backgroundColor: !activeFilter ? 'var(--bg-hover)' : 'transparent', color: inputColor }}
+                                  onClick={() => { setColumnFilter(filterKey, ''); setOpenFilter(null); }}
+                                >
+                                  All
+                                </button>
+                                {uniqueFilterValues[filterKey].length === 0 ? (
+                                  <div className="px-3 py-1.5 text-xs" style={{ color: mutedText }}>No values</div>
+                                ) : (
+                                  uniqueFilterValues[filterKey].map((value) => (
+                                    <button
+                                      key={value}
+                                      type="button"
+                                      className="block w-full text-left px-3 py-1.5 text-xs"
+                                      style={{ backgroundColor: activeFilter === value ? 'var(--bg-hover)' : 'transparent', color: inputColor }}
+                                      onClick={() => { setColumnFilter(filterKey, value); setOpenFilter(null); }}
+                                    >
+                                      {value}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            ) : null}
+                          </span>
+                        ) : null}
+                      </th>
+                    );
+                  })}
                 </tr></thead>
                   <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const isHovered = hoveredRowKey === row.rowKey; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b" onMouseEnter={() => setHoveredRowKey(row.rowKey)} onMouseLeave={() => setHoveredRowKey(null)} style={{ borderColor: `${inputBorder}66`, backgroundColor: isHovered ? (isDark ? 'var(--color-warning-soft)' : 'var(--color-warning-soft)') : 'transparent' }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
               </div>
