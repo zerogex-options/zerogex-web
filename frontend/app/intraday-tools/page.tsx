@@ -164,6 +164,53 @@ function is30MinBoundary(ts: string): boolean {
   return m === 0 || m === 30;
 }
 
+function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+  for (const utcHour of [etHour + 4, etHour + 5]) {
+    if (utcHour < 0 || utcHour > 23) continue;
+    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+    const parts = etFmt.formatToParts(new Date(candidate));
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (h === etHour && min === etMinute) return candidate;
+  }
+  return null;
+}
+
+function getExtendedSessionTimestamps(dateKey: string): string[] {
+  const startMs = getETTimeTimestamp(dateKey, 4, 0);
+  const endMs = getETTimeTimestamp(dateKey, 20, 0);
+  if (startMs == null || endMs == null) return [];
+  const result: string[] = [];
+  for (let t = startMs; t <= endMs; t += 60_000) {
+    result.push(new Date(t).toISOString());
+  }
+  return result;
+}
+
+function getCurrentSessionDateKey(): string {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(now);
+  const year = parts.find((p) => p.type === 'year')?.value ?? '';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '';
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+  if (hour >= 4) return `${year}-${month}-${day}`;
+  const yesterday = new Date(now.getTime() - 24 * 3600_000);
+  const yParts = fmt.formatToParts(yesterday);
+  return `${yParts.find((p) => p.type === 'year')?.value ?? ''}-${yParts.find((p) => p.type === 'month')?.value ?? ''}-${yParts.find((p) => p.type === 'day')?.value ?? ''}`;
+}
+
 function getDynamicStep(min: number, max: number): number {
   const range = Math.max(1e-9, Math.abs(max - min));
   const rawStep = range / 6;
@@ -397,14 +444,21 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
   }, [smartMoneySessionChart]);
 
+  const volumeSpikesSessionDateKey = useMemo(() => getCurrentSessionDateKey(), []);
+
   const volumeSpikesChart = useMemo(() => {
-    const spikes = volumeSpikes || [];
-    if (spikes.length === 0) return [];
+    const sessionTimeline = getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
+    if (sessionTimeline.length === 0) return [];
+
+    const sessionStartMs = new Date(sessionTimeline[0]).getTime();
+    const sessionEndMs = new Date(sessionTimeline[sessionTimeline.length - 1]).getTime();
 
     const spikeByTs = new Map<string, VolumeSpikeRow>();
-    spikes.forEach((spike) => {
+    (volumeSpikes || []).forEach((spike) => {
       const ts = spike.timestamp || spike.time_et;
       if (!ts) return;
+      const ms = new Date(ts).getTime();
+      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) return;
       const minute = normalizeToMinute(ts);
       if (!minute) return;
       const existing = spikeByTs.get(minute);
@@ -413,33 +467,29 @@ export default function IntradayToolsPage() {
       }
     });
 
-    if (spikeByTs.size === 0) return [];
-
     const priceByTs = new Map<string, number>();
     (volumeSpikesPriceBars || []).forEach((bar) => {
       const minute = normalizeToMinute(bar.timestamp);
       if (!minute) return;
+      const ms = new Date(minute).getTime();
+      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) return;
       const close = safeNum(bar.close ?? bar.price);
       if (close == null) return;
       priceByTs.set(minute, close);
     });
+    spikeByTs.forEach((spike, minute) => {
+      if (priceByTs.has(minute)) return;
+      const price = safeNum(spike.price);
+      if (price != null) priceByTs.set(minute, price);
+    });
 
-    const sortedKeys = Array.from(spikeByTs.keys()).sort();
-    const startMs = new Date(sortedKeys[0]).getTime();
-    const endMs = new Date(sortedKeys[sortedKeys.length - 1]).getTime();
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return [];
-
-    const allTs: string[] = [];
-    for (let t = startMs; t <= endMs; t += 60_000) {
-      allTs.push(new Date(t).toISOString());
-    }
-
-    return allTs.map((ts) => {
+    return sessionTimeline.map((ts) => {
       const spike = spikeByTs.get(ts);
       const volume = spike ? safeNum(spike.current_volume) : null;
       const ratio = spike ? safeNum(spike.volume_ratio) : null;
       const sigma = spike ? safeNum(spike.volume_sigma) : null;
       const buyingPressure = spike ? safeNum(spike.buying_pressure_pct) : null;
+      const observedPrice = priceByTs.get(ts);
 
       return {
         timestamp: ts,
@@ -450,10 +500,15 @@ export default function IntradayToolsPage() {
         volumeSigma: sigma,
         volumeClass: spike?.volume_class ?? null,
         buyingPressurePct: buyingPressure,
-        underlyingPrice: priceByTs.get(ts) ?? null,
+        underlyingPrice: observedPrice != null && Number.isFinite(observedPrice) ? observedPrice : null,
       };
     });
-  }, [volumeSpikes, volumeSpikesPriceBars]);
+  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey]);
+
+  const volumeSpikesHasAnySpike = useMemo(
+    () => volumeSpikesChart.some((row) => row.volumeRaw != null),
+    [volumeSpikesChart],
+  );
 
   const volumeSpikeVolumeTicks = useMemo(() => {
     const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
@@ -556,7 +611,7 @@ export default function IntradayToolsPage() {
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             Loading volume spikes...
           </div>
-        ) : volumeSpikesChart.length === 0 ? (
+        ) : !volumeSpikesHasAnySpike ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No unusual volume detected
           </div>
