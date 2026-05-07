@@ -167,14 +167,24 @@ function is30MinBoundary(ts: string): boolean {
 function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
   const [y, m, d] = dateKey.split('-').map(Number);
   if (!y || !m || !d) return null;
-  const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
-  for (const utcHour of [etHour + 4, etHour + 5]) {
-    if (utcHour < 0 || utcHour > 23) continue;
-    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
+  const etFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  for (const offset of [4, 5]) {
+    const candidate = Date.UTC(y, m - 1, d, etHour + offset, etMinute);
     const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (h === etHour && min === etMinute) return candidate;
+    const yV = parts.find((p) => p.type === 'year')?.value ?? '';
+    const mV = parts.find((p) => p.type === 'month')?.value ?? '';
+    const dV = parts.find((p) => p.type === 'day')?.value ?? '';
+    const hV = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+    const minV = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+    if (`${yV}-${mV}-${dV}` === dateKey && hV === etHour && minV === etMinute) return candidate;
   }
   return null;
 }
