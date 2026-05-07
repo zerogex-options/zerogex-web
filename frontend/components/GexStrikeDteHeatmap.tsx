@@ -86,12 +86,13 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
       strikeTotal.set(strike, (strikeTotal.get(strike) || 0) + Math.abs(Number(row.net_gex || 0)));
     });
 
-    // Select top strikes by total absolute GEX
+    // Select top strikes by total absolute GEX, then display highest → lowest
+    // strike top-to-bottom to match the rest of the page.
     const sortedStrikes = Array.from(strikeTotal.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 14)
       .map(([s]) => s)
-      .sort((a, b) => a - b);
+      .sort((a, b) => b - a);
 
     // Find max absolute for color scaling
     let maxAbsVal = 0;

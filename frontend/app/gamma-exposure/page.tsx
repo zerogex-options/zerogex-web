@@ -117,7 +117,7 @@ export default function GammaExposurePage() {
 
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('strike');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [vizTab, setVizTab] = useState<'heatmap' | 'mmx'>('heatmap');
 
   // Aggregate by-strike data for the chart and table
