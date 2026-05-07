@@ -71,18 +71,14 @@ export default function TrapDetectionPage() {
   const history = useMemo(() => parseScoreHistory(payload.score_history), [payload]);
 
   const ladderRange = useMemo(() => {
-    const vals = [
-      breakoutUp ? priorResistance : null,
-      breakoutDown ? priorSupport : null,
-      ctx.close,
-    ].filter((v): v is number => v != null);
+    const vals = [priorResistance, priorSupport, ctx.close].filter((v): v is number => v != null);
     if (vals.length === 0) return null;
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     if (min === max) return { min: min - 1, max: max + 1 };
     const pad = (max - min) * 0.2;
     return { min: min - pad, max: max + pad };
-  }, [breakoutUp, breakoutDown, priorResistance, priorSupport, ctx.close]);
+  }, [priorResistance, priorSupport, ctx.close]);
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
@@ -91,7 +87,7 @@ export default function TrapDetectionPage() {
       <SignalPageTitle
         title="Trap Detection"
         icon={AlertTriangle}
-        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Prior resistance / support is the wall price has just breached — prior resistance sits below close on an upside breakout, prior support sits above close on a downside breakdown."
+        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Prior resistance is the most-recently-breached upside wall; prior support, the most-recently-breached downside wall. The level persists in the payload after the break, so its position relative to close depends on tape since."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -131,8 +127,6 @@ export default function TrapDetectionPage() {
                 priorResistance={priorResistance}
                 priorSupport={priorSupport}
                 bufferPct={bufferPct}
-                breakoutUp={breakoutUp}
-                breakoutDown={breakoutDown}
               />
             ) : (
               <div className="text-sm text-[var(--color-text-secondary)]">Price levels not available.</div>
@@ -209,7 +203,7 @@ export default function TrapDetectionPage() {
         <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction.</div>
         <div>Optional confirmation: same-side flow decelerating into the wall.</div>
         <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
-        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance sits below close on an upside breakout, prior support sits above close on a downside breakdown.</div>
+        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
@@ -244,18 +238,16 @@ interface PriceLadderProps {
   priorResistance: number | null;
   priorSupport: number | null;
   bufferPct: number | null;
-  breakoutUp: boolean;
-  breakoutDown: boolean;
 }
 
-function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct, breakoutUp, breakoutDown }: PriceLadderProps) {
+function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct }: PriceLadderProps) {
   const height = 180;
   const range = max - min;
   const toY = (v: number) => height - ((v - min) / range) * height;
   const buffer = bufferPct != null ? bufferPct * spot : 0;
 
-  const showResistance = breakoutUp && priorResistance != null;
-  const showSupport = breakoutDown && priorSupport != null;
+  const showResistance = priorResistance != null;
+  const showSupport = priorSupport != null;
 
   type Rung =
     | { kind: 'resistance'; value: number }
