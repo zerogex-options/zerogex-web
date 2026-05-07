@@ -144,13 +144,13 @@ export default function TrapDetectionPage() {
                 label="Wall migrated ↑"
                 on={wallMigratedUp}
                 color="var(--color-bear)"
-                tooltip="Call wall has migrated higher with price — dealers are repositioning, which invalidates the bearish-fade setup at the prior resistance."
+                tooltip="The relevant dealer wall has migrated higher with price (dealers repositioning) — invalidates the bearish-fade setup at the prior resistance."
               />
               <Chip
                 label="Wall migrated ↓"
                 on={wallMigratedDown}
                 color="var(--color-bear)"
-                tooltip="Put wall has migrated lower with price — dealers are repositioning, which invalidates the bullish-fade setup at the prior support."
+                tooltip="The relevant dealer wall has migrated lower with price (dealers repositioning) — invalidates the bullish-fade setup at the prior support."
               />
               <Chip
                 label="Long gamma"
