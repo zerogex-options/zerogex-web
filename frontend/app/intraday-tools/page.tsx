@@ -302,11 +302,6 @@ export default function IntradayToolsPage() {
     { refreshInterval: 10000 }
   );
 
-  const { data: volumeSpikesPriceBars } = useApiData<Array<{ timestamp: string; close?: number; price?: number }>>(
-    `/api/market/historical?${symParam}&timeframe=5min&window_units=500`,
-    { refreshInterval: 30000 }
-  );
-
   const { data: divergenceResponse } = useApiData<unknown>(
     `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
     { refreshInterval: 5000 }
@@ -472,14 +467,9 @@ export default function IntradayToolsPage() {
       const ms = new Date(ts).getTime();
       if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
     });
-    (volumeSpikesPriceBars || []).forEach((bar) => {
-      if (!bar.timestamp) return;
-      const ms = new Date(bar.timestamp).getTime();
-      if (Number.isFinite(ms) && ms > latestMs) latestMs = ms;
-    });
     if (latestMs === 0) return getCurrentSessionDateKey();
     return getETDateKey(new Date(latestMs).toISOString());
-  }, [volumeSpikes, volumeSpikesPriceBars]);
+  }, [volumeSpikes]);
 
   const volumeSpikesChart = useMemo(() => {
     const sessionTimeline = getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
@@ -503,20 +493,16 @@ export default function IntradayToolsPage() {
     });
 
     const priceByTs = new Map<string, number>();
-    (volumeSpikesPriceBars || []).forEach((bar) => {
-      const minute = normalizeToMinute(bar.timestamp);
-      if (!minute) return;
-      const ms = new Date(minute).getTime();
-      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) return;
-      const close = safeNum(bar.close ?? bar.price);
-      if (close == null) return;
-      priceByTs.set(minute, close);
-    });
-    spikeByTs.forEach((spike, minute) => {
-      if (priceByTs.has(minute)) return;
-      const price = safeNum(spike.price);
-      if (price != null) priceByTs.set(minute, price);
-    });
+    for (const spike of volumeSpikes || []) {
+      const ts = spike.timestamp || spike.time_et;
+      if (!ts) continue;
+      const minute = normalizeToMinute(ts);
+      if (!minute) continue;
+      if (priceByTs.has(minute)) continue;
+      const u = safeNum(spike.price);
+      if (u == null) continue;
+      priceByTs.set(minute, u);
+    }
 
     return sessionTimeline.map((ts) => {
       const spike = spikeByTs.get(ts);
@@ -538,7 +524,7 @@ export default function IntradayToolsPage() {
         underlyingPrice: observedPrice != null && Number.isFinite(observedPrice) ? observedPrice : null,
       };
     });
-  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey]);
+  }, [volumeSpikes, volumeSpikesSessionDateKey]);
 
   const volumeSpikesHasAnySpike = useMemo(
     () => volumeSpikesChart.some((row) => row.volumeRaw != null),
@@ -721,7 +707,7 @@ export default function IntradayToolsPage() {
                       return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
                     })}
                   </Bar>
-                  <Line yAxisId="price" type="linear" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls={true} isAnimationActive={false} />
+                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
