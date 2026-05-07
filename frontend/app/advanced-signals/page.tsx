@@ -125,8 +125,8 @@ export default function AdvancedSignalsPage() {
 
     const tCtx = asObject(trapPayload.context_values) ?? {};
     const trapRows: AdvancedSignalContextRow[] = [
-      { label: 'Resistance', value: formatPrice(getNumber(trapPayload.resistance_level)) },
-      { label: 'Support', value: formatPrice(getNumber(trapPayload.support_level)) },
+      { label: 'Prior resistance', value: formatPrice(getNumber(trapPayload.broken_resistance_level) ?? getNumber(trapPayload.resistance_level)) },
+      { label: 'Prior support', value: formatPrice(getNumber(trapPayload.broken_support_level) ?? getNumber(trapPayload.support_level)) },
       { label: 'Buffer', value: formatPct(getNumber(trapPayload.breakout_buffer_pct), 3, false) },
       { label: 'Breakout ↑', value: trapPayload.breakout_up === true ? 'Yes' : 'No' },
       { label: 'Breakout ↓', value: trapPayload.breakout_down === true ? 'Yes' : 'No' },

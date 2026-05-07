@@ -91,7 +91,7 @@ export default function TrapDetectionPage() {
       <SignalPageTitle
         title="Trap Detection"
         icon={AlertTriangle}
-        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Invalidated when the relevant wall migrates with price (dealers repositioning)."
+        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Prior resistance / support is the wall price has just breached — prior resistance sits below close on an upside breakout, prior support sits above close on a downside breakdown."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -188,15 +188,15 @@ export default function TrapDetectionPage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Bearish fade</div>
             <p className="text-[var(--color-text-secondary)]">
-              Upside poke above resistance + dealers long gamma + call wall not migrating → short-call-spread or
-              put-debit at resistance.
+              Price popped above the prior resistance (now sitting below close) but failed to hold + dealers long
+              gamma + call wall not migrating → fade the failed break with a short-call-spread or put-debit.
             </p>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Bullish fade</div>
             <p className="text-[var(--color-text-secondary)]">
-              Mirror: downside break under support with reinforcing long gamma. Invalidate on wall migration with
-              price.
+              Mirror: price slipped beneath the prior support (now sitting above close) but failed to hold, with
+              reinforcing long gamma → fade the failed break. Invalidate on wall migration with price.
             </p>
           </div>
         </div>
@@ -205,10 +205,11 @@ export default function TrapDetectionPage() {
       <SignalHowItsBuilt
         caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
       >
-        <div>Detects upside / downside breakouts beyond resistance / support by at least the buffer band.</div>
+        <div>Detects upside / downside breakouts beyond the prior resistance / support wall by at least the buffer band.</div>
         <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction.</div>
         <div>Optional confirmation: same-side flow decelerating into the wall.</div>
         <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
+        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance sits below close on an upside breakout, prior support sits above close on a downside breakdown.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
@@ -272,7 +273,7 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
         <line x1={24} y1={0} x2={24} y2={height} stroke="var(--color-border)" strokeWidth={2} />
         {showResistance && (
           <g>
-            <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} />
+            <line x1={6} y1={toY(priorResistance!)} x2={42} y2={toY(priorResistance!)} stroke="var(--color-bull)" strokeWidth={2} strokeDasharray="4 3" />
             {buffer > 0 && (
               <rect x={6} y={toY(priorResistance! + buffer)} width={36} height={toY(priorResistance!) - toY(priorResistance! + buffer)} fill="var(--color-bull)" opacity={0.12} />
             )}
@@ -280,7 +281,7 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
         )}
         {showSupport && (
           <g>
-            <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} />
+            <line x1={6} y1={toY(priorSupport!)} x2={42} y2={toY(priorSupport!)} stroke="var(--color-bear)" strokeWidth={2} strokeDasharray="4 3" />
             {buffer > 0 && (
               <rect x={6} y={toY(priorSupport!)} width={36} height={toY(priorSupport! - buffer) - toY(priorSupport!)} fill="var(--color-bear)" opacity={0.12} />
             )}
