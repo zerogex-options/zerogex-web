@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, TrendingDown, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import {
   Bar,
   BarChart,
@@ -26,6 +26,7 @@ import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
 import { omitOutOfHoursForSymbol } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface MaxPainPoint {
   settlement_price: number;
@@ -123,9 +124,11 @@ function svgPath(points: Array<{ x: number; y: number }>) {
 export default function MaxPainPage() {
   const { symbol, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const maxPoints = getMaxDataPoints();
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [timeseriesTimeframe, setTimeseriesTimeframe] = useState<ChartTimeframe>("5min");
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
 
@@ -230,11 +233,13 @@ export default function MaxPainPage() {
   const panelBg = theme === "dark" ? colors.cardDark : colors.cardLight;
 
   const tsWidth = 1200;
-  const tsHeight = 420;
+  const tsHeight = 444;
   const padLeft = 70;
   const padRight = 25;
   const padTop = 24;
-  const padBottom = 40;
+  const padBottom = 64;
+  const timeLabelY = tsHeight - 36;
+  const dateLabelY = tsHeight - 14;
 
   const priceValues = seriesChart.flatMap((r) => [r.low, r.high, r.maxPain]).filter((n) => Number.isFinite(n));
   const minPrice = priceValues.length ? Math.min(...priceValues) : 0;
@@ -260,6 +265,55 @@ export default function MaxPainPage() {
       y: y(r.maxPain),
     })),
   );
+
+  const dateMarkers: Array<{ index: number; label: string; key: string }> = [];
+  let prevDateKey = "";
+  seriesChart.forEach((row, index) => {
+    const dt = new Date(row.timestamp);
+    if (Number.isNaN(dt.getTime())) return;
+    const dateKey = dt.toLocaleDateString("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    if (dateKey === prevDateKey) return;
+    prevDateKey = dateKey;
+    dateMarkers.push({
+      index,
+      key: row.timestamp,
+      label: dt.toLocaleDateString("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+      }),
+    });
+  });
+
+  const labeledDateMarkerKeys = new Set<string>();
+  if (dateMarkers.length > 0) {
+    const minGap = isMobile ? 80 : 52;
+    let lastLabeledX = Number.NEGATIVE_INFINITY;
+    dateMarkers.forEach((marker) => {
+      const x = padLeft + marker.index * xStep;
+      if (x - lastLabeledX < minGap) return;
+      labeledDateMarkerKeys.add(marker.key);
+      lastLabeledX = x;
+    });
+  }
+
+  const fallbackIdx = Math.max(0, seriesChart.length - 1);
+  const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
+  const hoveredRow = seriesChart[resolvedIdx] ?? null;
+
+  const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (seriesChart.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const xPx = event.clientX - rect.left;
+    const xView = (xPx / Math.max(1, rect.width)) * tsWidth;
+    const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    setHoveredIdx(Math.max(0, Math.min(seriesChart.length - 1, idx)));
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -374,15 +428,26 @@ export default function MaxPainPage() {
       </section>
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
-        <SectionTitle title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
-        <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} />
+        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+          <SectionTitle title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
+          <div className="flex items-center gap-3 flex-wrap">
+            <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} className="mb-0" />
+            {hoveredRow && (
+              <div className="text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
+                <div>{new Date(hoveredRow.timestamp).toLocaleString()}</div>
+                <div>O: {hoveredRow.open.toFixed(2)} H: {hoveredRow.high.toFixed(2)} L: {hoveredRow.low.toFixed(2)} C: {hoveredRow.close.toFixed(2)}</div>
+                <div>Max Pain: {hoveredRow.maxPain.toFixed(2)}</div>
+              </div>
+            )}
+          </div>
+        </div>
         {seriesError ? (
           <ErrorMessage message={seriesError} />
         ) : seriesChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
         ) : (
           <div className="overflow-x-auto">
-          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0">
+          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
             {yTicks.map((val) => {
               const yPos = y(val);
               const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
@@ -420,11 +485,39 @@ export default function MaxPainPage() {
               const spacing = xStep < 12 ? 10 : xStep < 18 ? 6 : 4;
               if (i % spacing !== 0) return null;
               return (
-                <text key={`t-${r.timestamp}`} x={padLeft + i * xStep} y={tsHeight - 12} textAnchor="middle" fontSize="10" fill={textColor}>
+                <text key={`t-${r.timestamp}`} x={padLeft + i * xStep} y={timeLabelY} textAnchor="middle" fontSize="10" fill={textColor}>
                   {r.time}
                 </text>
               );
             })}
+
+            {dateMarkers.map((marker) => {
+              const x = padLeft + marker.index * xStep;
+              const showLabel = labeledDateMarkerKeys.has(marker.key);
+              return (
+                <g key={`date-marker-${marker.key}`}>
+                  <line x1={x} x2={x} y1={padTop} y2={tsHeight - padBottom} stroke={colors.muted} opacity={0.22} />
+                  {showLabel ? (
+                    <text x={x + 4} y={dateLabelY} fontSize="10" textAnchor="start" fill={colors.muted}>
+                      {marker.label}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+
+            {hoveredIdx !== null && hoveredRow ? (
+              <line
+                x1={padLeft + resolvedIdx * xStep}
+                x2={padLeft + resolvedIdx * xStep}
+                y1={padTop}
+                y2={tsHeight - padBottom}
+                stroke={colors.muted}
+                opacity={0.5}
+                strokeDasharray="3,3"
+                pointerEvents="none"
+              />
+            ) : null}
 
             <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
