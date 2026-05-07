@@ -284,20 +284,28 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct 
       <div className="flex flex-col gap-3 text-xs">
         {rungs.map((r) => {
           if (r.kind === 'resistance') {
+            const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
               <div key="resistance" className="flex items-baseline gap-3">
                 <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[var(--color-bull)] text-[10px] font-semibold uppercase tracking-wide">Broken ↑</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="text-[var(--color-bull)]">Broken ↑</span>
+                  <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
+                </span>
               </div>
             );
           }
           if (r.kind === 'support') {
+            const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
               <div key="support" className="flex items-baseline gap-3">
                 <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[var(--color-bear)] text-[10px] font-semibold uppercase tracking-wide">Broken ↓</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="text-[var(--color-bear)]">Broken ↓</span>
+                  <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
+                </span>
               </div>
             );
           }
