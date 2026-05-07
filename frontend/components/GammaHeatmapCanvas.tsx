@@ -159,26 +159,22 @@ export default function GammaHeatmapCanvas() {
   const baseMaxPoints = getMaxDataPoints();
   // With-Prev doubles the time window so the heatmap reaches into the prior session.
   const maxPoints = withPrev ? baseMaxPoints * 2 : baseMaxPoints;
-  // Over-fetch so symbols whose data is only available during regular hours
-  // (e.g., SPX index) still have enough bars to fill `maxPoints` visible cells
-  // after the price-availability filter trims them down.
-  const fetchUnits = maxPoints * 3;
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const expiryParam = selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
   const apiTf = tfToApi(tf);
 
   const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
-    `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${fetchUnits}${expiryParam}`,
+    `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}${expiryParam}`,
     { refreshInterval: heatmapInterval },
   );
   const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
   const priceData: PriceDataPoint[] = useMemo(
-    () => priceRowsAll.slice(-fetchUnits),
-    [priceRowsAll, fetchUnits],
+    () => priceRowsAll.slice(-maxPoints),
+    [priceRowsAll, maxPoints],
   );
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
-    `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${fetchUnits}`,
+    `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
     { refreshInterval: historicalInterval },
   );
   const { data: gexByStrike } = useGEXByStrike(symbol, 200, byStrikeInterval, 'impact');
