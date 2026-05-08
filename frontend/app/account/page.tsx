@@ -1,10 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+
+type IdentitiesPayload = {
+  hasPassword: boolean;
+  identities: Array<{ provider: 'google' | 'apple'; createdAt: string }>;
+};
 
 const C = {
   card: 'var(--color-surface)',
@@ -22,9 +27,74 @@ const TIER_LABELS: Record<TierId, string> = AUTH_TIERS.reduce(
 
 export default function AccountPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: authSession, loading } = useAuthSession();
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [identities, setIdentities] = useState<IdentitiesPayload | null>(null);
+  const [identitiesLoading, setIdentitiesLoading] = useState(true);
+  const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
+
+  const refreshIdentities = async () => {
+    setIdentitiesLoading(true);
+    try {
+      const response = await fetch('/api/account/identities', { credentials: 'include' });
+      if (!response.ok) {
+        setIdentities(null);
+        return;
+      }
+      const data = (await response.json()) as IdentitiesPayload;
+      setIdentities(data);
+    } catch {
+      setIdentities(null);
+    } finally {
+      setIdentitiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authSession?.authenticated) refreshIdentities();
+  }, [authSession?.authenticated]);
+
+  useEffect(() => {
+    const link = searchParams?.get('link');
+    if (link === 'success') {
+      setFeedback({ type: 'success', message: 'Provider linked to your account.' });
+    } else if (link === 'error') {
+      const reason = searchParams?.get('reason');
+      setFeedback({ type: 'error', message: reason ? decodeURIComponent(reason) : 'Could not link provider.' });
+    }
+  }, [searchParams]);
+
+  const handleUnlink = async (provider: 'google' | 'apple') => {
+    setUnlinkingProvider(provider);
+    setFeedback(null);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setFeedback({ type: 'error', message: 'Unable to obtain CSRF token. Please refresh and try again.' });
+        return;
+      }
+      const response = await fetch('/api/account/identities/unlink', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ provider }),
+      });
+      const payload = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok) {
+        setFeedback({ type: 'error', message: payload.error ?? 'Failed to unlink provider.' });
+        return;
+      }
+      setFeedback({ type: 'success', message: `Disconnected ${provider}.` });
+      await refreshIdentities();
+    } catch {
+      setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
+    } finally {
+      setUnlinkingProvider(null);
+    }
+  };
 
   const tier = useMemo(() => normalizeTier(authSession?.user?.tier), [authSession?.user?.tier]);
   const email = authSession?.user?.email ?? '';
@@ -205,6 +275,58 @@ export default function AccountPage() {
         </section>
 
         <section style={{ marginTop: 24 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Sign-in methods</h2>
+          <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+            Connect or disconnect the providers you use to sign in. You must keep at least one method active.
+          </p>
+          {identitiesLoading ? (
+            <p style={{ color: C.muted, fontSize: 14 }}>Loading sign-in methods…</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 12 }}>
+              <SignInMethodRow
+                icon={<KeyRound size={16} />}
+                label="Email & password"
+                status={identities?.hasPassword ? 'Active' : 'Not set'}
+                statusActive={!!identities?.hasPassword}
+              />
+              <SignInMethodRow
+                icon={<Link2 size={16} />}
+                label="Google"
+                status={identities?.identities.some((i) => i.provider === 'google') ? 'Connected' : 'Not connected'}
+                statusActive={!!identities?.identities.some((i) => i.provider === 'google')}
+                action={
+                  identities?.identities.some((i) => i.provider === 'google') ? (
+                    <button
+                      type="button"
+                      onClick={() => handleUnlink('google')}
+                      disabled={unlinkingProvider === 'google'}
+                      style={secondaryButtonStyle(unlinkingProvider === 'google')}
+                    >
+                      {unlinkingProvider === 'google' ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
+                  ) : (
+                    <a href="/api/auth/oauth/google/start?intent=link" style={primaryLinkButtonStyle()}>
+                      Connect
+                    </a>
+                  )
+                }
+              />
+              <SignInMethodRow
+                icon={<Link2 size={16} />}
+                label="Apple"
+                status="Coming soon"
+                statusActive={false}
+                action={
+                  <span style={secondaryButtonStyle(true)} aria-disabled="true">
+                    Connect
+                  </span>
+                }
+              />
+            </div>
+          )}
+        </section>
+
+        <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
             Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes are pro-rated automatically.
@@ -235,4 +357,73 @@ export default function AccountPage() {
       </div>
     </main>
   );
+}
+
+function SignInMethodRow({
+  icon,
+  label,
+  status,
+  statusActive,
+  action,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  status: string;
+  statusActive: boolean;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '14px 16px',
+        borderRadius: 12,
+        border: `1px solid ${C.border}`,
+        background: 'var(--bg-active)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ color: C.muted }}>{icon}</span>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.light }}>{label}</div>
+          <div style={{ fontSize: 12, color: statusActive ? 'var(--color-bull)' : C.muted, marginTop: 2 }}>{status}</div>
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    background: 'transparent',
+    border: `1px solid ${C.border}`,
+    color: C.light,
+    borderRadius: 10,
+    padding: '8px 14px',
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    textDecoration: 'none',
+    display: 'inline-block',
+  };
+}
+
+function primaryLinkButtonStyle(): React.CSSProperties {
+  return {
+    background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
+    border: 'none',
+    borderRadius: 10,
+    padding: '8px 14px',
+    color: 'var(--text-inverse)',
+    fontWeight: 800,
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    display: 'inline-block',
+  };
 }
