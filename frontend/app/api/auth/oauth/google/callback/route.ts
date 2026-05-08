@@ -7,9 +7,10 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
   const expectedState = request.cookies.get(getOAuthStateCookieName('google'))?.value;
   const expectedNonce = request.cookies.get(getOAuthNonceCookieName('google'))?.value;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 
   if (!state || !code || !expectedState || state !== expectedState || !expectedNonce) {
-    return NextResponse.redirect(new URL('/login?error=oauth_state_mismatch', request.url));
+    return NextResponse.redirect(new URL('/login?error=oauth_state_mismatch', baseUrl));
   }
 
   const config = getOAuthConfig('google');
@@ -27,18 +28,18 @@ export async function GET(request: NextRequest) {
   });
 
   if (!tokenResponse.ok) {
-    return NextResponse.redirect(new URL('/login?error=oauth_token_exchange_failed', request.url));
+    return NextResponse.redirect(new URL('/login?error=oauth_token_exchange_failed', baseUrl));
   }
 
   const tokenPayload = (await tokenResponse.json()) as { id_token?: string };
   if (!tokenPayload.id_token) {
-    return NextResponse.redirect(new URL('/login?error=oauth_missing_id_token', request.url));
+    return NextResponse.redirect(new URL('/login?error=oauth_missing_id_token', baseUrl));
   }
   let profile: { sub: string; email: string };
   try {
     profile = await verifyGoogleIdToken(tokenPayload.id_token, config.clientId, expectedNonce);
   } catch {
-    return NextResponse.redirect(new URL('/login?error=oauth_profile_invalid', request.url));
+    return NextResponse.redirect(new URL('/login?error=oauth_profile_invalid', baseUrl));
   }
 
   const session = await createOrLoginOAuthUser(request, {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     email: profile.email,
   });
 
-  const redirectTo = new URL('/dashboard', request.url);
+  const redirectTo = new URL('/dashboard', baseUrl);
   const response = NextResponse.redirect(redirectTo);
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);

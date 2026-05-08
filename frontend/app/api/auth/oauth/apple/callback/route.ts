@@ -5,9 +5,10 @@ import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, verif
 async function handleCallback(request: NextRequest, state: string | null, code: string | null) {
   const expectedState = request.cookies.get(getOAuthStateCookieName('apple'))?.value;
   const expectedNonce = request.cookies.get(getOAuthNonceCookieName('apple'))?.value;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 
   if (!state || !code || !expectedState || state !== expectedState || !expectedNonce) {
-    return NextResponse.redirect(new URL('/login?error=apple_state_mismatch', request.url));
+    return NextResponse.redirect(new URL('/login?error=apple_state_mismatch', baseUrl));
   }
 
   const config = getOAuthConfig('apple');
@@ -24,19 +25,19 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
   });
 
   if (!tokenResponse.ok) {
-    return NextResponse.redirect(new URL('/login?error=apple_token_exchange_failed', request.url));
+    return NextResponse.redirect(new URL('/login?error=apple_token_exchange_failed', baseUrl));
   }
 
   const tokenPayload = (await tokenResponse.json()) as { id_token?: string; sub?: string };
   if (!tokenPayload.id_token) {
-    return NextResponse.redirect(new URL('/login?error=apple_missing_id_token', request.url));
+    return NextResponse.redirect(new URL('/login?error=apple_missing_id_token', baseUrl));
   }
 
   let payload: { sub: string; email: string };
   try {
     payload = await verifyAppleIdToken(tokenPayload.id_token, config.clientId, expectedNonce);
   } catch {
-    return NextResponse.redirect(new URL('/login?error=apple_profile_invalid', request.url));
+    return NextResponse.redirect(new URL('/login?error=apple_profile_invalid', baseUrl));
   }
 
   const session = await createOrLoginOAuthUser(request, {
@@ -45,7 +46,7 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
     email: payload.email,
   });
 
-  const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  const response = NextResponse.redirect(new URL('/dashboard', baseUrl));
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
   response.cookies.set({ name: getOAuthStateCookieName('apple'), value: '', path: '/', maxAge: 0 });
