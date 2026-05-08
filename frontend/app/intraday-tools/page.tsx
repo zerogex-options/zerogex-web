@@ -562,10 +562,11 @@ export default function IntradayToolsPage() {
   const volumeSpikeVolumeTicks = useMemo(() => {
     const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
     if (max <= 0) return [0];
-    const step = 500_000;
+    const step = getDynamicStep(0, max);
+    const top = Math.ceil(max / step) * step;
     const ticks: number[] = [];
-    for (let t = step; t <= Math.ceil(max / step) * step; t += step) {
-      ticks.push(t);
+    for (let t = 0; t <= top + step / 2 && ticks.length < 24; t += step) {
+      ticks.push(Number(t.toPrecision(12)));
     }
     return ticks;
   }, [volumeSpikesChart]);
@@ -683,7 +684,7 @@ export default function IntradayToolsPage() {
                     if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                     return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}</g>;
                   }} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} tickFormatter={(v) => {
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} domain={volumeSpikeVolumeTicks.length ? [volumeSpikeVolumeTicks[0], volumeSpikeVolumeTicks[volumeSpikeVolumeTicks.length - 1]] : [0, 'auto']} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
                     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -724,7 +725,7 @@ export default function IntradayToolsPage() {
                       );
                     }}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={10} isAnimationActive={false}>
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={14} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
                       const sigma = row.volumeSigma ?? 0;
                       const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';
