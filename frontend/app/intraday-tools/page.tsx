@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Info } from 'lucide-react';
-import { Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, Bar, Cell, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import {
@@ -594,6 +594,111 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(volumeSpikesChart.map((row) => String(row.timestamp)));
   }, [volumeSpikesChart]);
 
+  const vwapChart = useMemo(() => {
+    const timeline = isIndexSymbol(symbol)
+      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
+      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
+    if (timeline.length === 0) return [] as Array<{
+      timestamp: string;
+      price: number | null;
+      vwap: number | null;
+      channelAbove: [number, number] | null;
+      channelBelow: [number, number] | null;
+      deviationPct: number | null;
+    }>;
+
+    const rthStartMs = getETTimeTimestamp(volumeSpikesSessionDateKey, 9, 30);
+    const rthEndMs = getETTimeTimestamp(volumeSpikesSessionDateKey, 16, 0);
+
+    const barByMinute = new Map<string, { price: number; typical: number; volume: number }>();
+    for (const bar of volumeSpikesPriceBars || []) {
+      const minute = normalizeToMinute(bar.timestamp);
+      if (!minute) continue;
+      const close = safeNum(bar.close ?? bar.price);
+      if (close == null) continue;
+      const high = safeNum(bar.high) ?? close;
+      const low = safeNum(bar.low) ?? close;
+      const volume = Math.max(0, safeNum(bar.volume) ?? 0);
+      barByMinute.set(minute, { price: close, typical: (high + low + close) / 3, volume });
+    }
+
+    let cumPv = 0;
+    let cumV = 0;
+    return timeline.map((ts) => {
+      const ms = new Date(ts).getTime();
+      const inRth = rthStartMs != null && rthEndMs != null && ms >= rthStartMs && ms <= rthEndMs;
+      const bar = barByMinute.get(ts);
+      if (bar && inRth && bar.volume > 0) {
+        cumPv += bar.typical * bar.volume;
+        cumV += bar.volume;
+      }
+      const vwap = inRth && cumV > 0 ? cumPv / cumV : null;
+      const price = bar?.price ?? null;
+      const hasBoth = price != null && vwap != null;
+      const channelAbove: [number, number] | null = hasBoth && price >= vwap ? [vwap, price] : null;
+      const channelBelow: [number, number] | null = hasBoth && price < vwap ? [price, vwap] : null;
+      const deviationPct = hasBoth && vwap !== 0 ? ((price - vwap) / vwap) * 100 : null;
+      return { timestamp: ts, price, vwap, channelAbove, channelBelow, deviationPct };
+    });
+  }, [volumeSpikesPriceBars, volumeSpikesSessionDateKey, symbol]);
+
+  const vwapPriceTicks = useMemo(() => {
+    const values: number[] = [];
+    for (const row of vwapChart) {
+      if (row.price != null) values.push(row.price);
+      if (row.vwap != null) values.push(row.vwap);
+    }
+    if (values.length === 0) return [] as number[];
+    return generateNiceTicks(Math.min(...values), Math.max(...values));
+  }, [vwapChart]);
+
+  const orbChart = useMemo(() => {
+    const timeline = isIndexSymbol(symbol)
+      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
+      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
+    if (timeline.length === 0) return [] as Array<{ timestamp: string; price: number | null }>;
+
+    const priceByTs = new Map<string, number>();
+    for (const bar of volumeSpikesPriceBars || []) {
+      const minute = normalizeToMinute(bar.timestamp);
+      if (!minute) continue;
+      const close = safeNum(bar.close ?? bar.price);
+      if (close == null) continue;
+      priceByTs.set(minute, close);
+    }
+
+    return timeline.map((ts) => ({ timestamp: ts, price: priceByTs.get(ts) ?? null }));
+  }, [volumeSpikesPriceBars, volumeSpikesSessionDateKey, symbol]);
+
+  const orbPriceTicks = useMemo(() => {
+    if (!orb) return [] as number[];
+    const values: number[] = [orb.orb_high, orb.orb_low];
+    for (const row of orbChart) if (row.price != null) values.push(row.price);
+    const filtered = values.filter((v) => Number.isFinite(v) && v > 0);
+    if (filtered.length === 0) return [] as number[];
+    const padding = orb.orb_range > 0 ? orb.orb_range * 0.25 : 0;
+    return generateNiceTicks(Math.min(...filtered) - padding, Math.max(...filtered) + padding);
+  }, [orbChart, orb]);
+
+  const renderTimelineTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+    const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0);
+    const ts = String(props?.payload?.value || '');
+    const index = Number(props?.index ?? -1);
+    const d = ts ? new Date(ts) : null;
+    const minOfDay = d && !Number.isNaN(d.getTime()) ? d.getUTCHours() * 60 + d.getUTCMinutes() : -1;
+    const showTime = minOfDay >= 0 && minOfDay % volumeSpikeLabelStepMin === 0;
+    const timeLabel = showTime ? d!.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
+    const dateLabel = volumeSpikeDateMarkerMeta.get(index);
+    if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+        {timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}
+        {dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}
+      </g>
+    );
+  };
+
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     if (smartMoneySortKey === key) {
       setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
@@ -619,12 +724,62 @@ export default function IntradayToolsPage() {
             No VWAP data available (market may be closed)
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <MetricCard title="Current Price" value={`$${fmtFixed(vwap.price)}`} tooltip="Current market price" />
-            <MetricCard title="VWAP" value={`$${fmtFixed(vwap.vwap)}`} tooltip="Volume weighted average price" />
-            <MetricCard title="Deviation" value={`${fmtFixed(vwap.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwap.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-            <MetricCard title="Position" value={vwap.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <MetricCard title="Current Price" value={`$${fmtFixed(vwap.price)}`} tooltip="Current market price" />
+              <MetricCard title="VWAP" value={`$${fmtFixed(vwap.vwap)}`} tooltip="Volume weighted average price" />
+              <MetricCard title="Deviation" value={`${fmtFixed(vwap.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwap.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
+              <MetricCard title="Position" value={vwap.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
+            </div>
+            {vwapChart.length > 0 ? (
+              <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VWAP VS UNDERLYING PRICE</h3>
+                  <TooltipWrapper text="Session VWAP (yellow dashed) vs underlying price (white). The shaded channel highlights how far above (green) or below (red) VWAP the price is tracking. VWAP resets at 9:30 ET."><Info size={14} /></TooltipWrapper>
+                </div>
+                <MobileScrollableChart>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <ComposedChart data={vwapChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                      <defs>
+                        <linearGradient id="vwapAboveGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.45} />
+                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="vwapBelowGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.05} />
+                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.45} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} />
+                      <Tooltip
+                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        content={({ active, label, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const point = payload[0]?.payload as { price: number | null; vwap: number | null; deviationPct: number | null } | undefined;
+                          if (!point) return null;
+                          const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                          const devColor = point.deviationPct == null ? mutedText : point.deviationPct >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
+                          return (
+                            <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
+                              <div className="font-semibold mb-1">{labelStr}</div>
+                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
+                              <div>VWAP: {point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'}</div>
+                              <div style={{ color: devColor }}>Deviation: {point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </MobileScrollableChart>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 
@@ -644,10 +799,98 @@ export default function IntradayToolsPage() {
               <MetricCard title="ORB Low" value={`$${fmtFixed(orb.orb_low)}`} subtitle={`-${fmtFixed(orb.distance_below_orb_low)}`} tooltip="Opening range low" />
               <MetricCard title="ORB Range" value={`$${fmtFixed(orb.orb_range)}`} tooltip="Opening range size" />
             </div>
-            <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-              <div className="text-xl font-semibold text-center">
-                Status: <span className={`${(orb.orb_status ?? '').includes('🚀') ? 'text-[var(--color-bull)]' : (orb.orb_status ?? '').includes('💥') ? 'text-[var(--color-bear)]' : 'text-[var(--color-warning)]'}`}>{orb.orb_status ?? '--'}</span>
+            {orbChart.length > 0 ? (
+              <div className="rounded-lg p-6 mb-4" style={{ backgroundColor: cardBg }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>ORB BREAKOUT MAP</h3>
+                  <TooltipWrapper text="The shaded yellow zone is the opening 30-minute range. The white line is the underlying price through the session. A clean break above the green line confirms a long breakout; a break below the red line confirms a short."><Info size={14} /></TooltipWrapper>
+                </div>
+                <MobileScrollableChart>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <ComposedChart data={orbChart} margin={{ top: 8, right: 56, left: 0, bottom: 8 }}>
+                      <defs>
+                        <linearGradient id="orbZoneGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.32} />
+                          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0.08} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} />
+                      <Tooltip
+                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        content={({ active, label, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const point = payload[0]?.payload as { price: number | null } | undefined;
+                          if (!point) return null;
+                          const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                          const distHigh = point.price != null ? point.price - orb.orb_high : null;
+                          const distLow = point.price != null ? point.price - orb.orb_low : null;
+                          const zone = point.price == null ? null : point.price > orb.orb_high ? 'Above ORB High' : point.price < orb.orb_low ? 'Below ORB Low' : 'Inside ORB Range';
+                          const zoneColor = zone === 'Above ORB High' ? 'var(--color-bull)' : zone === 'Below ORB Low' ? 'var(--color-bear)' : 'var(--color-warning)';
+                          return (
+                            <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
+                              <div className="font-semibold mb-1">{labelStr}</div>
+                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
+                              {distHigh != null ? <div>vs High: {distHigh >= 0 ? '+' : ''}${'$'}{distHigh.toFixed(2)}</div> : null}
+                              {distLow != null ? <div>vs Low: {distLow >= 0 ? '+' : ''}${'$'}{distLow.toFixed(2)}</div> : null}
+                              {zone ? <div style={{ color: zoneColor }}>{zone}</div> : null}
+                            </div>
+                          );
+                        }}
+                      />
+                      <ReferenceArea y1={orb.orb_low} y2={orb.orb_high} fill="url(#orbZoneGrad)" stroke="var(--color-warning)" strokeOpacity={0.35} strokeDasharray="2 4" />
+                      <ReferenceLine y={orb.orb_high} stroke="var(--color-bull)" strokeWidth={1.5} strokeDasharray="5 3" label={{ value: `H $${orb.orb_high.toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
+                      <ReferenceLine y={orb.orb_low} stroke="var(--color-bear)" strokeWidth={1.5} strokeDasharray="5 3" label={{ value: `L $${orb.orb_low.toFixed(2)}`, position: 'right', fill: 'var(--color-bear)', fontSize: 11, fontWeight: 600 }} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </MobileScrollableChart>
               </div>
+            ) : null}
+            <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+              {(() => {
+                const range = Number.isFinite(orb.orb_range) && orb.orb_range > 0 ? orb.orb_range : 1;
+                const lowEdge = orb.orb_low - range;
+                const highEdge = orb.orb_high + range;
+                const span = Math.max(1e-9, highEdge - lowEdge);
+                const pct = (v: number) => Math.max(0, Math.min(100, ((v - lowEdge) / span) * 100));
+                const lowPct = pct(orb.orb_low);
+                const highPct = pct(orb.orb_high);
+                const pricePct = pct(orb.current_price);
+                const status = orb.orb_status ?? '--';
+                const statusColor = status.includes('🚀') ? 'var(--color-bull)' : status.includes('💥') ? 'var(--color-bear)' : 'var(--color-warning)';
+                return (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-3">
+                      <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>Position Within Range</h3>
+                      <div className="text-sm" style={{ color: statusColor, fontWeight: 600 }}>{status}</div>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-2" style={{ color: mutedText }}>
+                      <span>Below Range</span>
+                      <span>Inside Range</span>
+                      <span>Above Range</span>
+                    </div>
+                    <div
+                      className="relative h-5 rounded-full overflow-visible"
+                      style={{ background: 'linear-gradient(to right, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 30%, transparent) 33%, color-mix(in srgb, var(--color-warning) 35%, transparent) 50%, color-mix(in srgb, var(--color-bull) 30%, transparent) 67%, var(--color-bull) 100%)' }}
+                    >
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
+                      <div
+                        className="absolute -top-1 -bottom-1 w-1 -translate-x-1/2 rounded"
+                        style={{ left: `${pricePct}%`, backgroundColor: 'var(--color-text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
+                      />
+                    </div>
+                    <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
+                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${lowPct}%` }}>${orb.orb_low.toFixed(2)}</span>
+                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orb.orb_high.toFixed(2)}</span>
+                      <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold" style={{ left: `${pricePct}%`, color: textColor }}>
+                        ${orb.current_price.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
