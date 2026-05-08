@@ -42,17 +42,24 @@ if (!fs.existsSync(dbPath)) {
 const db = new DatabaseSync(dbPath);
 const rows = db
   .prepare(
-    `SELECT id, email, tier, created_at
+    `SELECT id, email, tier, password_hash, provider, provider_id, created_at
      FROM users
      ORDER BY created_at DESC`
   )
   .all();
 
+function authFlags(row) {
+  const l = row.password_hash ? 'L' : '-';
+  const g = row.provider === 'google' && row.provider_id ? 'G' : '-';
+  const a = row.provider === 'apple' && row.provider_id ? 'A' : '-';
+  return `${l}${g}${a}`;
+}
+
 const byTier = Object.fromEntries(TIER_DISPLAY_ORDER.map((t) => [t, []]));
 for (const row of rows) {
   const tier = row.tier || 'public';
   if (!byTier[tier]) byTier[tier] = [];
-  byTier[tier].push({ id: String(row.id), email: String(row.email ?? '') });
+  byTier[tier].push({ id: String(row.id), email: String(row.email ?? ''), flags: authFlags(row) });
 }
 
 const extraTiers = Object.keys(byTier).filter((t) => !TIER_DISPLAY_ORDER.includes(t)).sort();
@@ -66,7 +73,7 @@ for (const tier of allTiers) {
     sections.push(label);
   } else {
     const lines = [`${label}:`];
-    for (const u of users) lines.push(`  ${u.email} (${u.id})`);
+    for (const u of users) lines.push(`  ${u.flags}  ${u.email} (${u.id})`);
     sections.push(lines.join('\n'));
   }
 }
