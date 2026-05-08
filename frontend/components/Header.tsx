@@ -91,6 +91,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
+  const canUpgrade = (() => {
+    const t = normalizeTier(currentTier);
+    return t !== "pro" && t !== "admin";
+  })();
   const shouldForcePricing = (id: string) => {
     // API Specs is a Pro-tier entitlement per the pricing page, so anyone
     // below Pro (public + basic) is routed to /pricing instead of the docs.
@@ -355,17 +359,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileMenuOpen(false);
-                            router.push("/pricing");
-                          }}
-                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
-                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
-                        >
-                          <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
-                        </button>
+                        {canUpgrade && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProfileMenuOpen(false);
+                              router.push("/pricing");
+                            }}
+                            className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                            style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                          >
+                            <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -505,17 +511,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          router.push("/pricing");
-                        }}
-                        className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
-                        style={{ color: theme === "dark" ? colors.light : colors.dark }}
-                      >
-                        <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
-                      </button>
+                      {canUpgrade && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            router.push("/pricing");
+                          }}
+                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                        >
+                          <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -750,17 +758,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     Account
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    router.push("/pricing");
-                    setMobileMenuOpen(false);
-                  }}
-                  className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{ borderColor: border, color: colors.muted }}
-                >
-                  Upgrade
-                </button>
+                {canUpgrade && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push("/pricing");
+                      setMobileMenuOpen(false);
+                    }}
+                    className="rounded-lg border px-3 py-2 text-sm font-semibold"
+                    style={{ borderColor: border, color: colors.muted }}
+                  >
+                    Upgrade
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
