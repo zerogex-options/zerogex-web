@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Compass,
@@ -22,8 +22,13 @@ import {
 import { useTimeframe } from '@/core/TimeframeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { asObject, getNumber, humanize, trendColor } from '@/core/signalHelpers';
-import { computeBias } from '@/core/tradeBias';
+import { computeBias, type BiasResult, type MarketState } from '@/core/tradeBias';
 import TooltipWrapper from './TooltipWrapper';
+
+// Number of consecutive ticks a new regime must appear before we swap. Keeps
+// the cards from flipping on a single noisy reading while still letting them
+// settle into the new state within ~one refresh cycle.
+const REGIME_CONFIRM_TICKS = 2;
 
 function BiasCard({
   title,
@@ -112,7 +117,7 @@ export default function TradeBiasSection() {
     };
   }, [gex.data, msi.data, tape.data, vc.data, odte.data, gexGrad.data, posTrap.data, trap.data, gVwap.data]);
 
-  const bias = useMemo(() => computeBias({
+  const fresh = useMemo(() => computeBias({
     netGEX: biasInputs.netGEX,
     gexGradient: biasInputs.gexGradient,
     tapeFlow: biasInputs.tapeFlow,
@@ -123,6 +128,38 @@ export default function TradeBiasSection() {
     gammaVWAP: biasInputs.gammaVWAP,
     msi: biasInputs.msi,
   }), [biasInputs]);
+
+  // Hysteresis: a single tick disagreeing with the current regime is treated
+  // as noise. We only swap once REGIME_CONFIRM_TICKS consecutive ticks agree
+  // on the new state. Confidence and checklist always reflect the latest
+  // reading under the displayed regime.
+  const [displayed, setDisplayed] = useState<BiasResult | null>(null);
+  const pendingRef = useRef<{ state: MarketState; count: number } | null>(null);
+
+  useEffect(() => {
+    setDisplayed((prev) => {
+      // First tick, fresh has no data, or we were waiting for first regime
+      // out of the loading/UNKNOWN state — pass through immediately.
+      if (!prev || !fresh.hasData || prev.marketState === 'UNKNOWN') {
+        pendingRef.current = null;
+        return fresh;
+      }
+      if (fresh.marketState === prev.marketState) {
+        pendingRef.current = null;
+        return fresh;
+      }
+      const pending = pendingRef.current;
+      const nextCount = pending?.state === fresh.marketState ? pending.count + 1 : 1;
+      if (nextCount >= REGIME_CONFIRM_TICKS) {
+        pendingRef.current = null;
+        return fresh;
+      }
+      pendingRef.current = { state: fresh.marketState, count: nextCount };
+      return prev;
+    });
+  }, [fresh]);
+
+  const bias = displayed ?? fresh;
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_DEBUG_TRADE_BIAS !== '1') return;
@@ -140,18 +177,23 @@ export default function TradeBiasSection() {
     const missing = Object.entries(biasInputs)
       .filter(([k, v]) => k !== 'netGexRaw' && v == null)
       .map(([k]) => k);
+    const lagged = fresh.marketState !== bias.marketState;
     console.groupCollapsed(
-      `[TradeBias] ${symbol} → ${bias.marketState} (${bias.biasLabel}, conf ${bias.confidence.toFixed(1)}/${bias.maxConfidence})`,
+      `[TradeBias] ${symbol} → ${bias.marketState} (${bias.biasLabel}, conf ${bias.confidence.toFixed(1)}/${bias.maxConfidence})${
+        lagged ? ` [hysteresis: candidate ${fresh.marketState}]` : ''
+      }`,
     );
     console.table(biasInputs);
     if (missing.length) console.warn('Missing signals:', missing);
     const failedEndpoints = Object.entries(errors).filter(([, v]) => v);
     if (failedEndpoints.length) console.warn('Endpoint errors:', Object.fromEntries(failedEndpoints));
-    console.log('Result:', bias);
+    console.log('Displayed:', bias);
+    if (lagged) console.log('Fresh (pending):', fresh);
     console.groupEnd();
   }, [
     symbol,
     bias,
+    fresh,
     biasInputs,
     gex.error,
     gexGrad.error,

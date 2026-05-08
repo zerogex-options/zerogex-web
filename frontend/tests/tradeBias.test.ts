@@ -207,10 +207,68 @@ test('just-below-threshold flow does not trigger TREND_UP', () => {
     ...empty,
     netGEX: 50,
     gexGradient: 60,
-    tapeFlow: 50,
-    vannaCharm: 30,
-    odtePositioning: 30,
+    tapeFlow: 35,
+    vannaCharm: 20,
+    odtePositioning: 20,
     msi: 50,
   });
   assert.notEqual(result.marketState, 'TREND_UP');
+});
+
+test('TREND_UP fires with 2-of-3 flow majority (one mixed signal)', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: -5, // contradicts but doesn't block the majority
+    msi: 30,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
+  assert.equal(result.bias, 'BUY_DIPS');
+});
+
+test('TRAP_REVERSAL fires with 2-of-3 structure majority', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: -50,
+    gexGradient: -60,
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    positioningTrap: -40,
+    trapDetection: -60,
+    gammaVWAP: 5, // contradicts but doesn't block the majority
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'TRAP_REVERSAL');
+  assert.equal(result.bias, 'FADE_STRENGTH');
+});
+
+test('strongly contradicting GEX gradient blocks long-gamma regime', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60, // strongly negative — vetoes long gamma
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    msi: 30,
+  });
+  assert.notEqual(result.marketState, 'TREND_UP');
+  assert.equal(result.marketState, 'CHOP');
+});
+
+test('mildly contradicting GEX gradient does not block long-gamma regime', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -10, // weakly negative — within MODERATE veto band
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    msi: 30,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
 });

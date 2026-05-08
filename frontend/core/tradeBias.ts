@@ -36,8 +36,8 @@ export interface BiasResult {
   hasData: boolean;
 }
 
-export const STRONG = 50;
-export const MODERATE = 30;
+export const STRONG = 35;
+export const MODERATE = 20;
 
 export function computeBias(inp: BiasInput): BiasResult {
   const {
@@ -55,26 +55,38 @@ export function computeBias(inp: BiasInput): BiasResult {
   const available = [netGEX, gexGradient, tapeFlow, vannaCharm, odtePositioning, positioningTrap, trapDetection, gammaVWAP, msi]
     .filter((v) => v != null).length;
 
-  const isShortGamma = (netGEX != null && netGEX < 0) && (gexGradient != null && gexGradient < 0);
-  const isLongGamma = (netGEX != null && netGEX > 0) && (gexGradient != null && gexGradient > 0);
+  // Gamma regime: net GEX sign defines it; gradient acts as a veto only when
+  // it strongly contradicts. This lets a regime fire when the gradient is
+  // mildly mixed instead of demanding both signals point the same way.
+  const isShortGamma =
+    netGEX != null && netGEX < 0 && (gexGradient == null || gexGradient < MODERATE);
+  const isLongGamma =
+    netGEX != null && netGEX > 0 && (gexGradient == null || gexGradient > -MODERATE);
 
-  const bullishFlow =
-    (tapeFlow != null && tapeFlow > STRONG) &&
-    (vannaCharm != null && vannaCharm > MODERATE) &&
-    (odtePositioning != null && odtePositioning > MODERATE);
-  const bearishFlow =
-    (tapeFlow != null && tapeFlow < -STRONG) &&
-    (vannaCharm != null && vannaCharm < -MODERATE) &&
-    (odtePositioning != null && odtePositioning < -MODERATE);
+  // Flow direction: 2-of-3 majority across tape, vanna/charm, and 0DTE
+  // positioning. A single weak or contradicting signal no longer blocks the
+  // regime — agreement among the majority is sufficient.
+  const flowVotes = (sign: 1 | -1) => {
+    let votes = 0;
+    if (tapeFlow != null && tapeFlow * sign > STRONG) votes += 1;
+    if (vannaCharm != null && vannaCharm * sign > MODERATE) votes += 1;
+    if (odtePositioning != null && odtePositioning * sign > MODERATE) votes += 1;
+    return votes;
+  };
+  const bullishFlow = flowVotes(1) >= 2;
+  const bearishFlow = flowVotes(-1) >= 2;
 
-  const bearishStructure =
-    (positioningTrap != null && positioningTrap < -MODERATE) &&
-    (trapDetection != null && trapDetection < -STRONG) &&
-    (gammaVWAP != null && gammaVWAP < -MODERATE);
-  const bullishStructure =
-    (positioningTrap != null && positioningTrap > MODERATE) &&
-    (trapDetection != null && trapDetection > STRONG) &&
-    (gammaVWAP != null && gammaVWAP > MODERATE);
+  // Structure: 2-of-3 majority across positioning trap, trap detection,
+  // and gamma/VWAP confluence.
+  const structureVotes = (sign: 1 | -1) => {
+    let votes = 0;
+    if (positioningTrap != null && positioningTrap * sign > MODERATE) votes += 1;
+    if (trapDetection != null && trapDetection * sign > STRONG) votes += 1;
+    if (gammaVWAP != null && gammaVWAP * sign > MODERATE) votes += 1;
+    return votes;
+  };
+  const bearishStructure = structureVotes(-1) >= 2;
+  const bullishStructure = structureVotes(1) >= 2;
 
   let marketState: MarketState = 'UNKNOWN';
   if (isShortGamma && bullishFlow && bearishStructure) marketState = 'TRAP_REVERSAL';
