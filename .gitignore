@@ -221,3 +221,6 @@ frontend/public/title*.svg
 frontend/public/og-image.png
 frontend/public/favicon.ico
 frontend/public/target.svg
+
+# monitoring data
+frontend/data/

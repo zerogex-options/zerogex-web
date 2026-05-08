@@ -78,16 +78,6 @@ status:
 users:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
 
-# Migrate users from the legacy three-tier scheme (starter/pro/elite) to the
-# current two-tier scheme (basic/pro). Idempotent: runs against any rows still
-# stored as 'starter' or 'elite'. Existing 'pro' users are unchanged.
-# Pass DRY_RUN=1 to preview without writing.
-migrate-tiers:
-	@echo "Migrating starter -> basic ..."
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from starter --tier basic $(if $(DRY_RUN),--dry-run,)'
-	@echo "Migrating elite -> pro ..."
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from elite --tier pro $(if $(DRY_RUN),--dry-run,)'
-
 # Promote every non-admin user to the pro tier. Walks each known non-admin
 # source tier (basic, public, and the legacy starter/elite ids) so any user
 # regardless of current tier ends up on pro. Admins are intentionally left
@@ -95,12 +85,6 @@ migrate-tiers:
 all-to-pro:
 	@echo "Promoting basic -> pro ..."
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from basic --tier pro $(if $(DRY_RUN),--dry-run,)'
-	@echo "Promoting public -> pro ..."
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from public --tier pro $(if $(DRY_RUN),--dry-run,)'
-	@echo "Promoting legacy starter -> pro ..."
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from starter --tier pro $(if $(DRY_RUN),--dry-run,)'
-	@echo "Promoting legacy elite -> pro ..."
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from elite --tier pro $(if $(DRY_RUN),--dry-run,)'
 
 # Clean build artifacts
 clean:
