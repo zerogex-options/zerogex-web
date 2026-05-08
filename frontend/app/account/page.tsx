@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
@@ -26,6 +26,20 @@ const TIER_LABELS: Record<TierId, string> = AUTH_TIERS.reduce(
 );
 
 export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ minHeight: '100vh', padding: '48px 24px', color: C.light }}>
+          <p style={{ color: C.muted }}>Loading account...</p>
+        </main>
+      }
+    >
+      <AccountPageContent />
+    </Suspense>
+  );
+}
+
+function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: authSession, loading } = useAuthSession();
