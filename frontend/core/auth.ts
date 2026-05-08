@@ -29,6 +29,8 @@ const PUBLIC_ROUTE_PATTERNS = [
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
+  // Admin tools.
+  { pattern: '/admin/*', minimumTier: 'admin' },
   // Advanced Signals — Pro only.
   { pattern: '/signal-score', minimumTier: 'pro' },
   { pattern: '/trading-signals', minimumTier: 'admin' },

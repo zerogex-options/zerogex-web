@@ -88,4 +88,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/education/net-volume-vs-directional-flow', label: 'Flow Metrics Guide' },
     ],
   },
+  {
+    label: 'Admin',
+    items: [
+      { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
+    ],
+  },
 ];
