@@ -6,6 +6,7 @@ import { colors } from '@/core/colors';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized'];
@@ -32,6 +33,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         flexDirection: 'column',
       }}
     >
+      <TechnicalSnapshotPrewarm />
       <Header theme={theme} onToggleTheme={toggleTheme} />
       <Navigation theme={theme} />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>

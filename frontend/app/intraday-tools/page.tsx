@@ -10,6 +10,7 @@ import { Info } from 'lucide-react';
 import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useVwapSnapshot, useOrbSnapshot } from '@/hooks/useTechnicalSnapshot';
 import {
   useFlowByContractCache,
   buildUnderlyingPriceMap,
@@ -24,23 +25,6 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import { omitClosedMarketTimes, normalizeToMinute, isIndexSymbol } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-
-interface VwapDeviationRow {
-  price: number;
-  vwap: number;
-  vwap_deviation_pct: number;
-  vwap_position: string;
-}
-
-interface OpeningRangeRow {
-  current_price: number;
-  orb_high: number;
-  distance_above_orb_high: number;
-  orb_low: number;
-  distance_below_orb_low: number;
-  orb_range: number;
-  orb_status: string;
-}
 
 interface VolumeSpikeRow {
   time_et: string;
@@ -264,64 +248,6 @@ function fmtFixed(value: unknown, digits = 2): string {
   return n == null ? '--' : n.toFixed(digits);
 }
 
-type VwapSnapshot = { price: number; vwap: number };
-type OrbSnapshot = { price: number; high: number; low: number };
-
-const vwapCacheStore = new Map<string, Record<string, VwapSnapshot>>();
-const orbCacheStore = new Map<string, Record<string, OrbSnapshot>>();
-
-function loadVwapCache(storageKey: string): Record<string, VwapSnapshot> {
-  const cached = vwapCacheStore.get(storageKey);
-  if (cached) return cached;
-  let value: Record<string, VwapSnapshot> = {};
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) value = JSON.parse(raw) as Record<string, VwapSnapshot>;
-    } catch {
-      value = {};
-    }
-  }
-  vwapCacheStore.set(storageKey, value);
-  return value;
-}
-
-function recordVwapSnapshot(storageKey: string, minute: string, snapshot: VwapSnapshot): void {
-  const cache = loadVwapCache(storageKey);
-  const existing = cache[minute];
-  if (existing && existing.price === snapshot.price && existing.vwap === snapshot.vwap) return;
-  cache[minute] = snapshot;
-  if (typeof window !== 'undefined') {
-    try { window.localStorage.setItem(storageKey, JSON.stringify(cache)); } catch { /* ignore */ }
-  }
-}
-
-function loadOrbCache(storageKey: string): Record<string, OrbSnapshot> {
-  const cached = orbCacheStore.get(storageKey);
-  if (cached) return cached;
-  let value: Record<string, OrbSnapshot> = {};
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) value = JSON.parse(raw) as Record<string, OrbSnapshot>;
-    } catch {
-      value = {};
-    }
-  }
-  orbCacheStore.set(storageKey, value);
-  return value;
-}
-
-function recordOrbSnapshot(storageKey: string, minute: string, snapshot: OrbSnapshot): void {
-  const cache = loadOrbCache(storageKey);
-  const existing = cache[minute];
-  if (existing && existing.price === snapshot.price && existing.high === snapshot.high && existing.low === snapshot.low) return;
-  cache[minute] = snapshot;
-  if (typeof window !== 'undefined') {
-    try { window.localStorage.setItem(storageKey, JSON.stringify(cache)); } catch { /* ignore */ }
-  }
-}
-
 function generateNiceTicks(min: number, max: number): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
   if (min === max) return [min];
@@ -357,15 +283,8 @@ export default function IntradayToolsPage() {
   const divergenceWindowUnits = maxPoints;
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { data: vwapData, loading: vwapLoading, error: vwapError } = useApiData<VwapDeviationRow[]>(
-    `/api/technicals/vwap-deviation?${symParam}&timeframe=${timeframe}&window_units=20`,
-    { refreshInterval: 5000 }
-  );
-
-  const { data: orbData, loading: orbLoading, error: orbError } = useApiData<OpeningRangeRow[]>(
-    `/api/technicals/opening-range?${symParam}&timeframe=${timeframe}&window_units=20`,
-    { refreshInterval: 5000 }
-  );
+  const { latest: vwap, history: vwapHistoryCache, loading: vwapLoading, error: vwapError } = useVwapSnapshot(symbol);
+  const { latest: orb, history: orbHistoryCache, loading: orbLoading, error: orbError } = useOrbSnapshot(symbol);
 
   const { data: volumeSpikes, loading: volumeSpikesLoading, error: volumeSpikesError } = useApiData<VolumeSpikeRow[]>(
     `/api/technicals/volume-spikes?${symParam}&limit=50`,
@@ -415,8 +334,6 @@ export default function IntradayToolsPage() {
   const defaultDivergence = extractDivergenceRows(divergenceDefault);
   const divergence = [primaryDivergence, fallbackDivergence, defaultDivergence].find((rows) => rows.length > 0) || [];
 
-  const vwap = vwapData?.[0];
-  const orb = orbData?.[0];
   const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '');
 
   const effectiveSmartMoneyRows = useMemo(
@@ -652,19 +569,7 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(volumeSpikesChart.map((row) => String(row.timestamp)));
   }, [volumeSpikesChart]);
 
-  const vwapStorageKey = `zgx_intraday_vwap_v1_${symbol}_${volumeSpikesSessionDateKey}`;
-  const vwapCurrentPrice = vwap?.price ?? null;
-  const vwapCurrentValue = vwap?.vwap ?? null;
-
   const vwapChart = useMemo(() => {
-    if (
-      vwapCurrentPrice != null && vwapCurrentValue != null &&
-      Number.isFinite(vwapCurrentPrice) && Number.isFinite(vwapCurrentValue)
-    ) {
-      const minute = normalizeToMinute(new Date().toISOString());
-      if (minute) recordVwapSnapshot(vwapStorageKey, minute, { price: vwapCurrentPrice, vwap: vwapCurrentValue });
-    }
-    const cache = loadVwapCache(vwapStorageKey);
     const timeline = isIndexSymbol(symbol)
       ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
       : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
@@ -677,7 +582,7 @@ export default function IntradayToolsPage() {
       deviationPct: number | null;
     }>;
     return timeline.map((ts) => {
-      const snap = cache[ts];
+      const snap = vwapHistoryCache[ts];
       const price = snap?.price ?? null;
       const v = snap?.vwap ?? null;
       const hasBoth = price != null && v != null;
@@ -686,7 +591,7 @@ export default function IntradayToolsPage() {
       const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
       return { timestamp: ts, price, vwap: v, channelAbove, channelBelow, deviationPct };
     });
-  }, [vwapStorageKey, vwapCurrentPrice, vwapCurrentValue, volumeSpikesSessionDateKey, symbol]);
+  }, [vwapHistoryCache, volumeSpikesSessionDateKey, symbol]);
 
   const vwapPriceTicks = useMemo(() => {
     const values: number[] = [];
@@ -698,26 +603,13 @@ export default function IntradayToolsPage() {
     return generateNiceTicks(Math.min(...values), Math.max(...values));
   }, [vwapChart]);
 
-  const orbStorageKey = `zgx_intraday_orb_v1_${symbol}_${volumeSpikesSessionDateKey}`;
-  const orbCurrentPrice = orb?.current_price ?? null;
-  const orbCurrentHigh = orb?.orb_high ?? null;
-  const orbCurrentLow = orb?.orb_low ?? null;
-
   const orbChart = useMemo(() => {
-    if (
-      orbCurrentPrice != null && orbCurrentHigh != null && orbCurrentLow != null &&
-      Number.isFinite(orbCurrentPrice) && Number.isFinite(orbCurrentHigh) && Number.isFinite(orbCurrentLow)
-    ) {
-      const minute = normalizeToMinute(new Date().toISOString());
-      if (minute) recordOrbSnapshot(orbStorageKey, minute, { price: orbCurrentPrice, high: orbCurrentHigh, low: orbCurrentLow });
-    }
-    const cache = loadOrbCache(orbStorageKey);
     const timeline = isIndexSymbol(symbol)
       ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
       : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
     if (timeline.length === 0) return [] as Array<{ timestamp: string; price: number | null; orbHigh: number | null; orbLow: number | null; orbBand: [number, number] | null }>;
     return timeline.map((ts) => {
-      const snap = cache[ts];
+      const snap = orbHistoryCache[ts];
       if (!snap) return { timestamp: ts, price: null, orbHigh: null, orbLow: null, orbBand: null };
       return {
         timestamp: ts,
@@ -727,7 +619,7 @@ export default function IntradayToolsPage() {
         orbBand: [snap.low, snap.high] as [number, number],
       };
     });
-  }, [orbStorageKey, orbCurrentPrice, orbCurrentHigh, orbCurrentLow, volumeSpikesSessionDateKey, symbol]);
+  }, [orbHistoryCache, volumeSpikesSessionDateKey, symbol]);
 
   const orbPriceTicks = useMemo(() => {
     const values: number[] = [];
@@ -771,10 +663,6 @@ export default function IntradayToolsPage() {
     setSmartMoneySortDir('desc');
   };
 
-  if ((vwapLoading || orbLoading) && !vwapData && !orbData) {
-    return <LoadingSpinner size="lg" />;
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
 
@@ -782,6 +670,10 @@ export default function IntradayToolsPage() {
         <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
         {vwapError ? (
           <ErrorMessage message={vwapError} />
+        ) : vwapLoading && !vwap ? (
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+            <LoadingSpinner />
+          </div>
         ) : !vwap ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No VWAP data available (market may be closed)
@@ -850,6 +742,10 @@ export default function IntradayToolsPage() {
         <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
         {orbError ? (
           <ErrorMessage message={orbError} />
+        ) : orbLoading && !orb ? (
+          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+            <LoadingSpinner />
+          </div>
         ) : !orb ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No ORB data available (market may be closed)

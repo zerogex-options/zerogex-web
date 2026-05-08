@@ -160,7 +160,11 @@ export default function MaxPainPage() {
 
   const activeExpirationValue = activeExpiration?.expiration || "";
 
-  if ((oiLoading || seriesLoading) && !maxPainCurrent && !maxPainSeries) return <LoadingSpinner size="lg" />;
+  // Don't gate the whole page on the slowest endpoint — for SPX the
+  // timeseries response often arrives well before /max-pain/current,
+  // which used to leave the OI section flashing "No data available"
+  // while the snapshot was still in flight. Each section below shows
+  // its own loading state while its data is pending.
 
   const oiChart = ((activeExpiration?.strikes || []) as MaxPainPoint[])
     .map((row) => ({
@@ -366,22 +370,26 @@ export default function MaxPainPage() {
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
         <SectionTitle title="Notional Open Interest by Strike" tooltip="Select expiration and view call/put notional by strike with max pain and underlying reference lines." />
 
-        <div className="mb-4">
-          <label className="mr-3" style={{ color: textColor }}>Expiration:</label>
-          <select
-            value={activeExpirationValue}
-            onChange={(e) => setSelectedExpiration(e.target.value)}
-            className="px-3 py-2 rounded border"
-            style={{ backgroundColor: panelBg, borderColor: colors.muted, color: textColor }}
-          >
-            {expirationOptions.map((exp) => (
-              <option key={exp.expiration} value={exp.expiration}>{exp.expiration}</option>
-            ))}
-          </select>
-        </div>
+        {expirationOptions.length > 0 ? (
+          <div className="mb-4">
+            <label className="mr-3" style={{ color: textColor }}>Expiration:</label>
+            <select
+              value={activeExpirationValue}
+              onChange={(e) => setSelectedExpiration(e.target.value)}
+              className="px-3 py-2 rounded border"
+              style={{ backgroundColor: panelBg, borderColor: colors.muted, color: textColor }}
+            >
+              {expirationOptions.map((exp) => (
+                <option key={exp.expiration} value={exp.expiration}>{exp.expiration}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         {oiError ? (
           <ErrorMessage message={`Error loading data: ${oiError}`} />
+        ) : oiLoading && !maxPainCurrent ? (
+          <div className="py-8"><LoadingSpinner /></div>
         ) : oiChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain OI data available</div>
         ) : (
@@ -448,6 +456,8 @@ export default function MaxPainPage() {
         </div>
         {seriesError ? (
           <ErrorMessage message={seriesError} />
+        ) : seriesLoading && !maxPainSeries ? (
+          <div className="py-8"><LoadingSpinner /></div>
         ) : seriesChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
         ) : (
