@@ -129,6 +129,8 @@ export function getOAuthNonceCookieName(provider: OAuthProvider) {
   return `${NONCE_COOKIE_PREFIX}${provider}`;
 }
 
+export const OAUTH_INTENT_COOKIE_NAME = 'oauth_intent';
+
 export function getOAuthConfig(provider: 'google'): GoogleOAuthConfig;
 export function getOAuthConfig(provider: 'apple'): AppleOAuthConfig;
 export function getOAuthConfig(provider: OAuthProvider): GoogleOAuthConfig | AppleOAuthConfig {

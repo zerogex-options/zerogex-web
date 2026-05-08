@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrLoginOAuthUser, attachSessionCookie, issueCsrfCookie } from '@/core/serverAuth';
-import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, verifyGoogleIdToken } from '@/core/oauth';
+import { createOrLoginOAuthUser, attachSessionCookie, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
+import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME, verifyGoogleIdToken } from '@/core/oauth';
+
+function clearOAuthCookies(response: NextResponse) {
+  response.cookies.set({ name: getOAuthStateCookieName('google'), value: '', path: '/', maxAge: 0 });
+  response.cookies.set({ name: getOAuthNonceCookieName('google'), value: '', path: '/', maxAge: 0 });
+  response.cookies.set({ name: OAUTH_INTENT_COOKIE_NAME, value: '', path: '/', maxAge: 0 });
+}
 
 export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get('state');
@@ -42,6 +48,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=oauth_profile_invalid', baseUrl));
   }
 
+  const intent = request.cookies.get(OAUTH_INTENT_COOKIE_NAME)?.value;
+  if (intent === 'link') {
+    const actor = await requireSession();
+    if (!actor) {
+      const response = NextResponse.redirect(new URL('/login?error=oauth_link_unauthenticated', baseUrl));
+      clearOAuthCookies(response);
+      return response;
+    }
+    try {
+      linkUserIdentity(actor.user.id, 'google', profile.sub);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'link_failed';
+      const response = NextResponse.redirect(new URL(`/account?link=error&reason=${encodeURIComponent(message)}`, baseUrl));
+      clearOAuthCookies(response);
+      return response;
+    }
+    const response = NextResponse.redirect(new URL('/account?link=success&provider=google', baseUrl));
+    clearOAuthCookies(response);
+    return response;
+  }
+
   const session = await createOrLoginOAuthUser(request, {
     provider: 'google',
     providerId: profile.sub,
@@ -52,7 +79,6 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(redirectTo);
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
-  response.cookies.set({ name: getOAuthStateCookieName('google'), value: '', path: '/', maxAge: 0 });
-  response.cookies.set({ name: getOAuthNonceCookieName('google'), value: '', path: '/', maxAge: 0 });
+  clearOAuthCookies(response);
   return response;
 }
