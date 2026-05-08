@@ -9,7 +9,7 @@ import Footer from './Footer';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized'];
+const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
