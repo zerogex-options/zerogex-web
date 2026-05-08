@@ -326,20 +326,20 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <button
                       type="button"
                       onClick={() => setProfileMenuOpen((prev) => !prev)}
-                      className="rounded-full border p-2"
+                      className="rounded-full border p-2.5"
                       style={{ borderColor: border, color: colors.muted, background: "transparent" }}
                       aria-label="Open profile menu"
                     >
-                      <CircleUserRound size={24} />
+                      <CircleUserRound size={28} />
                     </button>
                     {profileMenuOpen && (
                       <div
-                        className="rounded-lg border p-1.5"
+                        className="rounded-lg border p-2"
                         style={{
                           position: "absolute",
                           left: 0,
                           top: "calc(100% + 8px)",
-                          minWidth: "170px",
+                          minWidth: "210px",
                           borderColor: border,
                           background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
                           boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
@@ -353,10 +353,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               setProfileMenuOpen(false);
                               router.push("/account");
                             }}
-                            className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                            className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: theme === "dark" ? colors.light : colors.dark }}
                           >
-                            <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
+                            <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
                           </button>
                         )}
                         {canUpgrade && (
@@ -366,10 +366,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               setProfileMenuOpen(false);
                               router.push("/pricing");
                             }}
-                            className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                            className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: theme === "dark" ? colors.light : colors.dark }}
                           >
-                            <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                            <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
                           </button>
                         )}
                         <button
@@ -382,11 +382,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             }
                             router.push("/login");
                           }}
-                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: theme === "dark" ? colors.light : colors.dark }}
                         >
-                          <span className="inline-flex items-center gap-2">
-                            {authSession?.authenticated ? <LogOut size={14} /> : <LogIn size={14} />}
+                          <span className="inline-flex items-center gap-2.5">
+                            {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
                             {authSession?.authenticated ? "Logout" : "Login"}
                           </span>
                         </button>
@@ -478,20 +478,20 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="rounded-full border p-2"
+                    className="rounded-full border p-2.5"
                     style={{ borderColor: border, color: colors.muted, background: "transparent" }}
                     aria-label="Open profile menu"
                   >
-                    <CircleUserRound size={24} />
+                    <CircleUserRound size={28} />
                   </button>
                   {profileMenuOpen && (
                     <div
-                      className="rounded-lg border p-1.5"
+                      className="rounded-lg border p-2"
                       style={{
                         position: "absolute",
                         right: 0,
                         top: "calc(100% + 8px)",
-                        minWidth: "170px",
+                        minWidth: "210px",
                         borderColor: border,
                         background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
                         boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
@@ -505,10 +505,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             setProfileMenuOpen(false);
                             router.push("/account");
                           }}
-                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: theme === "dark" ? colors.light : colors.dark }}
                         >
-                          <span className="inline-flex items-center gap-2"><User size={14} />Account</span>
+                          <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
                         </button>
                       )}
                       {canUpgrade && (
@@ -518,10 +518,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             setProfileMenuOpen(false);
                             router.push("/pricing");
                           }}
-                          className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: theme === "dark" ? colors.light : colors.dark }}
                         >
-                          <span className="inline-flex items-center gap-2"><Rocket size={14} />Upgrade</span>
+                          <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
                         </button>
                       )}
                       <button
@@ -534,11 +534,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           }
                           router.push("/login");
                         }}
-                        className="w-full rounded-md px-2.5 py-2 text-left text-xs font-semibold"
+                        className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                         style={{ color: theme === "dark" ? colors.light : colors.dark }}
                       >
-                        <span className="inline-flex items-center gap-2">
-                          {authSession?.authenticated ? <LogOut size={14} /> : <LogIn size={14} />}
+                        <span className="inline-flex items-center gap-2.5">
+                          {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
                           {authSession?.authenticated ? "Logout" : "Login"}
                         </span>
                       </button>
