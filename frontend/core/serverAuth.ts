@@ -332,6 +332,65 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   return session;
 }
 
+export type OAuthProviderName = 'google' | 'apple';
+
+export type UserIdentity = {
+  provider: OAuthProviderName;
+  providerId: string;
+  createdAt: string;
+};
+
+export function listUserIdentities(userId: string): UserIdentity[] {
+  const rows = getDb()
+    .prepare(`SELECT provider, provider_id, created_at FROM user_identities WHERE user_id = ? ORDER BY created_at`)
+    .all(userId) as Array<{ provider: string; provider_id: string; created_at: string }>;
+  return rows.map((r) => ({
+    provider: r.provider as OAuthProviderName,
+    providerId: r.provider_id,
+    createdAt: r.created_at,
+  }));
+}
+
+export function userHasPassword(userId: string): boolean {
+  const row = getDb()
+    .prepare(`SELECT password_hash FROM users WHERE id = ?`)
+    .get(userId) as { password_hash: string | null } | undefined;
+  return !!row?.password_hash;
+}
+
+export function linkUserIdentity(userId: string, provider: OAuthProviderName, providerId: string) {
+  const db = getDb();
+  const existing = db
+    .prepare(`SELECT user_id FROM user_identities WHERE provider = ? AND provider_id = ?`)
+    .get(provider, providerId) as { user_id: string } | undefined;
+  if (existing && existing.user_id !== userId) {
+    throw new Error('This account is already linked to a different user.');
+  }
+  const now = nowIso();
+  db.prepare(
+    `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, provider) DO UPDATE SET provider_id = excluded.provider_id, updated_at = excluded.updated_at`
+  ).run(createId('ident'), userId, provider, providerId, now, now);
+}
+
+export function unlinkUserIdentity(userId: string, provider: OAuthProviderName) {
+  const db = getDb();
+  const hasPassword = userHasPassword(userId);
+  const others = db
+    .prepare(`SELECT COUNT(*) AS count FROM user_identities WHERE user_id = ? AND provider != ?`)
+    .get(userId, provider) as { count: number };
+  if (!hasPassword && others.count === 0) {
+    throw new Error('Cannot remove your only sign-in method. Set a password or link another provider first.');
+  }
+  const result = db
+    .prepare(`DELETE FROM user_identities WHERE user_id = ? AND provider = ?`)
+    .run(userId, provider) as { changes: number | bigint };
+  if (Number(result.changes) === 0) {
+    throw new Error(`No ${provider} account is linked.`);
+  }
+}
+
 export async function getSessionFromRequest(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
