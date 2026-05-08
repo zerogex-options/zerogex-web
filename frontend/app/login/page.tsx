@@ -126,12 +126,12 @@ function LoginPageContent() {
           >
             Continue with Google
           </a>
-          <a
-            href="/api/auth/oauth/apple/start"
-            className="w-full rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--bg-hover)]"
+          <span
+            aria-disabled="true"
+            className="w-full cursor-not-allowed rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold opacity-50"
           >
-            Continue with Apple
-          </a>
+            Continue with Apple (coming soon)
+          </span>
         </div>
 
         <div className="mt-6 flex items-center justify-between text-sm">
