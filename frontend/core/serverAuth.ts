@@ -282,7 +282,7 @@ export async function createSessionForUserCredentials(request: NextRequest, emai
   if (!limit.allowed) throw new Error(`Too many login attempts. Retry in ${limit.retryAfterSeconds}s.`);
 
   const user = getUserByEmail(email.trim().toLowerCase());
-  if (!user || user.provider !== 'local' || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
     appendAuditEvent({ type: 'login_failure', email: email.trim().toLowerCase(), ip, message: 'Failed login attempt' });
     throw new Error('Invalid credentials');
   }
@@ -297,17 +297,19 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   const db = getDb();
   const normalizedEmail = input.email.trim().toLowerCase();
 
-  let row = db.prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?').get(input.provider, input.providerId) as Record<string, unknown> | undefined;
-  let user = row ? rowToUser(row) : null;
+  const identityRow = db
+    .prepare(
+      `SELECT u.* FROM users u
+       JOIN user_identities i ON i.user_id = u.id
+       WHERE i.provider = ? AND i.provider_id = ?`
+    )
+    .get(input.provider, input.providerId) as Record<string, unknown> | undefined;
+  let user = identityRow ? rowToUser(identityRow) : null;
 
   if (!user) {
-    row = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
-    if (row) {
-      user = rowToUser(row);
-      db.prepare('UPDATE users SET provider = ?, provider_id = ?, updated_at = ? WHERE id = ?').run(input.provider, input.providerId, nowIso(), user.id);
-      user.provider = input.provider;
-      user.providerId = input.providerId;
-      user.updatedAt = nowIso();
+    const emailRow = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
+    if (emailRow) {
+      user = rowToUser(emailRow);
     } else {
       user = {
         id: createId('user'),
@@ -323,6 +325,13 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
          VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`
       ).run(user.id, user.email, user.provider, user.providerId, user.tier, user.createdAt, user.updatedAt);
     }
+
+    const now = nowIso();
+    db.prepare(
+      `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, provider) DO UPDATE SET provider_id = excluded.provider_id, updated_at = excluded.updated_at`
+    ).run(createId('ident'), user.id, input.provider, input.providerId, now, now);
   }
 
   const session = createSessionForUser(user);

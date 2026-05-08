@@ -48,10 +48,30 @@ const rows = db
   )
   .all();
 
+const hasIdentitiesTable = !!db
+  .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_identities'`)
+  .get();
+
+const providersByUser = new Map();
+if (hasIdentitiesTable) {
+  const identityRows = db.prepare(`SELECT user_id, provider FROM user_identities`).all();
+  for (const r of identityRows) {
+    if (!providersByUser.has(r.user_id)) providersByUser.set(r.user_id, new Set());
+    providersByUser.get(r.user_id).add(r.provider);
+  }
+}
+
 function authFlags(row) {
+  const providers = providersByUser.get(row.id);
+  const hasGoogle = providers
+    ? providers.has('google')
+    : row.provider === 'google' && !!row.provider_id;
+  const hasApple = providers
+    ? providers.has('apple')
+    : row.provider === 'apple' && !!row.provider_id;
   const l = row.password_hash ? 'L' : '-';
-  const g = row.provider === 'google' && row.provider_id ? 'G' : '-';
-  const a = row.provider === 'apple' && row.provider_id ? 'A' : '-';
+  const g = hasGoogle ? 'G' : '-';
+  const a = hasApple ? 'A' : '-';
   return `${l}${g}${a}`;
 }
 

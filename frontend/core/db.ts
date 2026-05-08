@@ -46,6 +46,38 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_identities (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(provider, provider_id),
+    UNIQUE(user_id, provider),
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
+(function backfillUserIdentities() {
+  const legacyRows = db
+    .prepare(
+      `SELECT id, provider, provider_id FROM users
+       WHERE provider IN ('google','apple') AND provider_id IS NOT NULL AND provider_id != ''`
+    )
+    .all() as Array<{ id: string; provider: string; provider_id: string }>;
+  if (legacyRows.length === 0) return;
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+  const now = new Date().toISOString();
+  for (const r of legacyRows) {
+    insert.run(`ident_${r.id}_${r.provider}`, r.id, r.provider, r.provider_id, now, now);
+  }
+})();
+
 function ensureColumn(table: string, column: string, definition: string) {
   const existing = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (!existing.some((row) => row.name === column)) {
