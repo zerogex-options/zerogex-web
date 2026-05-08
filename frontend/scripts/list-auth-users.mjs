@@ -40,13 +40,12 @@ if (!fs.existsSync(dbPath)) {
 }
 
 const db = new DatabaseSync(dbPath);
-const rows = db
-  .prepare(
-    `SELECT id, email, tier, password_hash, provider, provider_id, created_at
-     FROM users
-     ORDER BY created_at DESC`
-  )
-  .all();
+const userCols = new Set(db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name));
+const hasLegacyProvider = userCols.has('provider') && userCols.has('provider_id');
+const selectCols = hasLegacyProvider
+  ? 'id, email, tier, password_hash, provider, provider_id, created_at'
+  : 'id, email, tier, password_hash, created_at';
+const rows = db.prepare(`SELECT ${selectCols} FROM users ORDER BY created_at DESC`).all();
 
 const hasIdentitiesTable = !!db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_identities'`)
@@ -65,10 +64,10 @@ function authFlags(row) {
   const providers = providersByUser.get(row.id);
   const hasGoogle = providers
     ? providers.has('google')
-    : row.provider === 'google' && !!row.provider_id;
+    : hasLegacyProvider && row.provider === 'google' && !!row.provider_id;
   const hasApple = providers
     ? providers.has('apple')
-    : row.provider === 'apple' && !!row.provider_id;
+    : hasLegacyProvider && row.provider === 'apple' && !!row.provider_id;
   const l = row.password_hash ? 'L' : '-';
   const g = hasGoogle ? 'G' : '-';
   const a = hasApple ? 'A' : '-';

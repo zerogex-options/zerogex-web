@@ -12,8 +12,6 @@ db.exec(`
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT,
-    provider TEXT NOT NULL,
-    provider_id TEXT,
     tier TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -60,22 +58,33 @@ db.exec(`
   );
 `);
 
-(function backfillUserIdentities() {
-  const legacyRows = db
-    .prepare(
-      `SELECT id, provider, provider_id FROM users
-       WHERE provider IN ('google','apple') AND provider_id IS NOT NULL AND provider_id != ''`
-    )
-    .all() as Array<{ id: string; provider: string; provider_id: string }>;
-  if (legacyRows.length === 0) return;
-  const insert = db.prepare(
-    `INSERT OR IGNORE INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  );
-  const now = new Date().toISOString();
-  for (const r of legacyRows) {
-    insert.run(`ident_${r.id}_${r.provider}`, r.id, r.provider, r.provider_id, now, now);
+(function migrateLegacyProviderColumns() {
+  const cols = (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) => c.name);
+  const hasLegacyProvider = cols.includes('provider');
+  const hasLegacyProviderId = cols.includes('provider_id');
+  if (!hasLegacyProvider && !hasLegacyProviderId) return;
+
+  if (hasLegacyProvider && hasLegacyProviderId) {
+    const legacyRows = db
+      .prepare(
+        `SELECT id, provider, provider_id FROM users
+         WHERE provider IN ('google','apple') AND provider_id IS NOT NULL AND provider_id != ''`
+      )
+      .all() as Array<{ id: string; provider: string; provider_id: string }>;
+    if (legacyRows.length > 0) {
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      );
+      const now = new Date().toISOString();
+      for (const r of legacyRows) {
+        insert.run(`ident_${r.id}_${r.provider}`, r.id, r.provider, r.provider_id, now, now);
+      }
+    }
   }
+
+  if (hasLegacyProviderId) db.exec(`ALTER TABLE users DROP COLUMN provider_id`);
+  if (hasLegacyProvider) db.exec(`ALTER TABLE users DROP COLUMN provider`);
 })();
 
 function ensureColumn(table: string, column: string, definition: string) {

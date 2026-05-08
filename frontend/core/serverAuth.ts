@@ -8,8 +8,6 @@ export type AuthUser = {
   id: string;
   email: string;
   passwordHash?: string;
-  provider: 'local' | 'google' | 'apple';
-  providerId?: string;
   tier: TierId;
   createdAt: string;
   updatedAt: string;
@@ -79,8 +77,6 @@ function rowToUser(row: Record<string, unknown>): AuthUser {
     id: row.id as string,
     email: row.email as string,
     passwordHash: (row.password_hash as string | null) ?? undefined,
-    provider: row.provider as 'local' | 'google' | 'apple',
-    providerId: (row.provider_id as string | null) ?? undefined,
     tier: normalizeTier(row.tier as string),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -102,8 +98,8 @@ function ensureBootstrapAdmin() {
   if (!existing) {
     const now = nowIso();
     db.prepare(
-      `INSERT INTO users (id, email, password_hash, provider, provider_id, tier, created_at, updated_at)
-       VALUES (?, ?, ?, 'local', NULL, 'admin', ?, ?)`
+      `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
+       VALUES (?, ?, ?, 'admin', ?, ?)`
     ).run(createId('user'), email, hashPassword(password), now, now);
   }
 
@@ -254,16 +250,15 @@ export async function registerUser(request: NextRequest, email: string, password
     id: createId('user'),
     email: normalizedEmail,
     passwordHash: hashPassword(password),
-    provider: 'local',
     tier: normalizeTier(tier),
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
 
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, provider, provider_id, tier, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, ?, ?, ?)`
-  ).run(user.id, user.email, user.passwordHash, user.provider, user.tier, user.createdAt, user.updatedAt);
+    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt);
 
   appendAuditEvent({
     type: 'register',
@@ -314,16 +309,14 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
       user = {
         id: createId('user'),
         email: normalizedEmail,
-        provider: input.provider,
-        providerId: input.providerId,
         tier: 'basic',
         createdAt: nowIso(),
         updatedAt: nowIso(),
       };
       db.prepare(
-        `INSERT INTO users (id, email, password_hash, provider, provider_id, tier, created_at, updated_at)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`
-      ).run(user.id, user.email, user.provider, user.providerId, user.tier, user.createdAt, user.updatedAt);
+        `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
+         VALUES (?, ?, NULL, ?, ?, ?)`
+      ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt);
     }
 
     const now = nowIso();
