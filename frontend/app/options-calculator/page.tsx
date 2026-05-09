@@ -462,56 +462,27 @@ export default function OptionsCalculatorPage() {
     return ticks;
   }, [payoffData, spot, xAxisMode]);
 
-  // The XAxisMode toggle now drives only where the ticks LAND (on round %
-  // values or round $ values). The tick label itself is rendered by
-  // renderXTick below as a 4-line stack regardless of mode, so we don't need
-  // the single-line tickFormatter that used to live here.
+  // The xAxisMode toggle drives only where the ticks LAND (on round %
+  // values or round $ values). renderXTick below renders a two-row stack
+  // — absolute spot price + chosen-unit delta — at each gridline; P/L
+  // moved out of the axis labels so the hover tooltip is the single
+  // source for that.
 
-  // Linear interpolation of P/L at an arbitrary price within the payoff
-  // curve. Tick prices come from xTicks (computed in the chosen unit) and
-  // generally don't land exactly on the 81 sample prices we generated, so
-  // straight lookup misses; interpolation between the two nearest samples
-  // is exact for the piecewise-linear payoff function anyway.
-  const plAtPrice = useMemo(() => {
-    return (price: number) => {
-      if (payoffData.length === 0) return 0;
-      if (price <= payoffData[0].price) return payoffData[0].pl;
-      if (price >= payoffData[payoffData.length - 1].price) return payoffData[payoffData.length - 1].pl;
-      let lo = payoffData[0];
-      let hi = payoffData[payoffData.length - 1];
-      for (let i = 1; i < payoffData.length; i++) {
-        if (payoffData[i].price >= price) {
-          lo = payoffData[i - 1];
-          hi = payoffData[i];
-          break;
-        }
-      }
-      if (lo.price === hi.price) return lo.pl;
-      const t = (price - lo.price) / (hi.price - lo.price);
-      return lo.pl + t * (hi.pl - lo.pl);
-    };
-  }, [payoffData]);
 
-  const fmtCompactDollar = (v: number): string => {
-    const sign = v < 0 ? '-' : v > 0 ? '+' : '';
-    const abs = Math.abs(v);
-    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
-    return `${sign}$${abs.toFixed(0)}`;
-  };
-
-  // Per-tick stacked label: P/L (color-coded) and spot price stacked on top,
-  // then the actual x-axis tick label at the bottom in whichever unit the
-  // user toggled — %Δ or $Δ — anchored centered on the gridline x so the
-  // bottom row visually IS the x-axis label rather than a separate annotation.
-  // Hover tooltip is unchanged and still useful for prices between ticks.
+  // Per-tick stacked label: just two rows now — the absolute spot price at
+  // that gridline x on top, and the actual x-axis tick label (chosen unit
+  // only — %Δ in % mode, $Δ in $ mode) underneath. P/L moved out of the
+  // axis labels entirely; the hover tooltip is the place to read it.
+  // Both rows share the same font/size/weight so textAnchor="middle"
+  // produces visually identical centering on the gridline x regardless of
+  // glyph metrics — earlier versions mixed weights and exposed sub-pixel
+  // drift that read as "labels don't line up", most visibly in $ mode where
+  // the bottom "$0" row is much narrower than the spot row above it.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderXTick = (props: any) => {
     const x = Number(props?.x ?? 0);
     const y = Number(props?.y ?? 0);
     const price = Number(props?.payload?.value ?? 0);
-    const pl = plAtPrice(price);
-    const positive = pl >= 0;
     const dollarDelta = spot > 0 ? price - spot : 0;
     const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
     const trim = (s: string) => s.replace(/\.?0+$/, '');
@@ -529,13 +500,10 @@ export default function OptionsCalculatorPage() {
     })();
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} dy={12} textAnchor="middle" fill={positive ? 'var(--color-positive)' : 'var(--color-negative)'} fontSize={10} fontWeight={700}>
-          {fmtCompactDollar(pl)}
-        </text>
-        <text x={0} dy={26} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
+        <text x={0} dy={14} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={11}>
           ${price.toFixed(2)}
         </text>
-        <text x={0} dy={42} textAnchor="middle" fill="var(--color-text-primary)" fontSize={11} fontWeight={600}>
+        <text x={0} dy={30} textAnchor="middle" fill="var(--color-text-primary)" fontSize={11}>
           {axisLabel}
         </text>
       </g>
@@ -721,7 +689,7 @@ export default function OptionsCalculatorPage() {
         )}
         <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={420}>
-          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 48 }}>
+          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 32 }}>
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
@@ -744,7 +712,7 @@ export default function OptionsCalculatorPage() {
               tick={renderXTick}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
-              height={52}
+              height={40}
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
