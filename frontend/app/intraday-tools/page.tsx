@@ -103,37 +103,14 @@ export default function IntradayToolsPage() {
   const hasOrb = orbLatest != null && safeNum(orbLatest.orb_high) != null && safeNum(orbLatest.orb_low) != null;
 
   const vwapChart = useMemo(() => {
-    // Per-bar deviation bands. Each band fills the full channel (vwap↔price)
-    // whenever |dev| crosses its threshold; rendering the four bands as stacked
-    // Areas means bars further from VWAP accumulate more layers and end up
-    // visibly brighter than bars hugging VWAP.
-    const TIERS = [0, 0.0005, 0.0015, 0.003] as const; // 0%, 0.05%, 0.15%, 0.30%
     return bars.map((bar) => {
       const price = safeNum(bar.close);
       const v = safeNum(bar.vwap_deviation?.vwap);
       const hasBoth = price != null && v != null;
-      const ratio = hasBoth && v !== 0 ? Math.abs((price - v) / v) : 0;
+      const channelAbove: [number, number] | null = hasBoth && price >= v ? [v, price] : null;
+      const channelBelow: [number, number] | null = hasBoth && price < v ? [price, v] : null;
       const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
-      const isAbove = hasBoth && price >= v;
-      const isBelow = hasBoth && price < v;
-      const above = (tier: number): [number, number] | null =>
-        isAbove && ratio >= tier ? [v as number, price as number] : null;
-      const below = (tier: number): [number, number] | null =>
-        isBelow && ratio >= tier ? [price as number, v as number] : null;
-      return {
-        timestamp: bar.timestamp,
-        price,
-        vwap: v,
-        deviationPct,
-        channelAbove1: above(TIERS[0]),
-        channelAbove2: above(TIERS[1]),
-        channelAbove3: above(TIERS[2]),
-        channelAbove4: above(TIERS[3]),
-        channelBelow1: below(TIERS[0]),
-        channelBelow2: below(TIERS[1]),
-        channelBelow3: below(TIERS[2]),
-        channelBelow4: below(TIERS[3]),
-      };
+      return { timestamp: bar.timestamp, price, vwap: v, channelAbove, channelBelow, deviationPct };
     });
   }, [bars]);
 
@@ -312,43 +289,23 @@ export default function IntradayToolsPage() {
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={vwapChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                    <ComposedChart data={vwapChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
                       <defs>
-                        <linearGradient id="vwapAbove1Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.30} />
-                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
-                        </linearGradient>
-                        <linearGradient id="vwapAbove2Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.45} />
-                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
-                        </linearGradient>
-                        <linearGradient id="vwapAbove3Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.65} />
-                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.05} />
-                        </linearGradient>
-                        <linearGradient id="vwapAbove4Grad" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="vwapAboveGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.95} />
-                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.15} />
+                          <stop offset="35%" stopColor="var(--color-bull)" stopOpacity={0.55} />
+                          <stop offset="75%" stopColor="var(--color-bull)" stopOpacity={0.18} />
+                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
                         </linearGradient>
-                        <linearGradient id="vwapBelow1Grad" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="vwapBelowGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.0} />
-                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.30} />
-                        </linearGradient>
-                        <linearGradient id="vwapBelow2Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.0} />
-                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.45} />
-                        </linearGradient>
-                        <linearGradient id="vwapBelow3Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.05} />
-                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.65} />
-                        </linearGradient>
-                        <linearGradient id="vwapBelow4Grad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.15} />
+                          <stop offset="25%" stopColor="var(--color-bear)" stopOpacity={0.18} />
+                          <stop offset="65%" stopColor="var(--color-bear)" stopOpacity={0.55} />
                           <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.95} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
                         cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
@@ -367,14 +324,8 @@ export default function IntradayToolsPage() {
                           );
                         }}
                       />
-                      <Area dataKey="channelAbove1" stroke="none" fill="url(#vwapAbove1Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelAbove2" stroke="none" fill="url(#vwapAbove2Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelAbove3" stroke="none" fill="url(#vwapAbove3Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelAbove4" stroke="none" fill="url(#vwapAbove4Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow1" stroke="none" fill="url(#vwapBelow1Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow2" stroke="none" fill="url(#vwapBelow2Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow3" stroke="none" fill="url(#vwapBelow3Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow4" stroke="none" fill="url(#vwapBelow4Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
                       <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                     </ComposedChart>
@@ -461,7 +412,7 @@ export default function IntradayToolsPage() {
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={orbChart} margin={{ top: 8, right: 56, left: 0, bottom: 8 }}>
+                    <ComposedChart data={orbChart} margin={{ top: 16, right: 56, left: 0, bottom: 16 }}>
                       <defs>
                         <linearGradient id="orbZoneGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.42} />
@@ -469,7 +420,7 @@ export default function IntradayToolsPage() {
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
                         cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
@@ -533,16 +484,16 @@ export default function IntradayToolsPage() {
             </div>
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={volumeSpikesChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                <ComposedChart data={volumeSpikesChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
                   <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} domain={volumeSpikeVolumeTicks.length ? [volumeSpikeVolumeTicks[0], volumeSpikeVolumeTicks[volumeSpikeVolumeTicks.length - 1]] : [0, 'auto']} tickFormatter={(v) => {
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} domain={volumeSpikeVolumeTicks.length ? [volumeSpikeVolumeTicks[0], volumeSpikeVolumeTicks[volumeSpikeVolumeTicks.length - 1]] : [0, 'auto']} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
                     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
                     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
                     return String(n);
                   }} />
-                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
                   <Tooltip
                     cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
                     content={({ active, label, payload }) => {
