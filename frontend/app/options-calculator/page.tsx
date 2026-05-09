@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -13,6 +13,15 @@ import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 type XAxisMode = 'percent' | 'dollar';
+
+// Module-scope cache for the option chain so navigating away and coming back
+// to /options-calculator inside the same tab session is instant. useApiData
+// resets its internal state on every mount, which means a cold remount used
+// to show the loading spinner for ~the entire chain fetch (1-3s on this
+// payload size) every time. Hydrating from this cache lets the page paint
+// the leg pickers and payoff curve immediately while the background poll
+// refreshes them.
+const maxPainCache = new Map<string, MaxPainCurrentResponse>();
 
 // Default visible range is ±5% of spot. Each zoom level shrinks/grows by 25%
 // on the x-axis (and lets the y-axis auto-fit to the visible data, so the
@@ -226,10 +235,22 @@ export default function OptionsCalculatorPage() {
   };
 
   const { data: quoteData } = useMarketQuote(symbol, 3000);
-  const { data: maxPainData, error: chainError } = useApiData<MaxPainCurrentResponse>(
+  const {
+    data: maxPainDataRaw,
+    error: chainError,
+  } = useApiData<MaxPainCurrentResponse>(
     `/api/max-pain/current?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&strike_limit=500`,
     { refreshInterval: 30000 }
   );
+
+  // Hydrate from the module-scope cache while waiting for the first fetch
+  // to come back, and write fresh responses back to the cache so later
+  // visits (or symbol toggles back to a previously-loaded ticker) skip the
+  // loading state entirely.
+  const maxPainData = maxPainDataRaw ?? maxPainCache.get(symbol) ?? null;
+  useEffect(() => {
+    if (maxPainDataRaw) maxPainCache.set(symbol, maxPainDataRaw);
+  }, [maxPainDataRaw, symbol]);
 
   const strategyConfig = STRATEGIES[strategy];
   const allLegs = strategyConfig.legs;
@@ -450,28 +471,77 @@ export default function OptionsCalculatorPage() {
     return ticks;
   }, [payoffData, spot, xAxisMode]);
 
-  const xTickFormatter = useMemo(
-    () => (price: number) => {
-      if (spot <= 0) return `$${Number(price).toFixed(2)}`;
-      if (xAxisMode === 'percent') {
-        const pct = ((price - spot) / spot) * 100;
-        const sign = pct > 0 ? '+' : '';
-        // Trim trailing zeros so 1.000% renders as 1%, but 1.5% stays as 1.5%.
-        const txt = Math.abs(pct) < 1
-          ? pct.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
-          : pct.toFixed(1).replace(/\.0$/, '');
-        return `${sign}${txt}%`;
+  // The XAxisMode toggle now drives only where the ticks LAND (on round %
+  // values or round $ values). The tick label itself is rendered by
+  // renderXTick below as a 4-line stack regardless of mode, so we don't need
+  // the single-line tickFormatter that used to live here.
+
+  // Linear interpolation of P/L at an arbitrary price within the payoff
+  // curve. Tick prices come from xTicks (computed in the chosen unit) and
+  // generally don't land exactly on the 81 sample prices we generated, so
+  // straight lookup misses; interpolation between the two nearest samples
+  // is exact for the piecewise-linear payoff function anyway.
+  const plAtPrice = useMemo(() => {
+    return (price: number) => {
+      if (payoffData.length === 0) return 0;
+      if (price <= payoffData[0].price) return payoffData[0].pl;
+      if (price >= payoffData[payoffData.length - 1].price) return payoffData[payoffData.length - 1].pl;
+      let lo = payoffData[0];
+      let hi = payoffData[payoffData.length - 1];
+      for (let i = 1; i < payoffData.length; i++) {
+        if (payoffData[i].price >= price) {
+          lo = payoffData[i - 1];
+          hi = payoffData[i];
+          break;
+        }
       }
-      const delta = price - spot;
-      const sign = delta > 0 ? '+' : delta < 0 ? '-' : '';
-      const abs = Math.abs(delta);
-      const txt = abs >= 1
-        ? abs.toFixed(0)
-        : abs.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-      return `${sign}$${txt}`;
-    },
-    [spot, xAxisMode],
-  );
+      if (lo.price === hi.price) return lo.pl;
+      const t = (price - lo.price) / (hi.price - lo.price);
+      return lo.pl + t * (hi.pl - lo.pl);
+    };
+  }, [payoffData]);
+
+  const fmtCompactDollar = (v: number): string => {
+    const sign = v < 0 ? '-' : v > 0 ? '+' : '';
+    const abs = Math.abs(v);
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+    return `${sign}$${abs.toFixed(0)}`;
+  };
+
+  // Per-tick stacked label: P/L (color-coded), absolute spot price, %Δ, $Δ.
+  // Replaces the simple single-line tick label so every gridline carries the
+  // full info the hover tooltip would show, lined up at the round-number
+  // increments we picked above. The hover tooltip is still useful for prices
+  // between ticks.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderXTick = (props: any) => {
+    const x = Number(props?.x ?? 0);
+    const y = Number(props?.y ?? 0);
+    const price = Number(props?.payload?.value ?? 0);
+    const pl = plAtPrice(price);
+    const positive = pl >= 0;
+    const dollarDelta = spot > 0 ? price - spot : 0;
+    const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
+    const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
+    const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text dy={12} textAnchor="middle" fill={positive ? 'var(--color-positive)' : 'var(--color-negative)'} fontSize={10} fontWeight={700}>
+          {fmtCompactDollar(pl)}
+        </text>
+        <text dy={26} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
+          ${price.toFixed(2)}
+        </text>
+        <text dy={40} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
+          {pctSign}{pctDelta.toFixed(2)}%
+        </text>
+        <text dy={54} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
+          {dollarSign}${Math.abs(dollarDelta).toFixed(2)}
+        </text>
+      </g>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -652,7 +722,7 @@ export default function OptionsCalculatorPage() {
         )}
         <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={420}>
-          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 10 }}>
+          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 60 }}>
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
@@ -672,10 +742,10 @@ export default function OptionsCalculatorPage() {
               domain={['dataMin', 'dataMax']}
               ticks={xTicks}
               interval={0}
-              tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+              tick={renderXTick}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
-              tickFormatter={xTickFormatter}
+              height={64}
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
