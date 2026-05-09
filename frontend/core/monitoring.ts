@@ -305,8 +305,8 @@ export function getSnapshot(): MonitoringSnapshot {
   return {
     hourly: hourlyKeys.map((key) => bucketToPoint(key, store.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, store.daily[key])),
-    topIps: aggregateTopIps(store.daily, 50),
-    topUsers: aggregateTopUsers(store.daily, 50),
+    topIps: aggregateTopIps(store.daily, 10),
+    topUsers: aggregateTopUsers(store.daily, 10),
     lastFlushAt: store.lastFlushAt,
     generatedAt: now.toISOString(),
   };
