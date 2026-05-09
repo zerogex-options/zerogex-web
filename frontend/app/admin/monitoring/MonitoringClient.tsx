@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTheme } from '@/core/ThemeContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -20,6 +20,7 @@ type Snapshot = {
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
+  topUsers: Array<{ userId: string; email: string | null; count: number }>;
   lastFlushAt: string | null;
   generatedAt: string;
 };
@@ -95,19 +96,14 @@ export default function MonitoringClient() {
   if (error) return <div className="container mx-auto px-4 py-8"><ErrorMessage message={error} /></div>;
   if (!data) return null;
 
+  const topIpsMax = data.topIps[0]?.count ?? 0;
+  const topUsersMax = data.topUsers[0]?.count ?? 0;
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+      <div className="flex items-baseline justify-between mb-6 flex-wrap gap-2">
         <h1 className="text-2xl font-semibold">Admin Monitoring</h1>
-        <div className="text-xs" style={{ color: mutedText }}>
-          Generated: {data.generatedAt ? new Date(data.generatedAt).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--'} ET
-          {' · '}Last flush: {data.lastFlushAt ? new Date(data.lastFlushAt).toLocaleString('en-US', { timeZone: 'America/New_York' }) : 'never'}
-          {' · Refreshes every 60s'}
-        </div>
       </div>
-      <p className="text-sm mb-6" style={{ color: mutedText }}>
-        Hourly buckets show the last {data.hourly.length} ET hours; daily buckets show the last {data.daily.length} ET days.
-      </p>
 
       {METRICS.map((metric) => (
         <section key={metric.key} className="mb-8">
@@ -117,7 +113,7 @@ export default function MonitoringClient() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChartCard
-              title="Hourly (last 720)"
+              title="Hourly"
               data={data.hourly}
               metricKey={metric.key}
               color={metric.color}
@@ -128,7 +124,7 @@ export default function MonitoringClient() {
               labelFormatter={formatHourLabel}
             />
             <ChartCard
-              title="Daily (last 90)"
+              title="Daily"
               data={data.daily}
               metricKey={metric.key}
               color={metric.color}
@@ -143,33 +139,83 @@ export default function MonitoringClient() {
       ))}
 
       <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Top Source IPs (by access count, retained window)</h2>
-        <div className="rounded-lg p-4 overflow-x-auto" style={{ backgroundColor: cardBg }}>
+        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Top Source IPs</h2>
+        <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
           {data.topIps.length === 0 ? (
             <div className="text-sm" style={{ color: mutedText }}>No IP data captured yet.</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b" style={{ borderColor, color: mutedText }}>
-                  <th className="py-2 px-2">#</th>
-                  <th className="py-2 px-2">IP Address</th>
-                  <th className="py-2 px-2 text-right">Total Accesses</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topIps.map((row, idx) => (
-                  <tr key={row.ip} className="border-b" style={{ borderColor: `${borderColor}66` }}>
-                    <td className="py-1.5 px-2" style={{ color: mutedText }}>{idx + 1}</td>
-                    <td className="py-1.5 px-2 font-mono">{row.ip}</td>
-                    <td className="py-1.5 px-2 text-right">{row.count.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <RankedBarList
+              items={data.topIps.map((row) => ({ key: row.ip, label: row.ip, count: row.count }))}
+              max={topIpsMax}
+              color="var(--color-bear)"
+              borderColor={borderColor}
+              mutedText={mutedText}
+              monoLabel
+            />
+          )}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Top Users</h2>
+        <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+          {data.topUsers.length === 0 ? (
+            <div className="text-sm" style={{ color: mutedText }}>No user data captured yet.</div>
+          ) : (
+            <RankedBarList
+              items={data.topUsers.map((row) => ({
+                key: row.userId,
+                label: row.email ?? row.userId,
+                count: row.count,
+              }))}
+              max={topUsersMax}
+              color="var(--color-warning)"
+              borderColor={borderColor}
+              mutedText={mutedText}
+            />
           )}
         </div>
       </section>
     </div>
+  );
+}
+
+type RankedBarListProps = {
+  items: Array<{ key: string; label: string; count: number }>;
+  max: number;
+  color: string;
+  borderColor: string;
+  mutedText: string;
+  monoLabel?: boolean;
+};
+
+function RankedBarList({ items, max, color, borderColor, mutedText, monoLabel }: RankedBarListProps) {
+  return (
+    <ol className="space-y-1.5">
+      {items.map((row, idx) => {
+        const pct = max > 0 ? Math.max(2, (row.count / max) * 100) : 0;
+        return (
+          <li
+            key={row.key}
+            className="grid items-center gap-3 text-sm py-1"
+            style={{
+              gridTemplateColumns: '2rem minmax(0, 1fr) minmax(0, 2fr) auto',
+              borderBottom: `1px solid ${borderColor}33`,
+            }}
+          >
+            <span className="text-xs tabular-nums" style={{ color: mutedText }}>{idx + 1}</span>
+            <span className={`truncate ${monoLabel ? 'font-mono' : ''}`} title={row.label}>{row.label}</span>
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${borderColor}55` }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${pct}%`, backgroundColor: color }}
+              />
+            </div>
+            <span className="tabular-nums text-right">{row.count.toLocaleString()}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -198,7 +244,7 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
       </div>
       <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid strokeOpacity={0.1} vertical={false} />
             <XAxis
               dataKey="bucket"
@@ -222,7 +268,7 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
               }}
             />
             <Tooltip
-              cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+              cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
               content={({ active, label, payload }) => {
                 if (!active || !payload?.length) return null;
                 const value = Number(payload[0]?.value ?? 0);
@@ -237,8 +283,8 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
                 );
               }}
             />
-            <Line type="monotone" dataKey={metricKey} stroke={color} dot={false} strokeWidth={2} isAnimationActive={false} />
-          </LineChart>
+            <Bar dataKey={metricKey} fill={color} isAnimationActive={false} />
+          </BarChart>
         </ResponsiveContainer>
       </MobileScrollableChart>
     </div>

@@ -16,6 +16,7 @@ export type MonitoringBucket = {
   apiCalls: number;
   pageAccesses: number;
   users: string[];
+  userCounts: Record<string, number>;
   ipCounts: Record<string, number>;
 };
 
@@ -31,6 +32,7 @@ export type MonitoringSnapshot = {
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
+  topUsers: Array<{ userId: string; email: string | null; count: number }>;
   lastFlushAt: string | null;
   generatedAt: string;
 };
@@ -55,7 +57,23 @@ function createEmptyStore(): StoreShape {
 }
 
 function emptyBucket(): MonitoringBucket {
-  return { apiCalls: 0, pageAccesses: 0, users: [], ipCounts: {} };
+  return { apiCalls: 0, pageAccesses: 0, users: [], userCounts: {}, ipCounts: {} };
+}
+
+function normalizeBucket(raw: Partial<MonitoringBucket> | undefined): MonitoringBucket {
+  const bucket = emptyBucket();
+  if (!raw) return bucket;
+  bucket.apiCalls = raw.apiCalls ?? 0;
+  bucket.pageAccesses = raw.pageAccesses ?? 0;
+  bucket.users = Array.isArray(raw.users) ? raw.users : [];
+  bucket.ipCounts = raw.ipCounts && typeof raw.ipCounts === 'object' ? raw.ipCounts : {};
+  if (raw.userCounts && typeof raw.userCounts === 'object') {
+    bucket.userCounts = raw.userCounts;
+  } else {
+    // Migrate legacy buckets (pre-userCounts): seed counts at 1 per known user.
+    for (const u of bucket.users) bucket.userCounts[u] = 1;
+  }
+  return bucket;
 }
 
 const ET_PARTS_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -84,10 +102,14 @@ function loadStore() {
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<StoreShape>;
     if (parsed && parsed.version === 1 && parsed.hourly && parsed.daily) {
+      const hourly: Record<string, MonitoringBucket> = {};
+      for (const [k, v] of Object.entries(parsed.hourly)) hourly[k] = normalizeBucket(v);
+      const daily: Record<string, MonitoringBucket> = {};
+      for (const [k, v] of Object.entries(parsed.daily)) daily[k] = normalizeBucket(v);
       store = {
         version: 1,
-        hourly: parsed.hourly,
-        daily: parsed.daily,
+        hourly,
+        daily,
         lastFlushAt: parsed.lastFlushAt ?? null,
       };
       return;
@@ -128,6 +150,8 @@ export function recordRequest(input: {
   if (input.userId) {
     if (!hb.users.includes(input.userId)) hb.users.push(input.userId);
     if (!db.users.includes(input.userId)) db.users.push(input.userId);
+    hb.userCounts[input.userId] = (hb.userCounts[input.userId] ?? 0) + 1;
+    db.userCounts[input.userId] = (db.userCounts[input.userId] ?? 0) + 1;
   }
   if (input.ip) {
     hb.ipCounts[input.ip] = (hb.ipCounts[input.ip] ?? 0) + 1;
@@ -245,6 +269,34 @@ function aggregateTopIps(buckets: Record<string, MonitoringBucket>, limit: numbe
     .slice(0, limit);
 }
 
+function aggregateTopUsers(
+  buckets: Record<string, MonitoringBucket>,
+  limit: number,
+): Array<{ userId: string; email: string | null; count: number }> {
+  const totals = new Map<string, number>();
+  for (const bucket of Object.values(buckets)) {
+    for (const [userId, count] of Object.entries(bucket.userCounts ?? {})) {
+      totals.set(userId, (totals.get(userId) ?? 0) + count);
+    }
+  }
+  const top = Array.from(totals.entries())
+    .map(([userId, count]) => ({ userId, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+  if (top.length === 0) return [];
+  const emails = new Map<string, string>();
+  try {
+    const placeholders = top.map(() => '?').join(',');
+    const rows = getDb()
+      .prepare(`SELECT id, email FROM users WHERE id IN (${placeholders})`)
+      .all(...top.map((t) => t.userId)) as Array<{ id: string; email: string }>;
+    for (const row of rows) emails.set(row.id, row.email);
+  } catch {
+    // If lookup fails, we still return userIds without emails.
+  }
+  return top.map((t) => ({ userId: t.userId, email: emails.get(t.userId) ?? null, count: t.count }));
+}
+
 export function getSnapshot(): MonitoringSnapshot {
   if (!initialized) initMonitoring();
   const now = new Date();
@@ -254,6 +306,7 @@ export function getSnapshot(): MonitoringSnapshot {
     hourly: hourlyKeys.map((key) => bucketToPoint(key, store.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, store.daily[key])),
     topIps: aggregateTopIps(store.daily, 50),
+    topUsers: aggregateTopUsers(store.daily, 50),
     lastFlushAt: store.lastFlushAt,
     generatedAt: now.toISOString(),
   };
