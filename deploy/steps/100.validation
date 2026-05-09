@@ -24,7 +24,14 @@ log "1. Node.js Environment"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    \. "$NVM_DIR/nvm.sh"
+    # Pin to the same Node version steps/040.pm2 installed pm2 under, so
+    # `pm2 list` resolves below. Without this we run on whatever the
+    # `default` alias points at, which on hosts that had Node 18 pre-nvm
+    # leaves pm2 invisible to validation (see deploy run 2026-05-08).
+    nvm use 22 >/dev/null 2>&1 || true
+fi
 
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 if command -v node &> /dev/null; then

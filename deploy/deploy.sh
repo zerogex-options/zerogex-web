@@ -6,7 +6,15 @@
 
 set -e  # Exit on any error
 
-# Export HOME
+# When invoked via sudo, $HOME defaults to /root but the cloned repo, nvm,
+# pm2, the auth DB dir, and ecosystem.config.js all live in the invoking
+# user's home. Re-point HOME to the SUDO_USER's home so every child step
+# resolves paths consistently. Falls back to /home/ubuntu if HOME is
+# somehow still empty (e.g. running as a non-sudo system unit).
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$SUDO_HOME" ] && export HOME="$SUDO_HOME"
+fi
 [ -z "$HOME" ] && export HOME="/home/ubuntu"
 
 # Variables
