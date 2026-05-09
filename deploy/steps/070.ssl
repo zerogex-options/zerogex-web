@@ -235,7 +235,7 @@ server {
         # Inject backend X-API-Key header if the snippet exists.
         # Wildcard include is a no-op when no files match (won't error on hosts
         # without the snippet). On hosts where it lives, the file must define
-        # `proxy_set_header X-API-Key "<value>";` for the FastAPI service.
+        # 'proxy_set_header X-API-Key "<value>";' for the FastAPI service.
         include /etc/nginx/conf.d/zerogex-api-key*.conf;
     }
 
