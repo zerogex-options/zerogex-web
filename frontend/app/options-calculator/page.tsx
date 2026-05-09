@@ -1,14 +1,33 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import { Minus, Plus } from 'lucide-react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
+import {
+  buildOptionChainUrl,
+  getCachedOptionChain,
+  setCachedOptionChain,
+  type MaxPainCurrentResponse,
+} from '@/core/optionChainCache';
 import ErrorMessage from '@/components/ErrorMessage';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+type XAxisMode = 'percent' | 'dollar';
+
+// Default visible range is ±5% of spot. Each zoom level shrinks/grows by 25%
+// on the x-axis (and lets the y-axis auto-fit to the visible data, so the
+// effective y-range tracks). Cap zoom so we don't accidentally render an
+// empty range or pull a worthless 100%-wide curve.
+const BASE_X_RANGE_PCT = 0.05;
+const ZOOM_STEP = 0.75;
+const MIN_ZOOM = -4; // 0.05 * 0.75^-4 ≈ 0.158, so ±15.8% spot
+const MAX_ZOOM = 8;  // 0.05 * 0.75^8  ≈ 0.005, so ±0.5% spot
 
 type LegRole = 'long' | 'short';
 type OptionRight = 'call' | 'put' | 'stock';
@@ -33,18 +52,8 @@ interface OptionQuote {
   open_interest?: number | null;
 }
 
-interface MaxPainPoint {
-  settlement_price: number;
-}
-
-interface MaxPainExpiration {
-  expiration: string;
-  strikes: MaxPainPoint[];
-}
-
-interface MaxPainCurrentResponse {
-  expirations: MaxPainExpiration[];
-}
+// MaxPainCurrentResponse + related types now live in core/optionChainCache
+// alongside the module-scope cache and the prewarm helper.
 
 // Helper for concise strategy leg definition
 const L = (id: string, role: LegRole, right: OptionRight, label: string, qty?: number): StrategyLegTemplate =>
@@ -111,6 +120,7 @@ function fmtDollar(v: number, decimals = 2): string {
 }
 
 function niceStep(rawStep: number): number {
+  if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
   const n = rawStep / mag;
   if (n < 1.5) return mag;
@@ -120,7 +130,12 @@ function niceStep(rawStep: number): number {
 }
 
 interface TooltipPayloadItem { value: number }
-interface TooltipProps { active?: boolean; payload?: TooltipPayloadItem[]; label?: number }
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: number;
+  spot?: number;
+}
 
 // Returns the smart default expiration for a leg.
 // Legs whose label contains "(far…)" get the 2nd available expiration (calendar/diagonal spreads).
@@ -156,17 +171,28 @@ function smartDefaultStrike(label: string, right: OptionRight, strikes: number[]
   return atm();
 }
 
-function CustomTooltip({ active, payload, label }: TooltipProps) {
+function CustomTooltip({ active, payload, label, spot = 0 }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const pl = payload[0].value;
   const positive = pl >= 0;
+  const price = Number(label);
+  const dollarDelta = spot > 0 ? price - spot : 0;
+  const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
+  const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
+  const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
-      <div style={{ color: 'var(--color-chart-tooltip-muted)', fontSize: 11, marginBottom: 4 }}>
-        Underlying: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>${Number(label).toFixed(2)}</span>
-      </div>
-      <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
+      <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', marginBottom: 6 }}>
         {positive ? '+' : ''}{fmtDollar(pl)}
+      </div>
+      <div style={{ color: 'var(--color-chart-tooltip-muted)', fontSize: 11, lineHeight: 1.6 }}>
+        <div>Spot: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>${price.toFixed(2)}</span></div>
+        {spot > 0 && (
+          <>
+            <div>%Δ: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>{pctSign}{pctDelta.toFixed(2)}%</span></div>
+            <div>$Δ: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>{dollarSign}${Math.abs(dollarDelta).toFixed(2)}</span></div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -175,9 +201,19 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
 export default function OptionsCalculatorPage() {
   const { symbol } = useTimeframe();
   const [strategy, setStrategy] = useState<StrategyType>('long_put');
-  const [contracts, setContracts] = useState(1);
+  // contracts is held as a string so the input can transiently be empty
+  // while the user is editing — clamping to 1 on every keystroke
+  // prevents mobile users from clearing the field to overwrite the value.
+  const [contractsText, setContractsText] = useState('1');
+  const contracts = Math.max(1, Math.floor(Number(contractsText)) || 1);
   const [legExpiration, setLegExpiration] = useState<Record<string, string>>({});
   const [legStrike, setLegStrike] = useState<Record<string, string>>({});
+  // Chart view controls (Phase 2). zoomLevel is an integer; positive = zoomed
+  // in, negative = zoomed out. Each step shrinks/grows the visible price
+  // range by 25%. xAxisMode toggles whether ticks render as %Δ or $Δ from
+  // current spot — the data itself is always indexed by absolute price.
+  const [zoomLevel, setZoomLevel] = useState(0);
+  const [xAxisMode, setXAxisMode] = useState<XAxisMode>('percent');
 
   const handleStrategyChange = (next: StrategyType) => {
     setStrategy(next);
@@ -186,10 +222,26 @@ export default function OptionsCalculatorPage() {
   };
 
   const { data: quoteData } = useMarketQuote(symbol, 3000);
-  const { data: maxPainData, error: chainError } = useApiData<MaxPainCurrentResponse>(
-    `/api/max-pain/current?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&strike_limit=500`,
-    { refreshInterval: 30000 }
-  );
+  // useApiData wants a path-relative endpoint so it can prepend NEXT_PUBLIC_API_URL,
+  // but buildOptionChainUrl in optionChainCache.ts gives us the full absolute URL
+  // (the prewarm uses it directly with fetch()). Strip the base back off here so
+  // both code paths stay in sync on strike_limit / symbol encoding.
+  const fullChainUrl = buildOptionChainUrl(symbol);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const chainEndpoint = fullChainUrl.startsWith(apiBase) ? fullChainUrl.slice(apiBase.length) : fullChainUrl;
+  const {
+    data: maxPainDataRaw,
+    error: chainError,
+  } = useApiData<MaxPainCurrentResponse>(chainEndpoint, { refreshInterval: 30000 });
+
+  // Hydrate from the shared module-scope cache (also written to by
+  // OptionChainPrewarm at app boot) while waiting for the live fetch. Fresh
+  // responses go straight back into the cache so symbol toggles and
+  // navigation revisits skip the loading state entirely.
+  const maxPainData = maxPainDataRaw ?? getCachedOptionChain(symbol);
+  useEffect(() => {
+    if (maxPainDataRaw) setCachedOptionChain(symbol, maxPainDataRaw);
+  }, [maxPainDataRaw, symbol]);
 
   const strategyConfig = STRATEGIES[strategy];
   const allLegs = strategyConfig.legs;
@@ -205,6 +257,12 @@ export default function OptionsCalculatorPage() {
         .sort((a, b) => a.localeCompare(b)),
     [maxPainData, today]
   );
+
+  // The chain is "ready" once we've actually populated the expiration list.
+  // chainLoading flips false the moment useApiData resolves, but if the
+  // payload is empty we still want to keep the placeholder up rather than
+  // expose blank dropdowns.
+  const chainReady = expirationChoices.length > 0;
 
   const strikeMapByExpiration = useMemo(() => {
     const out: Record<string, number[]> = {};
@@ -282,13 +340,59 @@ export default function OptionsCalculatorPage() {
     return sum + signed * leg.quotePerContract * contracts * 100 * qty;
   }, 0);
 
+  // Visible x-range as a fraction of spot. zoomLevel = 0 means default
+  // ±5%; +1 narrows to ±3.75% (25% smaller); -1 widens to ±6.67%, etc.
+  // We let the y-axis auto-fit to whatever portion of the curve is visible
+  // at the current x-range — this is what "y range tracks the visible
+  // data" feels like in practice.
+  const xRangePct = useMemo(
+    () => BASE_X_RANGE_PCT * Math.pow(ZOOM_STEP, zoomLevel),
+    [zoomLevel],
+  );
+
+  // Visible price range — derived from spot and zoom only, so xTicks can be
+  // computed without taking a circular dependency on payoffData (which now
+  // wants the tick prices baked in).
+  const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
+  const minP = Math.max(1, center * (1 - xRangePct));
+  const maxP = center * (1 + xRangePct);
+
+  // Tick positions are always actual prices (the chart's dataKey is `price`),
+  // but the spacing/rounding is computed in the chosen display unit so the
+  // labels themselves come out as nice round numbers — e.g. "+1.0%" / "-1.0%"
+  // in percent mode, or "+$5" / "-$5" in dollar mode — and the spacing
+  // tightens automatically as the user zooms in.
+  const xTicks = useMemo(() => {
+    if (spot <= 0) return [] as number[];
+
+    if (xAxisMode === 'percent') {
+      const minPct = ((minP - spot) / spot) * 100;
+      const maxPct = ((maxP - spot) / spot) * 100;
+      const step = niceStep((maxPct - minPct) / 7);
+      const start = Math.ceil(minPct / step) * step;
+      const ticks: number[] = [];
+      for (let pct = start; pct <= maxPct + step * 0.01; pct += step) {
+        const price = spot * (1 + pct / 100);
+        if (price >= minP && price <= maxP) ticks.push(Number(price.toFixed(4)));
+      }
+      return ticks;
+    }
+
+    const minDelta = minP - spot;
+    const maxDelta = maxP - spot;
+    const step = niceStep((maxDelta - minDelta) / 7);
+    const start = Math.ceil(minDelta / step) * step;
+    const ticks: number[] = [];
+    for (let d = start; d <= maxDelta + step * 0.01; d += step) {
+      const price = spot + d;
+      if (price >= minP && price <= maxP) ticks.push(Number(price.toFixed(4)));
+    }
+    return ticks;
+  }, [minP, maxP, spot, xAxisMode]);
+
   const payoffData = useMemo(() => {
-    const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
-    const minP = Math.max(1, center * 0.95);
-    const maxP = center * 1.05;
-    return Array.from({ length: 81 }).map((_, i) => {
-      const S = minP + ((maxP - minP) * i) / 80;
-      const oneContractPL = selectedLegs.reduce((sum, leg) => {
+    const evalPL = (S: number) => {
+      return selectedLegs.reduce((sum, leg) => {
         const qty = leg.qty ?? 1;
         let intrinsic: number;
         if (leg.right === 'stock') {
@@ -301,9 +405,29 @@ export default function OptionsCalculatorPage() {
         const legPL = leg.role === 'long' ? intrinsic - leg.quotePerContract : leg.quotePerContract - intrinsic;
         return sum + legPL * qty;
       }, 0);
-      return { price: Number(S.toFixed(2)), pl: Number((oneContractPL * contracts * 100).toFixed(2)) };
-    });
-  }, [spot, selectedLegs, contracts]);
+    };
+
+    // 81 uniform samples between minP and maxP, plus the exact tick prices.
+    // Recharts' Tooltip snaps to the nearest data point, so without the tick
+    // prices represented in payoffData a hover that lands on a gridline
+    // would snap to the closest uniform sample (~$0.46 off in this default
+    // range) and the tooltip would read e.g. "$Δ: -$20.28" at the -$20
+    // gridline. Including the ticks makes that hover land exactly on -$20.
+    const priceMap = new Map<string, number>();
+    for (let i = 0; i <= 80; i++) {
+      const S = minP + ((maxP - minP) * i) / 80;
+      priceMap.set(S.toFixed(4), S);
+    }
+    for (const t of xTicks) {
+      priceMap.set(t.toFixed(4), t);
+    }
+
+    const prices = Array.from(priceMap.values()).sort((a, b) => a - b);
+    return prices.map((S) => ({
+      price: Number(S.toFixed(2)),
+      pl: Number((evalPL(S) * contracts * 100).toFixed(2)),
+    }));
+  }, [minP, maxP, xTicks, selectedLegs, contracts, spot]);
 
   // Compute breakevens analytically from the piecewise-linear P/L function.
   // The only kink points are the leg strike prices; the function is linear between them,
@@ -359,18 +483,53 @@ export default function OptionsCalculatorPage() {
   const range = maxPL - minPL;
   const zeroOffset = range > 0 ? Math.round((maxPL / range) * 100) : 50;
 
-  const xTicks = useMemo(() => {
-    if (payoffData.length < 2) return [];
-    const minX = payoffData[0].price;
-    const maxX = payoffData[payoffData.length - 1].price;
-    const step = niceStep((maxX - minX) / 7);
-    const start = Math.ceil(minX / step) * step;
-    const ticks: number[] = [];
-    for (let t = start; t <= maxX + step * 0.01; t += step) {
-      ticks.push(Math.round(t * 100) / 100);
-    }
-    return ticks;
-  }, [payoffData]);
+  // The xAxisMode toggle drives only where the ticks LAND (on round %
+  // values or round $ values). renderXTick below renders a two-row stack
+  // — absolute spot price + chosen-unit delta — at each gridline; P/L
+  // moved out of the axis labels so the hover tooltip is the single
+  // source for that.
+
+
+  // Per-tick stacked label: just two rows now — the absolute spot price at
+  // that gridline x on top, and the actual x-axis tick label (chosen unit
+  // only — %Δ in % mode, $Δ in $ mode) underneath. P/L moved out of the
+  // axis labels entirely; the hover tooltip is the place to read it.
+  // Both rows share the same font/size/weight so textAnchor="middle"
+  // produces visually identical centering on the gridline x regardless of
+  // glyph metrics — earlier versions mixed weights and exposed sub-pixel
+  // drift that read as "labels don't line up", most visibly in $ mode where
+  // the bottom "$0" row is much narrower than the spot row above it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderXTick = (props: any) => {
+    const x = Number(props?.x ?? 0);
+    const y = Number(props?.y ?? 0);
+    const price = Number(props?.payload?.value ?? 0);
+    const dollarDelta = spot > 0 ? price - spot : 0;
+    const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
+    const trim = (s: string) => s.replace(/\.?0+$/, '');
+    const axisLabel = (() => {
+      if (spot <= 0) return `$${price.toFixed(2)}`;
+      if (xAxisMode === 'percent') {
+        const sign = pctDelta > 0 ? '+' : '';
+        const txt = Math.abs(pctDelta) < 1 ? trim(pctDelta.toFixed(2)) : trim(pctDelta.toFixed(1));
+        return `${sign}${txt}%`;
+      }
+      const sign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
+      const abs = Math.abs(dollarDelta);
+      const txt = abs >= 1 ? abs.toFixed(0) : trim(abs.toFixed(2));
+      return `${sign}$${txt}`;
+    })();
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} dy={14} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={11}>
+          ${price.toFixed(2)}
+        </text>
+        <text x={0} dy={30} textAnchor="middle" fill="var(--color-text-primary)" fontSize={11}>
+          {axisLabel}
+        </text>
+      </g>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -394,8 +553,13 @@ export default function OptionsCalculatorPage() {
             Contracts
             <input
               className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
-              type="number" min={1} value={contracts}
-              onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={contractsText}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setContractsText(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => setContractsText(String(Math.max(1, Math.floor(Number(contractsText)) || 1)))}
             />
           </label>
           <div className="text-sm text-[var(--color-text-secondary)]">
@@ -405,6 +569,14 @@ export default function OptionsCalculatorPage() {
 
         {chainError && <ErrorMessage message={chainError} />}
 
+        {/* While the option chain is still loading on first paint, render a
+            placeholder instead of empty <select>s with "------C0" tickers and
+            $0.00 quotes — that combination looked broken for the few seconds
+            between mount and the first /api/max-pain/current response. Once
+            chainReady flips true, the leg pickers populate normally and stay
+            populated for subsequent refreshes. */}
+        {chainReady ? (
+          <>
         <div className="space-y-3 mb-5">
           {selectedLegs.map((leg) => {
             const legStrikes = strikeMapByExpiration[leg.expiration] || [];
@@ -455,10 +627,82 @@ export default function OptionsCalculatorPage() {
             ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
           </span>
         </div>
+          </>
+        ) : (
+          <div className="bg-[var(--color-surface-subtle)] rounded p-8 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
+            <LoadingSpinner />
+            <div>Loading option chain for {symbol}…</div>
+          </div>
+        )}
       </div>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-4">
-        <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <h2 className="text-xl font-semibold">Profit / Loss at Expiration</h2>
+          {chainReady && (
+            <div className="flex items-center gap-3 text-xs">
+              {/* x-axis $/% toggle */}
+              <div
+                role="group"
+                aria-label="X-axis units"
+                className="inline-flex rounded border border-[var(--color-border)] overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setXAxisMode('percent')}
+                  aria-pressed={xAxisMode === 'percent'}
+                  className={`px-3 py-1 font-semibold transition-colors ${xAxisMode === 'percent' ? 'bg-[var(--color-brand-primary)] text-[var(--text-inverse)]' : 'bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                >
+                  %
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setXAxisMode('dollar')}
+                  aria-pressed={xAxisMode === 'dollar'}
+                  className={`px-3 py-1 font-semibold transition-colors ${xAxisMode === 'dollar' ? 'bg-[var(--color-brand-primary)] text-[var(--text-inverse)]' : 'bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                >
+                  $
+                </button>
+              </div>
+              {/* zoom controls */}
+              <div className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.max(MIN_ZOOM, z - 1))}
+                  disabled={zoomLevel <= MIN_ZOOM}
+                  aria-label="Zoom out"
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Minus size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(0)}
+                  disabled={zoomLevel === 0}
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  RESET
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.min(MAX_ZOOM, z + 1))}
+                  disabled={zoomLevel >= MAX_ZOOM}
+                  aria-label="Zoom in"
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        {!chainReady ? (
+          <div className="bg-[var(--color-surface-subtle)] rounded p-12 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
+            <LoadingSpinner />
+            <div>Loading payoff curve…</div>
+          </div>
+        ) : (
+        <>
         {hasMultipleExpirations && (
           <p className="text-xs text-[var(--color-warning)]/80 mb-3">
             ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
@@ -466,7 +710,7 @@ export default function OptionsCalculatorPage() {
         )}
         <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={420}>
-          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 10 }}>
+          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 32 }}>
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
@@ -486,10 +730,10 @@ export default function OptionsCalculatorPage() {
               domain={['dataMin', 'dataMax']}
               ticks={xTicks}
               interval={0}
-              tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+              tick={renderXTick}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
-              tickFormatter={(v) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              height={40}
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
@@ -498,7 +742,7 @@ export default function OptionsCalculatorPage() {
               tickFormatter={(v) => fmtDollar(Number(v), 0)}
               width={70}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip spot={spot} />} />
             <ReferenceLine y={0} stroke="var(--color-chart-axis)" strokeWidth={1.5} />
             {spot > 0 && (
               <ReferenceLine
@@ -549,6 +793,8 @@ export default function OptionsCalculatorPage() {
           </AreaChart>
         </ResponsiveContainer>
         </MobileScrollableChart>
+        </>
+        )}
       </div>
     </div>
   );
