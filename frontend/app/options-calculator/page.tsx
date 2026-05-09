@@ -500,11 +500,11 @@ export default function OptionsCalculatorPage() {
     return `${sign}$${abs.toFixed(0)}`;
   };
 
-  // Per-tick stacked label: P/L (color-coded), absolute spot price, %Δ, $Δ.
-  // Replaces the simple single-line tick label so every gridline carries the
-  // full info the hover tooltip would show, lined up at the round-number
-  // increments we picked above. The hover tooltip is still useful for prices
-  // between ticks.
+  // Per-tick stacked label: P/L (color-coded) and spot price stacked on top,
+  // then the actual x-axis tick label at the bottom in whichever unit the
+  // user toggled — %Δ or $Δ — anchored centered on the gridline x so the
+  // bottom row visually IS the x-axis label rather than a separate annotation.
+  // Hover tooltip is unchanged and still useful for prices between ticks.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderXTick = (props: any) => {
     const x = Number(props?.x ?? 0);
@@ -514,21 +514,29 @@ export default function OptionsCalculatorPage() {
     const positive = pl >= 0;
     const dollarDelta = spot > 0 ? price - spot : 0;
     const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
-    const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
-    const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
+    const trim = (s: string) => s.replace(/\.?0+$/, '');
+    const axisLabel = (() => {
+      if (spot <= 0) return `$${price.toFixed(2)}`;
+      if (xAxisMode === 'percent') {
+        const sign = pctDelta > 0 ? '+' : '';
+        const txt = Math.abs(pctDelta) < 1 ? trim(pctDelta.toFixed(2)) : trim(pctDelta.toFixed(1));
+        return `${sign}${txt}%`;
+      }
+      const sign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
+      const abs = Math.abs(dollarDelta);
+      const txt = abs >= 1 ? abs.toFixed(0) : trim(abs.toFixed(2));
+      return `${sign}$${txt}`;
+    })();
     return (
       <g transform={`translate(${x},${y})`}>
-        <text dy={12} textAnchor="middle" fill={positive ? 'var(--color-positive)' : 'var(--color-negative)'} fontSize={10} fontWeight={700}>
+        <text x={0} dy={12} textAnchor="middle" fill={positive ? 'var(--color-positive)' : 'var(--color-negative)'} fontSize={10} fontWeight={700}>
           {fmtCompactDollar(pl)}
         </text>
-        <text dy={26} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
+        <text x={0} dy={26} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
           ${price.toFixed(2)}
         </text>
-        <text dy={40} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
-          {pctSign}{pctDelta.toFixed(2)}%
-        </text>
-        <text dy={54} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={10}>
-          {dollarSign}${Math.abs(dollarDelta).toFixed(2)}
+        <text x={0} dy={42} textAnchor="middle" fill="var(--color-text-primary)" fontSize={11} fontWeight={600}>
+          {axisLabel}
         </text>
       </g>
     );
@@ -713,7 +721,7 @@ export default function OptionsCalculatorPage() {
         )}
         <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={420}>
-          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 60 }}>
+          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 48 }}>
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
@@ -736,7 +744,7 @@ export default function OptionsCalculatorPage() {
               tick={renderXTick}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
-              height={64}
+              height={52}
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
