@@ -5,11 +5,23 @@ import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import { Minus, Plus } from 'lucide-react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
+
+type XAxisMode = 'percent' | 'dollar';
+
+// Default visible range is ±5% of spot. Each zoom level shrinks/grows by 25%
+// on the x-axis (and lets the y-axis auto-fit to the visible data, so the
+// effective y-range tracks). Cap zoom so we don't accidentally render an
+// empty range or pull a worthless 100%-wide curve.
+const BASE_X_RANGE_PCT = 0.05;
+const ZOOM_STEP = 0.75;
+const MIN_ZOOM = -4; // 0.05 * 0.75^-4 ≈ 0.158, so ±15.8% spot
+const MAX_ZOOM = 8;  // 0.05 * 0.75^8  ≈ 0.005, so ±0.5% spot
 
 type LegRole = 'long' | 'short';
 type OptionRight = 'call' | 'put' | 'stock';
@@ -112,6 +124,7 @@ function fmtDollar(v: number, decimals = 2): string {
 }
 
 function niceStep(rawStep: number): number {
+  if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
   const n = rawStep / mag;
   if (n < 1.5) return mag;
@@ -121,7 +134,12 @@ function niceStep(rawStep: number): number {
 }
 
 interface TooltipPayloadItem { value: number }
-interface TooltipProps { active?: boolean; payload?: TooltipPayloadItem[]; label?: number }
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: number;
+  spot?: number;
+}
 
 // Returns the smart default expiration for a leg.
 // Legs whose label contains "(far…)" get the 2nd available expiration (calendar/diagonal spreads).
@@ -157,17 +175,28 @@ function smartDefaultStrike(label: string, right: OptionRight, strikes: number[]
   return atm();
 }
 
-function CustomTooltip({ active, payload, label }: TooltipProps) {
+function CustomTooltip({ active, payload, label, spot = 0 }: TooltipProps) {
   if (!active || !payload?.[0]) return null;
   const pl = payload[0].value;
   const positive = pl >= 0;
+  const price = Number(label);
+  const dollarDelta = spot > 0 ? price - spot : 0;
+  const pctDelta = spot > 0 ? ((price - spot) / spot) * 100 : 0;
+  const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
+  const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '8px 14px', minWidth: 140 }}>
-      <div style={{ color: 'var(--color-chart-tooltip-muted)', fontSize: 11, marginBottom: 4 }}>
-        Underlying: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>${Number(label).toFixed(2)}</span>
-      </div>
-      <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
+      <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', marginBottom: 6 }}>
         {positive ? '+' : ''}{fmtDollar(pl)}
+      </div>
+      <div style={{ color: 'var(--color-chart-tooltip-muted)', fontSize: 11, lineHeight: 1.6 }}>
+        <div>Spot: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>${price.toFixed(2)}</span></div>
+        {spot > 0 && (
+          <>
+            <div>%Δ: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>{pctSign}{pctDelta.toFixed(2)}%</span></div>
+            <div>$Δ: <span style={{ color: 'var(--color-chart-tooltip-text)' }}>{dollarSign}${Math.abs(dollarDelta).toFixed(2)}</span></div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -183,6 +212,12 @@ export default function OptionsCalculatorPage() {
   const contracts = Math.max(1, Math.floor(Number(contractsText)) || 1);
   const [legExpiration, setLegExpiration] = useState<Record<string, string>>({});
   const [legStrike, setLegStrike] = useState<Record<string, string>>({});
+  // Chart view controls (Phase 2). zoomLevel is an integer; positive = zoomed
+  // in, negative = zoomed out. Each step shrinks/grows the visible price
+  // range by 25%. xAxisMode toggles whether ticks render as %Δ or $Δ from
+  // current spot — the data itself is always indexed by absolute price.
+  const [zoomLevel, setZoomLevel] = useState(0);
+  const [xAxisMode, setXAxisMode] = useState<XAxisMode>('percent');
 
   const handleStrategyChange = (next: StrategyType) => {
     setStrategy(next);
@@ -293,10 +328,20 @@ export default function OptionsCalculatorPage() {
     return sum + signed * leg.quotePerContract * contracts * 100 * qty;
   }, 0);
 
+  // Visible x-range as a fraction of spot. zoomLevel = 0 means default
+  // ±5%; +1 narrows to ±3.75% (25% smaller); -1 widens to ±6.67%, etc.
+  // We let the y-axis auto-fit to whatever portion of the curve is visible
+  // at the current x-range — this is what "y range tracks the visible
+  // data" feels like in practice.
+  const xRangePct = useMemo(
+    () => BASE_X_RANGE_PCT * Math.pow(ZOOM_STEP, zoomLevel),
+    [zoomLevel],
+  );
+
   const payoffData = useMemo(() => {
     const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
-    const minP = Math.max(1, center * 0.95);
-    const maxP = center * 1.05;
+    const minP = Math.max(1, center * (1 - xRangePct));
+    const maxP = center * (1 + xRangePct);
     return Array.from({ length: 81 }).map((_, i) => {
       const S = minP + ((maxP - minP) * i) / 80;
       const oneContractPL = selectedLegs.reduce((sum, leg) => {
@@ -314,7 +359,7 @@ export default function OptionsCalculatorPage() {
       }, 0);
       return { price: Number(S.toFixed(2)), pl: Number((oneContractPL * contracts * 100).toFixed(2)) };
     });
-  }, [spot, selectedLegs, contracts]);
+  }, [spot, selectedLegs, contracts, xRangePct]);
 
   // Compute breakevens analytically from the piecewise-linear P/L function.
   // The only kink points are the leg strike prices; the function is linear between them,
@@ -370,18 +415,63 @@ export default function OptionsCalculatorPage() {
   const range = maxPL - minPL;
   const zeroOffset = range > 0 ? Math.round((maxPL / range) * 100) : 50;
 
+  // Tick positions are always actual prices (the chart's dataKey is `price`),
+  // but the spacing/rounding is computed in the chosen display unit so the
+  // labels themselves come out as nice round numbers — e.g. "+1.0%" / "-1.0%"
+  // in percent mode, or "+$5" / "-$5" in dollar mode — and the spacing
+  // tightens automatically as the user zooms in.
   const xTicks = useMemo(() => {
-    if (payoffData.length < 2) return [];
+    if (payoffData.length < 2 || spot <= 0) return [] as number[];
     const minX = payoffData[0].price;
     const maxX = payoffData[payoffData.length - 1].price;
-    const step = niceStep((maxX - minX) / 7);
-    const start = Math.ceil(minX / step) * step;
+
+    if (xAxisMode === 'percent') {
+      const minPct = ((minX - spot) / spot) * 100;
+      const maxPct = ((maxX - spot) / spot) * 100;
+      const step = niceStep((maxPct - minPct) / 7);
+      const start = Math.ceil(minPct / step) * step;
+      const ticks: number[] = [];
+      for (let pct = start; pct <= maxPct + step * 0.01; pct += step) {
+        const price = spot * (1 + pct / 100);
+        if (price >= minX && price <= maxX) ticks.push(Number(price.toFixed(4)));
+      }
+      return ticks;
+    }
+
+    const minDelta = minX - spot;
+    const maxDelta = maxX - spot;
+    const step = niceStep((maxDelta - minDelta) / 7);
+    const start = Math.ceil(minDelta / step) * step;
     const ticks: number[] = [];
-    for (let t = start; t <= maxX + step * 0.01; t += step) {
-      ticks.push(Math.round(t * 100) / 100);
+    for (let d = start; d <= maxDelta + step * 0.01; d += step) {
+      const price = spot + d;
+      if (price >= minX && price <= maxX) ticks.push(Number(price.toFixed(4)));
     }
     return ticks;
-  }, [payoffData]);
+  }, [payoffData, spot, xAxisMode]);
+
+  const xTickFormatter = useMemo(
+    () => (price: number) => {
+      if (spot <= 0) return `$${Number(price).toFixed(2)}`;
+      if (xAxisMode === 'percent') {
+        const pct = ((price - spot) / spot) * 100;
+        const sign = pct > 0 ? '+' : '';
+        // Trim trailing zeros so 1.000% renders as 1%, but 1.5% stays as 1.5%.
+        const txt = Math.abs(pct) < 1
+          ? pct.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+          : pct.toFixed(1).replace(/\.0$/, '');
+        return `${sign}${txt}%`;
+      }
+      const delta = price - spot;
+      const sign = delta > 0 ? '+' : delta < 0 ? '-' : '';
+      const abs = Math.abs(delta);
+      const txt = abs >= 1
+        ? abs.toFixed(0)
+        : abs.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+      return `${sign}$${txt}`;
+    },
+    [spot, xAxisMode],
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -489,7 +579,65 @@ export default function OptionsCalculatorPage() {
       </div>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-4">
-        <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <h2 className="text-xl font-semibold">Profit / Loss at Expiration</h2>
+          {chainReady && (
+            <div className="flex items-center gap-3 text-xs">
+              {/* x-axis $/% toggle */}
+              <div
+                role="group"
+                aria-label="X-axis units"
+                className="inline-flex rounded border border-[var(--color-border)] overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setXAxisMode('percent')}
+                  aria-pressed={xAxisMode === 'percent'}
+                  className={`px-3 py-1 font-semibold transition-colors ${xAxisMode === 'percent' ? 'bg-[var(--color-brand-primary)] text-[var(--text-inverse)]' : 'bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                >
+                  %
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setXAxisMode('dollar')}
+                  aria-pressed={xAxisMode === 'dollar'}
+                  className={`px-3 py-1 font-semibold transition-colors ${xAxisMode === 'dollar' ? 'bg-[var(--color-brand-primary)] text-[var(--text-inverse)]' : 'bg-[var(--color-surface-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                >
+                  $
+                </button>
+              </div>
+              {/* zoom controls */}
+              <div className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.max(MIN_ZOOM, z - 1))}
+                  disabled={zoomLevel <= MIN_ZOOM}
+                  aria-label="Zoom out"
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Minus size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(0)}
+                  disabled={zoomLevel === 0}
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  RESET
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel((z) => Math.min(MAX_ZOOM, z + 1))}
+                  disabled={zoomLevel >= MAX_ZOOM}
+                  aria-label="Zoom in"
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         {!chainReady ? (
           <div className="bg-[var(--color-surface-subtle)] rounded p-12 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
             <LoadingSpinner />
@@ -527,7 +675,7 @@ export default function OptionsCalculatorPage() {
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
-              tickFormatter={(v) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              tickFormatter={xTickFormatter}
             />
             <YAxis
               tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
@@ -536,7 +684,7 @@ export default function OptionsCalculatorPage() {
               tickFormatter={(v) => fmtDollar(Number(v), 0)}
               width={70}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip spot={spot} />} />
             <ReferenceLine y={0} stroke="var(--color-chart-axis)" strokeWidth={1.5} />
             {spot > 0 && (
               <ReferenceLine
