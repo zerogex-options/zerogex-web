@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user clean deploy logo
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  make users      - Print auth users + entitlements"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
+	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -85,6 +86,12 @@ users:
 all-to-pro:
 	@echo "Promoting basic -> pro ..."
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/update-user-tier.mjs --all-from basic --tier pro $(if $(DRY_RUN),--dry-run,)'
+
+# Delete a user (and cascade sessions/identities, clean audit_events).
+# Usage: make delete-user EMAIL=foo@example.com [DRY_RUN=1] [YES=1]
+delete-user:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make delete-user EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/delete-user.mjs --email $(EMAIL) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Clean build artifacts
 clean:
