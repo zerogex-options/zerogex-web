@@ -9,19 +9,16 @@ import { Minus, Plus } from 'lucide-react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
+import {
+  buildOptionChainUrl,
+  getCachedOptionChain,
+  setCachedOptionChain,
+  type MaxPainCurrentResponse,
+} from '@/core/optionChainCache';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 type XAxisMode = 'percent' | 'dollar';
-
-// Module-scope cache for the option chain so navigating away and coming back
-// to /options-calculator inside the same tab session is instant. useApiData
-// resets its internal state on every mount, which means a cold remount used
-// to show the loading spinner for ~the entire chain fetch (1-3s on this
-// payload size) every time. Hydrating from this cache lets the page paint
-// the leg pickers and payoff curve immediately while the background poll
-// refreshes them.
-const maxPainCache = new Map<string, MaxPainCurrentResponse>();
 
 // Default visible range is ±5% of spot. Each zoom level shrinks/grows by 25%
 // on the x-axis (and lets the y-axis auto-fit to the visible data, so the
@@ -55,18 +52,8 @@ interface OptionQuote {
   open_interest?: number | null;
 }
 
-interface MaxPainPoint {
-  settlement_price: number;
-}
-
-interface MaxPainExpiration {
-  expiration: string;
-  strikes: MaxPainPoint[];
-}
-
-interface MaxPainCurrentResponse {
-  expirations: MaxPainExpiration[];
-}
+// MaxPainCurrentResponse + related types now live in core/optionChainCache
+// alongside the module-scope cache and the prewarm helper.
 
 // Helper for concise strategy leg definition
 const L = (id: string, role: LegRole, right: OptionRight, label: string, qty?: number): StrategyLegTemplate =>
@@ -235,21 +222,25 @@ export default function OptionsCalculatorPage() {
   };
 
   const { data: quoteData } = useMarketQuote(symbol, 3000);
+  // useApiData wants a path-relative endpoint so it can prepend NEXT_PUBLIC_API_URL,
+  // but buildOptionChainUrl in optionChainCache.ts gives us the full absolute URL
+  // (the prewarm uses it directly with fetch()). Strip the base back off here so
+  // both code paths stay in sync on strike_limit / symbol encoding.
+  const fullChainUrl = buildOptionChainUrl(symbol);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const chainEndpoint = fullChainUrl.startsWith(apiBase) ? fullChainUrl.slice(apiBase.length) : fullChainUrl;
   const {
     data: maxPainDataRaw,
     error: chainError,
-  } = useApiData<MaxPainCurrentResponse>(
-    `/api/max-pain/current?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&strike_limit=500`,
-    { refreshInterval: 30000 }
-  );
+  } = useApiData<MaxPainCurrentResponse>(chainEndpoint, { refreshInterval: 30000 });
 
-  // Hydrate from the module-scope cache while waiting for the first fetch
-  // to come back, and write fresh responses back to the cache so later
-  // visits (or symbol toggles back to a previously-loaded ticker) skip the
-  // loading state entirely.
-  const maxPainData = maxPainDataRaw ?? maxPainCache.get(symbol) ?? null;
+  // Hydrate from the shared module-scope cache (also written to by
+  // OptionChainPrewarm at app boot) while waiting for the live fetch. Fresh
+  // responses go straight back into the cache so symbol toggles and
+  // navigation revisits skip the loading state entirely.
+  const maxPainData = maxPainDataRaw ?? getCachedOptionChain(symbol);
   useEffect(() => {
-    if (maxPainDataRaw) maxPainCache.set(symbol, maxPainDataRaw);
+    if (maxPainDataRaw) setCachedOptionChain(symbol, maxPainDataRaw);
   }, [maxPainDataRaw, symbol]);
 
   const strategyConfig = STRATEGIES[strategy];
