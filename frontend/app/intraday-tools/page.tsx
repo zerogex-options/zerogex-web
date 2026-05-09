@@ -50,8 +50,20 @@ function getDynamicStep(min: number, max: number): number {
 }
 
 function safeNum(value: unknown): number | null {
+  // Treat null/undefined/empty as missing — Number(null) === 0 silently turns
+  // "no data yet" bars (e.g. ORB before market open) into a real 0, which then
+  // collapses chart domains down to zero.
+  if (value == null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function trimEdgeTicks(ticks: number[]): number[] {
+  // Drop the first and last tick so the topmost/bottommost labels aren't
+  // rendered right at the chart edge (where they'd overlap the axis line or
+  // spill beyond the chart frame).
+  if (ticks.length <= 2) return ticks;
+  return ticks.slice(1, -1);
 }
 
 function fmtFixed(value: unknown, digits = 2): string {
@@ -121,7 +133,7 @@ export default function IntradayToolsPage() {
       if (row.vwap != null) values.push(row.vwap);
     }
     if (values.length === 0) return [] as number[];
-    return generateNiceTicks(Math.min(...values), Math.max(...values));
+    return trimEdgeTicks(generateNiceTicks(Math.min(...values), Math.max(...values)));
   }, [vwapChart]);
 
   const orbChart = useMemo(() => {
@@ -150,7 +162,7 @@ export default function IntradayToolsPage() {
 
   const orbPriceTicks = useMemo(() => {
     if (!orbDomain) return [] as number[];
-    return generateNiceTicks(orbDomain[0], orbDomain[1]);
+    return trimEdgeTicks(generateNiceTicks(orbDomain[0], orbDomain[1]));
   }, [orbDomain]);
 
   const volumeSpikesChart = useMemo(() => {
@@ -180,16 +192,16 @@ export default function IntradayToolsPage() {
     [volumeSpikesChart],
   );
 
-  const volumeSpikeVolumeTicks = useMemo(() => {
+  const volumeSpikeVolumeAxis = useMemo(() => {
     const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
-    if (max <= 0) return [0];
+    if (max <= 0) return { ticks: [0], domain: [0, 0] as [number, number] };
     const step = getDynamicStep(0, max);
     const top = Math.ceil(max / step) * step;
     const ticks: number[] = [];
     for (let t = 0; t <= top + step / 2 && ticks.length < 24; t += step) {
       ticks.push(Number(t.toPrecision(12)));
     }
-    return ticks;
+    return { ticks: trimEdgeTicks(ticks), domain: [0, top] as [number, number] };
   }, [volumeSpikesChart]);
 
   const volumeSpikeLabelStepMin = useMemo(() => {
@@ -486,7 +498,7 @@ export default function IntradayToolsPage() {
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={volumeSpikesChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
                   <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} domain={volumeSpikeVolumeTicks.length ? [volumeSpikeVolumeTicks[0], volumeSpikeVolumeTicks[volumeSpikeVolumeTicks.length - 1]] : [0, 'auto']} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeAxis.ticks} domain={volumeSpikeVolumeAxis.domain} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
                     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
