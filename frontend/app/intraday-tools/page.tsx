@@ -103,14 +103,37 @@ export default function IntradayToolsPage() {
   const hasOrb = orbLatest != null && safeNum(orbLatest.orb_high) != null && safeNum(orbLatest.orb_low) != null;
 
   const vwapChart = useMemo(() => {
+    // Per-bar deviation bands. Each band fills the full channel (vwap↔price)
+    // whenever |dev| crosses its threshold; rendering the four bands as stacked
+    // Areas means bars further from VWAP accumulate more layers and end up
+    // visibly brighter than bars hugging VWAP.
+    const TIERS = [0, 0.0005, 0.0015, 0.003] as const; // 0%, 0.05%, 0.15%, 0.30%
     return bars.map((bar) => {
       const price = safeNum(bar.close);
       const v = safeNum(bar.vwap_deviation?.vwap);
       const hasBoth = price != null && v != null;
-      const channelAbove: [number, number] | null = hasBoth && price >= v ? [v, price] : null;
-      const channelBelow: [number, number] | null = hasBoth && price < v ? [price, v] : null;
+      const ratio = hasBoth && v !== 0 ? Math.abs((price - v) / v) : 0;
       const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
-      return { timestamp: bar.timestamp, price, vwap: v, channelAbove, channelBelow, deviationPct };
+      const isAbove = hasBoth && price >= v;
+      const isBelow = hasBoth && price < v;
+      const above = (tier: number): [number, number] | null =>
+        isAbove && ratio >= tier ? [v as number, price as number] : null;
+      const below = (tier: number): [number, number] | null =>
+        isBelow && ratio >= tier ? [price as number, v as number] : null;
+      return {
+        timestamp: bar.timestamp,
+        price,
+        vwap: v,
+        deviationPct,
+        channelAbove1: above(TIERS[0]),
+        channelAbove2: above(TIERS[1]),
+        channelAbove3: above(TIERS[2]),
+        channelAbove4: above(TIERS[3]),
+        channelBelow1: below(TIERS[0]),
+        channelBelow2: below(TIERS[1]),
+        channelBelow3: below(TIERS[2]),
+        channelBelow4: below(TIERS[3]),
+      };
     });
   }, [bars]);
 
@@ -134,19 +157,24 @@ export default function IntradayToolsPage() {
     });
   }, [bars]);
 
-  const orbPriceTicks = useMemo(() => {
+  const orbDomain = useMemo<[number, number] | null>(() => {
     const values: number[] = [];
     for (const row of orbChart) {
       if (row.price != null) values.push(row.price);
       if (row.orbHigh != null) values.push(row.orbHigh);
       if (row.orbLow != null) values.push(row.orbLow);
     }
-    if (values.length === 0) return [] as number[];
+    if (values.length === 0) return null;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const padding = max > min ? (max - min) * 0.1 : 0;
-    return generateNiceTicks(min - padding, max + padding);
+    const padding = max > min ? (max - min) * 0.15 : Math.max(0.5, max * 0.001);
+    return [min - padding, max + padding];
   }, [orbChart]);
+
+  const orbPriceTicks = useMemo(() => {
+    if (!orbDomain) return [] as number[];
+    return generateNiceTicks(orbDomain[0], orbDomain[1]);
+  }, [orbDomain]);
 
   const volumeSpikesChart = useMemo(() => {
     return bars.map((bar) => {
@@ -286,13 +314,37 @@ export default function IntradayToolsPage() {
                   <ResponsiveContainer width="100%" height={320}>
                     <ComposedChart data={vwapChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                       <defs>
-                        <linearGradient id="vwapAboveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="vwapAbove1Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.30} />
+                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="vwapAbove2Grad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.45} />
+                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="vwapAbove3Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.65} />
                           <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.05} />
                         </linearGradient>
-                        <linearGradient id="vwapBelowGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.05} />
+                        <linearGradient id="vwapAbove4Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.15} />
+                        </linearGradient>
+                        <linearGradient id="vwapBelow1Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.0} />
+                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.30} />
+                        </linearGradient>
+                        <linearGradient id="vwapBelow2Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.0} />
                           <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.45} />
+                        </linearGradient>
+                        <linearGradient id="vwapBelow3Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.05} />
+                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.65} />
+                        </linearGradient>
+                        <linearGradient id="vwapBelow4Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.15} />
+                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.95} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
@@ -315,8 +367,14 @@ export default function IntradayToolsPage() {
                           );
                         }}
                       />
-                      <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelAbove1" stroke="none" fill="url(#vwapAbove1Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelAbove2" stroke="none" fill="url(#vwapAbove2Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelAbove3" stroke="none" fill="url(#vwapAbove3Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelAbove4" stroke="none" fill="url(#vwapAbove4Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow1" stroke="none" fill="url(#vwapBelow1Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow2" stroke="none" fill="url(#vwapBelow2Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow3" stroke="none" fill="url(#vwapBelow3Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
+                      <Area dataKey="channelBelow4" stroke="none" fill="url(#vwapBelow4Grad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
                       <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                     </ComposedChart>
@@ -406,12 +464,12 @@ export default function IntradayToolsPage() {
                     <ComposedChart data={orbChart} margin={{ top: 8, right: 56, left: 0, bottom: 8 }}>
                       <defs>
                         <linearGradient id="orbZoneGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.32} />
-                          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0.08} />
+                          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.42} />
+                          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0.18} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} />
                       <Tooltip
                         cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
@@ -439,9 +497,9 @@ export default function IntradayToolsPage() {
                         }}
                       />
                       <Area type="stepAfter" dataKey="orbBand" stroke="none" fill="url(#orbZoneGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
                       {orbLatest?.orb_high != null ? (
                         <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
                       ) : null}
@@ -520,10 +578,11 @@ export default function IntradayToolsPage() {
                   />
                   <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={14} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
-                      const sigma = row.volumeSigma ?? 0;
-                      const fill = sigma >= 4 ? 'var(--color-bear)' : sigma >= 3 ? 'var(--color-warning)' : sigma >= 2 ? 'var(--color-positive)' : 'var(--color-text-secondary)';
-                      const opacity = row.volumeRaw == null ? 0 : 0.95;
-                      return <Cell key={`vol-cell-${idx}`} fill={fill} fillOpacity={opacity} />;
+                      // Monochrome brand fill (#bc5090) with brightness scaling by sigma:
+                      // tiny spikes are softly tinted, extreme spikes (sigma >= 5) saturate.
+                      const sigma = Math.max(0, row.volumeSigma ?? 0);
+                      const opacity = row.volumeRaw == null ? 0 : Math.min(1, 0.35 + (sigma / 5) * 0.65);
+                      return <Cell key={`vol-cell-${idx}`} fill="#bc5090" fillOpacity={opacity} />;
                     })}
                   </Bar>
                   <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
