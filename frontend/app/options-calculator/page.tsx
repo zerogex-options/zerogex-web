@@ -350,13 +350,49 @@ export default function OptionsCalculatorPage() {
     [zoomLevel],
   );
 
+  // Visible price range — derived from spot and zoom only, so xTicks can be
+  // computed without taking a circular dependency on payoffData (which now
+  // wants the tick prices baked in).
+  const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
+  const minP = Math.max(1, center * (1 - xRangePct));
+  const maxP = center * (1 + xRangePct);
+
+  // Tick positions are always actual prices (the chart's dataKey is `price`),
+  // but the spacing/rounding is computed in the chosen display unit so the
+  // labels themselves come out as nice round numbers — e.g. "+1.0%" / "-1.0%"
+  // in percent mode, or "+$5" / "-$5" in dollar mode — and the spacing
+  // tightens automatically as the user zooms in.
+  const xTicks = useMemo(() => {
+    if (spot <= 0) return [] as number[];
+
+    if (xAxisMode === 'percent') {
+      const minPct = ((minP - spot) / spot) * 100;
+      const maxPct = ((maxP - spot) / spot) * 100;
+      const step = niceStep((maxPct - minPct) / 7);
+      const start = Math.ceil(minPct / step) * step;
+      const ticks: number[] = [];
+      for (let pct = start; pct <= maxPct + step * 0.01; pct += step) {
+        const price = spot * (1 + pct / 100);
+        if (price >= minP && price <= maxP) ticks.push(Number(price.toFixed(4)));
+      }
+      return ticks;
+    }
+
+    const minDelta = minP - spot;
+    const maxDelta = maxP - spot;
+    const step = niceStep((maxDelta - minDelta) / 7);
+    const start = Math.ceil(minDelta / step) * step;
+    const ticks: number[] = [];
+    for (let d = start; d <= maxDelta + step * 0.01; d += step) {
+      const price = spot + d;
+      if (price >= minP && price <= maxP) ticks.push(Number(price.toFixed(4)));
+    }
+    return ticks;
+  }, [minP, maxP, spot, xAxisMode]);
+
   const payoffData = useMemo(() => {
-    const center = spot || selectedLegs.find((l) => l.strike > 0)?.strike || 500;
-    const minP = Math.max(1, center * (1 - xRangePct));
-    const maxP = center * (1 + xRangePct);
-    return Array.from({ length: 81 }).map((_, i) => {
-      const S = minP + ((maxP - minP) * i) / 80;
-      const oneContractPL = selectedLegs.reduce((sum, leg) => {
+    const evalPL = (S: number) => {
+      return selectedLegs.reduce((sum, leg) => {
         const qty = leg.qty ?? 1;
         let intrinsic: number;
         if (leg.right === 'stock') {
@@ -369,9 +405,29 @@ export default function OptionsCalculatorPage() {
         const legPL = leg.role === 'long' ? intrinsic - leg.quotePerContract : leg.quotePerContract - intrinsic;
         return sum + legPL * qty;
       }, 0);
-      return { price: Number(S.toFixed(2)), pl: Number((oneContractPL * contracts * 100).toFixed(2)) };
-    });
-  }, [spot, selectedLegs, contracts, xRangePct]);
+    };
+
+    // 81 uniform samples between minP and maxP, plus the exact tick prices.
+    // Recharts' Tooltip snaps to the nearest data point, so without the tick
+    // prices represented in payoffData a hover that lands on a gridline
+    // would snap to the closest uniform sample (~$0.46 off in this default
+    // range) and the tooltip would read e.g. "$Δ: -$20.28" at the -$20
+    // gridline. Including the ticks makes that hover land exactly on -$20.
+    const priceMap = new Map<string, number>();
+    for (let i = 0; i <= 80; i++) {
+      const S = minP + ((maxP - minP) * i) / 80;
+      priceMap.set(S.toFixed(4), S);
+    }
+    for (const t of xTicks) {
+      priceMap.set(t.toFixed(4), t);
+    }
+
+    const prices = Array.from(priceMap.values()).sort((a, b) => a - b);
+    return prices.map((S) => ({
+      price: Number(S.toFixed(2)),
+      pl: Number((evalPL(S) * contracts * 100).toFixed(2)),
+    }));
+  }, [minP, maxP, xTicks, selectedLegs, contracts, spot]);
 
   // Compute breakevens analytically from the piecewise-linear P/L function.
   // The only kink points are the leg strike prices; the function is linear between them,
@@ -426,41 +482,6 @@ export default function OptionsCalculatorPage() {
   const minPL = Math.min(...plValues, 0);
   const range = maxPL - minPL;
   const zeroOffset = range > 0 ? Math.round((maxPL / range) * 100) : 50;
-
-  // Tick positions are always actual prices (the chart's dataKey is `price`),
-  // but the spacing/rounding is computed in the chosen display unit so the
-  // labels themselves come out as nice round numbers — e.g. "+1.0%" / "-1.0%"
-  // in percent mode, or "+$5" / "-$5" in dollar mode — and the spacing
-  // tightens automatically as the user zooms in.
-  const xTicks = useMemo(() => {
-    if (payoffData.length < 2 || spot <= 0) return [] as number[];
-    const minX = payoffData[0].price;
-    const maxX = payoffData[payoffData.length - 1].price;
-
-    if (xAxisMode === 'percent') {
-      const minPct = ((minX - spot) / spot) * 100;
-      const maxPct = ((maxX - spot) / spot) * 100;
-      const step = niceStep((maxPct - minPct) / 7);
-      const start = Math.ceil(minPct / step) * step;
-      const ticks: number[] = [];
-      for (let pct = start; pct <= maxPct + step * 0.01; pct += step) {
-        const price = spot * (1 + pct / 100);
-        if (price >= minX && price <= maxX) ticks.push(Number(price.toFixed(4)));
-      }
-      return ticks;
-    }
-
-    const minDelta = minX - spot;
-    const maxDelta = maxX - spot;
-    const step = niceStep((maxDelta - minDelta) / 7);
-    const start = Math.ceil(minDelta / step) * step;
-    const ticks: number[] = [];
-    for (let d = start; d <= maxDelta + step * 0.01; d += step) {
-      const price = spot + d;
-      if (price >= minX && price <= maxX) ticks.push(Number(price.toFixed(4)));
-    }
-    return ticks;
-  }, [payoffData, spot, xAxisMode]);
 
   // The xAxisMode toggle drives only where the ticks LAND (on round %
   // values or round $ values). renderXTick below renders a two-row stack
