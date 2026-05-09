@@ -9,6 +9,7 @@ import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import ErrorMessage from '@/components/ErrorMessage';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type LegRole = 'long' | 'short';
 type OptionRight = 'call' | 'put' | 'stock';
@@ -175,7 +176,11 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
 export default function OptionsCalculatorPage() {
   const { symbol } = useTimeframe();
   const [strategy, setStrategy] = useState<StrategyType>('long_put');
-  const [contracts, setContracts] = useState(1);
+  // contracts is held as a string so the input can transiently be empty
+  // while the user is editing — clamping to 1 on every keystroke
+  // prevents mobile users from clearing the field to overwrite the value.
+  const [contractsText, setContractsText] = useState('1');
+  const contracts = Math.max(1, Math.floor(Number(contractsText)) || 1);
   const [legExpiration, setLegExpiration] = useState<Record<string, string>>({});
   const [legStrike, setLegStrike] = useState<Record<string, string>>({});
 
@@ -205,6 +210,12 @@ export default function OptionsCalculatorPage() {
         .sort((a, b) => a.localeCompare(b)),
     [maxPainData, today]
   );
+
+  // The chain is "ready" once we've actually populated the expiration list.
+  // chainLoading flips false the moment useApiData resolves, but if the
+  // payload is empty we still want to keep the placeholder up rather than
+  // expose blank dropdowns.
+  const chainReady = expirationChoices.length > 0;
 
   const strikeMapByExpiration = useMemo(() => {
     const out: Record<string, number[]> = {};
@@ -394,8 +405,13 @@ export default function OptionsCalculatorPage() {
             Contracts
             <input
               className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
-              type="number" min={1} value={contracts}
-              onChange={(e) => setContracts(Math.max(1, Number(e.target.value || 1)))}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={contractsText}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setContractsText(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => setContractsText(String(Math.max(1, Math.floor(Number(contractsText)) || 1)))}
             />
           </label>
           <div className="text-sm text-[var(--color-text-secondary)]">
@@ -405,6 +421,14 @@ export default function OptionsCalculatorPage() {
 
         {chainError && <ErrorMessage message={chainError} />}
 
+        {/* While the option chain is still loading on first paint, render a
+            placeholder instead of empty <select>s with "------C0" tickers and
+            $0.00 quotes — that combination looked broken for the few seconds
+            between mount and the first /api/max-pain/current response. Once
+            chainReady flips true, the leg pickers populate normally and stay
+            populated for subsequent refreshes. */}
+        {chainReady ? (
+          <>
         <div className="space-y-3 mb-5">
           {selectedLegs.map((leg) => {
             const legStrikes = strikeMapByExpiration[leg.expiration] || [];
@@ -455,10 +479,24 @@ export default function OptionsCalculatorPage() {
             ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
           </span>
         </div>
+          </>
+        ) : (
+          <div className="bg-[var(--color-surface-subtle)] rounded p-8 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
+            <LoadingSpinner />
+            <div>Loading option chain for {symbol}…</div>
+          </div>
+        )}
       </div>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-4">
         <h2 className="text-xl font-semibold mb-3">Profit / Loss at Expiration</h2>
+        {!chainReady ? (
+          <div className="bg-[var(--color-surface-subtle)] rounded p-12 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
+            <LoadingSpinner />
+            <div>Loading payoff curve…</div>
+          </div>
+        ) : (
+        <>
         {hasMultipleExpirations && (
           <p className="text-xs text-[var(--color-warning)]/80 mb-3">
             ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
@@ -549,6 +587,8 @@ export default function OptionsCalculatorPage() {
           </AreaChart>
         </ResponsiveContainer>
         </MobileScrollableChart>
+        </>
+        )}
       </div>
     </div>
   );
