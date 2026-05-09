@@ -1,129 +1,25 @@
 /**
  * Intraday Trading Tools Page
  * VWAP, ORB, Volume Spikes, Momentum Divergence, etc.
+ *
+ * All cards and charts on this page are powered by the unified
+ * `/api/technicals` endpoint via the `useTechnicals` hook.
  */
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useApiData } from '@/hooks/useApiData';
-import { useMarketHistorical } from '@/hooks/useMarketHistorical';
-import { useVwapSnapshot, useOrbSnapshot } from '@/hooks/useTechnicalSnapshot';
-import {
-  useFlowByContractCache,
-  buildUnderlyingPriceMap,
-  latestRowDateKey,
-  type FlowByContractPoint,
-} from '@/hooks/useFlowByContract';
+import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import { omitClosedMarketTimes, normalizeToMinute, isIndexSymbol } from '@/core/utils';
+import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-
-interface VolumeSpikeRow {
-  time_et: string;
-  timestamp?: string;
-  price?: number;
-  current_volume: number;
-  avg_volume?: number;
-  volume_ratio: number;
-  volume_sigma: number;
-  buying_pressure_pct?: number;
-  volume_class: string;
-}
-
-interface DivergenceRow {
-  time_et?: string;
-  timestamp?: string;
-  time?: string;
-  time_window_end?: string;
-  divergence_signal?: string;
-  signal?: string;
-  divergence_type?: string;
-  price?: number;
-}
-
-interface SmartMoneyRow {
-  timestamp?: string;
-  symbol: string;
-  contract: string;
-  strike: number;
-  expiration: string;
-  dte: number;
-  option_type: string;
-  flow: number;
-  notional: number;
-  delta?: number | null;
-  score?: number | null;
-  notional_class: string;
-  size_class: string;
-  underlying_price?: number | null;
-  time_window_start?: string;
-  time_window_end?: string;
-  interval_timestamp?: string | null;
-}
-
-interface NormalizedSmartMoneyRow extends SmartMoneyRow {
-  rowKey: string;
-  minuteTimestamp: string | null;
-  effectiveTimestamp: string | null;
-  notionalM: number;
-}
-
-type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
-
-const CLASS_RANKING = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge', 'whale', 'blockbuster'];
-
-function classRank(value: string): number {
-  const normalized = (value || '').toLowerCase();
-  const idx = CLASS_RANKING.findIndex((entry) => normalized.includes(entry));
-  return idx === -1 ? 0 : idx;
-}
-
-function extractDivergenceRows(payload: unknown): DivergenceRow[] {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload as DivergenceRow[];
-  if (typeof payload !== 'object') return [];
-
-  const direct = payload as Record<string, unknown>;
-  const preferredKeys = ['data', 'results', 'signals', 'rows', 'items'];
-  for (const key of preferredKeys) {
-    const candidate = direct[key];
-    if (Array.isArray(candidate)) return candidate as DivergenceRow[];
-    if (candidate && typeof candidate === 'object') {
-      const nested = extractDivergenceRows(candidate);
-      if (nested.length > 0) return nested;
-    }
-  }
-
-  for (const value of Object.values(direct)) {
-    if (Array.isArray(value)) return value as DivergenceRow[];
-    if (value && typeof value === 'object') {
-      const nested = extractDivergenceRows(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-
-  return [];
-}
-
-
-function smartMoneyTimestamp(row: SmartMoneyRow): string | null {
-  return normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
-}
-
-function smartMoneyEffectiveTimestamp(row: SmartMoneyRow): string | null {
-  const raw = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
-  if (!raw) return null;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 function getDateMarkerMeta(timestamps: string[]) {
   const groups = new Map<string, { first: number; last: number }>();
@@ -140,91 +36,6 @@ function getDateMarkerMeta(timestamps: string[]) {
     indexToLabel.set(g.first, label);
   });
   return indexToLabel;
-}
-
-function is30MinBoundary(ts: string): boolean {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return false;
-  const m = d.getUTCMinutes();
-  return m === 0 || m === 30;
-}
-
-function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  const etFmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  for (const offset of [4, 5]) {
-    const candidate = Date.UTC(y, m - 1, d, etHour + offset, etMinute);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const yV = parts.find((p) => p.type === 'year')?.value ?? '';
-    const mV = parts.find((p) => p.type === 'month')?.value ?? '';
-    const dV = parts.find((p) => p.type === 'day')?.value ?? '';
-    const hV = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-    const minV = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
-    if (`${yV}-${mV}-${dV}` === dateKey && hV === etHour && minV === etMinute) return candidate;
-  }
-  return null;
-}
-
-function getExtendedSessionTimestamps(dateKey: string): string[] {
-  const startMs = getETTimeTimestamp(dateKey, 4, 0);
-  const endMs = getETTimeTimestamp(dateKey, 20, 0);
-  if (startMs == null || endMs == null) return [];
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) {
-    result.push(new Date(t).toISOString());
-  }
-  return result;
-}
-
-function getRegularSessionTimestamps(dateKey: string): string[] {
-  const startMs = getETTimeTimestamp(dateKey, 9, 30);
-  const endMs = getETTimeTimestamp(dateKey, 16, 0);
-  if (startMs == null || endMs == null) return [];
-  const result: string[] = [];
-  for (let t = startMs; t <= endMs; t += 60_000) {
-    result.push(new Date(t).toISOString());
-  }
-  return result;
-}
-
-function getCurrentSessionDateKey(): string {
-  const now = new Date();
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(now);
-  const year = parts.find((p) => p.type === 'year')?.value ?? '';
-  const month = parts.find((p) => p.type === 'month')?.value ?? '';
-  const day = parts.find((p) => p.type === 'day')?.value ?? '';
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
-  if (hour >= 4) return `${year}-${month}-${day}`;
-  const yesterday = new Date(now.getTime() - 24 * 3600_000);
-  const yParts = fmt.formatToParts(yesterday);
-  return `${yParts.find((p) => p.type === 'year')?.value ?? ''}-${yParts.find((p) => p.type === 'month')?.value ?? ''}-${yParts.find((p) => p.type === 'day')?.value ?? ''}`;
-}
-
-function getETDateKey(ts: string): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return fmt.format(new Date(ts));
 }
 
 function getDynamicStep(min: number, max: number): number {
@@ -262,272 +73,102 @@ function generateNiceTicks(min: number, max: number): number[] {
   return ticks;
 }
 
+function isVolumeSpike(volumeClass: string | null | undefined): boolean {
+  if (!volumeClass) return false;
+  return !volumeClass.toLowerCase().includes('normal');
+}
+
 export default function IntradayToolsPage() {
-  const { symbol, timeframe, getMaxDataPoints } = useTimeframe();
+  const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = isDark ? 'var(--bg-hover)' : 'var(--color-surface-subtle)';
-  const inputBorder = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
-  const inputColor = isDark ? 'var(--color-border)' : 'var(--color-text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
   const borderColor = isDark ? 'var(--border-default)' : 'var(--border-default)';
-  const [smartMoneySortKey, setSmartMoneySortKey] = useState<SmartMoneySortKey>('notional');
-  const [smartMoneySortDir, setSmartMoneySortDir] = useState<'asc' | 'desc'>('desc');
-  const [minClass, setMinClass] = useState('all');
-  const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
-  const [tableRowLimit, setTableRowLimit] = useState(50);
-  const maxPoints = getMaxDataPoints();
-  const divergenceWindowUnits = maxPoints;
 
-  const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { latest: vwap, history: vwapHistoryCache, loading: vwapLoading, error: vwapError } = useVwapSnapshot(symbol);
-  const { latest: orb, history: orbHistoryCache, loading: orbLoading, error: orbError } = useOrbSnapshot(symbol);
+  const { bars, latest, fetchedAt, loading, error } = useTechnicals(symbol);
 
-  const { data: volumeSpikes, loading: volumeSpikesLoading, error: volumeSpikesError } = useApiData<VolumeSpikeRow[]>(
-    `/api/technicals/volume-spikes?${symParam}&limit=50`,
-    { refreshInterval: 10000 }
-  );
+  const lastUpdatedLabel = useMemo(() => {
+    const ts = latest?.timestamp ?? null;
+    const ms = ts ? new Date(ts).getTime() : (fetchedAt ?? null);
+    if (ms == null || !Number.isFinite(ms)) return null;
+    return new Date(ms).toLocaleTimeString();
+  }, [latest, fetchedAt]);
 
-  const { rows: volumeSpikesPriceBars } = useMarketHistorical(symbol, '5min');
+  const vwapLatest = latest?.vwap_deviation ?? null;
+  const orbLatest = latest?.opening_range ?? null;
+  const hasVwap = vwapLatest != null && safeNum(vwapLatest.vwap) != null;
+  const hasOrb = orbLatest != null && safeNum(orbLatest.orb_high) != null && safeNum(orbLatest.orb_low) != null;
 
-  const { data: divergenceResponse } = useApiData<unknown>(
-    `/api/technicals/momentum-divergence?${symParam}&timeframe=${timeframe}&window_units=${divergenceWindowUnits}`,
-    { refreshInterval: 5000 }
-  );
-
-  const { data: divergenceFallback } = useApiData<unknown>(
-    `/api/technicals/momentum-divergence?${symParam}`,
-    { refreshInterval: 5000 }
-  );
-
-  const { data: divergenceDefault } = useApiData<unknown>(
-    `/api/technicals/momentum-divergence`,
-    { refreshInterval: 5000 }
-  );
-
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
-    { refreshInterval: 10000 }
-  );
-  const { data: smartMoneyFallbackData, error: smartMoneyFallbackError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?${symParam}&session=prior&limit=100`,
-    { refreshInterval: 10000 }
-  );
-  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
-  const otherSession = sessionView === 'current' ? 'prior' : 'current';
-  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
-    `/api/flow/by-contract?${symParam}&session=${otherSession}&intervals=1`,
-    { refreshInterval: 60000 },
-  );
-
-  const sessionDateLabel = useMemo(() => latestRowDateKey(byContractRows), [byContractRows]);
-  const otherSessionDateLabel = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
-
-  const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
-  const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
-
-  const primaryDivergence = extractDivergenceRows(divergenceResponse);
-  const fallbackDivergence = extractDivergenceRows(divergenceFallback);
-  const defaultDivergence = extractDivergenceRows(divergenceDefault);
-  const divergence = [primaryDivergence, fallbackDivergence, defaultDivergence].find((rows) => rows.length > 0) || [];
-
-  const divergenceMarketRows = omitClosedMarketTimes(divergence || [], (signal) => signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '');
-
-  const effectiveSmartMoneyRows = useMemo(
-    () => (smartMoneyError ? (smartMoneyFallbackData || []) : (smartMoneyData || [])),
-    [smartMoneyError, smartMoneyFallbackData, smartMoneyData],
-  );
-  const effectiveSmartMoneyError = smartMoneyError && smartMoneyFallbackError ? smartMoneyError : null;
-
-  const normalizedSmartMoneyRows = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    return effectiveSmartMoneyRows.map((row, idx) => {
-      const effectiveTimestamp = smartMoneyEffectiveTimestamp(row);
-      const minuteTimestamp = smartMoneyTimestamp(row);
-      return {
-        ...row,
-        rowKey: `${minuteTimestamp ?? 'na'}-${row.contract ?? 'contract'}-${idx}`,
-        minuteTimestamp,
-        effectiveTimestamp,
-        notionalM: Math.abs(Number(row.notional || 0)) / 1_000_000,
-      };
+  const vwapChart = useMemo(() => {
+    return bars.map((bar) => {
+      const price = safeNum(bar.close);
+      const v = safeNum(bar.vwap_deviation?.vwap);
+      const hasBoth = price != null && v != null;
+      const channelAbove: [number, number] | null = hasBoth && price >= v ? [v, price] : null;
+      const channelBelow: [number, number] | null = hasBoth && price < v ? [price, v] : null;
+      const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
+      return { timestamp: bar.timestamp, price, vwap: v, channelAbove, channelBelow, deviationPct };
     });
-  }, [effectiveSmartMoneyRows]);
+  }, [bars]);
 
-  const classOptions = useMemo(() => {
-    const unique = Array.from(new Set(normalizedSmartMoneyRows.map((row) => row.notional_class))).filter(Boolean);
-    return unique.sort((a, b) => classRank(a) - classRank(b));
-  }, [normalizedSmartMoneyRows]);
+  const vwapPriceTicks = useMemo(() => {
+    const values: number[] = [];
+    for (const row of vwapChart) {
+      if (row.price != null) values.push(row.price);
+      if (row.vwap != null) values.push(row.vwap);
+    }
+    if (values.length === 0) return [] as number[];
+    return generateNiceTicks(Math.min(...values), Math.max(...values));
+  }, [vwapChart]);
 
-  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => {
-    if (minClass === 'all') return normalizedSmartMoneyRows;
-    const threshold = classRank(minClass);
-    return normalizedSmartMoneyRows.filter((row) => classRank(row.notional_class) >= threshold);
-  }, [normalizedSmartMoneyRows, minClass]);
-
-  const sortedSmartMoneyRows = useMemo(() => {
-    const rows = [...filteredSmartMoneyData];
-    rows.sort((a, b) => {
-      const valueA = a[smartMoneySortKey];
-      const valueB = b[smartMoneySortKey];
-      const normalizedA = typeof valueA === 'string' ? valueA.toLowerCase() : (valueA ?? 0);
-      const normalizedB = typeof valueB === 'string' ? valueB.toLowerCase() : (valueB ?? 0);
-      const comparison = normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
-      return smartMoneySortDir === 'asc' ? comparison : -comparison;
+  const orbChart = useMemo(() => {
+    return bars.map((bar) => {
+      const price = safeNum(bar.close);
+      const high = safeNum(bar.opening_range?.orb_high);
+      const low = safeNum(bar.opening_range?.orb_low);
+      const orbBand: [number, number] | null = high != null && low != null ? [low, high] : null;
+      return { timestamp: bar.timestamp, price, orbHigh: high, orbLow: low, orbBand };
     });
-    return rows;
-  }, [filteredSmartMoneyData, smartMoneySortDir, smartMoneySortKey]);
+  }, [bars]);
 
-  const smartMoneySessionChart = useMemo(() => {
-    const rows = filteredSmartMoneyData;
-    const priceByTs = buildUnderlyingPriceMap(byContractRows);
-    if (rows.length === 0 && priceByTs.size === 0) return [];
-
-    const blocksByTs = new Map<string, Array<{ notionalM: number; rowKey: string; optionType: string }>>();
-    rows.forEach((row) => {
-      const ts = row.minuteTimestamp;
-      if (!ts) return;
-      const blocks = blocksByTs.get(ts) ?? [];
-      blocks.push({ notionalM: row.notionalM, rowKey: row.rowKey, optionType: String(row.option_type || '').toLowerCase() });
-      blocksByTs.set(ts, blocks);
-    });
-
-    const allTs = Array.from(new Set([...blocksByTs.keys(), ...priceByTs.keys()])).sort((a, b) => a.localeCompare(b));
-    const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
-
-    return allTs.map((ts) => {
-      const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
-      const totalMinuteNotional = minuteBlocks.reduce((sum, value) => sum + value.notionalM, 0);
-
-      const row: Record<string, number | string | null> = {
-        timestamp: ts,
-        time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
-        blockNotionalM: totalMinuteNotional,
-        underlyingPrice: priceByTs.get(ts) ?? null,
-      };
-
-      for (let idx = 0; idx < maxBlocksPerMinute; idx += 1) {
-        row[`block${idx + 1}`] = minuteBlocks[idx]?.notionalM ?? 0;
-        row[`block${idx + 1}Key`] = minuteBlocks[idx]?.rowKey ?? '';
-        row[`block${idx + 1}Type`] = minuteBlocks[idx]?.optionType ?? '';
-      }
-      return row;
-    });
-  }, [byContractRows, filteredSmartMoneyData]);
-
-  const maxStackSegments = useMemo(() => {
-    const raw = smartMoneySessionChart.reduce((max, row) => {
-      const keys = Object.keys(row).filter((key) => key.startsWith('block') && !key.includes('Key') && !key.includes('Type') && Number(row[key] || 0) > 0);
-      return Math.max(max, keys.length);
-    }, 1);
-    return Math.min(raw, 10);
-  }, [smartMoneySessionChart]);
-
-  const notionalTicks = useMemo(() => {
-    const values = smartMoneySessionChart.map((row) => Number(row.blockNotionalM || 0)).filter((v) => v > 0);
-    if (values.length === 0) return [0];
+  const orbPriceTicks = useMemo(() => {
+    const values: number[] = [];
+    for (const row of orbChart) {
+      if (row.price != null) values.push(row.price);
+      if (row.orbHigh != null) values.push(row.orbHigh);
+      if (row.orbLow != null) values.push(row.orbLow);
+    }
+    if (values.length === 0) return [] as number[];
     const min = Math.min(...values);
     const max = Math.max(...values);
-    return generateNiceTicks(min, max);
-  }, [smartMoneySessionChart]);
-
-  const priceTicks = useMemo(() => {
-    const values = smartMoneySessionChart
-      .map((row) => row.underlyingPrice)
-      .filter((v): v is number => v != null && Number.isFinite(v as number) && (v as number) > 0)
-      .map(Number);
-    if (values.length === 0) return [];
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return generateNiceTicks(min, max);
-  }, [smartMoneySessionChart]);
-
-  const dateMarkerMeta = useMemo(() => {
-    return getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp)));
-  }, [smartMoneySessionChart]);
-
-  const volumeSpikesSessionDateKey = useMemo(() => {
-    // Prefer the latest spike's date so the session timeline matches actual
-    // spike data. If the latest price bar is on a newer day but no spikes
-    // landed there yet (common for SPX outside its narrow RTH window), the
-    // chart used to anchor on that newer day and filter every spike out.
-    let latestSpikeMs = 0;
-    (volumeSpikes || []).forEach((spike) => {
-      const ts = spike.timestamp || spike.time_et;
-      if (!ts) return;
-      const ms = new Date(ts).getTime();
-      if (Number.isFinite(ms) && ms > latestSpikeMs) latestSpikeMs = ms;
-    });
-    if (latestSpikeMs > 0) return getETDateKey(new Date(latestSpikeMs).toISOString());
-
-    let latestPriceMs = 0;
-    (volumeSpikesPriceBars || []).forEach((bar) => {
-      if (!bar.timestamp) return;
-      const ms = new Date(bar.timestamp).getTime();
-      if (Number.isFinite(ms) && ms > latestPriceMs) latestPriceMs = ms;
-    });
-    if (latestPriceMs > 0) return getETDateKey(new Date(latestPriceMs).toISOString());
-
-    return getCurrentSessionDateKey();
-  }, [volumeSpikes, volumeSpikesPriceBars]);
+    const padding = max > min ? (max - min) * 0.1 : 0;
+    return generateNiceTicks(min - padding, max + padding);
+  }, [orbChart]);
 
   const volumeSpikesChart = useMemo(() => {
-    const sessionTimeline = isIndexSymbol(symbol)
-      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
-      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
-    if (sessionTimeline.length === 0) return [];
-
-    const sessionStartMs = new Date(sessionTimeline[0]).getTime();
-    const sessionEndMs = new Date(sessionTimeline[sessionTimeline.length - 1]).getTime();
-
-    const spikeByTs = new Map<string, VolumeSpikeRow>();
-    (volumeSpikes || []).forEach((spike) => {
-      const ts = spike.timestamp || spike.time_et;
-      if (!ts) return;
-      const ms = new Date(ts).getTime();
-      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) return;
-      const minute = normalizeToMinute(ts);
-      if (!minute) return;
-      const existing = spikeByTs.get(minute);
-      if (!existing || (safeNum(spike.volume_sigma) ?? 0) > (safeNum(existing.volume_sigma) ?? 0)) {
-        spikeByTs.set(minute, spike);
-      }
-    });
-
-    const priceByTs = new Map<string, number>();
-    for (const bar of volumeSpikesPriceBars || []) {
-      const minute = normalizeToMinute(bar.timestamp);
-      if (!minute) continue;
-      const ms = new Date(minute).getTime();
-      if (!Number.isFinite(ms) || ms < sessionStartMs || ms > sessionEndMs) continue;
-      const close = safeNum(bar.close ?? bar.price);
-      if (close == null) continue;
-      priceByTs.set(minute, close);
-    }
-
-    return sessionTimeline.map((ts) => {
-      const spike = spikeByTs.get(ts);
-      const volume = spike ? safeNum(spike.current_volume) : null;
-      const ratio = spike ? safeNum(spike.volume_ratio) : null;
-      const sigma = spike ? safeNum(spike.volume_sigma) : null;
-      const buyingPressure = spike ? safeNum(spike.buying_pressure_pct) : null;
-      const observedPrice = priceByTs.get(ts);
-
+    return bars.map((bar) => {
+      const volumeClass = bar.volume_spike?.volume_class ?? null;
+      const isSpike = isVolumeSpike(volumeClass);
+      const volume = safeNum(bar.volume_spike?.current_volume) ?? safeNum(bar.volume);
+      const ratio = safeNum(bar.volume_spike?.volume_ratio);
+      const sigma = safeNum(bar.volume_spike?.volume_sigma);
+      const buyingPressure = safeNum(bar.volume_spike?.buying_pressure_pct);
+      const observedPrice = safeNum(bar.close);
       return {
-        timestamp: ts,
-        time: new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }),
-        volume: volume ?? 0,
-        volumeRaw: volume,
+        timestamp: bar.timestamp,
+        volume: isSpike && volume != null ? volume : 0,
+        volumeRaw: isSpike ? volume : null,
         volumeRatio: ratio,
         volumeSigma: sigma,
-        volumeClass: spike?.volume_class ?? null,
+        volumeClass,
         buyingPressurePct: buyingPressure,
-        underlyingPrice: observedPrice != null && Number.isFinite(observedPrice) ? observedPrice : null,
+        underlyingPrice: observedPrice,
       };
     });
-  }, [volumeSpikes, volumeSpikesPriceBars, volumeSpikesSessionDateKey, symbol]);
+  }, [bars]);
 
   const volumeSpikesHasAnySpike = useMemo(
     () => volumeSpikesChart.some((row) => row.volumeRaw != null),
@@ -549,10 +190,10 @@ export default function IntradayToolsPage() {
   const volumeSpikeLabelStepMin = useMemo(() => {
     const len = volumeSpikesChart.length;
     if (len <= 0) return 60;
-    if (len <= 120) return 15;
-    if (len <= 480) return 60;
-    if (len <= 1440) return 120;
-    return 240;
+    if (len <= 24) return 15;
+    if (len <= 96) return 30;
+    if (len <= 192) return 60;
+    return 120;
   }, [volumeSpikesChart]);
 
   const volumeSpikePriceTicks = useMemo(() => {
@@ -569,71 +210,19 @@ export default function IntradayToolsPage() {
     return getDateMarkerMeta(volumeSpikesChart.map((row) => String(row.timestamp)));
   }, [volumeSpikesChart]);
 
-  const vwapChart = useMemo(() => {
-    const timeline = isIndexSymbol(symbol)
-      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
-      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
-    if (timeline.length === 0) return [] as Array<{
-      timestamp: string;
-      price: number | null;
-      vwap: number | null;
-      channelAbove: [number, number] | null;
-      channelBelow: [number, number] | null;
-      deviationPct: number | null;
-    }>;
-    return timeline.map((ts) => {
-      const snap = vwapHistoryCache[ts];
-      const price = snap?.price ?? null;
-      const v = snap?.vwap ?? null;
-      const hasBoth = price != null && v != null;
-      const channelAbove: [number, number] | null = hasBoth && price >= v ? [v, price] : null;
-      const channelBelow: [number, number] | null = hasBoth && price < v ? [price, v] : null;
-      const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
-      return { timestamp: ts, price, vwap: v, channelAbove, channelBelow, deviationPct };
-    });
-  }, [vwapHistoryCache, volumeSpikesSessionDateKey, symbol]);
-
-  const vwapPriceTicks = useMemo(() => {
-    const values: number[] = [];
-    for (const row of vwapChart) {
-      if (row.price != null) values.push(row.price);
-      if (row.vwap != null) values.push(row.vwap);
-    }
-    if (values.length === 0) return [] as number[];
-    return generateNiceTicks(Math.min(...values), Math.max(...values));
-  }, [vwapChart]);
-
-  const orbChart = useMemo(() => {
-    const timeline = isIndexSymbol(symbol)
-      ? getRegularSessionTimestamps(volumeSpikesSessionDateKey)
-      : getExtendedSessionTimestamps(volumeSpikesSessionDateKey);
-    if (timeline.length === 0) return [] as Array<{ timestamp: string; price: number | null; orbHigh: number | null; orbLow: number | null; orbBand: [number, number] | null }>;
-    return timeline.map((ts) => {
-      const snap = orbHistoryCache[ts];
-      if (!snap) return { timestamp: ts, price: null, orbHigh: null, orbLow: null, orbBand: null };
-      return {
-        timestamp: ts,
-        price: snap.price,
-        orbHigh: snap.high,
-        orbLow: snap.low,
-        orbBand: [snap.low, snap.high] as [number, number],
-      };
-    });
-  }, [orbHistoryCache, volumeSpikesSessionDateKey, symbol]);
-
-  const orbPriceTicks = useMemo(() => {
-    const values: number[] = [];
-    for (const row of orbChart) {
-      if (row.price != null) values.push(row.price);
-      if (row.orbHigh != null) values.push(row.orbHigh);
-      if (row.orbLow != null) values.push(row.orbLow);
-    }
-    if (values.length === 0) return [] as number[];
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = max > min ? (max - min) * 0.1 : 0;
-    return generateNiceTicks(min - padding, max + padding);
-  }, [orbChart]);
+  const divergenceRows = useMemo(() => {
+    const rows = bars
+      .filter((bar): bar is TechnicalsBar => Boolean(bar?.momentum_divergence?.divergence_signal))
+      .filter((bar) => isWithinExtendedMarketHours(bar.timestamp))
+      .map((bar) => ({
+        timestamp: bar.timestamp,
+        signal: bar.momentum_divergence.divergence_signal as string,
+        price: safeNum(bar.close),
+        chg5m: safeNum(bar.momentum_divergence.chg_5m),
+      }));
+    rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return rows;
+  }, [bars]);
 
   const renderTimelineTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
     const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0);
@@ -654,43 +243,44 @@ export default function IntradayToolsPage() {
     );
   };
 
-  const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
-    if (smartMoneySortKey === key) {
-      setSmartMoneySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setSmartMoneySortKey(key);
-    setSmartMoneySortDir('desc');
-  };
+  const showInitialLoading = loading && bars.length === 0;
+  const showInitialError = error && bars.length === 0;
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {lastUpdatedLabel ? (
+        <div className="text-right text-sm text-[var(--text-muted)] mb-4">
+          Last updated: {lastUpdatedLabel}
+        </div>
+      ) : null}
+
+      {showInitialError ? (
+        <ErrorMessage message={error as string} />
+      ) : null}
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
-        {vwapError ? (
-          <ErrorMessage message={vwapError} />
-        ) : vwapLoading && !vwap ? (
+        {showInitialLoading ? (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <LoadingSpinner />
           </div>
-        ) : !vwap ? (
+        ) : !hasVwap ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No VWAP data available (market may be closed)
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(vwap.price)}`} tooltip="Current market price" />
-              <MetricCard title="VWAP" value={`$${fmtFixed(vwap.vwap)}`} tooltip="Volume weighted average price" />
-              <MetricCard title="Deviation" value={`${fmtFixed(vwap.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwap.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-              <MetricCard title="Position" value={vwap.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
+              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
+              <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip="Volume weighted average price" />
+              <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwapLatest?.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
+              <MetricCard title="Position" value={vwapLatest?.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
             </div>
             {vwapChart.length > 0 ? (
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VWAP VS UNDERLYING PRICE</h3>
-                  <TooltipWrapper text="Cached historical view: VWAP (yellow dashed) and underlying price (white) recorded each minute on this device. The shaded channel widens as price diverges from VWAP — green when above, red when below. The chart fills in over the trading session as snapshots accumulate."><Info size={14} /></TooltipWrapper>
+                  <TooltipWrapper text="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
@@ -740,35 +330,37 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
-        {orbError ? (
-          <ErrorMessage message={orbError} />
-        ) : orbLoading && !orb ? (
+        {showInitialLoading ? (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <LoadingSpinner />
           </div>
-        ) : !orb ? (
+        ) : !hasOrb || latest?.close == null ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No ORB data available (market may be closed)
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(orb.current_price)}`} tooltip="Current market price" />
-              <MetricCard title="ORB High" value={`$${fmtFixed(orb.orb_high)}`} subtitle={`+${fmtFixed(orb.distance_above_orb_high)}`} tooltip="Opening range high" />
-              <MetricCard title="ORB Low" value={`$${fmtFixed(orb.orb_low)}`} subtitle={`-${fmtFixed(orb.distance_below_orb_low)}`} tooltip="Opening range low" />
-              <MetricCard title="ORB Range" value={`$${fmtFixed(orb.orb_range)}`} tooltip="Opening range size" />
+              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
+              <MetricCard title="ORB High" value={`$${fmtFixed(orbLatest?.orb_high)}`} subtitle={`+${fmtFixed(orbLatest?.distance_above_orb_high)}`} tooltip="Opening range high" />
+              <MetricCard title="ORB Low" value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip="Opening range low" />
+              <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
             </div>
             <div className="rounded-lg p-6 mb-4" style={{ backgroundColor: cardBg }}>
               {(() => {
-                const range = Number.isFinite(orb.orb_range) && orb.orb_range > 0 ? orb.orb_range : 1;
-                const lowEdge = orb.orb_low - range;
-                const highEdge = orb.orb_high + range;
+                const orbHigh = safeNum(orbLatest?.orb_high) ?? 0;
+                const orbLow = safeNum(orbLatest?.orb_low) ?? 0;
+                const orbRangeRaw = safeNum(orbLatest?.orb_range);
+                const currentPrice = safeNum(latest?.close) ?? 0;
+                const range = orbRangeRaw != null && orbRangeRaw > 0 ? orbRangeRaw : 1;
+                const lowEdge = orbLow - range;
+                const highEdge = orbHigh + range;
                 const span = Math.max(1e-9, highEdge - lowEdge);
                 const pct = (v: number) => Math.max(0, Math.min(100, ((v - lowEdge) / span) * 100));
-                const lowPct = pct(orb.orb_low);
-                const highPct = pct(orb.orb_high);
-                const pricePct = pct(orb.current_price);
-                const status = orb.orb_status ?? '--';
+                const lowPct = pct(orbLow);
+                const highPct = pct(orbHigh);
+                const pricePct = pct(currentPrice);
+                const status = orbLatest?.orb_status ?? '--';
                 const statusColor = status.includes('🚀') ? 'var(--color-bull)' : status.includes('💥') ? 'var(--color-bear)' : 'var(--color-warning)';
                 return (
                   <div>
@@ -793,10 +385,10 @@ export default function IntradayToolsPage() {
                       />
                     </div>
                     <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
-                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${lowPct}%` }}>${orb.orb_low.toFixed(2)}</span>
-                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orb.orb_high.toFixed(2)}</span>
+                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${lowPct}%` }}>${orbLow.toFixed(2)}</span>
+                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orbHigh.toFixed(2)}</span>
                       <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold" style={{ left: `${pricePct}%`, color: textColor }}>
-                        ${orb.current_price.toFixed(2)}
+                        ${currentPrice.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -807,7 +399,7 @@ export default function IntradayToolsPage() {
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>ORB BREAKOUT MAP</h3>
-                  <TooltipWrapper text="Cached historical view: the green line is the ORB high as it evolved through the session, the red line is the ORB low, the yellow band is the live opening range, and the white line is the underlying price. Levels are recorded each minute on this device, so the chart fills in over time."><Info size={14} /></TooltipWrapper>
+                  <TooltipWrapper text="The green line is the ORB high through the session, the red line is the ORB low, the yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
@@ -850,8 +442,12 @@ export default function IntradayToolsPage() {
                       <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
                       <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
                       <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                      <ReferenceLine y={orb.orb_high} stroke="transparent" label={{ value: `H $${orb.orb_high.toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
-                      <ReferenceLine y={orb.orb_low} stroke="transparent" label={{ value: `L $${orb.orb_low.toFixed(2)}`, position: 'right', fill: 'var(--color-bear)', fontSize: 11, fontWeight: 600 }} />
+                      {orbLatest?.orb_high != null ? (
+                        <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
+                      ) : null}
+                      {orbLatest?.orb_low != null ? (
+                        <ReferenceLine y={orbLatest.orb_low} stroke="transparent" label={{ value: `L $${(safeNum(orbLatest.orb_low) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bear)', fontSize: 11, fontWeight: 600 }} />
+                      ) : null}
                     </ComposedChart>
                   </ResponsiveContainer>
                 </MobileScrollableChart>
@@ -863,9 +459,7 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
-        {volumeSpikesError ? (
-          <ErrorMessage message={volumeSpikesError} />
-        ) : volumeSpikes == null && volumeSpikesLoading ? (
+        {showInitialLoading ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             Loading volume spikes...
           </div>
@@ -882,16 +476,7 @@ export default function IntradayToolsPage() {
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={volumeSpikesChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-                    const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || ''); const index = Number(props?.index ?? -1);
-                    const d = ts ? new Date(ts) : null;
-                    const minOfDay = d && !Number.isNaN(d.getTime()) ? d.getUTCHours() * 60 + d.getUTCMinutes() : -1;
-                    const showTime = minOfDay >= 0 && minOfDay % volumeSpikeLabelStepMin === 0;
-                    const timeLabel = showTime ? d!.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-                    const dateLabel = volumeSpikeDateMarkerMeta.get(index);
-                    if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                    return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}</g>;
-                  }} />
+                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
                   <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeTicks} domain={volumeSpikeVolumeTicks.length ? [volumeSpikeVolumeTicks[0], volumeSpikeVolumeTicks[volumeSpikeVolumeTicks.length - 1]] : [0, 'auto']} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
@@ -951,19 +536,22 @@ export default function IntradayToolsPage() {
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
-        {!divergenceMarketRows || divergenceMarketRows.length === 0 ? (
+        {showInitialLoading ? (
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+            Loading divergence signals...
+          </div>
+        ) : divergenceRows.length === 0 ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>No divergence signals</div>
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {divergenceMarketRows.map((signal, idx) => {
-                const timestamp = signal.time_et || signal.timestamp || signal.time_window_end || signal.time || '';
-                const divergenceSignal = signal.divergence_signal || signal.signal || signal.divergence_type || 'No signal';
-                const price = Number(signal.price || 0);
+              {divergenceRows.map((signal, idx) => {
+                const divergenceSignal = signal.signal;
+                const price = signal.price ?? 0;
                 return (
-                  <div key={idx} className="border-b pb-3" style={{ borderColor: borderColor }}>
+                  <div key={`${signal.timestamp}-${idx}`} className="border-b pb-3" style={{ borderColor: borderColor }}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">{timestamp ? new Date(timestamp).toLocaleTimeString() : '--:--'}</div>
+                      <div className="font-semibold">{signal.timestamp ? new Date(signal.timestamp).toLocaleTimeString() : '--:--'}</div>
                       <div className={`px-3 py-1 rounded text-sm font-semibold ${
                         divergenceSignal.includes('🚨') ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
                         divergenceSignal.includes('🟢') ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
