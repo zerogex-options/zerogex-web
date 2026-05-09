@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import readline from 'node:readline';
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
@@ -92,17 +93,15 @@ function execSqlite(dbPath, sql) {
 }
 
 function confirm(prompt) {
-  if (!process.stdin.isTTY) return false;
-  process.stdout.write(prompt);
-  const buf = Buffer.alloc(1024);
-  let bytes = 0;
-  try {
-    bytes = fs.readSync(0, buf, 0, buf.length, null);
-  } catch {
-    return false;
-  }
-  const answer = buf.slice(0, bytes).toString('utf8').trim().toLowerCase();
-  return answer === 'y' || answer === 'yes';
+  if (!process.stdin.isTTY) return Promise.resolve(false);
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      rl.close();
+      const normalized = answer.trim().toLowerCase();
+      resolve(normalized === 'y' || normalized === 'yes');
+    });
+  });
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -174,7 +173,7 @@ try {
   }
 
   if (!cliArgs.yes) {
-    const ok = confirm(`Delete ${user.email}? Type "y" to confirm: `);
+    const ok = await confirm(`Delete ${user.email}? Type "y" to confirm: `);
     if (!ok) {
       console.log('Aborted.');
       process.exit(0);
