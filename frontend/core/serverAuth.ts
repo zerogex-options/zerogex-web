@@ -302,29 +302,46 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   let user = identityRow ? rowToUser(identityRow) : null;
 
   if (!user) {
-    const emailRow = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
-    if (emailRow) {
-      user = rowToUser(emailRow);
-    } else {
-      user = {
-        id: createId('user'),
-        email: normalizedEmail,
-        tier: 'basic',
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      };
+    db.exec('BEGIN');
+    try {
+      // Drop any orphaned identity row whose owning user no longer exists. This
+      // can happen if a previous delete ran with foreign_keys disabled and the
+      // ON DELETE CASCADE never fired, which would otherwise collide with the
+      // UNIQUE(provider, provider_id) constraint when we insert below.
       db.prepare(
-        `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
-         VALUES (?, ?, NULL, ?, ?, ?)`
-      ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt);
-    }
+        `DELETE FROM user_identities
+         WHERE provider = ? AND provider_id = ?
+           AND user_id NOT IN (SELECT id FROM users)`
+      ).run(input.provider, input.providerId);
 
-    const now = nowIso();
-    db.prepare(
-      `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, provider) DO UPDATE SET provider_id = excluded.provider_id, updated_at = excluded.updated_at`
-    ).run(createId('ident'), user.id, input.provider, input.providerId, now, now);
+      const emailRow = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
+      if (emailRow) {
+        user = rowToUser(emailRow);
+      } else {
+        user = {
+          id: createId('user'),
+          email: normalizedEmail,
+          tier: 'basic',
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        };
+        db.prepare(
+          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
+           VALUES (?, ?, NULL, ?, ?, ?)`
+        ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt);
+      }
+
+      const now = nowIso();
+      db.prepare(
+        `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(user_id, provider) DO UPDATE SET provider_id = excluded.provider_id, updated_at = excluded.updated_at`
+      ).run(createId('ident'), user.id, input.provider, input.providerId, now, now);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
   }
 
   const session = createSessionForUser(user);

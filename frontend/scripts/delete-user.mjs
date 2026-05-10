@@ -182,8 +182,11 @@ try {
 
   execSqlite(
     dbPath,
-    `BEGIN;
+    `PRAGMA foreign_keys = ON;
+     BEGIN;
      DELETE FROM audit_events WHERE user_id = ${userIdLit} OR actor_user_id = ${userIdLit};
+     DELETE FROM sessions WHERE user_id = ${userIdLit};
+     DELETE FROM user_identities WHERE user_id = ${userIdLit};
      DELETE FROM users WHERE id = ${userIdLit};
      COMMIT;`
   );
