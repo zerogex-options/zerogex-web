@@ -117,6 +117,12 @@ function LoginPageContent() {
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
+
+          <div className="text-right text-sm">
+            <Link href="/forgot-password" className="text-[var(--color-brand-primary)] hover:underline">
+              Forgot password?
+            </Link>
+          </div>
         </form>
 
         <div className="mt-6 grid gap-3">

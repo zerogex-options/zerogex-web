@@ -38,9 +38,14 @@ const SESSION_TTL_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 
 const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_SECONDS', 60 * 60 * 24);
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
+const PASSWORD_RESET_TTL_SECONDS = readPositiveInt('AUTH_PASSWORD_RESET_TTL_SECONDS', 30 * 60);
+const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000;
+const PASSWORD_RESET_MAX_REQUESTS = 5;
+const PASSWORD_MIN_LENGTH = 12;
 const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const passwordResetAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function nowIso() {
   return new Date().toISOString();
@@ -286,6 +291,164 @@ export async function createSessionForUserCredentials(request: NextRequest, emai
   const session = createSessionForUser(user);
   appendAuditEvent({ type: 'login_success', userId: user.id, email: user.email, ip, message: 'Login successful' });
   return session;
+}
+
+function enforcePasswordResetRateLimit(ip: string) {
+  const now = Date.now();
+  const entry = passwordResetAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    passwordResetAttempts.set(ip, { count: 1, resetAt: now + PASSWORD_RESET_WINDOW_MS });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  if (entry.count >= PASSWORD_RESET_MAX_REQUESTS) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+  entry.count += 1;
+  passwordResetAttempts.set(ip, entry);
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+export type PasswordResetRequest =
+  | { status: 'issued'; token: string; userId: string; email: string; expiresAt: string }
+  | { status: 'no_local_password' }
+  | { status: 'no_user' };
+
+export async function requestPasswordReset(request: NextRequest, email: string): Promise<PasswordResetRequest> {
+  const ip = getClientIp(request);
+  const limit = enforcePasswordResetRateLimit(ip);
+  if (!limit.allowed) {
+    throw new Error(`Too many password reset requests. Retry in ${limit.retryAfterSeconds}s.`);
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = getUserByEmail(normalizedEmail);
+
+  if (!user) {
+    appendAuditEvent({
+      type: 'password_reset_request',
+      email: normalizedEmail,
+      ip,
+      message: 'Password reset requested for unknown email',
+    });
+    return { status: 'no_user' };
+  }
+
+  if (!user.passwordHash) {
+    appendAuditEvent({
+      type: 'password_reset_request',
+      userId: user.id,
+      email: user.email,
+      ip,
+      message: 'Password reset requested for OAuth-only account; no email sent',
+    });
+    return { status: 'no_local_password' };
+  }
+
+  const db = getDb();
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = sha256(token);
+  const now = nowIso();
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000).toISOString();
+
+  db.prepare(
+    `INSERT INTO password_reset_tokens (id, user_id, token_hash, created_at, expires_at, used_at)
+     VALUES (?, ?, ?, ?, ?, NULL)`
+  ).run(createId('preset'), user.id, tokenHash, now, expiresAt);
+
+  appendAuditEvent({
+    type: 'password_reset_request',
+    userId: user.id,
+    email: user.email,
+    ip,
+    message: 'Password reset link issued',
+  });
+
+  return { status: 'issued', token, userId: user.id, email: user.email, expiresAt };
+}
+
+export async function resetPasswordWithToken(request: NextRequest, token: string, newPassword: string) {
+  if (!token || typeof token !== 'string') {
+    throw new Error('Reset token is required');
+  }
+  if (!newPassword || newPassword.length < PASSWORD_MIN_LENGTH) {
+    throw new Error(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  }
+
+  const ip = getClientIp(request);
+  const db = getDb();
+  const tokenHash = sha256(token);
+
+  const row = db
+    .prepare(
+      `SELECT t.id as token_id, t.user_id, t.expires_at, t.used_at,
+              u.id as uid, u.email, u.password_hash
+       FROM password_reset_tokens t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = ?`
+    )
+    .get(tokenHash) as
+    | { token_id: string; user_id: string; expires_at: string; used_at: string | null; uid: string; email: string; password_hash: string | null }
+    | undefined;
+
+  if (!row) {
+    appendAuditEvent({ type: 'password_reset_failure', ip, message: 'Reset attempted with unknown token' });
+    throw new Error('This reset link is invalid or has expired.');
+  }
+  if (row.used_at) {
+    appendAuditEvent({
+      type: 'password_reset_failure',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message: 'Reset attempted with already-used token',
+    });
+    throw new Error('This reset link has already been used.');
+  }
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    appendAuditEvent({
+      type: 'password_reset_failure',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message: 'Reset attempted with expired token',
+    });
+    throw new Error('This reset link is invalid or has expired.');
+  }
+  if (!row.password_hash) {
+    appendAuditEvent({
+      type: 'password_reset_failure',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message: 'Reset attempted on OAuth-only account',
+    });
+    throw new Error('This account does not use a password.');
+  }
+
+  const newHash = hashPassword(newPassword);
+  const now = nowIso();
+
+  db.exec('BEGIN');
+  try {
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newHash, now, row.user_id);
+    db.prepare('UPDATE password_reset_tokens SET used_at = ? WHERE id = ?').run(now, row.token_id);
+    db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?').run(row.user_id, row.token_id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  appendAuditEvent({
+    type: 'password_reset_success',
+    userId: row.user_id,
+    email: row.email,
+    ip,
+    message: 'Password reset completed; existing sessions revoked',
+  });
+
+  return { email: row.email };
 }
 
 export async function createOrLoginOAuthUser(request: NextRequest, input: { provider: 'google' | 'apple'; providerId: string; email: string; }) {

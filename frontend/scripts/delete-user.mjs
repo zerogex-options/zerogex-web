@@ -187,6 +187,7 @@ try {
      DELETE FROM audit_events WHERE user_id = ${userIdLit} OR actor_user_id = ${userIdLit};
      DELETE FROM sessions WHERE user_id = ${userIdLit};
      DELETE FROM user_identities WHERE user_id = ${userIdLit};
+     DELETE FROM password_reset_tokens WHERE user_id = ${userIdLit};
      DELETE FROM users WHERE id = ${userIdLit};
      COMMIT;`
   );
