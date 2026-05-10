@@ -480,6 +480,7 @@ export default function SmartMoneyPage() {
                         yAxisId="notional"
                         dataKey={`block${idx + 1}`}
                         stackId="notional"
+                        barSize={5}
                         fill="var(--color-positive)"
                         onMouseEnter={(data) => {
                           const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];

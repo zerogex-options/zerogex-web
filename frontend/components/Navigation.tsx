@@ -77,9 +77,11 @@ export default function Navigation({ theme }: NavigationProps) {
         .map((group) => {
           // "Signals" is always shown to every tier so the marketing surface
           // stays intact; unentitled clicks are routed to /pricing instead.
+          // Admin-only items are still gated so internal tools never leak.
           const bypassTierCheck = group.label === "Signals";
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
+            if (item.requiredTier === "admin") return hasRequiredTier(item.id, currentTier);
             if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
           };
