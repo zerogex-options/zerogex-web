@@ -204,11 +204,21 @@ export default function GammaHeatmapCanvas() {
       if (Number.isFinite(close) && close > 0) priceTsSet.add(p.timestamp);
     });
 
-    const timestamps = omitClosedMarketTimes(
-      Array.from(new Set(rows.map((r) => r.timestamp))).sort(),
-      (ts) => ts,
-    )
-      .filter((ts) => priceTsSet.size === 0 || priceTsSet.has(ts))
+    // Only trim the heatmap to timestamps that also have underlying price
+    // data when price coverage is high enough to be trustworthy. Sparse
+    // price caches (e.g., a 1s poll trickling in bars after a failed seed
+    // fetch) would otherwise collapse the visible heatmap to just the
+    // handful of cached price timestamps, even when full heatmap data is
+    // available. The filter still does its job — masking pre-market cells
+    // for RTH-only symbols like SPX — once the price cache is dense.
+    const heatmapTimestamps = Array.from(new Set(rows.map((r) => r.timestamp)));
+    const priceCoverage = heatmapTimestamps.length > 0
+      ? heatmapTimestamps.filter((ts) => priceTsSet.has(ts)).length / heatmapTimestamps.length
+      : 0;
+    const applyPriceFilter = priceTsSet.size > 0 && priceCoverage >= 0.5;
+
+    const timestamps = omitClosedMarketTimes(heatmapTimestamps.sort(), (ts) => ts)
+      .filter((ts) => !applyPriceFilter || priceTsSet.has(ts))
       .slice(-maxPoints);
     if (timestamps.length === 0) return null;
 

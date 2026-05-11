@@ -42,15 +42,24 @@ interface CacheEntry {
   rows: PriceBar[];
   loading: boolean;
   error: string | null;
+  hadSuccessfulSeed: boolean;
   subscribers: Set<() => void>;
   pollTimer: ReturnType<typeof setInterval> | null;
   reloadTimer: ReturnType<typeof setTimeout> | null;
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  retryDelayMs: number;
   inflightSeed: Promise<void> | null;
 }
 
 const CACHE_BAR_LIMIT = 576;
 const RELOAD_INTERVAL_MS = 5 * 60_000;
 const POLL_INTERVAL_MS = 1_000;
+// Backoff window for retrying a failed full-reload (e.g., transient 401s on
+// the upstream). Without this, the cache stays empty until the next 5-minute
+// background reload tick fires — which can be up to 5 minutes away — and
+// the chart only shows whatever sparse bars the 1s poll has accumulated.
+const RETRY_INITIAL_DELAY_MS = 2_000;
+const RETRY_MAX_DELAY_MS = 30_000;
 
 const caches = new Map<string, CacheEntry>();
 
@@ -66,9 +75,12 @@ function getOrCreateCache(symbol: string, timeframe: string): CacheEntry {
       rows: [],
       loading: false,
       error: null,
+      hadSuccessfulSeed: false,
       subscribers: new Set(),
       pollTimer: null,
       reloadTimer: null,
+      retryTimer: null,
+      retryDelayMs: RETRY_INITIAL_DELAY_MS,
       inflightSeed: null,
     };
     caches.set(key, entry);
@@ -159,6 +171,27 @@ async function fetchBars(symbol: string, timeframe: string, windowUnits: number)
   return normalized as PriceBar[];
 }
 
+function cancelRetry(entry: CacheEntry): void {
+  if (entry.retryTimer !== null) {
+    clearTimeout(entry.retryTimer);
+    entry.retryTimer = null;
+  }
+  entry.retryDelayMs = RETRY_INITIAL_DELAY_MS;
+}
+
+function scheduleRetry(symbol: string, timeframe: string, entry: CacheEntry): void {
+  if (entry.retryTimer !== null) return;
+  const delay = entry.retryDelayMs;
+  entry.retryDelayMs = Math.min(entry.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
+  entry.retryTimer = setTimeout(() => {
+    entry.retryTimer = null;
+    if (entry.inflightSeed) return;
+    entry.inflightSeed = performFullReload(symbol, timeframe).finally(() => {
+      entry.inflightSeed = null;
+    });
+  }, delay);
+}
+
 async function performFullReload(symbol: string, timeframe: string): Promise<void> {
   const entry = caches.get(getCacheKey(symbol, timeframe));
   if (!entry) return;
@@ -183,6 +216,8 @@ async function performFullReload(symbol: string, timeframe: string): Promise<voi
     entry.rows = [...sorted, ...tail];
     entry.error = null;
     entry.loading = false;
+    entry.hadSuccessfulSeed = true;
+    cancelRetry(entry);
     notifyListeners(entry);
   } catch (err) {
     if (entry.rows.length === 0) {
@@ -190,7 +225,15 @@ async function performFullReload(symbol: string, timeframe: string): Promise<voi
       entry.loading = false;
       notifyListeners(entry);
     }
-    // If we have cached rows already, swallow the failure and try again next cycle.
+    // Retry on backoff until we get at least one successful full reload, so a
+    // transient upstream error (e.g., 401) on the initial seed doesn't leave
+    // the cache empty while the 1s poll trickles in a handful of bars until
+    // the next 5-minute background reload tick fires. Once the seed has
+    // succeeded once, we trust the regular 5-min reload cadence and let
+    // transient failures fall through silently.
+    if (!entry.hadSuccessfulSeed) {
+      scheduleRetry(symbol, timeframe, entry);
+    }
   }
 }
 

@@ -90,15 +90,24 @@ interface CacheEntry {
   fetchedAt: number | null;
   loading: boolean;
   error: string | null;
+  hadSuccessfulSeed: boolean;
   subscribers: Set<() => void>;
   pollTimer: ReturnType<typeof setInterval> | null;
   reloadTimer: ReturnType<typeof setTimeout> | null;
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  retryDelayMs: number;
   inflight: Promise<void> | null;
 }
 
 const POLL_INTERVAL_MS = 1_000;
 const RELOAD_INTERVAL_MS = 5 * 60_000;
 const INCREMENTAL_INTERVAL_PARAM = 3;
+// Backoff window for retrying a failed full reload (e.g., transient 401s).
+// Without this, the cache stays empty until the next 5-minute background
+// reload tick — which can be up to 5 minutes away — and consumers only see
+// whatever sparse bars the 1s incremental poll has trickled in.
+const RETRY_INITIAL_DELAY_MS = 2_000;
+const RETRY_MAX_DELAY_MS = 30_000;
 
 const caches = new Map<string, CacheEntry>();
 
@@ -111,9 +120,12 @@ function getOrCreateCache(symbol: string): CacheEntry {
       fetchedAt: null,
       loading: false,
       error: null,
+      hadSuccessfulSeed: false,
       subscribers: new Set(),
       pollTimer: null,
       reloadTimer: null,
+      retryTimer: null,
+      retryDelayMs: RETRY_INITIAL_DELAY_MS,
       inflight: null,
     };
     caches.set(symbol, entry);
@@ -184,6 +196,27 @@ function applyResponse(entry: CacheEntry, payload: TechnicalsResponse, mode: 're
   entry.fetchedAt = Date.now();
 }
 
+function cancelRetry(entry: CacheEntry): void {
+  if (entry.retryTimer !== null) {
+    clearTimeout(entry.retryTimer);
+    entry.retryTimer = null;
+  }
+  entry.retryDelayMs = RETRY_INITIAL_DELAY_MS;
+}
+
+function scheduleRetry(symbol: string, entry: CacheEntry): void {
+  if (entry.retryTimer !== null) return;
+  const delay = entry.retryDelayMs;
+  entry.retryDelayMs = Math.min(entry.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
+  entry.retryTimer = setTimeout(() => {
+    entry.retryTimer = null;
+    if (entry.inflight) return;
+    entry.inflight = performFullReload(symbol).finally(() => {
+      entry.inflight = null;
+    });
+  }, delay);
+}
+
 async function performFullReload(symbol: string): Promise<void> {
   const entry = caches.get(symbol);
   if (!entry) return;
@@ -192,6 +225,8 @@ async function performFullReload(symbol: string): Promise<void> {
     applyResponse(entry, payload, 'replace');
     entry.error = null;
     entry.loading = false;
+    entry.hadSuccessfulSeed = true;
+    cancelRetry(entry);
     notifyListeners(entry);
   } catch (err) {
     entry.loading = false;
@@ -199,6 +234,12 @@ async function performFullReload(symbol: string): Promise<void> {
       entry.error = err instanceof Error ? err.message : 'Failed to fetch technicals';
     }
     notifyListeners(entry);
+    // Retry on backoff until the seed succeeds, so a transient 401 on the
+    // initial fetch doesn't leave the cache stranded for up to 5 minutes
+    // while the 1s incremental poll trickles in just a handful of bars.
+    if (!entry.hadSuccessfulSeed) {
+      scheduleRetry(symbol, entry);
+    }
   }
 }
 
