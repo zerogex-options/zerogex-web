@@ -104,12 +104,38 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
+NGINX_CONF="/etc/nginx/sites-enabled/$SITE_NAME"
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
-if [ -f "/etc/nginx/sites-enabled/$SITE_NAME" ]; then
+if [ -f "$NGINX_CONF" ]; then
     log "  ✓ Site configuration enabled"
     PASSED_CHECKS=$((PASSED_CHECKS + 1))
 else
     log "  ✗ Site configuration not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Routing invariant: /api/ must terminate at the Next.js BFF, not direct
+# to FastAPI. 050.nginx and 070.ssl independently template the nginx
+# config, so a future change to one can easily get lost in the other
+# (commit 0f1a102 fixed exactly that desync). Fail loudly if the bare
+# `location /api/` block isn't proxying to WEB_PORT.
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if [ -r "$NGINX_CONF" ]; then
+    EXPECTED_PROXY="http://127.0.0.1:$WEB_PORT"
+    API_PROXY=$(sudo awk '
+        /^[[:space:]]*location[[:space:]]+\/api\/[[:space:]]*\{/{found=1; next}
+        found && /proxy_pass/{print; exit}
+    ' "$NGINX_CONF" | grep -oE 'http://[^;[:space:]]+' | head -1 | sed 's#/$##')
+    if [ "$API_PROXY" = "$EXPECTED_PROXY" ]; then
+        log "  ✓ /api/ routes to BFF ($API_PROXY)"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+    else
+        log "  ✗ /api/ proxy_pass is '$API_PROXY', expected '$EXPECTED_PROXY'"
+        log "    050.nginx and 070.ssl may have desynced. Re-run 050 then 070."
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+    fi
+else
+    log "  ✗ Cannot read $NGINX_CONF for routing invariant check"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
@@ -184,6 +210,49 @@ if [ -f "$ENV_FILE" ]; then
     fi
 else
     log "  ✗ $ENV_FILE not found"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
+# Section 5c: BFF process integrity — confirm the running Node child is
+# on v22. node:sqlite (required by frontend/core/db.ts for the auth DB)
+# is only available on Node 22+; if pm2 spawned the BFF under Node 20 the
+# auth middleware fails to import, every page renders 500, but /api/*
+# still returns 200 because the BFF route handlers don't touch sqlite.
+# Catch this divergence here rather than in browser-side smoke tests.
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "5c. BFF Process Integrity"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+BFF_NODE_PID=""
+BFF_NODE_EXE=""
+# pgrep -f matches both the npm-wrapper shell (`sh -c "next start"`) and
+# the actual Node process; we walk matches and pick the one whose
+# /proc/PID/exe is a node binary.
+for p in $(pgrep -f "next-server|next start" 2>/dev/null); do
+    exe=$(sudo readlink "/proc/$p/exe" 2>/dev/null) || continue
+    case "$exe" in
+        */node)
+            BFF_NODE_PID="$p"
+            BFF_NODE_EXE="$exe"
+            break
+            ;;
+    esac
+done
+
+if [ -z "$BFF_NODE_PID" ]; then
+    log "  ✗ No Node process found for the BFF (pgrep next-server matched nothing usable)"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+elif [[ "$BFF_NODE_EXE" == */v22.*/bin/node ]]; then
+    BFF_NODE_VER=$(echo "$BFF_NODE_EXE" | grep -oE 'v22\.[0-9.]+')
+    log "  ✓ BFF (PID $BFF_NODE_PID) running on Node $BFF_NODE_VER"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ BFF (PID $BFF_NODE_PID) is NOT on Node 22 — exe: $BFF_NODE_EXE"
+    log "    node:sqlite (required by core/db.ts) is unavailable on this Node;"
+    log "    pages will 500 even if /api/* returns 200."
+    log "    Confirm ecosystem.config.js has 'interpreter' set, then re-run 040.pm2."
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 

@@ -42,6 +42,26 @@ if [ ! -f "$ECOSYSTEM_FILE" ]; then
   exit 1
 fi
 
+# Pin the BFF process's Node interpreter to the absolute v22 path so PM2
+# doesn't rely on the calling shell's PATH at `pm2 start` time. Without
+# this pin, invoking `pm2 start ecosystem.config.js` from a shell that
+# hasn't done `nvm use 22` (the system default on bare EC2 Ubuntu is
+# Node 20) silently spawns the BFF on Node 20, where node:sqlite is
+# missing and the auth proxy middleware fails to load — every page
+# renders 500 while /api/* still returns 200. ecosystem.config.js reads
+# this env var and passes it to PM2 as `interpreter`.
+NODE22_BIN="$(command -v node)"
+case "$NODE22_BIN" in
+  */v22.*/bin/node) : ;;
+  *)
+    log "  ✗ Resolved node interpreter is not v22: ${NODE22_BIN:-<not found>}"
+    log "    Re-run 020.nodejs to install Node 22, or check nvm aliases."
+    exit 1
+    ;;
+esac
+export PM2_NODE_INTERPRETER="$NODE22_BIN"
+log "  → Pinning BFF interpreter: $PM2_NODE_INTERPRETER"
+
 cd "$REPO_ROOT"
 log "  → Restarting PM2 app: $APP_NAME"
 pm2 delete "$APP_NAME" 2>/dev/null || true
