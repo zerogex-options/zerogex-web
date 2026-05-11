@@ -156,7 +156,7 @@ function normalizeNumbers(value: unknown): unknown {
 }
 
 function buildUrl(symbol: string, timeframe: string, windowUnits: number): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const sym = encodeURIComponent(symbol);
   const tf = encodeURIComponent(timeframe);
   return `${baseUrl}/api/market/historical?symbol=${sym}&underlying=${sym}&timeframe=${tf}&window_units=${windowUnits}`;

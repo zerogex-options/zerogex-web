@@ -43,7 +43,7 @@ export function setCachedOptionChain(symbol: string, data: MaxPainCurrentRespons
 }
 
 export function buildOptionChainUrl(symbol: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const sym = encodeURIComponent(symbol);
   return `${baseUrl}/api/max-pain/current?symbol=${sym}&underlying=${sym}&strike_limit=${STRIKE_LIMIT}`;
 }

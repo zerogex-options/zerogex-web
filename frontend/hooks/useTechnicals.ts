@@ -138,7 +138,7 @@ function notifyListeners(entry: CacheEntry): void {
 }
 
 function buildUrl(symbol: string, interval?: number): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol });
   if (interval != null) params.set('interval', String(interval));
   return `${baseUrl}/api/technicals?${params.toString()}`;

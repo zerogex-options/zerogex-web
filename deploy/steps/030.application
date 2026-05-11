@@ -78,12 +78,41 @@ ensure_env_key() {
   fi
 }
 
-ensure_env_key "NEXT_PUBLIC_API_URL" "https://$DOMAIN_NAME"
+# Browser fetches stay same-origin and flow through the Next.js BFF
+# (app/api/{gex,flow,...}/route.ts), which injects X-API-Key from
+# server-only env. An empty NEXT_PUBLIC_API_URL keeps the client on
+# relative URLs so it resolves to the website's own origin.
+ensure_env_key "NEXT_PUBLIC_API_URL" ""
 ensure_env_key "NEXT_PUBLIC_WS_URL" "wss://$DOMAIN_NAME/ws"
 ensure_env_key "NEXT_PUBLIC_ENABLE_WEBSOCKET" "false"
 ensure_env_key "NEXT_PUBLIC_ENABLE_GRAFANA" "false"
 # Auth feature flag (off by default — see step 035.auth to enable).
 ensure_env_key "NEXT_PUBLIC_AUTH_ENABLED" "0"
+
+# Backend FastAPI lives on the same box; the BFF proxies to it.
+ensure_env_key "ZEROGEX_API_BASE_URL" "${ZEROGEX_API_BASE_URL:-http://127.0.0.1:8000}"
+
+# ZEROGEX_API_KEY: server-only, never NEXT_PUBLIC_*. Accept it from the
+# environment for unattended deploys, otherwise prompt. Fail the deploy
+# rather than leaving it blank — the BFF would 500 on every backend call
+# without it, and the symptom (every page broken) is worse than the
+# error here.
+if ! grep -qE "^ZEROGEX_API_KEY=" .env.local; then
+  if [ -z "${ZEROGEX_API_KEY:-}" ]; then
+    read -r -s -p "  Enter ZEROGEX_API_KEY (the website-prod key from the API repo): " ZEROGEX_API_KEY
+    echo
+  fi
+  if [ -z "${ZEROGEX_API_KEY:-}" ]; then
+    log "     ✗ ZEROGEX_API_KEY is required. Mint one in the API repo with:"
+    log "         make api-keys-create USER=website-prod NAME=website-prod-server"
+    exit 1
+  fi
+  printf 'ZEROGEX_API_KEY=%s\n' "$ZEROGEX_API_KEY" >> .env.local
+  log "     + Added ZEROGEX_API_KEY"
+else
+  log "     ✓ ZEROGEX_API_KEY already set"
+fi
+
 log "     ✓ .env.local configured for domain: $DOMAIN_NAME"
 
 # Build for production

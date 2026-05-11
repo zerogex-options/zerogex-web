@@ -410,7 +410,7 @@ async function fetchByContract(
   session: 'current' | 'prior',
   intervals?: number,
 ): Promise<FlowByContractPoint[]> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol, session });
   if (intervals != null) params.set('intervals', String(intervals));
 

@@ -27,7 +27,7 @@ function pickIntervalMs(): number {
 }
 
 function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 }
 
 export function useCompositeData(symbol: string): CompositeState {

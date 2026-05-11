@@ -227,8 +227,8 @@ export default function OptionsCalculatorPage() {
   // (the prewarm uses it directly with fetch()). Strip the base back off here so
   // both code paths stay in sync on strike_limit / symbol encoding.
   const fullChainUrl = buildOptionChainUrl(symbol);
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  const chainEndpoint = fullChainUrl.startsWith(apiBase) ? fullChainUrl.slice(apiBase.length) : fullChainUrl;
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+  const chainEndpoint = apiBase && fullChainUrl.startsWith(apiBase) ? fullChainUrl.slice(apiBase.length) : fullChainUrl;
   const {
     data: maxPainDataRaw,
     error: chainError,
