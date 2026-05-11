@@ -342,7 +342,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     if (!enabled) return;
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
       const response = await fetch(`${baseUrl}${endpoint}`);
 
       if (!response.ok) {

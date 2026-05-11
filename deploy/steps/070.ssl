@@ -115,39 +115,9 @@ server {
     server_tokens off;
     client_max_body_size 25m;
 
-    # Next.js auth API (must stay on frontend app, not backend API upstream)
-    location ^~ /api/auth/ {
-        proxy_pass http://127.0.0.1:${WEB_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # Next.js Stripe billing API (Checkout + Customer Portal session creation)
-    location ^~ /api/billing/ {
-        proxy_pass http://127.0.0.1:${WEB_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # Next.js webhook endpoints (Stripe signature verification needs the raw body)
+    # Next.js Stripe webhook endpoint — kept separate because signature
+    # verification needs the raw request body, so proxy_buffering must
+    # be off here (and only here).
     location ^~ /api/webhooks/ {
         proxy_pass http://127.0.0.1:${WEB_PORT};
         proxy_http_version 1.1;
@@ -164,43 +134,19 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Next.js admin endpoints (monitoring dashboard, etc.) — must hit the Next.js
-    # app, not the backend API upstream.
-    location ^~ /api/admin/ {
-        proxy_pass http://127.0.0.1:${WEB_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # Next.js account endpoints (linked-identity listing/unlink, etc.) — must
-    # hit the Next.js app, not the backend API upstream.
-    location ^~ /api/account/ {
-        proxy_pass http://127.0.0.1:${WEB_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \$connection_upgrade;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # Backend API reverse proxy
+    # All /api/* requests now flow through the Next.js BFF, which
+    # injects X-API-Key from server-only env (ZEROGEX_API_KEY) before
+    # proxying to the FastAPI backend. nginx is no longer responsible
+    # for authenticating any upstream call — the website carries its
+    # own per-caller key, just like external API consumers do.
+    #
+    # This block intentionally covers /api/auth/*, /api/admin/*,
+    # /api/billing/*, /api/account/* too (they are also Next.js route
+    # handlers). The only /api/* path that needs a separate block is
+    # /api/webhooks/* above, because Stripe signature verification
+    # requires raw request bodies (proxy_buffering off).
     location /api/ {
-        proxy_pass ${API_UPSTREAM}/api/;
+        proxy_pass http://127.0.0.1:${WEB_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection \$connection_upgrade;
@@ -210,7 +156,8 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
 
         # Sized for heavy historical queries (window_units=90) on 2-vCPU
-        # box; can be tightened after a CPU upgrade.
+        # box; the BFF is a thin pass-through, so most of this is the
+        # FastAPI roundtrip behind it.
         proxy_connect_timeout 30s;
         proxy_send_timeout 120s;
         proxy_read_timeout 120s;
@@ -231,15 +178,12 @@ server {
         add_header X-Cache-Status \$upstream_cache_status always;
 
         limit_req zone=zerogex_api_per_ip burst=1000 nodelay;
-
-        # Inject backend X-API-Key header if the snippet exists.
-        # Wildcard include is a no-op when no files match (won't error on hosts
-        # without the snippet). On hosts where it lives, the file must define
-        # 'proxy_set_header X-API-Key "<value>";' for the FastAPI service.
-        include /etc/nginx/conf.d/zerogex-api-key*.conf;
     }
 
-    # WebSocket reverse proxy
+    # WebSocket reverse proxy. Direct to FastAPI for now — disabled by
+    # default in the app (NEXT_PUBLIC_ENABLE_WEBSOCKET=false). If/when
+    # WS is enabled, this block will need its own auth solution since
+    # browser WebSockets can't send custom headers like X-API-Key.
     location /ws {
         proxy_pass ${API_UPSTREAM}/ws;
         proxy_http_version 1.1;
@@ -253,8 +197,6 @@ server {
         proxy_connect_timeout 15s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
-
-        include /etc/nginx/conf.d/zerogex-api-key*.conf;
     }
 
     # Frontend reverse proxy
@@ -331,6 +273,7 @@ log "  ✓ Systemd timer enabled: zerogex-web-cert-renew.timer"
 log ""
 log "App endpoints:"
 log "  • https://${DOMAIN_NAME}"
-log "  • https://${DOMAIN_NAME}/api/docs"
-log "  • https://${DOMAIN_NAME}/api/redoc"
-log "  • https://${DOMAIN_NAME}/api/openapi.json"
+log "  • https://${DOMAIN_NAME}/api/health (BFF-proxied)"
+log ""
+log "FastAPI Swagger/ReDoc/OpenAPI are NOT exposed through the website;"
+log "they're only available on the API host (e.g., https://api.zerogex.io/docs)."
