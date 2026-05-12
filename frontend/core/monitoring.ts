@@ -97,7 +97,7 @@ function etBucketKeys(date: Date): { hour: string; day: string } {
   return { day, hour: `${day}T${h}` };
 }
 
-function loadStore() {
+function readStoreFromDisk(): StoreShape {
   try {
     const raw = fs.readFileSync(STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<StoreShape>;
@@ -106,18 +106,21 @@ function loadStore() {
       for (const [k, v] of Object.entries(parsed.hourly)) hourly[k] = normalizeBucket(v);
       const daily: Record<string, MonitoringBucket> = {};
       for (const [k, v] of Object.entries(parsed.daily)) daily[k] = normalizeBucket(v);
-      store = {
+      return {
         version: 1,
         hourly,
         daily,
         lastFlushAt: parsed.lastFlushAt ?? null,
       };
-      return;
     }
   } catch {
     // No file or parse failed: start fresh.
   }
-  store = createEmptyStore();
+  return createEmptyStore();
+}
+
+function loadStore() {
+  store = readStoreFromDisk();
 }
 
 function ensureBucket(map: Record<string, MonitoringBucket>, key: string): MonitoringBucket {
@@ -298,16 +301,19 @@ function aggregateTopUsers(
 }
 
 export function getSnapshot(): MonitoringSnapshot {
-  if (!initialized) initMonitoring();
+  // Read fresh from disk: the proxy bundle that calls recordRequest() is
+  // a separate Next.js 16 runtime and its in-memory store is invisible
+  // here. The file it persists every 60s is the only shared source of truth.
+  const live = readStoreFromDisk();
   const now = new Date();
   const hourlyKeys = generateHourlyKeys(now);
   const dailyKeys = generateDailyKeys(now);
   return {
-    hourly: hourlyKeys.map((key) => bucketToPoint(key, store.hourly[key])),
-    daily: dailyKeys.map((key) => bucketToPoint(key, store.daily[key])),
-    topIps: aggregateTopIps(store.daily, 10),
-    topUsers: aggregateTopUsers(store.daily, 10),
-    lastFlushAt: store.lastFlushAt,
+    hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
+    daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
+    topIps: aggregateTopIps(live.daily, 10),
+    topUsers: aggregateTopUsers(live.daily, 10),
+    lastFlushAt: live.lastFlushAt,
     generatedAt: now.toISOString(),
   };
 }
