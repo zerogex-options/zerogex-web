@@ -15,7 +15,12 @@ import {
 } from 'recharts';
 import { useSignalEvents, type SignalEventName, type SignalEventHorizon } from '@/hooks/useApiData';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { computeTimeTicks, firstTicksOfEtDay, formatEtTime, getNumber } from '@/core/signalHelpers';
+import {
+  alignedTimeTicksMs,
+  etPartsFromMs,
+  formatEtTime,
+  getNumber,
+} from '@/core/signalHelpers';
 import ChartTimeAxisTick from './ChartTimeAxisTick';
 import MobileScrollableChart from './MobileScrollableChart';
 
@@ -39,6 +44,21 @@ function pickTimeStepMinutes(spanMinutes: number, targetTicks = 6): number {
   return TIME_STEP_CANDIDATES[TIME_STEP_CANDIDATES.length - 1];
 }
 
+// Smallest 1/2/2.5/5/10 × 10^n value that is >= `value`. Used to round a
+// data-driven minimum step up to a "nice" tick increment.
+function niceStepCeil(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  const norm = value / magnitude;
+  let nice: number;
+  if (norm <= 1) nice = 1;
+  else if (norm <= 2) nice = 2;
+  else if (norm <= 2.5) nice = 2.5;
+  else if (norm <= 5) nice = 5;
+  else nice = 10;
+  return nice * magnitude;
+}
+
 // Pick a 1/2/2.5/5/10 × 10^n step so tick labels are round (e.g. 25, 50,
 // 0.005, 0.5%) regardless of the underlying data magnitude.
 function niceStep(range: number, targetTicks: number): number {
@@ -55,11 +75,20 @@ function niceStep(range: number, targetTicks: number): number {
   return nice * magnitude;
 }
 
-// Build a domain + tick list that always brackets the data on round step
-// boundaries and always includes zero so the reference line stays visible.
-function niceScale(rawMin: number, rawMax: number, targetTicks = 5): {
+function roundTick(value: number, step: number): number {
+  const decimals = step < 1 ? Math.min(10, Math.max(0, -Math.floor(Math.log10(step)) + 2)) : 6;
+  return Number(value.toFixed(decimals));
+}
+
+// "Primary" nice scale for the score axis: data-driven, always includes zero,
+// and guarantees at least one tick above AND below zero so a secondary axis
+// can share the same 0 crossing position.
+function niceScalePrimary(rawMin: number, rawMax: number, targetTicks = 5): {
   domain: [number, number];
   ticks: number[];
+  step: number;
+  ticksBelow: number;
+  ticksAbove: number;
 } {
   let lo = Number.isFinite(rawMin) ? Math.min(rawMin, 0) : 0;
   let hi = Number.isFinite(rawMax) ? Math.max(rawMax, 0) : 0;
@@ -69,13 +98,44 @@ function niceScale(rawMin: number, rawMax: number, targetTicks = 5): {
     hi += eps;
   }
   const step = niceStep(hi - lo, targetTicks);
-  const niceLo = Math.floor(lo / step) * step;
-  const niceHi = Math.ceil(hi / step) * step;
-  const decimals = step < 1 ? Math.min(10, Math.max(0, -Math.floor(Math.log10(step)) + 2)) : 6;
-  const count = Math.max(1, Math.round((niceHi - niceLo) / step));
+  let niceLo = Math.floor(lo / step) * step;
+  let niceHi = Math.ceil(hi / step) * step;
+  // Always reserve at least one tick on each side of zero so the right axis
+  // can align its zero crossing to the same fraction of chart height.
+  if (niceLo >= 0) niceLo = -step;
+  if (niceHi <= 0) niceHi = step;
+  const ticksBelow = Math.round(-niceLo / step);
+  const ticksAbove = Math.round(niceHi / step);
   const ticks: number[] = [];
-  for (let i = 0; i <= count; i++) {
-    ticks.push(Number((niceLo + i * step).toFixed(decimals)));
+  for (let i = -ticksBelow; i <= ticksAbove; i++) {
+    ticks.push(roundTick(i * step, step));
+  }
+  return { domain: [niceLo, niceHi], ticks, step, ticksBelow, ticksAbove };
+}
+
+// "Aligned" scale for the right axis: reuses the primary axis's tick counts
+// above/below zero so the 0 line lands on the same pixel row. The right
+// axis's own step is chosen as the smallest nice value that lets those
+// counts bracket the data, which keeps labels on round percentage values
+// (e.g. 0.25%/0.50%/1.00%) while scaling to fit the secondary data.
+function niceScaleAligned(
+  rawMin: number,
+  rawMax: number,
+  ticksBelow: number,
+  ticksAbove: number,
+  fallbackStep: number,
+): { domain: [number, number]; ticks: number[] } {
+  const maxNeg = Math.max(0, -Math.min(rawMin, 0));
+  const maxPos = Math.max(0, Math.max(rawMax, 0));
+  const minStepNeg = ticksBelow > 0 ? maxNeg / ticksBelow : 0;
+  const minStepPos = ticksAbove > 0 ? maxPos / ticksAbove : 0;
+  const minStep = Math.max(minStepNeg, minStepPos);
+  const step = minStep > 0 ? niceStepCeil(minStep) : fallbackStep;
+  const niceLo = -ticksBelow * step;
+  const niceHi = ticksAbove * step;
+  const ticks: number[] = [];
+  for (let i = -ticksBelow; i <= ticksAbove; i++) {
+    ticks.push(roundTick(i * step, step));
   }
   return { domain: [niceLo, niceHi], ticks };
 }
@@ -95,8 +155,11 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         const score = getNumber(row.score) ?? 0;
         const flip = row.direction_flip === true;
         const direction = String(row.direction ?? 'neutral').toLowerCase();
+        const timeStr = String(row.timestamp ?? '');
+        const timeMs = new Date(timeStr).getTime();
         return {
-          time: String(row.timestamp ?? ''),
+          time: timeStr,
+          timeMs,
           score,
           flipScore: flip ? score : null,
           flipBullish: flip && direction === 'bullish' ? score : null,
@@ -104,31 +167,55 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
           realized: getNumber(row.realized_return),
         };
       })
-      .filter((row) => row.time)
-      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      .filter((row) => row.time && Number.isFinite(row.timeMs))
+      .sort((a, b) => a.timeMs - b.timeMs);
   }, [data]);
 
-  // X-axis ticks are pinned to round time boundaries (5min, 15min, 1hr…)
-  // chosen from the span of the visible data, with a date label rendered on
-  // the first tick of each ET calendar day.
-  const timeTicks = useMemo(() => {
-    if (rows.length === 0) return [];
-    const stamps = rows.map((r) => r.time);
-    if (stamps.length < 2) return stamps;
-    const startMs = new Date(stamps[0]).getTime();
-    const endMs = new Date(stamps[stamps.length - 1]).getTime();
-    const spanMin = Number.isFinite(startMs) && Number.isFinite(endMs)
-      ? Math.max(1, Math.round((endMs - startMs) / 60000))
-      : 60;
-    const step = pickTimeStepMinutes(spanMin, 6);
-    return computeTimeTicks(stamps, step);
+  // X-axis runs on a numeric (epoch-ms) scale so ticks can be synthesized at
+  // exact ET wall-clock boundaries (e.g. :15/:30/:45/:00) regardless of when
+  // event data actually lands.
+  const xDomain = useMemo<[number, number] | null>(() => {
+    if (rows.length === 0) return null;
+    if (rows.length === 1) return [rows[0].timeMs - 60_000, rows[0].timeMs + 60_000];
+    return [rows[0].timeMs, rows[rows.length - 1].timeMs];
   }, [rows]);
 
-  const dateTicks = useMemo(() => firstTicksOfEtDay(timeTicks), [timeTicks]);
+  const timeTicks = useMemo(() => {
+    if (!xDomain) return [];
+    const [startMs, endMs] = xDomain;
+    const spanMin = Math.max(1, Math.round((endMs - startMs) / 60_000));
+    const step = pickTimeStepMinutes(spanMin, 6);
+    let ticks = alignedTimeTicksMs(startMs, endMs, step);
+    // Very short spans may not contain a boundary at the chosen step — drop
+    // to the next smaller candidate until we have at least two ticks.
+    let idx = TIME_STEP_CANDIDATES.indexOf(step) - 1;
+    while (ticks.length < 2 && idx >= 0) {
+      ticks = alignedTimeTicksMs(startMs, endMs, TIME_STEP_CANDIDATES[idx]);
+      idx -= 1;
+    }
+    return ticks;
+  }, [xDomain]);
 
-  // Each y-axis is scaled to its own data. Score and realized return live on
-  // very different magnitudes, so we no longer mirror them around a shared
-  // center — the 0 reference line is drawn against the score axis only.
+  // First tick of each ET calendar day, keyed by the stringified ms value
+  // so ChartTimeAxisTick's `dateTicks.has(String(payload.value))` lookup
+  // resolves correctly under the numeric x-axis.
+  const dateTicks = useMemo(() => {
+    const set = new Set<string>();
+    let lastDay = '';
+    for (const ms of timeTicks) {
+      const { day } = etPartsFromMs(ms);
+      if (day && day !== lastDay) {
+        set.add(String(ms));
+        lastDay = day;
+      }
+    }
+    return set;
+  }, [timeTicks]);
+
+  // Score (left) scale drives the layout: its tick counts above/below zero
+  // are reused by the right axis so the 0 line lands at the same chart row
+  // on both — eliminating the "right-axis zero drifts when toggling horizon"
+  // problem.
   const scoreScale = useMemo(() => {
     let lo = 0;
     let hi = 0;
@@ -138,7 +225,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         if (r.score > hi) hi = r.score;
       }
     }
-    return niceScale(lo, hi, 5);
+    return niceScalePrimary(lo, hi, 5);
   }, [rows]);
 
   const realizedScale = useMemo(() => {
@@ -152,10 +239,18 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         if (r.realized > hi) hi = r.realized;
       }
     }
-    if (!any) {
-      return { domain: [-0.01, 0.01] as [number, number], ticks: [-0.01, -0.005, 0, 0.005, 0.01] };
-    }
-    return niceScale(lo, hi, 5);
+    return niceScaleAligned(
+      any ? lo : -0.005,
+      any ? hi : 0.005,
+      scoreScale.ticksBelow,
+      scoreScale.ticksAbove,
+      0.005,
+    );
+  }, [rows, scoreScale]);
+
+  const barSize = useMemo(() => {
+    if (rows.length === 0) return 4;
+    return Math.max(2, Math.min(8, Math.floor(800 / rows.length)));
   }, [rows]);
 
   const summary = data?.summary ?? {};
@@ -166,7 +261,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         <div>
           <h2 className="text-xl font-semibold">{title}</h2>
           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-            Historical score path with forward realized return at the chosen horizon. Triangles mark direction flips.
+            Score path (left axis) with each event&apos;s underlying price move from its timestamp to {horizon} later (right axis). Triangles mark direction flips.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -204,12 +299,15 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
             <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis
-                dataKey="time"
+                type="number"
+                dataKey="timeMs"
+                domain={xDomain ?? ['dataMin', 'dataMax']}
                 ticks={timeTicks}
                 interval={0}
                 height={44}
                 tick={<ChartTimeAxisTick dateTicks={dateTicks} />}
                 stroke="var(--color-border)"
+                allowDuplicatedCategory={false}
               />
               <YAxis
                 yAxisId="score"
@@ -231,7 +329,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               />
               <Tooltip content={<EventsTooltip />} />
               <ReferenceLine yAxisId="score" y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.4} />
-              <Bar yAxisId="ret" dataKey="realized" name="Realized" fill="var(--color-border)" opacity={0.6} />
+              <Bar yAxisId="ret" dataKey="realized" name="Realized" fill="var(--color-border)" opacity={0.6} barSize={barSize} />
               <Line yAxisId="score" type="monotone" dataKey="score" name="Score" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
               <Scatter yAxisId="score" dataKey="flipBullish" name="Flip ↑" fill="var(--color-bull)" shape="triangle" />
               <Scatter yAxisId="score" dataKey="flipBearish" name="Flip ↓" fill="var(--color-bear)" shape="triangle" />
