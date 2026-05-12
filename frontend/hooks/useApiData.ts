@@ -760,6 +760,7 @@ export type SignalEventName =
   | 'trap_detection'
   | 'zero_dte_position_imbalance'
   | 'gamma_vwap_confluence'
+  | 'range_break_imminence'
   | 'tape_flow_bias'
   | 'skew_delta'
   | 'vanna_charm_flow'

@@ -122,18 +122,82 @@ export function parseScoreHistory(raw: unknown): ScoreHistoryPoint[] {
   return out;
 }
 
+// Accept both ISO strings ("2024-…T13:00:00Z") and epoch-millisecond values
+// — including numbers stringified for use as React keys/Set entries by the
+// numeric-x-axis chart code, since `new Date("1700000000000")` is otherwise
+// Invalid Date in V8.
+function parseDateLike(value: unknown): Date {
+  if (typeof value === 'number') return new Date(value);
+  const s = String(value ?? '').trim();
+  if (!s) return new Date(NaN);
+  if (/^-?\d+$/.test(s)) return new Date(Number(s));
+  return new Date(s);
+}
+
 export function formatEtTime(value: unknown): string {
   if (value == null) return '—';
-  const d = new Date(String(value));
+  const d = parseDateLike(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
 }
 
 export function formatEtDate(value: unknown): string {
   if (value == null) return '';
-  const d = new Date(String(value));
+  const d = parseDateLike(value);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+}
+
+// Decompose an epoch-millisecond timestamp into ET calendar parts so charts
+// can align ticks to ET hour boundaries (regardless of the caller's local
+// timezone or DST state).
+export function etPartsFromMs(ms: number): { day: string; minuteOfDay: number; secondOfMinute: number } {
+  if (!Number.isFinite(ms)) return { day: '', minuteOfDay: 0, secondOfMinute: 0 };
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(ms));
+  let year = '', month = '', day = '', hour = '0', minute = '0', second = '0';
+  for (const p of parts) {
+    if (p.type === 'year') year = p.value;
+    else if (p.type === 'month') month = p.value;
+    else if (p.type === 'day') day = p.value;
+    else if (p.type === 'hour') hour = p.value;
+    else if (p.type === 'minute') minute = p.value;
+    else if (p.type === 'second') second = p.value;
+  }
+  const hr = parseInt(hour, 10) % 24;
+  const mn = parseInt(minute, 10);
+  const sc = parseInt(second, 10);
+  return { day: `${year}-${month}-${day}`, minuteOfDay: hr * 60 + mn, secondOfMinute: sc };
+}
+
+// Emit ms timestamps that fall on round ET wall-clock boundaries
+// (e.g. :00/:15/:30/:45 for stepMinutes=15, or every ET midnight for
+// stepMinutes>=1440). Independent of where data points actually lie so the
+// chart can show "nice" tick labels even when events fire at irregular
+// times.
+export function alignedTimeTicksMs(startMs: number, endMs: number, stepMinutes: number, maxTicks = 40): number[] {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs || stepMinutes <= 0) {
+    return [];
+  }
+  const stepMs = stepMinutes * 60_000;
+  const parts = etPartsFromMs(startMs);
+  let offsetMin: number;
+  if (stepMinutes >= 1440) {
+    offsetMin = parts.minuteOfDay === 0 && parts.secondOfMinute === 0 ? 0 : 1440 - parts.minuteOfDay;
+  } else {
+    const remainder = parts.minuteOfDay % stepMinutes;
+    offsetMin = remainder === 0 && parts.secondOfMinute === 0 ? 0 : stepMinutes - remainder;
+  }
+  const first = startMs + offsetMin * 60_000 - parts.secondOfMinute * 1000;
+  const ticks: number[] = [];
+  for (let t = first; t <= endMs && ticks.length < maxTicks; t += stepMs) {
+    if (t >= startMs) ticks.push(t);
+  }
+  return ticks;
 }
 
 function etDateKey(value: string): string {

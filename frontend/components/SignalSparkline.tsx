@@ -10,8 +10,25 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { computeTimeTicks, firstTicksOfEtDay, formatEtTime, type ScoreHistoryPoint } from '@/core/signalHelpers';
+import {
+  alignedTimeTicksMs,
+  etPartsFromMs,
+  formatEtTime,
+  type ScoreHistoryPoint,
+} from '@/core/signalHelpers';
 import ChartTimeAxisTick from './ChartTimeAxisTick';
+
+// Match SignalEventsPanel: candidate step sizes (in minutes) for the x-axis
+// tick generator, picked so labels land on familiar wall-clock boundaries.
+const SCORE_TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720, 1440];
+
+function pickScoreTimeStep(spanMinutes: number, targetTicks = 6): number {
+  const raw = spanMinutes / Math.max(1, targetTicks);
+  for (const c of SCORE_TIME_STEPS) {
+    if (c >= raw) return c;
+  }
+  return SCORE_TIME_STEPS[SCORE_TIME_STEPS.length - 1];
+}
 import { useExpandedCard } from './ExpandableCard';
 
 interface SignalSparklineProps {
@@ -120,20 +137,55 @@ function ExpandedSparkline({
 }) {
   const data = useMemo(
     () =>
-      points.map((p, i) => ({
-        index: i,
-        timestamp: p.timestamp ?? null,
-        score: Math.max(min, Math.min(max, p.score)),
-      })),
+      points
+        .map((p, i) => {
+          const timeMs = p.timestamp ? new Date(p.timestamp).getTime() : Number.NaN;
+          return {
+            index: i,
+            timestamp: p.timestamp ?? null,
+            timeMs,
+            score: Math.max(min, Math.min(max, p.score)),
+          };
+        })
+        .filter((d) => Number.isFinite(d.timeMs)),
     [points, min, max],
   );
 
-  const timeTicks = useMemo(() => {
-    const stamps = data.map((d) => d.timestamp).filter((t): t is string => !!t);
-    return computeTimeTicks(stamps, 15);
+  // Match the Event Timeline tick standard: place the x-axis on a numeric
+  // (epoch-ms) scale so ticks land on round ET wall-clock boundaries
+  // (e.g. :15/:30/:45/:00) regardless of when score samples were recorded.
+  const xDomain = useMemo<[number, number] | null>(() => {
+    if (data.length === 0) return null;
+    if (data.length === 1) return [data[0].timeMs - 60_000, data[0].timeMs + 60_000];
+    return [data[0].timeMs, data[data.length - 1].timeMs];
   }, [data]);
 
-  const dateTicks = useMemo(() => firstTicksOfEtDay(timeTicks), [timeTicks]);
+  const timeTicks = useMemo(() => {
+    if (!xDomain) return [];
+    const [startMs, endMs] = xDomain;
+    const spanMin = Math.max(1, Math.round((endMs - startMs) / 60_000));
+    const step = pickScoreTimeStep(spanMin, 6);
+    let ticks = alignedTimeTicksMs(startMs, endMs, step);
+    let idx = SCORE_TIME_STEPS.indexOf(step) - 1;
+    while (ticks.length < 2 && idx >= 0) {
+      ticks = alignedTimeTicksMs(startMs, endMs, SCORE_TIME_STEPS[idx]);
+      idx -= 1;
+    }
+    return ticks;
+  }, [xDomain]);
+
+  const dateTicks = useMemo(() => {
+    const set = new Set<string>();
+    let lastDay = '';
+    for (const ms of timeTicks) {
+      const { day } = etPartsFromMs(ms);
+      if (day && day !== lastDay) {
+        set.add(String(ms));
+        lastDay = day;
+      }
+    }
+    return set;
+  }, [timeTicks]);
 
   const ticks = useMemo(() => {
     const span = max - min;
@@ -163,12 +215,15 @@ function ExpandedSparkline({
         <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis
-            dataKey="timestamp"
+            type="number"
+            dataKey="timeMs"
+            domain={xDomain ?? ['dataMin', 'dataMax']}
             ticks={timeTicks}
             interval={0}
             height={44}
             tick={<ChartTimeAxisTick dateTicks={dateTicks} />}
             stroke="var(--color-border)"
+            allowDuplicatedCategory={false}
           />
           <YAxis
             domain={[min, max]}
