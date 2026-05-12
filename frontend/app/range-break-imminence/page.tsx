@@ -6,6 +6,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useRangeBreakImminenceSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import SignalEventsPanel from '@/components/SignalEventsPanel';
 import SignalScoreHero from '@/components/SignalScoreHero';
 import SignalPageTitle from '@/components/SignalPageTitle';
 import SignalHowItsBuilt from '@/components/SignalHowItsBuilt';
@@ -245,6 +246,8 @@ export default function RangeBreakImminencePage() {
         <div><code>Bias = Σ (Signed<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in [−1, +1] — drives the directional <code>Score</code>.</div>
         <div><code>Score = Imminence × Bias</code> (sign carried by Bias). Direction is derived from sign of Bias.</div>
       </SignalHowItsBuilt>
+
+      <SignalEventsPanel signalName="range_break_imminence" symbol={symbol} title="Event Timeline" />
     </div>
   );
 }

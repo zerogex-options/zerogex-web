@@ -32,6 +32,32 @@ interface SignalEventsPanelProps {
 
 const HORIZONS: SignalEventHorizon[] = ['30m', '60m', '120m'];
 
+// Zoom toggle options. `minutes === null` ("All") keeps every row after the
+// session-window crop, otherwise the chart is clipped to the last N minutes
+// of data (ending at the most recent event).
+const ZOOM_OPTIONS: ReadonlyArray<{ label: string; minutes: number | null }> = [
+  { label: '30m', minutes: 30 },
+  { label: '1h', minutes: 60 },
+  { label: '2h', minutes: 120 },
+  { label: '4h', minutes: 240 },
+  { label: '1d', minutes: 1440 },
+  { label: 'All', minutes: null },
+];
+
+type ZoomMinutes = number | null;
+
+// Signals that only produce a meaningful score during a specific ET wall-clock
+// window. Outside the window the backend forces score to 0, so we crop the
+// chart to the most recent session's window and (when zoom = All) pin the
+// x-axis to the full window even if data hasn't reached the edges yet.
+//
+// Keep ET minutes-of-day inclusive on both ends (e.g. 14:30 → 16:00 covers
+// 14:30:00–16:00:00 ET).
+const SIGNAL_SESSION_WINDOWS_ET: Partial<Record<SignalEventName, { startMin: number; endMin: number; label: string }>> = {
+  eod_pressure: { startMin: 14 * 60 + 30, endMin: 16 * 60, label: '14:30–16:00 ET' },
+  zero_dte_position_imbalance: { startMin: 9 * 60 + 30, endMin: 16 * 60, label: '09:30–16:00 ET' },
+};
+
 // Allowed x-axis tick increments (minutes). Picked so labels land on familiar
 // boundaries: 1/2/5/10/15/30 min, 1/2/3/4/6/12 hr, then day boundaries.
 const TIME_STEP_CANDIDATES = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720, 1440];
@@ -142,13 +168,16 @@ function niceScaleAligned(
 
 export default function SignalEventsPanel({ signalName, symbol, title = 'Event Timeline' }: SignalEventsPanelProps) {
   const [horizon, setHorizon] = useState<SignalEventHorizon>('60m');
+  const [zoom, setZoom] = useState<ZoomMinutes>(null);
+  const sessionWindow = SIGNAL_SESSION_WINDOWS_ET[signalName] ?? null;
   const { data, loading, error } = useSignalEvents(signalName, symbol, {
     horizon,
     limit: 150,
     refreshInterval: PROPRIETARY_SIGNALS_REFRESH.signalEventsMs,
   });
 
-  const rows = useMemo(() => {
+  // All rows returned by the API, normalized and sorted oldest-first.
+  const allRows = useMemo(() => {
     const raw = data?.rows ?? [];
     return [...raw]
       .map((row) => {
@@ -171,14 +200,47 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
       .sort((a, b) => a.timeMs - b.timeMs);
   }, [data]);
 
+  // Step 1: drop rows that fall outside the signal's ET session window,
+  // then keep only the most recent ET date that has any in-window event.
+  // For continuous signals this is a no-op.
+  const sessionRows = useMemo(() => {
+    if (!sessionWindow) return allRows;
+    const inWindow = allRows.filter((r) => {
+      const { minuteOfDay } = etPartsFromMs(r.timeMs);
+      return minuteOfDay >= sessionWindow.startMin && minuteOfDay <= sessionWindow.endMin;
+    });
+    if (inWindow.length === 0) return inWindow;
+    const latestDay = etPartsFromMs(inWindow[inWindow.length - 1].timeMs).day;
+    return inWindow.filter((r) => etPartsFromMs(r.timeMs).day === latestDay);
+  }, [allRows, sessionWindow]);
+
+  // Step 2: apply the zoom toggle by clipping to the last N minutes of data.
+  const visibleRows = useMemo(() => {
+    if (zoom === null || sessionRows.length === 0) return sessionRows;
+    const latestMs = sessionRows[sessionRows.length - 1].timeMs;
+    const cutoff = latestMs - zoom * 60_000;
+    return sessionRows.filter((r) => r.timeMs >= cutoff);
+  }, [sessionRows, zoom]);
+
   // X-axis runs on a numeric (epoch-ms) scale so ticks can be synthesized at
   // exact ET wall-clock boundaries (e.g. :15/:30/:45/:00) regardless of when
-  // event data actually lands.
+  // event data actually lands. For window-gated signals on zoom = All, pin
+  // the domain to the full session window so empty edges still show even
+  // before the first/last in-window event has been logged today.
   const xDomain = useMemo<[number, number] | null>(() => {
-    if (rows.length === 0) return null;
-    if (rows.length === 1) return [rows[0].timeMs - 60_000, rows[0].timeMs + 60_000];
-    return [rows[0].timeMs, rows[rows.length - 1].timeMs];
-  }, [rows]);
+    if (visibleRows.length === 0) return null;
+    const firstMs = visibleRows[0].timeMs;
+    const lastMs = visibleRows[visibleRows.length - 1].timeMs;
+    if (sessionWindow && zoom === null) {
+      const ref = etPartsFromMs(lastMs);
+      const anchor = lastMs - ref.secondOfMinute * 1000;
+      const startMs = anchor + (sessionWindow.startMin - ref.minuteOfDay) * 60_000;
+      const endMs = anchor + (sessionWindow.endMin - ref.minuteOfDay) * 60_000;
+      return [startMs, endMs];
+    }
+    if (firstMs === lastMs) return [firstMs - 60_000, lastMs + 60_000];
+    return [firstMs, lastMs];
+  }, [visibleRows, sessionWindow, zoom]);
 
   const timeTicks = useMemo(() => {
     if (!xDomain) return [];
@@ -219,20 +281,20 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
   const scoreScale = useMemo(() => {
     let lo = 0;
     let hi = 0;
-    for (const r of rows) {
+    for (const r of visibleRows) {
       if (Number.isFinite(r.score)) {
         if (r.score < lo) lo = r.score;
         if (r.score > hi) hi = r.score;
       }
     }
     return niceScalePrimary(lo, hi, 5);
-  }, [rows]);
+  }, [visibleRows]);
 
   const realizedScale = useMemo(() => {
     let lo = 0;
     let hi = 0;
     let any = false;
-    for (const r of rows) {
+    for (const r of visibleRows) {
       if (typeof r.realized === 'number' && Number.isFinite(r.realized)) {
         any = true;
         if (r.realized < lo) lo = r.realized;
@@ -246,12 +308,12 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
       scoreScale.ticksAbove,
       0.005,
     );
-  }, [rows, scoreScale]);
+  }, [visibleRows, scoreScale]);
 
   const barSize = useMemo(() => {
-    if (rows.length === 0) return 4;
-    return Math.max(2, Math.min(8, Math.floor(800 / rows.length)));
-  }, [rows]);
+    if (visibleRows.length === 0) return 4;
+    return Math.max(2, Math.min(8, Math.floor(800 / visibleRows.length)));
+  }, [visibleRows]);
 
   const summary = data?.summary ?? {};
 
@@ -262,6 +324,9 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
           <h2 className="text-xl font-semibold">{title}</h2>
           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
             Score path (left axis) with each event&apos;s underlying price move from its timestamp to {horizon} later (right axis). Triangles mark direction flips.
+            {sessionWindow && (
+              <> Cropped to the {sessionWindow.label} session window.</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -273,30 +338,55 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               <span>Flat {summary.neutral ?? 0}</span>
             </div>
           )}
-          <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
-            {HORIZONS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setHorizon(h)}
-                className="px-2.5 py-1 text-[11px] font-semibold"
-                style={{
-                  background: horizon === h ? 'var(--color-warning)' : 'var(--color-surface)',
-                  color: horizon === h ? 'var(--color-surface)' : 'var(--color-text-secondary)',
-                }}
-              >
-                {h}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Range</span>
+            <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
+              {ZOOM_OPTIONS.map((opt) => {
+                const active = zoom === opt.minutes;
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setZoom(opt.minutes)}
+                    className="px-2.5 py-1 text-[11px] font-semibold"
+                    style={{
+                      background: active ? 'var(--color-warning)' : 'var(--color-surface)',
+                      color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Horizon</span>
+            <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
+              {HORIZONS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setHorizon(h)}
+                  className="px-2.5 py-1 text-[11px] font-semibold"
+                  style={{
+                    background: horizon === h ? 'var(--color-warning)' : 'var(--color-surface)',
+                    color: horizon === h ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
-        {rows.length > 0 ? (
+        {visibleRows.length > 0 ? (
           <MobileScrollableChart>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+            <ComposedChart data={visibleRows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis
                 type="number"
@@ -343,6 +433,10 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">Loading event history…</div>
+        ) : sessionRows.length > 0 ? (
+          <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">No events in the selected range.</div>
+        ) : sessionWindow ? (
+          <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">No events in the {sessionWindow.label} window yet.</div>
         ) : (
           <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">No event history yet.</div>
         )}
