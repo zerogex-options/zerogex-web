@@ -5,13 +5,17 @@ import { NextRequest, NextResponse } from 'next/server';
  * backend. The browser only ever hits same-origin /api/* URLs; the
  * per-resource route handlers under app/api/ re-export `proxyToApi`
  * as GET/POST/etc. so every backend call funnels through this one
- * place, with X-API-Key sourced from server-only env.
+ * place, with an `Authorization: Bearer …` header sourced from
+ * server-only env.
  *
  * Two env vars drive it:
- *   ZEROGEX_API_KEY       — required. The key minted for `website-prod`
- *                           from the backend's api_keys table. MUST NOT
- *                           be prefixed NEXT_PUBLIC_ — that would inline
- *                           it into the browser bundle.
+ *   ZEROGEX_API_TOKEN     — required. The per-user key minted for
+ *                           `website-prod` (or `zerogex-web-bff`) from
+ *                           the backend's api_keys table. MUST NOT be
+ *                           prefixed NEXT_PUBLIC_ — that would inline
+ *                           it into the browser bundle. Legacy name
+ *                           ZEROGEX_API_KEY is still accepted as a
+ *                           one-release transition fallback.
  *   ZEROGEX_API_BASE_URL  — optional. Defaults to http://127.0.0.1:8000
  *                           because FastAPI is colocated. Override for
  *                           unusual local-dev topologies.
@@ -43,13 +47,13 @@ const RESPONSE_HEADER_BLOCKLIST = new Set([
   'content-length',
 ]);
 
-function buildUpstreamHeaders(request: NextRequest, apiKey: string): Headers {
+function buildUpstreamHeaders(request: NextRequest, apiToken: string): Headers {
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     if (REQUEST_HEADER_BLOCKLIST.has(key.toLowerCase())) return;
     headers.set(key, value);
   });
-  headers.set('X-API-Key', apiKey);
+  headers.set('Authorization', `Bearer ${apiToken}`);
   return headers;
 }
 
@@ -63,10 +67,13 @@ function buildResponseHeaders(upstream: Response): Headers {
 }
 
 export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
-  const apiKey = process.env.ZEROGEX_API_KEY;
-  if (!apiKey) {
+  // Prefer ZEROGEX_API_TOKEN; fall back to legacy ZEROGEX_API_KEY for the
+  // duration of the env rename. Remove the fallback once production has
+  // been switched over.
+  const apiToken = process.env.ZEROGEX_API_TOKEN || process.env.ZEROGEX_API_KEY;
+  if (!apiToken) {
     return NextResponse.json(
-      { error: 'ZEROGEX_API_KEY is not configured on the server' },
+      { error: 'ZEROGEX_API_TOKEN is not configured on the server' },
       { status: 500 },
     );
   }
@@ -75,7 +82,7 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
 
   const init: RequestInit = {
     method: request.method,
-    headers: buildUpstreamHeaders(request, apiKey),
+    headers: buildUpstreamHeaders(request, apiToken),
     redirect: 'manual',
     cache: 'no-store',
   };
