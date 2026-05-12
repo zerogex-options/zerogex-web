@@ -319,67 +319,67 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
 
   return (
     <section className="zg-feature-shell p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div>
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">{title}</h2>
-          <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-            Score path (left axis) with each event&apos;s underlying price move from its timestamp to {horizon} later (right axis). Triangles mark direction flips.
-            {sessionWindow && (
-              <> Cropped to the {sessionWindow.label} session window.</>
+          <div className="flex items-center gap-3 flex-wrap">
+            {data?.summary && (
+              <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-secondary)]">
+                <span>Flips: <span className="text-[var(--color-text-primary)] font-semibold">{summary.flips ?? 0}</span></span>
+                <span className="text-[var(--color-bull)]">Bull {summary.bullish ?? 0}</span>
+                <span className="text-[var(--color-bear)]">Bear {summary.bearish ?? 0}</span>
+                <span>Flat {summary.neutral ?? 0}</span>
+              </div>
             )}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {data?.summary && (
-            <div className="flex items-center gap-3 text-[11px] text-[var(--color-text-secondary)]">
-              <span>Flips: <span className="text-[var(--color-text-primary)] font-semibold">{summary.flips ?? 0}</span></span>
-              <span className="text-[var(--color-bull)]">Bull {summary.bullish ?? 0}</span>
-              <span className="text-[var(--color-bear)]">Bear {summary.bearish ?? 0}</span>
-              <span>Flat {summary.neutral ?? 0}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Range</span>
+              <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
+                {ZOOM_OPTIONS.map((opt) => {
+                  const active = zoom === opt.minutes;
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setZoom(opt.minutes)}
+                      className="px-2.5 py-1 text-[11px] font-semibold"
+                      style={{
+                        background: active ? 'var(--color-warning)' : 'var(--color-surface)',
+                        color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Range</span>
-            <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
-              {ZOOM_OPTIONS.map((opt) => {
-                const active = zoom === opt.minutes;
-                return (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Horizon</span>
+              <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
+                {HORIZONS.map((h) => (
                   <button
-                    key={opt.label}
+                    key={h}
                     type="button"
-                    onClick={() => setZoom(opt.minutes)}
+                    onClick={() => setHorizon(h)}
                     className="px-2.5 py-1 text-[11px] font-semibold"
                     style={{
-                      background: active ? 'var(--color-warning)' : 'var(--color-surface)',
-                      color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
+                      background: horizon === h ? 'var(--color-warning)' : 'var(--color-surface)',
+                      color: horizon === h ? 'var(--color-surface)' : 'var(--color-text-secondary)',
                     }}
                   >
-                    {opt.label}
+                    {h}
                   </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Horizon</span>
-            <div className="inline-flex rounded-lg border border-[var(--color-border)] overflow-hidden">
-              {HORIZONS.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => setHorizon(h)}
-                  className="px-2.5 py-1 text-[11px] font-semibold"
-                  style={{
-                    background: horizon === h ? 'var(--color-warning)' : 'var(--color-surface)',
-                    color: horizon === h ? 'var(--color-surface)' : 'var(--color-text-secondary)',
-                  }}
-                >
-                  {h}
-                </button>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
+        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+          Score path (left axis) with each event&apos;s underlying price move from its timestamp to {horizon} later (right axis). Triangles mark direction flips.
+          {sessionWindow && (
+            <> Cropped to the {sessionWindow.label} session window.</>
+          )}
+        </p>
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
