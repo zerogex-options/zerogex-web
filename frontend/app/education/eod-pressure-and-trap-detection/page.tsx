@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 const articlePath = path.join(process.cwd(), 'content/articles/eod-pressure-and-trap-detection.md');
 
@@ -179,6 +180,26 @@ export default function EodPressureAndTrapDetectionPage() {
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 14 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
+
+      <div className="zg-feature-shell mt-8 p-6 md:p-8">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
+          <Sparkles size={14} />
+          Pro Plan
+        </div>
+        <h3 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">
+          Want to trade these signals live?
+        </h3>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          EOD Pressure and Trap Detection are part of the ZeroGEX™ Advanced Signal suite, available on the Pro plan. Get real-time scoring, full context fields, and historical score charts for both signals across SPX and major underlyings.
+        </p>
+        <Link
+          href="/pricing"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Upgrade to Pro
+          <ArrowRight size={16} />
+        </Link>
+      </div>
     </div>
   );
 }
