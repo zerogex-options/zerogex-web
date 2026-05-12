@@ -54,6 +54,21 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
       .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
   }, [data]);
 
+  // Left axis (score) is fixed to [-100, 100], so the zero line sits at the
+  // vertical center. Mirror the right axis (realized return) around zero so
+  // both 0/x-axis crossings land on the same gridline.
+  const realizedDomain = useMemo<[number, number]>(() => {
+    let maxAbs = 0;
+    for (const r of rows) {
+      if (typeof r.realized === 'number' && Number.isFinite(r.realized)) {
+        const abs = Math.abs(r.realized);
+        if (abs > maxAbs) maxAbs = abs;
+      }
+    }
+    const padded = maxAbs > 0 ? maxAbs * 1.1 : 0.001;
+    return [-padded, padded];
+  }, [rows]);
+
   const summary = data?.summary ?? {};
 
   return (
@@ -101,7 +116,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="time" tickFormatter={formatEtTime} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" minTickGap={40} />
               <YAxis yAxisId="score" domain={[-100, 100]} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={36} />
-              <YAxis yAxisId="ret" orientation="right" tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={60} />
+              <YAxis yAxisId="ret" orientation="right" domain={realizedDomain} allowDataOverflow={false} tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} stroke="var(--color-border)" width={60} />
               <Tooltip content={<EventsTooltip />} />
               <ReferenceLine yAxisId="score" y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.4} />
               <Bar yAxisId="ret" dataKey="realized" name="Realized" fill="var(--color-border)" opacity={0.6} />

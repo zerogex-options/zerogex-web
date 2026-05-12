@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
@@ -10,6 +10,8 @@ type IdentitiesPayload = {
   hasPassword: boolean;
   identities: Array<{ provider: 'google' | 'apple'; createdAt: string }>;
 };
+
+const PASSWORD_MIN_LENGTH = 12;
 
 const C = {
   card: 'var(--color-surface)',
@@ -48,6 +50,11 @@ function AccountPageContent() {
   const [identities, setIdentities] = useState<IdentitiesPayload | null>(null);
   const [identitiesLoading, setIdentitiesLoading] = useState(true);
   const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
+  const [showSetPassword, setShowSetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const refreshIdentities = async () => {
     setIdentitiesLoading(true);
@@ -79,6 +86,50 @@ function AccountPageContent() {
       setFeedback({ type: 'error', message: reason ? decodeURIComponent(reason) : 'Could not link provider.' });
     }
   }, [searchParams]);
+
+  const handleSetPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPasswordError(null);
+
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setPasswordError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setSettingPassword(true);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setPasswordError('Unable to obtain CSRF token. Please refresh and try again.');
+        return;
+      }
+      const response = await fetch('/api/account/password/set', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok) {
+        setPasswordError(payload.error ?? 'Failed to set password.');
+        return;
+      }
+      setFeedback({ type: 'success', message: 'Password set. You can now sign in with your email and password.' });
+      setShowSetPassword(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      await refreshIdentities();
+    } catch {
+      setPasswordError('Something went wrong. Please try again.');
+    } finally {
+      setSettingPassword(false);
+    }
+  };
 
   const handleUnlink = async (provider: 'google' | 'apple') => {
     setUnlinkingProvider(provider);
@@ -297,12 +348,114 @@ function AccountPageContent() {
             <p style={{ color: C.muted, fontSize: 14 }}>Loading sign-in methods…</p>
           ) : (
             <div style={{ display: 'grid', gap: 12 }}>
-              <SignInMethodRow
-                icon={<KeyRound size={16} />}
-                label="Email & password"
-                status={identities?.hasPassword ? 'Active' : 'Not set'}
-                statusActive={!!identities?.hasPassword}
-              />
+              <div>
+                <SignInMethodRow
+                  icon={<KeyRound size={16} />}
+                  label="Email & password"
+                  status={identities?.hasPassword ? 'Active' : 'Not set'}
+                  statusActive={!!identities?.hasPassword}
+                  action={
+                    identities?.hasPassword ? (
+                      <a href="/forgot-password" style={secondaryButtonStyle(false)}>
+                        Reset password
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSetPassword((v) => !v);
+                          setPasswordError(null);
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                        style={primaryLinkButtonStyle()}
+                      >
+                        {showSetPassword ? 'Cancel' : 'Set password'}
+                      </button>
+                    )
+                  }
+                />
+                {showSetPassword && !identities?.hasPassword && (
+                  <form
+                    onSubmit={handleSetPassword}
+                    style={{
+                      marginTop: 12,
+                      padding: 16,
+                      borderRadius: 12,
+                      border: `1px solid ${C.border}`,
+                      background: 'var(--bg-active)',
+                      display: 'grid',
+                      gap: 12,
+                    }}
+                  >
+                    <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
+                      Add a password so you can sign in with your email in addition to your linked provider.
+                      Your existing sign-in methods will keep working.
+                    </p>
+                    <label style={{ display: 'block', fontSize: 13 }}>
+                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>New password</span>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                        minLength={PASSWORD_MIN_LENGTH}
+                        style={{
+                          width: '100%',
+                          background: 'var(--color-surface)',
+                          border: `1px solid ${C.border}`,
+                          color: C.light,
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          fontSize: 14,
+                        }}
+                      />
+                    </label>
+                    <label style={{ display: 'block', fontSize: 13 }}>
+                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>Confirm new password</span>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                        minLength={PASSWORD_MIN_LENGTH}
+                        style={{
+                          width: '100%',
+                          background: 'var(--color-surface)',
+                          border: `1px solid ${C.border}`,
+                          color: C.light,
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          fontSize: 14,
+                        }}
+                      />
+                    </label>
+                    <p style={{ margin: 0, color: C.muted, fontSize: 12 }}>
+                      Must be at least {PASSWORD_MIN_LENGTH} characters.
+                    </p>
+                    {passwordError && (
+                      <p style={{ margin: 0, color: 'var(--color-bear)', fontSize: 13, fontWeight: 600 }}>
+                        {passwordError}
+                      </p>
+                    )}
+                    <div>
+                      <button
+                        type="submit"
+                        disabled={settingPassword}
+                        style={{
+                          ...primaryLinkButtonStyle(),
+                          opacity: settingPassword ? 0.6 : 1,
+                          cursor: settingPassword ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {settingPassword ? 'Saving…' : 'Save password'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
               <SignInMethodRow
                 icon={<Link2 size={16} />}
                 label="Google"

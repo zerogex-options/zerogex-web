@@ -366,6 +366,35 @@ export async function requestPasswordReset(request: NextRequest, email: string):
   return { status: 'issued', token, userId: user.id, email: user.email, expiresAt };
 }
 
+export async function setInitialLocalPassword(request: NextRequest, userId: string, newPassword: string) {
+  if (!newPassword || newPassword.length < PASSWORD_MIN_LENGTH) {
+    throw new Error(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  }
+
+  const db = getDb();
+  const row = db
+    .prepare('SELECT id, email, password_hash FROM users WHERE id = ?')
+    .get(userId) as { id: string; email: string; password_hash: string | null } | undefined;
+
+  if (!row) throw new Error('User not found');
+  if (row.password_hash) {
+    throw new Error('A password is already set on this account. Use the password reset flow to change it.');
+  }
+
+  const newHash = hashPassword(newPassword);
+  db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newHash, nowIso(), row.id);
+
+  appendAuditEvent({
+    type: 'password_set',
+    userId: row.id,
+    email: row.email,
+    ip: getClientIp(request),
+    message: 'Local password set for OAuth-only account',
+  });
+
+  return { email: row.email };
+}
+
 export async function resetPasswordWithToken(request: NextRequest, token: string, newPassword: string) {
   if (!token || typeof token !== 'string') {
     throw new Error('Reset token is required');
