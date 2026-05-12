@@ -41,6 +41,8 @@ export interface TechnicalsOpeningRange {
 
 export interface TechnicalsVolumeSpike {
   current_volume: number | null;
+  up_volume: number | null;
+  down_volume: number | null;
   avg_volume: number | null;
   volume_sigma: number | null;
   volume_ratio: number | null;
