@@ -90,6 +90,34 @@ function isVolumeSpike(volumeClass: string | null | undefined): boolean {
   return !volumeClass.toLowerCase().includes('normal');
 }
 
+const VOL_BAR_RED: readonly [number, number, number] = [239, 68, 68];
+const VOL_BAR_NEUTRAL: readonly [number, number, number] = [148, 163, 184];
+const VOL_BAR_GREEN: readonly [number, number, number] = [34, 197, 94];
+
+function lerpRgb(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+  t: number,
+): string {
+  const clamped = Math.max(0, Math.min(1, t));
+  const r = Math.round(a[0] + (b[0] - a[0]) * clamped);
+  const g = Math.round(a[1] + (b[1] - a[1]) * clamped);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * clamped);
+  return `rgb(${r},${g},${bl})`;
+}
+
+function gradientVolumeColor(upPct: number | null): string {
+  if (upPct == null || !Number.isFinite(upPct)) {
+    return lerpRgb(VOL_BAR_NEUTRAL, VOL_BAR_NEUTRAL, 0);
+  }
+  const ratio = Math.max(0, Math.min(100, upPct)) / 100;
+  if (ratio < 0.5) return lerpRgb(VOL_BAR_RED, VOL_BAR_NEUTRAL, ratio * 2);
+  return lerpRgb(VOL_BAR_NEUTRAL, VOL_BAR_GREEN, (ratio - 0.5) * 2);
+}
+
+// Five-minute bucket interval in milliseconds; matches the API's bucket size.
+const VOLUME_BUCKET_MS = 5 * 60 * 1000;
+
 export default function IntradayToolsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
@@ -100,7 +128,7 @@ export default function IntradayToolsPage() {
   const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
   const borderColor = isDark ? 'var(--border-default)' : 'var(--border-default)';
 
-  const { bars, latest, fetchedAt, loading, error } = useTechnicals(symbol);
+  const { bars, latest, sessionStartEt, sessionEndEt, fetchedAt, loading, error } = useTechnicals(symbol);
 
   const lastUpdatedLabel = useMemo(() => {
     const ts = latest?.timestamp ?? null;
@@ -166,31 +194,81 @@ export default function IntradayToolsPage() {
   }, [orbDomain]);
 
   const volumeSpikesChart = useMemo(() => {
-    return bars.map((bar) => {
-      const volumeClass = bar.volume_spike?.volume_class ?? null;
+    // Bucket existing bars by their epoch-ms so we can hydrate the static
+    // session slots below regardless of how recharts normalizes timestamps.
+    const barByMs = new Map<number, TechnicalsBar>();
+    for (const bar of bars) {
+      if (!bar?.timestamp) continue;
+      const ms = new Date(bar.timestamp).getTime();
+      if (Number.isFinite(ms)) barByMs.set(ms, bar);
+    }
+
+    // Anchor the static range on the API-supplied session window so we cover
+    // the full 04:00–20:00 ET (or 09:30–16:00 ET for indices) regardless of
+    // how much data has come in yet. Falls back to first/last bar if session
+    // metadata hasn't arrived.
+    const sessionStartMs = sessionStartEt
+      ? new Date(sessionStartEt).getTime()
+      : bars.length ? new Date(bars[0].timestamp).getTime() : NaN;
+    const sessionEndMs = sessionEndEt
+      ? new Date(sessionEndEt).getTime()
+      : bars.length ? new Date(bars[bars.length - 1].timestamp).getTime() : NaN;
+
+    if (!Number.isFinite(sessionStartMs) || !Number.isFinite(sessionEndMs) || sessionEndMs <= sessionStartMs) {
+      return [] as Array<{
+        timestamp: string;
+        volume: number;
+        volumeRaw: number | null;
+        volumeRatio: number | null;
+        volumeSigma: number | null;
+        volumeClass: string | null;
+        buyingPressurePct: number | null;
+        upVolume: number | null;
+        downVolume: number | null;
+        underlyingPrice: number | null;
+      }>;
+    }
+
+    const slots: Array<{
+      timestamp: string;
+      volume: number;
+      volumeRaw: number | null;
+      volumeRatio: number | null;
+      volumeSigma: number | null;
+      volumeClass: string | null;
+      buyingPressurePct: number | null;
+      upVolume: number | null;
+      downVolume: number | null;
+      underlyingPrice: number | null;
+    }> = [];
+
+    for (let t = sessionStartMs; t < sessionEndMs; t += VOLUME_BUCKET_MS) {
+      const bar = barByMs.get(t);
+      const volumeClass = bar?.volume_spike?.volume_class ?? null;
       const isSpike = isVolumeSpike(volumeClass);
-      const volume = safeNum(bar.volume_spike?.current_volume) ?? safeNum(bar.volume);
-      const ratio = safeNum(bar.volume_spike?.volume_ratio);
-      const sigma = safeNum(bar.volume_spike?.volume_sigma);
-      const buyingPressure = safeNum(bar.volume_spike?.buying_pressure_pct);
-      const observedPrice = safeNum(bar.close);
-      return {
-        timestamp: bar.timestamp,
+      const volume = bar ? (safeNum(bar.volume_spike?.current_volume) ?? safeNum(bar.volume)) : null;
+      const ratio = bar ? safeNum(bar.volume_spike?.volume_ratio) : null;
+      const sigma = bar ? safeNum(bar.volume_spike?.volume_sigma) : null;
+      const buyingPressure = bar ? safeNum(bar.volume_spike?.buying_pressure_pct) : null;
+      const upVolume = bar ? safeNum(bar.volume_spike?.up_volume) : null;
+      const downVolume = bar ? safeNum(bar.volume_spike?.down_volume) : null;
+      const observedPrice = bar ? safeNum(bar.close) : null;
+      slots.push({
+        timestamp: new Date(t).toISOString(),
         volume: isSpike && volume != null ? volume : 0,
         volumeRaw: isSpike ? volume : null,
         volumeRatio: ratio,
         volumeSigma: sigma,
         volumeClass,
         buyingPressurePct: buyingPressure,
+        upVolume,
+        downVolume,
         underlyingPrice: observedPrice,
-      };
-    });
-  }, [bars]);
+      });
+    }
 
-  const volumeSpikesHasAnySpike = useMemo(
-    () => volumeSpikesChart.some((row) => row.volumeRaw != null),
-    [volumeSpikesChart],
-  );
+    return slots;
+  }, [bars, sessionStartEt, sessionEndEt]);
 
   const volumeSpikeVolumeAxis = useMemo(() => {
     const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
@@ -484,7 +562,7 @@ export default function IntradayToolsPage() {
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             Loading volume spikes...
           </div>
-        ) : !volumeSpikesHasAnySpike ? (
+        ) : volumeSpikesChart.length === 0 ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
             No unusual volume detected
           </div>
@@ -492,7 +570,7 @@ export default function IntradayToolsPage() {
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VOLUME SPIKES VS UNDERLYING PRICE</h3>
-              <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color reflects how unusual the spike is in standard deviations. The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
+              <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
             </div>
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={320}>
@@ -516,6 +594,8 @@ export default function IntradayToolsPage() {
                         volumeSigma: number | null;
                         volumeClass: string | null;
                         buyingPressurePct: number | null;
+                        upVolume: number | null;
+                        downVolume: number | null;
                         underlyingPrice: number | null;
                       } | undefined;
                       if (!point) return null;
@@ -527,6 +607,8 @@ export default function IntradayToolsPage() {
                           {hasSpike ? (
                             <>
                               <div>Volume: {point.volumeRaw!.toLocaleString()}</div>
+                              {point.upVolume != null ? <div>Up Volume: {point.upVolume.toLocaleString()}</div> : null}
+                              {point.downVolume != null ? <div>Down Volume: {point.downVolume.toLocaleString()}</div> : null}
                               {point.volumeRatio != null ? <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div> : null}
                               {point.volumeSigma != null ? <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div> : null}
                               {point.volumeClass ? <div>Class: {point.volumeClass}</div> : null}
@@ -541,11 +623,14 @@ export default function IntradayToolsPage() {
                   />
                   <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={14} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
-                      // Monochrome brand fill (#bc5090) with brightness scaling by sigma:
-                      // tiny spikes are softly tinted, extreme spikes (sigma >= 5) saturate.
-                      const sigma = Math.max(0, row.volumeSigma ?? 0);
-                      const opacity = row.volumeRaw == null ? 0 : Math.min(1, 0.35 + (sigma / 5) * 0.65);
-                      return <Cell key={`vol-cell-${idx}`} fill="#bc5090" fillOpacity={opacity} />;
+                      // Gradient red→neutral→green based on the up-vs-down volume
+                      // split for the bucket. Falls back to the API-computed
+                      // buying_pressure_pct when up/down volumes aren't present.
+                      const total = (row.upVolume ?? 0) + (row.downVolume ?? 0);
+                      const upPct = row.upVolume != null && row.downVolume != null && total > 0
+                        ? (row.upVolume / total) * 100
+                        : row.buyingPressurePct;
+                      return <Cell key={`vol-cell-${idx}`} fill={gradientVolumeColor(upPct)} />;
                     })}
                   </Bar>
                   <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
