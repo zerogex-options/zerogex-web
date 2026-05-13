@@ -59,6 +59,7 @@ export default function DealerDeltaPressurePage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Dealer Delta Pressure"
+        subtitle={'"Are dealers forced to chase this move?"'}
         icon={Compass}
         tooltip="Estimates dealers' aggregate net-delta position. Score is inverted: positive = dealers short delta = mechanical buying on rallies (bullish). Delta flow leads gamma exposure by minutes, so this is the closest thing to a leading indicator for 0DTE regimes."
       />

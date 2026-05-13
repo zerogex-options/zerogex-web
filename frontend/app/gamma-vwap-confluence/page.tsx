@@ -113,6 +113,7 @@ export default function GammaVwapConfluencePage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Gamma / VWAP Confluence"
+        subtitle={'"Are key levels stacking up here?"'}
         icon={Magnet}
         tooltip="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
       />

@@ -79,6 +79,7 @@ export default function SqueezeSetupPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Squeeze Setup"
+        subtitle={'"Is the market coiled?"'}
         icon={Zap}
         tooltip="Standalone detector — not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
       />

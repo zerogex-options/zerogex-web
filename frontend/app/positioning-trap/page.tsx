@@ -67,6 +67,7 @@ export default function PositioningTrapPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Positioning Trap"
+        subtitle={'"Is the crowd offside?"'}
         icon={AlertTriangle}
         tooltip="Flags crowded one-way positioning where tape behavior is starting to invalidate crowd direction. Positive score = upside squeeze setup (crowd short, upside breaking). Negative score = downside flush setup (crowd long, downside breaking)."
       />

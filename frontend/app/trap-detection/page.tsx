@@ -88,6 +88,7 @@ export default function TrapDetectionPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Trap Detection"
+        subtitle={'"Did this breakout just fail?"'}
         icon={AlertTriangle}
         tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Prior resistance is the most-recently-breached upside wall; prior support, the most-recently-breached downside wall. The level persists in the payload after the break, so its position relative to close depends on tape since."
       />

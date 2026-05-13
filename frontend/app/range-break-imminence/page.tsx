@@ -120,6 +120,7 @@ export default function RangeBreakImminencePage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Range Break Imminence"
+        subtitle={'"Is this range about to break?"'}
         icon={Radio}
         tooltip="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0–100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
       />

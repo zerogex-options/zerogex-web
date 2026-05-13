@@ -55,6 +55,7 @@ export default function VannaCharmFlowPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Vanna/Charm Flow"
+        subtitle={'"Will vol or time force dealers to re-hedge?"'}
         icon={Activity}
         tooltip="Second-order greek dealer hedging pressure. Vanna captures dealer delta changes when IV moves. Charm captures decay of short-dated deltas toward expiry. Late-session charm amplification boosts the afternoon fade signal."
       />

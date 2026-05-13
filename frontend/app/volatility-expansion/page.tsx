@@ -63,8 +63,9 @@ export default function VolatilityExpansionPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-6">
         <h1 className="text-3xl font-bold">Volatility Expansion</h1>
+        <span className="text-sm italic text-[var(--color-text-secondary)]">{'"Is volatility about to break out?"'}</span>
         <TooltipWrapper
           text="Decomposes the composite score into expansion (GEX-driven readiness, 0–100) and direction (momentum-driven, −100..+100). Score is (expansion × direction) / 100. Answers two questions: Will vol expand? And if so, which way? Short-gamma regimes elevate expansion readiness; a 5-bar z-scored momentum picks the direction."
           placement="bottom"

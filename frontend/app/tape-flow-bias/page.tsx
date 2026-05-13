@@ -57,6 +57,7 @@ export default function TapeFlowBiasPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Tape Flow Bias"
+        subtitle={'"Which way is the tape leaning?"'}
         icon={Waves}
         tooltip="Continuous aggressive-vs-passive option-tape premium imbalance. Calls bought aggressively + puts sold aggressively = bullish. Abstains when total premium falls below the minimum threshold."
       />

@@ -79,6 +79,7 @@ export default function ZeroDtePositionImbalancePage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="0DTE Position Imbalance"
+        subtitle={'"Are 0DTE traders leaning one way?"'}
         icon={Activity}
         tooltip="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier. Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive the largest chase."
       />

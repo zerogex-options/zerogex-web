@@ -52,6 +52,7 @@ export default function SkewDeltaPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="Skew Delta"
+        subtitle={'"How much is fear bid into puts?"'}
         icon={Scale}
         tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
       />

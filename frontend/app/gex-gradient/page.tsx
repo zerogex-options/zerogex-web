@@ -61,6 +61,7 @@ export default function GexGradientPage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="GEX Gradient"
+        subtitle={'"Is gamma stacked on one side?"'}
         icon={ScatterChart}
         tooltip="Decomposes per-strike dealer gamma into four zones (above / below spot × ATM / wings) and scores the asymmetry. Short-gamma regimes: heavy above-spot gamma means dealers chase rallies (bullish). Long-gamma regimes flip the signal (above-spot = resistance)."
       />

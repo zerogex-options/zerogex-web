@@ -61,6 +61,7 @@ export default function EodPressurePage() {
     <div className="container mx-auto px-4 py-8">
       <SignalPageTitle
         title="EOD Pressure"
+        subtitle={'"Is the close getting pinned?"'}
         icon={Hourglass}
         tooltip="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
       />
