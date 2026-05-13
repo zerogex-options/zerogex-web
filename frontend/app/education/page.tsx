@@ -67,6 +67,23 @@ export default function EducationPage() {
           <ArrowRight size={16} />
         </Link>
       </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • May 13, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Squeeze Setup, Positioning Trap & Trap Detection: Three Signals, Three Stories
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Three ZeroGEX™ Advanced Signals that look almost identical at a glance — same [-1, +1] number line, same kinds of pivots — but answer entirely different questions: when the market is coiled, when the crowd is offside, and when a breakout just failed. Learn which trade each signal is actually pointing at, and how to read them together.
+        </p>
+        <Link
+          href="/education/squeeze-setup-positioning-trap-and-trap-detection"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
     </div>
   );
 }
