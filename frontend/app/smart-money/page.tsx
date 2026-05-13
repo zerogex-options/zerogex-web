@@ -202,6 +202,7 @@ export default function SmartMoneyPage() {
   }, [openFilter]);
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
@@ -514,12 +515,24 @@ export default function SmartMoneyPage() {
                         stackId="notional"
                         barSize={5}
                         fill="var(--color-positive)"
+                        onMouseEnter={(data) => {
+                          const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];
+                          if (meta?.rowKey) setHoveredRowKey(meta.rowKey);
+                        }}
+                        onMouseLeave={() => setHoveredRowKey(null)}
                       >
                         {smartMoneySessionChart.map((point, pointIdx) => {
                           const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
+                          const isHovered = hoveredRowKey !== null && meta?.rowKey === hoveredRowKey;
                           const fill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
                           return (
-                            <Cell key={`cell-${idx + 1}-${pointIdx}`} fill={fill} fillOpacity={0.82} />
+                            <Cell
+                              key={`cell-${idx + 1}-${pointIdx}`}
+                              fill={fill}
+                              fillOpacity={isHovered ? 1 : 0.82}
+                              stroke={isHovered ? 'var(--color-brand-primary)' : 'none'}
+                              strokeWidth={isHovered ? 2.5 : 0}
+                            />
                           );
                         })}
                       </Bar>
@@ -589,7 +602,7 @@ export default function SmartMoneyPage() {
                     );
                   })}
                 </tr></thead>
-                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b hover:bg-[var(--color-warning-soft)]" style={{ borderColor: `${inputBorder}66` }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
+                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const isHovered = hoveredRowKey === row.rowKey; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b" onMouseEnter={() => setHoveredRowKey(row.rowKey)} onMouseLeave={() => setHoveredRowKey(null)} style={{ borderColor: `${inputBorder}66`, backgroundColor: isHovered ? 'var(--color-warning-soft)' : 'transparent' }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
               </div>
               {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
             </>
