@@ -156,6 +156,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         "x-csrf-token": csrf.csrfToken,
       },
     });
+    localStorage.removeItem("zgx_symbol");
     await refreshAuth();
     router.push("/login");
   };

@@ -1,9 +1,11 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 type Timeframe = '1min' | '5min' | '15min' | '1hr' | '1day';
 export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ';
+
+const SYMBOL_STORAGE_KEY = 'zgx_symbol';
 
 interface TimeframeContextType {
   timeframe: Timeframe;
@@ -17,9 +19,19 @@ interface TimeframeContextType {
 
 const TimeframeContext = createContext<TimeframeContextType | undefined>(undefined);
 
+function getInitialSymbol(): UnderlyingSymbol {
+  if (typeof window === 'undefined') return 'SPY';
+  const saved = localStorage.getItem(SYMBOL_STORAGE_KEY);
+  return saved === 'SPY' || saved === 'SPX' || saved === 'QQQ' ? saved : 'SPY';
+}
+
 export function TimeframeProvider({ children }: { children: ReactNode }) {
   const [timeframe, setTimeframe] = useState<Timeframe>('5min');
-  const [symbol, setSymbol] = useState<UnderlyingSymbol>('SPY');
+  const [symbol, setSymbol] = useState<UnderlyingSymbol>(getInitialSymbol);
+
+  useEffect(() => {
+    localStorage.setItem(SYMBOL_STORAGE_KEY, symbol);
+  }, [symbol]);
 
   const getIntervalMinutes = () => {
     switch (timeframe) {
