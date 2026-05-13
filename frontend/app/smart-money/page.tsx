@@ -112,8 +112,23 @@ function getRowContractLabel(row: SmartMoneyRow): string {
 const smartMoneyTimestamp = (row: SmartMoneyRow) => normalizeToMinute(row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start);
 const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
-function getDateMarkerMeta(timestamps: string[]) { const m = new Map<number, string>(); let prev = ''; timestamps.forEach((ts, idx) => { const k = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }); if (k !== prev) { m.set(idx, k); prev = k; } }); return m; }
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
+
+// Skip a refresh-driven state update when the new payload's endpoints match
+// the previous one. The smart-money feed is append-mostly within a session,
+// so identical length + identical first/last row fingerprints is a reliable
+// "no change" signal and avoids re-running every downstream useMemo.
+function isSameSmartMoneySnapshot(next: SmartMoneyRow[], prev: SmartMoneyRow[] | null): boolean {
+  if (!prev || prev.length !== next.length) return false;
+  if (next.length === 0) return true;
+  const a0 = next[0]; const aN = next[next.length - 1];
+  const b0 = prev[0]; const bN = prev[prev.length - 1];
+  return (
+    a0.timestamp === b0.timestamp && a0.contract === b0.contract && a0.notional === b0.notional &&
+    aN.timestamp === bN.timestamp && aN.contract === bN.contract && aN.notional === bN.notional
+  );
+}
+const acceptSmartMoneySnapshot = (next: SmartMoneyRow[], prev: SmartMoneyRow[] | null) => !isSameSmartMoneySnapshot(next, prev);
 
 function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
   const [y, m, d] = dateKey.split('-').map(Number);
@@ -187,15 +202,14 @@ export default function SmartMoneyPage() {
   }, [openFilter]);
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
-  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000 });
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
   const { data: smartMoneyLimitedData, error: smartMoneyLimitedError } = useApiData<SmartMoneyRow[]>(
     `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
-    { refreshInterval: 10000, enabled: Boolean(smartMoneyError) }
+    { refreshInterval: 10000, enabled: Boolean(smartMoneyError), shouldAcceptData: acceptSmartMoneySnapshot }
   );
-  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length });
+  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length, shouldAcceptData: acceptSmartMoneySnapshot });
   const { rows: smartMoneyPriceBars } = useMarketHistorical(symbol, '5min');
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
@@ -336,7 +350,26 @@ export default function SmartMoneyPage() {
     ),
     [smartMoneySessionChart],
   );
-  const dateMarkerMeta = useMemo(() => getDateMarkerMeta(smartMoneySessionChart.map((row) => String(row.timestamp))), [smartMoneySessionChart]);
+  // Build a sparse Map of timestamps that should render a tick label (either a
+  // 30-min boundary, a new-day marker, or both). Recharts is told to render
+  // ONLY these ticks via the `ticks` prop instead of iterating every minute,
+  // which previously meant ~400 wasted custom-tick renders per chart pass.
+  const xAxisTickInfo = useMemo(() => {
+    const info = new Map<string, { time?: string; date?: string }>();
+    let prevDate = '';
+    for (const row of smartMoneySessionChart) {
+      const ts = String(row.timestamp);
+      const time = is30MinBoundary(ts)
+        ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
+        : undefined;
+      const dateLabel = new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
+      const date = dateLabel !== prevDate ? dateLabel : undefined;
+      prevDate = dateLabel;
+      if (time || date) info.set(ts, { time, date });
+    }
+    return info;
+  }, [smartMoneySessionChart]);
+  const xAxisTicks = useMemo(() => Array.from(xAxisTickInfo.keys()), [xAxisTickInfo]);
   const dailyTotalsTimestamp = useMemo(() => {
     const timestamps = filteredSmartMoneyData
       .map((row) => row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '')
@@ -436,12 +469,11 @@ export default function SmartMoneyPage() {
                 <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || ''); const index = Number(props?.index ?? -1);
-                      const timeLabel = is30MinBoundary(ts) ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-                      const dateLabel = dateMarkerMeta.get(index);
-                      if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}{dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)'} fontSize={9}>{dateLabel}</text> : null}</g>;
+                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} ticks={xAxisTicks} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
+                      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || '');
+                      const info = xAxisTickInfo.get(ts);
+                      if (!info) return <g transform={`translate(${x},${y})`} />;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{info.time ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{info.time}</text> : null}{info.date ? <text dy={info.time ? 26 : 14} textAnchor="middle" fill={isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)'} fontSize={9}>{info.date}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
@@ -482,25 +514,12 @@ export default function SmartMoneyPage() {
                         stackId="notional"
                         barSize={5}
                         fill="var(--color-positive)"
-                        onMouseEnter={(data) => {
-                          const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];
-                          if (meta?.rowKey) setHoveredRowKey(meta.rowKey);
-                        }}
-                        onMouseLeave={() => setHoveredRowKey(null)}
                       >
                         {smartMoneySessionChart.map((point, pointIdx) => {
                           const meta = (point as Record<string, SmartMoneyBlockMeta | undefined>)[`blockMeta${idx + 1}`];
-                          const isHovered = hoveredRowKey && meta?.rowKey === hoveredRowKey;
-                          const baseFill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
-                          const popFill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
+                          const fill = meta?.optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
                           return (
-                            <Cell
-                              key={`cell-${idx + 1}-${pointIdx}`}
-                              fill={isHovered ? popFill : baseFill}
-                              fillOpacity={hoveredRowKey ? (isHovered ? 1 : 0.18) : 0.82}
-                              stroke={isHovered ? 'var(--color-brand-primary)' : 'none'}
-                              strokeWidth={isHovered ? 2.5 : 0}
-                            />
+                            <Cell key={`cell-${idx + 1}-${pointIdx}`} fill={fill} fillOpacity={0.82} />
                           );
                         })}
                       </Bar>
@@ -570,7 +589,7 @@ export default function SmartMoneyPage() {
                     );
                   })}
                 </tr></thead>
-                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const isHovered = hoveredRowKey === row.rowKey; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b" onMouseEnter={() => setHoveredRowKey(row.rowKey)} onMouseLeave={() => setHoveredRowKey(null)} style={{ borderColor: `${inputBorder}66`, backgroundColor: isHovered ? (isDark ? 'var(--color-warning-soft)' : 'var(--color-warning-soft)') : 'transparent' }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
+                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} className="border-b hover:bg-[var(--color-warning-soft)]" style={{ borderColor: `${inputBorder}66` }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
               </div>
               {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
             </>
