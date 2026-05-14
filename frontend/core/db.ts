@@ -113,6 +113,7 @@ ensureColumn('users', 'stripe_price_id', 'TEXT');
 ensureColumn('users', 'subscription_status', 'TEXT');
 ensureColumn('users', 'current_period_end', 'TEXT');
 ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
 
 db.exec(
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL'

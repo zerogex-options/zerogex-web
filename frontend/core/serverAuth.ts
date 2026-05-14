@@ -24,7 +24,7 @@ type SessionRecord = {
 };
 
 type SessionWithUser = {
-  user: { id: string; email: string; tier: TierId };
+  user: { id: string; email: string; tier: TierId; disclaimerAcknowledgedAt: string | null };
   session: SessionRecord;
 };
 
@@ -127,7 +127,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
     .prepare(
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
-              u.id as user_id2, u.email, u.tier
+              u.id as user_id2, u.email, u.tier, u.disclaimer_acknowledged_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
@@ -141,6 +141,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       id: row.user_id2 as string,
       email: row.email as string,
       tier: normalizeTier(row.tier as string),
+      disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -167,11 +168,20 @@ function createSessionForUser(user: AuthUser) {
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).run(createId('session'), user.id, sha256(token), csrfSecret, now, expiresAt, now);
 
+  const ackRow = db
+    .prepare('SELECT disclaimer_acknowledged_at FROM users WHERE id = ?')
+    .get(user.id) as { disclaimer_acknowledged_at: string | null } | undefined;
+
   return {
     token,
     csrfToken: csrfSecret,
     expiresAt,
-    user: { id: user.id, email: user.email, tier: user.tier },
+    user: {
+      id: user.id,
+      email: user.email,
+      tier: user.tier,
+      disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
+    },
   };
 }
 
@@ -679,4 +689,24 @@ export function attachSessionCookie(response: NextResponse, token: string) {
 export function clearAuthCookies(response: NextResponse) {
   response.cookies.set({ name: SESSION_COOKIE_NAME, value: '', path: '/', maxAge: 0 });
   response.cookies.set({ name: CSRF_COOKIE_NAME, value: '', path: '/', maxAge: 0 });
+}
+
+export async function acknowledgeDisclaimerForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const now = nowIso();
+  db.prepare('UPDATE users SET disclaimer_acknowledged_at = ?, updated_at = ? WHERE id = ?')
+    .run(now, now, data.user.id);
+
+  appendAuditEvent({
+    type: 'disclaimer_ack',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    message: 'User acknowledged platform disclaimer',
+  });
+
+  return { acknowledgedAt: now, rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
 }

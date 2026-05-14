@@ -1,27 +1,58 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
+import DisclaimerModal from './DisclaimerModal';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 import OptionChainPrewarm from './OptionChainPrewarm';
 
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
 
+// Routes where the disclaimer modal should not interrupt the user (the auth
+// flow itself, and the public terms/privacy pages which already contain the
+// full legal text).
+const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password']);
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
+  const { data: authSession, refresh: refreshAuth } = useAuthSession();
+  const [acknowledgedLocally, setAcknowledgedLocally] = useState(false);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  const shouldShowDisclaimer =
+    !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
+    authSession?.authenticated === true &&
+    !authSession.user?.disclaimerAcknowledgedAt &&
+    !acknowledgedLocally;
+
+  const disclaimerModal = shouldShowDisclaimer ? (
+    <DisclaimerModal
+      theme={theme}
+      onAcknowledged={() => {
+        setAcknowledgedLocally(true);
+        void refreshAuth();
+      }}
+    />
+  ) : null;
+
   if (STANDALONE_ROUTES.includes(pathname)) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        {disclaimerModal}
+      </>
+    );
   }
 
   return (
@@ -42,6 +73,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {children}
       </main>
       <Footer theme={theme} />
+      {disclaimerModal}
     </div>
   );
 }

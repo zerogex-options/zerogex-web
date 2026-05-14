@@ -7,6 +7,7 @@ type SessionUser = {
   id: string;
   email: string;
   tier: TierId;
+  disclaimerAcknowledgedAt?: string | null;
 };
 
 type SessionResponse = {
