@@ -5,6 +5,9 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 const TIER_DISPLAY_ORDER = ['admin', 'pro', 'basic', 'public'];
+const TIER_LABEL = { admin: 'Admin', pro: 'Pro', basic: 'Basic', public: 'Public' };
+const VALID_TIER_FILTERS = new Set(Object.values(TIER_LABEL).map((v) => v.toLowerCase()));
+const VALID_AUTH_FILTERS = new Set(['L', 'G', 'A']);
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
@@ -24,9 +27,18 @@ function parseEnvFile(filePath) {
   return env;
 }
 
-function titleCase(s) {
-  if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function isTruthy(value) {
+  if (!value) return false;
+  return ['1', 'yes', 'true', 'y', 'on'].includes(String(value).trim().toLowerCase());
+}
+
+function readCurrentDisclaimerVersion(cwd) {
+  // Read the version from core/disclaimer.ts so this script automatically
+  // tracks the constant rather than drifting from it.
+  const versionFile = path.join(cwd, 'core', 'disclaimer.ts');
+  if (!fs.existsSync(versionFile)) return null;
+  const match = fs.readFileSync(versionFile, 'utf8').match(/DISCLAIMER_VERSION\s*=\s*['"]([^'"]+)['"]/);
+  return match ? match[1] : null;
 }
 
 const cwd = process.cwd();
@@ -39,13 +51,29 @@ if (!fs.existsSync(dbPath)) {
   process.exit(1);
 }
 
+const emailOnly = isTruthy(process.env.EMAIL_ONLY);
+const tierFilterRaw = (process.env.TIER || '').trim().toLowerCase();
+const authFilterRaw = (process.env.AUTH || '').trim().toUpperCase();
+
+if (tierFilterRaw && !VALID_TIER_FILTERS.has(tierFilterRaw)) {
+  console.error(`Invalid TIER='${process.env.TIER}'. Expected one of: Admin, Pro, Basic.`);
+  process.exit(1);
+}
+if (authFilterRaw && !VALID_AUTH_FILTERS.has(authFilterRaw)) {
+  console.error(`Invalid AUTH='${process.env.AUTH}'. Expected one of: L, G, A.`);
+  process.exit(1);
+}
+
 const db = new DatabaseSync(dbPath);
 const userCols = new Set(db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name));
 const hasLegacyProvider = userCols.has('provider') && userCols.has('provider_id');
-const selectCols = hasLegacyProvider
-  ? 'id, email, tier, password_hash, provider, provider_id, created_at'
-  : 'id, email, tier, password_hash, created_at';
-const rows = db.prepare(`SELECT ${selectCols} FROM users ORDER BY created_at DESC`).all();
+const hasDisclaimerCols =
+  userCols.has('disclaimer_acknowledged_at') && userCols.has('disclaimer_version_acknowledged');
+
+const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
+if (hasLegacyProvider) baseCols.push('provider', 'provider_id');
+if (hasDisclaimerCols) baseCols.push('disclaimer_acknowledged_at', 'disclaimer_version_acknowledged');
+const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
 
 const hasIdentitiesTable = !!db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_identities'`)
@@ -60,6 +88,8 @@ if (hasIdentitiesTable) {
   }
 }
 
+const currentDisclaimerVersion = readCurrentDisclaimerVersion(cwd);
+
 function authFlags(row) {
   const providers = providersByUser.get(row.id);
   const hasGoogle = providers
@@ -68,35 +98,98 @@ function authFlags(row) {
   const hasApple = providers
     ? providers.has('apple')
     : hasLegacyProvider && row.provider === 'apple' && !!row.provider_id;
-  const l = row.password_hash ? 'L' : '-';
-  const g = hasGoogle ? 'G' : '-';
-  const a = hasApple ? 'A' : '-';
-  return `${l}${g}${a}`;
+  return {
+    L: !!row.password_hash,
+    G: hasGoogle,
+    A: hasApple,
+  };
 }
 
-const byTier = Object.fromEntries(TIER_DISPLAY_ORDER.map((t) => [t, []]));
-for (const row of rows) {
-  const tier = row.tier || 'public';
-  if (!byTier[tier]) byTier[tier] = [];
-  byTier[tier].push({ id: String(row.id), email: String(row.email ?? ''), flags: authFlags(row) });
+function formatAuthFlags(flags) {
+  return `${flags.L ? 'L' : '-'}${flags.G ? 'G' : '-'}${flags.A ? 'A' : '-'}`;
 }
 
-const extraTiers = Object.keys(byTier).filter((t) => !TIER_DISPLAY_ORDER.includes(t)).sort();
-const allTiers = [...TIER_DISPLAY_ORDER, ...extraTiers];
+function shortId(id) {
+  const idx = String(id ?? '').indexOf('_');
+  return idx === -1 ? String(id ?? '') : String(id).slice(idx + 1);
+}
 
-const sections = [];
-for (const tier of allTiers) {
-  const users = byTier[tier];
-  const label = `${titleCase(tier)} (${users.length})`;
-  if (users.length === 0) {
-    sections.push(label);
-  } else {
-    const lines = [`${label}:`];
-    for (const u of users) lines.push(`  ${u.flags}  ${u.email} (${u.id})`);
-    sections.push(lines.join('\n'));
+function disclaimerAccepted(row) {
+  if (!hasDisclaimerCols) return false;
+  if (!row.disclaimer_acknowledged_at) return false;
+  // Only count as "accepted" if they acked the CURRENT version. Older acks
+  // don't count once the wording has been materially updated.
+  if (currentDisclaimerVersion && row.disclaimer_version_acknowledged !== currentDisclaimerVersion) {
+    return false;
   }
+  return true;
 }
-console.log(sections.join('\n\n'));
 
+const records = rows
+  .map((row) => {
+    const flags = authFlags(row);
+    return {
+      id: shortId(row.id),
+      email: String(row.email ?? ''),
+      tier: row.tier || 'public',
+      flags,
+      authString: formatAuthFlags(flags),
+      disclaimer: disclaimerAccepted(row),
+    };
+  })
+  .filter((rec) => {
+    if (tierFilterRaw && rec.tier.toLowerCase() !== tierFilterRaw) return false;
+    if (authFilterRaw && !rec.flags[authFilterRaw]) return false;
+    return true;
+  });
+
+const tierOrder = (t) => {
+  const idx = TIER_DISPLAY_ORDER.indexOf(t);
+  return idx === -1 ? TIER_DISPLAY_ORDER.length : idx;
+};
+
+const sortedRecords = [...records].sort((a, b) => {
+  const ta = tierOrder(a.tier);
+  const tb = tierOrder(b.tier);
+  if (ta !== tb) return ta - tb;
+  return a.email.localeCompare(b.email);
+});
+
+if (emailOnly) {
+  for (const rec of sortedRecords) console.log(rec.email);
+  process.exit(0);
+}
+
+const headers = ['User ID', 'Email', 'Tier', 'Auth', 'Disclaimer'];
+const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
+
+const tableRows = sortedRecords.map((rec) => [
+  rec.id,
+  rec.email,
+  tierLabelFor(rec.tier),
+  rec.authString,
+  rec.disclaimer ? '✓' : '',
+]);
+
+const widths = headers.map((h, i) =>
+  Math.max(h.length, ...tableRows.map((r) => [...r[i]].length)),
+);
+
+function padCell(text, width) {
+  const visualLength = [...text].length;
+  return text + ' '.repeat(Math.max(0, width - visualLength));
+}
+
+function renderRow(cells) {
+  return cells.map((cell, i) => padCell(cell, widths[i])).join('  ');
+}
+
+function renderDivider() {
+  return widths.map((w) => '-'.repeat(w)).join('  ');
+}
+
+console.log(renderRow(headers));
+console.log(renderDivider());
+for (const row of tableRows) console.log(renderRow(row));
 console.log('');
-console.log(`Total: ${rows.length}`);
+console.log(`Total: ${records.length}`);

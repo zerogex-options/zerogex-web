@@ -13,7 +13,7 @@ help:
 	@echo "  make restart    - Restart PM2 process"
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
-	@echo "  make users      - Print auth users + entitlements"
+	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, EMAIL_ONLY=yes)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -75,9 +75,12 @@ status:
 	@echo "Detailed info:"
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 describe zerogex-web'
 
-# Print auth users and entitlements from SQLite
+# Print auth users and entitlements from SQLite. Optional filters:
+#   TIER=Admin|Pro|Basic    Filter to one tier
+#   AUTH=L|G|A              Filter to users with that auth method (L=local, G=Google, A=Apple)
+#   EMAIL_ONLY=yes          Print only email addresses, one per line
 users:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
 
 # Promote every non-admin user to the pro tier. Walks each known non-admin
 # source tier (basic, public, and the legacy starter/elite ids) so any user
