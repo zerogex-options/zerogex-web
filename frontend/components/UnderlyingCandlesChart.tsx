@@ -39,6 +39,56 @@ interface CandleBar {
   downVolume: number;
 }
 
+function niceStep(value: number): number {
+  if (value <= 0 || !Number.isFinite(value)) return 1;
+  const exp = Math.pow(10, Math.floor(Math.log10(value)));
+  const norm = value / exp;
+  if (norm < 1.5) return 1 * exp;
+  if (norm < 3) return 2 * exp;
+  if (norm < 7) return 5 * exp;
+  return 10 * exp;
+}
+
+interface NiceAxis {
+  ticks: number[];
+  niceMin: number;
+  niceMax: number;
+  step: number;
+}
+
+function niceAxis(min: number, max: number, targetTicks: number): NiceAxis {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    const center = Number.isFinite(min) ? min : 0;
+    return { ticks: [center], niceMin: center, niceMax: center + 1, step: 1 };
+  }
+  const step = niceStep((max - min) / Math.max(1, targetTicks - 1));
+  const niceMin = Math.floor(min / step) * step;
+  const niceMax = Math.ceil(max / step) * step;
+  const count = Math.max(1, Math.round((niceMax - niceMin) / step) + 1);
+  const ticks: number[] = [];
+  for (let i = 0; i < count; i++) ticks.push(niceMin + i * step);
+  return { ticks, niceMin, niceMax, step };
+}
+
+function priceLabel(p: number, step: number): string {
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+  return `$${p.toFixed(decimals)}`;
+}
+
+function volumeLabel(v: number): string {
+  if (v === 0) return "0";
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) {
+    const m = v / 1_000_000;
+    return Number.isInteger(m) ? `${m.toFixed(0)}M` : `${m.toFixed(1)}M`;
+  }
+  if (abs >= 1_000) {
+    const k = v / 1_000;
+    return Number.isInteger(k) ? `${k.toFixed(0)}K` : `${k.toFixed(1)}K`;
+  }
+  return `${Math.round(v)}`;
+}
+
 function aggregateBars(
   data: CandleBar[],
   bucketMinutes: number,
@@ -200,17 +250,19 @@ export default function UnderlyingCandlesChart() {
 
   const minPrice = Math.min(...bars.map((b) => b.low));
   const maxPrice = Math.max(...bars.map((b) => b.high));
-  const maxVol = Math.max(...bars.map((b) => b.volume));
+  const maxVol = Math.max(...bars.map((b) => b.volume), 0);
+  const priceAxis = niceAxis(minPrice, maxPrice, 5);
+  const volumeAxis = niceAxis(0, maxVol, 4);
   const xStep = (width - padLeft - padRight) / Math.max(1, bars.length - 1);
   const candleWidth = Math.max(3, Math.min(10, xStep * 0.6));
 
   const yPrice = (p: number) =>
     padTop +
-    (1 - (p - minPrice) / Math.max(1e-9, maxPrice - minPrice)) *
+    (1 - (p - priceAxis.niceMin) / Math.max(1e-9, priceAxis.niceMax - priceAxis.niceMin)) *
       (priceAreaBottom - padTop);
   const yVol = (v: number) =>
     volumeAreaBottom -
-    (v / Math.max(1, maxVol)) * (volumeAreaBottom - volumeAreaTop);
+    (v / Math.max(1, volumeAxis.niceMax)) * (volumeAreaBottom - volumeAreaTop);
 
   const fallbackIdx = Math.max(0, bars.length - 1);
   const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
@@ -267,11 +319,11 @@ export default function UnderlyingCandlesChart() {
               Price
             </text>
 
-            {[0, 0.25, 0.5, 0.75, 1].map((p) => {
-              const price = minPrice + (1 - p) * (maxPrice - minPrice);
-              const y = padTop + p * (priceAreaBottom - padTop);
+            {priceAxis.ticks.map((price) => {
+              const y = yPrice(price);
+              if (y < padTop - 0.5 || y > priceAreaBottom + 0.5) return null;
               return (
-                <g key={p}>
+                <g key={`p-${price}`}>
                   <line
                     x1={padLeft}
                     x2={width - padRight}
@@ -287,7 +339,7 @@ export default function UnderlyingCandlesChart() {
                     fontSize="10"
                     fill={colors.muted}
                   >
-                    ${price.toFixed(2)}
+                    {priceLabel(price, priceAxis.step)}
                   </text>
                 </g>
               );
@@ -303,14 +355,14 @@ export default function UnderlyingCandlesChart() {
               Volume
             </text>
 
-            {[0, 0.5, 1].map((p) => {
-              const y = volumeAreaBottom - p * (volumeAreaBottom - volumeAreaTop);
-              const vol = p * maxVol;
+            {volumeAxis.ticks.map((vol) => {
+              const y = yVol(vol);
+              if (y < volumeAreaTop - 0.5 || y > volumeAreaBottom + 0.5) return null;
               return (
-                <g key={`v-${p}`}>
+                <g key={`v-${vol}`}>
                   <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
                   <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
-                    {vol === 0 ? "0" : vol >= 1_000_000 ? `${(vol / 1_000_000).toFixed(1)}M` : `${Math.round(vol / 1_000)}K`}
+                    {volumeLabel(vol)}
                   </text>
                 </g>
               );
@@ -318,8 +370,10 @@ export default function UnderlyingCandlesChart() {
 
             {bars.map((b, i) => {
               const x = padLeft + i * xStep;
-              const up = b.close >= b.open;
-              const c = up ? colors.bullish : colors.bearish;
+              const prevClose = i > 0 ? bars[i - 1].close : b.open;
+              const isUp = b.close > prevClose;
+              const isHollow = b.close > b.open;
+              const c = isUp ? colors.bullish : colors.bearish;
               const openY = yPrice(b.open);
               const closeY = yPrice(b.close);
               const highY = yPrice(b.high);
@@ -350,7 +404,7 @@ export default function UnderlyingCandlesChart() {
                     y1={highY}
                     y2={Math.min(openY, closeY)}
                     stroke={c}
-                    strokeWidth={1.4}
+                    strokeWidth={1}
                   />
                   <line
                     x1={x}
@@ -358,16 +412,16 @@ export default function UnderlyingCandlesChart() {
                     y1={Math.max(openY, closeY)}
                     y2={lowY}
                     stroke={c}
-                    strokeWidth={1.4}
+                    strokeWidth={1}
                   />
                   <rect
                     x={x - candleWidth / 2}
                     y={bodyY}
                     width={candleWidth}
                     height={bodyH}
-                    fill={up ? "transparent" : c}
+                    fill={isHollow ? "transparent" : c}
                     stroke={c}
-                    strokeWidth={1.5}
+                    strokeWidth={1}
                   />
                   {b.downVolume > 0 && (
                     <rect
