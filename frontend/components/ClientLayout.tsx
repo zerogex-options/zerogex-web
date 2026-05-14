@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
@@ -33,7 +34,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const shouldShowDisclaimer =
     !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
     authSession?.authenticated === true &&
-    !authSession.user?.disclaimerAcknowledgedAt &&
+    authSession.user?.disclaimerVersionAcknowledged !== DISCLAIMER_VERSION &&
     !acknowledgedLocally;
 
   const disclaimerModal = shouldShowDisclaimer ? (

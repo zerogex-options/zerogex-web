@@ -24,7 +24,13 @@ type SessionRecord = {
 };
 
 type SessionWithUser = {
-  user: { id: string; email: string; tier: TierId; disclaimerAcknowledgedAt: string | null };
+  user: {
+    id: string;
+    email: string;
+    tier: TierId;
+    disclaimerAcknowledgedAt: string | null;
+    disclaimerVersionAcknowledged: string | null;
+  };
   session: SessionRecord;
 };
 
@@ -127,7 +133,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
     .prepare(
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
-              u.id as user_id2, u.email, u.tier, u.disclaimer_acknowledged_at
+              u.id as user_id2, u.email, u.tier, u.disclaimer_acknowledged_at,
+              u.disclaimer_version_acknowledged
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
@@ -142,6 +149,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       email: row.email as string,
       tier: normalizeTier(row.tier as string),
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
+      disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -169,8 +177,10 @@ function createSessionForUser(user: AuthUser) {
   ).run(createId('session'), user.id, sha256(token), csrfSecret, now, expiresAt, now);
 
   const ackRow = db
-    .prepare('SELECT disclaimer_acknowledged_at FROM users WHERE id = ?')
-    .get(user.id) as { disclaimer_acknowledged_at: string | null } | undefined;
+    .prepare('SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged FROM users WHERE id = ?')
+    .get(user.id) as
+    | { disclaimer_acknowledged_at: string | null; disclaimer_version_acknowledged: string | null }
+    | undefined;
 
   return {
     token,
@@ -181,6 +191,7 @@ function createSessionForUser(user: AuthUser) {
       email: user.email,
       tier: user.tier,
       disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
+      disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
     },
   };
 }
@@ -691,22 +702,28 @@ export function clearAuthCookies(response: NextResponse) {
   response.cookies.set({ name: CSRF_COOKIE_NAME, value: '', path: '/', maxAge: 0 });
 }
 
-export async function acknowledgeDisclaimerForRequest(request: NextRequest) {
+export async function acknowledgeDisclaimerForRequest(request: NextRequest, version: string) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
 
   const db = getDb();
   const now = nowIso();
-  db.prepare('UPDATE users SET disclaimer_acknowledged_at = ?, updated_at = ? WHERE id = ?')
-    .run(now, now, data.user.id);
+  db.prepare(
+    'UPDATE users SET disclaimer_acknowledged_at = ?, disclaimer_version_acknowledged = ?, updated_at = ? WHERE id = ?'
+  ).run(now, version, now, data.user.id);
 
   appendAuditEvent({
     type: 'disclaimer_ack',
     userId: data.user.id,
     email: data.user.email,
     ip: getClientIp(request),
-    message: 'User acknowledged platform disclaimer',
+    message: `User acknowledged platform disclaimer (${version})`,
   });
 
-  return { acknowledgedAt: now, rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
+  return {
+    acknowledgedAt: now,
+    version,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
 }

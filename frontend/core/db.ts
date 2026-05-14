@@ -114,6 +114,15 @@ ensureColumn('users', 'subscription_status', 'TEXT');
 ensureColumn('users', 'current_period_end', 'TEXT');
 ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
+ensureColumn('users', 'disclaimer_version_acknowledged', 'TEXT');
+
+// Users who acked before versioning existed implicitly acked v1.
+db.exec(
+  `UPDATE users
+   SET disclaimer_version_acknowledged = 'v1'
+   WHERE disclaimer_acknowledged_at IS NOT NULL
+     AND disclaimer_version_acknowledged IS NULL`
+);
 
 db.exec(
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL'
