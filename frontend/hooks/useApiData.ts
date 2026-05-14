@@ -488,11 +488,30 @@ export interface SessionClosesData {
   prior_session_close_ts: string;
 }
 
-export function useSessionCloses(symbol = 'SPY', refreshInterval = 60000) {
-  return useApiData<SessionClosesData>(
+export function useSessionCloses(
+  symbol = 'SPY',
+  refreshInterval = 60000,
+  sessionTrigger?: string | null,
+) {
+  const result = useApiData<SessionClosesData>(
     `/api/market/session-closes?${symbolQuery(symbol)}`,
     { refreshInterval }
   );
+
+  // The session-closes endpoint advances `current_session_close` from yesterday
+  // to today exactly at 16:00 ET (and analogous boundaries for pre/AH). Polling
+  // alone leaves up to a full refresh interval where `quoteData.session` has
+  // already flipped but the close hasn't, briefly displaying yesterday's close
+  // as the headline price. Forcing a refetch on every session change closes
+  // that window.
+  const { refetch } = result;
+  useEffect(() => {
+    if (sessionTrigger != null) {
+      refetch();
+    }
+  }, [sessionTrigger, refetch]);
+
+  return result;
 }
 
 export function useTradeSignal(symbol = 'SPY', timeframe: SignalTimeframe = 'intraday', refreshInterval = 15000) {

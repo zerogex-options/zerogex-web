@@ -81,7 +81,7 @@ export default function DashboardPage() {
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);

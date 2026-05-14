@@ -128,7 +128,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {

@@ -116,8 +116,8 @@ export default function Navigation({ theme }: NavigationProps) {
     return () => clearInterval(interval);
   }, []);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const { data: sessionClosesData } = useSessionCloses(symbol, 60000);
   const quoteSession = quoteData?.session ?? null;
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteSession);
   const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
   const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
   const row1Price = (isExtendedHours || quoteSession === "closed")
