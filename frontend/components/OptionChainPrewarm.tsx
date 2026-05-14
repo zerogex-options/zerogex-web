@@ -9,18 +9,23 @@
  * fetches by symbol, so this component is safe to mount multiple times
  * (e.g. during dev hot-reload) and prewarm calls from elsewhere will not
  * trigger duplicate requests.
+ *
+ * Deferred to browser idle time so the three concurrent chain fetches
+ * (~40 kB each) don't starve the active page's data requests against
+ * the browser's 6-connection-per-origin limit.
  */
 
 'use client';
 
 import { useEffect } from 'react';
 import { prewarmOptionChain } from '@/core/optionChainCache';
+import { scheduleIdle } from '@/core/scheduleIdle';
 
 const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ'] as const;
 
 export default function OptionChainPrewarm() {
-  useEffect(() => {
+  useEffect(() => scheduleIdle(() => {
     PREWARM_SYMBOLS.forEach((symbol) => prewarmOptionChain(symbol));
-  }, []);
+  }), []);
   return null;
 }

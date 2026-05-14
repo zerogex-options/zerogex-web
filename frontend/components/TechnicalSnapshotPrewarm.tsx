@@ -11,18 +11,25 @@
  * cache. Once started, the background reload runs forever for the
  * lifetime of the tab, so navigating around the app keeps the cache
  * warm for every ticker rather than just the active one.
+ *
+ * Deferred to browser idle time so the prewarm fetches don't compete
+ * with the current page's primary data fetches for the browser's
+ * 6-connection-per-origin budget. Without this, three concurrent
+ * technicals requests would saturate the pool and starve whatever the
+ * page actually wants to render.
  */
 
 'use client';
 
 import { useEffect } from 'react';
 import { prewarmTechnicals } from '@/hooks/useTechnicals';
+import { scheduleIdle } from '@/core/scheduleIdle';
 
 const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ'] as const;
 
 export default function TechnicalSnapshotPrewarm() {
-  useEffect(() => {
+  useEffect(() => scheduleIdle(() => {
     PREWARM_SYMBOLS.forEach((symbol) => prewarmTechnicals(symbol));
-  }, []);
+  }), []);
   return null;
 }
