@@ -323,13 +323,46 @@ export default function MaxPainPage() {
 
   const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     if (seriesChart.length === 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const xPx = event.clientX - rect.left;
-    const yPx = event.clientY - rect.top;
-    const xView = (xPx / Math.max(1, rect.width)) * tsWidth;
+    const svg = event.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    // Convert the cursor's screen coords back into viewBox coords using the
+    // SVG's current transformation matrix so the bar-index math accounts for
+    // any preserveAspectRatio letterboxing on wide screens. Falling back to
+    // proportional scaling keeps the handler usable if getScreenCTM is
+    // unavailable.
+    const ctm = svg.getScreenCTM();
+    let xView: number;
+    if (ctm) {
+      const pt = svg.createSVGPoint();
+      pt.x = event.clientX;
+      pt.y = event.clientY;
+      const local = pt.matrixTransform(ctm.inverse());
+      xView = local.x;
+    } else {
+      xView = ((event.clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
+    }
     const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
-    setHoveredIdx(Math.max(0, Math.min(seriesChart.length - 1, idx)));
-    setHoverPx({ x: xPx, y: yPx });
+    const clampedIdx = Math.max(0, Math.min(seriesChart.length - 1, idx));
+    setHoveredIdx(clampedIdx);
+    // Anchor the tooltip horizontally to the matched candle's screen position
+    // — using the inverse of the same CTM — so the tooltip lines up with the
+    // crosshair and the bar instead of sliding off to the side when the
+    // cursor lands between two candles.
+    const targetViewX = padLeft + clampedIdx * xStep;
+    let tooltipX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
+    if (ctm) {
+      const candlePt = svg.createSVGPoint();
+      candlePt.x = targetViewX;
+      candlePt.y = 0;
+      const screenPt = candlePt.matrixTransform(ctm);
+      tooltipX = screenPt.x - rect.left;
+    } else {
+      tooltipX = (targetViewX / Math.max(1e-9, tsWidth)) * rect.width;
+    }
+    setHoverPx({
+      x: tooltipX,
+      y: event.clientY - rect.top,
+    });
   };
 
   return (
