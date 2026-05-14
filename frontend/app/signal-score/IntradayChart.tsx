@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -65,7 +65,7 @@ interface ChartPoint {
   row: CompositeHistoryRow;
 }
 
-export default function IntradayChart({ history, currentScore }: Props) {
+function IntradayChartImpl({ history, currentScore }: Props) {
   const [win, setWin] = useState<Window>('TODAY');
 
   const data: ChartPoint[] = useMemo(() => {
@@ -144,6 +144,9 @@ export default function IntradayChart({ history, currentScore }: Props) {
     </div>
   );
 }
+
+const IntradayChart = memo(IntradayChartImpl);
+export default IntradayChart;
 
 function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Window) => void }) {
   return (

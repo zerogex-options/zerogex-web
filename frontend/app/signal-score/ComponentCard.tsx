@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Info } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { ComponentEntry, GammaAnchorContext, getComponentLabel } from './data';
@@ -50,7 +51,7 @@ function ScoreBar({ score }: { score: number | null }) {
   );
 }
 
-export default function ComponentCard({ entry }: Props) {
+function ComponentCardImpl({ entry }: Props) {
   const label = getComponentLabel(entry.key);
   const isGammaAnchor = entry.key === 'gamma_anchor';
   const score = entry.score;
@@ -156,6 +157,30 @@ export default function ComponentCard({ entry }: Props) {
     </div>
   );
 }
+
+// parsePayload allocates fresh entry objects every poll tick, so the default
+// shallow prop compare never skips. Compare by value instead — most ticks
+// don't change every component, so this saves real render work.
+function entryEquals(a: ComponentEntry, b: ComponentEntry): boolean {
+  if (a.key !== b.key) return false;
+  if (a.maxPoints !== b.maxPoints) return false;
+  if (a.contribution !== b.contribution) return false;
+  if (a.score !== b.score) return false;
+  const ac = a.context, bc = b.context;
+  if ((ac == null) !== (bc == null)) return false;
+  if (ac && bc) {
+    if (ac.flipDistance !== bc.flipDistance) return false;
+    if (ac.localGamma !== bc.localGamma) return false;
+    if (ac.priceVsMaxGamma !== bc.priceVsMaxGamma) return false;
+    if (ac.weights.flipDistance !== bc.weights.flipDistance) return false;
+    if (ac.weights.localGamma !== bc.weights.localGamma) return false;
+    if (ac.weights.priceVsMaxGamma !== bc.weights.priceVsMaxGamma) return false;
+  }
+  return true;
+}
+
+const ComponentCard = memo(ComponentCardImpl, (prev, next) => entryEquals(prev.entry, next.entry));
+export default ComponentCard;
 
 function GammaAnchorSubSignals({ context }: { context: GammaAnchorContext | null }) {
   if (!context) {

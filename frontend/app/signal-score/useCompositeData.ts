@@ -44,13 +44,23 @@ export function useCompositeData(symbol: string): CompositeState {
   const tickClockRef = useRef<number | null>(null);
   const symbolRef = useRef(symbol);
   const lastHiddenAtRef = useRef<number | null>(null);
+  // One AbortController per symbol lifetime. Replaced (and the previous
+  // one aborted) when the symbol changes or the hook unmounts. All
+  // fetches read this signal at call time so in-flight requests are
+  // cancelled cleanly instead of waiting to roundtrip and then being
+  // discarded by a symbol guard.
+  const lifetimeAbortRef = useRef<AbortController | null>(null);
+
+  const isAbortError = (err: unknown): boolean =>
+    typeof err === 'object' && err != null && (err as { name?: unknown }).name === 'AbortError';
 
   const fetchScore = useCallback(async (sym: string): Promise<boolean> => {
     try {
       const params = new URLSearchParams();
       params.set('symbol', sym);
       params.set('underlying', sym);
-      const res = await fetch(`${apiBaseUrl()}/api/signals/score?${params.toString()}`);
+      const signal = lifetimeAbortRef.current?.signal;
+      const res = await fetch(`${apiBaseUrl()}/api/signals/score?${params.toString()}`, { signal });
       if (!res.ok) {
         if (res.status === 404) {
           if (symbolRef.current === sym) {
@@ -83,7 +93,9 @@ export function useCompositeData(symbol: string): CompositeState {
         });
       }
       return true;
-    } catch {
+    } catch (err) {
+      // Aborts are intentional (symbol change, unmount) — not failures.
+      if (isAbortError(err)) return true;
       return false;
     }
   }, []);
@@ -94,12 +106,22 @@ export function useCompositeData(symbol: string): CompositeState {
       params.set('symbol', sym);
       params.set('underlying', sym);
       params.set('limit', String(HISTORY_LIMIT));
-      const res = await fetch(`${apiBaseUrl()}/api/signals/score-history?${params.toString()}`);
+      const signal = lifetimeAbortRef.current?.signal;
+      const res = await fetch(`${apiBaseUrl()}/api/signals/score-history?${params.toString()}`, { signal });
       if (!res.ok) return;
       const json = await res.json();
       if (symbolRef.current !== sym) return;
       const rows = parseHistory(json);
-      setHistory(rows);
+      setHistory((prev) => {
+        // The history endpoint is authoritative for everything up to its
+        // newest row. If a concurrent score-poll appended a tick that
+        // post-dates the newest history row, preserve it.
+        if (prev.length === 0 || rows.length === 0) return rows;
+        const lastHistoryMs = Date.parse(rows[rows.length - 1].timestamp);
+        if (!Number.isFinite(lastHistoryMs)) return rows;
+        const newer = prev.filter((r) => Date.parse(r.timestamp) > lastHistoryMs);
+        return newer.length > 0 ? [...rows, ...newer] : rows;
+      });
     } catch {
       // history is best-effort; the live tick stream will rebuild it
     }
@@ -148,12 +170,23 @@ export function useCompositeData(symbol: string): CompositeState {
     setConnection('idle');
     setLoading(true);
     consecutiveFailuresRef.current = 0;
-    void fetchHistory(symbol).then(() => runFetchCycle(symbol));
+    // Abort any fetches still in flight from the previous symbol, then
+    // open a fresh lifetime for this one.
+    lifetimeAbortRef.current?.abort();
+    const controller = new AbortController();
+    lifetimeAbortRef.current = controller;
+    // Fire both fetches in parallel so the gauge can paint as soon as the
+    // (small) score response returns, rather than waiting for the larger
+    // history response. fetchHistory merges against any tick the score
+    // fetch may have appended first.
+    void fetchHistory(symbol);
+    void runFetchCycle(symbol);
     return () => {
       if (retryTimerRef.current != null) {
         window.clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
+      controller.abort();
     };
   }, [symbol, fetchHistory, runFetchCycle]);
 
@@ -231,7 +264,8 @@ export function useCompositeData(symbol: string): CompositeState {
   const refetch = useCallback(() => {
     setLoading(true);
     consecutiveFailuresRef.current = 0;
-    void fetchHistory(symbolRef.current).then(() => runFetchCycle(symbolRef.current));
+    void fetchHistory(symbolRef.current);
+    void runFetchCycle(symbolRef.current);
   }, [fetchHistory, runFetchCycle]);
 
   return {

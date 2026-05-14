@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { COMPONENT_KEYS, ComponentEntry, getComponentLabel } from './data';
 
@@ -12,7 +12,7 @@ interface Props {
 const POSITIVE = '#16A34A';
 const NEGATIVE = '#DC2626';
 
-export default function ContributionStack({ components, composite }: Props) {
+function ContributionStackImpl({ components, composite }: Props) {
   // Order strictly matches the spec: net_gex → gamma_anchor → PCR → vol → flow → delta.
   const ordered = useMemo(() => {
     const byKey = new Map(components.map((c) => [c.key, c]));
@@ -102,3 +102,6 @@ export default function ContributionStack({ components, composite }: Props) {
     </div>
   );
 }
+
+const ContributionStack = memo(ContributionStackImpl);
+export default ContributionStack;

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Activity, Info, LayoutGrid, LineChart as LineChartIcon } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import CompositeGauge from './CompositeGauge';
-import IntradayChart from './IntradayChart';
 import ContributionStack from './ContributionStack';
 import ComponentCard from './ComponentCard';
 import { useCompositeData } from './useCompositeData';
@@ -12,6 +12,14 @@ import { REGIME_BANDS, classifyRegime } from './regime';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
+
+// Recharts is ~200KB minzipped and the intraday chart is the last section
+// on the page. Split it out so the gauge above the fold can paint without
+// waiting for the chart bundle to download or parse.
+const IntradayChart = dynamic(() => import('./IntradayChart'), {
+  ssr: false,
+  loading: () => <Skeleton height={320} label="Loading chart…" />,
+});
 
 const NEUTRAL_DELTA_THRESHOLD = 0.5;
 
@@ -81,6 +89,37 @@ function findScoreAt(history: { timestamp: string; composite: number }[], cutoff
 
 function emptyComponents(): ComponentEntry[] {
   return COMPONENT_KEYS.map((key) => ({ key, maxPoints: 0, contribution: null, score: null }));
+}
+
+type HistoryRow = { timestamp: string; composite: number };
+
+function HeroDeltas({ history, composite }: { history: HistoryRow[]; composite: number | null }) {
+  // The 5-min-ago lookup needs a wall-clock reference. Keep that state
+  // local so the 30s tick only re-renders these two badges — not the
+  // gauge, contribution stack, component cards, or chart.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const openScore = useMemo(() => findOpenScore(history), [history]);
+  const fiveMinAgoScore = useMemo(() => {
+    if (now == null) return null;
+    return findScoreAt(history, now - 5 * 60 * 1000);
+  }, [history, now]);
+
+  const deltaSinceOpen = composite != null && openScore != null ? composite - openScore : null;
+  const deltaFiveMin = composite != null && fiveMinAgoScore != null ? composite - fiveMinAgoScore : null;
+
+  return (
+    <div className="flex flex-wrap gap-x-6 gap-y-2">
+      <DeltaBadge label="Δ since open" value={deltaSinceOpen} />
+      <DeltaBadge label="Δ last 5 min" value={deltaFiveMin} />
+    </div>
+  );
 }
 
 function DeltaBadge({ label, value }: { label: string; value: number | null }) {
@@ -223,26 +262,10 @@ export default function CompositeScorePage() {
   const { symbol } = useTimeframe();
   const { payload, history, lastUpdatedAt, connection, loading, refetch } = useCompositeData(symbol);
 
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const composite = payload?.composite ?? null;
   const components = payload?.components ?? emptyComponents();
   const regime = classifyRegime(composite);
   const noData = !loading && composite == null && history.length === 0;
-
-  const openScore = useMemo(() => findOpenScore(history), [history]);
-  const fiveMinAgoScore = useMemo(() => {
-    if (now == null) return null;
-    return findScoreAt(history, now - 5 * 60 * 1000);
-  }, [history, now]);
-  const deltaSinceOpen = composite != null && openScore != null ? composite - openScore : null;
-  const deltaFiveMin = composite != null && fiveMinAgoScore != null ? composite - fiveMinAgoScore : null;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -315,10 +338,7 @@ export default function CompositeScorePage() {
               <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
                 {regime.copy}
               </p>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                <DeltaBadge label="Δ since open" value={deltaSinceOpen} />
-                <DeltaBadge label="Δ last 5 min" value={deltaFiveMin} />
-              </div>
+              <HeroDeltas history={history} composite={composite} />
               <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
             </div>
           </div>

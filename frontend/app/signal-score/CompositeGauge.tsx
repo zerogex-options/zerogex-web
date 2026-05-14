@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { REGIME_BANDS, classifyRegime } from './regime';
 
 interface CompositeGaugeProps {
@@ -19,7 +19,7 @@ const TICKS = [
   { value: 100, bold: false },
 ];
 
-export default function CompositeGauge({ score, size = 320 }: CompositeGaugeProps) {
+function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
   const strokeWidth = Math.max(16, Math.round(size * 0.06));
   const tickPadding = 22;
   const radius = size / 2 - strokeWidth / 2 - tickPadding;
@@ -206,6 +206,9 @@ export default function CompositeGauge({ score, size = 320 }: CompositeGaugeProp
     </div>
   );
 }
+
+const CompositeGauge = memo(CompositeGaugeImpl);
+export default CompositeGauge;
 
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
   const a = (angleDeg * Math.PI) / 180;
