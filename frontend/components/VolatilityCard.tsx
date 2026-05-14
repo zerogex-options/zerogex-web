@@ -178,14 +178,14 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeC
       {/* Zone label + optional VIX value */}
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div
-          className="text-4xl font-bold"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold break-words"
           style={{ color: valueColor }}
         >
           {zoneLabel}
         </div>
         {showVix && (
           <div className="flex flex-col items-end">
-            <div className="text-3xl font-bold" style={{ color: textColor }}>
+            <div className="text-2xl sm:text-3xl font-bold break-words" style={{ color: textColor }}>
               {vix!.toFixed(2)}
             </div>
             <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>

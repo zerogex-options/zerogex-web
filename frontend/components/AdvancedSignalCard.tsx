@@ -114,7 +114,7 @@ export default function AdvancedSignalCard({
 
       <div className="flex items-end justify-between gap-3">
         <div>
-          <div className="text-4xl font-black leading-none" style={{ color }}>
+          <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
             {loading && !payload.score ? '…' : score != null ? score.toFixed(1) : '—'}
           </div>
           <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">

@@ -460,40 +460,86 @@ export default function MarketMakerExposures() {
     return xForIndex(bestIdx);
   };
 
+  // Bucket every visible candle by ET trading day so the x-axis can render
+  // both a row of clock-aligned time labels and a grouped date label spanning
+  // the candles that belong to that session.
+  const candleDateGroups = useMemo(() => {
+    if (visibleCandles.length === 0) return [] as Array<{ startIdx: number; endIdx: number; dateKey: string }>;
+    const groups: Array<{ startIdx: number; endIdx: number; dateKey: string }> = [];
+    const dateKeyFmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    let currentKey = '';
+    let currentStart = 0;
+    visibleCandles.forEach((c, idx) => {
+      const key = dateKeyFmt.format(new Date(c.timestamp));
+      if (idx === 0) {
+        currentKey = key;
+        currentStart = 0;
+      } else if (key !== currentKey) {
+        groups.push({ startIdx: currentStart, endIdx: idx - 1, dateKey: currentKey });
+        currentKey = key;
+        currentStart = idx;
+      }
+    });
+    groups.push({ startIdx: currentStart, endIdx: visibleCandles.length - 1, dateKey: currentKey });
+    return groups;
+  }, [visibleCandles]);
+
   const timeLabels = useMemo(() => {
     if (!timeBounds || visibleCandles.length === 0) return [] as Array<{ t: number; label: string }>;
-    const { tMin, tMax } = timeBounds;
     const out: Array<{ t: number; label: string }> = [];
-    const span = tMax - tMin;
+    const span = timeBounds.tMax - timeBounds.tMin;
     const oneDay = 24 * 60 * 60 * 1000;
-    if (span <= oneDay * 1.5) {
-      // Intraday: hourly labels
-      const start = new Date(tMin);
-      start.setHours(0, 0, 0, 0);
-      for (let day = 0; day < 3; day++) {
-        for (let h = 9; h <= 16; h += 2) {
-          const d = new Date(start);
-          d.setDate(d.getDate() + day);
-          d.setHours(h);
-          const t = d.getTime();
-          if (t >= tMin && t <= tMax) {
-            out.push({
-              t,
-              label: d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).replace(/\s/, ' '),
-            });
-          }
-        }
-      }
-    } else {
-      // Multi-day: date labels
-      const step = Math.max(oneDay, span / 6);
-      for (let t = tMin; t <= tMax; t += step) {
-        const d = new Date(t);
-        out.push({ t, label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
-      }
+    if (span > oneDay * 1.5) {
+      // Multi-day view — labels become per-session dates, with the time row
+      // suppressed (the grouped date row below provides the same info).
+      candleDateGroups.forEach((g) => {
+        const midIdx = Math.floor((g.startIdx + g.endIdx) / 2);
+        const t = new Date(visibleCandles[midIdx].timestamp).getTime();
+        if (!Number.isFinite(t)) return;
+        out.push({
+          t,
+          label: new Date(t).toLocaleDateString('en-US', {
+            timeZone: 'America/New_York',
+            month: 'short',
+            day: 'numeric',
+          }),
+        });
+      });
+      return out;
     }
+
+    // Intraday view — clock-aligned time ticks in ET so labels read as
+    // "09:30, 10:30, 11:30…" instead of irregular times that depend on the
+    // sample count.
+    const tickStepMinutes = tf === '1m' ? 30 : tf === '5m' ? 60 : 120;
+    const etFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const minutesOfDayET = (d: Date) => {
+      const parts = etFmt.formatToParts(d);
+      const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+      const m = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+      return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : -1;
+    };
+    visibleCandles.forEach((c) => {
+      const d = new Date(c.timestamp);
+      const mod = minutesOfDayET(d);
+      if (mod < 0 || mod % tickStepMinutes !== 0) return;
+      out.push({
+        t: d.getTime(),
+        label: etFmt.format(d),
+      });
+    });
     return out;
-  }, [timeBounds, visibleCandles.length]);
+  }, [timeBounds, visibleCandles, candleDateGroups, tf]);
 
   // The spot line is anchored to the latest visible candle's close so it never
   // drifts out of sync with the candles (the live quote ticks on a separate
@@ -973,6 +1019,39 @@ export default function MarketMakerExposures() {
               {tl.label}
             </text>
           ))}
+
+          {/* Grouped date row beneath the time labels, centered under each
+              session's span of candles. Skips groups that are too narrow to
+              fit a label. */}
+          {candleDateGroups.length > 1 || (candleDateGroups.length === 1 && visibleCandles.length > 1)
+            ? candleDateGroups.map((g) => {
+                if (visibleCandles.length === 0) return null;
+                const startX = xForIndex(g.startIdx);
+                const endX = xForIndex(g.endIdx);
+                const centerX = (startX + endX) / 2;
+                if (endX - startX < 40) return null;
+                const sampleTs = visibleCandles[g.startIdx]?.timestamp;
+                if (!sampleTs) return null;
+                const label = new Date(sampleTs).toLocaleDateString('en-US', {
+                  timeZone: 'America/New_York',
+                  month: 'short',
+                  day: 'numeric',
+                });
+                return (
+                  <text
+                    key={`dlbl-${g.dateKey}-${g.startIdx}`}
+                    x={centerX}
+                    y={PLOT_BOTTOM + 34}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fill={subtle}
+                    opacity={0.85}
+                  >
+                    {label}
+                  </text>
+                );
+              })
+            : null}
 
           {/* ── MIDDLE PANEL: Gamma horizontal bars ── */}
           <line

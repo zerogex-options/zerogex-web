@@ -96,7 +96,9 @@ const DEFAULTS = {
 const PAD_L = 56;
 const PAD_R = 64;
 const PAD_T = 36;
-const PAD_B = 32;
+// Extra bottom padding so the time axis labels and the grouped date row fit
+// without colliding with the plot area.
+const PAD_B = 48;
 
 export default function GammaHeatmapCanvas() {
   const { theme } = useTheme();
@@ -446,12 +448,98 @@ export default function GammaHeatmapCanvas() {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const tStep = Math.max(1, Math.ceil(T / 10));
-    for (let i = 0; i < T; i += tStep) {
-      const px = PAD_L + (i + 0.5) * (plotW / T);
-      const ts = grid.timestamps[i];
-      const label = new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      ctx.fillText(label, px, PAD_T + plotH + 6);
+    // Time labels at clock-aligned intervals (e.g., every 30/60/120 minutes in
+    // ET) rather than every Nth data point — that way labels read as
+    // "09:30, 10:00, 10:30…" instead of irregular times that drift with the
+    // sample count and any gaps in the data.
+    const tickStepMinutes = tf === '1m' ? 30 : tf === '5m' ? 60 : 120;
+    const minutesOfDayET = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(d);
+      const h = Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+      const m = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
+      return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : -1;
+    };
+    const dateKeyET = (d: Date) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(d);
+
+    type TimeTick = { i: number; px: number; label: string };
+    const timeTicks: TimeTick[] = [];
+    type DateGroup = { startI: number; endI: number; label: string };
+    const dateGroups: DateGroup[] = [];
+    let groupStart = 0;
+    let groupDateKey = '';
+
+    for (let i = 0; i < T; i++) {
+      const d = new Date(grid.timestamps[i]);
+      const mod = minutesOfDayET(d);
+      const dk = dateKeyET(d);
+      if (i === 0) {
+        groupDateKey = dk;
+      } else if (dk !== groupDateKey) {
+        dateGroups.push({ startI: groupStart, endI: i - 1, label: groupDateKey });
+        groupStart = i;
+        groupDateKey = dk;
+      }
+      if (mod >= 0 && mod % tickStepMinutes === 0) {
+        timeTicks.push({
+          i,
+          px: PAD_L + (i + 0.5) * (plotW / T),
+          label: d.toLocaleTimeString('en-US', {
+            timeZone: 'America/New_York',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+        });
+      }
+    }
+    dateGroups.push({ startI: groupStart, endI: T - 1, label: groupDateKey });
+
+    // Drop labels that would visually collide (minimum ~52px gap between centers).
+    const minLabelGap = 52;
+    let lastDrawnX = Number.NEGATIVE_INFINITY;
+    const drawnTimeTicks: TimeTick[] = [];
+    timeTicks.forEach((tk) => {
+      if (tk.px - lastDrawnX < minLabelGap) return;
+      drawnTimeTicks.push(tk);
+      lastDrawnX = tk.px;
+    });
+
+    drawnTimeTicks.forEach((tk) => {
+      ctx.fillText(tk.label, tk.px, PAD_T + plotH + 6);
+    });
+
+    // Grouped date row centered under each day's span of time ticks. Skip
+    // groups that are too narrow to fit even a compact label.
+    if (dateGroups.length > 0) {
+      ctx.fillStyle = isDark ? 'rgba(255,241,230,0.65)' : 'rgba(30,41,59,0.65)';
+      ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      dateGroups.forEach((g) => {
+        const startPx = PAD_L + (g.startI + 0.5) * (plotW / T);
+        const endPx = PAD_L + (g.endI + 0.5) * (plotW / T);
+        const centerPx = (startPx + endPx) / 2;
+        const groupWidth = endPx - startPx;
+        if (groupWidth < 48) return;
+        const dateLabel = new Date(`${g.label}T12:00:00Z`).toLocaleDateString('en-US', {
+          timeZone: 'America/New_York',
+          month: 'short',
+          day: 'numeric',
+        });
+        ctx.fillText(dateLabel, centerPx, PAD_T + plotH + 22);
+      });
+      // Restore default fill color so subsequent draws aren't tinted.
+      ctx.fillStyle = axisColor;
+      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     }
 
     // Underlying candlesticks on top of the heatmap.
@@ -565,7 +653,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover, showGrid]);
+  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover, showGrid, tf]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;

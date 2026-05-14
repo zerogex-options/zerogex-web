@@ -645,7 +645,7 @@ function TradeCard({ data }: { data: SignalActionResponse }) {
         </div>
         <div className="lg:col-span-4 flex flex-col gap-2 lg:items-end">
           <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--color-text-secondary)]">Confidence</div>
-          <div className="font-mono text-5xl font-black leading-none" style={{ color: dirColor }}>
+          <div className="font-mono text-3xl sm:text-4xl md:text-5xl font-black leading-none break-words" style={{ color: dirColor }}>
             {confidence != null ? confidence.toFixed(2) : '—'}
           </div>
           <div className="w-full max-w-[180px] h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>

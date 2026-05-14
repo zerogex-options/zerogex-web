@@ -225,7 +225,7 @@ export default function TradeBiasSection() {
         <BiasCard title="Regime" icon={Compass} color={color} loading={anyLoading && !bias.hasData} tooltip={REGIME_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-3xl font-black leading-tight" style={{ color }}>
+              <div className="text-2xl sm:text-3xl font-black leading-tight break-words" style={{ color }}>
                 {bias.regimeLabel}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
@@ -258,7 +258,7 @@ export default function TradeBiasSection() {
         <BiasCard title="Bias" icon={biasIcon} color={color} loading={anyLoading && !bias.hasData} tooltip={BIAS_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-4xl font-black leading-none" style={{ color }}>
+              <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
                 {bias.biasLabel}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
@@ -266,7 +266,7 @@ export default function TradeBiasSection() {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-black leading-none" style={{ color }}>
+              <div className="text-2xl sm:text-3xl font-black leading-none break-words" style={{ color }}>
                 {bias.confidence.toFixed(1)}
               </div>
               <div className="text-[10px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
@@ -305,7 +305,7 @@ export default function TradeBiasSection() {
         <BiasCard title="Playbook" icon={ListChecks} color={color} loading={anyLoading && !bias.hasData} tooltip={PLAYBOOK_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-3xl font-black leading-tight" style={{ color }}>
+              <div className="text-2xl sm:text-3xl font-black leading-tight break-words" style={{ color }}>
                 {bias.setup}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">

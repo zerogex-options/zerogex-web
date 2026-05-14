@@ -80,7 +80,7 @@ export default function VolatilityExpansionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
             <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-secondary)] mb-2">Expansion Score</div>
-            <div className="text-6xl font-black leading-none" style={{ color }}>
+            <div className="text-4xl sm:text-5xl md:text-6xl font-black leading-none break-words" style={{ color }}>
               {score != null ? score.toFixed(2) : '—'}
             </div>
             <div className="mt-2 text-lg font-semibold">{interpretation(score)}</div>
@@ -103,7 +103,7 @@ export default function VolatilityExpansionPage() {
                 <div className="text-sm font-semibold">Expansion</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">0 to 100</div>
               </div>
-              <div className="text-3xl font-black" style={{ color: expansion != null && expansion >= 60 ? 'var(--color-bull)' : expansion != null && expansion >= 30 ? 'var(--color-warning)' : 'var(--color-text-secondary)' }}>
+              <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: expansion != null && expansion >= 60 ? 'var(--color-bull)' : expansion != null && expansion >= 30 ? 'var(--color-warning)' : 'var(--color-text-secondary)' }}>
                 {expansion != null ? expansion.toFixed(1) : '—'}
               </div>
               <div className="mt-3 h-3 rounded-full bg-[var(--color-border)]/40 overflow-hidden">
@@ -117,7 +117,7 @@ export default function VolatilityExpansionPage() {
                 <div className="text-sm font-semibold">Direction</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">−100 to +100</div>
               </div>
-              <div className="text-3xl font-black" style={{ color: directionScore != null && directionScore > 10 ? 'var(--color-bull)' : directionScore != null && directionScore < -10 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
+              <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: directionScore != null && directionScore > 10 ? 'var(--color-bull)' : directionScore != null && directionScore < -10 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
                 {directionScore != null ? `${directionScore >= 0 ? '+' : ''}${directionScore.toFixed(1)}` : '—'}
               </div>
               <div className="relative mt-3 h-3 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear), var(--color-warning), var(--color-bull))' }}>
@@ -128,13 +128,13 @@ export default function VolatilityExpansionPage() {
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="text-sm font-semibold mb-1">Magnitude</div>
-              <div className="text-3xl font-black">{magnitude != null ? magnitude.toFixed(1) : '—'}</div>
+              <div className="text-2xl sm:text-3xl font-black break-words">{magnitude != null ? magnitude.toFixed(1) : '—'}</div>
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">|expansion × direction| / 100 — absolute conviction.</p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="text-sm font-semibold mb-1">Expected 5-min move</div>
-              <div className="text-3xl font-black">{expectedBps != null ? `${expectedBps.toFixed(1)} bps` : '—'}</div>
+              <div className="text-2xl sm:text-3xl font-black break-words">{expectedBps != null ? `${expectedBps.toFixed(1)} bps` : '—'}</div>
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Forecasted basis-point move into the next 5-minute bar.</p>
             </div>
           </div>

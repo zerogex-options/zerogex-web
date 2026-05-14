@@ -134,6 +134,7 @@ export default function MaxPainPage() {
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [timeseriesTimeframe, setTimeseriesTimeframe] = useState<ChartTimeframe>("5min");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [hoverPx, setHoverPx] = useState<{ x: number; y: number } | null>(null);
 
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
 
@@ -194,6 +195,9 @@ export default function MaxPainPage() {
   const filteredPriceRows = omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol);
 
   const candleMatchToleranceMs = TIMEFRAME_DURATION_MS[timeseriesTimeframe] ?? 5 * 60_000;
+  // Sort ascending by timestamp so the x-axis renders oldest → newest. The API
+  // doesn't guarantee a chronological order, which used to produce a reversed
+  // time axis when newer rows arrived first.
   const seriesChart = (filteredMaxPainRows
     .map((row) => {
       const ts = row.timestamp || "";
@@ -218,7 +222,9 @@ export default function MaxPainPage() {
     high: number;
     low: number;
     close: number;
-  }>).slice(-maxPoints);
+  }>)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .slice(-maxPoints);
 
   const latest = seriesChart[seriesChart.length - 1];
   const impliedMove = currentMaxPain - currentUnderlying;
@@ -319,9 +325,11 @@ export default function MaxPainPage() {
     if (seriesChart.length === 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const xPx = event.clientX - rect.left;
+    const yPx = event.clientY - rect.top;
     const xView = (xPx / Math.max(1, rect.width)) * tsWidth;
     const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
     setHoveredIdx(Math.max(0, Math.min(seriesChart.length - 1, idx)));
+    setHoverPx({ x: xPx, y: yPx });
   };
 
   return (
@@ -445,13 +453,6 @@ export default function MaxPainPage() {
           <SectionTitle title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
           <div className="flex items-center gap-3 flex-wrap">
             <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} className="mb-0" />
-            {hoveredRow && (
-              <div className="text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
-                <div>{new Date(hoveredRow.timestamp).toLocaleString()}</div>
-                <div>O: {hoveredRow.open.toFixed(2)} H: {hoveredRow.high.toFixed(2)} L: {hoveredRow.low.toFixed(2)} C: {hoveredRow.close.toFixed(2)}</div>
-                <div>Max Pain: {hoveredRow.maxPain.toFixed(2)}</div>
-              </div>
-            )}
           </div>
         </div>
         {seriesError ? (
@@ -461,8 +462,8 @@ export default function MaxPainPage() {
         ) : seriesChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
         ) : (
-          <div className="overflow-x-auto">
-          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => setHoveredIdx(null)}>
+          <div className="relative overflow-x-auto">
+          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => { setHoveredIdx(null); setHoverPx(null); }}>
             {yTicks.map((val) => {
               const yPos = y(val);
               const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
@@ -537,6 +538,23 @@ export default function MaxPainPage() {
             <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
+          {hoveredRow && hoverPx ? (
+            <div
+              className="absolute z-10 text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap"
+              style={{
+                left: `min(calc(100% - 240px), ${hoverPx.x + 16}px)`,
+                top: Math.max(8, hoverPx.y - 12),
+                backgroundColor: 'var(--color-chart-tooltip-bg)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-chart-tooltip-text)',
+                boxShadow: '0 8px 24px var(--color-info-soft)',
+              }}
+            >
+              <div>{new Date(hoveredRow.timestamp).toLocaleString()}</div>
+              <div>O: {hoveredRow.open.toFixed(2)} H: {hoveredRow.high.toFixed(2)} L: {hoveredRow.low.toFixed(2)} C: {hoveredRow.close.toFixed(2)}</div>
+              <div>Max Pain: {hoveredRow.maxPain.toFixed(2)}</div>
+            </div>
+          ) : null}
           </div>
         )}
       </section>

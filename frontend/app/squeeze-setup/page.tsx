@@ -114,7 +114,7 @@ export default function SqueezeSetupPage() {
             <FlowZCard label="Put flow z" value={putFlowZ} positiveColor="var(--color-bear)" hint="Net put flow standardized over recent window." />
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="text-sm font-semibold mb-1 flex items-center gap-2"><ArrowRightLeft size={14} /> Momentum z</div>
-              <div className="text-3xl font-black" style={{ color: momentumZ != null && momentumZ > 0.5 ? 'var(--color-bull)' : momentumZ != null && momentumZ < -0.5 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
+              <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: momentumZ != null && momentumZ > 0.5 ? 'var(--color-bull)' : momentumZ != null && momentumZ < -0.5 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
                 {formatSigned(momentumZ, 2)}
               </div>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Price momentum z-score. Diverges from flow → early (no price) or exhausted (no flow).</p>
@@ -213,7 +213,7 @@ function FlowZCard({ label, value, positiveColor, hint }: { label: string; value
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
       <div className="text-sm font-semibold mb-1">{label}</div>
-      <div className="text-3xl font-black" style={{ color: value != null && Math.abs(value) > 0.5 ? positiveColor : 'var(--color-text-primary)' }}>
+      <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: value != null && Math.abs(value) > 0.5 ? positiveColor : 'var(--color-text-primary)' }}>
         {formatSigned(value, 2)}
       </div>
       <div className="relative mt-3 h-3 rounded-full bg-[var(--color-border)]/40 overflow-hidden">

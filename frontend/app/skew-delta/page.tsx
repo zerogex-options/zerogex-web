@@ -89,28 +89,28 @@ export default function SkewDeltaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">OTM put IV</div>
-                <div className="text-3xl font-black" style={{ color: 'var(--color-bear)' }}>
+                <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: 'var(--color-bear)' }}>
                   {formatPct(otmPutIv, 2, false)}
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM put implied volatility.</p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">OTM call IV</div>
-                <div className="text-3xl font-black" style={{ color: 'var(--color-bull)' }}>
+                <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: 'var(--color-bull)' }}>
                   {formatPct(otmCallIv, 2, false)}
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM call implied volatility.</p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">Spread</div>
-                <div className="text-3xl font-black">{formatSigned(spread, 4)}</div>
+                <div className="text-2xl sm:text-3xl font-black break-words">{formatSigned(spread, 4)}</div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   put_iv − call_iv. Baseline: <span className="font-mono">{formatSigned(baseline, 3)}</span>
                 </p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">Deviation</div>
-                <div className="text-3xl font-black" style={{ color: (deviation ?? 0) > 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
+                <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: (deviation ?? 0) > 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
                   {formatSigned(deviation, 4)}
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">spread − baseline. Negated to drive score.</p>

@@ -78,7 +78,7 @@ export default function SignalScoreHero({
         )}
       </div>
       <div
-        className="text-6xl font-black leading-none"
+        className="text-4xl sm:text-5xl md:text-6xl font-black leading-none break-words"
         style={{ color, fontVariantNumeric: 'tabular-nums' }}
       >
         {display}

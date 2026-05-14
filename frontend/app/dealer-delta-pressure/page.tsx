@@ -106,7 +106,7 @@ export default function DealerDeltaPressurePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">Dealer net delta (est.)</div>
-                <div className="text-3xl font-black" style={{ color: (dealerNetDelta ?? 0) < 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                <div className="text-2xl sm:text-3xl font-black break-words" style={{ color: (dealerNetDelta ?? 0) < 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {formatGexCompact(dealerNetDelta)}
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
@@ -115,7 +115,7 @@ export default function DealerDeltaPressurePage() {
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">DNI normalized</div>
-                <div className="text-3xl font-black">{formatSigned(dniNormalized, 3)}</div>
+                <div className="text-2xl sm:text-3xl font-black break-words">{formatSigned(dniNormalized, 3)}</div>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   value / DNI_NORM (default $3e8). Sign is opposite the score.
                 </p>

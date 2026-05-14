@@ -108,7 +108,7 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
         )}
       </svg>
       <div className="-mt-4 text-center">
-        <div className="text-5xl font-black leading-none" style={{ color: band.color }}>
+        <div className="text-3xl sm:text-4xl md:text-5xl font-black leading-none break-words" style={{ color: band.color }}>
           {safeScore != null ? safeScore.toFixed(2) : '—'}
         </div>
         <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mt-2">{label}</div>

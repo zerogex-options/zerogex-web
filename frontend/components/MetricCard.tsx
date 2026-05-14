@@ -61,17 +61,17 @@ export default function MetricCard({
           <Info size={14} />
         </TooltipWrapper>
       </div>
-      <div 
-        className="text-4xl font-bold mb-2"
-        style={{ 
-          color: trendColors[trend]
+      <div
+        className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 break-words"
+        style={{
+          color: trendColors[trend],
         }}
       >
         {value}
       </div>
       {subtitle && (
         <div
-          className="text-sm font-semibold"
+          className="text-sm font-semibold break-words"
           style={{ color: subtitleColor || colors.muted }}
         >
           {subtitle}

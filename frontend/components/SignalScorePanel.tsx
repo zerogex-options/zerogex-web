@@ -577,7 +577,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </TooltipWrapper>
             </div>
             <div
-              className="text-6xl font-black leading-none"
+              className="text-4xl sm:text-5xl md:text-6xl font-black leading-none break-words"
               style={{
                 color: compositeScore != null ? compositeScoreColor(compositeScore) : 'var(--color-text-primary)',
               }}
