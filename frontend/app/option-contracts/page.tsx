@@ -66,7 +66,13 @@ function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): stri
   return null;
 }
 
-function buildMinuteTimeline(startMs: number, endMs: number): string[] {
+function getSessionMinuteTimeline(dateKey: string): string[] {
+  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
+  const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
+  if (!startIso || !endIso) return [];
+
+  const startMs = new Date(startIso).getTime();
+  const endMs = new Date(endIso).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return [];
 
   const result: string[] = [];
@@ -74,13 +80,6 @@ function buildMinuteTimeline(startMs: number, endMs: number): string[] {
     result.push(new Date(t).toISOString());
   }
   return result;
-}
-
-function getSessionMinuteTimeline(dateKey: string): string[] {
-  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
-  const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
-  if (!startIso || !endIso) return [];
-  return buildMinuteTimeline(new Date(startIso).getTime(), new Date(endIso).getTime());
 }
 
 function getETDateKey(ts: string): string {
@@ -130,34 +129,6 @@ function is30MinBoundary(ts: string): boolean {
   return minutes % 30 === 0;
 }
 
-function isAtOrAfterMarketOpen(ts: string): boolean {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return false;
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return hour > 9 || (hour === 9 && minute >= 30);
-}
-
-function isAtOrBeforeMarketClose(ts: string): boolean {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return false;
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return hour < 16 || (hour === 16 && minute <= 15);
-}
-
 function computeRoundTicks(min: number, max: number): number[] {
   const range = max - min;
   if (range <= 0) return [min, max];
@@ -185,21 +156,16 @@ function formatSessionDate(dateKey: string): string {
   return `${m}/${d}/${y}`;
 }
 
-function getDateMarkerMeta(timestamps: string[]) {
-  const markers = new Map<number, string>();
-  let prev = "";
-  timestamps.forEach((ts, idx) => {
-    const dateLabel = new Date(ts).toLocaleDateString("en-US", {
-      timeZone: "America/New_York",
-      month: "short",
-      day: "numeric",
-    });
-    if (dateLabel !== prev) {
-      markers.set(idx, dateLabel);
-      prev = dateLabel;
-    }
+function formatAxisSessionDate(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
-  return markers;
 }
 
 function computeDTE(expiration: string): number | null {
@@ -401,10 +367,8 @@ function ContractChart({
   isMobile: boolean;
 }) {
   const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
-  const dateMarkerMeta = useMemo(
-    () => getDateMarkerMeta(rows.map((row) => row.timestamp)),
-    [rows],
-  );
+  const sessionDateLabel = rows.length > 0 ? formatAxisSessionDate(rows[0].timestamp) : "";
+  const dateLabelIndex = rows.length > 0 ? Math.floor((rows.length - 1) / 2) : -1;
 
   if (rows.length === 0) {
     return (
@@ -469,21 +433,22 @@ function ContractChart({
                 const y = Number(props?.y ?? 0);
                 const ts = String(props?.payload?.value || "");
                 const index = Number(props?.index ?? -1);
-                const timeLabel = safeTimeLabel(ts);
-                const dateLabel = dateMarkerMeta.get(index);
-                const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
-                if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+                const showTime = is30MinBoundary(ts);
+                const showDate = index === dateLabelIndex && Boolean(sessionDateLabel);
+                if (!showTime && !showDate) return <g transform={`translate(${x},${y})`} />;
                 return (
                   <g transform={`translate(${x},${y})`}>
-                    <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
                     {showTime ? (
-                      <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                        {timeLabel}
-                      </text>
+                      <>
+                        <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
+                        <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                          {safeTimeLabel(ts)}
+                        </text>
+                      </>
                     ) : null}
-                    {dateLabel ? (
-                      <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
-                        {dateLabel}
+                    {showDate ? (
+                      <text dy={30} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={11} fontWeight={600}>
+                        {sessionDateLabel}
                       </text>
                     ) : null}
                   </g>
@@ -631,25 +596,13 @@ export default function OptionContractsPage() {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
 
-    const inSessionRows = sortedRows.filter(
-      (r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp),
-    );
-
-    // Regular-session rows drive the canonical 9:30–16:15 ET timeline; fall
-    // back to the raw data span when only extended/overnight data exists so
-    // the chart still renders instead of reporting "no data".
-    const rowsForChart = inSessionRows.length > 0 ? inSessionRows : sortedRows;
-    const lastTs = rowsForChart[rowsForChart.length - 1].timestamp;
-    const minuteTimeline =
-      inSessionRows.length > 0
-        ? getSessionMinuteTimeline(getETDateKey(lastTs))
-        : buildMinuteTimeline(
-            new Date(normalizeToMinute(rowsForChart[0].timestamp)).getTime(),
-            new Date(normalizeToMinute(lastTs)).getTime(),
-          );
+    // The API returns one session (today's once open, else the most recent),
+    // so derive the static 09:30–16:15 ET axis date from the data itself.
+    const sessionDateKey = getETDateKey(sortedRows[sortedRows.length - 1].timestamp);
+    const minuteTimeline = getSessionMinuteTimeline(sessionDateKey);
 
     if (minuteTimeline.length === 0) {
-      return rowsForChart.map((r) => ({
+      return sortedRows.map((r) => ({
         timestamp: r.timestamp,
         time: safeTimeLabel(r.timestamp),
         askVol: r.ask_volume ?? 0,
@@ -662,7 +615,7 @@ export default function OptionContractsPage() {
     }
 
     const aggregatedByMinute = new Map<string, MinuteAggregate>();
-    rowsForChart.forEach((row) => {
+    sortedRows.forEach((row) => {
       const minuteTs = normalizeToMinute(row.timestamp);
       if (!minuteTs) return;
       const prev = aggregatedByMinute.get(minuteTs) ?? {
