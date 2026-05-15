@@ -66,13 +66,7 @@ function etWallTimeToUtcISO(dateKey: string, hour: number, minute: number): stri
   return null;
 }
 
-function getSessionMinuteTimeline(dateKey: string): string[] {
-  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
-  const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
-  if (!startIso || !endIso) return [];
-
-  const startMs = new Date(startIso).getTime();
-  const endMs = new Date(endIso).getTime();
+function buildMinuteTimeline(startMs: number, endMs: number): string[] {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return [];
 
   const result: string[] = [];
@@ -80,6 +74,13 @@ function getSessionMinuteTimeline(dateKey: string): string[] {
     result.push(new Date(t).toISOString());
   }
   return result;
+}
+
+function getSessionMinuteTimeline(dateKey: string): string[] {
+  const startIso = etWallTimeToUtcISO(dateKey, 9, 30);
+  const endIso = etWallTimeToUtcISO(dateKey, 16, 15);
+  if (!startIso || !endIso) return [];
+  return buildMinuteTimeline(new Date(startIso).getTime(), new Date(endIso).getTime());
 }
 
 function getETDateKey(ts: string): string {
@@ -626,15 +627,29 @@ export default function OptionContractsPage() {
   const chartRows = useMemo((): ChartRow[] => {
     if (!contractRows || contractRows.length === 0) return [];
 
-    const inSessionRows = [...contractRows]
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .filter((r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp));
-    if (inSessionRows.length === 0) return [];
+    const sortedRows = [...contractRows].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
 
-    const sessionDateKey = getETDateKey(inSessionRows[inSessionRows.length - 1].timestamp);
-    const minuteTimeline = getSessionMinuteTimeline(sessionDateKey);
+    const inSessionRows = sortedRows.filter(
+      (r) => isAtOrAfterMarketOpen(r.timestamp) && isAtOrBeforeMarketClose(r.timestamp),
+    );
+
+    // Regular-session rows drive the canonical 9:30–16:15 ET timeline; fall
+    // back to the raw data span when only extended/overnight data exists so
+    // the chart still renders instead of reporting "no data".
+    const rowsForChart = inSessionRows.length > 0 ? inSessionRows : sortedRows;
+    const lastTs = rowsForChart[rowsForChart.length - 1].timestamp;
+    const minuteTimeline =
+      inSessionRows.length > 0
+        ? getSessionMinuteTimeline(getETDateKey(lastTs))
+        : buildMinuteTimeline(
+            new Date(normalizeToMinute(rowsForChart[0].timestamp)).getTime(),
+            new Date(normalizeToMinute(lastTs)).getTime(),
+          );
+
     if (minuteTimeline.length === 0) {
-      return inSessionRows.map((r) => ({
+      return rowsForChart.map((r) => ({
         timestamp: r.timestamp,
         time: safeTimeLabel(r.timestamp),
         askVol: r.ask_volume ?? 0,
@@ -647,7 +662,7 @@ export default function OptionContractsPage() {
     }
 
     const aggregatedByMinute = new Map<string, MinuteAggregate>();
-    inSessionRows.forEach((row) => {
+    rowsForChart.forEach((row) => {
       const minuteTs = normalizeToMinute(row.timestamp);
       if (!minuteTs) return;
       const prev = aggregatedByMinute.get(minuteTs) ?? {
