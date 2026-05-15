@@ -3,19 +3,19 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 
-const articlePath = path.join(process.cwd(), 'content/articles/decoding-gamma-exposure.md');
+const guidePath = path.join(process.cwd(), 'content/guides/signals-explained.md');
 
-export default function DecodingGammaExposurePage() {
-  const markdown = fs.readFileSync(articlePath, 'utf8');
+export default function SignalsExplainedGuidePage() {
+  const markdown = fs.readFileSync(guidePath, 'utf8');
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
-      <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-        ← Back to Articles
+      <Link href="/guides" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
+        ← Back to Guides
       </Link>
 
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
-        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 15 min read</div>
+        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Guide • Reference</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
     </div>

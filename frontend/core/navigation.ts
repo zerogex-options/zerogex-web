@@ -84,10 +84,26 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Education',
     items: [
       { id: '/education', label: 'Hub' },
-      { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' },
-      { id: '/education/net-volume-vs-directional-flow', label: 'Flow Metrics Guide' },
-      { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
-      { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },
+      { id: '/help', label: 'Help' },
+    ],
+    subgroups: [
+      {
+        id: '/guides',
+        label: 'Guides',
+        items: [
+          { id: '/guides/signals-explained', label: 'Signals: Explained' },
+        ],
+      },
+      {
+        id: '/articles',
+        label: 'Articles',
+        items: [
+          { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Guide' },
+          { id: '/education/net-volume-vs-directional-flow', label: 'Flow Metrics Guide' },
+          { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
+          { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },
+        ],
+      },
     ],
   },
   {
