@@ -253,7 +253,82 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="8. Security">
+          <Section title="8. Your U.S. State Privacy Rights (California and Other States)">
+            <p>
+              This section provides additional disclosures for residents of California under the California
+              Consumer Privacy Act, as amended by the California Privacy Rights Act (collectively,
+              &ldquo;CCPA&rdquo;), and for residents of other U.S. states with comprehensive privacy laws
+              (including Virginia, Colorado, Connecticut, and Utah). These laws may give you the rights
+              described below, subject to certain exceptions.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Categories of personal information we collect.</strong> In the preceding twelve months,
+              we have collected the following categories of personal information, as described in Section 2:
+              identifiers (such as email address and account identifiers); commercial information (such as
+              subscription tier, status, and billing period); internet or other electronic network activity
+              information (such as IP address, request timestamps, and pages visited); and audit records of
+              account and authentication activity. We collect this information from you directly, from your
+              use of the Services, and from identity and payment providers such as Google, Apple, and Stripe.
+              We use it for the business purposes described in Section 3.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>No sale or sharing of personal information.</strong> We do not sell your personal
+              information and we do not share it for cross-context behavioral advertising or targeted
+              advertising, as those terms are defined under the CCPA and other state privacy laws. We have not
+              done so in the preceding twelve months, including with respect to information about consumers
+              under 16 years of age. We also do not use or disclose sensitive personal information for
+              purposes that would give rise to a right to limit its use.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Your rights.</strong> Depending on your state of residence, you may have the right to:
+            </p>
+            <ul style={{ paddingLeft: 22, marginTop: 8 }}>
+              <li>
+                <strong>Know and access</strong> the categories and specific pieces of personal information we
+                have collected about you, the sources, the purposes, and the categories of third parties to
+                whom it was disclosed.
+              </li>
+              <li>
+                <strong>Delete</strong> personal information we have collected from you, subject to legal
+                exceptions.
+              </li>
+              <li>
+                <strong>Correct</strong> inaccurate personal information we maintain about you.
+              </li>
+              <li>
+                <strong>Opt out</strong> of the sale or sharing of personal information and of targeted
+                advertising and certain profiling (we do not engage in these activities).
+              </li>
+              <li>
+                <strong>Limit the use</strong> of sensitive personal information (we do not use sensitive
+                personal information for purposes requiring this option).
+              </li>
+              <li>
+                <strong>Non-discrimination</strong> for exercising your privacy rights, and, where applicable,
+                the right to <strong>appeal</strong> a denial of a request.
+              </li>
+            </ul>
+            <p style={{ marginTop: 12 }}>
+              <strong>How to exercise your rights.</strong> You or an authorized agent acting on your behalf
+              may submit a request by emailing{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
+                {CONTACT_EMAIL}
+              </a>
+              . To protect your information, we will take reasonable steps to verify your identity before
+              responding, and we may request additional information for that purpose. We will respond within
+              the timeframes required by applicable law. If we deny your request, you may appeal by replying
+              to our response; if you have concerns about the outcome, you may contact your state attorney
+              general.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>California &ldquo;Shine the Light.&rdquo;</strong> California Civil Code Section 1798.83
+              permits California residents to request information about disclosures of personal information to
+              third parties for their direct marketing purposes. We do not share personal information with
+              third parties for their own direct marketing purposes.
+            </p>
+          </Section>
+
+          <Section title="9. Security">
             <p>
               We use technical and organizational measures designed to protect your information, including
               encryption in transit (TLS), salted password hashing, signed session tokens, and rate limiting on
@@ -262,14 +337,14 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="9. International Transfers">
+          <Section title="10. International Transfers">
             <p>
               The Services are operated from the United States. If you access them from outside the United
               States, your information will be transferred to, processed in, and stored in the United States.
             </p>
           </Section>
 
-          <Section title="10. Children">
+          <Section title="11. Children">
             <p>
               The Services are not directed to children under 18. We do not knowingly collect personal
               information from children under 18. If you believe a child has provided us with personal
@@ -277,14 +352,14 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="11. Changes to This Policy">
+          <Section title="12. Changes to This Policy">
             <p>
               We may update this Privacy Policy from time to time. When we do, we will revise the effective date
               above and, where appropriate, provide additional notice through the Services.
             </p>
           </Section>
 
-          <Section title="12. Contact">
+          <Section title="13. Contact">
             <p>
               Questions about this Privacy Policy can be sent to{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>

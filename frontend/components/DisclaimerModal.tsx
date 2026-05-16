@@ -117,7 +117,8 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
           <p style={{ margin: '0 0 12px 0' }}>
             None of the content on this platform constitutes financial, investment, trading, or
             tax advice. All information, data, signals, and analysis are provided strictly for
-            educational and entertainment purposes only.
+            educational and entertainment purposes only. ZeroGEX is not a broker-dealer or a
+            registered investment adviser.
           </p>
           <p style={{ margin: '0 0 12px 0' }}>
             Trading and investing in securities, options, and other financial instruments

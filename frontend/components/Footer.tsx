@@ -171,9 +171,11 @@ export default function Footer({ theme }: FooterProps) {
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, All rights reserved.
             </p>
-            <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right', maxWidth: 260 }}>
-              Trading involves substantial risk. Past performance is not indicative of future results.
-              This platform is for informational purposes only, not investment advice.
+            <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right', maxWidth: 360 }}>
+              ZeroGEX provides options-market analytics and educational content for informational
+              purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
+              registered investment adviser. Options trading involves significant risk and is not
+              suitable for all investors. Past performance is not indicative of future results.
             </p>
           </div>
         </div>
@@ -201,8 +203,10 @@ export default function Footer({ theme }: FooterProps) {
               <SocialLinks size={34} iconSize={16} />
             </div>
             <p style={{ fontSize: 12, color: subtext, margin: '10px 0 0 0', lineHeight: 1.6 }}>
-              Trading involves substantial risk. Past performance is not indicative of future results.
-              This platform is for informational purposes only, not investment advice.
+              ZeroGEX provides options-market analytics and educational content for informational
+              purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
+              registered investment adviser. Options trading involves significant risk and is not
+              suitable for all investors. Past performance is not indicative of future results.
             </p>
             <p style={{ fontSize: 12, color: subtext, margin: 0 }}>
               © 2026 ZeroGEX All rights reserved.

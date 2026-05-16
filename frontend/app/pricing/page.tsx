@@ -427,6 +427,58 @@ export default function PricingPage() {
               onPortal={handlePortal}
             />
           </div>
+
+          <section
+            style={{
+              marginTop: 56,
+              maxWidth: 820,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
+              border: `1px solid ${C.border}`,
+              borderRadius: 18,
+              padding: 28,
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 22,
+                fontWeight: 800,
+                color: C.light,
+                letterSpacing: '-0.3px',
+              }}
+            >
+              Refund &amp; Cancellation Policy
+            </h2>
+            <div style={{ marginTop: 12, color: C.muted, fontSize: 15, lineHeight: 1.75 }}>
+              <p style={{ margin: 0 }}>
+                Paid subscriptions are billed in advance on a recurring basis through Stripe. You can
+                cancel your subscription at any time from the Stripe-hosted billing portal, accessible
+                from your{' '}
+                <Link href="/account" style={{ color: C.amber }}>
+                  account
+                </Link>{' '}
+                page.
+              </p>
+              <ul style={{ paddingLeft: 22, marginTop: 12 }}>
+                <li>
+                  <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
+                  billing portal — no email or support request required.
+                </li>
+                <li>
+                  <strong>No prorated refunds.</strong> Except where required by law, payments are
+                  non-refundable, and we do not provide prorated refunds for partial billing periods or
+                  unused time.
+                </li>
+                <li>
+                  <strong>Access through the paid period.</strong> When you cancel, your subscription
+                  remains active and you keep access to paid features until the end of the billing
+                  period you have already paid for. It will not renew after that.
+                </li>
+              </ul>
+            </div>
+          </section>
         </div>
       </section>
 

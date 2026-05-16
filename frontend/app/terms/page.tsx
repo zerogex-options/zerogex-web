@@ -295,16 +295,74 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="13. Governing Law and Disputes">
+          <Section title="13. Governing Law">
             <p>
               These Terms are governed by the laws of the United States and the State of Delaware, without
-              regard to conflict-of-laws rules. The exclusive venue for any dispute arising out of or relating
-              to these Terms or the Services will be the state or federal courts located in Delaware, and you
-              consent to personal jurisdiction in those courts.
+              regard to conflict-of-laws rules. Subject to the arbitration agreement in Section 14, the
+              exclusive venue for any dispute not subject to arbitration will be the state or federal courts
+              located in Delaware, and you consent to personal jurisdiction in those courts.
             </p>
           </Section>
 
-          <Section title="14. Changes to These Terms">
+          <Section title="14. Dispute Resolution; Binding Arbitration">
+            <p>
+              <strong>Please read this section carefully. It affects your legal rights, including your right
+              to file a lawsuit in court and to have disputes resolved by a jury or in a class action.</strong>
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Informal resolution.</strong> Before initiating any arbitration, you and ZeroGEX agree to
+              first attempt to resolve the dispute informally by sending a written notice describing the
+              dispute and the relief sought to{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
+                {CONTACT_EMAIL}
+              </a>
+              . If the dispute is not resolved within sixty (60) days of the notice, either party may proceed
+              to arbitration.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Agreement to arbitrate.</strong> You and ZeroGEX agree that any dispute, claim, or
+              controversy arising out of or relating to these Terms or the Services, whether based in contract,
+              tort, statute, fraud, or any other legal theory, will be resolved exclusively through final and
+              binding individual arbitration, rather than in court, except as set out below. The Federal
+              Arbitration Act governs the interpretation and enforcement of this Section.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Arbitration rules and forum.</strong> The arbitration will be administered by the
+              American Arbitration Association (&ldquo;AAA&rdquo;) under its Consumer Arbitration Rules then in
+              effect, as modified by these Terms. The arbitration will be conducted by a single arbitrator. The
+              arbitrator may conduct proceedings by telephone or video, or in writing, and any in-person
+              hearing will take place in the county of your residence or another mutually agreed location. The
+              arbitrator has exclusive authority to resolve any dispute relating to the interpretation,
+              applicability, or enforceability of this arbitration agreement.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Class action and jury trial waiver.</strong> YOU AND ZEROGEX AGREE THAT EACH MAY BRING
+              CLAIMS AGAINST THE OTHER ONLY IN AN INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN
+              ANY PURPORTED CLASS, COLLECTIVE, CONSOLIDATED, OR REPRESENTATIVE PROCEEDING. THE ARBITRATOR MAY
+              NOT CONSOLIDATE MORE THAN ONE PERSON&rsquo;S CLAIMS OR PRESIDE OVER ANY FORM OF A REPRESENTATIVE
+              OR CLASS PROCEEDING. YOU AND ZEROGEX ALSO WAIVE ANY RIGHT TO A TRIAL BY JURY. If this class
+              action waiver is found to be unenforceable as to a particular claim, that claim will be severed
+              and may proceed in court, while all other claims will remain in arbitration.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>Exceptions.</strong> Either party may bring an individual action in small-claims court
+              for disputes within that court&rsquo;s jurisdiction. Nothing in this Section prevents either
+              party from seeking injunctive or other equitable relief in court to protect its intellectual
+              property rights.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <strong>30-day opt-out.</strong> You may opt out of this arbitration agreement by sending written
+              notice of your decision to{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
+                {CONTACT_EMAIL}
+              </a>{' '}
+              within thirty (30) days of first accepting these Terms. The notice must include your name, the
+              email associated with your account, and a clear statement that you wish to opt out of
+              arbitration. Opting out will not affect any other provision of these Terms.
+            </p>
+          </Section>
+
+          <Section title="15. Changes to These Terms">
             <p>
               We may modify these Terms from time to time. If we make material changes, we will revise the
               effective date above and, where appropriate, provide additional notice through the Services. Your
@@ -313,7 +371,7 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="15. Contact">
+          <Section title="16. Contact">
             <p>
               Questions about these Terms can be sent to{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
