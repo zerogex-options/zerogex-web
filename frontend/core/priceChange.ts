@@ -26,7 +26,9 @@ export function getPrimaryPriceChangeSummary({
   const typedSession = quoteSession as MarketSession | null;
   const isExtendedHours = typedSession === 'pre-market' || typedSession === 'after-hours';
 
-  const displayPrice = (isExtendedHours || typedSession === 'closed')
+  const isClosed = typedSession === 'closed' || typedSession === 'closed-weekend';
+
+  const displayPrice = (isExtendedHours || isClosed)
     ? (sessionCloses?.current_session_close ?? null)
     : (quoteClose ?? null);
 

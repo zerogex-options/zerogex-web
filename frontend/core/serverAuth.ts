@@ -267,7 +267,7 @@ export function validateCsrf(request: NextRequest) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export async function registerUser(request: NextRequest, email: string, password: string, tier: TierId = 'basic') {
+export async function registerUser(request: NextRequest, email: string, password: string, tier: TierId = 'public') {
   const normalizedEmail = email.trim().toLowerCase();
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
