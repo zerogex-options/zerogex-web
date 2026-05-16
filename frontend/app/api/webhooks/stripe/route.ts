@@ -9,7 +9,44 @@ export const runtime = 'nodejs';
 
 type UserIdRow = { id: string; email: string };
 
-const ACTIVE_STATUSES = new Set<Stripe.Subscription.Status>(['active', 'trialing', 'past_due']);
+// `past_due` is intentionally NOT active: once a payment fails Stripe moves
+// the subscription to past_due and emits customer.subscription.updated, so
+// excluding it here downgrades the user to 'public' immediately instead of
+// granting weeks of free premium through Stripe's dunning window. A
+// recovered payment flips the subscription back to 'active' and re-promotes.
+const ACTIVE_STATUSES = new Set<Stripe.Subscription.Status>(['active', 'trialing']);
+
+// Subscription-state events whose ordering matters: applying a stale one
+// (e.g. an old 'active' redelivered after 'deleted') would re-promote a
+// cancelled user. Guarded by event.created vs the newest processed event
+// for the same subscription.
+const LIFECYCLE_EVENT_TYPES = new Set<string>([
+  'checkout.session.completed',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.resumed',
+  'customer.subscription.paused',
+  'customer.subscription.deleted',
+]);
+
+function extractSubscriptionId(event: Stripe.Event): string | null {
+  const obj = event.data.object as unknown as Record<string, unknown>;
+  if (event.type === 'checkout.session.completed') {
+    const sub = (obj as { subscription?: string | { id?: string } | null }).subscription;
+    if (typeof sub === 'string') return sub;
+    return sub?.id ?? null;
+  }
+  if (event.type.startsWith('customer.subscription.')) {
+    const id = (obj as { id?: string }).id;
+    return typeof id === 'string' ? id : null;
+  }
+  if (event.type === 'invoice.payment_failed') {
+    const sub = (obj as { subscription?: string | { id?: string } | null }).subscription;
+    if (typeof sub === 'string') return sub;
+    return sub?.id ?? null;
+  }
+  return null;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -141,6 +178,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Signature verification failed: ${message}` }, { status: 400 });
   }
 
+  // --- Idempotency + ordering -------------------------------------------
+  // Stripe retries any non-2xx and can deliver events out of order. Without
+  // these guards a retried event double-applies and an out-of-order replay
+  // (old 'active' after 'deleted') silently re-grants premium to a
+  // cancelled user.
+  const db = getDb();
+  const subscriptionId = extractSubscriptionId(event);
+
+  const inserted = db
+    .prepare(
+      `INSERT OR IGNORE INTO stripe_webhook_events (id, type, subscription_id, created, processed_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(event.id, event.type, subscriptionId, event.created, nowIso()) as {
+    changes: number | bigint;
+  };
+  if (Number(inserted.changes) === 0) {
+    // Already recorded → this is a redelivery/retry of a handled event.
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  if (subscriptionId && LIFECYCLE_EVENT_TYPES.has(event.type)) {
+    const newest = db
+      .prepare(
+        `SELECT MAX(created) AS m FROM stripe_webhook_events
+         WHERE subscription_id = ? AND id <> ?`,
+      )
+      .get(subscriptionId, event.id) as { m: number | null } | undefined;
+    if (newest?.m != null && newest.m > event.created) {
+      logAudit({
+        type: 'stripe_webhook_stale_skipped',
+        message: `Skipped stale ${event.type} (created=${event.created}) for sub ${subscriptionId}; a newer event (created=${newest.m}) was already processed`,
+      });
+      return NextResponse.json({ received: true, stale: true });
+    }
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -185,6 +259,13 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'webhook handler error';
+    // Handling failed — drop the idempotency row so Stripe's retry is
+    // actually reprocessed instead of being skipped as a duplicate.
+    try {
+      db.prepare('DELETE FROM stripe_webhook_events WHERE id = ?').run(event.id);
+    } catch {
+      /* best effort; a stuck row only blocks retries of this one event */
+    }
     logAudit({ type: 'stripe_webhook_error', message: `${event.type}: ${message}` });
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -71,6 +71,24 @@ db.exec(`
 `);
 db.exec('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);');
 
+// Stripe webhook idempotency + event ordering. `id` is Stripe's event.id
+// (globally unique) so a redelivered/retried event is a no-op. `created`
+// is the Stripe event.created unix timestamp, used to reject a stale
+// (out-of-order) subscription event that would otherwise re-promote a
+// cancelled user.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    subscription_id TEXT,
+    created INTEGER NOT NULL,
+    processed_at TEXT NOT NULL
+  );
+`);
+db.exec(
+  'CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_sub ON stripe_webhook_events(subscription_id, created);'
+);
+
 (function migrateLegacyProviderColumns() {
   const cols = (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) => c.name);
   const hasLegacyProvider = cols.includes('provider');
