@@ -113,6 +113,24 @@ else
   log "     ✓ ZEROGEX_API_KEY already set"
 fi
 
+# ZEROGEX_END_USER_TOKEN_SECRET: server-only, never NEXT_PUBLIC_*. Enables
+# per-end-user attribution (a short-lived HS256 JWT sent alongside the
+# Bearer key). OPTIONAL and fail-open — unset just means caller-only, and
+# a deploy must not fail on its absence — so this is seeded only from the
+# environment for unattended deploys, never prompted. When set it MUST be
+# byte-identical to the API host's END_USER_TOKEN_SECRET. Generate with:
+#   python3 -c 'import secrets; print(secrets.token_urlsafe(48))'
+if ! grep -qE "^ZEROGEX_END_USER_TOKEN_SECRET=" .env.local; then
+  if [ -n "${ZEROGEX_END_USER_TOKEN_SECRET:-}" ]; then
+    printf 'ZEROGEX_END_USER_TOKEN_SECRET=%s\n' "$ZEROGEX_END_USER_TOKEN_SECRET" >> .env.local
+    log "     + Added ZEROGEX_END_USER_TOKEN_SECRET (end-user attribution enabled)"
+  else
+    log "     ⓘ ZEROGEX_END_USER_TOKEN_SECRET not provided — end-user attribution disabled (caller-only)"
+  fi
+else
+  log "     ✓ ZEROGEX_END_USER_TOKEN_SECRET already set"
+fi
+
 log "     ✓ .env.local configured for domain: $DOMAIN_NAME"
 
 # Build for production

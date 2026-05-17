@@ -9,9 +9,11 @@
     "start": "next start",
     "lint": "eslint",
     "test:auth": "bash scripts/test-auth.sh",
-    "test:trade-bias": "bash scripts/test-trade-bias.sh"
+    "test:trade-bias": "bash scripts/test-trade-bias.sh",
+    "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts"
   },
   "dependencies": {
+    "jose": "^5.9.6",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "next-sitemap": "^4.2.3",
