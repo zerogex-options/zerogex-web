@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerUser, validateCsrf } from '@/core/serverAuth';
+import { registerUser, selfSignupTier, validateCsrf } from '@/core/serverAuth';
 
 // Auth mutation route; never cache the response at the /api/ proxy.
 export const dynamic = 'force-dynamic';
@@ -21,12 +21,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Self-signup ALWAYS creates a free 'public' account. Paid tiers
-    // (basic/pro) are granted exclusively by the verified Stripe webhook
-    // (syncSubscriptionToUser) after checkout, or by an admin. Honoring a
-    // client-supplied tier here was a complete paywall bypass — anyone
-    // could POST {tier:"pro"} and receive premium access without paying.
-    const user = await registerUser(request, email, password, 'public');
+    // Tier is decided SERVER-side, never by the request body. Honoring a
+    // client-supplied tier was a complete paywall bypass (anyone could
+    // POST {tier:"pro"}). selfSignupTier() returns 'public' by default and
+    // only 'basic' when the operator sets SELF_SIGNUP_DEFAULT_TIER=basic
+    // (the pre-Stripe free-beta setting). 'pro' is never self-grantable;
+    // paid tiers otherwise come solely from the Stripe webhook or an admin.
+    const user = await registerUser(request, email, password, selfSignupTier());
     const response = NextResponse.json({ ok: true, user });
     response.headers.set('Cache-Control', 'no-store, private');
     return response;

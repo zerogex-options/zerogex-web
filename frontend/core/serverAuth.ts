@@ -40,6 +40,25 @@ function readPositiveInt(name: string, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * Tier a brand-new self-signup account is created with.
+ *
+ * Server-side and operator-controlled via SELF_SIGNUP_DEFAULT_TIER. This is
+ * NOT the old vulnerability (that let the *client* pick its own tier, incl.
+ * `pro`): the value here is chosen by the deployment, not the request.
+ *
+ * Allowed values are `public` (default) and `basic` only. `basic` is the
+ * intended setting for the pre-Stripe free-beta phase — every signup gets
+ * Basic without a payment. Once Stripe is live, unset it (or set `public`)
+ * and the Stripe webhook becomes the sole path to a paid tier. `pro`/`admin`
+ * are deliberately NOT grantable through self-signup even by config; clamp
+ * anything else to `public`.
+ */
+export function selfSignupTier(): TierId {
+  const configured = normalizeTier(process.env.SELF_SIGNUP_DEFAULT_TIER);
+  return configured === 'basic' ? 'basic' : 'public';
+}
+
 const SESSION_TTL_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
 const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_SECONDS', 60 * 60 * 24);
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
