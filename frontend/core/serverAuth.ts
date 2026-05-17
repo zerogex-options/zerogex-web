@@ -253,7 +253,13 @@ export function issueCsrfCookie(response: NextResponse, token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60,
+    // The CSRF token IS the per-session csrfSecret, so its natural
+    // lifetime is the session's. A fixed 1h maxAge expired the cookie
+    // while the 14-day session lived on, after which validateCsrf()
+    // failed and every state-changing call (checkout, billing portal,
+    // role change, logout) 403'd until /api/auth/session was polled to
+    // re-issue it.
+    maxAge: SESSION_TTL_SECONDS,
   });
 }
 

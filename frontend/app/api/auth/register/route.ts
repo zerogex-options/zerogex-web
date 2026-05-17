@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { registerUser, validateCsrf } from '@/core/serverAuth';
 
+// Auth mutation route; never cache the response at the /api/ proxy.
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
@@ -24,7 +27,9 @@ export async function POST(request: NextRequest) {
     // client-supplied tier here was a complete paywall bypass — anyone
     // could POST {tier:"pro"} and receive premium access without paying.
     const user = await registerUser(request, email, password, 'public');
-    return NextResponse.json({ ok: true, user });
+    const response = NextResponse.json({ ok: true, user });
+    response.headers.set('Cache-Control', 'no-store, private');
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Registration failed';
     return NextResponse.json({ error: message }, { status: 400 });

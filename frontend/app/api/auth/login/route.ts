@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { attachSessionCookie, createSessionForUserCredentials, issueCsrfCookie, validateCsrf } from '@/core/serverAuth';
 
+// This response carries Set-Cookie (session + CSRF). nginx's /api/ cache
+// key isn't partitioned by cookie, so a cached login response could leak
+// one user's session token to the next caller. Opt out explicitly, like
+// /api/auth/session does.
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
@@ -17,6 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await createSessionForUserCredentials(request, email, password);
     const response = NextResponse.json({ ok: true, user: session.user, expiresAt: session.expiresAt });
+    response.headers.set('Cache-Control', 'no-store, private');
     attachSessionCookie(response, session.token);
     issueCsrfCookie(response, session.csrfToken);
     return response;

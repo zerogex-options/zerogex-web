@@ -446,7 +446,13 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
     : finalComposite > 0 ? 'long' : 'short';
   const action = (analytics?.action ?? '').toLowerCase();
   const hasAnalytics = analytics != null && (analytics.action != null || analytics.sample_size != null);
-  const maxConviction = maxAbsComponent ?? Math.abs(topComponent?.score ?? 0);
+  // When the API omits aggregation.max_abs_component, fall back to the
+  // loudest component — but normalize it the SAME way every other
+  // component-score consumer here does (component scores can arrive on a
+  // ±100 scale). Using the raw score made maxConviction ~= 87, so
+  // `isConflicted` (>= 0.9) fired almost always and the panel rendered
+  // "87.00 (of 1.00)".
+  const maxConviction = maxAbsComponent ?? Math.abs(normalizeComponentScore(topComponent?.score));
   const isConflicted = agreement != null && agreement < 0.65 && maxConviction >= 0.9;
   const isThin = activeCount < 8;
   const isLowConsensus = agreement != null && agreement < 0.7;
