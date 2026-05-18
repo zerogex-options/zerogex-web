@@ -70,7 +70,7 @@ export default function GreeksGEXPage() {
             title="Net GEX"
             value={gexData?.net_gex != null ? formatGexValue(gexData.net_gex) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
-            tooltip="Net gamma exposure across all strikes. Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
+            tooltip="Cumulative dealer gamma at the current spot price (sign-consistent with the gamma flip). Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
             theme={theme}
           />
           <MetricCard

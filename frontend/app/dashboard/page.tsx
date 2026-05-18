@@ -177,7 +177,7 @@ export default function DashboardPage() {
             title="Net GEX"
             value={formatCompactUsd(gexData?.net_gex, true)}
             trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
-            tooltip="Net Gamma Exposure across all strikes. Calculation: Sum of all call gamma minus put gamma, scaled by notional value. Positive GEX means dealers are net short gamma (bullish - creates resistance to price movement). Negative GEX means dealers are net long gamma (bearish - amplifies price swings)."
+            tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
             theme={theme}
           />
           <PriceDistanceMetricCard

@@ -110,6 +110,8 @@ This produces:
 - **Net GEX** → overall stabilizing vs. destabilizing force  
 - **Total GEX** → total magnitude of gamma in the system  
 
+On this platform, the displayed **Net GEX** is not the all-strikes total — it is the cumulative net-GEX curve evaluated at the current spot price. Reading it at spot keeps it sign-consistent with the gamma flip, so a positive figure always corresponds to spot sitting in the long-gamma (stabilizing) regime and a negative figure to the short-gamma (destabilizing) regime.
+
 ---
 
 ## The Gamma Flip

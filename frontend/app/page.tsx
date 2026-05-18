@@ -232,6 +232,9 @@ export default function LandingPage() {
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
   const { data: qqqQuote } = useMarketQuote('QQQ', 60000);
   const { data: spyGex } = useGEXSummary('SPY', 60000);
+  // Dealer gamma AT SPOT (sign-consistent with the gamma flip), not the
+  // chain-wide total. Falls back to the total until the backend writes it.
+  const spyNetGexAtSpot = spyGex?.net_gex_at_spot ?? spyGex?.net_gex ?? null;
   const { data: spyStrikeData } = useGEXByStrike('SPY', 42, 60000, 'distance');
 
   const formatPrice = (value?: number | null, decimals = 2) => (value != null ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : '--');
@@ -262,7 +265,7 @@ export default function LandingPage() {
       };
     };
 
-    const gexPositive = (spyGex?.net_gex ?? 0) >= 0;
+    const gexPositive = (spyNetGexAtSpot ?? 0) >= 0;
     const pcr = spyGex?.put_call_ratio;
     const pcrBias = pcr == null ? 'Neutral' : pcr >= 1.2 ? 'Bearish' : pcr <= 0.8 ? 'Bullish' : 'Neutral';
 
@@ -270,7 +273,7 @@ export default function LandingPage() {
       buildQuoteItem('SPY', spyQuote?.close, spyQuote?.open),
       buildQuoteItem('SPX', spxQuote?.close, spxQuote?.open),
       buildQuoteItem('QQQ', qqqQuote?.close, qqqQuote?.open),
-      { symbol: 'NET GEX', price: formatDollarCompact(spyGex?.net_gex), change: gexPositive ? 'Positive' : 'Negative', pct: gexPositive ? 'Bullish' : 'Bearish', up: gexPositive },
+      { symbol: 'NET GEX', price: formatDollarCompact(spyNetGexAtSpot ?? undefined), change: gexPositive ? 'Positive' : 'Negative', pct: gexPositive ? 'Bullish' : 'Bearish', up: gexPositive },
       { symbol: 'Γ FLIP', price: spyGex?.gamma_flip != null ? `$${formatPrice(spyGex.gamma_flip)}` : '--', change: 'Key Level', pct: 'Watch', up: true },
       { symbol: 'MAX PAIN', price: spyGex?.max_pain != null ? `$${formatPrice(spyGex.max_pain)}` : '--', change: '0DTE Target', pct: '', up: true },
       { symbol: 'PUT/CALL', price: pcr != null ? pcr.toFixed(2) : '--', change: 'Ratio', pct: pcrBias, up: pcrBias !== 'Bearish' },
@@ -280,7 +283,7 @@ export default function LandingPage() {
   const previewMetrics = useMemo(() => {
     const putCallRatio = spyGex?.put_call_ratio ?? null;
     return [
-      { label: 'Net GEX', value: formatDollarCompact(spyGex?.net_gex), color: (spyGex?.net_gex ?? 0) >= 0 ? C.green : C.red, up: (spyGex?.net_gex ?? 0) >= 0 },
+      { label: 'Net GEX', value: formatDollarCompact(spyNetGexAtSpot ?? undefined), color: (spyNetGexAtSpot ?? 0) >= 0 ? C.green : C.red, up: (spyNetGexAtSpot ?? 0) >= 0 },
       { label: 'Gamma Flip', value: spyGex?.gamma_flip != null ? `$${formatPrice(spyGex.gamma_flip)}` : '--', color: C.amber, up: true },
       { label: 'Max Pain', value: spyGex?.max_pain != null ? `$${formatPrice(spyGex.max_pain)}` : '--', color: C.amber, up: true },
       { label: 'Call Wall', value: spyGex?.call_wall != null ? `$${formatPrice(spyGex.call_wall)}` : '--', color: C.green, up: true },
@@ -751,7 +754,7 @@ export default function LandingPage() {
               { label: 'Gamma Flip Level', desc: 'Price where dealer hedging reverses direction', color: C.amber, icon: Target },
               { label: 'Call Wall',        desc: 'Resistance level from heavy call open interest', color: C.green, icon: TrendingUp },
               { label: 'Put Wall',         desc: 'Support level from heavy put open interest',    color: C.red,   icon: TrendingDown },
-              { label: 'Net GEX',          desc: 'Aggregate directional hedging pressure',         color: C.amber, icon: BarChart2 },
+              { label: 'Net GEX',          desc: 'Dealer gamma at spot — long (pinning) vs short (amplifying)', color: C.amber, icon: BarChart2 },
               { label: 'Max Pain',         desc: 'Expiry price where option sellers profit most',  color: C.muted, icon: Target },
             ].map((item) => (
               <div

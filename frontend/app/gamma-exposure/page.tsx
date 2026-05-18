@@ -186,7 +186,13 @@ export default function GammaExposurePage() {
   );
 
   // Metric computations
-  const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
+  // Dealer-gamma readings are taken AT SPOT — the cumulative-curve value at
+  // the current price, which is sign-consistent with the gamma flip — not
+  // the chain-wide total (which can carry the opposite sign when far-OTM
+  // strikes dominate the tail). Fall back to the chain total only until the
+  // backend has written net_gex_at_spot for the latest snapshot.
+  const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
+  const netGexPositive = (netGexAtSpot ?? 0) >= 0;
   const ivRankPct = volGauge ? Math.round(volGauge.level * 10) : null;
 
   const totalVanna = useMemo(
@@ -212,7 +218,7 @@ export default function GammaExposurePage() {
   };
 
   const postureTag: 'Aggressive' | 'Balanced' | 'Defensive' = useMemo(() => {
-    const netGex = gexData?.net_gex ?? null;
+    const netGex = netGexAtSpot;
     if (netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60) {
       return 'Aggressive';
     }
@@ -220,14 +226,14 @@ export default function GammaExposurePage() {
       return 'Defensive';
     }
     return 'Balanced';
-  }, [gexData?.net_gex, vannaTrend, ivRankPct]);
+  }, [netGexAtSpot, vannaTrend, ivRankPct]);
 
   const marketContextSummary = useMemo(() => {
     const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
     const spot = quoteData?.close;
     const callWall = gexData?.call_wall ?? null;
     const putWall = gexData?.put_wall ?? null;
-    const netGex = gexData?.net_gex ?? null;
+    const netGex = netGexAtSpot;
     const pcr = gexData?.put_call_ratio ?? null;
     const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
     const putDistance = spot != null && putWall != null ? Math.abs(spot - putWall) : null;
@@ -248,14 +254,14 @@ export default function GammaExposurePage() {
 
     const gexText =
       netGex == null
-        ? 'Net GEX is unclear, so expect less reliable pinning behavior.'
+        ? 'Dealer gamma at spot is unclear, so expect less reliable pinning behavior.'
         : netGex > 2e9
-          ? 'Net GEX is highly positive, which usually suppresses volatility and favors fade/mean-reversion setups over aggressive trend chasing.'
+          ? 'Dealers are deeply long gamma at spot, which usually suppresses volatility and favors fade/mean-reversion over aggressive trend chasing.'
           : netGex > 0
-            ? 'Net GEX is positive, so price is more likely to mean-revert than sustain runaway moves.'
+            ? 'Dealers are net long gamma at spot, so price is more likely to mean-revert than sustain runaway moves.'
             : netGex < -2e9
-              ? 'Net GEX is deeply negative, which often amplifies volatility and can punish late entries on both sides.'
-              : 'Net GEX is negative, which supports trend extension and larger directional swings.';
+              ? 'Dealers are deeply short gamma at spot, which often amplifies volatility and can punish late entries on both sides.'
+              : 'Dealers are net short gamma at spot, which supports trend extension and larger directional swings.';
 
     const flowText =
       vannaTrend === 'bullish' && charmLabel === 'Bullish'
@@ -333,9 +339,9 @@ export default function GammaExposurePage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
             title="Net GEX"
-            value={gexData?.net_gex != null ? formatGexValue(gexData.net_gex) : '--'}
+            value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
-            tooltip="Net gamma exposure across all strikes. Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
+            tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
           />
           <MetricCard
             title="IV Rank"

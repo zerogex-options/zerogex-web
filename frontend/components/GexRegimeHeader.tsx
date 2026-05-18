@@ -5,6 +5,7 @@ import { colors } from '@/core/colors';
 
 interface GEXSummaryData {
   net_gex: number;
+  net_gex_at_spot?: number | null;
   gamma_flip?: number | null;
   spot_price?: number;
 }
@@ -26,15 +27,26 @@ interface GexRegimeHeaderProps {
 
 type Regime = 'positive' | 'negative' | 'neutral';
 
+// Spot within this fraction of the flip is genuinely "at the flip" — a real
+// regime-transition zone. ~0.25% of spot (≈ $1.85 on a $740 SPY). Anything
+// outside the band is decisively above/below the flip: 11.95 pts (~1.6%)
+// is below-flip, NOT "at the flip".
+const AT_FLIP_BAND_PCT = 0.0025;
+
+// Regime is defined purely by spot vs the gamma flip (zero-gamma) level —
+// the industry-standard definition (SpotGamma / SqueezeMetrics). Above the
+// flip dealers are net long gamma (vol-dampening, mean-reverting); below it
+// they are net short gamma (vol-amplifying, trending). It is NOT gated on
+// the sign of the chain-wide net-GEX total — doing so previously produced a
+// false "At the Flip" whenever the two disagreed.
 function detectRegime(
-  netGex: number | undefined,
   gammaFlip: number | null | undefined,
   spotPrice: number | undefined,
 ): Regime {
-  if (netGex == null || gammaFlip == null || spotPrice == null) return 'neutral';
-  if (spotPrice > gammaFlip && netGex > 0) return 'positive';
-  if (spotPrice < gammaFlip && netGex < 0) return 'negative';
-  return 'neutral';
+  if (gammaFlip == null || spotPrice == null || spotPrice <= 0) return 'neutral';
+  const rel = (spotPrice - gammaFlip) / spotPrice;
+  if (Math.abs(rel) <= AT_FLIP_BAND_PCT) return 'neutral';
+  return rel > 0 ? 'positive' : 'negative';
 }
 
 const regimeConfig: Record<Regime, { badge: string; label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -95,7 +107,7 @@ export default function GexRegimeHeader({
 
   const gammaFlip = gexSummary?.gamma_flip ?? null;
   const spotPrice = quoteData?.close;
-  const regime = detectRegime(gexSummary?.net_gex, gammaFlip, spotPrice);
+  const regime = detectRegime(gammaFlip, spotPrice);
   const config = regimeConfig[regime];
 
   const flipDistance = gammaFlip != null && spotPrice != null ? spotPrice - gammaFlip : null;

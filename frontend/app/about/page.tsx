@@ -441,13 +441,13 @@ export default function AboutPage() {
             <InfoCard isDark={isDark}
               icon={Cpu}
               title="Gamma Exposure Calculation"
-              body="For each strike, we compute GEX as: Gamma × Open Interest × Contract Multiplier × Spot Price². Call GEX is positive (dealers short gamma); Put GEX is negative. Net GEX is the aggregate sum across all strikes."
+              body="For each strike, we compute GEX as: Gamma × Open Interest × Contract Multiplier × Spot Price². Calls contribute positive gamma; puts contribute negative gamma. The displayed Net GEX is this cumulative curve's value at the current spot price (not a raw all-strikes sum), so it stays sign-consistent with the gamma flip — positive Net GEX at spot means dealers are net long gamma."
               color={C.green}
             />
             <InfoCard isDark={isDark}
               icon={TrendingUp}
               title="Key Level Detection"
-              body="Gamma Flip is identified as the strike where net GEX crosses zero. Call Wall and Put Wall are the strikes with maximum gamma-weighted open interest on each side. Max Pain is computed as the expiry price minimizing total option holder value."
+              body="Gamma Flip is the zero-gamma level where the cumulative net GEX curve crosses zero: with spot above it dealers are long gamma and hedging is stabilizing, below it dealers are short gamma and hedging is destabilizing. Call Wall and Put Wall are the strikes with maximum gamma-weighted open interest on each side. Max Pain is computed as the expiry price minimizing total option holder value."
               color={C.amber}
             />
             <InfoCard isDark={isDark}
@@ -645,11 +645,11 @@ export default function AboutPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <FAQItem isDark={isDark}
             q="What is Gamma Exposure (GEX) and why does it matter?"
-            a="Gamma Exposure is the aggregate sensitivity of options dealers' delta hedges to price moves in the underlying. When dealers are short gamma (positive GEX), they must buy when price rises and sell when it falls — creating a dampening effect on volatility and strong intraday support/resistance. When they're long gamma (negative GEX), they amplify moves in both directions. Knowing the GEX regime helps you understand whether the market is likely to trend or mean-revert on any given day."
+            a="Gamma Exposure is the aggregate sensitivity of options dealers' delta hedges to price moves in the underlying. When dealers are long gamma (positive net GEX at spot), they must sell when price rises and buy when it falls — creating a dampening effect on volatility and strong intraday support/resistance. When they're short gamma (negative net GEX at spot), they chase price and amplify moves in both directions. Knowing the GEX regime helps you understand whether the market is likely to mean-revert or trend on any given day."
           />
           <FAQItem isDark={isDark}
             q="How is the Gamma Flip level calculated?"
-            a="The Gamma Flip is the strike price at which net GEX transitions from positive to negative (or vice versa). We calculate it by summing call GEX minus put GEX across all strikes and identifying the zero-crossing point. This level is significant because above it, dealer hedging is stabilizing; below it, dealer hedging amplifies moves. It often acts as a pivot between trending and mean-reverting market regimes."
+            a="The Gamma Flip is the level at which the cumulative net GEX curve transitions from positive to negative (or vice versa) — the zero-gamma crossing. With spot above the flip, dealers are long gamma and hedging is stabilizing; with spot below it, dealers are short gamma and hedging amplifies moves. The displayed Net GEX is measured at spot, so it never contradicts the flip. This level often acts as a pivot between mean-reverting and trending market regimes."
           />
           <FAQItem isDark={isDark}
             q="What is Max Pain, and how reliable is it?"

@@ -29,6 +29,7 @@ interface GEXSummaryRow {
   total_call_gex: number;
   total_put_gex: number;
   net_gex: number;
+  net_gex_at_spot?: number | null;
   gamma_flip?: number | null;
   max_pain?: number | null;
   call_wall?: number | null;
