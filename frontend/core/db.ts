@@ -71,6 +71,19 @@ db.exec(`
 `);
 db.exec('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);');
 
+// One customized dashboard layout per user. `layout` is a JSON array of
+// { id, visible } in display order; `version` lets a future schema change
+// migrate or discard stale blobs instead of mis-rendering them.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dashboard_layouts (
+    user_id TEXT PRIMARY KEY,
+    layout TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
 // Stripe webhook idempotency + event ordering. `id` is Stripe's event.id
 // (globally unique) so a redelivered/retried event is a no-op. `created`
 // is the Stripe event.created unix timestamp, used to reject a stale
