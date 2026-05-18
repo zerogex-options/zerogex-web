@@ -142,7 +142,7 @@ const ZOOM_MAX = 4.0;
 const ZOOM_STEP = 1.43; // ≈ 1/0.7
 
 const DEFAULTS = {
-  tf: '1m' as ChartTf,
+  tf: '5m' as ChartTf,
   withPrev: false,
   selectedExpiry: 'all',
   zoomMul: 1.6,
