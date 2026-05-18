@@ -939,6 +939,7 @@ export default function GammaHeatmapCanvas() {
           No heatmap data available
         </div>
       ) : (
+        <>
         <MobileScrollableChart minWidthClass="min-w-[900px]">
           <div ref={containerRef} className="relative w-full px-4 pb-4">
             <canvas
@@ -984,6 +985,22 @@ export default function GammaHeatmapCanvas() {
             )}
           </div>
         </MobileScrollableChart>
+        {/* Legend strip */}
+        <div
+          className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
+          style={{ borderTop: `1px solid ${border}`, color: subtle }}
+        >
+          <span
+            className="flex items-center gap-1.5"
+            title="Price where dealer net gamma flips sign — above it dealers dampen volatility, below it they amplify it"
+          >
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--accent-2)" strokeWidth="2.25" />
+            </svg>
+            <span style={{ color: textPrimary }}>Gamma Flip</span>
+          </span>
+        </div>
+        </>
       )}
     </div>
   );
