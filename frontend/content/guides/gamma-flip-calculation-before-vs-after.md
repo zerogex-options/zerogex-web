@@ -20,6 +20,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 | --- | --- | --- |
 | Gamma treatment | Single broker snapshot gamma at the current spot only, never re-priced | Each option's gamma re-priced with Black-Scholes at every hypothetical spot |
 | Domain searched | Ingested strike band only (roughly ±10 strikes) | Price grid of spot ±20% (configurable), in 0.25% steps |
+| DTE treatment | All expirations weighted equally (net GEX aggregated by strike across expirations) — a same-day 0DTE/OPEX wall could set a flip irrelevant for any multi-day horizon | Each contract scaled by a horizon-occupancy ramp min(1, DTE / ref) (default 5d, on) — near-dated down-weighted so the flip is the multi-day regime level; contracts ≥ reference horizon unweighted (1.0) |
 | Definition | Retail approximation of zero gamma | The recognized SpotGamma / SqueezeMetrics definition |
 | Headline net-GEX | Computed separately — could disagree with the flip regime | Sampled from the same curve — sign-consistent by construction |
 | Flip far from spot | One-signed curve, no crossing → the flat / stuck flip symptom | Resolves correctly — the grid spans well past the strike band |
@@ -30,7 +31,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 | Approach | Pros | Cons |
 | --- | --- | --- |
 | Before — Cumulative net-GEX-by-strike | Cheap to compute; single pass over the snapshot; intuitive to reason about | Not the published definition; bounded by the ingested strike band; froze when the flip was far from spot; headline figure could contradict the regime |
-| After — Spot-shift dealer gamma profile | Matches the industry definition; resolves a far-from-spot flip; headline and regime are sign-consistent; degraded data is visible, not masked | More compute (re-prices the chain across a grid); uses sticky-strike vol (a full vol-surface re-shift is out of scope); live flip values shifted by design |
+| After — Spot-shift dealer gamma profile | Matches the industry definition; resolves a far-from-spot flip; headline and regime are sign-consistent; degraded data is visible, not masked; near-dated 0DTE/OPEX no longer pins the multi-day regime level | More compute (re-prices the chain across a grid); uses sticky-strike vol (a full vol-surface re-shift is out of scope); live flip values shifted by design; a second deliberate live-value shift for chains with material near-dated/0DTE OI |
 
 ---
 
@@ -57,11 +58,20 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 
 - Build a grid of hypothetical underlying prices spanning spot ± **GAMMA_PROFILE_SPAN_PCT** (default ±20%), stepped by **GAMMA_PROFILE_STEP_PCT** (default 0.25% of spot).
 - At every grid price, re-price each option's gamma with Black-Scholes (γ = N'(d1) / (S·σ·√T), q=0, risk-free rate from config). Each contract's implied volatility is held at its snapshot value across the shift (sticky-strike — the standard simplification; a full vol-surface re-shift is out of scope).
-- At each grid price, sum dealer dollar gamma γ(S) · OI · 100 · S² · 0.01 with the same dealer sign convention (calls +, puts −).
+- At each grid price, scale every contract's dollar gamma γ(S) · OI · 100 · S² · 0.01 by a DTE weight — a linear horizon-occupancy ramp min(1, DTE / GAMMA_PROFILE_DTE_REF_DAYS) (default 5 days; GAMMA_PROFILE_DTE_WEIGHTING, on by default) — then sum across the chain with the dealer sign convention (calls +, puts −). The ramp weights each expiry by the fraction of the multi-day reference horizon over which the contract still exists, so a same-day 0DTE / OPEX wall is down-weighted out of contention while contracts living at least the full reference horizon are unweighted (1.0).
 - The Gamma Flip is the zero crossing of this profile (linear-interpolated; with multiple crossings on a lumpy book, the one nearest spot is kept).
 - The headline net-GEX-at-spot is the same profile sampled at the current price. Because both come from one curve, the headline figure and the spot-vs-flip regime can never contradict each other (the sign-consistency invariant).
 
 **Why this is correct.** This is the actual industry construction. The zero-gamma level is defined as the spot at which dealer gamma flips sign as the underlying moves — that can only be located by re-pricing gamma at each hypothetical spot, not by cumulating a single static snapshot value. Because the grid spans ±20% of spot rather than the ingested strike band, the flip resolves even when the zero-gamma level sits several percent away — directly fixing the flat-flip root cause.
+
+**Why DTE-weight.** The spot-shift rewrite fixed the range / stale-carry-forward failure, but on its own it did not address near-dated domination — re-greeking actually adds a colossal 1/√T gamma spike at a 0DTE strike, so a same-day OPEX wall would still pin the nearest-to-spot crossing to a strike irrelevant for any multi-day horizon (the original 751.82-vs-spot pathology). The horizon-occupancy ramp removes that pin: a same-day expiry (gone by today's close) barely counts toward a multi-day regime level, while longer-dated structure is unchanged. Applied inside the single shared profile, so the flip and net-GEX-at-spot stay sign-consistent. Lineage note: this is a distinct refinement (commit 62c70df, 2026-05-19), layered on the spot-shift rewrite (1731efc); the interim spot-shift version equal-weighted every expiration.
+
+**Configurable parameters**
+
+- **GAMMA_PROFILE_SPAN_PCT** — grid half-width as a fraction of spot (default ±20%).
+- **GAMMA_PROFILE_STEP_PCT** — grid step as a fraction of spot (default 0.25%).
+- **GAMMA_PROFILE_DTE_WEIGHTING** — enable the horizon-occupancy DTE ramp (default true / on).
+- **GAMMA_PROFILE_DTE_REF_DAYS** — reference horizon in days for the ramp (default 5, bounded 0.5–60).
 
 ---
 
@@ -69,7 +79,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 
 *Commit f5c4ded, 2026-05-19.*
 
-The interim version clamped the flip to the grid edge when the profile was one-signed across the entire ±20% grid. Investigation showed that, for a liquid chain, this only happens when the snapshot is degraded (stale feed / after-hours: ingestion nulls the Greeks, the snapshot query drops gamma-NULL rows, and the residual chain is one-sided) — not a genuine flip is far away.
+The interim version clamped the flip to the grid edge when the profile was one-signed across the entire ±20% grid. Investigation showed that, for a liquid chain, this primarily happens when the snapshot is degraded (stale feed / after-hours: ingestion nulls the Greeks, the snapshot query drops gamma-NULL rows, and the residual chain is one-sided) — not a genuine flip is far away. DTE weighting adds a second, by-design path — if the only zero crossing came purely from now-down-weighted near-dated mass, a healthy chain can also go one-signed and is likewise reported unresolved (NULL).
 
 The grid-edge clamp was therefore removed. Now, on a one-signed profile:
 
@@ -82,6 +92,7 @@ The grid-edge clamp was therefore removed. Now, on a one-signed profile:
 ## What the customer will observe
 
 - Live **gamma_flip_point** values shifted when the method changed — this was a deliberate definition correction to the recognized SpotGamma / SqueezeMetrics level, not a bug fix. Any absolute thresholds built on the old flip distance should be re-reviewed; relative usage is unaffected.
+- For chains with material near-dated/0DTE OI, the flip moved a second time (separate from the method-change shift): with DTE weighting on by default, it now reports the multi-day regime level instead of a same-day-pinned one. Same guidance — re-review any absolute thresholds.
 - The flip now tracks the market even when zero-gamma is several percent from spot (the previous stuck / flat-flip symptom is resolved).
 - Headline net-GEX and the spot-vs-flip regime are always consistent (both read off one curve).
 - On degraded / stale data the flip shows a NULL gap rather than a frozen or fabricated value, with a corresponding health warning — by design, so a degraded feed is visible rather than masked.
