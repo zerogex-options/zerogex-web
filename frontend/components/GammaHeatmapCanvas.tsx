@@ -46,6 +46,22 @@ function colorForRatio(ratio: number): RGB {
   return blend(BEARISH, NEUTRAL, Math.min(1, 1 + ratio));
 }
 
+function hexToRgb(hex: string): RGB {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+// Darker shade of a hex color, used to outline candles so they read against
+// the heatmap underneath.
+function darken(hex: string, factor: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
+}
+
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -94,7 +110,8 @@ const DEFAULTS = {
 
 // Padding in CSS pixels
 const PAD_L = 56;
-const PAD_R = 64;
+// Right padding holds the vertical color legend plus its value labels.
+const PAD_R = 96;
 const PAD_T = 36;
 // Extra bottom padding so the time axis labels and the grouped date row fit
 // without colliding with the plot area.
@@ -422,7 +439,7 @@ export default function GammaHeatmapCanvas() {
 
     // Axes
     const axisColor = isDark ? '#FFF1E6' : '#1E293B';
-    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const gridColor = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.16)';
 
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
@@ -515,6 +532,19 @@ export default function GammaHeatmapCanvas() {
       lastDrawnX = tk.px;
     });
 
+    // Vertical grid lines at the drawn time ticks (pairs with the horizontal
+    // strike lines above so the toggle produces a full grid).
+    if (showGrid) {
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      drawnTimeTicks.forEach((tk) => {
+        ctx.moveTo(tk.px, PAD_T);
+        ctx.lineTo(tk.px, PAD_T + plotH);
+      });
+      ctx.stroke();
+    }
+
     drawnTimeTicks.forEach((tk) => {
       ctx.fillText(tk.label, tk.px, PAD_T + plotH + 6);
     });
@@ -547,6 +577,8 @@ export default function GammaHeatmapCanvas() {
       const priceByTs = new Map(priceData.map((p) => [p.timestamp, p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
+      const bullEdge = darken(colors.bullish, 0.6);
+      const bearEdge = darken(colors.bearish, 0.6);
       grid.timestamps.forEach((ts, i) => {
         const row = priceByTs.get(ts);
         if (!row) return;
@@ -562,12 +594,13 @@ export default function GammaHeatmapCanvas() {
         const yHigh = yForStrike(high);
         const yLow = yForStrike(low);
         const up = close >= open;
-        const c = up ? colors.bullish : colors.bearish;
+        const fill = up ? colors.bullish : colors.bearish;
+        const edge = up ? bullEdge : bearEdge;
         const bodyTop = Math.min(yOpen, yClose);
         const bodyBottom = Math.max(yOpen, yClose);
         const bodyH = Math.max(1, bodyBottom - bodyTop);
 
-        ctx.strokeStyle = c;
+        ctx.strokeStyle = edge;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(cx, yHigh);
@@ -576,8 +609,11 @@ export default function GammaHeatmapCanvas() {
         ctx.lineTo(cx, yLow);
         ctx.stroke();
 
-        ctx.fillStyle = c;
+        ctx.fillStyle = fill;
         ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+        ctx.strokeStyle = edge;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - candleW / 2, bodyTop, candleW, bodyH);
       });
     }
 
