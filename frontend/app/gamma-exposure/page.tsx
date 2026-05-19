@@ -297,7 +297,7 @@ export default function GammaExposurePage() {
       : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
 
     return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
-  }, [quoteData?.close, gexData, vannaTrend, charmLabel, ivRankPct, timeframe]);
+  }, [quoteData?.close, gexData, netGexAtSpot, vannaTrend, charmLabel, ivRankPct, timeframe]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
