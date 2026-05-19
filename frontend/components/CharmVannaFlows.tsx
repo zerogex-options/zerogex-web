@@ -12,8 +12,7 @@ interface ByStrikeRow {
 }
 
 interface VolExpansionData {
-  confidence: 'high' | 'medium' | 'low';
-  normalized_score: number;
+  expansion?: number | null;
 }
 
 interface CharmVannaFlowsProps {
@@ -82,7 +81,8 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
 
   const maxAbs = Math.max(Math.abs(totalVanna), Math.abs(totalCharm), Math.abs(eodCharm), 1);
 
-  const volRiskLabel = volExpansion?.confidence === 'high' ? 'High' : volExpansion?.confidence === 'medium' ? 'Medium' : 'Low';
+  const expansion = volExpansion?.expansion ?? null;
+  const volRiskLabel = expansion != null && expansion >= 60 ? 'High' : expansion != null && expansion >= 30 ? 'Medium' : 'Low';
   const volRiskColor = volRiskLabel === 'High' ? colors.bearish : volRiskLabel === 'Medium' ? colors.warning : colors.muted;
 
   const flowItems = [
