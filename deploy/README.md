@@ -643,6 +643,45 @@ Add:
 
 This backs up daily at 2 AM and keeps 7 days of backups.
 
+### Monitoring Data Backup
+
+The Admin -> Monitoring charts read two JSON files that live only on the
+server. They are gitignored, so they are **not** in the application code
+backup unless you tar the whole directory:
+
+- `frontend/data/monitoring.json` - API calls, page accesses, unique users/IPs
+- `frontend/data/signups.json` - daily Basic/Pro signup totals
+
+Back them up with the bundled make target. The app writes these files
+atomically (temp file + rename), so it is safe to run against the live
+process without stopping PM2:
+
+```bash
+cd ~/zerogex-web
+make backup-monitoring                                       # local only
+make backup-monitoring S3_BUCKET=s3://your-bucket/zerogex     # also upload to S3
+```
+
+Options (all optional):
+
+- `BACKUP_DIR` - where archives are written (default `~/zerogex-monitoring-backups`, outside the repo so it is not swept into the whole-app backup)
+- `BACKUP_RETENTION_DAYS` - prune local archives older than N days (default 30)
+- `S3_BUCKET` - if set, also `aws s3 cp` the archive there
+
+Automated daily backup at 02:30 (offset from the 02:00 application
+backup) via `crontab -e`:
+
+```
+30 2 * * * cd ~/zerogex-web && make backup-monitoring S3_BUCKET=s3://your-bucket/zerogex >> ~/zerogex-monitoring-backup.log 2>&1
+```
+
+Restore by extracting an archive back into place:
+
+```bash
+tar -xzf ~/zerogex-monitoring-backups/monitoring-data-YYYYMMDD-HHMMSS.tar.gz -C ~/zerogex-web/frontend/data/
+make restart
+```
+
 ## Logs
 
 ### Application Logs

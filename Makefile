@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user backup-monitoring clean deploy logo
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
+	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -95,6 +96,37 @@ all-to-pro:
 delete-user:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make delete-user EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/delete-user.mjs --email $(EMAIL) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Backup Admin->Monitoring data files (frontend/data/monitoring.json and
+# signups.json) into a timestamped tar.gz. Defaults to a dir OUTSIDE the
+# repo so archives are not swept into the whole-app backup or git. Files
+# are written atomically by the app, so this is safe to run live. Set
+# S3_BUCKET to also upload (e.g. S3_BUCKET=s3://my-bucket/zerogex). Prunes
+# local archives older than BACKUP_RETENTION_DAYS (default 30).
+BACKUP_DIR ?= $(HOME)/zerogex-monitoring-backups
+BACKUP_RETENTION_DAYS ?= 30
+backup-monitoring:
+	@if [ ! -f frontend/data/monitoring.json ] && [ ! -f frontend/data/signups.json ]; then \
+		echo "No monitoring data found in frontend/data/ (nothing to back up)."; \
+		exit 0; \
+	fi; \
+	mkdir -p "$(BACKUP_DIR)"; \
+	ts=$$(date +%Y%m%d-%H%M%S); \
+	archive="$(BACKUP_DIR)/monitoring-data-$$ts.tar.gz"; \
+	files=""; \
+	if [ -f frontend/data/monitoring.json ]; then files="$$files monitoring.json"; fi; \
+	if [ -f frontend/data/signups.json ]; then files="$$files signups.json"; fi; \
+	tar -czf "$$archive" -C frontend/data $$files && echo "Created $$archive"; \
+	if [ -n "$(S3_BUCKET)" ]; then \
+		if command -v aws >/dev/null 2>&1; then \
+			echo "Uploading to $(S3_BUCKET)/ ..."; \
+			aws s3 cp "$$archive" "$(S3_BUCKET)/"; \
+		else \
+			echo "WARNING: S3_BUCKET set but aws CLI not found; skipped upload."; \
+		fi; \
+	fi; \
+	find "$(BACKUP_DIR)" -name 'monitoring-data-*.tar.gz' -mtime +$(BACKUP_RETENTION_DAYS) -delete; \
+	echo "Backup complete. Local dir: $(BACKUP_DIR) (retention: $(BACKUP_RETENTION_DAYS) days)."
 
 # Clean build artifacts
 clean:
