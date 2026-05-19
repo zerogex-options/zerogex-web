@@ -5,6 +5,7 @@ import path from 'node:path';
 import { getDb } from '@/core/db';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
+const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
 const MAX_HOURLY = 720;
 const MAX_DAILY = 90;
 const FLUSH_INTERVAL_MS = 60_000;
@@ -28,7 +29,14 @@ export type MonitoringSnapshotPoint = {
   uniqueIps: number;
 };
 
+export type SignupPoint = {
+  day: string;
+  basic: number;
+  pro: number;
+};
+
 export type MonitoringSnapshot = {
+  signups: SignupPoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -300,6 +308,98 @@ function aggregateTopUsers(
   return top.map((t) => ({ userId: t.userId, email: emails.get(t.userId) ?? null, count: t.count }));
 }
 
+type SignupStoreShape = {
+  version: 1;
+  days: Record<string, { basic: number; pro: number }>;
+};
+
+function readSignupStore(): SignupStoreShape {
+  try {
+    const raw = fs.readFileSync(SIGNUP_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as Partial<SignupStoreShape>;
+    if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
+      const days: Record<string, { basic: number; pro: number }> = {};
+      for (const [k, v] of Object.entries(parsed.days)) {
+        days[k] = { basic: Number(v?.basic) || 0, pro: Number(v?.pro) || 0 };
+      }
+      return { version: 1, days };
+    }
+  } catch {
+    // No file or parse failed: start fresh.
+  }
+  return { version: 1, days: {} };
+}
+
+function writeSignupStore(s: SignupStoreShape) {
+  try {
+    const dir = path.dirname(SIGNUP_STORE_PATH);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${SIGNUP_STORE_PATH}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(s), 'utf8');
+    fs.renameSync(tmp, SIGNUP_STORE_PATH);
+  } catch {
+    // Persist failures should not crash the request path.
+  }
+}
+
+// Live headcount by billing tier. Legacy tier ids fold into the current
+// two-tier system (starter -> basic, elite -> pro); admin/public excluded.
+function currentTierCounts(): { basic: number; pro: number } {
+  const counts = { basic: 0, pro: 0 };
+  try {
+    const rows = getDb()
+      .prepare('SELECT tier, COUNT(*) AS c FROM users GROUP BY tier')
+      .all() as Array<{ tier: string; c: number }>;
+    for (const row of rows) {
+      const c = Number(row.c) || 0;
+      if (row.tier === 'basic' || row.tier === 'starter') counts.basic += c;
+      else if (row.tier === 'pro' || row.tier === 'elite') counts.pro += c;
+    }
+  } catch {
+    // If the count fails, fall back to zeros for this sample.
+  }
+  return counts;
+}
+
+// One plot point per ET day. Re-sampling the same day overwrites that
+// day's point with the latest counts; a new point is only created once
+// the day rolls over. Days with no sample carry the prior day forward so
+// the area stays continuous.
+function buildSignupSeries(now: Date): SignupPoint[] {
+  const today = etBucketKeys(now).day;
+  const store = readSignupStore();
+  const counts = currentTierCounts();
+  const existing = store.days[today];
+  if (!existing || existing.basic !== counts.basic || existing.pro !== counts.pro) {
+    store.days[today] = counts;
+    writeSignupStore(store);
+  }
+
+  const recordedDays = Object.keys(store.days).sort();
+  if (recordedDays.length === 0) return [];
+  const firstDay = recordedDays[0];
+
+  const seen = new Set<string>();
+  const descKeys: string[] = [];
+  for (let i = 0; i < 800; i++) {
+    const d = new Date(now.getTime() - i * 86400_000);
+    const key = etBucketKeys(d).day;
+    if (!seen.has(key)) {
+      seen.add(key);
+      descKeys.push(key);
+    }
+    if (key <= firstDay) break;
+  }
+
+  const series: SignupPoint[] = [];
+  let last = { basic: 0, pro: 0 };
+  for (const day of descKeys.reverse()) {
+    if (store.days[day]) last = store.days[day];
+    series.push({ day, basic: last.basic, pro: last.pro });
+  }
+  return series;
+}
+
 export function getSnapshot(): MonitoringSnapshot {
   // Read fresh from disk: the proxy bundle that calls recordRequest() is
   // a separate Next.js 16 runtime and its in-memory store is invisible
@@ -309,6 +409,7 @@ export function getSnapshot(): MonitoringSnapshot {
   const hourlyKeys = generateHourlyKeys(now);
   const dailyKeys = generateDailyKeys(now);
   return {
+    signups: buildSignupSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTheme } from '@/core/ThemeContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -15,8 +15,15 @@ type SnapshotPoint = {
   uniqueIps: number;
 };
 
+type SignupPoint = {
+  day: string;
+  basic: number;
+  pro: number;
+};
+
 type Snapshot = {
   ok: boolean;
+  signups: SignupPoint[];
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -104,6 +111,19 @@ export default function MonitoringClient() {
       <div className="flex items-baseline justify-between mb-6 flex-wrap gap-2">
         <h1 className="text-2xl font-semibold">Admin Monitoring</h1>
       </div>
+
+      <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
+          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic and Pro users; the latest sample overwrites today&apos;s point.</span>
+        </div>
+        <SignupChartCard
+          data={data.signups}
+          cardBg={cardBg}
+          axisStroke={axisStroke}
+          mutedText={mutedText}
+        />
+      </section>
 
       {METRICS.map((metric) => (
         <section key={metric.key} className="mb-8">
@@ -287,6 +307,103 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
           </BarChart>
         </ResponsiveContainer>
       </MobileScrollableChart>
+    </div>
+  );
+}
+
+type SignupChartCardProps = {
+  data: SignupPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+};
+
+const BASIC_COLOR = 'var(--color-warning)';
+const PRO_COLOR = 'var(--color-bull)';
+
+function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCardProps) {
+  const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0 };
+  const total = latest.basic + latest.pro;
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>Daily Total</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: PRO_COLOR }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
+          <span><span style={{ color: BASIC_COLOR }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
+          <span>Total: {total.toLocaleString()}</span>
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No signup data captured yet.</div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const basic = Number(payload.find((p) => p.dataKey === 'basic')?.value ?? 0);
+                  const pro = Number(payload.find((p) => p.dataKey === 'pro')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div style={{ color: PRO_COLOR }}>Pro: {pro.toLocaleString()}</div>
+                      <div style={{ color: BASIC_COLOR }}>Basic: {basic.toLocaleString()}</div>
+                      <div className="mt-1">Total: {(basic + pro).toLocaleString()}</div>
+                    </div>
+                  );
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                height={28}
+                iconType="square"
+                wrapperStyle={{ fontSize: 12, color: axisStroke }}
+              />
+              <Area
+                type="monotone"
+                dataKey="basic"
+                name="Basic"
+                stackId="signups"
+                stroke={BASIC_COLOR}
+                fill={BASIC_COLOR}
+                fillOpacity={0.4}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="pro"
+                name="Pro"
+                stackId="signups"
+                stroke={PRO_COLOR}
+                fill={PRO_COLOR}
+                fillOpacity={0.4}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
     </div>
   );
 }
