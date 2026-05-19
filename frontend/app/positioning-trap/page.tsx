@@ -42,7 +42,6 @@ export default function PositioningTrapPage() {
 
   const ctx = asObject(payload.context_values) ?? {};
   const smartImbalance = getNumber(payload.smart_imbalance);
-  const smartSource = String(payload.smart_imbalance_source ?? ctx.smart_imbalance_source ?? '—');
   const momentum5bar = getNumber(payload.momentum_5bar);
   const putCallRatio = getNumber(ctx.put_call_ratio);
   const close = getNumber(ctx.close);
@@ -83,7 +82,6 @@ export default function PositioningTrapPage() {
               trend={trend}
               interpretation={interpretation(score)}
               history={history}
-              footnote={<>Smart imbalance source: <span className="font-mono">{smartSource}</span></>}
             />
           </div>
 

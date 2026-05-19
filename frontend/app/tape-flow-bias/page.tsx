@@ -39,7 +39,6 @@ export default function TapeFlowBiasPage() {
 
   const callNet = getNumber(payload.call_net_premium);
   const putNet = getNumber(payload.put_net_premium);
-  const source = String(payload.source ?? asObject(payload.context_values)?.source ?? '—');
 
   const ctx = asObject(payload.context_values) ?? {};
   const callBuy = getNumber(ctx.call_buy_premium) ?? 0;
@@ -72,7 +71,6 @@ export default function TapeFlowBiasPage() {
               trend={trend}
               interpretation={interpretation(score)}
               history={history}
-              footnote={<>Source: <span className="font-mono">{source}</span></>}
             />
           </div>
 

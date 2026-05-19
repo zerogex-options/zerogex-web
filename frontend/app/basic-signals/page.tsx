@@ -88,7 +88,6 @@ export default function BasicSignalsPage() {
       { label: 'Put net premium', value: formatGexCompact(getNumber(tapePayload.put_net_premium)) },
       { label: 'Call buy prem', value: formatGexCompact(getNumber(tapeCtx.call_buy_premium)) },
       { label: 'Put buy prem', value: formatGexCompact(getNumber(tapeCtx.put_buy_premium)) },
-      { label: 'Source', value: String(tapePayload.source ?? tapeCtx.source ?? '—') },
     ];
 
     const skewCtx = asObject(skewPayload.context_values) ?? {};
@@ -100,19 +99,15 @@ export default function BasicSignalsPage() {
       { label: 'Baseline', value: formatSigned(getNumber(skewCtx.baseline), 3) },
     ];
 
-    const vcCtx = asObject(vcPayload.context_values) ?? {};
     const vcRows: AdvancedSignalContextRow[] = [
       { label: 'Vanna total', value: formatGexCompact(getNumber(vcPayload.vanna_total)) },
       { label: 'Charm total', value: formatGexCompact(getNumber(vcPayload.charm_total)) },
       { label: 'Charm amp', value: (getNumber(vcPayload.charm_amplification) ?? 1).toFixed(2) + '×' },
-      { label: 'Source', value: String(vcPayload.source ?? vcCtx.source ?? '—') },
     ];
 
-    const ddpCtx = asObject(ddpPayload.context_values) ?? {};
     const ddpRows: AdvancedSignalContextRow[] = [
       { label: 'Dealer net delta', value: formatGexCompact(getNumber(ddpPayload.dealer_net_delta_estimated)) },
       { label: 'DNI normalized', value: formatSigned(getNumber(ddpPayload.dni_normalized), 3) },
-      { label: 'Source', value: String(ddpPayload.source ?? ddpCtx.source ?? '—') },
     ];
 
     const gexCtx = asObject(gexPayload.context_values) ?? {};

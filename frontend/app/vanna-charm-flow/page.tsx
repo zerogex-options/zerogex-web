@@ -40,7 +40,6 @@ export default function VannaCharmFlowPage() {
   const vannaTotal = getNumber(payload.vanna_total);
   const charmTotal = getNumber(payload.charm_total);
   const charmAmp = getNumber(payload.charm_amplification) ?? 1.0;
-  const source = String(payload.source ?? asObject(payload.context_values)?.source ?? '—');
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
@@ -70,7 +69,6 @@ export default function VannaCharmFlowPage() {
               trend={trend}
               interpretation={interpretation(score)}
               history={history}
-              footnote={<>Source: <span className="font-mono">{source}</span></>}
             />
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">

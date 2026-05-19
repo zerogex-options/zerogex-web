@@ -16,7 +16,6 @@ import {
   getNumber,
   parseScoreHistory,
   toTrend,
-  trendColor,
   formatGexCompact,
   formatSigned,
 } from '@/core/signalHelpers';
@@ -30,13 +29,6 @@ function interpretation(score: number | null): string {
   return 'Balanced dealer delta';
 }
 
-function sourceQuality(source: string): { label: string; tone: 'bullish' | 'bearish' | 'neutral' } {
-  if (source === 'dealer_net_delta_field') return { label: 'High-precision', tone: 'bullish' };
-  if (source === 'gex_by_strike.delta_oi') return { label: 'OI-derived', tone: 'neutral' };
-  if (source === 'gex_by_strike.distance_proxy') return { label: 'Fallback proxy', tone: 'bearish' };
-  return { label: 'Unavailable', tone: 'neutral' };
-}
-
 export default function DealerDeltaPressurePage() {
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useDealerDeltaPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.dealerDeltaPressureMs);
@@ -48,8 +40,6 @@ export default function DealerDeltaPressurePage() {
 
   const dealerNetDelta = getNumber(payload.dealer_net_delta_estimated);
   const dniNormalized = getNumber(payload.dni_normalized);
-  const source = String(payload.source ?? asObject(payload.context_values)?.source ?? '—');
-  const quality = sourceQuality(source);
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
@@ -74,16 +64,6 @@ export default function DealerDeltaPressurePage() {
               trend={trend}
               interpretation={interpretation(score)}
               history={history}
-              badges={
-                <span
-                  className="inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-full border border-[var(--color-border)]"
-                  style={{ color: trendColor(quality.tone) }}
-                >
-                  <span className="font-semibold uppercase tracking-wide">Source</span>
-                  <span className="font-mono">{source}</span>
-                  <span>· {quality.label}</span>
-                </span>
-              }
             />
           </div>
 

@@ -47,7 +47,6 @@ export default function EodPressurePage() {
   const isQuadWitching = getBool(calendarFlags.quad_witching);
   const ctx = asObject(payload.context_values) ?? {};
   const calendarAmp = getNumber(ctx.calendar_amp);
-  const pinSource = String(ctx.pin_source ?? '—');
   const atmBandPct = getNumber(ctx.atm_band_pct);
 
   const trend = toTrend(payload.direction);
@@ -117,7 +116,6 @@ export default function EodPressurePage() {
               <div className="mt-2 text-xs text-[var(--color-text-secondary)]">
                 Distance: <span className="font-mono text-[var(--color-text-primary)]">{formatPct(pinDistancePct, 3)}</span>
               </div>
-              <div className="mt-1 text-xs text-[var(--color-text-secondary)]">Source: {humanize(pinSource)}</div>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">

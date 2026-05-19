@@ -141,7 +141,6 @@ export default function AdvancedSignalsPage() {
       { label: 'Smart imbalance', value: formatSigned(getNumber(zeroDtePayload.smart_imbalance), 2) },
       { label: 'Signal', value: String(zeroDtePayload.signal ?? '—') },
       { label: 'ToD multiplier', value: (getNumber(zCtx.tod_multiplier) ?? 0).toFixed(2) },
-      { label: 'Flow source', value: String(zCtx.flow_source ?? '—') },
     ];
 
     const gvcCtx = asObject(gvcPayload.context_values) ?? {};

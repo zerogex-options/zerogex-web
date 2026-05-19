@@ -190,7 +190,6 @@ export default function ZeroDtePositionImbalancePage() {
             <div className="text-[var(--color-text-secondary)] text-xs space-y-2">
               <div><strong className="text-[var(--color-text-primary)]">Blend:</strong> 0.55 × flow + 0.30 × smart + 0.15 × PCR tilt, then × time-of-day multiplier.</div>
               <div><strong className="text-[var(--color-text-primary)]">Weights:</strong> 0.6 × OTM, 0.3 × ATM, 0.1 × ITM.</div>
-              <div><strong className="text-[var(--color-text-primary)]">Flow source:</strong> {humanize(ctx.flowSource)}</div>
             </div>
           </div>
         </div>
