@@ -176,41 +176,41 @@ export interface GenericAccuracyPoint {
   label?: string;
 }
 
-export interface VolExpansionComponent {
-  name: string;
-  weight: number;
-  raw_score: number;
-  weighted_score: number;
-  description: string;
-  value?: number | null;
+export interface VolExpansionScoreHistoryPoint {
+  timestamp: string;
+  score: number;
+}
+
+export interface VolExpansionContextValues {
+  net_gex: number;
+  gex_regime: 'negative' | 'positive';
+  expansion: number;
+  direction: number;
+  magnitude: number;
+  expected_5min_move_bps: number | null;
+  gex_readiness: number;
+  pct_change_5bar: number | null;
+  momentum_z: number | null;
+  momentum: number | null;
+  realized_sigma_bar: number | null;
+  triggered: boolean;
+  signal: 'bullish_expansion' | 'bearish_expansion' | 'none';
 }
 
 export interface VolExpansionSignalResponse {
-  symbol: string;
+  underlying: string;
   timestamp: string;
-  score?: number;
-  expansion?: number | null;
-  composite_score: number;
-  max_possible_score: number;
-  normalized_score: number;
-  move_probability: number;
-  expected_direction: 'up' | 'down' | 'neutral';
-  expected_magnitude_pct: number;
-  confidence: 'high' | 'medium' | 'low';
-  catalyst_type: string;
-  time_horizon: string;
-  strategy_type: string;
-  entry_window?: string | null;
-  current_price?: number | null;
-  net_gex?: number | null;
-  gamma_flip?: number | null;
-  max_pain?: number | null;
-  put_call_ratio?: number | null;
-  dealer_net_delta?: number | null;
-  smart_money_direction?: 'up' | 'down' | 'neutral' | null;
-  vwap_deviation_pct?: number | null;
-  hours_to_next_expiry?: number | null;
-  components: VolExpansionComponent[];
+  score: number;
+  clamped_score: number;
+  weighted_score: number;
+  weight: number;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  expansion: number | null;
+  direction_score: number | null;
+  magnitude: number | null;
+  expected_5min_move_bps: number | null;
+  context_values: VolExpansionContextValues;
+  score_history: VolExpansionScoreHistoryPoint[];
 }
 
 export interface PositionOptimizerSizingProfile {
