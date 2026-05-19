@@ -92,6 +92,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Guides',
         items: [
           { id: '/guides/signals-explained', label: 'Signals: Explained' },
+          { id: '/guides/gamma-flip-calculation-before-vs-after', label: 'Gamma Flip: Before vs. After' },
         ],
       },
       {
