@@ -630,13 +630,20 @@ export default function GammaHeatmapCanvas() {
       let started = false;
       grid.timestamps.forEach((ts, i) => {
         const v = gammaFlipByTs.get(ts);
-        // Break the line at missing/unresolved timestamps instead of
-        // bridging them with a straight segment. A NULL flip means the
-        // backend could not resolve a zero-gamma level for that cycle
-        // (degraded/one-sided chain); drawing through it would fabricate
-        // a level across unknown data — the failure mode this whole line
-        // is meant to expose. A real gap is the honest rendering.
-        if (v == null || !Number.isFinite(v)) { started = false; return; }
+        // Break the line at missing/unresolved timestamps AND at values
+        // that fall outside the visible y-axis range. A NULL flip means
+        // the backend could not resolve a zero-gamma level for that
+        // cycle (degraded/one-sided chain); drawing through it would
+        // fabricate a level across unknown data. An out-of-bounds value
+        // is the analogous failure mode for a resolved-but-unactionable
+        // crossing — drawing it would render the line off the plot box
+        // (the SPX 2026-05-20 pathology where the resolved flip walked
+        // off the bottom while the dashboard's latest snapshot went
+        // NULL). Both are "this point is not safe to display" — gap it.
+        if (v == null || !Number.isFinite(v) || v < yMin || v > yMax) {
+          started = false;
+          return;
+        }
         const py = yForStrike(v);
         const px = PAD_L + (i + 0.5) * (plotW / T);
         if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }

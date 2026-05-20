@@ -37,6 +37,15 @@ export default function PriceDistanceMetricCard({
   theme,
 }: PriceDistanceMetricCardProps) {
   const distanceMeta = getDistanceMeta(level, spotPrice);
+  // Distinguish the two reasons distanceMeta can be missing so the
+  // subtitle stops claiming "Awaiting underlying price context" when
+  // the underlying price is in fact present and it's the level itself
+  // that the backend could not resolve this snapshot (e.g., the SPX
+  // gamma-flip-unresolved case where the latest gex_summary row has
+  // gamma_flip_point = NULL).
+  const fallbackLabel = spotPrice == null || spotPrice === 0
+    ? 'Awaiting underlying price context'
+    : `${title} unresolved this snapshot`;
 
   return (
     <MetricCard
@@ -47,7 +56,7 @@ export default function PriceDistanceMetricCard({
           {distanceMeta.isAbove ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
           <span>{`${distanceMeta.deltaLabel} / ${distanceMeta.pctLabel} ${distanceMeta.spotRelationLabel}`}</span>
         </span>
-      ) : 'Awaiting underlying price context'}
+      ) : fallbackLabel}
       tooltip={tooltip}
       theme={theme}
       trend="neutral"

@@ -191,6 +191,12 @@ export default function GammaHeatmap() {
     .map((ts, idx) => {
       const value = gammaFlipByTs.get(ts);
       if (value == null || !Number.isFinite(value)) return null;
+      // Suppress out-of-axis values the same way NULL is suppressed:
+      // yForValue() clamps them to the plot edge, which renders the
+      // line lying along the top/bottom border and falsely implies the
+      // flip is sitting at that boundary. The honest rendering is a
+      // gap.
+      if (value < combinedMin || value > combinedMax) return null;
       return {
         idx,
         ts,
@@ -201,9 +207,21 @@ export default function GammaHeatmap() {
     })
     .filter((p): p is { idx: number; ts: string; x: number; y: number; value: number } => p !== null);
 
-  const gammaFlipPath = gammaFlipPoints
-    .map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-    .join(' ');
+  // Break the path across gaps (NULL or out-of-bounds timestamps)
+  // instead of bridging them with a straight L segment — the path
+  // previously joined neighbors across arbitrarily long gaps, drawing a
+  // fabricated level through unresolved cycles.
+  const gammaFlipPath = (() => {
+    if (gammaFlipPoints.length === 0) return '';
+    const parts: string[] = [];
+    let prevIdx = Number.NEGATIVE_INFINITY;
+    gammaFlipPoints.forEach((point) => {
+      const continuesSegment = point.idx === prevIdx + 1 && parts.length > 0;
+      parts.push(`${continuesSegment ? 'L' : 'M'} ${point.x} ${point.y}`);
+      prevIdx = point.idx;
+    });
+    return parts.join(' ');
+  })();
 
   const hoveredIndex = hoveredIdx ?? (derived.timestamps.length - 1);
   const hoveredTs = derived.timestamps[Math.max(0, Math.min(derived.timestamps.length - 1, hoveredIndex))];
