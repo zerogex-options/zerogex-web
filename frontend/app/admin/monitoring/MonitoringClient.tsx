@@ -19,6 +19,7 @@ type SignupPoint = {
   day: string;
   basic: number;
   pro: number;
+  disclaimer: number;
 };
 
 type Snapshot = {
@@ -34,12 +35,43 @@ type Snapshot = {
 
 type MetricKey = 'apiCalls' | 'pageAccesses' | 'uniqueUsers' | 'uniqueIps';
 
+// One brand color per row on this page. Order matches the rows below:
+// 1. User Signups (signups + disclaimer acceptance)
+// 2. API Calls
+// 3. Page Accesses
+// 4. Unique Users (Logged In)
+// 5. Unique Source IPs
+// 6. Top Source IPs
+// 7. Top Users
+const ROW_COLORS = {
+  signups: '#2c4875',
+  apiCalls: '#8a508f',
+  pageAccesses: '#bc5090',
+  uniqueUsers: '#ff6361',
+  uniqueIps: '#ff8531',
+  topIps: '#ffa600',
+  topUsers: '#ffd380',
+} as const;
+
 const METRICS: Array<{ key: MetricKey; title: string; color: string; description: string }> = [
-  { key: 'apiCalls', title: 'API Calls', color: 'var(--color-bull)', description: 'Total requests to /api/* per bucket.' },
-  { key: 'pageAccesses', title: 'Page Accesses', color: 'var(--color-positive)', description: 'Server-rendered page hits per bucket (excludes Next.js client-side route changes).' },
-  { key: 'uniqueUsers', title: 'Unique Users (Logged In)', color: 'var(--color-warning)', description: 'Distinct authenticated users active during the bucket.' },
-  { key: 'uniqueIps', title: 'Unique Source IPs', color: 'var(--color-bear)', description: 'Distinct client IPs observed during the bucket.' },
+  { key: 'apiCalls', title: 'API Calls', color: ROW_COLORS.apiCalls, description: 'Total requests to /api/* per bucket.' },
+  { key: 'pageAccesses', title: 'Page Accesses', color: ROW_COLORS.pageAccesses, description: 'Server-rendered page hits per bucket (excludes Next.js client-side route changes).' },
+  { key: 'uniqueUsers', title: 'Unique Users (Logged In)', color: ROW_COLORS.uniqueUsers, description: 'Distinct authenticated users active during the bucket.' },
+  { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
+
+// Mix a hex color with white by `amount` (0..1). Used to derive a second
+// shade of a row's brand color so stacked series stay visually distinct.
+function lighten(hex: string, amount: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  const nr = Math.round(r + (255 - r) * amount);
+  const ng = Math.round(g + (255 - g) * amount);
+  const nb = Math.round(b + (255 - b) * amount);
+  return `#${((1 << 24) | (nr << 16) | (ng << 8) | nb).toString(16).slice(1)}`;
+}
 
 function formatHourLabel(bucket: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(bucket);
@@ -115,14 +147,24 @@ export default function MonitoringClient() {
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic and Pro users; the latest sample overwrites today&apos;s point.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic and Pro users and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
         </div>
-        <SignupChartCard
-          data={data.signups}
-          cardBg={cardBg}
-          axisStroke={axisStroke}
-          mutedText={mutedText}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SignupChartCard
+            data={data.signups}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            brandColor={ROW_COLORS.signups}
+          />
+          <DisclaimerChartCard
+            data={data.signups}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            brandColor={ROW_COLORS.signups}
+          />
+        </div>
       </section>
 
       {METRICS.map((metric) => (
@@ -167,7 +209,7 @@ export default function MonitoringClient() {
             <RankedBarList
               items={data.topIps.map((row) => ({ key: row.ip, label: row.ip, count: row.count }))}
               max={topIpsMax}
-              color="var(--color-bear)"
+              color={ROW_COLORS.topIps}
               borderColor={borderColor}
               mutedText={mutedText}
               monoLabel
@@ -189,7 +231,7 @@ export default function MonitoringClient() {
                 count: row.count,
               }))}
               max={topUsersMax}
-              color="var(--color-warning)"
+              color={ROW_COLORS.topUsers}
               borderColor={borderColor}
               mutedText={mutedText}
             />
@@ -316,12 +358,12 @@ type SignupChartCardProps = {
   cardBg: string;
   axisStroke: string;
   mutedText: string;
+  brandColor: string;
 };
 
-const BASIC_COLOR = 'var(--color-warning)';
-const PRO_COLOR = 'var(--color-bull)';
-
-function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCardProps) {
+function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SignupChartCardProps) {
+  const proColor = brandColor;
+  const basicColor = lighten(brandColor, 0.45);
   const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0 };
   const total = latest.basic + latest.pro;
   return (
@@ -329,8 +371,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCar
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>Daily Total</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
-          <span><span style={{ color: PRO_COLOR }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
-          <span><span style={{ color: BASIC_COLOR }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
+          <span><span style={{ color: proColor }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
+          <span><span style={{ color: basicColor }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
           <span>Total: {total.toLocaleString()}</span>
         </div>
       </div>
@@ -367,8 +409,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCar
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div style={{ color: PRO_COLOR }}>Pro: {pro.toLocaleString()}</div>
-                      <div style={{ color: BASIC_COLOR }}>Basic: {basic.toLocaleString()}</div>
+                      <div style={{ color: proColor }}>Pro: {pro.toLocaleString()}</div>
+                      <div style={{ color: basicColor }}>Basic: {basic.toLocaleString()}</div>
                       <div className="mt-1">Total: {(basic + pro).toLocaleString()}</div>
                     </div>
                   );
@@ -385,9 +427,9 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCar
                 dataKey="basic"
                 name="Basic"
                 stackId="signups"
-                stroke={BASIC_COLOR}
-                fill={BASIC_COLOR}
-                fillOpacity={0.4}
+                stroke={basicColor}
+                fill={basicColor}
+                fillOpacity={0.5}
                 isAnimationActive={false}
               />
               <Area
@@ -395,9 +437,81 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText }: SignupChartCar
                 dataKey="pro"
                 name="Pro"
                 stackId="signups"
-                stroke={PRO_COLOR}
-                fill={PRO_COLOR}
-                fillOpacity={0.4}
+                stroke={proColor}
+                fill={proColor}
+                fillOpacity={0.5}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type DisclaimerChartCardProps = {
+  data: SignupPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  brandColor: string;
+};
+
+function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: DisclaimerChartCardProps) {
+  const latest = data.length > 0 ? data[data.length - 1] : { disclaimer: 0 };
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>Disclaimer Acceptance</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: brandColor }}>●</span> Accepted: {latest.disclaimer.toLocaleString()}</span>
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No disclaimer data captured yet.</div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const disclaimer = Number(payload.find((p) => p.dataKey === 'disclaimer')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div style={{ color: brandColor }}>Accepted: {disclaimer.toLocaleString()}</div>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="disclaimer"
+                name="Accepted"
+                stroke={brandColor}
+                fill={brandColor}
+                fillOpacity={0.5}
                 isAnimationActive={false}
               />
             </AreaChart>

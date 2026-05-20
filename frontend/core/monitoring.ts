@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getDb } from '@/core/db';
+import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
@@ -33,6 +34,7 @@ export type SignupPoint = {
   day: string;
   basic: number;
   pro: number;
+  disclaimer: number;
 };
 
 export type MonitoringSnapshot = {
@@ -308,9 +310,11 @@ function aggregateTopUsers(
   return top.map((t) => ({ userId: t.userId, email: emails.get(t.userId) ?? null, count: t.count }));
 }
 
+type SignupDay = { basic: number; pro: number; disclaimer: number };
+
 type SignupStoreShape = {
   version: 1;
-  days: Record<string, { basic: number; pro: number }>;
+  days: Record<string, SignupDay>;
 };
 
 function readSignupStore(): SignupStoreShape {
@@ -318,9 +322,13 @@ function readSignupStore(): SignupStoreShape {
     const raw = fs.readFileSync(SIGNUP_STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<SignupStoreShape>;
     if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
-      const days: Record<string, { basic: number; pro: number }> = {};
+      const days: Record<string, SignupDay> = {};
       for (const [k, v] of Object.entries(parsed.days)) {
-        days[k] = { basic: Number(v?.basic) || 0, pro: Number(v?.pro) || 0 };
+        days[k] = {
+          basic: Number(v?.basic) || 0,
+          pro: Number(v?.pro) || 0,
+          disclaimer: Number(v?.disclaimer) || 0,
+        };
       }
       return { version: 1, days };
     }
@@ -361,41 +369,52 @@ function currentTierCounts(): { basic: number; pro: number } {
   return counts;
 }
 
+// Total users who have acknowledged the CURRENT disclaimer version. Mirrors
+// the "Disclaimer" column in `make users`: stale acks against an older
+// version don't count once the wording has been materially updated.
+function currentDisclaimerCount(): number {
+  try {
+    const row = getDb()
+      .prepare(
+        `SELECT COUNT(*) AS c FROM users
+         WHERE disclaimer_acknowledged_at IS NOT NULL
+           AND disclaimer_version_acknowledged = ?`
+      )
+      .get(DISCLAIMER_VERSION) as { c?: number } | undefined;
+    return Number(row?.c) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 // One plot point per ET day. Re-sampling the same day overwrites that
 // day's point with the latest counts; a new point is only created once
 // the day rolls over. Days with no sample carry the prior day forward so
-// the area stays continuous.
+// the area stays continuous. The x-axis spans MAX_DAILY days back to match
+// the other daily charts on the page.
 function buildSignupSeries(now: Date): SignupPoint[] {
   const today = etBucketKeys(now).day;
   const store = readSignupStore();
   const counts = currentTierCounts();
+  const disclaimer = currentDisclaimerCount();
+  const sample: SignupDay = { basic: counts.basic, pro: counts.pro, disclaimer };
   const existing = store.days[today];
-  if (!existing || existing.basic !== counts.basic || existing.pro !== counts.pro) {
-    store.days[today] = counts;
+  if (
+    !existing ||
+    existing.basic !== sample.basic ||
+    existing.pro !== sample.pro ||
+    existing.disclaimer !== sample.disclaimer
+  ) {
+    store.days[today] = sample;
     writeSignupStore(store);
   }
 
-  const recordedDays = Object.keys(store.days).sort();
-  if (recordedDays.length === 0) return [];
-  const firstDay = recordedDays[0];
-
-  const seen = new Set<string>();
-  const descKeys: string[] = [];
-  for (let i = 0; i < 800; i++) {
-    const d = new Date(now.getTime() - i * 86400_000);
-    const key = etBucketKeys(d).day;
-    if (!seen.has(key)) {
-      seen.add(key);
-      descKeys.push(key);
-    }
-    if (key <= firstDay) break;
-  }
-
+  const dailyKeys = generateDailyKeys(now);
   const series: SignupPoint[] = [];
-  let last = { basic: 0, pro: 0 };
-  for (const day of descKeys.reverse()) {
+  let last: SignupDay = { basic: 0, pro: 0, disclaimer: 0 };
+  for (const day of dailyKeys) {
     if (store.days[day]) last = store.days[day];
-    series.push({ day, basic: last.basic, pro: last.pro });
+    series.push({ day, basic: last.basic, pro: last.pro, disclaimer: last.disclaimer });
   }
   return series;
 }
