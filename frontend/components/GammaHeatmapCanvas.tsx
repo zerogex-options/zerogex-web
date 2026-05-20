@@ -25,9 +25,21 @@ import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import { omitClosedMarketTimes } from '@/core/utils';
 
-interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
+interface GammaDataPoint {
+  timestamp: string;
+  strike: number;
+  net_gex: number;
+  gamma_flip?: number | null;
+  // Fraction of spot the resolver's grid spanned to land the flip
+  // (see backend gex_summary.gamma_flip_span_used).  Default-rung
+  // values (≈0.20) are rendered as a solid line; expansion-rung
+  // values are rendered dashed/faint so the chart doesn't suggest
+  // a marginal-rung flip is a live regime boundary.  Persisted on
+  // the lowest-strike row of each bucket only — the rest are NULL.
+  gamma_flip_span_used?: number | null;
+}
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
-interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; }
+interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; gamma_flip_span_used?: number | null; }
 
 type RGB = { r: number; g: number; b: number };
 const BEARISH: RGB = { r: 44, g: 72, b: 117 };   // negative GEX (cool)
@@ -295,23 +307,49 @@ export default function GammaHeatmapCanvas() {
     return { timestamps, minStrike, maxStrike, stride, matrix, clip };
   }, [gexData, maxPoints, priceData]);
 
+  // Threshold above which a cycle's gamma_flip_span_used (fraction of
+  // spot the resolver's grid spanned) is considered an "expansion
+  // rung" and rendered dashed instead of solid.  Mirrors the backend's
+  // first-rung default (GAMMA_PROFILE_SPAN_LADDER[0] = 0.20); the
+  // 0.205 margin tolerates float drift at the boundary.
+  const FLIP_DEFAULT_RUNG_MAX = 0.205;
+
   const gammaFlipByTs = useMemo(() => {
-    const fromHeatmap = new Map<string, number[]>();
+    // Per-timestamp aggregation: the backend emits the flip and its
+    // resolver-span on the lowest-strike row of each bucket only (all
+    // other strike rows carry NULL), so we collect non-NULL values and
+    // take the mean to be defensive against any future shape change
+    // where multiple rows in a bucket might carry the flip.
+    const flipsByTs = new Map<string, number[]>();
+    const spansByTs = new Map<string, number[]>();
     (gexData || []).forEach((row) => {
       if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-      const arr = fromHeatmap.get(row.timestamp) ?? [];
+      const arr = flipsByTs.get(row.timestamp) ?? [];
       arr.push(Number(row.gamma_flip));
-      fromHeatmap.set(row.timestamp, arr);
+      flipsByTs.set(row.timestamp, arr);
+      if (row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))) {
+        const sArr = spansByTs.get(row.timestamp) ?? [];
+        sArr.push(Number(row.gamma_flip_span_used));
+        spansByTs.set(row.timestamp, sArr);
+      }
     });
-    const result = new Map<string, number>();
-    fromHeatmap.forEach((vals, ts) => {
+    const result = new Map<string, { value: number; expanded: boolean }>();
+    flipsByTs.forEach((vals, ts) => {
       const avg = vals.reduce((s, v) => s + v, 0) / Math.max(1, vals.length);
-      result.set(ts, avg);
+      const spans = spansByTs.get(ts);
+      // No span info on a row (pre-rollout / unresolved): default to
+      // "not expanded" so the line renders solid — same shape as
+      // before the gamma_flip_span_used column existed.
+      const maxSpan = spans && spans.length > 0 ? Math.max(...spans) : 0;
+      result.set(ts, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
       (gexHistoricalData || []).forEach((row) => {
         if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-        result.set(row.timestamp, Number(row.gamma_flip));
+        const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
+          ? Number(row.gamma_flip_span_used)
+          : 0;
+        result.set(row.timestamp, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
       });
     }
     return result;
@@ -617,7 +655,16 @@ export default function GammaHeatmapCanvas() {
       });
     }
 
-    // Gamma flip line.
+    // Gamma flip line.  Drawn as TWO independent strokes:
+    //   * solid + full-opacity for default-rung cycles (live regime level)
+    //   * dashed + faint     for expansion-rung cycles (passed a wider
+    //     geometric search — flip is not at a near-spot regime
+    //     boundary; treat with caution).
+    // The two paths break at NULL/out-of-bounds points and ALSO at
+    // transitions between rung types, so a stretch of solid line never
+    // visually connects to a stretch of dashed line — that connection
+    // would imply a continuous regime when the resolver actually
+    // changed its qualifying scan.
     if (gammaFlipByTs.size > 0) {
       const flipColor = (() => {
         if (typeof window !== 'undefined') {
@@ -626,31 +673,55 @@ export default function GammaHeatmapCanvas() {
         }
         return colors.accent;
       })();
-      ctx.beginPath();
-      let started = false;
-      grid.timestamps.forEach((ts, i) => {
-        const v = gammaFlipByTs.get(ts);
-        // Break the line at missing/unresolved timestamps AND at values
-        // that fall outside the visible y-axis range. A NULL flip means
-        // the backend could not resolve a zero-gamma level for that
-        // cycle (degraded/one-sided chain); drawing through it would
-        // fabricate a level across unknown data. An out-of-bounds value
-        // is the analogous failure mode for a resolved-but-unactionable
-        // crossing — drawing it would render the line off the plot box
-        // (the SPX 2026-05-20 pathology where the resolved flip walked
-        // off the bottom while the dashboard's latest snapshot went
-        // NULL). Both are "this point is not safe to display" — gap it.
-        if (v == null || !Number.isFinite(v) || v < yMin || v > yMax) {
-          started = false;
-          return;
-        }
-        const py = yForStrike(v);
-        const px = PAD_L + (i + 0.5) * (plotW / T);
-        if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
-      });
+      const drawFlipPath = (expandedFilter: boolean) => {
+        ctx.beginPath();
+        let started = false;
+        grid.timestamps.forEach((ts, i) => {
+          const entry = gammaFlipByTs.get(ts);
+          const v = entry?.value;
+          // Break the line at missing/unresolved timestamps AND at
+          // values outside the visible y-axis range. A NULL flip means
+          // the backend could not resolve a zero-gamma level for that
+          // cycle (degraded/one-sided chain); drawing through it would
+          // fabricate a level across unknown data. An out-of-bounds
+          // value is the analogous failure mode for a
+          // resolved-but-unactionable crossing — drawing it would
+          // render the line off the plot box (the SPX 2026-05-20
+          // pathology). Also break when the cycle's rung type does
+          // not match this pass's filter, so the solid and dashed
+          // paths never visually merge across a resolver-mode change.
+          if (entry == null || v == null || !Number.isFinite(v) || v < yMin || v > yMax) {
+            started = false;
+            return;
+          }
+          if (entry.expanded !== expandedFilter) {
+            started = false;
+            return;
+          }
+          const py = yForStrike(v);
+          const px = PAD_L + (i + 0.5) * (plotW / T);
+          if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
+        });
+        ctx.stroke();
+      };
+
+      // Default-rung pass — solid, full opacity.
+      ctx.save();
+      ctx.setLineDash([]);
       ctx.lineWidth = 2.25;
+      ctx.globalAlpha = 1.0;
       ctx.strokeStyle = flipColor;
-      ctx.stroke();
+      drawFlipPath(false);
+      ctx.restore();
+
+      // Expansion-rung pass — dashed, half opacity.
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2.0;
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = flipColor;
+      drawFlipPath(true);
+      ctx.restore();
     }
 
     // Vertical color legend on the right edge.
@@ -1027,8 +1098,13 @@ export default function GammaHeatmapCanvas() {
                     {' '}C:{Number(tooltip.priceRow.close ?? tooltip.priceRow.open ?? 0).toFixed(2)}
                   </div>
                 )}
-                {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip) && (
-                  <div>Gamma Flip: ${tooltip.gammaFlip.toFixed(2)}</div>
+                {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip.value) && (
+                  <div>
+                    Gamma Flip: ${tooltip.gammaFlip.value.toFixed(2)}
+                    {tooltip.gammaFlip.expanded && (
+                      <span style={{ opacity: 0.7 }}> (expanded scan)</span>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1047,6 +1123,15 @@ export default function GammaHeatmapCanvas() {
               <line x1="0" x2="22" y1="3" y2="3" stroke="var(--accent-2)" strokeWidth="2.25" />
             </svg>
             <span style={{ color: textPrimary }}>Gamma Flip</span>
+          </span>
+          <span
+            className="flex items-center gap-1.5"
+            title="Dashed segments mark cycles where the default resolver scan (±20% of spot) found no near-spot regime boundary and the search expanded to ±35% / ±50%. Those expansion-rung flips are geometrically valid but live far from spot; treat them as marginal, not as the live regime level."
+          >
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--accent-2)" strokeWidth="2" strokeDasharray="6,4" opacity="0.55" />
+            </svg>
+            <span style={{ color: textPrimary }}>Gamma Flip (expanded scan)</span>
           </span>
         </div>
         </>

@@ -31,6 +31,13 @@ interface GEXSummaryRow {
   net_gex: number;
   net_gex_at_spot?: number | null;
   gamma_flip?: number | null;
+  // Fraction of spot the resolver's grid spanned to land the flip.
+  // ~0.20 = default rung (stable regime level).  Larger means the
+  // default rung had no qualifying interior crossing and the ladder
+  // fell through to an expansion rung — visually distinguished on
+  // the heatmap as a dashed/faint line so the chart doesn't suggest
+  // these marginal-rung values are live regime boundaries.
+  gamma_flip_span_used?: number | null;
   max_pain?: number | null;
   call_wall?: number | null;
   put_wall?: number | null;

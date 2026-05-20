@@ -15,9 +15,17 @@ import { omitClosedMarketTimes } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-interface GammaDataPoint { timestamp: string; strike: number; net_gex: number; gamma_flip?: number | null; }
+interface GammaDataPoint {
+  timestamp: string;
+  strike: number;
+  net_gex: number;
+  gamma_flip?: number | null;
+  // See GammaHeatmapCanvas.tsx for the rationale — dashed segments
+  // mark expansion-rung resolutions vs solid for default-rung.
+  gamma_flip_span_used?: number | null;
+}
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
-interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; }
+interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; gamma_flip_span_used?: number | null; }
 
 
 export default function GammaHeatmap() {
@@ -87,23 +95,38 @@ export default function GammaHeatmap() {
     return { cells, strikes, timestamps: sortedTimestamps };
   }, [activeGexData, maxPoints]);
 
+  // Mirror of FLIP_DEFAULT_RUNG_MAX in GammaHeatmapCanvas.tsx —
+  // GAMMA_PROFILE_SPAN_LADDER[0] = 0.20 on the backend; the 0.205
+  // margin tolerates float drift at the boundary.
+  const FLIP_DEFAULT_RUNG_MAX = 0.205;
+
   const gammaFlipByTs = useMemo(() => {
-    const fromHeatmap = new Map<string, number[]>();
+    const flipsByTs = new Map<string, number[]>();
+    const spansByTs = new Map<string, number[]>();
     activeGexData.forEach((row) => {
       if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
       const key = row.timestamp;
-      if (!fromHeatmap.has(key)) fromHeatmap.set(key, []);
-      fromHeatmap.get(key)!.push(Number(row.gamma_flip));
+      if (!flipsByTs.has(key)) flipsByTs.set(key, []);
+      flipsByTs.get(key)!.push(Number(row.gamma_flip));
+      if (row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))) {
+        if (!spansByTs.has(key)) spansByTs.set(key, []);
+        spansByTs.get(key)!.push(Number(row.gamma_flip_span_used));
+      }
     });
-    const result = new Map<string, number>();
-    fromHeatmap.forEach((vals, ts) => {
+    const result = new Map<string, { value: number; expanded: boolean }>();
+    flipsByTs.forEach((vals, ts) => {
       const avg = vals.reduce((sum, v) => sum + v, 0) / Math.max(1, vals.length);
-      result.set(ts, avg);
+      const spans = spansByTs.get(ts);
+      const maxSpan = spans && spans.length > 0 ? Math.max(...spans) : 0;
+      result.set(ts, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
       activeGexHistoricalData.forEach((row) => {
         if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-        result.set(row.timestamp, Number(row.gamma_flip));
+        const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
+          ? Number(row.gamma_flip_span_used)
+          : 0;
+        result.set(row.timestamp, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
       });
     }
     return result;
@@ -189,8 +212,9 @@ export default function GammaHeatmap() {
 
   const gammaFlipPoints = derived.timestamps
     .map((ts, idx) => {
-      const value = gammaFlipByTs.get(ts);
-      if (value == null || !Number.isFinite(value)) return null;
+      const entry = gammaFlipByTs.get(ts);
+      const value = entry?.value;
+      if (entry == null || value == null || !Number.isFinite(value)) return null;
       // Suppress out-of-axis values the same way NULL is suppressed:
       // yForValue() clamps them to the plot edge, which renders the
       // line lying along the top/bottom border and falsely implies the
@@ -203,25 +227,33 @@ export default function GammaHeatmap() {
         x: idx * cellWidth + plotLeft + cellWidth / 2,
         y: yForValue(value),
         value,
+        expanded: entry.expanded,
       };
     })
-    .filter((p): p is { idx: number; ts: string; x: number; y: number; value: number } => p !== null);
+    .filter((p): p is { idx: number; ts: string; x: number; y: number; value: number; expanded: boolean } => p !== null);
 
-  // Break the path across gaps (NULL or out-of-bounds timestamps)
-  // instead of bridging them with a straight L segment — the path
-  // previously joined neighbors across arbitrarily long gaps, drawing a
-  // fabricated level through unresolved cycles.
-  const gammaFlipPath = (() => {
-    if (gammaFlipPoints.length === 0) return '';
+  // Build TWO separate paths so default-rung and expansion-rung
+  // segments render with different stroke styles and never visually
+  // connect across a resolver-mode change.  See GammaHeatmapCanvas.tsx
+  // for the rationale: drawing a continuous line through a
+  // default→expansion transition would imply a continuous regime when
+  // the resolver actually changed its qualifying scan.
+  const buildFlipPath = (expandedFilter: boolean) => {
     const parts: string[] = [];
     let prevIdx = Number.NEGATIVE_INFINITY;
     gammaFlipPoints.forEach((point) => {
+      if (point.expanded !== expandedFilter) {
+        prevIdx = Number.NEGATIVE_INFINITY;
+        return;
+      }
       const continuesSegment = point.idx === prevIdx + 1 && parts.length > 0;
       parts.push(`${continuesSegment ? 'L' : 'M'} ${point.x} ${point.y}`);
       prevIdx = point.idx;
     });
     return parts.join(' ');
-  })();
+  };
+  const gammaFlipPath = buildFlipPath(false);
+  const gammaFlipPathExpanded = buildFlipPath(true);
 
   const hoveredIndex = hoveredIdx ?? (derived.timestamps.length - 1);
   const hoveredTs = derived.timestamps[Math.max(0, Math.min(derived.timestamps.length - 1, hoveredIndex))];
@@ -257,8 +289,13 @@ export default function GammaHeatmap() {
             {hoveredStrikeValue && (
               <div>Heatmap Net GEX (strike ${hoveredStrikeValue.strike.toFixed(0)}): {(hoveredStrikeValue.value / 1_000_000).toFixed(2)}M</div>
             )}
-            {hoveredGammaFlip != null && (
-              <div>Gamma Flip: ${hoveredGammaFlip.toFixed(2)}</div>
+            {hoveredGammaFlip != null && Number.isFinite(hoveredGammaFlip.value) && (
+              <div>
+                Gamma Flip: ${hoveredGammaFlip.value.toFixed(2)}
+                {hoveredGammaFlip.expanded && (
+                  <span style={{ opacity: 0.7 }}> (expanded scan)</span>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -375,9 +412,21 @@ export default function GammaHeatmap() {
             })}
           </g>
 
-          {gammaFlipPath && (
+          {(gammaFlipPath || gammaFlipPathExpanded) && (
             <g clipPath="url(#heatmapClip)">
-              <path d={gammaFlipPath} fill="none" stroke="var(--accent-2)" strokeWidth={2.25} />
+              {gammaFlipPath && (
+                <path d={gammaFlipPath} fill="none" stroke="var(--accent-2)" strokeWidth={2.25} />
+              )}
+              {gammaFlipPathExpanded && (
+                <path
+                  d={gammaFlipPathExpanded}
+                  fill="none"
+                  stroke="var(--accent-2)"
+                  strokeWidth={2}
+                  strokeDasharray="6,4"
+                  opacity={0.55}
+                />
+              )}
               {hoveredIdx != null && gammaFlipPoints
                 .filter((p) => p.idx === hoveredIdx)
                 .map((p) => (
