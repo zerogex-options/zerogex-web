@@ -85,6 +85,30 @@ function formatDayLabel(bucket: string): string {
   return `${Number(match[2])}/${Number(match[3])}`;
 }
 
+// Round a positive integer max up to a "nice" axis cap with evenly spaced
+// integer ticks (e.g. 90 -> cap 100 with ticks 0/25/50/75/100).
+function niceYScale(value: number): { max: number; ticks: number[] } {
+  if (value < 10) {
+    const max = Math.max(4, Math.ceil(value));
+    const ticks: number[] = [];
+    for (let i = 0; i <= max; i++) ticks.push(i);
+    return { max, ticks };
+  }
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  const normalized = value / magnitude;
+  let stepMul: number;
+  if (normalized <= 1) stepMul = 0.2;
+  else if (normalized <= 2) stepMul = 0.5;
+  else if (normalized <= 4) stepMul = 1;
+  else if (normalized <= 8) stepMul = 2;
+  else stepMul = 2.5;
+  const step = stepMul * magnitude;
+  const max = Math.ceil(value / step) * step;
+  const ticks: number[] = [];
+  for (let v = 0; v <= max + 1e-9; v += step) ticks.push(Math.round(v));
+  return { max, ticks };
+}
+
 export default function MonitoringClient() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -137,7 +161,9 @@ export default function MonitoringClient() {
 
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
-  const signupYMax = data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro), 0);
+  const signupYScale = niceYScale(
+    data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro), 0),
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -157,7 +183,7 @@ export default function MonitoringClient() {
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
-            yMax={signupYMax}
+            yScale={signupYScale}
           />
           <DisclaimerChartCard
             data={data.signups}
@@ -165,7 +191,7 @@ export default function MonitoringClient() {
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
-            yMax={signupYMax}
+            yScale={signupYScale}
           />
         </div>
       </section>
@@ -362,10 +388,10 @@ type SignupChartCardProps = {
   axisStroke: string;
   mutedText: string;
   brandColor: string;
-  yMax: number;
+  yScale: { max: number; ticks: number[] };
 };
 
-function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yMax }: SignupChartCardProps) {
+function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yScale }: SignupChartCardProps) {
   const proColor = brandColor;
   const basicColor = lighten(brandColor, 0.45);
   const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0 };
@@ -400,7 +426,9 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yMax
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 allowDecimals={false}
-                domain={[0, yMax || 1]}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                interval={0}
               />
               <Tooltip
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
@@ -461,10 +489,10 @@ type DisclaimerChartCardProps = {
   axisStroke: string;
   mutedText: string;
   brandColor: string;
-  yMax: number;
+  yScale: { max: number; ticks: number[] };
 };
 
-function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yMax }: DisclaimerChartCardProps) {
+function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yScale }: DisclaimerChartCardProps) {
   const latest = data.length > 0 ? data[data.length - 1] : { disclaimer: 0 };
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -494,7 +522,9 @@ function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor, 
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 allowDecimals={false}
-                domain={[0, yMax || 1]}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                interval={0}
               />
               <Tooltip
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
