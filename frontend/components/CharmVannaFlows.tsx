@@ -82,8 +82,28 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
   const maxAbs = Math.max(Math.abs(totalVanna), Math.abs(totalCharm), Math.abs(eodCharm), 1);
 
   const expansion = volExpansion?.expansion ?? null;
-  const volRiskLabel = expansion != null && expansion >= 60 ? 'High' : expansion != null && expansion >= 30 ? 'Medium' : 'Low';
-  const volRiskColor = volRiskLabel === 'High' ? colors.bearish : volRiskLabel === 'Medium' ? colors.warning : colors.muted;
+  // Distinct N/A state when the backend hasn't returned a value yet —
+  // previously this silently rendered "Low" with "GEX suppressing
+  // vol", which falsely implied a healthy reading on cycles where
+  // the signal was actually unavailable (404, pre-warmup, signal
+  // engine restart).  The classification is computed only when
+  // expansion is present; otherwise the label and its supporting
+  // copy explicitly say "no data".
+  let volRiskLabel: 'High' | 'Medium' | 'Low' | 'N/A';
+  if (expansion == null || !Number.isFinite(expansion)) {
+    volRiskLabel = 'N/A';
+  } else if (expansion >= 60) {
+    volRiskLabel = 'High';
+  } else if (expansion >= 30) {
+    volRiskLabel = 'Medium';
+  } else {
+    volRiskLabel = 'Low';
+  }
+  const volRiskColor = volRiskLabel === 'High'
+    ? colors.bearish
+    : volRiskLabel === 'Medium'
+      ? colors.warning
+      : colors.muted;
 
   const flowItems = [
     {
@@ -146,7 +166,13 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold" style={{ color: textColor }}>Vol expansion risk</div>
             <div className="text-xs" style={{ color: colors.muted }}>
-              {volRiskLabel === 'Low' ? 'GEX suppressing vol' : volRiskLabel === 'High' ? 'Vol breakout likely' : 'Moderate expansion risk'}
+              {volRiskLabel === 'N/A'
+                ? 'No expansion signal available'
+                : volRiskLabel === 'Low'
+                  ? 'GEX suppressing vol'
+                  : volRiskLabel === 'High'
+                    ? 'Vol breakout likely'
+                    : 'Moderate expansion risk'}
             </div>
           </div>
           <div className="text-sm font-bold italic whitespace-nowrap" style={{ color: volRiskColor }}>
@@ -159,14 +185,16 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
               backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
             }}
           >
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: volRiskLabel === 'High' ? '85%' : volRiskLabel === 'Medium' ? '50%' : '20%',
-                backgroundColor: volRiskColor,
-                opacity: 0.6,
-              }}
-            />
+            {volRiskLabel !== 'N/A' && (
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: volRiskLabel === 'High' ? '85%' : volRiskLabel === 'Medium' ? '50%' : '20%',
+                  backgroundColor: volRiskColor,
+                  opacity: 0.6,
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
