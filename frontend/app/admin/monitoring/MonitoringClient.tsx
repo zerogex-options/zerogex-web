@@ -137,6 +137,7 @@ export default function MonitoringClient() {
 
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
+  const signupYMax = data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro), 0);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -156,6 +157,7 @@ export default function MonitoringClient() {
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
+            yMax={signupYMax}
           />
           <DisclaimerChartCard
             data={data.signups}
@@ -163,6 +165,7 @@ export default function MonitoringClient() {
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
+            yMax={signupYMax}
           />
         </div>
       </section>
@@ -359,9 +362,10 @@ type SignupChartCardProps = {
   axisStroke: string;
   mutedText: string;
   brandColor: string;
+  yMax: number;
 };
 
-function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SignupChartCardProps) {
+function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yMax }: SignupChartCardProps) {
   const proColor = brandColor;
   const basicColor = lighten(brandColor, 0.45);
   const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0 };
@@ -396,6 +400,7 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: Si
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 allowDecimals={false}
+                domain={[0, yMax || 1]}
               />
               <Tooltip
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
@@ -456,9 +461,10 @@ type DisclaimerChartCardProps = {
   axisStroke: string;
   mutedText: string;
   brandColor: string;
+  yMax: number;
 };
 
-function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: DisclaimerChartCardProps) {
+function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yMax }: DisclaimerChartCardProps) {
   const latest = data.length > 0 ? data[data.length - 1] : { disclaimer: 0 };
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -488,6 +494,7 @@ function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 allowDecimals={false}
+                domain={[0, yMax || 1]}
               />
               <Tooltip
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
