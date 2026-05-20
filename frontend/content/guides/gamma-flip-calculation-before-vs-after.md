@@ -52,7 +52,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 
 ## After — Spot-shift dealer gamma profile
 
-*Commit 1731efc, 2026-05-18.*
+*2026-05-18.*
 
 **Procedure** — **_gamma_exposure_profile** in **src/analytics/main_engine.py**
 
@@ -64,7 +64,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 
 **Why this is correct.** This is the actual industry construction. The zero-gamma level is defined as the spot at which dealer gamma flips sign as the underlying moves — that can only be located by re-pricing gamma at each hypothetical spot, not by cumulating a single static snapshot value. Because the grid spans ±20% of spot rather than the ingested strike band, the flip resolves even when the zero-gamma level sits several percent away — directly fixing the flat-flip root cause.
 
-**Why DTE-weight.** The spot-shift rewrite fixed the range / stale-carry-forward failure, but on its own it did not address near-dated domination — re-greeking actually adds a colossal 1/√T gamma spike at a 0DTE strike, so a same-day OPEX wall would still pin the nearest-to-spot crossing to a strike irrelevant for any multi-day horizon (the original 751.82-vs-spot pathology). The horizon-occupancy ramp removes that pin: a same-day expiry (gone by today's close) barely counts toward a multi-day regime level, while longer-dated structure is unchanged. Applied inside the single shared profile, so the flip and net-GEX-at-spot stay sign-consistent. Lineage note: this is a distinct refinement (commit 62c70df, 2026-05-19), layered on the spot-shift rewrite (1731efc); the interim spot-shift version equal-weighted every expiration.
+**Why DTE-weight.** The spot-shift rewrite fixed the range / stale-carry-forward failure, but on its own it did not address near-dated domination — re-greeking actually adds a colossal 1/√T gamma spike at a 0DTE strike, so a same-day OPEX wall would still pin the nearest-to-spot crossing to a strike irrelevant for any multi-day horizon (the original 751.82-vs-spot pathology). The horizon-occupancy ramp removes that pin: a same-day expiry (gone by today's close) barely counts toward a multi-day regime level, while longer-dated structure is unchanged. Applied inside the single shared profile, so the flip and net-GEX-at-spot stay sign-consistent. Lineage note: this is a distinct refinement (2026-05-19), layered on the earlier spot-shift rewrite; the interim spot-shift version equal-weighted every expiration.
 
 **Configurable parameters**
 
@@ -77,7 +77,7 @@ Net effect: the flip now resolves correctly even when it sits well away from spo
 
 ## Degraded-chain handling
 
-*Commit f5c4ded, 2026-05-19.*
+*2026-05-19.*
 
 The interim version clamped the flip to the grid edge when the profile was one-signed across the entire ±20% grid. Investigation showed that, for a liquid chain, this primarily happens when the snapshot is degraded (stale feed / after-hours: ingestion nulls the Greeks, the snapshot query drops gamma-NULL rows, and the residual chain is one-sided) — not a genuine flip is far away. DTE weighting adds a second, by-design path — if the only zero crossing came purely from now-down-weighted near-dated mass, a healthy chain can also go one-signed and is likewise reported unresolved (NULL).
 
