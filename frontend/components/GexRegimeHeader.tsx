@@ -25,7 +25,7 @@ interface GexRegimeHeaderProps {
   onContextHorizonChange?: (horizon: 'intraday' | 'swing') => void;
 }
 
-type Regime = 'positive' | 'negative' | 'neutral';
+type Regime = 'positive' | 'negative' | 'neutral' | 'unresolved';
 
 // Spot within this fraction of the flip is genuinely "at the flip" — a real
 // regime-transition zone. ~0.25% of spot (≈ $1.85 on a $740 SPY). Anything
@@ -39,11 +39,19 @@ const AT_FLIP_BAND_PCT = 0.0025;
 // they are net short gamma (vol-amplifying, trending). It is NOT gated on
 // the sign of the chain-wide net-GEX total — doing so previously produced a
 // false "At the Flip" whenever the two disagreed.
+//
+// 'unresolved' is reserved for "the backend couldn't resolve a flip this
+// snapshot" (degraded chain / morning-open IV-spike artifact / etc).  It
+// is NOT the same as 'neutral' (spot genuinely sitting in the at-flip
+// band) — conflating them would have the scenario chip claim "At the Flip
+// (neutral, transition)" whenever the flip is missing, which is exactly
+// the misleading display the user reported.
 function detectRegime(
   gammaFlip: number | null | undefined,
   spotPrice: number | undefined,
 ): Regime {
-  if (gammaFlip == null || spotPrice == null || spotPrice <= 0) return 'neutral';
+  if (gammaFlip == null) return 'unresolved';
+  if (spotPrice == null || spotPrice <= 0) return 'unresolved';
   const rel = (spotPrice - gammaFlip) / spotPrice;
   if (Math.abs(rel) <= AT_FLIP_BAND_PCT) return 'neutral';
   return rel > 0 ? 'positive' : 'negative';
@@ -70,6 +78,13 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
     color: colors.primary,
     bgColor: 'var(--color-warning-soft)',
     borderColor: 'var(--color-warning)',
+  },
+  unresolved: {
+    badge: '? Gamma Regime',
+    label: 'Flip unresolved this snapshot',
+    color: colors.muted,
+    bgColor: 'var(--color-surface-subtle)',
+    borderColor: 'var(--color-border)',
   },
 };
 
