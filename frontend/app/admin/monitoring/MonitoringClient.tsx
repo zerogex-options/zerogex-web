@@ -409,8 +409,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: Si
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div style={{ color: proColor }}>Pro: {pro.toLocaleString()}</div>
-                      <div style={{ color: basicColor }}>Basic: {basic.toLocaleString()}</div>
+                      <div>Pro: {pro.toLocaleString()}</div>
+                      <div>Basic: {basic.toLocaleString()}</div>
                       <div className="mt-1">Total: {(basic + pro).toLocaleString()}</div>
                     </div>
                   );
@@ -500,7 +500,7 @@ function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div style={{ color: brandColor }}>Accepted: {disclaimer.toLocaleString()}</div>
+                      <div>Accepted: {disclaimer.toLocaleString()}</div>
                     </div>
                   );
                 }}
