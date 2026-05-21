@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Info } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
@@ -175,6 +175,42 @@ function matchesMinClass(absNotional: number, minClass: MinClassFilter): boolean
   return absNotional >= 0;
 }
 
+// Row props are all primitives so default shallow `memo` comparison skips
+// re-renders for existing rows on every data tick / sort change. Hover is
+// handled by a single delegated listener on the section — rows don't need
+// their own onMouseEnter/Leave.
+type SmartMoneyTableRowProps = {
+  rowKey: string;
+  time: string;
+  contract: string;
+  strike: string;
+  expiration: string;
+  dte: string;
+  optionLabel: string;
+  contracts: string;
+  notional: string;
+  notionalClass: string;
+  borderColor: string;
+};
+
+const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
+  rowKey, time, contract, strike, expiration, dte, optionLabel, contracts, notional, notionalClass, borderColor,
+}: SmartMoneyTableRowProps) {
+  return (
+    <tr data-smart-row-key={rowKey} className="border-b" style={{ borderColor }}>
+      <td className="py-2 px-2 font-mono">{time}</td>
+      <td className="py-2 px-2">{contract}</td>
+      <td className="py-2 px-2">{strike}</td>
+      <td className="py-2 px-2">{expiration}</td>
+      <td className="py-2 px-2">{dte}</td>
+      <td className="py-2 px-2 uppercase">{optionLabel}</td>
+      <td className="py-2 px-2 text-right">{contracts}</td>
+      <td className="py-2 px-2 text-right font-semibold">{notional}</td>
+      <td className="py-2 px-2">{notionalClass}</td>
+    </tr>
+  );
+});
+
 export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
@@ -182,6 +218,7 @@ export default function SmartMoneyPage() {
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
   const inputBg = 'var(--color-surface-subtle)';
   const inputBorder = 'var(--color-border)';
+  const rowBorderColor = `${inputBorder}66`;
   const inputColor = 'var(--color-text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
   const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
@@ -206,37 +243,49 @@ export default function SmartMoneyPage() {
   // Cross-pane hover sync uses direct DOM mutations instead of React state so
   // hovering a row never re-runs the parent component's render — that used to
   // re-render the ~4800 chart Cells and the entire table on every cursor move.
+  //
+  // Element lookup is O(1) via a Map<rowKey, Element[]> that's rebuilt once
+  // per render (in the effect below). The old code did querySelectorAll on
+  // every hover event, which scaled linearly with table size and caused the
+  // hover-lag/jumps users saw as the table grew.
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const currentHoveredKeyRef = useRef<string | null>(null);
+  const elementsByKeyRef = useRef<Map<string, Element[]>>(new Map());
   const applyHoverHighlight = useCallback((rowKey: string | null) => {
-    const root = sectionRef.current;
-    if (!root) return;
     const prev = currentHoveredKeyRef.current;
     if (prev === rowKey) return;
     if (prev) {
-      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(prev) : prev.replace(/"/g, '\\"');
-      root
-        .querySelectorAll(`[data-smart-row-key="${esc}"], [data-smart-cell-key="${esc}"]`)
-        .forEach((el) => el.removeAttribute('data-smart-hover'));
+      const prevEls = elementsByKeyRef.current.get(prev);
+      if (prevEls) for (const el of prevEls) el.removeAttribute('data-smart-hover');
     }
     if (rowKey) {
-      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(rowKey) : rowKey.replace(/"/g, '\\"');
-      root
-        .querySelectorAll(`[data-smart-row-key="${esc}"], [data-smart-cell-key="${esc}"]`)
-        .forEach((el) => el.setAttribute('data-smart-hover', 'true'));
+      const nextEls = elementsByKeyRef.current.get(rowKey);
+      if (nextEls) for (const el of nextEls) el.setAttribute('data-smart-hover', 'true');
     }
     currentHoveredKeyRef.current = rowKey;
   }, []);
-  // After the chart or table re-renders (e.g., new data tick), re-apply the
-  // current hover highlight since the new DOM nodes won't carry over the
-  // previous attribute.
+  // Table-row hovers use event delegation so the per-row React handlers (which
+  // used to allocate new closures for every row on every render) go away.
+  // Chart-bar hovers still come through Recharts' Bar onMouseEnter/Leave below.
   useEffect(() => {
-    if (currentHoveredKeyRef.current) {
-      const key = currentHoveredKeyRef.current;
-      currentHoveredKeyRef.current = null;
-      applyHoverHighlight(key);
-    }
-  });
+    const root = sectionRef.current;
+    if (!root) return;
+    const onMouseOver = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      const rowEl = target?.closest?.('[data-smart-row-key]');
+      if (rowEl) applyHoverHighlight(rowEl.getAttribute('data-smart-row-key'));
+    };
+    const onMouseOut = (e: MouseEvent) => {
+      const related = e.relatedTarget as Element | null;
+      if (!related?.closest?.('[data-smart-row-key]')) applyHoverHighlight(null);
+    };
+    root.addEventListener('mouseover', onMouseOver);
+    root.addEventListener('mouseout', onMouseOut);
+    return () => {
+      root.removeEventListener('mouseover', onMouseOver);
+      root.removeEventListener('mouseout', onMouseOut);
+    };
+  }, [applyHoverHighlight]);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
   const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
@@ -385,6 +434,78 @@ export default function SmartMoneyPage() {
     ),
     [smartMoneySessionChart],
   );
+
+  // Stable per-stack-segment shape factories. Hoisting these out of the JSX
+  // map() means Recharts sees the same `shape` function reference across
+  // renders, so it can skip recreating bar cells when only data changes.
+  const chartShapes = useMemo(() => {
+    return Array.from({ length: maxStackSegments }, (_, idx) => {
+      const metaKey = `blockMeta${idx + 1}`;
+      return function BlockShape(shapeProps: { x?: number; y?: number; width?: number; height?: number; payload?: Record<string, SmartMoneyBlockMeta | undefined> }) {
+        const meta = shapeProps.payload?.[metaKey];
+        const optionType = meta?.optionType;
+        const fill = optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
+        const x = Number(shapeProps.x ?? 0);
+        const y = Number(shapeProps.y ?? 0);
+        const width = Number(shapeProps.width ?? 0);
+        const height = Number(shapeProps.height ?? 0);
+        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+          return <g />;
+        }
+        return (
+          <rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            fill={fill}
+            fillOpacity={0.82}
+            data-smart-cell-key={meta?.rowKey || ''}
+          />
+        );
+      };
+    });
+  }, [maxStackSegments]);
+
+  const chartBarHandlers = useMemo(() => {
+    return Array.from({ length: maxStackSegments }, (_, idx) => {
+      const metaKey = `blockMeta${idx + 1}`;
+      return {
+        onMouseEnter: (data: { payload?: Record<string, SmartMoneyBlockMeta | undefined> }) => {
+          const meta = data?.payload?.[metaKey];
+          applyHoverHighlight(meta?.rowKey || null);
+        },
+        onMouseLeave: () => applyHoverHighlight(null),
+      };
+    });
+  }, [maxStackSegments, applyHoverHighlight]);
+
+  // After each render that adds/removes table rows or chart rects, rebuild
+  // the lookup Map so hover handlers can resolve rowKey -> Element[] in O(1).
+  // The previous implementation ran querySelectorAll on every cursor move,
+  // which scaled linearly with the table size — the source of the hover lag.
+  useEffect(() => {
+    const root = sectionRef.current;
+    if (!root) return;
+    const map = new Map<string, Element[]>();
+    const nodes = root.querySelectorAll('[data-smart-row-key], [data-smart-cell-key]');
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      const key = el.getAttribute('data-smart-row-key') || el.getAttribute('data-smart-cell-key');
+      if (!key) continue;
+      const arr = map.get(key);
+      if (arr) arr.push(el);
+      else map.set(key, [el]);
+    }
+    elementsByKeyRef.current = map;
+    // The previous hover target may have been a destroyed node, so re-paint
+    // the attribute on the fresh elements that share the same key.
+    const key = currentHoveredKeyRef.current;
+    if (key) {
+      const els = map.get(key);
+      if (els) for (const el of els) el.setAttribute('data-smart-hover', 'true');
+    }
+  }, [sortedSmartMoneyRows, smartMoneySessionChart, tableRowLimit, maxStackSegments]);
   // Build a sparse Map of timestamps that should render a tick label (either a
   // 30-min boundary, a new-day marker, or both). Recharts is told to render
   // ONLY these ticks via the `ticks` prop instead of iterating every minute,
@@ -546,51 +667,19 @@ export default function SmartMoneyPage() {
                         );
                       }}
                     />
-                    {Array.from({ length: maxStackSegments }).map((_, idx) => {
-                      // Custom shape: renders one <rect> per bar with a
-                      // `data-smart-cell-key` attribute so the row→chart hover
-                      // sync can highlight it via DOM mutation (no React
-                      // re-render of the entire chart on cursor moves).
-                      const shape = (shapeProps: { x?: number; y?: number; width?: number; height?: number; payload?: Record<string, SmartMoneyBlockMeta | undefined> }) => {
-                        const meta = shapeProps.payload?.[`blockMeta${idx + 1}`];
-                        const optionType = meta?.optionType;
-                        const fill = optionType === 'P' ? 'var(--color-negative)' : 'var(--color-positive)';
-                        const x = Number(shapeProps.x ?? 0);
-                        const y = Number(shapeProps.y ?? 0);
-                        const width = Number(shapeProps.width ?? 0);
-                        const height = Number(shapeProps.height ?? 0);
-                        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
-                          return <g />;
-                        }
-                        return (
-                          <rect
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            fill={fill}
-                            fillOpacity={0.82}
-                            data-smart-cell-key={meta?.rowKey || ''}
-                          />
-                        );
-                      };
-                      return (
-                        <Bar
-                          key={`block-${idx + 1}`}
-                          yAxisId="notional"
-                          dataKey={`block${idx + 1}`}
-                          stackId="notional"
-                          barSize={5}
-                          isAnimationActive={false}
-                          shape={shape}
-                          onMouseEnter={(data) => {
-                            const meta = (data?.payload as Record<string, SmartMoneyBlockMeta | undefined>)?.[`blockMeta${idx + 1}`];
-                            applyHoverHighlight(meta?.rowKey || null);
-                          }}
-                          onMouseLeave={() => applyHoverHighlight(null)}
-                        />
-                      );
-                    })}
+                    {chartShapes.map((shape, idx) => (
+                      <Bar
+                        key={`block-${idx + 1}`}
+                        yAxisId="notional"
+                        dataKey={`block${idx + 1}`}
+                        stackId="notional"
+                        barSize={5}
+                        isAnimationActive={false}
+                        shape={shape}
+                        onMouseEnter={chartBarHandlers[idx].onMouseEnter}
+                        onMouseLeave={chartBarHandlers[idx].onMouseLeave}
+                      />
+                    ))}
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -656,7 +745,30 @@ export default function SmartMoneyPage() {
                     );
                   })}
                 </tr></thead>
-                  <tbody>{sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => { const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start; const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--'; const optionType = String(row.option_type || '').toUpperCase(); const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--'; return <tr key={row.rowKey} data-smart-row-key={row.rowKey} className="border-b" onMouseEnter={() => applyHoverHighlight(row.rowKey)} onMouseLeave={() => applyHoverHighlight(null)} style={{ borderColor: `${inputBorder}66` }}><td className="py-2 px-2 font-mono">{t}</td><td className="py-2 px-2">{row.contract || '--'}</td><td className="py-2 px-2">{Number(row.strike || 0).toFixed(0)}</td><td className="py-2 px-2">{row.expiration || '--'}</td><td className="py-2 px-2">{row.dte ?? '--'}</td><td className="py-2 px-2 uppercase">{optionLabel}</td><td className="py-2 px-2 text-right">{Number(row.flow || 0).toLocaleString()}</td><td className="py-2 px-2 text-right font-semibold">${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M</td><td className="py-2 px-2">{row.notional_class || '--'}</td></tr>; })}</tbody></table>
+                  <tbody>
+                    {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
+                      const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
+                      const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--';
+                      const optionType = String(row.option_type || '').toUpperCase();
+                      const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--';
+                      return (
+                        <SmartMoneyTableRow
+                          key={row.rowKey}
+                          rowKey={row.rowKey}
+                          time={t}
+                          contract={row.contract || '--'}
+                          strike={Number(row.strike || 0).toFixed(0)}
+                          expiration={row.expiration || '--'}
+                          dte={row.dte != null ? String(row.dte) : '--'}
+                          optionLabel={optionLabel}
+                          contracts={Number(row.flow || 0).toLocaleString()}
+                          notional={`$${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M`}
+                          notionalClass={row.notional_class || '--'}
+                          borderColor={rowBorderColor}
+                        />
+                      );
+                    })}
+                  </tbody></table>
               </div>
               {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
             </>
