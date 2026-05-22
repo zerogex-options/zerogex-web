@@ -16,21 +16,32 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
-// Sample a tidy subset of the strikes inside the visible window so each
-// tick label lands on a real strike (not a recharts "nice number" like
-// 583.5). Aims for ~10 ticks; with fewer strikes than that, returns the
-// whole list so every visible strike is labelled.
-function selectStrikeTicks(strikes: number[]): number[] {
-  const TARGET = 10;
-  if (strikes.length === 0) return strikes;
-  if (strikes.length <= TARGET) return strikes;
-  const step = Math.max(1, Math.round(strikes.length / TARGET));
+// Pick a 1 / 2 / 5 × 10^k step that gives roughly `targetCount` ticks across
+// the given range. The same cadence as the y-axis helpers elsewhere — yields
+// labels like 580/585/590 rather than 581.5/583/584.5.
+function niceStep(range: number, targetCount: number): number {
+  if (!Number.isFinite(range) || range <= 0) return 1;
+  const rough = range / Math.max(1, targetCount);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / magnitude;
+  if (norm < 1.5) return 1 * magnitude;
+  if (norm < 3.5) return 2 * magnitude;
+  if (norm < 7.5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+// Generate evenly-spaced x-axis ticks across the visible strike range. Floor
+// at step=1 so we never sub-divide a strike.
+function selectStrikeTicks(visibleDomain: [number, number]): number[] {
+  const [lo, hi] = visibleDomain;
+  const range = hi - lo;
+  if (range <= 0) return [];
+  const step = Math.max(1, niceStep(range, 8));
+  const start = Math.ceil(lo / step) * step;
   const ticks: number[] = [];
-  for (let i = 0; i < strikes.length; i += step) {
-    ticks.push(strikes[i]);
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
   }
-  const last = strikes[strikes.length - 1];
-  if (ticks[ticks.length - 1] !== last) ticks.push(last);
   return ticks;
 }
 
@@ -256,18 +267,13 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
-  // Explicit ticks at real strike values so the labels read "584" / "585"
-  // rather than the interpolated half-strikes recharts would otherwise pick
-  // when the window narrows below its preferred tick step.
+  // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
+  // visible range) so every tick lands on a clean integer and minTickGap
+  // doesn't skip labels mid-axis.
   const xTicks = useMemo(() => {
     if (visibleDomain == null) return undefined;
-    const [lo, hi] = visibleDomain;
-    const inRange = chartData
-      .map((r) => r.strike)
-      .filter((s) => Number.isFinite(s) && s >= lo && s <= hi)
-      .sort((a, b) => a - b);
-    return selectStrikeTicks(inRange);
-  }, [chartData, visibleDomain]);
+    return selectStrikeTicks(visibleDomain);
+  }, [visibleDomain]);
 
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>

@@ -126,24 +126,20 @@ function formatStrike(value: number): string {
   return Math.round(value).toString();
 }
 
-// Sample a tidy subset of the strikes inside the visible window so each tick
-// label lands on a real strike (not a recharts "nice number" like 583.5).
-// Aims for ~10 ticks; with fewer strikes than that we just return all of
-// them so every strike is labelled.
-function selectStrikeTicks(strikes: number[]): number[] {
-  const TARGET = 10;
-  if (strikes.length === 0) return strikes;
-  if (strikes.length <= TARGET) return strikes;
-  const step = Math.max(1, Math.round(strikes.length / TARGET));
+// Generate evenly-spaced x-axis ticks across the visible strike range. Uses
+// the same 1/2/5 × 10^k cadence as the y-axis helper, so the labels read
+// 580/585/590 (range 30) or 580/600/620 (range 100) instead of recharts'
+// data-driven extremes. Floor at step=1 so we never sub-divide a strike.
+function selectStrikeTicks(visibleDomain: [number, number]): number[] {
+  const [lo, hi] = visibleDomain;
+  const range = hi - lo;
+  if (range <= 0) return [];
+  const step = Math.max(1, niceStep(range, 8));
+  const start = Math.ceil(lo / step) * step;
   const ticks: number[] = [];
-  for (let i = 0; i < strikes.length; i += step) {
-    ticks.push(strikes[i]);
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
   }
-  // Anchor the rightmost strike so the visible range's end always carries a
-  // label — otherwise an unlucky step lands the final tick well before the
-  // axis edge.
-  const last = strikes[strikes.length - 1];
-  if (ticks[ticks.length - 1] !== last) ticks.push(last);
   return ticks;
 }
 
@@ -414,18 +410,13 @@ export default function GexProfileChart({
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
-  // Explicit ticks at real strike values so labels read "584" / "585" rather
-  // than the interpolated "583.5" / "584.5" recharts would auto-pick when
-  // the window narrows below its preferred tick step.
+  // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
+  // visible range) so every tick lands on a clean integer and recharts'
+  // minTickGap doesn't skip labels mid-axis.
   const xTicks = useMemo(() => {
     if (visibleDomain == null) return undefined;
-    const [lo, hi] = visibleDomain;
-    const inRange = merged
-      .map((r) => r.strike)
-      .filter((s) => Number.isFinite(s) && s >= lo && s <= hi)
-      .sort((a, b) => a - b);
-    return selectStrikeTicks(inRange);
-  }, [merged, visibleDomain]);
+    return selectStrikeTicks(visibleDomain);
+  }, [visibleDomain]);
 
   // Two y-axes: the bars and Net GEX share the LEFT scale (per-strike
   // dealer dollar GEX), the spot-shift profile sits on the RIGHT scale
