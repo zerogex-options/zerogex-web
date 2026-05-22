@@ -77,6 +77,23 @@ interface GEXStrikeRow {
   distance_from_spot: number;
 }
 
+export interface GEXProfilePoint {
+  price: number;
+  gex: number;
+}
+
+export interface GEXProfileRow {
+  timestamp: string;
+  symbol: string;
+  spot_price: number;
+  span_pct?: number | null;
+  profile: GEXProfilePoint[];
+  gamma_flip?: number | null;
+  net_gex_at_spot?: number | null;
+  call_wall?: number | null;
+  put_wall?: number | null;
+}
+
 interface MarketQuoteRow {
   timestamp: string;
   symbol: string;
@@ -474,6 +491,10 @@ export function useGEXByStrike(
 
 export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<GEXWallsRow>(`/api/gex/walls?${symbolQuery(symbol)}`, { refreshInterval });
+}
+
+export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000) {
+  return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {

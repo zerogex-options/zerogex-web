@@ -15,6 +15,7 @@ import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
+import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeChart from '@/components/GexStrikeChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GexWallsChart from '@/components/GexWallsChart';
@@ -181,6 +182,22 @@ export default function GammaExposurePage() {
         netGexB: row.netGexM / 1000,
         callGexB: row.callGexM / 1000,
         putGexB: row.putGexM / 1000,
+      })),
+    [strikeData],
+  );
+
+  // Raw-dollar strike rows for the GEX Profile chart.  The /api/gex/profile
+  // endpoint returns the spot-shift curve in raw dollars per 1% move, so
+  // matching the per-strike bars to the same unit is what keeps the two
+  // y-axes commensurable (the profile axis is just an order-of-magnitude
+  // expansion of the bar axis — see GexProfileChart).
+  const profileStrikeData = useMemo(
+    () =>
+      strikeData.map((row) => ({
+        strike: row.strike,
+        netGex: row.netGexM * 1_000_000,
+        callGex: row.callGexM * 1_000_000,
+        putGex: row.putGexM * 1_000_000,
       })),
     [strikeData],
   );
@@ -370,6 +387,20 @@ export default function GammaExposurePage() {
             strikeData={chartStrikeData}
             gammaFlip={gexData?.gamma_flip}
             spotPrice={quoteData?.close}
+          />
+        </div>
+      </section>
+
+      {/* Section 3b: GEX Profile overlay — bars + spot-shift profile curve. */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
+          <GexProfileChart
+            symbol={symbol}
+            strikeData={profileStrikeData}
+            spotPrice={quoteData?.close}
+            gammaFlip={gexData?.gamma_flip}
+            callWall={gexData?.call_wall}
+            putWall={gexData?.put_wall}
           />
         </div>
       </section>
