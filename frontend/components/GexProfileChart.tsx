@@ -54,6 +54,27 @@ const NET_LINE_COLOR = '#94A3B8';
 // STRIKE) so the two stacked charts read as a cohesive pair.
 const BAR_SIZE = 14;
 
+// Vertical stagger (`dy`, in px, relative to the natural `position: 'top'`
+// anchor) for the reference-line labels.  All four lines (Spot, Flip,
+// Call Wall, Put Wall) sit at `position: 'top'`, which collapses their
+// labels onto the same y when two strikes are close (e.g. Spot and Call
+// Wall a couple of dollars apart).  Assigning each label its own row —
+// 12px apart, fits within the 10px font + 2px gap — guarantees they
+// stack neatly regardless of horizontal proximity.
+//
+// Order matches what a trader reads naturally: Spot in the eye-line
+// closest to the plot top, with the directional walls bracketing it and
+// Flip up top as the broader regime context.
+const REF_LABEL_STAGGER = {
+  putWall: -12,
+  flip: -36,
+  spot: 0,
+  callWall: -24,
+} as const;
+// Top margin reserved for the stagger.  -36 is the highest dy used; add
+// ~14px so even the topmost label has clearance from the chart bezel.
+const REF_LABEL_TOP_MARGIN = 48;
+
 function formatExposure(value: number): string {
   const abs = Math.abs(value);
   if (!Number.isFinite(value) || abs === 0) return '0';
@@ -389,8 +410,13 @@ export default function GexProfileChart({
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
                   clear separation between them.  Outer margin is small
-                  because the YAxis width is doing the spacing work. */}
-              <ComposedChart data={merged} margin={{ top: 16, right: 16, left: 16, bottom: 8 }}>
+                  because the YAxis width is doing the spacing work.
+                  Top margin is enlarged to hold the staggered
+                  reference-line labels (see REF_LABEL_STAGGER). */}
+              <ComposedChart
+                data={merged}
+                margin={{ top: REF_LABEL_TOP_MARGIN, right: 16, left: 16, bottom: 8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.5} />
                 <XAxis
                   dataKey="strike"
@@ -510,6 +536,7 @@ export default function GexProfileChart({
                     label={{
                       value: `Spot: ${formatStrike(spotPrice)}`,
                       position: 'top',
+                      dy: REF_LABEL_STAGGER.spot,
                       fill: '#06B6D4',
                       fontSize: 10,
                     }}
@@ -524,6 +551,7 @@ export default function GexProfileChart({
                     label={{
                       value: `Flip: ${formatStrike(gammaFlip)}`,
                       position: 'top',
+                      dy: REF_LABEL_STAGGER.flip,
                       fill: colors.warning,
                       fontSize: 10,
                     }}
@@ -538,6 +566,7 @@ export default function GexProfileChart({
                     label={{
                       value: `Call Wall: ${formatStrike(callWall)}`,
                       position: 'top',
+                      dy: REF_LABEL_STAGGER.callWall,
                       fill: colors.bullish,
                       fontSize: 10,
                     }}
@@ -552,6 +581,7 @@ export default function GexProfileChart({
                     label={{
                       value: `Put Wall: ${formatStrike(putWall)}`,
                       position: 'top',
+                      dy: REF_LABEL_STAGGER.putWall,
                       fill: colors.bearish,
                       fontSize: 10,
                     }}
