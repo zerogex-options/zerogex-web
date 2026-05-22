@@ -8,12 +8,12 @@ import { colors } from '@/core/colors';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-// X-axis zoom bounds. 1× fits the full strike chain inside the card; values
-// above 1 widen the chart and surface a horizontal scrollbar.
-const X_ZOOM_MIN = 1;
-const X_ZOOM_MAX = 6;
+// Each zoom click narrows / widens the visible strike range by this factor.
+// 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
+// click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
 interface OpenInterestRow {
@@ -167,20 +167,76 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return closest.strike;
   }, [spot, chartData]);
 
-  // X-axis zoom. Default of 1 fits the full strike chain inside the card;
-  // each zoom step widens the chart and preserves the visible center so the
-  // strike under the user's eye stays put (handled by MobileScrollableChart).
-  const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
+  // The full strike range available in the filtered data — the boundary of
+  // how far out the user can pan / zoom out.
+  const fullStrikeDomain = useMemo<[number, number] | null>(() => {
+    if (chartData.length === 0) return null;
+    const strikes = chartData.map((r) => r.strike).filter((s) => Number.isFinite(s));
+    if (strikes.length === 0) return null;
+    return [Math.min(...strikes), Math.max(...strikes)];
+  }, [chartData]);
+
+  // visibleDomain controls ONLY which slice of strikes the XAxis renders;
+  // the chart container width and the YAxis stay put. `null` until data
+  // arrives, then initialised to the full range (zoomed out).
+  const [visibleDomain, setVisibleDomain] = useState<[number, number] | null>(null);
+
+  if (fullStrikeDomain != null) {
+    if (visibleDomain == null) {
+      setVisibleDomain(fullStrikeDomain);
+    } else if (
+      visibleDomain[0] < fullStrikeDomain[0] ||
+      visibleDomain[1] > fullStrikeDomain[1]
+    ) {
+      const start = Math.max(fullStrikeDomain[0], visibleDomain[0]);
+      const end = Math.min(fullStrikeDomain[1], visibleDomain[1]);
+      if (end > start) setVisibleDomain([start, end]);
+    }
+  }
 
   const handleZoomIn = () => {
-    setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
+    if (!visibleDomain || !fullStrikeDomain) return;
+    const [start, end] = visibleDomain;
+    const center = (start + end) / 2;
+    const newHalfWidth = (end - start) / 2 / X_ZOOM_STEP;
+    let newStart = center - newHalfWidth;
+    let newEnd = center + newHalfWidth;
+    newStart = Math.max(fullStrikeDomain[0], newStart);
+    newEnd = Math.min(fullStrikeDomain[1], newEnd);
+    const fullSpan = fullStrikeDomain[1] - fullStrikeDomain[0];
+    const minSpan = Math.max(1, fullSpan * 0.02);
+    if (newEnd - newStart < minSpan) return;
+    setVisibleDomain([newStart, newEnd]);
   };
+
   const handleZoomOut = () => {
-    setXZoom((z) => Math.max(z / X_ZOOM_STEP, X_ZOOM_MIN));
+    if (!visibleDomain || !fullStrikeDomain) return;
+    const [start, end] = visibleDomain;
+    const center = (start + end) / 2;
+    const newHalfWidth = ((end - start) / 2) * X_ZOOM_STEP;
+    let newStart = center - newHalfWidth;
+    let newEnd = center + newHalfWidth;
+    if (newStart < fullStrikeDomain[0]) {
+      newStart = fullStrikeDomain[0];
+      newEnd = Math.min(fullStrikeDomain[1], newStart + 2 * newHalfWidth);
+    }
+    if (newEnd > fullStrikeDomain[1]) {
+      newEnd = fullStrikeDomain[1];
+      newStart = Math.max(fullStrikeDomain[0], newEnd - 2 * newHalfWidth);
+    }
+    setVisibleDomain([newStart, newEnd]);
   };
+
   const handleResetView = () => {
-    setXZoom(X_ZOOM_MIN);
+    if (!fullStrikeDomain) return;
+    setVisibleDomain(fullStrikeDomain);
   };
+
+  const isFullyZoomedOut =
+    visibleDomain != null &&
+    fullStrikeDomain != null &&
+    visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
+    visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
@@ -223,8 +279,8 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               <button
                 type="button"
                 onClick={handleZoomOut}
-                disabled={xZoom <= X_ZOOM_MIN + 1e-6}
-                title="Zoom out strike range"
+                disabled={isFullyZoomedOut}
+                title="Zoom out (widen visible strike range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
@@ -233,8 +289,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               <button
                 type="button"
                 onClick={handleZoomIn}
-                disabled={xZoom >= X_ZOOM_MAX - 1e-6}
-                title="Zoom in strike range (chart becomes scrollable)"
+                title="Zoom in (narrow visible strike range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
               >
@@ -243,8 +298,9 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               <button
                 type="button"
                 onClick={handleResetView}
-                title="Reset zoom and re-center on spot"
-                className="px-2 py-1 text-xs"
+                disabled={isFullyZoomedOut}
+                title="Reset to full strike range"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
               >
                 <RotateCcw size={12} />
@@ -296,11 +352,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             No open-interest data available for the selected expiration.
           </div>
         ) : (
-          <MobileScrollableChart zoomLevel={xZoom}>
+          <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${Number(v).toFixed(0)}`} minTickGap={22} />
+                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${Number(v).toFixed(0)}`} minTickGap={22} />
                 <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
@@ -313,6 +369,15 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               </ComposedChart>
             </ResponsiveContainer>
           </MobileScrollableChart>
+        )}
+        {chartData.length > 0 && visibleDomain && fullStrikeDomain && (
+          <div className="mt-2 px-2">
+            <StrikeRangeScrollbar
+              visibleDomain={visibleDomain}
+              fullDomain={fullStrikeDomain}
+              onChange={setVisibleDomain}
+            />
+          </div>
         )}
       </div>
     </ExpandableCard>

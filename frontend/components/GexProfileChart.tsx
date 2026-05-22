@@ -21,11 +21,11 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 
-// X-axis zoom bounds. 1× fits the full strike chain inside the card; values
-// above 1 widen the chart and surface a horizontal scrollbar.
-const X_ZOOM_MIN = 1;
-const X_ZOOM_MAX = 6;
+// Each zoom click narrows / widens the visible strike range by this factor.
+// 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
+// click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
 interface StrikeRow {
@@ -313,20 +313,85 @@ export default function GexProfileChart({
     return mergeProfileWithStrikes(strikeData, profile);
   }, [strikeData, profileData?.profile]);
 
-  // X-axis zoom. Default of 1 fits the full strike chain inside the card;
-  // each zoom step widens the chart and preserves the visible center so the
-  // strike under the user's eye stays put (handled by MobileScrollableChart).
-  const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
+  // The full strike range available in the data — the boundary of how far
+  // out the user can pan / zoom out. Recomputed from merged so it stays in
+  // step with the option chain (rarely changes intraday).
+  const fullStrikeDomain = useMemo<[number, number] | null>(() => {
+    if (merged.length === 0) return null;
+    const strikes = merged.map((r) => r.strike).filter((s) => Number.isFinite(s));
+    if (strikes.length === 0) return null;
+    return [Math.min(...strikes), Math.max(...strikes)];
+  }, [merged]);
+
+  // visibleDomain controls ONLY which slice of strikes the XAxis renders.
+  // The chart container stays the same width and the YAxis stays pinned —
+  // changing the domain just shifts/narrows which strikes appear inside it.
+  // `null` means "no data yet"; once data lands we initialise to the full
+  // range so the chart starts zoomed out.
+  const [visibleDomain, setVisibleDomain] = useState<[number, number] | null>(null);
+
+  // Adjust state during render to initialise / expand the bounds when the
+  // option chain grows. We deliberately don't shrink visibleDomain on
+  // out-of-range — the user's chosen window is what they want to see.
+  if (fullStrikeDomain != null) {
+    if (visibleDomain == null) {
+      setVisibleDomain(fullStrikeDomain);
+    } else if (
+      visibleDomain[0] < fullStrikeDomain[0] ||
+      visibleDomain[1] > fullStrikeDomain[1]
+    ) {
+      // Clamp window inside the (possibly shrunk) full range.
+      const start = Math.max(fullStrikeDomain[0], visibleDomain[0]);
+      const end = Math.min(fullStrikeDomain[1], visibleDomain[1]);
+      if (end > start) setVisibleDomain([start, end]);
+    }
+  }
 
   const handleZoomIn = () => {
-    setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
+    if (!visibleDomain || !fullStrikeDomain) return;
+    const [start, end] = visibleDomain;
+    const center = (start + end) / 2;
+    const newHalfWidth = (end - start) / 2 / X_ZOOM_STEP;
+    let newStart = center - newHalfWidth;
+    let newEnd = center + newHalfWidth;
+    newStart = Math.max(fullStrikeDomain[0], newStart);
+    newEnd = Math.min(fullStrikeDomain[1], newEnd);
+    // Don't let the window collapse to nothing — leave at least a few
+    // strikes worth of room so the chart remains readable.
+    const fullSpan = fullStrikeDomain[1] - fullStrikeDomain[0];
+    const minSpan = Math.max(1, fullSpan * 0.02);
+    if (newEnd - newStart < minSpan) return;
+    setVisibleDomain([newStart, newEnd]);
   };
+
   const handleZoomOut = () => {
-    setXZoom((z) => Math.max(z / X_ZOOM_STEP, X_ZOOM_MIN));
+    if (!visibleDomain || !fullStrikeDomain) return;
+    const [start, end] = visibleDomain;
+    const center = (start + end) / 2;
+    const newHalfWidth = ((end - start) / 2) * X_ZOOM_STEP;
+    let newStart = center - newHalfWidth;
+    let newEnd = center + newHalfWidth;
+    if (newStart < fullStrikeDomain[0]) {
+      newStart = fullStrikeDomain[0];
+      newEnd = Math.min(fullStrikeDomain[1], newStart + 2 * newHalfWidth);
+    }
+    if (newEnd > fullStrikeDomain[1]) {
+      newEnd = fullStrikeDomain[1];
+      newStart = Math.max(fullStrikeDomain[0], newEnd - 2 * newHalfWidth);
+    }
+    setVisibleDomain([newStart, newEnd]);
   };
+
   const handleResetView = () => {
-    setXZoom(X_ZOOM_MIN);
+    if (!fullStrikeDomain) return;
+    setVisibleDomain(fullStrikeDomain);
   };
+
+  const isFullyZoomedOut =
+    visibleDomain != null &&
+    fullStrikeDomain != null &&
+    visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
+    visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
   // Two y-axes: the bars and Net GEX share the LEFT scale (per-strike
   // dealer dollar GEX), the spot-shift profile sits on the RIGHT scale
@@ -393,8 +458,8 @@ export default function GexProfileChart({
               <button
                 type="button"
                 onClick={handleZoomOut}
-                disabled={xZoom <= X_ZOOM_MIN + 1e-6}
-                title="Zoom out strike range"
+                disabled={isFullyZoomedOut}
+                title="Zoom out (widen visible strike range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
@@ -403,8 +468,7 @@ export default function GexProfileChart({
               <button
                 type="button"
                 onClick={handleZoomIn}
-                disabled={xZoom >= X_ZOOM_MAX - 1e-6}
-                title="Zoom in strike range (chart becomes scrollable)"
+                title="Zoom in (narrow visible strike range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
@@ -413,8 +477,9 @@ export default function GexProfileChart({
               <button
                 type="button"
                 onClick={handleResetView}
-                title="Reset zoom and re-center on spot"
-                className="px-2 py-1 text-xs"
+                disabled={isFullyZoomedOut}
+                title="Reset to full strike range"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
                 <RotateCcw size={12} />
@@ -460,7 +525,7 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <MobileScrollableChart zoomLevel={xZoom}>
+          <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
@@ -476,7 +541,8 @@ export default function GexProfileChart({
                 <XAxis
                   dataKey="strike"
                   type="number"
-                  domain={['dataMin', 'dataMax']}
+                  domain={visibleDomain ?? ['dataMin', 'dataMax']}
+                  allowDataOverflow
                   padding={{ left: 8, right: 8 }}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
@@ -645,6 +711,15 @@ export default function GexProfileChart({
               </ComposedChart>
             </ResponsiveContainer>
           </MobileScrollableChart>
+        )}
+        {hasData && visibleDomain && fullStrikeDomain && (
+          <div className="mt-2 px-2">
+            <StrikeRangeScrollbar
+              visibleDomain={visibleDomain}
+              fullDomain={fullStrikeDomain}
+              onChange={setVisibleDomain}
+            />
+          </div>
         )}
       </div>
     </ExpandableCard>
