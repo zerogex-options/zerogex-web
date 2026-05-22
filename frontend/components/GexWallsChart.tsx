@@ -16,6 +16,24 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
+// Sample a tidy subset of the strikes inside the visible window so each
+// tick label lands on a real strike (not a recharts "nice number" like
+// 583.5). Aims for ~10 ticks; with fewer strikes than that, returns the
+// whole list so every visible strike is labelled.
+function selectStrikeTicks(strikes: number[]): number[] {
+  const TARGET = 10;
+  if (strikes.length === 0) return strikes;
+  if (strikes.length <= TARGET) return strikes;
+  const step = Math.max(1, Math.round(strikes.length / TARGET));
+  const ticks: number[] = [];
+  for (let i = 0; i < strikes.length; i += step) {
+    ticks.push(strikes[i]);
+  }
+  const last = strikes[strikes.length - 1];
+  if (ticks[ticks.length - 1] !== last) ticks.push(last);
+  return ticks;
+}
+
 interface OpenInterestRow {
   strike?: number | string;
   expiration?: string;
@@ -238,6 +256,19 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
+  // Explicit ticks at real strike values so the labels read "584" / "585"
+  // rather than the interpolated half-strikes recharts would otherwise pick
+  // when the window narrows below its preferred tick step.
+  const xTicks = useMemo(() => {
+    if (visibleDomain == null) return undefined;
+    const [lo, hi] = visibleDomain;
+    const inRange = chartData
+      .map((r) => r.strike)
+      .filter((s) => Number.isFinite(s) && s >= lo && s <= hi)
+      .sort((a, b) => a - b);
+    return selectStrikeTicks(inRange);
+  }, [chartData, visibleDomain]);
+
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
@@ -356,7 +387,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${Number(v).toFixed(0)}`} minTickGap={22} />
+                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
                 <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
