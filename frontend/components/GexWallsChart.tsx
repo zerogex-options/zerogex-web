@@ -317,8 +317,8 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call Exposure'} fill={colors.bullish} opacity={1} barSize={14} isAnimationActive={false} />
-                <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put Exposure'} fill={colors.bearish} opacity={1} barSize={14} isAnimationActive={false} />
+                <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call Exposure'} fill={colors.bullish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put Exposure'} fill={colors.bearish} opacity={1} barSize={14} />
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
