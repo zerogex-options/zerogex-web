@@ -313,35 +313,10 @@ export default function GexProfileChart({
     return mergeProfileWithStrikes(strikeData, profile);
   }, [strikeData, profileData?.profile]);
 
-  // X-axis zoom + initial center. The fraction is captured ONCE when the
-  // merged data first contains a strike near spot, then held stable — re-
-  // computing it on every parent render (1s quote ticks) would re-fire the
-  // wrapper's scroll effect and jump the view as the user reads the chart.
-  // Cleared by Reset, then re-captured on the next render.
+  // X-axis zoom. Default of 1 fits the full strike chain inside the card;
+  // each zoom step widens the chart and preserves the visible center so the
+  // strike under the user's eye stays put (handled by MobileScrollableChart).
   const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
-  const [centerFraction, setCenterFraction] = useState<number | null>(null);
-
-  // "Adjust state during render" — React's recommended pattern for one-shot
-  // derived state. The guard prevents an infinite loop, and the setter only
-  // fires until the fraction is captured (or after a Reset).
-  if (
-    centerFraction == null &&
-    spotPrice != null &&
-    Number.isFinite(spotPrice) &&
-    merged.length > 0
-  ) {
-    let closestIdx = 0;
-    let bestDist = Infinity;
-    merged.forEach((row, i) => {
-      const d = Math.abs(row.strike - spotPrice);
-      if (d < bestDist) {
-        bestDist = d;
-        closestIdx = i;
-      }
-    });
-    const fraction = merged.length > 1 ? closestIdx / (merged.length - 1) : 0.5;
-    setCenterFraction(fraction);
-  }
 
   const handleZoomIn = () => {
     setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
@@ -351,10 +326,6 @@ export default function GexProfileChart({
   };
   const handleResetView = () => {
     setXZoom(X_ZOOM_MIN);
-    // Clearing the fraction triggers the effect above to re-capture from the
-    // current spot — covers the case where spot has drifted far enough that
-    // the original center is no longer near the current price.
-    setCenterFraction(null);
   };
 
   // Two y-axes: the bars and Net GEX share the LEFT scale (per-strike
@@ -489,7 +460,7 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <MobileScrollableChart zoomLevel={xZoom} centerFraction={centerFraction}>
+          <MobileScrollableChart zoomLevel={xZoom}>
             <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of

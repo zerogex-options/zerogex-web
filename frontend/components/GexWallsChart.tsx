@@ -167,22 +167,10 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return closest.strike;
   }, [spot, chartData]);
 
-  // X-axis zoom + initial center. The fraction is captured ONCE per refresh
-  // (cleared by Reset) so the scroll position doesn't jump as live quotes
-  // tick — the user's manual scroll is preserved between updates.
+  // X-axis zoom. Default of 1 fits the full strike chain inside the card;
+  // each zoom step widens the chart and preserves the visible center so the
+  // strike under the user's eye stays put (handled by MobileScrollableChart).
   const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
-  const [centerFraction, setCenterFraction] = useState<number | null>(null);
-
-  // "Adjust state during render" — React's recommended pattern for one-shot
-  // derived state. Once the fraction is captured the guard keeps the setter
-  // from re-firing until Reset clears it.
-  if (centerFraction == null && closestStrike != null && chartData.length > 0) {
-    const idx = chartData.findIndex((row) => row.strike === closestStrike);
-    if (idx >= 0) {
-      const fraction = chartData.length > 1 ? idx / (chartData.length - 1) : 0.5;
-      setCenterFraction(fraction);
-    }
-  }
 
   const handleZoomIn = () => {
     setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
@@ -192,7 +180,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   };
   const handleResetView = () => {
     setXZoom(X_ZOOM_MIN);
-    setCenterFraction(null);
   };
 
   const renderLegend = () => (
@@ -309,7 +296,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             No open-interest data available for the selected expiration.
           </div>
         ) : (
-          <MobileScrollableChart zoomLevel={xZoom} centerFraction={centerFraction}>
+          <MobileScrollableChart zoomLevel={xZoom}>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
