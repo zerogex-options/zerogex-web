@@ -64,6 +64,36 @@ function formatExposure(value: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
+interface Denomination {
+  divisor: number;
+  suffix: string;
+}
+
+// Pick the denomination off the LARGER of the two axes (typically the
+// profile axis — each profile point integrates the full chain) so both
+// y-axes can share it.  Mixing M and B on stacked axes makes "is the
+// profile bigger than the bars?" require mental arithmetic; one suffix
+// makes the comparison visual.
+function pickSharedDenomination(maxAbs: number): Denomination {
+  if (maxAbs >= 1e9) return { divisor: 1e9, suffix: 'B' };
+  if (maxAbs >= 1e6) return { divisor: 1e6, suffix: 'M' };
+  if (maxAbs >= 1e3) return { divisor: 1e3, suffix: 'K' };
+  return { divisor: 1, suffix: '' };
+}
+
+function formatTick(value: number, denom: Denomination): string {
+  if (!Number.isFinite(value)) return '';
+  if (value === 0) return '0';
+  const scaled = value / denom.divisor;
+  const abs = Math.abs(scaled);
+  // 1 decimal place keeps the labels uniform width and matches the
+  // user-visible style ($0.5B, $1.0B, $2.5B).  Drop to whole numbers
+  // once we're past 10× the denomination so we don't overrun the axis
+  // with redundant trailing zeros ("$12.0B" → "$12B").
+  const text = abs >= 10 ? abs.toFixed(0) : abs.toFixed(1);
+  return `${scaled < 0 ? '-' : ''}$${text}${denom.suffix}`;
+}
+
 function formatStrike(value: number): string {
   if (!Number.isFinite(value)) return '';
   return value >= 1000 ? value.toFixed(0) : value.toFixed(2);
@@ -266,7 +296,7 @@ export default function GexProfileChart({
   // Both axes use symmetric nice-stepped ticks (1/2/5 × 10^k) so the
   // labels read $1B, $2B, $3B etc. instead of the data-driven extremes
   // recharts would otherwise pick (e.g. $884.1M, -$1.1B).
-  const { strikeTicks, strikeDomain, profileTicks, profileDomain } = useMemo(() => {
+  const { strikeTicks, strikeDomain, profileTicks, profileDomain, denom } = useMemo(() => {
     let strikeAbs = 0;
     let profileAbs = 0;
     merged.forEach((row) => {
@@ -281,11 +311,15 @@ export default function GexProfileChart({
     const profileStep = niceStep(profileAbs, 4);
     const strike = symmetricTicks(strikeAbs, strikeStep);
     const profile = symmetricTicks(profileAbs, profileStep);
+    // Single denomination shared across both axes so the smaller scale
+    // (bars) renders as e.g. "$0.5B" instead of "$500.0M" when the
+    // larger scale (profile) is in billions.
     return {
       strikeTicks: strike.ticks,
       strikeDomain: [-strike.domainMax, strike.domainMax] as [number, number],
       profileTicks: profile.ticks,
       profileDomain: [-profile.domainMax, profile.domainMax] as [number, number],
+      denom: pickSharedDenomination(Math.max(strike.domainMax, profile.domainMax)),
     };
   }, [merged]);
 
@@ -312,7 +346,10 @@ export default function GexProfileChart({
             </TooltipWrapper>
           </div>
           <div
-            className="flex flex-wrap items-center gap-4 text-xs"
+            // pr-14 reserves room for the absolutely-positioned Expand
+            // button (right-3, ~36px wide) in the card's top-right corner,
+            // so the rightmost legend entry never tucks under it.
+            className="flex flex-wrap items-center gap-4 text-xs pr-14"
             style={{ color: textColor }}
           >
             <div className="flex items-center gap-1.5">
@@ -349,7 +386,11 @@ export default function GexProfileChart({
         ) : (
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
-              <ComposedChart data={merged} margin={{ top: 16, right: 32, left: 8, bottom: 8 }}>
+              {/* Each YAxis track (width=84 below) reserves room for the
+                  rotated axis title AND the tick labels with ~25px of
+                  clear separation between them.  Outer margin is small
+                  because the YAxis width is doing the spacing work. */}
+              <ComposedChart data={merged} margin={{ top: 16, right: 16, left: 16, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.5} />
                 <XAxis
                   dataKey="strike"
@@ -370,17 +411,22 @@ export default function GexProfileChart({
                 />
                 <YAxis
                   yAxisId="strike"
+                  // Wider YAxis track so the rotated title sits fully
+                  // inside the YAxis area (offset is measured inward
+                  // from the outer edge) with ~25px of clear space
+                  // between the title and the tick labels.
+                  width={84}
                   domain={strikeDomain}
                   ticks={strikeTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
-                  tickFormatter={(v) => formatExposure(Number(v))}
+                  tickFormatter={(v) => formatTick(Number(v), denom)}
                   label={{
                     value: 'Gamma Exposure',
                     angle: -90,
                     position: 'insideLeft',
-                    offset: 8,
-                    style: { fill: axisStroke, fontSize: 11 },
+                    offset: 12,
+                    style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
                 {/* Right axis colour matches the left so the two y-scales read
@@ -390,17 +436,18 @@ export default function GexProfileChart({
                 <YAxis
                   yAxisId="profile"
                   orientation="right"
+                  width={84}
                   domain={profileDomain}
                   ticks={profileTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
-                  tickFormatter={(v) => formatExposure(Number(v))}
+                  tickFormatter={(v) => formatTick(Number(v), denom)}
                   label={{
                     value: 'GEX Profile',
                     angle: -90,
                     position: 'insideRight',
                     offset: 12,
-                    style: { fill: axisStroke, fontSize: 11 },
+                    style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
                 <Tooltip content={<ProfileTooltip spotPrice={spotPrice ?? null} />} />
