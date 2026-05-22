@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Area,
   Bar,
@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Info } from 'lucide-react';
+import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useGEXProfile } from '@/hooks/useApiData';
@@ -21,6 +21,12 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+
+// X-axis zoom bounds. 1× fits the full strike chain inside the card; values
+// above 1 widen the chart and surface a horizontal scrollbar.
+const X_ZOOM_MIN = 1;
+const X_ZOOM_MAX = 6;
+const X_ZOOM_STEP = 1.4;
 
 interface StrikeRow {
   strike: number;
@@ -307,6 +313,50 @@ export default function GexProfileChart({
     return mergeProfileWithStrikes(strikeData, profile);
   }, [strikeData, profileData?.profile]);
 
+  // X-axis zoom + initial center. The fraction is captured ONCE when the
+  // merged data first contains a strike near spot, then held stable — re-
+  // computing it on every parent render (1s quote ticks) would re-fire the
+  // wrapper's scroll effect and jump the view as the user reads the chart.
+  // Cleared by Reset, then re-captured on the next render.
+  const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
+  const [centerFraction, setCenterFraction] = useState<number | null>(null);
+
+  // "Adjust state during render" — React's recommended pattern for one-shot
+  // derived state. The guard prevents an infinite loop, and the setter only
+  // fires until the fraction is captured (or after a Reset).
+  if (
+    centerFraction == null &&
+    spotPrice != null &&
+    Number.isFinite(spotPrice) &&
+    merged.length > 0
+  ) {
+    let closestIdx = 0;
+    let bestDist = Infinity;
+    merged.forEach((row, i) => {
+      const d = Math.abs(row.strike - spotPrice);
+      if (d < bestDist) {
+        bestDist = d;
+        closestIdx = i;
+      }
+    });
+    const fraction = merged.length > 1 ? closestIdx / (merged.length - 1) : 0.5;
+    setCenterFraction(fraction);
+  }
+
+  const handleZoomIn = () => {
+    setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
+  };
+  const handleZoomOut = () => {
+    setXZoom((z) => Math.max(z / X_ZOOM_STEP, X_ZOOM_MIN));
+  };
+  const handleResetView = () => {
+    setXZoom(X_ZOOM_MIN);
+    // Clearing the fraction triggers the effect above to re-capture from the
+    // current spot — covers the case where spot has drifted far enough that
+    // the original center is no longer near the current price.
+    setCenterFraction(null);
+  };
+
   // Two y-axes: the bars and Net GEX share the LEFT scale (per-strike
   // dealer dollar GEX), the spot-shift profile sits on the RIGHT scale
   // (the same units but typically an order of magnitude larger because
@@ -365,6 +415,40 @@ export default function GexProfileChart({
             <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). The profile is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
+            <div
+              className="ml-1 inline-flex rounded border"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+            >
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                disabled={xZoom <= X_ZOOM_MIN + 1e-6}
+                title="Zoom out strike range"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <ZoomOut size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                disabled={xZoom >= X_ZOOM_MAX - 1e-6}
+                title="Zoom in strike range (chart becomes scrollable)"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+              >
+                <ZoomIn size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleResetView}
+                title="Reset zoom and re-center on spot"
+                className="px-2 py-1 text-xs"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
           </div>
           <div
             // pr-14 reserves room for the absolutely-positioned Expand
@@ -405,7 +489,7 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <MobileScrollableChart>
+          <MobileScrollableChart zoomLevel={xZoom} centerFraction={centerFraction}>
             <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of

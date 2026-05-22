@@ -176,6 +176,14 @@ export default function MarketMakerExposures() {
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
+  // Anchor for the price (y) axis: captured ONCE when valid spot data is
+  // first available, then held stable so the chart doesn't shift as live
+  // quotes/candles arrive. `spot` is the y-axis center; `halfRange` is the
+  // un-zoomed half-span derived from the initial candle spread. Final
+  // halfRange = anchor.halfRange × zoomMul, so user zoom still works.
+  // Cleared by Reset or by switching symbol — both should re-anchor.
+  const [yAnchor, setYAnchor] = useState<{ spot: number; halfRange: number } | null>(null);
+
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
@@ -185,6 +193,7 @@ export default function MarketMakerExposures() {
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
+    setYAnchor(null);
   };
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
@@ -352,7 +361,43 @@ export default function MarketMakerExposures() {
     return allCandles.slice(-TARGET_VISIBLE_CANDLES);
   }, [allCandles]);
 
+  // Track the symbol that produced the current anchor so we can clear it
+  // when the user switches underlying (SPY → QQQ etc.) — the old spot would
+  // place the y-axis nowhere near the new price.
+  const [anchorSymbol, setAnchorSymbol] = useState<string | null>(null);
+
+  // "Adjust state during render" — React's recommended pattern for derived
+  // state that needs to react to prop changes without an effect. The two
+  // guards prevent infinite loops: symbol change runs once per change, and
+  // anchor capture runs once per (re-)anchor cycle.
+  if (anchorSymbol !== symbol) {
+    setAnchorSymbol(symbol);
+    setYAnchor(null);
+  }
+
+  if (yAnchor == null && spot != null && spot > 0) {
+    const prices: number[] = [];
+    visibleCandles.forEach((c) => prices.push(c.high, c.low));
+    prices.push(spot);
+    const baseSpread = prices.length > 1
+      ? Math.max(Math.max(...prices) - spot, spot - Math.min(...prices))
+      : spot * 0.02;
+    const halfRange = Math.max(baseSpread, spot * 0.012);
+    setYAnchor({ spot, halfRange });
+  }
+
   const yBounds = useMemo(() => {
+    // Preferred path: use the captured anchor. Center stays fixed at the
+    // spot-at-load value; only zoom changes the half-range. This is the
+    // single change that prevents the chart from jumping as quotes tick.
+    if (yAnchor != null) {
+      const halfRange = yAnchor.halfRange * zoomMul;
+      return { yMin: yAnchor.spot - halfRange, yMax: yAnchor.spot + halfRange };
+    }
+
+    // Pre-anchor fallback (first render before the effect runs). Mirrors the
+    // legacy data-driven sizing so the chart still has something to render
+    // for the brief moment before yAnchor is set.
     const prices: number[] = [];
     visibleCandles.forEach((c) => prices.push(c.high, c.low));
     if (spot != null) prices.push(spot);
@@ -379,7 +424,7 @@ export default function MarketMakerExposures() {
       yMin: Math.min(...strikeAggregations.map((s) => s.strike)),
       yMax: Math.max(...strikeAggregations.map((s) => s.strike)),
     };
-  }, [visibleCandles, strikeAggregations, spot, zoomMul]);
+  }, [yAnchor, visibleCandles, strikeAggregations, spot, zoomMul]);
 
   const yForPrice = (price: number): number => {
     if (!yBounds) return PLOT_TOP;

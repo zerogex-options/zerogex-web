@@ -2,13 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Info } from 'lucide-react';
+import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import { useIsMobile } from '@/hooks/useIsMobile';
+
+// X-axis zoom bounds. 1× fits the full strike chain inside the card; values
+// above 1 widen the chart and surface a horizontal scrollbar.
+const X_ZOOM_MIN = 1;
+const X_ZOOM_MAX = 6;
+const X_ZOOM_STEP = 1.4;
 
 interface OpenInterestRow {
   strike?: number | string;
@@ -161,6 +167,34 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return closest.strike;
   }, [spot, chartData]);
 
+  // X-axis zoom + initial center. The fraction is captured ONCE per refresh
+  // (cleared by Reset) so the scroll position doesn't jump as live quotes
+  // tick — the user's manual scroll is preserved between updates.
+  const [xZoom, setXZoom] = useState<number>(X_ZOOM_MIN);
+  const [centerFraction, setCenterFraction] = useState<number | null>(null);
+
+  // "Adjust state during render" — React's recommended pattern for one-shot
+  // derived state. Once the fraction is captured the guard keeps the setter
+  // from re-firing until Reset clears it.
+  if (centerFraction == null && closestStrike != null && chartData.length > 0) {
+    const idx = chartData.findIndex((row) => row.strike === closestStrike);
+    if (idx >= 0) {
+      const fraction = chartData.length > 1 ? idx / (chartData.length - 1) : 0.5;
+      setCenterFraction(fraction);
+    }
+  }
+
+  const handleZoomIn = () => {
+    setXZoom((z) => Math.min(z * X_ZOOM_STEP, X_ZOOM_MAX));
+  };
+  const handleZoomOut = () => {
+    setXZoom((z) => Math.max(z / X_ZOOM_STEP, X_ZOOM_MIN));
+  };
+  const handleResetView = () => {
+    setXZoom(X_ZOOM_MIN);
+    setCenterFraction(null);
+  };
+
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
@@ -195,6 +229,40 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <TooltipWrapper text="Strike-level view by call/put. Toggle between Open Interest and Exposure. The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
+            <div
+              className="ml-1 inline-flex rounded border"
+              style={{ borderColor: inputBorder, backgroundColor: inputBg }}
+            >
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                disabled={xZoom <= X_ZOOM_MIN + 1e-6}
+                title="Zoom out strike range"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <ZoomOut size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                disabled={xZoom >= X_ZOOM_MAX - 1e-6}
+                title="Zoom in strike range (chart becomes scrollable)"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+              >
+                <ZoomIn size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleResetView}
+                title="Reset zoom and re-center on spot"
+                className="px-2 py-1 text-xs"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-3 mr-8">
             <label className="text-xs" style={{ color: textColor }}>
@@ -241,7 +309,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             No open-interest data available for the selected expiration.
           </div>
         ) : (
-          <MobileScrollableChart>
+          <MobileScrollableChart zoomLevel={xZoom} centerFraction={centerFraction}>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
