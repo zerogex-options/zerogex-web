@@ -181,14 +181,15 @@ function computeDTE(expiration: string): number | null {
 
 function ContractStatsHeader({
   rows,
+  latest,
   isDark,
 }: {
   rows: OptionContractRow[];
+  latest: OptionContractRow | null;
   isDark: boolean;
 }) {
   const stats = useMemo(() => {
-    if (rows.length === 0) return null;
-    const latest = rows[rows.length - 1];
+    if (rows.length === 0 || !latest) return null;
 
     const vol = latest.volume ?? 0;
     const oi = latest.open_interest ?? 0;
@@ -209,7 +210,7 @@ function ContractStatsHeader({
     const theta = latest.theta;
     const dateKey = getETDateKey(latest.timestamp);
     return { dateKey, vol, oi, avg, prem, iv, delta, theta };
-  }, [rows]);
+  }, [rows, latest]);
 
   const labelStyle: React.CSSProperties = { color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" };
   const valueStyle: React.CSSProperties = { fontWeight: 600 };
@@ -366,7 +367,23 @@ function ContractChart({
   isDark: boolean;
   isMobile: boolean;
 }) {
-  const latestRaw = rawRows.length > 0 ? rawRows[rawRows.length - 1] : null;
+  // The API doesn't guarantee rows are returned in timestamp order, so picking
+  // rawRows[length - 1] can yield a non-latest row whose Last price disagrees
+  // with the chart's rightmost plotted point. Pick the row with the max
+  // timestamp instead so the legend/stats track the chart.
+  const latestRaw = useMemo<OptionContractRow | null>(() => {
+    if (rawRows.length === 0) return null;
+    let best = rawRows[0];
+    let bestMs = new Date(best.timestamp).getTime();
+    for (let i = 1; i < rawRows.length; i++) {
+      const ms = new Date(rawRows[i].timestamp).getTime();
+      if (Number.isFinite(ms) && (!Number.isFinite(bestMs) || ms > bestMs)) {
+        best = rawRows[i];
+        bestMs = ms;
+      }
+    }
+    return best;
+  }, [rawRows]);
   const sessionDateLabel = rows.length > 0 ? formatAxisSessionDate(rows[0].timestamp) : "";
   const dateLabelIndex = rows.length > 0 ? Math.floor((rows.length - 1) / 2) : -1;
 
@@ -405,7 +422,7 @@ function ContractChart({
 
   return (
     <div>
-      <ContractStatsHeader rows={rawRows} isDark={isDark} />
+      <ContractStatsHeader rows={rawRows} latest={latestRaw} isDark={isDark} />
       <ContractLegend latest={latestRaw} isDark={isDark} />
       <MobileScrollableChart>
       <div className="h-[480px] mt-2">
