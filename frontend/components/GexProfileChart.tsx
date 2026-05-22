@@ -6,7 +6,6 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -51,6 +50,10 @@ const PROFILE_LINE_COLOR = '#C9A36A';
 const PROFILE_FILL_COLOR = 'rgba(201, 163, 106, 0.18)';
 const NET_LINE_COLOR = '#94A3B8';
 
+// Match the bar width used by GexWallsChart (OPEN INTEREST & EXPOSURE BY
+// STRIKE) so the two stacked charts read as a cohesive pair.
+const BAR_SIZE = 14;
+
 function formatExposure(value: number): string {
   const abs = Math.abs(value);
   if (!Number.isFinite(value) || abs === 0) return '0';
@@ -66,16 +69,36 @@ function formatStrike(value: number): string {
   return value >= 1000 ? value.toFixed(0) : value.toFixed(2);
 }
 
-// Pick a per-strike bar width that scales with the visible strike count.
-// Recharts' default barSize clusters bars in the center on a numeric x-axis;
-// computing it from the data spread keeps the bars visible without
-// overlapping at wide strike grids (the screenshot reference shows ~5px bars
-// at SPX's wide grid).
-function pickBarSize(strikeCount: number): number {
-  if (strikeCount <= 0) return 6;
-  if (strikeCount < 30) return 10;
-  if (strikeCount < 80) return 5;
-  return 3;
+// Pick a "nice" step (1, 2, 5 × 10^k) that lands ~targetCount ticks across
+// the half-range.  Both y-axes need symmetric ticks centred on 0 with clean
+// round values like $1B, $2B — recharts' default tick generator picks
+// fractional values when the domain is set to data-driven extremes.
+function niceStep(halfRange: number, targetCount: number): number {
+  if (!Number.isFinite(halfRange) || halfRange <= 0) return 1;
+  const rough = halfRange / Math.max(1, targetCount);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / magnitude;
+  if (norm < 1.5) return 1 * magnitude;
+  if (norm < 3.5) return 2 * magnitude;
+  if (norm < 7.5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+// Symmetric ticks anchored at zero: [-N*step, ..., -step, 0, step, ..., N*step].
+// Caller picks `step` via niceStep so the labels read $1B, $2B, $3B etc.
+function symmetricTicks(maxAbs: number, step: number): { ticks: number[]; domainMax: number } {
+  if (!Number.isFinite(maxAbs) || maxAbs <= 0 || step <= 0) {
+    return { ticks: [0], domainMax: 1 };
+  }
+  const upper = Math.ceil(maxAbs / step) * step;
+  const ticks: number[] = [];
+  // Floating-point safety: count rungs then multiply, instead of repeated
+  // additions that drift (e.g. step=0.1 sums to 0.30000000000000004).
+  const rungs = Math.round(upper / step);
+  for (let i = -rungs; i <= rungs; i += 1) {
+    ticks.push(i * step);
+  }
+  return { ticks, domainMax: upper };
 }
 
 // Spot-shift GEX profile points are sampled at the resolver's grid step
@@ -239,7 +262,11 @@ export default function GexProfileChart({
   // each profile point integrates the entire chain at the hypothetical
   // spot).  Mixing them on a single axis squishes the bars into a flat
   // line at zero — matches the screenshot reference's two-axis layout.
-  const { strikeDomain, profileDomain } = useMemo(() => {
+  //
+  // Both axes use symmetric nice-stepped ticks (1/2/5 × 10^k) so the
+  // labels read $1B, $2B, $3B etc. instead of the data-driven extremes
+  // recharts would otherwise pick (e.g. $884.1M, -$1.1B).
+  const { strikeTicks, strikeDomain, profileTicks, profileDomain } = useMemo(() => {
     let strikeAbs = 0;
     let profileAbs = 0;
     merged.forEach((row) => {
@@ -248,40 +275,21 @@ export default function GexProfileChart({
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
       if (row.profileGex != null) profileAbs = Math.max(profileAbs, Math.abs(row.profileGex));
     });
-    const strikePad = strikeAbs > 0 ? strikeAbs * 1.1 : 1;
-    const profilePad = profileAbs > 0 ? profileAbs * 1.1 : 1;
+    // ~4 ticks per side keeps the y-axis legible without crowding labels
+    // at smaller chart heights.
+    const strikeStep = niceStep(strikeAbs, 4);
+    const profileStep = niceStep(profileAbs, 4);
+    const strike = symmetricTicks(strikeAbs, strikeStep);
+    const profile = symmetricTicks(profileAbs, profileStep);
     return {
-      strikeDomain: [-strikePad, strikePad] as [number, number],
-      profileDomain: [-profilePad, profilePad] as [number, number],
+      strikeTicks: strike.ticks,
+      strikeDomain: [-strike.domainMax, strike.domainMax] as [number, number],
+      profileTicks: profile.ticks,
+      profileDomain: [-profile.domainMax, profile.domainMax] as [number, number],
     };
   }, [merged]);
 
-  const barSize = useMemo(() => pickBarSize(merged.length), [merged.length]);
   const hasData = merged.length > 0;
-
-  const renderLegend = () => (
-    <div
-      className="w-full flex flex-wrap justify-center items-center gap-4 text-xs"
-      style={{ color: textColor }}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
-        Call GEX
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
-        Put GEX
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
-        Net GEX
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: PROFILE_LINE_COLOR }} />
-        GEX Profile
-      </div>
-    </div>
-  );
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
@@ -292,17 +300,39 @@ export default function GexProfileChart({
           border: `1px solid ${colors.muted}`,
         }}
       >
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-            GAMMA EXPOSURE BY STRIKE
-          </h3>
-          <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). The profile is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
-            <Info size={14} />
-          </TooltipWrapper>
+        {/* Header: title on the left, legend top-right above the plot area so
+            it never collides with reference-line labels or profile peaks. */}
+        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
+              GAMMA EXPOSURE BY STRIKE
+            </h3>
+            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). The profile is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
+              <Info size={14} />
+            </TooltipWrapper>
+          </div>
+          <div
+            className="flex flex-wrap items-center gap-4 text-xs"
+            style={{ color: textColor }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
+              Call GEX
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
+              Put GEX
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
+              Net GEX
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: PROFILE_LINE_COLOR }} />
+              GEX Profile
+            </div>
+          </div>
         </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-          Showing results for ${symbol}, all expiries, calls &amp; puts
-        </p>
 
         {error ? (
           <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: colors.bearish }}>
@@ -341,34 +371,39 @@ export default function GexProfileChart({
                 <YAxis
                   yAxisId="strike"
                   domain={strikeDomain}
+                  ticks={strikeTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
                   tickFormatter={(v) => formatExposure(Number(v))}
                   label={{
-                    value: 'Gamma Exposure ($ / 1% move)',
+                    value: 'Gamma Exposure',
                     angle: -90,
                     position: 'insideLeft',
                     offset: 8,
                     style: { fill: axisStroke, fontSize: 11 },
                   }}
                 />
+                {/* Right axis colour matches the left so the two y-scales read
+                    as a pair; the profile curve and its legend swatch are
+                    enough to associate the right axis with the profile
+                    series visually. */}
                 <YAxis
                   yAxisId="profile"
                   orientation="right"
                   domain={profileDomain}
-                  stroke={PROFILE_LINE_COLOR}
-                  tick={{ fontSize: 11, fill: PROFILE_LINE_COLOR }}
+                  ticks={profileTicks}
+                  stroke={axisStroke}
+                  tick={{ fontSize: 11, fill: axisStroke }}
                   tickFormatter={(v) => formatExposure(Number(v))}
                   label={{
-                    value: 'GEX Profile ($ / 1% move)',
+                    value: 'GEX Profile',
                     angle: -90,
                     position: 'insideRight',
                     offset: 12,
-                    style: { fill: PROFILE_LINE_COLOR, fontSize: 11 },
+                    style: { fill: axisStroke, fontSize: 11 },
                   }}
                 />
                 <Tooltip content={<ProfileTooltip spotPrice={spotPrice ?? null} />} />
-                <Legend verticalAlign="bottom" content={renderLegend} />
 
                 {/* Zero line for the bar axis, drawn first so bars/lines paint over it. */}
                 <ReferenceLine yAxisId="strike" y={0} stroke={axisStroke} opacity={0.4} />
@@ -394,7 +429,7 @@ export default function GexProfileChart({
                   dataKey="callGex"
                   name="Call GEX"
                   fill={colors.bullish}
-                  barSize={barSize}
+                  barSize={BAR_SIZE}
                   isAnimationActive={false}
                 />
                 <Bar
@@ -402,7 +437,7 @@ export default function GexProfileChart({
                   dataKey="putGex"
                   name="Put GEX"
                   fill={colors.bearish}
-                  barSize={barSize}
+                  barSize={BAR_SIZE}
                   isAnimationActive={false}
                 />
 
