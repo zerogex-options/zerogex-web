@@ -353,6 +353,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refetchToken, setRefetchToken] = useState(0);
 
   // Reset state synchronously when the endpoint changes so stale data from the
   // previous symbol is never displayed while the new request is in-flight.
@@ -364,43 +365,12 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setError(null);
   }
 
-  const fetchData = useCallback(async () => {
-    if (!enabled) return;
-
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-      const response = await fetch(`${baseUrl}${endpoint}`);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('No data available yet');
-        }
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const rawResult = await response.json();
-      const result = normalizeNumbers(rawResult) as T;
-
-      let accepted = true;
-      setData((prev) => {
-        if (shouldAcceptData && !shouldAcceptData(result, prev)) {
-          accepted = false;
-          return prev;
-        }
-        return result;
-      });
-
-      if (accepted) {
-        setError(null);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint, enabled, onError, shouldAcceptData]);
+  // Hold the latest callbacks in refs so they can change without tearing
+  // down the fetch loop / aborting in-flight requests.
+  const onErrorRef = useRef(onError);
+  const shouldAcceptDataRef = useRef(shouldAcceptData);
+  onErrorRef.current = onError;
+  shouldAcceptDataRef.current = shouldAcceptData;
 
   useEffect(() => {
     if (!enabled) {
@@ -408,18 +378,66 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
       return;
     }
 
+    const controller = new AbortController();
+
+    const fetchData = async () => {
+      if (controller.signal.aborted) return;
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+        const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('No data available yet');
+          }
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const rawResult = await response.json();
+        if (controller.signal.aborted) return;
+
+        const result = normalizeNumbers(rawResult) as T;
+
+        let accepted = true;
+        setData((prev) => {
+          const accept = shouldAcceptDataRef.current;
+          if (accept && !accept(result, prev)) {
+            accepted = false;
+            return prev;
+          }
+          return result;
+        });
+
+        if (accepted) {
+          setError(null);
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
+        setError(errorMessage);
+        onErrorRef.current?.(errorMessage);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
     fetchData();
 
-    if (effectiveRefreshInterval > 0) {
-      const interval = setInterval(fetchData, effectiveRefreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [fetchData, effectiveRefreshInterval, enabled]);
+    const interval = effectiveRefreshInterval > 0
+      ? setInterval(fetchData, effectiveRefreshInterval)
+      : null;
+
+    return () => {
+      controller.abort();
+      if (interval) clearInterval(interval);
+    };
+  }, [endpoint, enabled, effectiveRefreshInterval, refetchToken]);
 
   const refetch = useCallback(() => {
     setLoading(true);
-    fetchData();
-  }, [fetchData]);
+    setRefetchToken((t) => t + 1);
+  }, []);
 
   return { data, loading, error, refetch };
 }
