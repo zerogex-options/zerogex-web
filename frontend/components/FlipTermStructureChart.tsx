@@ -281,9 +281,9 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
   const anyUnresolved = chartData.some((row) => !row.resolved);
 
   return (
-    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
+    <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-6 h-full flex flex-col"
         style={{
           backgroundColor: isDark ? colors.cardDark : colors.cardLight,
           border: `1px solid ${colors.muted}`,

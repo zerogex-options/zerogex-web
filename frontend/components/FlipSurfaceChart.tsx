@@ -4,11 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import {
-  useFlipSurface,
-  useMarketQuote,
-  type FlipSurfaceResponse,
-} from '@/hooks/useApiData';
+import { useFlipSurface } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 
@@ -80,64 +76,6 @@ function percentile(values: number[], p: number): number {
   return sorted[idx];
 }
 
-// Synthesize a plausible-looking surface so the renderer can be exercised
-// before the backend endpoint exists.  The mock reproduces the shape of the
-// real payload exactly so swapping in real data is a no-op.
-function buildMockSurface(symbol: string, spot: number, horizons: number[]): FlipSurfaceResponse {
-  const stepPct = 0.01;
-  const spanPct = 0.20;
-  const points = Math.floor((spanPct * 2) / stepPct) + 1;
-  const grid: number[] = [];
-  for (let i = 0; i < points; i++) {
-    const pct = -spanPct + i * stepPct;
-    grid.push(spot * (1 + pct));
-  }
-
-  // Each horizon has a slightly different flip and steepness.  Short
-  // horizons cross close to spot; long horizons drift above spot.
-  const profiles: number[][] = horizons.map((h) => {
-    const flipOffset = (h - 5) * 0.0015; // -0.6% at h=1, +8.25% at h=60
-    const flipPrice = spot * (1 + flipOffset);
-    const steepness = 8e8 / Math.max(1, Math.sqrt(h));
-    return grid.map((p) => {
-      const pctFromFlip = (p - flipPrice) / spot;
-      // Smooth sigmoid-ish shape that crosses zero at flipPrice.
-      return steepness * Math.tanh(pctFromFlip * 12);
-    });
-  });
-
-  const flips = horizons.map((h, i) => {
-    const flipOffset = (h - 5) * 0.0015;
-    const flipPrice = spot * (1 + flipOffset);
-    const netAtSpot = profiles[i][Math.floor(points / 2)];
-    return {
-      horizon_days: h,
-      flip: flipPrice,
-      resolved: true,
-      span_used: spanPct,
-      net_gex_at_spot: netAtSpot,
-    };
-  });
-
-  const walls = [
-    { strike: spot * 1.02, type: 'call' as const, abs_dollar_gex: 1.2e9 },
-    { strike: spot * 1.05, type: 'call' as const, abs_dollar_gex: 7e8 },
-    { strike: spot * 0.98, type: 'put' as const, abs_dollar_gex: 9e8 },
-    { strike: spot * 0.95, type: 'put' as const, abs_dollar_gex: 5e8 },
-  ];
-
-  return {
-    symbol,
-    spot,
-    timestamp: new Date().toISOString(),
-    grid,
-    horizons_days: horizons,
-    profiles,
-    flips,
-    walls,
-  };
-}
-
 export default function FlipSurfaceChart({
   symbol,
   horizons = DEFAULT_HORIZONS,
@@ -147,34 +85,7 @@ export default function FlipSurfaceChart({
   const textColor = isDark ? colors.light : colors.dark;
   const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
 
-  // Probe the endpoint.  When it 404s / errors we transparently fall back to
-  // synthesized data with a "preview / awaiting endpoint" banner — same code
-  // path lights up the moment the backend ships.
-  const liveQuery = useFlipSurface(symbol, horizons, { refreshInterval: 7000 });
-  const { data: quoteData } = useMarketQuote(symbol, 5000);
-
-  const liveData = liveQuery.data;
-  const liveError = liveQuery.error;
-  const liveLoading = liveQuery.loading;
-
-  const isLive = liveData != null && Array.isArray(liveData.profiles) && liveData.profiles.length > 0;
-  const spotForMock = quoteData?.close;
-
-  const surface = useMemo<FlipSurfaceResponse | null>(() => {
-    if (isLive && liveData) return liveData;
-    // Fall back to mock as soon as we either see an error or finish loading
-    // without data.  This keeps the renderer warm at all times.
-    if (liveLoading && !liveError) return null;
-    const fallbackSpot =
-      spotForMock != null && Number.isFinite(spotForMock)
-        ? Number(spotForMock)
-        : symbol === 'SPX'
-          ? 6000
-          : symbol === 'QQQ'
-            ? 500
-            : 580;
-    return buildMockSurface(symbol, fallbackSpot, horizons);
-  }, [isLive, liveData, liveError, liveLoading, spotForMock, symbol, horizons]);
+  const { data: surface, loading, error } = useFlipSurface(symbol, horizons, { refreshInterval: 7000 });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -185,6 +96,8 @@ export default function FlipSurfaceChart({
     value: number;
   } | null>(null);
 
+  // Track both width and height of the container so the canvas can fill the
+  // card body when its sibling card stretches the row (CSS Grid stretch).
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
@@ -192,7 +105,7 @@ export default function FlipSurfaceChart({
       const cr = entries[0]?.contentRect;
       if (!cr) return;
       const w = Math.max(320, cr.width);
-      const h = Math.max(320, Math.min(520, w * 0.55));
+      const h = Math.max(320, cr.height);
       setSize({ w, h });
     });
     ro.observe(node);
@@ -501,16 +414,19 @@ export default function FlipSurfaceChart({
     setHover({ horizon, price: grid[nearest], value });
   };
 
+  const hasData =
+    surface != null && Array.isArray(surface.profiles) && surface.profiles.length > 0;
+
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-6 h-full flex flex-col"
         style={{
           backgroundColor: isDark ? colors.cardDark : colors.cardLight,
           border: `1px solid ${colors.muted}`,
         }}
       >
-        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
               HORIZON × PRICE CONTOUR
@@ -519,77 +435,81 @@ export default function FlipSurfaceChart({
               <Info size={14} />
             </TooltipWrapper>
           </div>
-          {!isLive && (
-            <div
-              className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded"
-              style={{
-                color: colors.warning,
-                backgroundColor: 'var(--color-warning-soft)',
-                border: `1px solid ${colors.warning}`,
-              }}
-              title="The /api/gex/flip-surface endpoint is contract-only — this view is synthesised for preview."
-            >
-              Preview · awaiting endpoint
-            </div>
-          )}
         </div>
 
-        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-          <canvas
-            ref={canvasRef}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHover(null)}
-            style={{
-              display: 'block',
-              width: '100%',
-              height: `${size.h}px`,
-              cursor: 'crosshair',
-            }}
-          />
-          {hover && (
-            <div
+        {error ? (
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: colors.bearish }}>
+            {error === 'No data available yet'
+              ? `No usable option snapshot for ${symbol} — check ingestion.`
+              : `Backend error: ${error}`}
+          </div>
+        ) : loading && !surface ? (
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: mutedText }}>
+            Loading surface…
+          </div>
+        ) : !hasData ? (
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: mutedText }}>
+            No surface data available.
+          </div>
+        ) : (
+          <div
+            ref={containerRef}
+            className="flex-1"
+            style={{ position: 'relative', width: '100%', minHeight: 320 }}
+          >
+            <canvas
+              ref={canvasRef}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={() => setHover(null)}
               style={{
-                position: 'absolute',
-                top: 8,
-                left: PAD_L + 8,
-                background: 'var(--color-chart-tooltip-bg)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 8,
-                padding: '6px 10px',
-                color: 'var(--color-chart-tooltip-text)',
-                fontSize: 11,
-                pointerEvents: 'none',
-                fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                cursor: 'crosshair',
               }}
-            >
-              <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
+            />
+            {hover && (
               <div
                 style={{
-                  color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-                  fontWeight: 600,
+                  position: 'absolute',
+                  top: 8,
+                  left: PAD_L + 8,
+                  background: 'var(--color-chart-tooltip-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 8,
+                  padding: '6px 10px',
+                  color: 'var(--color-chart-tooltip-text)',
+                  fontSize: 11,
+                  pointerEvents: 'none',
+                  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                 }}
               >
-                {formatGex(hover.value)} / 1% move
+                <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
+                <div
+                  style={{
+                    color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {formatGex(hover.value)} / 1% move
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
-        {/* Wall legend + axis hint */}
-        {surface && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]" style={{ color: mutedText }}>
+        {/* Wall legend */}
+        {hasData && (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] shrink-0"
+            style={{ color: mutedText }}
+          >
             <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: '#1BC47D' }}
-              />
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: '#1BC47D' }} />
               Call wall
             </div>
             <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: '#FF4D5A' }}
-              />
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: '#FF4D5A' }} />
               Put wall
             </div>
             <div className="flex items-center gap-1.5">
@@ -606,11 +526,12 @@ export default function FlipSurfaceChart({
               <span className="inline-block h-0.5 w-4" style={{ backgroundColor: isDark ? '#FFF1E6' : '#0F172A' }} />
               Zero contour (flip)
             </div>
-            {!isLive && (
-              <span className="ml-auto opacity-80">
-                Synthesised from a sigmoid model — switch to live once <code>/api/gex/flip-surface</code> ships.
-              </span>
-            )}
+          </div>
+        )}
+
+        {surface?.timestamp && (
+          <div className="mt-3 text-right text-[11px] shrink-0" style={{ color: mutedText }}>
+            Snapshot: {new Date(surface.timestamp).toLocaleTimeString()}
           </div>
         )}
       </div>
