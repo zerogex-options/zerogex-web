@@ -7,6 +7,7 @@ import { colors } from '@/core/colors';
 import { useFlipSurface } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
+import MobileScrollableChart from './MobileScrollableChart';
 
 interface FlipSurfaceChartProps {
   symbol: string;
@@ -16,15 +17,24 @@ interface FlipSurfaceChartProps {
 const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
 const PAD_L = 68;
-const PAD_R = 110;
-const PAD_T = 24;
+// Reserve enough room on the right for the colour-bar (14px) plus its
+// "+$X.XX" / "0" / "-$X.XX" labels (~70px) and a ~22px gap to the plot.
+const PAD_R = 148;
+const PAD_T = 36;
 const PAD_B = 44;
 
 type RGB = { r: number; g: number; b: number };
 
-const POSITIVE_HUE: RGB = { r: 37, g: 99, b: 235 };
+// Diverging-cell colours.  Long-γ stabilising side: deep navy (#2c4875).
+// Short-γ destabilising side: warm coral (#ff6361).  Centre transitions
+// through near-white so the zero contour reads cleanly.
+const POSITIVE_HUE: RGB = { r: 44, g: 72, b: 117 };
 const ZERO_HUE: RGB = { r: 247, g: 247, b: 247 };
-const NEGATIVE_HUE: RGB = { r: 255, g: 77, b: 90 };
+const NEGATIVE_HUE: RGB = { r: 255, g: 99, b: 97 };
+
+// High-contrast highlight used for both the Spot guide and the zero
+// contour so they pop against the navy/coral diverging cells.
+const HIGHLIGHT_COLOR = '#FFD60A';
 
 function blend(a: RGB, b: RGB, t: number): RGB {
   return {
@@ -227,12 +237,13 @@ export default function FlipSurfaceChart({
       ctx.restore();
     });
 
-    // Spot vertical guide.
+    // Spot vertical guide.  Label sits ABOVE the plot so it can never
+    // collide with the x-axis title / tick labels at the bottom.
     const spot = surface.spot;
     if (Number.isFinite(spot)) {
       const sx = xForPrice(spot);
       ctx.save();
-      ctx.strokeStyle = '#06B6D4';
+      ctx.strokeStyle = HIGHLIGHT_COLOR;
       ctx.setLineDash([5, 4]);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -240,19 +251,18 @@ export default function FlipSurfaceChart({
       ctx.lineTo(sx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#06B6D4';
+      ctx.fillStyle = HIGHLIGHT_COLOR;
       ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot ${formatUsd(spot, 0)}`, sx, PAD_T + plotH + 32);
+      ctx.fillText(`Spot $${spot.toFixed(2)}`, sx, PAD_T - 6);
       ctx.restore();
     }
 
     // Zero contour drawn explicitly from the flips array — one point per
     // resolved horizon; unresolved horizons break the polyline.
-    const contourColor = isDark ? '#FFF1E6' : '#0F172A';
     ctx.save();
-    ctx.strokeStyle = contourColor;
+    ctx.strokeStyle = HIGHLIGHT_COLOR;
     ctx.lineWidth = 2;
     ctx.beginPath();
     let drawing = false;
@@ -278,7 +288,7 @@ export default function FlipSurfaceChart({
       const y = yForHorizon(f.horizon_days);
       if (y == null) return;
       const x = xForPrice(f.flip);
-      ctx.fillStyle = contourColor;
+      ctx.fillStyle = HIGHLIGHT_COLOR;
       ctx.beginPath();
       ctx.arc(x, y, 3, 0, Math.PI * 2);
       ctx.fill();
@@ -452,50 +462,54 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="flex-1"
-            style={{ position: 'relative', width: '100%', minHeight: 320 }}
-          >
-            <canvas
-              ref={canvasRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={() => setHover(null)}
-              style={{
-                display: 'block',
-                width: '100%',
-                height: '100%',
-                cursor: 'crosshair',
-              }}
-            />
-            {hover && (
-              <div
+          // MobileScrollableChart forces a min-width on narrow viewports so the
+          // canvas keeps a usable plot area; horizontal scroll kicks in below
+          // md.  On desktop the canvas auto-fits via ResizeObserver as before.
+          <MobileScrollableChart minWidthClass="min-w-[820px]" className="flex-1">
+            <div
+              ref={containerRef}
+              style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}
+            >
+              <canvas
+                ref={canvasRef}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={() => setHover(null)}
                 style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: PAD_L + 8,
-                  background: 'var(--color-chart-tooltip-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 8,
-                  padding: '6px 10px',
-                  color: 'var(--color-chart-tooltip-text)',
-                  fontSize: 11,
-                  pointerEvents: 'none',
-                  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  cursor: 'crosshair',
                 }}
-              >
-                <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
+              />
+              {hover && (
                 <div
                   style={{
-                    color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-                    fontWeight: 600,
+                    position: 'absolute',
+                    top: 8,
+                    left: PAD_L + 8,
+                    background: 'var(--color-chart-tooltip-bg)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    color: 'var(--color-chart-tooltip-text)',
+                    fontSize: 11,
+                    pointerEvents: 'none',
+                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                   }}
                 >
-                  {formatGex(hover.value)} / 1% move
+                  <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
+                  <div
+                    style={{
+                      color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {formatGex(hover.value)} / 1% move
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </MobileScrollableChart>
         )}
 
         {/* Wall legend */}
@@ -516,14 +530,14 @@ export default function FlipSurfaceChart({
               <span
                 className="inline-block h-0.5 w-4"
                 style={{
-                  backgroundImage: 'repeating-linear-gradient(90deg, #06B6D4 0 4px, transparent 4px 8px)',
+                  backgroundImage: `repeating-linear-gradient(90deg, ${HIGHLIGHT_COLOR} 0 4px, transparent 4px 8px)`,
                   height: 2,
                 }}
               />
               Spot
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: isDark ? '#FFF1E6' : '#0F172A' }} />
+              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: HIGHLIGHT_COLOR }} />
               Zero contour (flip)
             </div>
           </div>
