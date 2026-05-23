@@ -806,6 +806,36 @@ export default function GammaHeatmapCanvas() {
   const latestTs = grid?.timestamps?.[grid.timestamps.length - 1];
   const updatedLabel = latestTs ? new Date(latestTs).toLocaleTimeString() : '—';
 
+  // The heatmap is anchored on /api/gex/heatmap (gex_summary on the
+  // backend) while the candlesticks come from /api/market/historical
+  // (underlying_quotes). The re-anchor in OA commit 46fde74 decoupled
+  // the two: the heatmap now keeps advancing even when the underlying
+  // bar feed stalls, instead of freezing in lockstep. That decoupling
+  // is the point — but a viewer with no context sees candles that lag
+  // a moving heatmap and may wonder if the chart is broken. Surface
+  // the gap as a small badge once it exceeds CANDLE_LAG_BADGE_MIN, so
+  // it's named rather than mysterious. Computed entirely from data
+  // already on the page (no extra fetch).
+  //
+  // Threshold sits above one bucket boundary at every supported
+  // timeframe so a normal bucket-rollover skew (heatmap ticks first,
+  // candles a tick later) doesn't flicker the badge on every cycle.
+  const CANDLE_LAG_BADGE_MIN = 5;
+  const candleLagMinutes = useMemo(() => {
+    if (!grid || !priceData || priceData.length === 0) return null;
+    const heatmapLatest = grid.timestamps[grid.timestamps.length - 1];
+    const priceLatest = priceData[priceData.length - 1]?.timestamp;
+    if (!heatmapLatest || !priceLatest) return null;
+    const h = new Date(heatmapLatest).getTime();
+    const p = new Date(priceLatest).getTime();
+    if (!Number.isFinite(h) || !Number.isFinite(p)) return null;
+    const lagMs = h - p;
+    if (lagMs <= 0) return null; // candles caught up or briefly ahead
+    return Math.floor(lagMs / 60000);
+  }, [grid, priceData]);
+  const showCandleLagBadge =
+    candleLagMinutes != null && candleLagMinutes >= CANDLE_LAG_BADGE_MIN;
+
   if (loading && !gexData) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
 
@@ -1048,6 +1078,16 @@ export default function GammaHeatmapCanvas() {
             >
               Paused
             </span>
+          )}
+          {showCandleLagBadge && (
+            <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls — TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup — the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
+                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              >
+                Candles {candleLagMinutes}m behind
+              </span>
+            </TooltipWrapper>
           )}
           <span>Updated {updatedLabel}</span>
         </div>
