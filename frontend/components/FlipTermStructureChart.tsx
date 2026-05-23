@@ -357,7 +357,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             </button>
             <button
               type="button"
-              onClick={() => applyPreset([5, 10, 20, 60, 120])}
+              onClick={() => applyPreset([10, 20, 60, 120])}
               className="px-2 py-1 text-xs rounded border"
               style={{
                 backgroundColor: 'var(--color-surface-subtle)',
@@ -544,10 +544,10 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                   </table>
                 </div>
 
-                {/* Vertical legend text box — replaces the horizontal legend
-                    that previously lived in the card header. */}
+                {/* Vertical legend text box — sized to fit its content
+                    (self-start + w-fit) instead of stretching the column. */}
                 <div
-                  className="rounded-md border p-3 text-xs"
+                  className="rounded-md border p-3 text-xs self-start w-fit"
                   style={{
                     borderColor: 'var(--color-border)',
                     backgroundColor: 'var(--color-surface-subtle)',

@@ -16,23 +16,33 @@ interface FlipSurfaceChartProps {
 
 const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
-const PAD_L = 68;
+const PAD_L = 56;
 // PAD_R reserves room for the colour-bar (14px) plus its "+$X.XX" / "0" /
 // "-$X.XX" labels (~70px) and a ~22px gap to the plot.  The wall / spot /
 // contour legend now lives in a sidebar outside the canvas, so this is the
 // only legend the canvas itself has to budget for.
-const PAD_R = 132;
-const PAD_T = 36;
+const PAD_R = 118;
+// PAD_T holds three staggered rows of reference-line labels (Put Wall →
+// Call Wall → Spot, top to bottom) above the plot.  ~16px per row + a
+// small bottom buffer keeps the lowest label from kissing the plot edge.
+const PAD_T = 62;
 const PAD_B = 44;
+
+// Reference-line label rows.  Each tracks the y-coordinate (with
+// textBaseline='bottom') for one type of guide so labels sitting close
+// together horizontally never overprint each other.
+const LABEL_ROW_PUT = 16;
+const LABEL_ROW_CALL = 36;
+const LABEL_ROW_SPOT = 56;
 
 type RGB = { r: number; g: number; b: number };
 
 // Diverging-cell colours.  Long-γ stabilising side: deep navy (#2c4875).
-// Short-γ destabilising side: warm coral (#ff6361).  Centre transitions
+// Short-γ destabilising side: magenta (#bc5090).  Centre transitions
 // through near-white so the zero contour reads cleanly.
 const POSITIVE_HUE: RGB = { r: 44, g: 72, b: 117 };
 const ZERO_HUE: RGB = { r: 247, g: 247, b: 247 };
-const NEGATIVE_HUE: RGB = { r: 255, g: 99, b: 97 };
+const NEGATIVE_HUE: RGB = { r: 188, g: 80, b: 144 };
 
 // Reference-line colours mirrored from the Strike Profile chart on the
 // Dealer Positioning page so the two read as a coherent pair.
@@ -40,6 +50,14 @@ const CALL_WALL_COLOR = colors.bullish;
 const PUT_WALL_COLOR = colors.bearish;
 const SPOT_COLOR = '#06B6D4';
 const FLIP_COLOR = colors.warning;
+
+// Bigger / bolder typography for the reference-line labels so they pop
+// against the navy / magenta gradient cells.
+const REF_LABEL_FONT = 'bold 13px ui-sans-serif, system-ui, -apple-system, sans-serif';
+// Thicker strokes for the same reason.
+const WALL_LINE_WIDTH = 2.25;
+const SPOT_LINE_WIDTH = 2.5;
+const FLIP_LINE_WIDTH = 3;
 
 function blend(a: RGB, b: RGB, t: number): RGB {
   return {
@@ -215,63 +233,67 @@ export default function FlipSurfaceChart({
     ctx.drawImage(off, 0, 0, T, S, PAD_L, PAD_T, plotW, plotH);
 
     // Walls — vertical strike lines colored by type.  Style mirrors the
-    // Call/Put Wall reference lines on the Strike Profile chart:
-    // bullish/bearish stroke with a 2/4 dashed pattern, label "Call Wall:
-    // XXX.XX" / "Put Wall: XXX.XX" anchored above the line.
+    // Call/Put Wall reference lines on the Strike Profile chart
+    // (bullish/bearish stroke, 2/4 dashed pattern) but with a thicker
+    // line and a larger bold label.  Put-wall labels sit on the top
+    // stagger row, call-wall labels on the next row down, so they never
+    // overprint a Spot or Flip label sitting at a nearby strike.
     (surface.walls ?? []).forEach((wall) => {
       const wx = xForPrice(wall.strike);
       if (wx < PAD_L - 2 || wx > PAD_L + plotW + 2) return;
       const col = wall.type === 'call' ? CALL_WALL_COLOR : PUT_WALL_COLOR;
       const labelPrefix = wall.type === 'call' ? 'Call Wall' : 'Put Wall';
+      const labelY = wall.type === 'call' ? LABEL_ROW_CALL : LABEL_ROW_PUT;
       ctx.save();
       ctx.strokeStyle = col;
       ctx.setLineDash([2, 4]);
-      ctx.lineWidth = 1.25;
+      ctx.lineWidth = WALL_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(wx, PAD_T);
       ctx.lineTo(wx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = col;
-      ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.font = REF_LABEL_FONT;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`${labelPrefix}: ${wall.strike.toFixed(2)}`, wx, PAD_T - 6);
+      ctx.fillText(`${labelPrefix}: ${wall.strike.toFixed(2)}`, wx, labelY);
       ctx.restore();
     });
 
     // Spot vertical guide.  Style mirrors the Spot reference line on the
-    // Strike Profile chart: cyan stroke with a 4/4 dash, label "Spot:
-    // XXX.XX" anchored above the line.
+    // Strike Profile chart (cyan stroke, 4/4 dash) with a thicker line and
+    // a larger bold label.  Label sits on the bottom stagger row so it
+    // never overprints a Call/Put Wall label at a nearby strike.
     const spot = surface.spot;
     if (Number.isFinite(spot)) {
       const sx = xForPrice(spot);
       ctx.save();
       ctx.strokeStyle = SPOT_COLOR;
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = SPOT_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(sx, PAD_T);
       ctx.lineTo(sx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = SPOT_COLOR;
-      ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.font = REF_LABEL_FONT;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot: ${spot.toFixed(2)}`, sx, PAD_T - 18);
+      ctx.fillText(`Spot: ${spot.toFixed(2)}`, sx, LABEL_ROW_SPOT);
       ctx.restore();
     }
 
     // Zero contour drawn explicitly from the flips array — one point per
     // resolved horizon; unresolved horizons break the polyline.  Style
-    // mirrors the Flip reference line on the Strike Profile chart:
-    // warning-orange stroke with a 4/4 dash, label "Flip: XXX.XX" anchored
-    // at the topmost resolved endpoint.
+    // mirrors the Flip reference line on the Strike Profile chart
+    // (warning-orange stroke, 4/4 dash) with a thicker line and a larger
+    // bold "Flip: XXX.XX" label anchored at the topmost resolved endpoint.
     ctx.save();
     ctx.strokeStyle = FLIP_COLOR;
     ctx.setLineDash([4, 4]);
-    ctx.lineWidth = 2;
+    ctx.lineWidth = FLIP_LINE_WIDTH;
     ctx.beginPath();
     let drawing = false;
     (surface.flips ?? []).forEach((f) => {
@@ -299,7 +321,7 @@ export default function FlipSurfaceChart({
       const x = xForPrice(f.flip);
       ctx.fillStyle = FLIP_COLOR;
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
     });
     // Label the topmost (shortest-horizon) resolved flip.  Same text style
@@ -312,10 +334,10 @@ export default function FlipSurfaceChart({
       const tx = ty != null ? xForPrice(topFlip.flip) : null;
       if (ty != null && tx != null) {
         ctx.fillStyle = FLIP_COLOR;
-        ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.font = REF_LABEL_FONT;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`Flip: ${topFlip.flip.toFixed(2)}`, tx + 6, ty);
+        ctx.fillText(`Flip: ${topFlip.flip.toFixed(2)}`, tx + 8, ty);
       }
     }
     ctx.restore();
@@ -403,9 +425,12 @@ export default function FlipSurfaceChart({
     ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`+${formatGex(clip)}`, legendX + legendW + 4, legendY + 4);
+    // formatGex already emits the sign, so pass +clip / -clip directly
+    // instead of prepending another "+"/"-" (which produced "++$X.XX" /
+    // "-+$X.XX" at the extremes).
+    ctx.fillText(formatGex(clip), legendX + legendW + 4, legendY + 4);
     ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
-    ctx.fillText(`-${formatGex(clip)}`, legendX + legendW + 4, legendY + legendH - 4);
+    ctx.fillText(formatGex(-clip), legendX + legendW + 4, legendY + legendH - 4);
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('long γ', legendX + legendW + 4, legendY + 18);
     ctx.fillText('short γ', legendX + legendW + 4, legendY + legendH - 18);
@@ -487,11 +512,12 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          // Body: canvas (left, fills the pane) and a vertical legend sidebar
-          // (right).  On mobile the sidebar stacks under the canvas, and the
-          // canvas itself remains horizontally scrollable so the heatmap keeps
-          // a usable plot area on narrow viewports.
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-4 flex-1">
+          // Body: canvas (left, fills almost the entire pane) and a narrow
+          // vertical legend sidebar (right).  On mobile the sidebar stacks
+          // under the canvas, and the canvas itself remains horizontally
+          // scrollable so the heatmap keeps a usable plot area on narrow
+          // viewports.
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_130px] gap-3 flex-1">
             <MobileScrollableChart minWidthClass="min-w-[820px]">
               <div
                 ref={containerRef}
