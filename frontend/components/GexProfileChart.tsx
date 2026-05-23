@@ -123,7 +123,24 @@ function formatTick(value: number, denom: Denomination): string {
 
 function formatStrike(value: number): string {
   if (!Number.isFinite(value)) return '';
-  return value >= 1000 ? value.toFixed(0) : value.toFixed(2);
+  return Math.round(value).toString();
+}
+
+// Generate evenly-spaced x-axis ticks across the visible strike range. Uses
+// the same 1/2/5 × 10^k cadence as the y-axis helper, so the labels read
+// 580/585/590 (range 30) or 580/600/620 (range 100) instead of recharts'
+// data-driven extremes. Floor at step=1 so we never sub-divide a strike.
+function selectStrikeTicks(visibleDomain: [number, number]): number[] {
+  const [lo, hi] = visibleDomain;
+  const range = hi - lo;
+  if (range <= 0) return [];
+  const step = Math.max(1, niceStep(range, 8));
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
+  }
+  return ticks;
 }
 
 // Pick a "nice" step (1, 2, 5 × 10^k) that lands ~targetCount ticks across
@@ -393,6 +410,14 @@ export default function GexProfileChart({
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
+  // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
+  // visible range) so every tick lands on a clean integer and recharts'
+  // minTickGap doesn't skip labels mid-axis.
+  const xTicks = useMemo(() => {
+    if (visibleDomain == null) return undefined;
+    return selectStrikeTicks(visibleDomain);
+  }, [visibleDomain]);
+
   // Two y-axes: the bars and Net GEX share the LEFT scale (per-strike
   // dealer dollar GEX), the spot-shift profile sits on the RIGHT scale
   // (the same units but typically an order of magnitude larger because
@@ -543,6 +568,7 @@ export default function GexProfileChart({
                   type="number"
                   domain={visibleDomain ?? ['dataMin', 'dataMax']}
                   allowDataOverflow
+                  ticks={xTicks}
                   padding={{ left: 8, right: 8 }}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}

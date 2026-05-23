@@ -16,6 +16,35 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
+// Pick a 1 / 2 / 5 × 10^k step that gives roughly `targetCount` ticks across
+// the given range. The same cadence as the y-axis helpers elsewhere — yields
+// labels like 580/585/590 rather than 581.5/583/584.5.
+function niceStep(range: number, targetCount: number): number {
+  if (!Number.isFinite(range) || range <= 0) return 1;
+  const rough = range / Math.max(1, targetCount);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / magnitude;
+  if (norm < 1.5) return 1 * magnitude;
+  if (norm < 3.5) return 2 * magnitude;
+  if (norm < 7.5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+// Generate evenly-spaced x-axis ticks across the visible strike range. Floor
+// at step=1 so we never sub-divide a strike.
+function selectStrikeTicks(visibleDomain: [number, number]): number[] {
+  const [lo, hi] = visibleDomain;
+  const range = hi - lo;
+  if (range <= 0) return [];
+  const step = Math.max(1, niceStep(range, 8));
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
+  }
+  return ticks;
+}
+
 interface OpenInterestRow {
   strike?: number | string;
   expiration?: string;
@@ -238,6 +267,14 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
+  // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
+  // visible range) so every tick lands on a clean integer and minTickGap
+  // doesn't skip labels mid-axis.
+  const xTicks = useMemo(() => {
+    if (visibleDomain == null) return undefined;
+    return selectStrikeTicks(visibleDomain);
+  }, [visibleDomain]);
+
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
@@ -356,7 +393,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
-                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => `${Number(v).toFixed(0)}`} minTickGap={22} />
+                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
                 <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
