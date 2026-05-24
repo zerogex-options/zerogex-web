@@ -8,7 +8,6 @@ import { useFlipSurface } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
-import MobileScrollableChart from './MobileScrollableChart';
 
 interface FlipSurfaceChartProps {
   symbol: string;
@@ -514,60 +513,67 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          // Body: canvas (left) + vertical legend sidebar (right).  The
-          // canvas container is given an EXPLICIT pixel height instead of
-          // height: 100% + minHeight, because the flex/h-full chain
-          // upstream has no concrete pixel anchor and the
-          // contentRect-based ResizeObserver was reading a collapsed
-          // height (~280px instead of the intended 600px).  Width still
-          // uses w-full so it stretches to fill its grid column.
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_140px] gap-3 flex-1">
-            <MobileScrollableChart minWidthClass="min-w-[820px]">
-              <div
-                ref={containerRef}
-                className="w-full relative"
-                style={{ height: isMobile ? 480 : 720 }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  onMouseMove={handleMouseMove}
-                  onMouseLeave={() => setHover(null)}
+          // Body: canvas (left) + vertical legend sidebar (right).
+          //
+          // grid-cols-[minmax(0,1fr)_140px] is critical here.  Plain `1fr`
+          // expands to `minmax(auto, 1fr)`, and `auto` lets the column be
+          // wider than the available track in order to fit min-content.
+          // Wrapping the canvas in MobileScrollableChart (which carries a
+          // 820px min-width on its inner div) was leaking that min-content
+          // into the grid sizing, capping the column at ~625px instead of
+          // the full ~1000px it should have been.  `minmax(0, 1fr)`
+          // forces the column to be exactly the available track.
+          //
+          // The canvas container itself gets an explicit pixel height (the
+          // flex/h-full chain upstream has no concrete pixel anchor, so a
+          // height:100% + minHeight rule was resolving to ~320px from the
+          // intrinsic canvas fallback).  Width stays w-full so it expands
+          // to fill the now-correctly-sized grid column.
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_140px] gap-3 flex-1">
+            <div
+              ref={containerRef}
+              className="relative w-full"
+              style={{ height: isMobile ? 480 : 720 }}
+            >
+              <canvas
+                ref={canvasRef}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={() => setHover(null)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  cursor: 'crosshair',
+                }}
+              />
+              {hover && (
+                <div
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'crosshair',
+                    position: 'absolute',
+                    top: 8,
+                    left: PAD_L + 8,
+                    background: 'var(--color-chart-tooltip-bg)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    color: 'var(--color-chart-tooltip-text)',
+                    fontSize: 11,
+                    pointerEvents: 'none',
+                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                   }}
-                />
-                {hover && (
+                >
+                  <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
                   <div
                     style={{
-                      position: 'absolute',
-                      top: 8,
-                      left: PAD_L + 8,
-                      background: 'var(--color-chart-tooltip-bg)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 8,
-                      padding: '6px 10px',
-                      color: 'var(--color-chart-tooltip-text)',
-                      fontSize: 11,
-                      pointerEvents: 'none',
-                      fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                      color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+                      fontWeight: 600,
                     }}
                   >
-                    <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
-                    <div
-                      style={{
-                        color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {formatGex(hover.value)} / 1% move
-                    </div>
+                    {formatGex(hover.value)} / 1% move
                   </div>
-                )}
-              </div>
-            </MobileScrollableChart>
+                </div>
+              )}
+            </div>
 
             {/* Vertical legend sidebar — Call/Put Wall, Spot, Zero contour
                 (flip).  Styles mirror the swatches on the Strike Profile
