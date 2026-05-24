@@ -512,16 +512,14 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          // Body: canvas (left, fills almost the entire pane) and a narrow
-          // vertical legend sidebar (right).  On mobile the sidebar stacks
-          // under the canvas, and the canvas itself remains horizontally
-          // scrollable so the heatmap keeps a usable plot area on narrow
-          // viewports.
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_130px] gap-3 flex-1">
-            <MobileScrollableChart minWidthClass="min-w-[820px]">
+          // Body: canvas spans the full row width.  The wall/spot/contour
+          // legend sits in a compact strip directly below the canvas so the
+          // heatmap itself can be as wide and tall as the pane allows.
+          <div className="flex flex-col gap-3 flex-1">
+            <MobileScrollableChart minWidthClass="min-w-[820px]" className="flex-1">
               <div
                 ref={containerRef}
-                style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}
+                style={{ position: 'relative', width: '100%', height: '100%', minHeight: 600 }}
               >
                 <canvas
                   ref={canvasRef}
@@ -564,20 +562,21 @@ export default function FlipSurfaceChart({
               </div>
             </MobileScrollableChart>
 
-            {/* Vertical legend sidebar — Call/Put Wall, Spot, Zero contour
-                (flip).  Styles mirror the swatches on the Strike Profile
+            {/* Compact legend strip below the canvas — items wrap onto a
+                second row on narrow viewports so they never crowd the
+                chart.  Styles mirror the swatches on the Strike Profile
                 chart so the two pages read as a pair. */}
             <div
-              className="rounded-md border p-3 text-xs flex flex-col gap-2 self-start"
+              className="rounded-md border px-3 py-2 text-xs flex flex-wrap items-center gap-x-5 gap-y-1.5 shrink-0"
               style={{
                 borderColor: 'var(--color-border)',
                 backgroundColor: 'var(--color-surface-subtle)',
                 color: textColor,
               }}
             >
-              <div className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: mutedText }}>
+              <span className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: mutedText }}>
                 Legend
-              </div>
+              </span>
               <div className="flex items-center gap-2">
                 <span
                   className="inline-block h-0.5 w-5 shrink-0"
