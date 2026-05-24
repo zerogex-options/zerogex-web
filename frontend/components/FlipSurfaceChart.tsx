@@ -5,6 +5,7 @@ import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useFlipSurface } from '@/hooks/useApiData';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
@@ -114,6 +115,7 @@ export default function FlipSurfaceChart({
   horizons = DEFAULT_HORIZONS,
 }: FlipSurfaceChartProps) {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
   const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
@@ -512,14 +514,19 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          // Body: canvas spans the full row width.  The wall/spot/contour
-          // legend sits in a compact strip directly below the canvas so the
-          // heatmap itself can be as wide and tall as the pane allows.
-          <div className="flex flex-col gap-3 flex-1">
-            <MobileScrollableChart minWidthClass="min-w-[820px]" className="flex-1">
+          // Body: canvas (left) + vertical legend sidebar (right).  The
+          // canvas container is given an EXPLICIT pixel height instead of
+          // height: 100% + minHeight, because the flex/h-full chain
+          // upstream has no concrete pixel anchor and the
+          // contentRect-based ResizeObserver was reading a collapsed
+          // height (~280px instead of the intended 600px).  Width still
+          // uses w-full so it stretches to fill its grid column.
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_140px] gap-3 flex-1">
+            <MobileScrollableChart minWidthClass="min-w-[820px]">
               <div
                 ref={containerRef}
-                style={{ position: 'relative', width: '100%', height: '100%', minHeight: 600 }}
+                className="w-full relative"
+                style={{ height: isMobile ? 480 : 720 }}
               >
                 <canvas
                   ref={canvasRef}
@@ -562,21 +569,20 @@ export default function FlipSurfaceChart({
               </div>
             </MobileScrollableChart>
 
-            {/* Compact legend strip below the canvas — items wrap onto a
-                second row on narrow viewports so they never crowd the
-                chart.  Styles mirror the swatches on the Strike Profile
+            {/* Vertical legend sidebar — Call/Put Wall, Spot, Zero contour
+                (flip).  Styles mirror the swatches on the Strike Profile
                 chart so the two pages read as a pair. */}
             <div
-              className="rounded-md border px-3 py-2 text-xs flex flex-wrap items-center gap-x-5 gap-y-1.5 shrink-0"
+              className="rounded-md border p-3 text-xs flex flex-col gap-2 self-start"
               style={{
                 borderColor: 'var(--color-border)',
                 backgroundColor: 'var(--color-surface-subtle)',
                 color: textColor,
               }}
             >
-              <span className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: mutedText }}>
+              <div className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: mutedText }}>
                 Legend
-              </span>
+              </div>
               <div className="flex items-center gap-2">
                 <span
                   className="inline-block h-0.5 w-5 shrink-0"
