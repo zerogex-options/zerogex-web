@@ -79,25 +79,46 @@ export function renderMarkdown(markdown: string): ReactNode[] {
         tableLines.push(lines[i].trim());
         i += 1;
       }
-      const rows = tableLines
+      const parsed = tableLines
         .filter((row) => !/^\|[-\s|]+\|$/.test(row))
-        .map((row) => row.slice(1, -1).split('|').map((cell) => cell.trim()));
-      const [header, ...body] = rows;
+        .map((row) => {
+          const isAccent = row.startsWith('|!');
+          const stripped = isAccent ? '|' + row.slice(2) : row;
+          const cells = stripped.slice(1, -1).split('|').map((cell) => cell.trim());
+          return { cells, isAccent };
+        });
+      const [header, ...body] = parsed;
       out.push(
         <div key={`tbl-${i}`} className="my-6 overflow-x-auto">
           <table className="w-full border-collapse rounded-xl border border-[var(--color-border)] text-sm">
             <thead>
               <tr className="bg-[var(--color-surface-subtle)]">
-                {header.map((cell, idx) => (
+                {header.cells.map((cell, idx) => (
                   <th key={idx} className="border border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-primary)]">{parseInline(cell)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {body.map((row, rowIdx) => (
-                <tr key={rowIdx}>
-                  {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="border border-[var(--color-border)] px-4 py-2 text-[var(--text-secondary)]">{parseInline(cell)}</td>
+                <tr
+                  key={rowIdx}
+                  className={
+                    row.isAccent
+                      ? 'bg-[var(--color-warning-soft)] font-medium'
+                      : undefined
+                  }
+                >
+                  {row.cells.map((cell, cellIdx) => (
+                    <td
+                      key={cellIdx}
+                      className={
+                        row.isAccent
+                          ? 'border border-[var(--color-warning)] px-4 py-2 text-[var(--color-text-primary)]'
+                          : 'border border-[var(--color-border)] px-4 py-2 text-[var(--text-secondary)]'
+                      }
+                    >
+                      {parseInline(cell)}
+                    </td>
                   ))}
                 </tr>
               ))}
@@ -124,8 +145,30 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       continue;
     }
 
+    if (/^\d+\.\s/.test(trimmed)) {
+      const listItems: string[] = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+        listItems.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+        i += 1;
+      }
+      out.push(
+        <ol key={`ol-${i}`} className="my-4 list-decimal space-y-2 pl-6 text-[17px] leading-8 text-[var(--text-secondary)]">
+          {listItems.map((item, idx) => (
+            <li key={idx}>{parseInline(item)}</li>
+          ))}
+        </ol>,
+      );
+      continue;
+    }
+
     const paragraph: string[] = [];
-    while (i < lines.length && lines[i].trim() && !['#', '##', '###', '-', '>', '|'].some((prefix) => lines[i].trim().startsWith(prefix)) && lines[i].trim() !== '---') {
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !['#', '##', '###', '-', '>', '|'].some((prefix) => lines[i].trim().startsWith(prefix)) &&
+      !/^\d+\.\s/.test(lines[i].trim()) &&
+      lines[i].trim() !== '---'
+    ) {
       paragraph.push(lines[i].trim());
       i += 1;
     }
