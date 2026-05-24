@@ -515,6 +515,99 @@ export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
+export interface FlipTermStructureCurvePoint {
+  horizon_days: number;
+  flip: number | null;
+  resolved: boolean;
+  span_used: number;
+  net_gex_at_spot: number | null;
+}
+
+export interface FlipTermStructureHistoricalPoint {
+  horizon_days: number;
+  realized_at: string | null;
+  target_at: string;
+  flip: number | null;
+  span_used: number | null;
+  skew_seconds: number | null;
+}
+
+export interface FlipTermStructureResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  horizons_days: number[];
+  curve: FlipTermStructureCurvePoint[];
+  historical: FlipTermStructureHistoricalPoint[];
+}
+
+export function useFlipTermStructure(
+  symbol = 'SPX',
+  horizons: number[] = [1, 3, 5, 10, 20, 60],
+  refreshInterval = 7000,
+) {
+  const horizonsParam = horizons.join(',');
+  return useApiData<FlipTermStructureResponse>(
+    `/api/gex/flip-term-structure?${symbolQuery(symbol, { horizons: horizonsParam })}`,
+    { refreshInterval },
+  );
+}
+
+export interface FlipSurfaceFlip {
+  horizon_days: number;
+  flip: number | null;
+  resolved: boolean;
+  span_used: number;
+  net_gex_at_spot: number | null;
+}
+
+export interface FlipSurfaceWall {
+  strike: number;
+  type: 'call' | 'put';
+  abs_dollar_gex: number;
+}
+
+export interface FlipSurfaceResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  grid: number[];
+  horizons_days: number[];
+  profiles: number[][];
+  flips: FlipSurfaceFlip[];
+  walls: FlipSurfaceWall[];
+}
+
+export function useFlipSurface(
+  symbol = 'SPX',
+  horizons: number[] = [1, 3, 5, 10, 20, 60],
+  options: {
+    spanPct?: number;
+    stepPct?: number;
+    includeWalls?: boolean;
+    refreshInterval?: number;
+    enabled?: boolean;
+  } = {},
+) {
+  const {
+    spanPct = 0.2,
+    stepPct = 0.0025,
+    includeWalls = true,
+    refreshInterval = 7000,
+    enabled = true,
+  } = options;
+  const horizonsParam = horizons.join(',');
+  return useApiData<FlipSurfaceResponse>(
+    `/api/gex/flip-surface?${symbolQuery(symbol, {
+      horizons: horizonsParam,
+      span_pct: spanPct,
+      step_pct: stepPct,
+      include_walls: includeWalls ? 'true' : 'false',
+    })}`,
+    { refreshInterval, enabled },
+  );
+}
+
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   return useApiData<MarketQuoteRow>(`/api/market/quote?${symbolQuery(symbol)}`, { refreshInterval });
 }

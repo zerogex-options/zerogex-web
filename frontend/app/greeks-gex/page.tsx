@@ -9,6 +9,8 @@ import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import FlipTermStructureChart from '@/components/FlipTermStructureChart';
+import FlipSurfaceChart from '@/components/FlipSurfaceChart';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 
@@ -153,6 +155,15 @@ export default function GreeksGEXPage() {
             theme={theme}
             trend="bullish"
           />
+        </div>
+      </section>
+
+      {/* Gamma Flip · Term Structure */}
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Gamma Flip &middot; Term Structure</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <FlipTermStructureChart symbol={symbol} />
+          <FlipSurfaceChart symbol={symbol} />
         </div>
       </section>
 
