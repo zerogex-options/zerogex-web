@@ -130,11 +130,30 @@ export default function FlipSurfaceChart({
     value: number;
   } | null>(null);
 
+  // The chart's container is only rendered once surface data arrives — before
+  // that the card shows a loading / error / empty state instead.  The ref is
+  // therefore null on the first mount, so the ResizeObserver setup must
+  // re-run when the container actually attaches; otherwise the canvas stays
+  // pinned to the initial {800, 420} fallback no matter how big the card
+  // grows, leaving the chart marooned in the card's top-left quadrant.
+  const hasData =
+    surface != null && Array.isArray(surface.profiles) && surface.profiles.length > 0;
+  const containerMounted = hasData && !error;
+
   // Track both width and height of the container so the canvas can fill the
   // card body when its sibling card stretches the row (CSS Grid stretch).
   useEffect(() => {
+    if (!containerMounted) return;
     const node = containerRef.current;
     if (!node) return;
+    // Seed `size` from the freshly-mounted container so the first paint
+    // already uses the real layout dimensions instead of the {800, 420}
+    // fallback while we wait for the first ResizeObserver callback.
+    const rect = node.getBoundingClientRect();
+    setSize({
+      w: Math.max(320, rect.width),
+      h: Math.max(320, rect.height),
+    });
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr) return;
@@ -144,7 +163,7 @@ export default function FlipSurfaceChart({
     });
     ro.observe(node);
     return () => ro.disconnect();
-  }, []);
+  }, [containerMounted]);
 
   // Clip used for normalising the diverging colour map.  The 97th-percentile
   // bound stops one extreme cell from washing out everything else.
@@ -474,9 +493,6 @@ export default function FlipSurfaceChart({
     }
     setHover({ horizon, price: grid[nearest], value });
   };
-
-  const hasData =
-    surface != null && Array.isArray(surface.profiles) && surface.profiles.length > 0;
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
