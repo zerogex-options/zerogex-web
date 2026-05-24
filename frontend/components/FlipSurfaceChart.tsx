@@ -7,6 +7,7 @@ import { colors } from '@/core/colors';
 import { useFlipSurface } from '@/hooks/useApiData';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
+import MobileScrollableChart from './MobileScrollableChart';
 
 interface FlipSurfaceChartProps {
   symbol: string;
@@ -15,16 +16,48 @@ interface FlipSurfaceChartProps {
 
 const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
-const PAD_L = 68;
-const PAD_R = 110;
-const PAD_T = 24;
+const PAD_L = 56;
+// PAD_R reserves room for the colour-bar (14px) plus its "+$X.XX" / "0" /
+// "-$X.XX" labels (~70px) and a ~22px gap to the plot.  The wall / spot /
+// contour legend now lives in a sidebar outside the canvas, so this is the
+// only legend the canvas itself has to budget for.
+const PAD_R = 118;
+// PAD_T holds three staggered rows of reference-line labels (Put Wall →
+// Call Wall → Spot, top to bottom) above the plot.  ~16px per row + a
+// small bottom buffer keeps the lowest label from kissing the plot edge.
+const PAD_T = 62;
 const PAD_B = 44;
+
+// Reference-line label rows.  Each tracks the y-coordinate (with
+// textBaseline='bottom') for one type of guide so labels sitting close
+// together horizontally never overprint each other.
+const LABEL_ROW_PUT = 16;
+const LABEL_ROW_CALL = 36;
+const LABEL_ROW_SPOT = 56;
 
 type RGB = { r: number; g: number; b: number };
 
-const POSITIVE_HUE: RGB = { r: 37, g: 99, b: 235 };
+// Diverging-cell colours.  Long-γ stabilising side: deep navy (#2c4875).
+// Short-γ destabilising side: magenta (#bc5090).  Centre transitions
+// through near-white so the zero contour reads cleanly.
+const POSITIVE_HUE: RGB = { r: 44, g: 72, b: 117 };
 const ZERO_HUE: RGB = { r: 247, g: 247, b: 247 };
-const NEGATIVE_HUE: RGB = { r: 255, g: 77, b: 90 };
+const NEGATIVE_HUE: RGB = { r: 188, g: 80, b: 144 };
+
+// Reference-line colours mirrored from the Strike Profile chart on the
+// Dealer Positioning page so the two read as a coherent pair.
+const CALL_WALL_COLOR = colors.bullish;
+const PUT_WALL_COLOR = colors.bearish;
+const SPOT_COLOR = '#06B6D4';
+const FLIP_COLOR = colors.warning;
+
+// Bigger / bolder typography for the reference-line labels so they pop
+// against the navy / magenta gradient cells.
+const REF_LABEL_FONT = 'bold 13px ui-sans-serif, system-ui, -apple-system, sans-serif';
+// Thicker strokes for the same reason.
+const WALL_LINE_WIDTH = 2.25;
+const SPOT_LINE_WIDTH = 2.5;
+const FLIP_LINE_WIDTH = 3;
 
 function blend(a: RGB, b: RGB, t: number): RGB {
   return {
@@ -199,61 +232,68 @@ export default function FlipSurfaceChart({
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(off, 0, 0, T, S, PAD_L, PAD_T, plotW, plotH);
 
-    // Walls — vertical strike lines colored by type.
-    const callColor = isDark ? '#1BC47D' : '#0E8A55';
-    const putColor = isDark ? '#FF8FA1' : '#C2374A';
+    // Walls — vertical strike lines colored by type.  Style mirrors the
+    // Call/Put Wall reference lines on the Strike Profile chart
+    // (bullish/bearish stroke, 2/4 dashed pattern) but with a thicker
+    // line and a larger bold label.  Put-wall labels sit on the top
+    // stagger row, call-wall labels on the next row down, so they never
+    // overprint a Spot or Flip label sitting at a nearby strike.
     (surface.walls ?? []).forEach((wall) => {
       const wx = xForPrice(wall.strike);
       if (wx < PAD_L - 2 || wx > PAD_L + plotW + 2) return;
-      const col = wall.type === 'call' ? callColor : putColor;
+      const col = wall.type === 'call' ? CALL_WALL_COLOR : PUT_WALL_COLOR;
+      const labelPrefix = wall.type === 'call' ? 'Call Wall' : 'Put Wall';
+      const labelY = wall.type === 'call' ? LABEL_ROW_CALL : LABEL_ROW_PUT;
       ctx.save();
       ctx.strokeStyle = col;
-      ctx.setLineDash([4, 3]);
-      ctx.lineWidth = 1.25;
+      ctx.setLineDash([2, 4]);
+      ctx.lineWidth = WALL_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(wx, PAD_T);
       ctx.lineTo(wx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = col;
-      ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.font = REF_LABEL_FONT;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(
-        `${wall.type === 'call' ? 'C' : 'P'} ${Math.round(wall.strike)}`,
-        wx,
-        PAD_T + 2,
-      );
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${labelPrefix}: ${wall.strike.toFixed(2)}`, wx, labelY);
       ctx.restore();
     });
 
-    // Spot vertical guide.
+    // Spot vertical guide.  Style mirrors the Spot reference line on the
+    // Strike Profile chart (cyan stroke, 4/4 dash) with a thicker line and
+    // a larger bold label.  Label sits on the bottom stagger row so it
+    // never overprints a Call/Put Wall label at a nearby strike.
     const spot = surface.spot;
     if (Number.isFinite(spot)) {
       const sx = xForPrice(spot);
       ctx.save();
-      ctx.strokeStyle = '#06B6D4';
-      ctx.setLineDash([5, 4]);
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = SPOT_COLOR;
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = SPOT_LINE_WIDTH;
       ctx.beginPath();
       ctx.moveTo(sx, PAD_T);
       ctx.lineTo(sx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#06B6D4';
-      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = SPOT_COLOR;
+      ctx.font = REF_LABEL_FONT;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot ${formatUsd(spot, 0)}`, sx, PAD_T + plotH + 32);
+      ctx.fillText(`Spot: ${spot.toFixed(2)}`, sx, LABEL_ROW_SPOT);
       ctx.restore();
     }
 
     // Zero contour drawn explicitly from the flips array — one point per
-    // resolved horizon; unresolved horizons break the polyline.
-    const contourColor = isDark ? '#FFF1E6' : '#0F172A';
+    // resolved horizon; unresolved horizons break the polyline.  Style
+    // mirrors the Flip reference line on the Strike Profile chart
+    // (warning-orange stroke, 4/4 dash) with a thicker line and a larger
+    // bold "Flip: XXX.XX" label anchored at the topmost resolved endpoint.
     ctx.save();
-    ctx.strokeStyle = contourColor;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = FLIP_COLOR;
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = FLIP_LINE_WIDTH;
     ctx.beginPath();
     let drawing = false;
     (surface.flips ?? []).forEach((f) => {
@@ -272,17 +312,34 @@ export default function FlipSurfaceChart({
       }
     });
     ctx.stroke();
+    ctx.setLineDash([]);
     // Endpoints for each resolved flip.
     (surface.flips ?? []).forEach((f) => {
       if (!f.resolved || f.flip == null) return;
       const y = yForHorizon(f.horizon_days);
       if (y == null) return;
       const x = xForPrice(f.flip);
-      ctx.fillStyle = contourColor;
+      ctx.fillStyle = FLIP_COLOR;
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
     });
+    // Label the topmost (shortest-horizon) resolved flip.  Same text style
+    // as the wall and spot labels above the plot.
+    const topFlip = (surface.flips ?? []).find(
+      (f) => f.resolved && f.flip != null && Number.isFinite(f.flip),
+    );
+    if (topFlip?.flip != null) {
+      const ty = yForHorizon(topFlip.horizon_days);
+      const tx = ty != null ? xForPrice(topFlip.flip) : null;
+      if (ty != null && tx != null) {
+        ctx.fillStyle = FLIP_COLOR;
+        ctx.font = REF_LABEL_FONT;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`Flip: ${topFlip.flip.toFixed(2)}`, tx + 8, ty);
+      }
+    }
     ctx.restore();
 
     // Axes — Y labels (horizons) and X labels (prices).
@@ -368,9 +425,12 @@ export default function FlipSurfaceChart({
     ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`+${formatGex(clip)}`, legendX + legendW + 4, legendY + 4);
+    // formatGex already emits the sign, so pass +clip / -clip directly
+    // instead of prepending another "+"/"-" (which produced "++$X.XX" /
+    // "-+$X.XX" at the extremes).
+    ctx.fillText(formatGex(clip), legendX + legendW + 4, legendY + 4);
     ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
-    ctx.fillText(`-${formatGex(clip)}`, legendX + legendW + 4, legendY + legendH - 4);
+    ctx.fillText(formatGex(-clip), legendX + legendW + 4, legendY + legendH - 4);
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('long γ', legendX + legendW + 4, legendY + 18);
     ctx.fillText('short γ', legendX + legendW + 4, legendY + legendH - 18);
@@ -452,79 +512,111 @@ export default function FlipSurfaceChart({
             No surface data available.
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="flex-1"
-            style={{ position: 'relative', width: '100%', minHeight: 320 }}
-          >
-            <canvas
-              ref={canvasRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={() => setHover(null)}
-              style={{
-                display: 'block',
-                width: '100%',
-                height: '100%',
-                cursor: 'crosshair',
-              }}
-            />
-            {hover && (
+          // Body: canvas spans the full row width.  The wall/spot/contour
+          // legend sits in a compact strip directly below the canvas so the
+          // heatmap itself can be as wide and tall as the pane allows.
+          <div className="flex flex-col gap-3 flex-1">
+            <MobileScrollableChart minWidthClass="min-w-[820px]" className="flex-1">
               <div
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: PAD_L + 8,
-                  background: 'var(--color-chart-tooltip-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 8,
-                  padding: '6px 10px',
-                  color: 'var(--color-chart-tooltip-text)',
-                  fontSize: 11,
-                  pointerEvents: 'none',
-                  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-                }}
+                ref={containerRef}
+                style={{ position: 'relative', width: '100%', height: '100%', minHeight: 600 }}
               >
-                <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
-                <div
+                <canvas
+                  ref={canvasRef}
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={() => setHover(null)}
                   style={{
-                    color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-                    fontWeight: 600,
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    cursor: 'crosshair',
                   }}
-                >
-                  {formatGex(hover.value)} / 1% move
-                </div>
+                />
+                {hover && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      left: PAD_L + 8,
+                      background: 'var(--color-chart-tooltip-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 8,
+                      padding: '6px 10px',
+                      color: 'var(--color-chart-tooltip-text)',
+                      fontSize: 11,
+                      pointerEvents: 'none',
+                      fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                    }}
+                  >
+                    <div>{formatHorizon(hover.horizon)} · {formatUsd(hover.price, 0)}</div>
+                    <div
+                      style={{
+                        color: hover.value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {formatGex(hover.value)} / 1% move
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            </MobileScrollableChart>
 
-        {/* Wall legend */}
-        {hasData && (
-          <div
-            className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] shrink-0"
-            style={{ color: mutedText }}
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: '#1BC47D' }} />
-              Call wall
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: '#FF4D5A' }} />
-              Put wall
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-0.5 w-4"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(90deg, #06B6D4 0 4px, transparent 4px 8px)',
-                  height: 2,
-                }}
-              />
-              Spot
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: isDark ? '#FFF1E6' : '#0F172A' }} />
-              Zero contour (flip)
+            {/* Compact legend strip below the canvas — items wrap onto a
+                second row on narrow viewports so they never crowd the
+                chart.  Styles mirror the swatches on the Strike Profile
+                chart so the two pages read as a pair. */}
+            <div
+              className="rounded-md border px-3 py-2 text-xs flex flex-wrap items-center gap-x-5 gap-y-1.5 shrink-0"
+              style={{
+                borderColor: 'var(--color-border)',
+                backgroundColor: 'var(--color-surface-subtle)',
+                color: textColor,
+              }}
+            >
+              <span className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: mutedText }}>
+                Legend
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-0.5 w-5 shrink-0"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(90deg, ${CALL_WALL_COLOR} 0 2px, transparent 2px 6px)`,
+                    height: 2,
+                  }}
+                />
+                <span>Call wall</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-0.5 w-5 shrink-0"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(90deg, ${PUT_WALL_COLOR} 0 2px, transparent 2px 6px)`,
+                    height: 2,
+                  }}
+                />
+                <span>Put wall</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-0.5 w-5 shrink-0"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(90deg, ${SPOT_COLOR} 0 4px, transparent 4px 8px)`,
+                    height: 2,
+                  }}
+                />
+                <span>Spot</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-0.5 w-5 shrink-0"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(90deg, ${FLIP_COLOR} 0 4px, transparent 4px 8px)`,
+                    height: 2,
+                  }}
+                />
+                <span>Zero contour (flip)</span>
+              </div>
             </div>
           </div>
         )}

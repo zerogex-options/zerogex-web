@@ -126,6 +126,13 @@ function formatStrike(value: number): string {
   return Math.round(value).toString();
 }
 
+// Two-decimal price used in the Spot / Flip / Wall reference-line labels
+// so traders see the exact level, not a rounded integer.
+function formatStrikePrecise(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  return value.toFixed(2);
+}
+
 // Generate evenly-spaced x-axis ticks across the visible strike range. Uses
 // the same 1/2/5 × 10^k cadence as the y-axis helper, so the labels read
 // 580/585/590 (range 30) or 580/600/620 (range 100) instead of recharts'
@@ -681,7 +688,7 @@ export default function GexProfileChart({
                     stroke="#06B6D4"
                     strokeDasharray="4 4"
                     label={{
-                      value: `Spot: ${formatStrike(spotPrice)}`,
+                      value: `Spot: ${formatStrikePrecise(spotPrice)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.spot,
                       fill: '#06B6D4',
@@ -696,7 +703,7 @@ export default function GexProfileChart({
                     stroke={colors.warning}
                     strokeDasharray="4 4"
                     label={{
-                      value: `Flip: ${formatStrike(gammaFlip)}`,
+                      value: `Flip: ${formatStrikePrecise(gammaFlip)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.flip,
                       fill: colors.warning,
@@ -711,7 +718,7 @@ export default function GexProfileChart({
                     stroke={colors.bullish}
                     strokeDasharray="2 4"
                     label={{
-                      value: `Call Wall: ${formatStrike(callWall)}`,
+                      value: `Call Wall: ${formatStrikePrecise(callWall)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.callWall,
                       fill: colors.bullish,
@@ -726,7 +733,7 @@ export default function GexProfileChart({
                     stroke={colors.bearish}
                     strokeDasharray="2 4"
                     label={{
-                      value: `Put Wall: ${formatStrike(putWall)}`,
+                      value: `Put Wall: ${formatStrikePrecise(putWall)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.putWall,
                       fill: colors.bearish,
