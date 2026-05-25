@@ -30,6 +30,7 @@ What each signal asks, the bias it leans toward, the window it reads, the headli
 | --- | --- | --- | --- | --- | --- |
 | EOD Pressure | "Is the close getting pinned?" | Directional read | Last 90 min (ramps 14:30–15:45 ET) | Dealer charm at spot, pin gravity, realized vol, witching flags | Score [-1, +1]; fires at abs(score) ≥ 0.20 |
 | Gamma/VWAP Confluence | "Are key levels stacking up here?" | Mean-rev (long gamma) / Continuation (short gamma) | Continuous intraday | Gamma flip, VWAP, max pain, max-gamma strike, call wall | Score [-1, +1]; fires at abs(score) ≥ 0.20 |
+| Market Pressure | "Is the market loaded to move, and which way will it break?" | Continuation | Forward-looking; session-weighted vanna→charm blend | Wall pinch, flip proximity, net-GEX regime, dealer vanna/charm, DNI, premium + smart-money flow skew, IV rank, realized-vol squeeze | Score [-1, +1] plus loading 0–100; fires at loading ≥ 50 AND \|direction\| ≥ 0.20 |
 | Range Break Imminence | "Is this range about to break?" | Regime / playbook switch | 20-bar window | Skew delta, dealer delta, trap pressure, 10/60-bar compression ratio | Score [-1, +1] plus imminence 0–100; fires at imminence ≥ 65 |
 | Squeeze Setup | "Is the market coiled?" | Continuation | Multi-day setup | Flow z-score, 5/10-bar momentum, gamma readiness, flip distance, VIX regime | Score [-1, +1]; fires at abs(score) ≥ 0.25 |
 | Trap Detection | "Did this breakout just fail?" | Mean-reversion (vs. price break) | Intraday to overnight | Walls (current + prior), VWAP, flip, net GEX and ΔGEX, flow deltas | Score [-1, +1]; fires at abs(score) ≥ 0.25 |
@@ -59,6 +60,7 @@ Same number line, very different questions. Here is what positive, negative, and
 | --- | --- | --- | --- |
 | EOD Pressure | Bullish pin pressure (charm bid + gamma pull up) | Bearish pin pressure (charm offer + gamma pull down) | No pin compression or charm activity in the final window |
 | Gamma/VWAP Confluence | Price above the confluence cluster (fade down under long gamma / accelerate up under short gamma) | Price below the confluence cluster (mirror) | Missing core inputs (flip / VWAP unavailable) — *not* "neutral" |
+| Market Pressure | Bullish loading — dealers forced to buy on any catalyst (vanna+charm tilt up, call-side flow, dealers short delta) | Bearish loading — dealers forced to sell on any catalyst (mirror) | Either a pillar is missing (no walls, no flip, no greeks, no flow) or the coil is genuinely uncocked — not "neutral market." When loaded with direction = 0, opposing forces are cancelling. |
 | Range Break Imminence | Bullish break imminent (upside structural pressure aligned) | Bearish break imminent | Low imminence — stay in range-fade mode; no break loading |
 | Squeeze Setup | Buy the upside breakout (call flow + up-acceleration) | Sell the downside breakout (put flow + down-acceleration) | Nothing is compressed — no coiled energy, no flow lean |
 | Trap Detection | Buy the failed breakdown (downside break can't hold) | Sell the failed breakout (upside break can't hold) | No structural level is being rejected right now |
@@ -90,7 +92,7 @@ When Gamma/VWAP Confluence returns 0 because the gamma flip or VWAP is unavailab
 
 Every signal's "Trade Bias" rolls up into one of four families. Knowing which bucket a signal lives in tells you how to act on it before you even read the score.
 
-- **Continuation (4):** Squeeze Setup, Vol Expansion, Tape Flow Bias, Vanna/Charm Flow — these say *the move has fuel; ride it*.
+- **Continuation (5):** Squeeze Setup, Vol Expansion, Market Pressure, Tape Flow Bias, Vanna/Charm Flow — these say *the move has fuel; ride it*.
 - **Mean-reversion (2):** Positioning Trap, Trap Detection — these say *the move is overextended or false; fade it*. Gamma/VWAP Confluence joins this bucket when dealers are long gamma.
 - **Directional read (5):** EOD Pressure, Zero DTE Imbalance, Dealer Delta Pressure, GEX Gradient, Skew Delta — these tell you *which way pressure points*, without prescribing ride-vs-fade on their own.
 - **Regime / structural (1):** Range Break Imminence — this one switches the playbook itself, flipping you between range-fade and breakout modes.

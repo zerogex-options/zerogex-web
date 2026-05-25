@@ -29,6 +29,7 @@ export default function robots(): MetadataRoute.Robots {
         '/0dte-position-imbalance',
         '/gamma-vwap-confluence',
         '/volatility-expansion',
+        '/market-pressure',
         '/basic-signals',
         '/tape-flow-bias',
         '/skew-delta',

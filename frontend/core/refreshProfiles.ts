@@ -8,6 +8,7 @@ export const PROPRIETARY_SIGNALS_REFRESH = {
   zeroDteImbalanceMs: 5000,
   gammaVwapConfluenceMs: 5000,
   rangeBreakImminenceMs: 5000,
+  marketPressureMs: 5000,
   advancedDashboardMs: 10000,
   signalEventsMs: 30000,
   confluenceMatrixMs: 30000,

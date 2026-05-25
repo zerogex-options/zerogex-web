@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   CalendarClock,
   Compass,
+  Gauge,
   LayoutGrid,
   LineChart as LineChartIcon,
   Rocket,
@@ -27,6 +28,7 @@ import {
   useZeroDtePositionImbalanceSignal,
   useGammaVwapConfluenceSignal,
   useRangeBreakImminenceSignal,
+  useMarketPressureSignal,
   useConfluenceMatrix,
   type SignalEventName,
 } from '@/hooks/useApiData';
@@ -56,6 +58,8 @@ const EVENT_SIGNAL_LABELS: Array<{ name: SignalEventName; label: string }> = [
   { name: 'trap_detection', label: 'Trap Detection' },
   { name: 'zero_dte_position_imbalance', label: '0DTE Position Imbalance' },
   { name: 'gamma_vwap_confluence', label: 'Gamma/VWAP Confluence' },
+  { name: 'range_break_imminence', label: 'Range Break Imminence' },
+  { name: 'market_pressure', label: 'Market Pressure Index' },
 ];
 
 function isEodInactive(payload: Record<string, unknown>): string | null {
@@ -85,6 +89,7 @@ export default function AdvancedSignalsPage() {
   const zeroDte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
   const gammaVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
   const rangeBreak = useRangeBreakImminenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs);
+  const marketPressure = useMarketPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.marketPressureMs);
 
   const matrix = useConfluenceMatrix(symbol, 120, PROPRIETARY_SIGNALS_REFRESH.confluenceMatrixMs);
 
@@ -96,6 +101,7 @@ export default function AdvancedSignalsPage() {
     const zeroDtePayload = asObject(zeroDte.data) ?? {};
     const gvcPayload = asObject(gammaVwap.data) ?? {};
     const rbiPayload = asObject(rangeBreak.data) ?? {};
+    const mpPayload = asObject(marketPressure.data) ?? {};
 
     const volRows: AdvancedSignalContextRow[] = [
       { label: 'Expansion (0–100)', value: formatSigned(getNumber(volPayload.expansion), 1) },
@@ -167,6 +173,24 @@ export default function AdvancedSignalsPage() {
       { label: 'Compression mag', value: (getNumber(rbiCompression.magnitude) ?? 0).toFixed(1) },
     ];
 
+    const mpCtx = asObject(mpPayload.context_values) ?? {};
+    const mpCompression = asObject(mpCtx.compression) ?? {};
+    const mpHedging = asObject(mpCtx.hedging) ?? {};
+    const mpFlow = asObject(mpCtx.flow) ?? {};
+    const mpTension = asObject(mpCtx.tension) ?? {};
+    const mpRows: AdvancedSignalContextRow[] = [
+      { label: 'Loading', value: (getNumber(mpPayload.loading) ?? 0).toFixed(1) },
+      { label: 'Label', value: String(mpPayload.label ?? '—') },
+      { label: 'Direction value', value: formatSigned(getNumber(mpPayload.direction_value), 2), tone: toTrend(mpPayload.direction) },
+      { label: 'Confidence mult', value: (getNumber(mpPayload.confidence_mult) ?? 1).toFixed(2) + '×' },
+      { label: 'Compression', value: (getNumber(mpCompression.magnitude) ?? getNumber(mpCtx.compression)) != null
+        ? ((getNumber(mpCompression.magnitude) ?? getNumber(mpCtx.compression) ?? 0) * 100).toFixed(1)
+        : '—' },
+      { label: 'Hedging mag', value: (getNumber(mpHedging.magnitude) ?? 0).toFixed(2) },
+      { label: 'Flow mag', value: (getNumber(mpFlow.magnitude) ?? 0).toFixed(2) },
+      { label: 'Tension', value: (getNumber(mpTension.magnitude) ?? 0).toFixed(2) },
+    ];
+
     return [
       { payload: volPayload, title: 'Volatility Expansion', href: '/volatility-expansion', icon: Zap, threshold: 25, description: 'Short-gamma vol readiness × momentum direction.', rows: volRows, hook: volExpansion },
       { payload: eodPayload, title: 'EOD Pressure', href: '/eod-pressure', icon: CalendarClock, threshold: 25, description: 'Late-session pin/drift: charm + gamma-gated pin × time ramp.', rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) },
@@ -175,15 +199,16 @@ export default function AdvancedSignalsPage() {
       { payload: zeroDtePayload, title: '0DTE Position Imbalance', href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: 'Same-day bucket-weighted flow tilt × time-of-day ramp.', rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) },
       { payload: gvcPayload, title: 'Gamma/VWAP Confluence', href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: 'Multi-level magnet: flip + VWAP + max pain + max gamma + call wall.', rows: gvcRows, hook: gammaVwap },
       { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0–100 imminence.', rows: rbiRows, hook: rangeBreak },
+      { payload: mpPayload, title: 'Market Pressure Index', href: '/market-pressure', icon: Gauge, threshold: 22, description: 'Forward-looking coiled-spring: compression × hedging × flow × tension loading + direction.', rows: mpRows, hook: marketPressure },
     ];
-  }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak]);
+  }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak, marketPressure]);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
         <TooltipWrapper
-          text="Dashboard of seven advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence is a standalone regime-switch detector. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
+          text="Dashboard of eight advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence and Market Pressure Index are standalone overlays. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -198,9 +223,10 @@ export default function AdvancedSignalsPage() {
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Signal Lens</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Seven weighted detectors with directional triggers and pin-risk setups — six extending the composite
-              MSI plus Range Break Imminence as a standalone regime-switch overlay. Outlined tiles have crossed
-              their activation threshold — interpret each alongside the current regime.
+              Eight weighted detectors with directional triggers and pin-risk setups — six extending the composite
+              MSI plus Range Break Imminence (regime-switch) and Market Pressure Index (coiled-spring) as
+              standalone overlays. Outlined tiles have crossed their activation threshold — interpret each
+              alongside the current regime.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
               <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>

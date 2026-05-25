@@ -859,6 +859,13 @@ export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 1
   );
 }
 
+export function useMarketPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ProprietarySignalSnapshot>(
+    `/api/signals/advanced/market-pressure?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
 export interface SignalActionLeg {
   expiry: string;
   strike: number;
@@ -921,6 +928,7 @@ export type SignalEventName =
   | 'zero_dte_position_imbalance'
   | 'gamma_vwap_confluence'
   | 'range_break_imminence'
+  | 'market_pressure'
   | 'tape_flow_bias'
   | 'skew_delta'
   | 'vanna_charm_flow'

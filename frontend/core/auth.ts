@@ -45,6 +45,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
   { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
+  { pattern: '/market-pressure', minimumTier: 'pro' },
   // Basic Signals — included with Basic.
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },

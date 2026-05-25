@@ -58,6 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
           { id: '/0dte-position-imbalance', label: '0DTE Position Imbalance', requiredTier: 'pro' },
           { id: '/gamma-vwap-confluence', label: 'Gamma/VWAP Confluence', requiredTier: 'pro' },
           { id: '/range-break-imminence', label: 'Range Break Imminence', requiredTier: 'pro' },
+          { id: '/market-pressure', label: 'Market Pressure Index', requiredTier: 'pro' },
         ],
       },
     ],
