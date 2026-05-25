@@ -21,12 +21,25 @@ function ContributionStackImpl({ components, composite }: Props) {
 
   // 100 score units = 100% width. Each segment is |contribution| / 100 of width.
   // Negatives stack right-to-left from the 50% line; positives stack left-to-right from 50%.
-  const negativeSegs = ordered
+  const rawNegativeSegs = ordered
     .filter((c) => (c.contribution ?? 0) < 0)
     .map((c) => ({ entry: c, width: Math.min(50, Math.abs(c.contribution ?? 0)) }));
-  const positiveSegs = ordered
+  const rawPositiveSegs = ordered
     .filter((c) => (c.contribution ?? 0) > 0)
     .map((c) => ({ entry: c, width: Math.min(50, Math.abs(c.contribution ?? 0)) }));
+
+  // Components are independent — several can push to near-max on the same
+  // side while the other side only partially cancels them in the composite,
+  // so Σ|contributions| on one side can exceed the 50% half. When that
+  // happens, scale all segments proportionally so the longer side ends
+  // exactly at the bar's edge. This preserves relative proportions and keeps
+  // every segment label inside the bar instead of being clipped against it.
+  const posTotal = rawPositiveSegs.reduce((sum, s) => sum + s.width, 0);
+  const negTotal = rawNegativeSegs.reduce((sum, s) => sum + s.width, 0);
+  const maxSide = Math.max(posTotal, negTotal);
+  const widthScale = maxSide > 50 ? 50 / maxSide : 1;
+  const negativeSegs = rawNegativeSegs.map((s) => ({ ...s, width: s.width * widthScale }));
+  const positiveSegs = rawPositiveSegs.map((s) => ({ ...s, width: s.width * widthScale }));
 
   const negativeLayout: Array<{ entry: ComponentEntry; width: number; left: number }> = [];
   let negCursor = 50;
