@@ -77,7 +77,7 @@ export default function TapeFlowBiasPage() {
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="text-sm font-semibold mb-3">Bidirectional tape meter</div>
-              <div className="relative h-6 rounded-full overflow-hidden" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
+              <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
                 <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: `${needlePct}%`, transform: 'translateX(-50%)' }} />
               </div>
               <div className="mt-1.5 flex justify-between text-[10px] font-mono text-[var(--color-text-secondary)]">
