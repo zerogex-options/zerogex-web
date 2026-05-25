@@ -184,12 +184,10 @@ export default function MaxPainPage() {
       oiChart[0].strike)
     : currentUnderlying;
 
-  const markerSeparation = Math.abs(safeNum(activeExpiration?.max_pain || currentMaxPain) - underlyingStrikeMarker);
-  const labelsNeedExtraOffset = markerSeparation <= 5;
-  const maxPainLabelPosition = labelsNeedExtraOffset ? "insideTopRight" : "insideTopLeft";
-  const underlyingLabelPosition = labelsNeedExtraOffset ? "insideTopLeft" : "insideTopRight";
-  const maxPainLabelDy = labelsNeedExtraOffset ? 0 : 8;
-  const underlyingLabelDy = labelsNeedExtraOffset ? 22 : 8;
+  // Stagger Max Pain and Spot labels vertically so they never collide,
+  // regardless of how close the reference lines sit on the x-axis.
+  const maxPainLabelDy = 4;
+  const underlyingLabelDy = 26;
 
   const filteredMaxPainRows = omitOutOfHoursForSymbol(maxPainSeries || [], (row) => row.timestamp || "", symbol);
   const filteredPriceRows = omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol);
@@ -456,7 +454,7 @@ export default function MaxPainPage() {
                 label={{
                   value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`,
                   fill: textColor,
-                  position: maxPainLabelPosition,
+                  position: "insideTopLeft",
                   dy: maxPainLabelDy,
                 }}
               />
@@ -467,9 +465,9 @@ export default function MaxPainPage() {
                 strokeDasharray="6 4"
                 strokeWidth={2}
                 label={{
-                  value: `Underlying $${currentUnderlying.toFixed(2)}`,
+                  value: `Spot $${currentUnderlying.toFixed(2)}`,
                   fill: textColor,
-                  position: underlyingLabelPosition,
+                  position: "insideTopLeft",
                   dy: underlyingLabelDy,
                 }}
               />
