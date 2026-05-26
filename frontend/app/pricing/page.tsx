@@ -275,18 +275,22 @@ export default function PricingPage() {
 
   const registerHref = (tier: 'basic' | 'pro') => `/register?tier=${tier}&next=/pricing`;
 
-  // TEMP: Both tiers below are simplified for the launch promo. The full paid
-  // pricing logic lives in page.paid.tsx.bak — copy that over to restore.
-  const actionForFreeBasic = (): TierAction => {
-    if (authLoading) return { kind: 'link', href: registerHref('basic'), label: 'Get Started' };
-    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
-    if (isAuthed && TIER_RANK[currentTier] >= TIER_RANK.basic) {
-      return { kind: 'current', label: 'Active' };
+  const actionForPaidTier = (tier: 'basic' | 'pro'): TierAction => {
+    const label = tier === 'basic' ? 'Basic' : 'Pro';
+    if (authLoading) return { kind: 'link', href: registerHref(tier), label: 'Get Started' };
+    if (!isAuthed) {
+      return { kind: 'link', href: registerHref(tier), label: 'Sign up to subscribe' };
     }
-    return { kind: 'link', href: registerHref('basic'), label: 'Sign up — Free' };
+    if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
+    if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
+    if (TIER_RANK[currentTier] > TIER_RANK[tier]) {
+      return { kind: 'portal', label: 'Manage Subscription' };
+    }
+    if (hasPaidSubscription) {
+      return { kind: 'portal', label: `Switch to ${label}` };
+    }
+    return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
   };
-
-  const actionForProComingSoon = (): TierAction => ({ kind: 'current', label: 'Coming Soon' });
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -406,7 +410,7 @@ export default function PricingPage() {
                 'Access to Basic Signals.',
                 'Designed for disciplined daily execution.',
               ]}
-              action={actionForFreeBasic()}
+              action={actionForPaidTier('basic')}
               busy={busyTier === 'basic' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
@@ -421,7 +425,7 @@ export default function PricingPage() {
                 'Access to Advanced Signals.',
                 'Direct access to ZeroGEX APIs.',
               ]}
-              action={actionForProComingSoon()}
+              action={actionForPaidTier('pro')}
               busy={busyTier === 'pro' || busyTier === 'portal'}
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
