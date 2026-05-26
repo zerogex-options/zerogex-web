@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useTheme } from '@/core/ThemeContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
@@ -65,11 +64,9 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
 type TabId = 'frontend' | 'backend';
 
 export default function MonitoringClient() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const cardBg = 'var(--color-surface)';
   const mutedText = 'var(--color-text-secondary)';
-  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
+  const textColor = 'var(--color-text-primary)';
   const borderColor = 'var(--color-border)';
   const axisStroke = 'var(--color-text-primary)';
 

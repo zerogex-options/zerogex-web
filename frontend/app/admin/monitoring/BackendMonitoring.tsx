@@ -13,7 +13,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useTheme } from '@/core/ThemeContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
@@ -85,11 +84,9 @@ type StackedRow = {
 };
 
 export default function BackendMonitoring() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const cardBg = 'var(--color-surface)';
   const mutedText = 'var(--color-text-secondary)';
-  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
+  const textColor = 'var(--color-text-primary)';
   const borderColor = 'var(--color-border)';
   const axisStroke = 'var(--color-text-primary)';
 
