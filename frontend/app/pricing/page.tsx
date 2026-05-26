@@ -209,7 +209,7 @@ export default function PricingPage() {
     [authSession?.user?.tier],
   );
   const isAuthed = !!authSession?.authenticated;
-  const hasPaidSubscription = currentTier === 'pro';
+  const hasPaidSubscription = currentTier === 'basic' || currentTier === 'pro';
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
