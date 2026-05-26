@@ -4,11 +4,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getDb } from '@/core/db';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
+import {
+  MAX_DAILY,
+  MAX_HOURLY,
+  etBucketKeys,
+  generateDailyKeys,
+  generateHourlyKeys,
+} from '@/core/monitoringBuckets';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
-const MAX_HOURLY = 720;
-const MAX_DAILY = 90;
 const FLUSH_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60_000;
 const TOKEN_CACHE_TTL_MS = 60_000;
@@ -84,27 +89,6 @@ function normalizeBucket(raw: Partial<MonitoringBucket> | undefined): Monitoring
     for (const u of bucket.users) bucket.userCounts[u] = 1;
   }
   return bucket;
-}
-
-const ET_PARTS_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/New_York',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  hour12: false,
-});
-
-function etBucketKeys(date: Date): { hour: string; day: string } {
-  const parts = ET_PARTS_FORMATTER.formatToParts(date);
-  const y = parts.find((p) => p.type === 'year')?.value ?? '0000';
-  const m = parts.find((p) => p.type === 'month')?.value ?? '00';
-  const d = parts.find((p) => p.type === 'day')?.value ?? '00';
-  const rawHour = parts.find((p) => p.type === 'hour')?.value ?? '00';
-  // Intl can render hour "24" at midnight; normalize to "00".
-  const h = (rawHour === '24' ? '00' : rawHour).padStart(2, '0');
-  const day = `${y}-${m}-${d}`;
-  return { day, hour: `${day}T${h}` };
 }
 
 function readStoreFromDisk(): StoreShape {
@@ -226,34 +210,6 @@ export function initMonitoring() {
   process.once('SIGTERM', flushOnExit);
   process.once('SIGINT', flushOnExit);
   process.once('beforeExit', flushOnExit);
-}
-
-function generateHourlyKeys(now: Date): string[] {
-  const seen = new Set<string>();
-  const keys: string[] = [];
-  for (let i = MAX_HOURLY - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 3600_000);
-    const { hour } = etBucketKeys(d);
-    if (!seen.has(hour)) {
-      seen.add(hour);
-      keys.push(hour);
-    }
-  }
-  return keys;
-}
-
-function generateDailyKeys(now: Date): string[] {
-  const seen = new Set<string>();
-  const keys: string[] = [];
-  for (let i = MAX_DAILY - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 86400_000);
-    const { day } = etBucketKeys(d);
-    if (!seen.has(day)) {
-      seen.add(day);
-      keys.push(day);
-    }
-  }
-  return keys;
 }
 
 function bucketToPoint(key: string, bucket: MonitoringBucket | undefined): MonitoringSnapshotPoint {

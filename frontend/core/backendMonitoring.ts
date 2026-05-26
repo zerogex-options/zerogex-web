@@ -1,6 +1,7 @@
 import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
+import { etBucketKeys, generateDailyKeys, generateHourlyKeys } from '@/core/monitoringBuckets';
 
 const STATE_PATH =
   process.env.BACKEND_MONITORING_STATE_PATH ?? path.join('/home/ubuntu/monitoring/state.json');
@@ -85,12 +86,35 @@ function toIntCount(v: RawNumeric): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeBucket(raw: RawBucket | undefined): BackendSnapshotPoint {
+function emptyPoint(bucketKey: string): BackendSnapshotPoint {
+  return {
+    bucket: bucketKey,
+    cpuAvg: null,
+    cpuMax: null,
+    memAvg: null,
+    memMax: null,
+    cycleAvg: null,
+    cycleMax: null,
+    cycleMedian: null,
+    diskRootLatest: null,
+    diskVarLogLatest: null,
+    ingestionErrors: 0,
+    ingestionWarnings: 0,
+    analyticsErrors: 0,
+    analyticsWarnings: 0,
+    signalsErrors: 0,
+    signalsWarnings: 0,
+    apiErrors: 0,
+    apiWarnings: 0,
+  };
+}
+
+function normalizeBucket(raw: RawBucket | undefined, bucketKey: string): BackendSnapshotPoint {
   const m = raw?.metrics ?? {};
   const errors = m.errors_by_service ?? {};
   const warnings = m.warnings_by_service ?? {};
   return {
-    bucket: raw?.bucket_start ?? '',
+    bucket: bucketKey,
     cpuAvg: toFloatOrNull(m.cpu_pct?.avg),
     cpuMax: toFloatOrNull(m.cpu_pct?.max),
     memAvg: toFloatOrNull(m.mem_pct?.avg),
@@ -120,10 +144,36 @@ function readStateFromDisk(): RawState | null {
   }
 }
 
+// Index the raw buckets by ET hour/day key so we can pad the series to the
+// same fixed window the frontend metrics feed uses.
+function indexByEtKey(
+  raw: RawBucket[] | undefined,
+  pick: (k: { hour: string; day: string }) => string,
+): Map<string, RawBucket> {
+  const out = new Map<string, RawBucket>();
+  if (!Array.isArray(raw)) return out;
+  for (const b of raw) {
+    if (!b?.bucket_start) continue;
+    const d = new Date(b.bucket_start);
+    if (Number.isNaN(d.getTime())) continue;
+    out.set(pick(etBucketKeys(d)), b);
+  }
+  return out;
+}
+
 export function getBackendSnapshot(): BackendSnapshot {
   const state = readStateFromDisk();
-  const hourly = Array.isArray(state?.hourly) ? state!.hourly.map(normalizeBucket) : [];
-  const daily = Array.isArray(state?.daily) ? state!.daily.map(normalizeBucket) : [];
+  const now = new Date();
+  const hourlyIndex = indexByEtKey(state?.hourly, (k) => k.hour);
+  const dailyIndex = indexByEtKey(state?.daily, (k) => k.day);
+  const hourly = generateHourlyKeys(now).map((key) => {
+    const raw = hourlyIndex.get(key);
+    return raw ? normalizeBucket(raw, key) : emptyPoint(key);
+  });
+  const daily = generateDailyKeys(now).map((key) => {
+    const raw = dailyIndex.get(key);
+    return raw ? normalizeBucket(raw, key) : emptyPoint(key);
+  });
   return {
     hourly,
     daily,
