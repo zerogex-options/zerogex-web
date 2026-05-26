@@ -234,6 +234,56 @@ function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]):
   });
 }
 
+// ── Incomplete-bar suppression ────────────────────────────────────────────────
+//
+// A row whose tracked cumulative fields are all exactly 0 inside a still-open
+// 5-minute bar means "no trades reported yet for this bar" — plotting it drops
+// the line to zero before the session has actually drifted there. We mask
+// those rows until the bar window fully elapses; after that, a genuine 0 is
+// allowed through.
+
+const BAR_WINDOW_MS = 5 * 60_000;
+
+function isBarWindowComplete(timestamp: string): boolean {
+  const ms = new Date(timestamp).getTime();
+  if (!Number.isFinite(ms)) return true;
+  return Date.now() >= ms + BAR_WINDOW_MS;
+}
+
+function maskIncompleteZeroFlowBars(rows: TimeseriesRow[]): TimeseriesRow[] {
+  return rows.map((row) => {
+    if (
+      row.callPremium === 0 &&
+      row.putPremium === 0 &&
+      row.netVolume === 0 &&
+      !isBarWindowComplete(row.timestamp)
+    ) {
+      return {
+        ...row,
+        callPremium: null,
+        putPremium: null,
+        netVolume: null,
+        positiveNetVolume: null,
+        negativeNetVolume: null,
+      };
+    }
+    return row;
+  });
+}
+
+function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[]): NetPositionRow[] {
+  return rows.map((row) => {
+    if (
+      row.callPosition === 0 &&
+      row.putPosition === 0 &&
+      !isBarWindowComplete(row.timestamp)
+    ) {
+      return { ...row, callPosition: null, putPosition: null };
+    }
+    return row;
+  });
+}
+
 // ── Label / axis helpers ──────────────────────────────────────────────────────
 
 function safeTimeLabel(value?: string) {
@@ -957,7 +1007,8 @@ export default function FlowAnalysisPage() {
       ? (flowSeriesFiltered ?? [])
       : (flowSeriesUnfiltered ?? []);
     const base = mapSeriesToFlowTimeseries(sourceRows, netVolumeMode);
-    return alignSeriesToTimeline(base, sessionTimeline);
+    const aligned = alignSeriesToTimeline(base, sessionTimeline);
+    return maskIncompleteZeroFlowBars(aligned);
   }, [hasActiveFilters, flowSeriesFiltered, flowSeriesUnfiltered, selectedDate, sessionTimeline, netVolumeMode]);
 
   // ── Put/Call ratio (unfiltered) ──────────────────────────────────────────
@@ -978,7 +1029,8 @@ export default function FlowAnalysisPage() {
   const netPositionSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
     const base = mapSeriesToNetPositionRows(flowSeriesUnfiltered ?? []);
-    return alignNetPositionToTimeline(base, sessionTimeline);
+    const aligned = alignNetPositionToTimeline(base, sessionTimeline);
+    return maskIncompleteZeroNetPositionBars(aligned);
   }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
   const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
