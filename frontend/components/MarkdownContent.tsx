@@ -84,7 +84,10 @@ export function renderMarkdown(markdown: string): ReactNode[] {
         .map((row) => {
           const isAccent = row.startsWith('|!');
           const stripped = isAccent ? '|' + row.slice(2) : row;
-          const cells = stripped.slice(1, -1).split('|').map((cell) => cell.trim());
+          const cells = stripped
+            .slice(1, -1)
+            .split(/(?<!\\)\|/)
+            .map((cell) => cell.trim().replace(/\\\|/g, '|'));
           return { cells, isAccent };
         });
       const [header, ...body] = parsed;
