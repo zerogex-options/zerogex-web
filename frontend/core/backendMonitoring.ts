@@ -6,6 +6,10 @@ import { etBucketKeys, generateDailyKeys, generateHourlyKeys } from '@/core/moni
 const STATE_PATH =
   process.env.BACKEND_MONITORING_STATE_PATH ?? path.join('/home/ubuntu/monitoring/state.json');
 
+// Backend hourly charts span 14 days, a shorter window than the 720-hour
+// (30-day) range the frontend metrics use.
+const BACKEND_HOURLY_WINDOW = 14 * 24;
+
 export const BACKEND_SERVICES = [
   'zerogex-oa-ingestion',
   'zerogex-oa-analytics',
@@ -166,7 +170,7 @@ export function getBackendSnapshot(): BackendSnapshot {
   const now = new Date();
   const hourlyIndex = indexByEtKey(state?.hourly, (k) => k.hour);
   const dailyIndex = indexByEtKey(state?.daily, (k) => k.day);
-  const hourly = generateHourlyKeys(now).map((key) => {
+  const hourly = generateHourlyKeys(now, BACKEND_HOURLY_WINDOW).map((key) => {
     const raw = hourlyIndex.get(key);
     return raw ? normalizeBucket(raw, key) : emptyPoint(key);
   });

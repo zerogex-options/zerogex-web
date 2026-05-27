@@ -1,9 +1,9 @@
 import 'server-only';
 
-// Fixed windowing for the admin monitoring charts. Both the frontend metrics
-// feed and the backend metrics feed pad their hourly/daily series to these
-// sizes so the chart x-axes always span the same range regardless of how
-// much data has been collected.
+// Fixed windowing for the admin monitoring charts. The hourly/daily series
+// pad to these sizes so the chart x-axes always span the same range
+// regardless of how much data has been collected. Callers (e.g. the backend
+// metrics feed) may pass a smaller hourly count to generateHourlyKeys.
 export const MAX_HOURLY = 720;
 export const MAX_DAILY = 90;
 
@@ -28,10 +28,10 @@ export function etBucketKeys(date: Date): { hour: string; day: string } {
   return { day, hour: `${day}T${h}` };
 }
 
-export function generateHourlyKeys(now: Date): string[] {
+export function generateHourlyKeys(now: Date, count: number = MAX_HOURLY): string[] {
   const seen = new Set<string>();
   const keys: string[] = [];
-  for (let i = MAX_HOURLY - 1; i >= 0; i--) {
+  for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 3600_000);
     const { hour } = etBucketKeys(d);
     if (!seen.has(hour)) {
