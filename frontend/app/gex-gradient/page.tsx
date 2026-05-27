@@ -20,6 +20,7 @@ import {
   formatSigned,
   formatPct,
 } from '@/core/signalHelpers';
+import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function interpretation(score: number | null, netGex: number | null): string {
   if (score == null) return 'No reading';
@@ -118,7 +119,7 @@ export default function GexGradientPage() {
               <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
                 <div className="text-[11px] text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">Asymmetry</div>
                 <div className="relative h-4 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-surface) 50%, var(--color-bull) 100%)' }}>
-                  <div className="absolute top-0 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: `${asymmetryNeedlePct}%`, transform: 'translateX(-50%)' }} />
+                  <div className="absolute top-0 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(asymmetryNeedlePct, 16, 2), transform: 'translateX(-50%)' }} />
                 </div>
                 <div className="mt-1 flex justify-between text-[10px] font-mono text-[var(--color-text-secondary)]">
                   <span>−1</span>

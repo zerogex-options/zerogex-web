@@ -8,6 +8,7 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 type SignalComponentRow = {
   key?: string;
@@ -618,10 +619,11 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               <div
                 className="absolute -top-2 h-8 w-0.5 bg-[var(--color-text-primary)]"
                 style={{
-                  left:
-                    compositeScore != null
-                      ? `${Math.max(0, Math.min(100, (compositeScore + 100) / 2))}%`
-                      : '50%',
+                  left: spectrumIndicatorLeft(
+                    compositeScore != null ? Math.max(0, Math.min(100, (compositeScore + 100) / 2)) : 50,
+                    16,
+                    2,
+                  ),
                   transform: 'translateX(-50%)',
                 }}
               />
@@ -859,7 +861,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                     <span className="flex items-center justify-center">
                       {spectrumPct != null ? (
                         <div className="relative w-full h-2 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-warning) 50%, var(--color-bull) 100%)' }}>
-                          <div className="absolute -top-0.5 h-3 w-0.5 bg-[var(--color-text-primary)] rounded-sm" style={{ left: `${spectrumPct}%`, transform: 'translateX(-50%)' }} />
+                          <div className="absolute -top-0.5 h-3 w-0.5 bg-[var(--color-text-primary)] rounded-sm" style={{ left: spectrumIndicatorLeft(spectrumPct, 8, 2), transform: 'translateX(-50%)' }} />
                         </div>
                       ) : (
                         <span className="text-xs text-[var(--color-text-secondary)]">—</span>

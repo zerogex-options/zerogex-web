@@ -22,6 +22,7 @@ import {
   formatPct,
   formatSigned,
 } from '@/core/signalHelpers';
+import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function interpretation(score: number | null) {
   if (score == null) return 'No reading';
@@ -121,7 +122,7 @@ export default function VolatilityExpansionPage() {
                 {directionScore != null ? `${directionScore >= 0 ? '+' : ''}${directionScore.toFixed(1)}` : '—'}
               </div>
               <div className="relative mt-3 h-3 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear), var(--color-warning), var(--color-bull))' }}>
-                <div className="absolute -top-1 h-5 w-0.5 bg-[var(--color-text-primary)]" style={{ left: directionScore != null ? `${Math.max(0, Math.min(100, (directionScore + 100) / 2))}%` : '50%', transform: 'translateX(-50%)' }} />
+                <div className="absolute -top-1 h-5 w-0.5 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(directionScore != null ? Math.max(0, Math.min(100, (directionScore + 100) / 2)) : 50, 12, 2), transform: 'translateX(-50%)' }} />
               </div>
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">5-bar z-scored momentum, tanh-squashed.</p>
             </div>

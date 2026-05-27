@@ -19,6 +19,7 @@ import {
   formatGexCompact,
   formatSigned,
 } from '@/core/signalHelpers';
+import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function interpretation(score: number | null): string {
   if (score == null) return 'No reading';
@@ -74,7 +75,7 @@ export default function DealerDeltaPressurePage() {
                 <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">−100 to +100</span>
               </div>
               <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
-                <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: `${needlePct}%`, transform: 'translateX(-50%)' }} />
+                <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(needlePct, 24, 4), transform: 'translateX(-50%)' }} />
               </div>
               <div className="mt-1.5 flex justify-between text-[10px] text-[var(--color-text-secondary)]">
                 <span>Dealers long → bearish</span>

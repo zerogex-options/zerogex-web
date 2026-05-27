@@ -20,6 +20,7 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
+import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function getDateMarkerMeta(timestamps: string[]) {
   const groups = new Map<string, { first: number; last: number }>();
@@ -480,7 +481,7 @@ export default function IntradayToolsPage() {
                       <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
                       <div
                         className="absolute -top-1 -bottom-1 w-1 -translate-x-1/2 rounded"
-                        style={{ left: `${pricePct}%`, backgroundColor: 'var(--color-text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
+                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--color-text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
                       />
                     </div>
                     <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
