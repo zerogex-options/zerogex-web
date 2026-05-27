@@ -558,7 +558,7 @@ export default function SmartMoneyPage() {
       const els = map.get(key);
       if (els) for (const el of els) el.setAttribute('data-smart-hover', 'true');
     }
-  }, [sortedSmartMoneyRows, smartMoneyChartBlocks, tableRowLimit, maxStackSegments]);
+  }, [sortedSmartMoneyRows, smartMoneySessionChart, tableRowLimit, maxStackSegments]);
   // Build a sparse Map of timestamps that should render a tick label (either a
   // 30-min boundary, a new-day marker, or both). Recharts is told to render
   // ONLY these ticks via the `ticks` prop instead of iterating every minute,
