@@ -114,18 +114,58 @@ const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
 
-// Skip a refresh-driven state update when the new payload's endpoints match
-// the previous one. The smart-money feed is append-mostly within a session,
-// so identical length + identical first/last row fingerprints is a reliable
-// "no change" signal and avoids re-running every downstream useMemo.
+// Skip a refresh-driven state update when the new payload aggregates to the
+// same fingerprint as the previous one. The earlier "first row + last row"
+// check broke down during the cash session: the API returns rows sorted by
+// notional, so a new block pushed onto the top reorders the first/last
+// entries and forced a full re-render even when the underlying data was
+// otherwise unchanged. An order-insensitive aggregate (count + notional sum
+// + max notional + total flow + earliest/latest timestamp) catches real
+// changes (new rows, mutated values, new bar boundary) but tolerates pure
+// re-orderings of the existing set.
+function smartMoneySnapshotFingerprint(rows: SmartMoneyRow[]): {
+  notionalSum: number;
+  notionalMax: number;
+  flowSum: number;
+  earliest: string;
+  latest: string;
+} {
+  let notionalSum = 0;
+  let notionalMax = 0;
+  let flowSum = 0;
+  let earliest = '';
+  let latest = '';
+  for (const row of rows) {
+    const notional = Number(row.notional ?? row.total_premium ?? 0);
+    if (Number.isFinite(notional)) {
+      // Round to whole dollars so float-precision drift across re-orderings
+      // can't make two identical row sets fingerprint differently.
+      const rounded = Math.round(notional);
+      notionalSum += rounded;
+      if (rounded > notionalMax) notionalMax = rounded;
+    }
+    const flow = Number(row.flow ?? row.total_volume ?? 0);
+    if (Number.isFinite(flow)) flowSum += Math.round(flow);
+    const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '';
+    if (ts) {
+      if (!earliest || ts < earliest) earliest = ts;
+      if (!latest || ts > latest) latest = ts;
+    }
+  }
+  return { notionalSum, notionalMax, flowSum, earliest, latest };
+}
+
 function isSameSmartMoneySnapshot(next: SmartMoneyRow[], prev: SmartMoneyRow[] | null): boolean {
   if (!prev || prev.length !== next.length) return false;
   if (next.length === 0) return true;
-  const a0 = next[0]; const aN = next[next.length - 1];
-  const b0 = prev[0]; const bN = prev[prev.length - 1];
+  const a = smartMoneySnapshotFingerprint(next);
+  const b = smartMoneySnapshotFingerprint(prev);
   return (
-    a0.timestamp === b0.timestamp && a0.contract === b0.contract && a0.notional === b0.notional &&
-    aN.timestamp === bN.timestamp && aN.contract === bN.contract && aN.notional === bN.notional
+    a.notionalSum === b.notionalSum &&
+    a.notionalMax === b.notionalMax &&
+    a.flowSum === b.flowSum &&
+    a.earliest === b.earliest &&
+    a.latest === b.latest
   );
 }
 const acceptSmartMoneySnapshot = (next: SmartMoneyRow[], prev: SmartMoneyRow[] | null) => !isSameSmartMoneySnapshot(next, prev);
