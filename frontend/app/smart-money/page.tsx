@@ -114,18 +114,58 @@ const getETDateKey = (ts: string) => new Intl.DateTimeFormat('en-CA', { timeZone
 const latestTimestamp = (timestamps: string[]) => timestamps.reduce<string>((latest, ts) => (new Date(ts).getTime() > new Date(latest).getTime() ? ts : latest), timestamps[0] || '');
 const is30MinBoundary = (ts: string) => { const d = new Date(ts); return d.getUTCMinutes() === 0 || d.getUTCMinutes() === 30; };
 
-// Skip a refresh-driven state update when the new payload's endpoints match
-// the previous one. The smart-money feed is append-mostly within a session,
-// so identical length + identical first/last row fingerprints is a reliable
-// "no change" signal and avoids re-running every downstream useMemo.
+// Skip a refresh-driven state update when the new payload aggregates to the
+// same fingerprint as the previous one. The earlier "first row + last row"
+// check broke down during the cash session: the API returns rows sorted by
+// notional, so a new block pushed onto the top reorders the first/last
+// entries and forced a full re-render even when the underlying data was
+// otherwise unchanged. An order-insensitive aggregate (count + notional sum
+// + max notional + total flow + earliest/latest timestamp) catches real
+// changes (new rows, mutated values, new bar boundary) but tolerates pure
+// re-orderings of the existing set.
+function smartMoneySnapshotFingerprint(rows: SmartMoneyRow[]): {
+  notionalSum: number;
+  notionalMax: number;
+  flowSum: number;
+  earliest: string;
+  latest: string;
+} {
+  let notionalSum = 0;
+  let notionalMax = 0;
+  let flowSum = 0;
+  let earliest = '';
+  let latest = '';
+  for (const row of rows) {
+    const notional = Number(row.notional ?? row.total_premium ?? 0);
+    if (Number.isFinite(notional)) {
+      // Round to whole dollars so float-precision drift across re-orderings
+      // can't make two identical row sets fingerprint differently.
+      const rounded = Math.round(notional);
+      notionalSum += rounded;
+      if (rounded > notionalMax) notionalMax = rounded;
+    }
+    const flow = Number(row.flow ?? row.total_volume ?? 0);
+    if (Number.isFinite(flow)) flowSum += Math.round(flow);
+    const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '';
+    if (ts) {
+      if (!earliest || ts < earliest) earliest = ts;
+      if (!latest || ts > latest) latest = ts;
+    }
+  }
+  return { notionalSum, notionalMax, flowSum, earliest, latest };
+}
+
 function isSameSmartMoneySnapshot(next: SmartMoneyRow[], prev: SmartMoneyRow[] | null): boolean {
   if (!prev || prev.length !== next.length) return false;
   if (next.length === 0) return true;
-  const a0 = next[0]; const aN = next[next.length - 1];
-  const b0 = prev[0]; const bN = prev[prev.length - 1];
+  const a = smartMoneySnapshotFingerprint(next);
+  const b = smartMoneySnapshotFingerprint(prev);
   return (
-    a0.timestamp === b0.timestamp && a0.contract === b0.contract && a0.notional === b0.notional &&
-    aN.timestamp === bN.timestamp && aN.contract === bN.contract && aN.notional === bN.notional
+    a.notionalSum === b.notionalSum &&
+    a.notionalMax === b.notionalMax &&
+    a.flowSum === b.flowSum &&
+    a.earliest === b.earliest &&
+    a.latest === b.latest
   );
 }
 const acceptSmartMoneySnapshot = (next: SmartMoneyRow[], prev: SmartMoneyRow[] | null) => !isSameSmartMoneySnapshot(next, prev);
@@ -381,7 +421,12 @@ export default function SmartMoneyPage() {
     return rows;
   }, [filteredSmartMoneyData, sortStack, columnFilters]);
 
-  const smartMoneySessionChart = useMemo(() => {
+  // Block-only chart skeleton: timestamps + stacked block notional, no price.
+  // Recomputed when smart-money data or the session timeline change, NOT on
+  // every 1s underlying-price poll — the price overlay is merged in by
+  // `smartMoneySessionChart` below so this O(timeline * stacks) build no
+  // longer re-fires every second during the cash session.
+  const smartMoneyChartBlocks = useMemo(() => {
     const blocksByTs = new Map<string, SmartMoneyBlockMeta[]>();
     filteredSmartMoneyData.forEach((row) => {
       if (!row.minuteTimestamp) return;
@@ -395,29 +440,11 @@ export default function SmartMoneyPage() {
       });
       blocksByTs.set(row.minuteTimestamp, blocks);
     });
-    // Pull underlying price from /api/market/historical 5-min bars: plot each
-    // bar's close at the bar's normalized minute, leave the 4 in-between
-    // minutes null, and let connectNulls + type="monotone" smooth across them.
-    const priceByTs = new Map<string, number>();
-    for (const bar of smartMoneyPriceBars || []) {
-      const minute = normalizeToMinute(bar.timestamp);
-      if (!minute) continue;
-      const close = bar.close ?? bar.price;
-      if (close == null) continue;
-      const u = Number(close);
-      if (Number.isFinite(u)) priceByTs.set(minute, u);
-    }
     const maxBlocksPerMinute = Math.max(1, ...Array.from(blocksByTs.values()).map((values) => values.length));
-    // Leave gaps as nulls between observations; Recharts' connectNulls + type="monotone"
-    // draws a true smooth curve across the sparse points (matching the Options Flow line).
-    return sessionTimeline.map((ts) => {
+    const rows = sessionTimeline.map((ts) => {
       // Sort largest -> smallest so any segment cap trims from the smallest tail.
       const minuteBlocks = [...(blocksByTs.get(ts) || [])].sort((a, b) => b.notionalM - a.notionalM);
-      const observed = priceByTs.get(ts);
-      const row: Record<string, number | string | null | SmartMoneyBlockMeta> = {
-        timestamp: ts,
-        underlyingPrice: observed != null && Number.isFinite(observed) ? observed : null,
-      };
+      const row: Record<string, number | string | null | SmartMoneyBlockMeta> = { timestamp: ts };
       for (let j = 0; j < maxBlocksPerMinute; j += 1) {
         const block = minuteBlocks[j];
         row[`block${j + 1}`] = block?.notionalM ?? 0;
@@ -425,14 +452,40 @@ export default function SmartMoneyPage() {
       }
       return row;
     });
-  }, [filteredSmartMoneyData, smartMoneyPriceBars, sessionTimeline]);
+    return { rows, maxBlocksPerMinute };
+  }, [filteredSmartMoneyData, sessionTimeline]);
+
+  // Pull underlying price from /api/market/historical 5-min bars: each bar's
+  // close lands at its normalized minute, in-between minutes stay missing,
+  // and Recharts' connectNulls + type="monotone" smooths across them.
+  // Isolated from the block skeleton above so the 1s historical poll only
+  // re-runs this cheap O(bars) map build, not the full chart structure.
+  const priceByMinute = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const bar of smartMoneyPriceBars || []) {
+      const minute = normalizeToMinute(bar.timestamp);
+      if (!minute) continue;
+      const close = bar.close ?? bar.price;
+      if (close == null) continue;
+      const u = Number(close);
+      if (Number.isFinite(u)) map.set(minute, u);
+    }
+    return map;
+  }, [smartMoneyPriceBars]);
+
+  const smartMoneySessionChart = useMemo(() => {
+    return smartMoneyChartBlocks.rows.map((row) => {
+      const observed = priceByMinute.get(String(row.timestamp));
+      return {
+        ...row,
+        underlyingPrice: observed != null && Number.isFinite(observed) ? observed : null,
+      };
+    });
+  }, [smartMoneyChartBlocks, priceByMinute]);
 
   const maxStackSegments = useMemo(
-    () => Math.min(
-      smartMoneySessionChart.reduce((max, row) => Math.max(max, Object.keys(row).filter((k) => k.startsWith('block') && Number(row[k] || 0) > 0).length), 1),
-      12,
-    ),
-    [smartMoneySessionChart],
+    () => Math.min(smartMoneyChartBlocks.maxBlocksPerMinute, 12),
+    [smartMoneyChartBlocks],
   );
 
   // Stable per-stack-segment shape factories. Hoisting these out of the JSX
@@ -505,7 +558,7 @@ export default function SmartMoneyPage() {
       const els = map.get(key);
       if (els) for (const el of els) el.setAttribute('data-smart-hover', 'true');
     }
-  }, [sortedSmartMoneyRows, smartMoneySessionChart, tableRowLimit, maxStackSegments]);
+  }, [sortedSmartMoneyRows, smartMoneyChartBlocks, tableRowLimit, maxStackSegments]);
   // Build a sparse Map of timestamps that should render a tick label (either a
   // 30-min boundary, a new-day marker, or both). Recharts is told to render
   // ONLY these ticks via the `ticks` prop instead of iterating every minute,
@@ -513,8 +566,7 @@ export default function SmartMoneyPage() {
   const xAxisTickInfo = useMemo(() => {
     const info = new Map<string, { time?: string; date?: string }>();
     let prevDate = '';
-    for (const row of smartMoneySessionChart) {
-      const ts = String(row.timestamp);
+    for (const ts of sessionTimeline) {
       const time = is30MinBoundary(ts)
         ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
         : undefined;
@@ -524,7 +576,7 @@ export default function SmartMoneyPage() {
       if (time || date) info.set(ts, { time, date });
     }
     return info;
-  }, [smartMoneySessionChart]);
+  }, [sessionTimeline]);
   const xAxisTicks = useMemo(() => Array.from(xAxisTickInfo.keys()), [xAxisTickInfo]);
   const dailyTotalsTimestamp = useMemo(() => {
     const timestamps = filteredSmartMoneyData
