@@ -499,6 +499,8 @@ function FilterRow({
   onSelectAll,
   onClear,
   renderOption,
+  loading = false,
+  error = null,
 }: {
   label: string;
   options: string[];
@@ -507,6 +509,8 @@ function FilterRow({
   onSelectAll: () => void;
   onClear: () => void;
   renderOption?: (v: string) => string;
+  loading?: boolean;
+  error?: string | null;
 }) {
   const active = selected.size > 0;
   const allSelected = active && selected.size === options.length;
@@ -558,9 +562,19 @@ function FilterRow({
       </div>
       <div className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
         {options.length === 0 ? (
-          <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
-            None available
-          </span>
+          error ? (
+            <span className="text-xs italic" style={{ color: "var(--color-danger, #ef4444)" }}>
+              Failed to load — {error}
+            </span>
+          ) : loading ? (
+            <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
+              Loading…
+            </span>
+          ) : (
+            <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
+              None available
+            </span>
+          )
         ) : (
           options.map((option) => {
             const isActive = selected.has(option);
@@ -594,6 +608,8 @@ function FlowFilters({
   onClearExpirations,
   onSelectAllStrikes,
   onSelectAllExpirations,
+  loading = false,
+  error = null,
 }: {
   strikeOptions: string[];
   expirationOptions: string[];
@@ -605,6 +621,8 @@ function FlowFilters({
   onClearExpirations: () => void;
   onSelectAllStrikes: () => void;
   onSelectAllExpirations: () => void;
+  loading?: boolean;
+  error?: string | null;
 }) {
   return (
     <div
@@ -618,6 +636,8 @@ function FlowFilters({
         onToggle={onToggleStrike}
         onSelectAll={onSelectAllStrikes}
         onClear={onClearStrikes}
+        loading={loading}
+        error={error}
       />
       <FilterRow
         label="Expiration"
@@ -626,6 +646,8 @@ function FlowFilters({
         onToggle={onToggleExpiration}
         onSelectAll={onSelectAllExpirations}
         onClear={onClearExpirations}
+        loading={loading}
+        error={error}
       />
     </div>
   );
@@ -907,7 +929,11 @@ export default function FlowAnalysisPage() {
   } = useFlowSeries(symbol, flowSession);
 
   // Distinct strikes / expirations for the filter chips.
-  const { options: serverContractOptions } = useFlowContractOptions(symbol, flowSession);
+  const {
+    options: serverContractOptions,
+    loading: contractOptionsLoading,
+    error: contractOptionsError,
+  } = useFlowContractOptions(symbol, flowSession);
 
   // A cheap intervals=1 probe of the other session just to read its ET date
   // for the session dropdown label.
@@ -1176,6 +1202,8 @@ export default function FlowAnalysisPage() {
           onClearExpirations={() => setSelectedExpirations(new Set())}
           onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
           onSelectAllExpirations={() => setSelectedExpirations(new Set(expirationOptions))}
+          loading={contractOptionsLoading}
+          error={contractOptionsError}
         />
         <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
       </section>

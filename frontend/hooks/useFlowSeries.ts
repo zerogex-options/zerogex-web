@@ -453,7 +453,9 @@ export function useFlowContractOptions(
         setError(null);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : 'Failed to fetch contract options');
+        const message = e instanceof Error ? e.message : 'Failed to fetch contract options';
+        console.warn(`[useFlowContractOptions] fetch failed for ${symbol}/${session}:`, message);
+        setError(message);
       } finally {
         if (!cancelled && isInitial) setLoading(false);
       }
