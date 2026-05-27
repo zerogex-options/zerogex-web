@@ -85,6 +85,22 @@ const DEFAULT_INCREMENTAL_MS = 5_000;
 const DEFAULT_FULL_REFRESH_MS = 5 * 60_000;
 const STORAGE_PREFIX = 'zerogex:flowSeries:v1:';
 const STORAGE_TTL_MS = 24 * 60 * 60_000;
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const globalCache = new Map<string, CacheEntry>();
 const inflightInitial = new Map<string, Promise<void>>();
@@ -196,7 +212,7 @@ async function fetchSeries(
   if (expirations.length > 0) params.set('expirations', expirations.join(','));
   if (intervals != null) params.set('intervals', String(intervals));
 
-  const resp = await fetch(`${baseUrl}/api/flow/series?${params.toString()}`);
+  const resp = await fetchWithTimeout(`${baseUrl}/api/flow/series?${params.toString()}`);
   if (!resp.ok) {
     if (resp.status === 404) throw new Error('No data available yet');
     throw new Error(`API error: ${resp.status}`);
@@ -399,7 +415,7 @@ async function fetchContractOptions(
 ): Promise<FlowContractOptions> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol, session });
-  const resp = await fetch(`${baseUrl}/api/flow/contracts?${params.toString()}`);
+  const resp = await fetchWithTimeout(`${baseUrl}/api/flow/contracts?${params.toString()}`);
   if (!resp.ok) throw new Error(`API error: ${resp.status}`);
   const raw = (await resp.json()) as Partial<FlowContractOptions>;
   return {
@@ -448,8 +464,22 @@ export function useFlowContractOptions(
       try {
         const next = await fetchContractOptions(symbol, session);
         if (cancelled) return;
-        contractsCache.set(cacheKey, next);
-        setOptions(next);
+        const nextIsEmpty = next.strikes.length === 0 && next.expirations.length === 0;
+        setOptions((prev) => {
+          const prevHasData = prev.strikes.length > 0 || prev.expirations.length > 0;
+          // The backend returns {strikes:[],expirations:[]} as a graceful
+          // fallback when its query times out. Don't let that wipe data we
+          // already have from a previous successful fetch — keep the prior
+          // snapshot until a non-empty response arrives.
+          if (nextIsEmpty && prevHasData) {
+            console.warn(
+              `[useFlowContractOptions] backend returned empty for ${symbol}/${session}; keeping previously fetched options`,
+            );
+            return prev;
+          }
+          contractsCache.set(cacheKey, next);
+          return next;
+        });
         setError(null);
       } catch (e) {
         if (cancelled) return;
