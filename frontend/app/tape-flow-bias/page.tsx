@@ -51,6 +51,9 @@ export default function TapeFlowBiasPage() {
 
   // Map score [-100, +100] to [0%, 100%] for gauge positioning
   const needlePct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
+  // Inset by corner radius (12px) + half indicator width (2px) so the bar stays inside the pill's straight portion at the extremes.
+  const NEEDLE_INSET_PX = 14;
+  const needleOffsetPx = NEEDLE_INSET_PX - (needlePct * 2 * NEEDLE_INSET_PX) / 100;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -78,7 +81,7 @@ export default function TapeFlowBiasPage() {
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="text-sm font-semibold mb-3">Bidirectional tape meter</div>
               <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
-                <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: `${needlePct}%`, transform: 'translateX(-50%)' }} />
+                <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: `calc(${needlePct}% + ${needleOffsetPx}px)`, transform: 'translateX(-50%)' }} />
               </div>
               <div className="mt-1.5 flex justify-between text-[10px] font-mono text-[var(--color-text-secondary)]">
                 <span>−100</span>
