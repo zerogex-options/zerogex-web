@@ -28,21 +28,6 @@ export const gexAPI = {
   getByStrike: async (symbol: string = 'SPY'): Promise<GEXByStrike[]> => {
     return apiClient.get<GEXByStrike[]>(`/api/gex/by-strike?symbol=${symbol}`);
   },
-
-  /**
-   * Get historical GEX data
-   */
-  getHistorical: async (
-    symbol: string = 'SPY',
-    startDate?: string,
-    endDate?: string
-  ): Promise<GEXSummary[]> => {
-    const params = new URLSearchParams({ symbol });
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
-    
-    return apiClient.get<GEXSummary[]>(`/api/gex/historical?${params}`);
-  },
 };
 
 /**
