@@ -15,14 +15,14 @@ import { omitClosedMarketTimes } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-interface GammaDataPoint {
+interface HeatmapCell { strike: number; net_gex: number; }
+interface GammaBucket {
   timestamp: string;
-  strike: number;
-  net_gex: number;
   gamma_flip?: number | null;
   // See GammaHeatmapCanvas.tsx for the rationale — dashed segments
   // mark expansion-rung resolutions vs solid for default-rung.
   gamma_flip_span_used?: number | null;
+  heatmap: HeatmapCell[];
 }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; gamma_flip_span_used?: number | null; }
@@ -47,11 +47,11 @@ export default function GammaHeatmap() {
   }, [timeframe]);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
+  const { data: gexData, loading, error } = useApiData<GammaBucket[]>(
     `/api/gex/heatmap?${symParam}&timeframe=${timeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000 }
   );
-  const { data: gexDataAlt, loading: loadingAlt, error: errorAlt } = useApiData<GammaDataPoint[]>(
+  const { data: gexDataAlt, loading: loadingAlt, error: errorAlt } = useApiData<GammaBucket[]>(
     `/api/gex/heatmap?${symParam}&timeframe=${apiTimeframe}&window_units=${fetchWindowUnits}`,
     { refreshInterval: 5000, enabled: Boolean(error) }
   );
@@ -81,12 +81,21 @@ export default function GammaHeatmap() {
   const effectiveError = error && errorAlt ? error : null;
 
   const derived = useMemo(() => {
-    const rows = activeGexData.slice(-5000);
-    if (rows.length === 0) return { cells: [], strikes: [] as number[], timestamps: [] as string[] };
+    const buckets = activeGexData.slice(-5000);
+    if (buckets.length === 0) return { cells: [], strikes: [] as number[], timestamps: [] as string[] };
 
-    const sortedTimestamps = omitClosedMarketTimes(Array.from(new Set(rows.map((r) => r.timestamp))).sort(), (ts) => ts).slice(-maxPoints);
-    const strikes = Array.from(new Set(rows.map((r) => Number(r.strike)))).sort((a, b) => b - a);
-    const map = new Map(rows.map((r) => [`${r.timestamp}_${Number(r.strike)}`, Number(r.net_gex)]));
+    const sortedTimestamps = omitClosedMarketTimes(Array.from(new Set(buckets.map((b) => b.timestamp))).sort(), (ts) => ts).slice(-maxPoints);
+    const strikeSet = new Set<number>();
+    const map = new Map<string, number>();
+    buckets.forEach((b) => {
+      (b.heatmap || []).forEach((c) => {
+        const strike = Number(c.strike);
+        if (!Number.isFinite(strike)) return;
+        strikeSet.add(strike);
+        map.set(`${b.timestamp}_${strike}`, Number(c.net_gex));
+      });
+    });
+    const strikes = Array.from(strikeSet).sort((a, b) => b - a);
 
     const cells = sortedTimestamps.flatMap((ts, x) =>
       strikes.map((strike) => ({ x, y: strike, value: map.get(`${ts}_${strike}`) ?? 0 }))
@@ -101,24 +110,14 @@ export default function GammaHeatmap() {
   const FLIP_DEFAULT_RUNG_MAX = 0.205;
 
   const gammaFlipByTs = useMemo(() => {
-    const flipsByTs = new Map<string, number[]>();
-    const spansByTs = new Map<string, number[]>();
-    activeGexData.forEach((row) => {
-      if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-      const key = row.timestamp;
-      if (!flipsByTs.has(key)) flipsByTs.set(key, []);
-      flipsByTs.get(key)!.push(Number(row.gamma_flip));
-      if (row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))) {
-        if (!spansByTs.has(key)) spansByTs.set(key, []);
-        spansByTs.get(key)!.push(Number(row.gamma_flip_span_used));
-      }
-    });
+    // One flip + span per bucket from the API — no per-strike aggregation.
     const result = new Map<string, { value: number; expanded: boolean }>();
-    flipsByTs.forEach((vals, ts) => {
-      const avg = vals.reduce((sum, v) => sum + v, 0) / Math.max(1, vals.length);
-      const spans = spansByTs.get(ts);
-      const maxSpan = spans && spans.length > 0 ? Math.max(...spans) : 0;
-      result.set(ts, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
+    activeGexData.forEach((b) => {
+      if (b.gamma_flip == null || !Number.isFinite(Number(b.gamma_flip))) return;
+      const span = b.gamma_flip_span_used != null && Number.isFinite(Number(b.gamma_flip_span_used))
+        ? Number(b.gamma_flip_span_used)
+        : 0;
+      result.set(b.timestamp, { value: Number(b.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
       activeGexHistoricalData.forEach((row) => {

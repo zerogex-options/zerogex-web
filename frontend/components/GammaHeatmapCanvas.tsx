@@ -25,18 +25,17 @@ import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import { omitClosedMarketTimes } from '@/core/utils';
 
-interface GammaDataPoint {
+interface HeatmapCell { strike: number; net_gex: number; }
+interface GammaBucket {
   timestamp: string;
-  strike: number;
-  net_gex: number;
   gamma_flip?: number | null;
   // Fraction of spot the resolver's grid spanned to land the flip
-  // (see backend gex_summary.gamma_flip_span_used).  Default-rung
-  // values (≈0.20) are rendered as a solid line; expansion-rung
-  // values are rendered dashed/faint so the chart doesn't suggest
-  // a marginal-rung flip is a live regime boundary.  Persisted on
-  // the lowest-strike row of each bucket only — the rest are NULL.
+  // (see backend gex_summary.gamma_flip_span_used). Default-rung values
+  // (≈0.20) render as a solid line; expansion-rung values render
+  // dashed/faint so the chart doesn't suggest a marginal-rung flip is a
+  // live regime boundary.
   gamma_flip_span_used?: number | null;
+  heatmap: HeatmapCell[];
 }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; gamma_flip_span_used?: number | null; }
@@ -200,7 +199,7 @@ export default function GammaHeatmapCanvas() {
   const expiryParam = selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
   const apiTf = tfToApi(tf);
 
-  const { data: gexData, loading, error } = useApiData<GammaDataPoint[]>(
+  const { data: gexData, loading, error } = useApiData<GammaBucket[]>(
     `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${fetchUnits}${expiryParam}`,
     { refreshInterval: heatmapInterval },
   );
@@ -226,8 +225,8 @@ export default function GammaHeatmapCanvas() {
 
   // Build the dense (time × strike) matrix once per fetch.
   const grid = useMemo(() => {
-    const rows = (gexData || []).slice(-5000);
-    if (rows.length === 0) return null;
+    const buckets = (gexData || []).slice(-5000);
+    if (buckets.length === 0) return null;
 
     const priceTsSet = new Set<string>();
     (priceData || []).forEach((p) => {
@@ -242,7 +241,7 @@ export default function GammaHeatmapCanvas() {
     // handful of cached price timestamps, even when full heatmap data is
     // available. The filter still does its job — masking pre-market cells
     // for RTH-only symbols like SPX — once the price cache is dense.
-    const heatmapTimestamps = Array.from(new Set(rows.map((r) => r.timestamp)));
+    const heatmapTimestamps = Array.from(new Set(buckets.map((b) => b.timestamp)));
     const priceCoverage = heatmapTimestamps.length > 0
       ? heatmapTimestamps.filter((ts) => priceTsSet.has(ts)).length / heatmapTimestamps.length
       : 0;
@@ -253,19 +252,22 @@ export default function GammaHeatmapCanvas() {
       .slice(-maxPoints);
     if (timestamps.length === 0) return null;
 
-    const reportedStrikes = Array.from(new Set(rows.map((r) => Number(r.strike))))
-      .filter(Number.isFinite)
-      .sort((a, b) => a - b);
+    const strikeSet = new Set<number>();
+    const sparse = new Map<string, number>();
+    buckets.forEach((b) => {
+      (b.heatmap || []).forEach((c) => {
+        const strike = Number(c.strike);
+        if (!Number.isFinite(strike)) return;
+        strikeSet.add(strike);
+        sparse.set(`${b.timestamp}|${strike}`, Number(c.net_gex));
+      });
+    });
+    const reportedStrikes = Array.from(strikeSet).sort((a, b) => a - b);
     if (reportedStrikes.length < 2) return null;
 
     const minStrike = Math.floor(reportedStrikes[0]);
     const maxStrike = Math.ceil(reportedStrikes[reportedStrikes.length - 1]);
     const stride = maxStrike - minStrike + 1;
-
-    const sparse = new Map<string, number>();
-    rows.forEach((r) => {
-      sparse.set(`${r.timestamp}|${Number(r.strike)}`, Number(r.net_gex));
-    });
 
     const matrix = new Float32Array(timestamps.length * stride);
     matrix.fill(NaN);
@@ -315,35 +317,19 @@ export default function GammaHeatmapCanvas() {
   const FLIP_DEFAULT_RUNG_MAX = 0.205;
 
   const gammaFlipByTs = useMemo(() => {
-    // Per-timestamp aggregation: the backend emits the flip and its
-    // resolver-span on the lowest-strike row of each bucket only (all
-    // other strike rows carry NULL), so we collect non-NULL values and
-    // take the mean to be defensive against any future shape change
-    // where multiple rows in a bucket might carry the flip.
-    const flipsByTs = new Map<string, number[]>();
-    const spansByTs = new Map<string, number[]>();
-    (gexData || []).forEach((row) => {
-      if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-      const arr = flipsByTs.get(row.timestamp) ?? [];
-      arr.push(Number(row.gamma_flip));
-      flipsByTs.set(row.timestamp, arr);
-      if (row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))) {
-        const sArr = spansByTs.get(row.timestamp) ?? [];
-        sArr.push(Number(row.gamma_flip_span_used));
-        spansByTs.set(row.timestamp, sArr);
-      }
-    });
+    // The API now carries one flip + span per bucket, so no per-strike
+    // aggregation is needed — read them straight off each bucket.
     const result = new Map<string, { value: number; expanded: boolean }>();
-    flipsByTs.forEach((vals, ts) => {
-      const avg = vals.reduce((s, v) => s + v, 0) / Math.max(1, vals.length);
-      const spans = spansByTs.get(ts);
-      // No span info on a row (pre-rollout / unresolved): default to
-      // "not expanded" so the line renders solid — same shape as
-      // before the gamma_flip_span_used column existed.
-      const maxSpan = spans && spans.length > 0 ? Math.max(...spans) : 0;
-      result.set(ts, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
+    (gexData || []).forEach((b) => {
+      if (b.gamma_flip == null || !Number.isFinite(Number(b.gamma_flip))) return;
+      const span = b.gamma_flip_span_used != null && Number.isFinite(Number(b.gamma_flip_span_used))
+        ? Number(b.gamma_flip_span_used)
+        : 0;
+      result.set(b.timestamp, { value: Number(b.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
+      // Fallback to /api/gex/historical (flat GEXSummary rows, one flip per
+      // timestamp) when the heatmap window carries no resolved flip.
       (gexHistoricalData || []).forEach((row) => {
         if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
         const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
