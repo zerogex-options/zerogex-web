@@ -59,6 +59,50 @@ function formatAxisTime(ms: number): string {
   });
 }
 
+// Clock-friendly step sizes (ms), smallest first. Ticks snap to these
+// boundaries so labels land on round times (10:00, 10:30, …).
+const TICK_STEPS_MS = [
+  60_000, // 1 min
+  2 * 60_000,
+  5 * 60_000,
+  10 * 60_000,
+  15 * 60_000,
+  30 * 60_000,
+  60 * 60_000, // 1 hour
+  2 * 60 * 60_000,
+];
+const MAX_TICK_INTERVALS = 8;
+
+// Wall-clock ms elapsed since ET midnight, used to snap ticks to clock
+// boundaries. The market session never spans a DST change, so within a
+// single window real-ms and ET-wall-ms advance in lockstep.
+function etMillisOfDay(ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(ms));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
+  return ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000 + (((ms % 1000) + 1000) % 1000);
+}
+
+// Even, clock-aligned tick positions across [min, max]. Picks the largest
+// step that still yields a readable number of ticks, then snaps the first
+// tick up to the next clock boundary at/after min.
+function buildTimeTicks(min: number, max: number): number[] {
+  const span = max - min;
+  if (!(span > 0)) return [min];
+  const step =
+    TICK_STEPS_MS.find((s) => span / s <= MAX_TICK_INTERVALS) ?? TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
+  const into = etMillisOfDay(min) % step;
+  const first = into === 0 ? min : min + (step - into);
+  const ticks: number[] = [];
+  for (let t = first; t <= max; t += step) ticks.push(t);
+  return ticks;
+}
+
 interface ChartPoint {
   ts: number;
   composite: number;
@@ -72,6 +116,11 @@ function IntradayChartImpl({ history, currentScore }: Props) {
     const filtered = filterByWindow(history, win);
     return filtered.map((row) => ({ ts: Date.parse(row.timestamp), composite: row.composite, row }));
   }, [history, win]);
+
+  const xTicks = useMemo(() => {
+    if (data.length === 0) return [];
+    return buildTimeTicks(data[0].ts, data[data.length - 1].ts);
+  }, [data]);
 
   const lineColor = classifyRegime(currentScore).color;
 
@@ -110,13 +159,15 @@ function IntradayChartImpl({ history, currentScore }: Props) {
               dataKey="ts"
               type="number"
               domain={['dataMin', 'dataMax']}
+              ticks={xTicks}
+              interval={0}
               tickFormatter={formatAxisTime}
               tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
               stroke="var(--color-border)"
             />
             <YAxis
               domain={[0, 100]}
-              ticks={[0, 20, 40, 50, 70, 100]}
+              ticks={[0, 25, 50, 75, 100]}
               tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
               stroke="var(--color-border)"
               width={36}
