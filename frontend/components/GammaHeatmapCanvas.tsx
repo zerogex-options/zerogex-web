@@ -23,7 +23,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { isWithinTradingHoursForSymbol } from '@/core/utils';
 
 interface GammaDataPoint {
   timestamp: string;
@@ -224,61 +224,90 @@ export default function GammaHeatmapCanvas() {
     return Array.from(exps).sort();
   }, [gexByStrike]);
 
-  // Build the dense (time × strike) matrix once per fetch.
+  // Build the dense (time × strike) matrix on a REGULAR session-hour grid.
+  //
+  // The x-axis is one slot per bucket (every `cadenceMs`) across the
+  // symbol's trading session — ETFs/equities 04:00–20:00 ET, cash indices
+  // 09:30–16:00 ET — generated from the timeframe cadence itself, NOT from
+  // the set of timestamps the heatmap API happened to return. A bucket with
+  // no gex_summary row therefore prints as a BLANK (transparent) column
+  // rather than being collapsed away, so GEX sparsity is visible instead of
+  // hidden. Candles are drawn independently per slot (see the render
+  // effect), so a bucket can show a candle with no GEX (feed timing skew) or
+  // GEX with no candle. Nothing is filled, clamped, or carried forward
+  // across the time axis.
   const grid = useMemo(() => {
     const rows = (gexData || []).slice(-5000);
-    if (rows.length === 0) return null;
+    const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
 
-    const priceTsSet = new Set<string>();
-    (priceData || []).forEach((p) => {
-      const close = Number(p.close ?? p.open);
-      if (Number.isFinite(close) && close > 0) priceTsSet.add(p.timestamp);
+    // Sparse GEX lookup keyed by epoch-ms bucket + strike. Epoch-ms keys let
+    // every series (GEX, candles, grid slots) match regardless of ISO string
+    // formatting ("+00:00" vs "Z").
+    const sparse = new Map<string, number>();
+    const gexBucketMs = new Set<number>();
+    const strikeSet = new Set<number>();
+    rows.forEach((r) => {
+      const ms = new Date(r.timestamp).getTime();
+      const strike = Number(r.strike);
+      if (!Number.isFinite(ms) || !Number.isFinite(strike)) return;
+      gexBucketMs.add(ms);
+      strikeSet.add(strike);
+      sparse.set(`${ms}|${strike}`, Number(r.net_gex));
     });
 
-    // Only trim the heatmap to timestamps that also have underlying price
-    // data when price coverage is high enough to be trustworthy. Sparse
-    // price caches (e.g., a 1s poll trickling in bars after a failed seed
-    // fetch) would otherwise collapse the visible heatmap to just the
-    // handful of cached price timestamps, even when full heatmap data is
-    // available. The filter still does its job — masking pre-market cells
-    // for RTH-only symbols like SPX — once the price cache is dense.
-    const heatmapTimestamps = Array.from(new Set(rows.map((r) => r.timestamp)));
-    const priceCoverage = heatmapTimestamps.length > 0
-      ? heatmapTimestamps.filter((ts) => priceTsSet.has(ts)).length / heatmapTimestamps.length
-      : 0;
-    const applyPriceFilter = priceTsSet.size > 0 && priceCoverage >= 0.5;
+    const priceMsSet = new Set<number>();
+    (priceData || []).forEach((p) => {
+      const ms = new Date(p.timestamp).getTime();
+      if (Number.isFinite(ms)) priceMsSet.add(ms);
+    });
 
-    const timestamps = omitClosedMarketTimes(heatmapTimestamps.sort(), (ts) => ts)
-      .filter((ts) => !applyPriceFilter || priceTsSet.has(ts))
-      .slice(-maxPoints);
-    if (timestamps.length === 0) return null;
+    // Right edge = the freshest bucket of EITHER series, so a lagging GEX
+    // feed (candles run ahead) or a stalled candle feed (GEX runs ahead)
+    // both stay visible as a gap on one side instead of one truncating the
+    // other.
+    let latestMs = -Infinity;
+    gexBucketMs.forEach((ms) => { if (ms > latestMs) latestMs = ms; });
+    priceMsSet.forEach((ms) => { if (ms > latestMs) latestMs = ms; });
+    if (!Number.isFinite(latestMs)) return null;
 
-    const reportedStrikes = Array.from(new Set(rows.map((r) => Number(r.strike))))
-      .filter(Number.isFinite)
-      .sort((a, b) => a - b);
+    // Step back from the latest bucket by the cadence, keeping only
+    // in-session slots for this symbol. Out-of-session slots (overnight,
+    // weekends) are skipped so the axis hops session→session without a giant
+    // empty band.
+    const slotsMs: number[] = [];
+    let t = latestMs;
+    let guard = 0;
+    const guardMax = maxPoints * 64 + 4096;
+    while (slotsMs.length < maxPoints && guard < guardMax) {
+      if (isWithinTradingHoursForSymbol(new Date(t), symbol)) slotsMs.push(t);
+      t -= cadenceMs;
+      guard += 1;
+    }
+    slotsMs.reverse();
+    if (slotsMs.length === 0) return null;
+
+    const reportedStrikes = Array.from(strikeSet).sort((a, b) => a - b);
     if (reportedStrikes.length < 2) return null;
 
     const minStrike = Math.floor(reportedStrikes[0]);
     const maxStrike = Math.ceil(reportedStrikes[reportedStrikes.length - 1]);
     const stride = maxStrike - minStrike + 1;
 
-    const sparse = new Map<string, number>();
-    rows.forEach((r) => {
-      sparse.set(`${r.timestamp}|${Number(r.strike)}`, Number(r.net_gex));
-    });
-
-    const matrix = new Float32Array(timestamps.length * stride);
+    const matrix = new Float32Array(slotsMs.length * stride);
     matrix.fill(NaN);
 
-    timestamps.forEach((ts, x) => {
+    slotsMs.forEach((ms, x) => {
+      if (!gexBucketMs.has(ms)) return; // blank column — no GEX for this bucket
       const known: { strike: number; value: number }[] = [];
       reportedStrikes.forEach((s) => {
-        const v = sparse.get(`${ts}|${s}`);
+        const v = sparse.get(`${ms}|${s}`);
         if (v != null && Number.isFinite(v)) known.push({ strike: s, value: v });
       });
       if (known.length === 0) return;
 
-      // Linear interpolation along the strike axis to fill every integer strike.
+      // Linear interpolation along the STRIKE axis only (within a bucket
+      // that has data) to fill every integer strike. This smooths the
+      // surface across strikes, never across time — time gaps stay blank.
       let kIdx = 0;
       for (let s = minStrike; s <= maxStrike; s++) {
         while (kIdx < known.length - 1 && known[kIdx + 1].strike <= s) kIdx++;
@@ -289,8 +318,8 @@ export default function GammaHeatmapCanvas() {
         else if (s >= right.strike) v = right.value;
         else {
           const span = right.strike - left.strike;
-          const t = span > 0 ? (s - left.strike) / span : 0;
-          v = left.value + (right.value - left.value) * t;
+          const tt = span > 0 ? (s - left.strike) / span : 0;
+          v = left.value + (right.value - left.value) * tt;
         }
         matrix[x * stride + (s - minStrike)] = v;
       }
@@ -304,8 +333,9 @@ export default function GammaHeatmapCanvas() {
     }
     const clip = Math.max(1, percentile(finiteAbs, 0.98));
 
-    return { timestamps, minStrike, maxStrike, stride, matrix, clip };
-  }, [gexData, maxPoints, priceData]);
+    const timestamps = slotsMs.map((ms) => new Date(ms).toISOString());
+    return { timestamps, slotsMs, minStrike, maxStrike, stride, matrix, clip };
+  }, [gexData, priceData, maxPoints, tf, symbol]);
 
   // Threshold above which a cycle's gamma_flip_span_used (fraction of
   // spot the resolver's grid spanned) is considered an "expansion
@@ -314,42 +344,46 @@ export default function GammaHeatmapCanvas() {
   // 0.205 margin tolerates float drift at the boundary.
   const FLIP_DEFAULT_RUNG_MAX = 0.205;
 
-  const gammaFlipByTs = useMemo(() => {
-    // Per-timestamp aggregation: the backend emits the flip and its
-    // resolver-span on the lowest-strike row of each bucket only (all
-    // other strike rows carry NULL), so we collect non-NULL values and
-    // take the mean to be defensive against any future shape change
-    // where multiple rows in a bucket might carry the flip.
-    const flipsByTs = new Map<string, number[]>();
-    const spansByTs = new Map<string, number[]>();
+  const gammaFlipByMs = useMemo(() => {
+    // Per-bucket aggregation keyed by epoch-ms (so it matches the grid's
+    // slot keys). The backend emits the flip and its resolver-span on the
+    // lowest-strike row of each bucket only (other strike rows carry NULL),
+    // so we collect non-NULL values and take the mean to be defensive
+    // against any future shape change where multiple rows carry the flip.
+    const flipsByMs = new Map<number, number[]>();
+    const spansByMs = new Map<number, number[]>();
     (gexData || []).forEach((row) => {
       if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-      const arr = flipsByTs.get(row.timestamp) ?? [];
+      const ms = new Date(row.timestamp).getTime();
+      if (!Number.isFinite(ms)) return;
+      const arr = flipsByMs.get(ms) ?? [];
       arr.push(Number(row.gamma_flip));
-      flipsByTs.set(row.timestamp, arr);
+      flipsByMs.set(ms, arr);
       if (row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))) {
-        const sArr = spansByTs.get(row.timestamp) ?? [];
+        const sArr = spansByMs.get(ms) ?? [];
         sArr.push(Number(row.gamma_flip_span_used));
-        spansByTs.set(row.timestamp, sArr);
+        spansByMs.set(ms, sArr);
       }
     });
-    const result = new Map<string, { value: number; expanded: boolean }>();
-    flipsByTs.forEach((vals, ts) => {
+    const result = new Map<number, { value: number; expanded: boolean }>();
+    flipsByMs.forEach((vals, ms) => {
       const avg = vals.reduce((s, v) => s + v, 0) / Math.max(1, vals.length);
-      const spans = spansByTs.get(ts);
+      const spans = spansByMs.get(ms);
       // No span info on a row (pre-rollout / unresolved): default to
-      // "not expanded" so the line renders solid — same shape as
-      // before the gamma_flip_span_used column existed.
+      // "not expanded" so the line renders solid — same shape as before
+      // the gamma_flip_span_used column existed.
       const maxSpan = spans && spans.length > 0 ? Math.max(...spans) : 0;
-      result.set(ts, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
+      result.set(ms, { value: avg, expanded: maxSpan > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
       (gexHistoricalData || []).forEach((row) => {
         if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+        const ms = new Date(row.timestamp).getTime();
+        if (!Number.isFinite(ms)) return;
         const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
           ? Number(row.gamma_flip_span_used)
           : 0;
-        result.set(row.timestamp, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
+        result.set(ms, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
       });
     }
     return result;
@@ -612,13 +646,13 @@ export default function GammaHeatmapCanvas() {
 
     // Underlying candlesticks on top of the heatmap.
     if (priceData && priceData.length > 0) {
-      const priceByTs = new Map(priceData.map((p) => [p.timestamp, p]));
+      const priceByMs = new Map(priceData.map((p) => [new Date(p.timestamp).getTime(), p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
       const bullEdge = darken(colors.bullish, 0.6);
       const bearEdge = darken(colors.bearish, 0.6);
-      grid.timestamps.forEach((ts, i) => {
-        const row = priceByTs.get(ts);
+      grid.slotsMs.forEach((ms, i) => {
+        const row = priceByMs.get(ms);
         if (!row) return;
         const open = Number(row.open ?? row.close);
         const close = Number(row.close ?? row.open);
@@ -665,7 +699,7 @@ export default function GammaHeatmapCanvas() {
     // visually connects to a stretch of dashed line — that connection
     // would imply a continuous regime when the resolver actually
     // changed its qualifying scan.
-    if (gammaFlipByTs.size > 0) {
+    if (gammaFlipByMs.size > 0) {
       const flipColor = (() => {
         if (typeof window !== 'undefined') {
           const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim();
@@ -676,8 +710,8 @@ export default function GammaHeatmapCanvas() {
       const drawFlipPath = (expandedFilter: boolean) => {
         ctx.beginPath();
         let started = false;
-        grid.timestamps.forEach((ts, i) => {
-          const entry = gammaFlipByTs.get(ts);
+        grid.slotsMs.forEach((ms, i) => {
+          const entry = gammaFlipByMs.get(ms);
           const v = entry?.value;
           // Break the line at missing/unresolved timestamps AND at
           // values outside the visible y-axis range. A NULL flip means
@@ -773,7 +807,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByTs, theme, size, hover, showGrid, tf]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
@@ -785,6 +819,7 @@ export default function GammaHeatmapCanvas() {
     const xRatio = (hover.x - PAD_L) / plotW;
     const tIdx = Math.min(T - 1, Math.max(0, Math.floor(xRatio * T)));
     const ts = grid.timestamps[tIdx];
+    const ms = grid.slotsMs[tIdx];
 
     const yRatio = (hover.y - PAD_T) / plotH;
     const strike = bounds.yMax - yRatio * (bounds.yMax - bounds.yMin);
@@ -792,10 +827,10 @@ export default function GammaHeatmapCanvas() {
     const safeS = Math.min(grid.stride - 1, Math.max(0, sIdx));
     const value = grid.matrix[tIdx * grid.stride + safeS];
 
-    const priceRow = priceData?.find((p) => p.timestamp === ts);
-    const gammaFlip = gammaFlipByTs.get(ts);
+    const priceRow = priceData?.find((p) => new Date(p.timestamp).getTime() === ms);
+    const gammaFlip = gammaFlipByMs.get(ms);
     return { ts, strike: Math.round(strike), value, priceRow, gammaFlip };
-  }, [hover, grid, bounds, priceData, gammaFlipByTs, size]);
+  }, [hover, grid, bounds, priceData, gammaFlipByMs, size]);
 
   // ── Toolbar derived labels ──
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
@@ -822,17 +857,24 @@ export default function GammaHeatmapCanvas() {
   // candles a tick later) doesn't flicker the badge on every cycle.
   const CANDLE_LAG_BADGE_MIN = 5;
   const candleLagMinutes = useMemo(() => {
-    if (!grid || !priceData || priceData.length === 0) return null;
-    const heatmapLatest = grid.timestamps[grid.timestamps.length - 1];
-    const priceLatest = priceData[priceData.length - 1]?.timestamp;
-    if (!heatmapLatest || !priceLatest) return null;
-    const h = new Date(heatmapLatest).getTime();
-    const p = new Date(priceLatest).getTime();
-    if (!Number.isFinite(h) || !Number.isFinite(p)) return null;
-    const lagMs = h - p;
-    if (lagMs <= 0) return null; // candles caught up or briefly ahead
+    // Latest GEX bucket vs latest candle bucket, computed from the raw
+    // series (not the grid, whose right edge is the freshest of the two).
+    // A positive value means candles trail the GEX surface.
+    let latestGex = -Infinity;
+    (gexData || []).forEach((r) => {
+      const ms = new Date(r.timestamp).getTime();
+      if (Number.isFinite(ms) && ms > latestGex) latestGex = ms;
+    });
+    let latestCandle = -Infinity;
+    (priceData || []).forEach((p) => {
+      const ms = new Date(p.timestamp).getTime();
+      if (Number.isFinite(ms) && ms > latestCandle) latestCandle = ms;
+    });
+    if (!Number.isFinite(latestGex) || !Number.isFinite(latestCandle)) return null;
+    const lagMs = latestGex - latestCandle;
+    if (lagMs <= 0) return null; // candles caught up or ahead
     return Math.floor(lagMs / 60000);
-  }, [grid, priceData]);
+  }, [gexData, priceData]);
   const showCandleLagBadge =
     candleLagMinutes != null && candleLagMinutes >= CANDLE_LAG_BADGE_MIN;
 
