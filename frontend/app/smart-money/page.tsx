@@ -284,23 +284,28 @@ export default function SmartMoneyPage() {
   // hovering a row never re-runs the parent component's render — that used to
   // re-render the ~4800 chart Cells and the entire table on every cursor move.
   //
-  // Element lookup is O(1) via a Map<rowKey, Element[]> that's rebuilt once
-  // per render (in the effect below). The old code did querySelectorAll on
-  // every hover event, which scaled linearly with table size and caused the
-  // hover-lag/jumps users saw as the table grew.
+  // We resolve elements by attribute selector at hover time instead of caching
+  // them in a Map. Recharts replaces its SVG rect nodes on each chart
+  // re-render (every 1s during cash session), so any cached reference goes
+  // stale between updates and setAttribute lands on an orphaned node — the
+  // live rect never gets `data-smart-hover` and the chart side of the sync
+  // silently breaks. querySelectorAll scoped to the section with an exact
+  // attribute match is sub-millisecond, so the original table-size scaling
+  // concern doesn't apply.
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const currentHoveredKeyRef = useRef<string | null>(null);
-  const elementsByKeyRef = useRef<Map<string, Element[]>>(new Map());
   const applyHoverHighlight = useCallback((rowKey: string | null) => {
     const prev = currentHoveredKeyRef.current;
     if (prev === rowKey) return;
+    const root = sectionRef.current;
+    if (!root) return;
     if (prev) {
-      const prevEls = elementsByKeyRef.current.get(prev);
-      if (prevEls) for (const el of prevEls) el.removeAttribute('data-smart-hover');
+      const sel = `[data-smart-row-key="${CSS.escape(prev)}"],[data-smart-cell-key="${CSS.escape(prev)}"]`;
+      root.querySelectorAll(sel).forEach((el) => el.removeAttribute('data-smart-hover'));
     }
     if (rowKey) {
-      const nextEls = elementsByKeyRef.current.get(rowKey);
-      if (nextEls) for (const el of nextEls) el.setAttribute('data-smart-hover', 'true');
+      const sel = `[data-smart-row-key="${CSS.escape(rowKey)}"],[data-smart-cell-key="${CSS.escape(rowKey)}"]`;
+      root.querySelectorAll(sel).forEach((el) => el.setAttribute('data-smart-hover', 'true'));
     }
     currentHoveredKeyRef.current = rowKey;
   }, []);
@@ -533,31 +538,18 @@ export default function SmartMoneyPage() {
     });
   }, [maxStackSegments, applyHoverHighlight]);
 
-  // After each render that adds/removes table rows or chart rects, rebuild
-  // the lookup Map so hover handlers can resolve rowKey -> Element[] in O(1).
-  // The previous implementation ran querySelectorAll on every cursor move,
-  // which scaled linearly with the table size — the source of the hover lag.
+  // Recharts replaces the chart's rect nodes whenever the chart data prop
+  // changes, so the hover attribute we set on the previous rect doesn't
+  // survive onto its replacement. After each render that could have swapped
+  // nodes, re-apply the attribute to the current live elements for the
+  // still-hovered key so the chart highlight stays in sync.
   useEffect(() => {
+    const key = currentHoveredKeyRef.current;
+    if (!key) return;
     const root = sectionRef.current;
     if (!root) return;
-    const map = new Map<string, Element[]>();
-    const nodes = root.querySelectorAll('[data-smart-row-key], [data-smart-cell-key]');
-    for (let i = 0; i < nodes.length; i += 1) {
-      const el = nodes[i];
-      const key = el.getAttribute('data-smart-row-key') || el.getAttribute('data-smart-cell-key');
-      if (!key) continue;
-      const arr = map.get(key);
-      if (arr) arr.push(el);
-      else map.set(key, [el]);
-    }
-    elementsByKeyRef.current = map;
-    // The previous hover target may have been a destroyed node, so re-paint
-    // the attribute on the fresh elements that share the same key.
-    const key = currentHoveredKeyRef.current;
-    if (key) {
-      const els = map.get(key);
-      if (els) for (const el of els) el.setAttribute('data-smart-hover', 'true');
-    }
+    const sel = `[data-smart-row-key="${CSS.escape(key)}"],[data-smart-cell-key="${CSS.escape(key)}"]`;
+    root.querySelectorAll(sel).forEach((el) => el.setAttribute('data-smart-hover', 'true'));
   }, [sortedSmartMoneyRows, smartMoneySessionChart, tableRowLimit, maxStackSegments]);
   // Build a sparse Map of timestamps that should render a tick label (either a
   // 30-min boundary, a new-day marker, or both). Recharts is told to render
