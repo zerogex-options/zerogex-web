@@ -11,7 +11,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { omitClosedMarketTimes, isWithinTradingHoursForSymbol } from '@/core/utils';
 import ChartTimeframeSelect, { type ChartTimeframe } from './ChartTimeframeSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -81,28 +81,66 @@ export default function GammaHeatmap() {
   const effectiveError = error && errorAlt ? error : null;
 
   const derived = useMemo(() => {
-    const buckets = activeGexData.slice(-5000);
-    if (buckets.length === 0) return { cells: [], strikes: [] as number[], timestamps: [] as string[] };
+    const buckets = activeGexData || [];
+    const cadenceMs = timeframe === '1min' ? 60_000 : timeframe === '5min' ? 300_000 : timeframe === '15min' ? 900_000 : timeframe === '1hr' ? 3_600_000 : 86_400_000;
+    const bucketOf = (ms: number) => Math.floor(ms / cadenceMs) * cadenceMs;
+    const isoOf = (ms: number) => new Date(ms).toISOString();
 
-    const sortedTimestamps = omitClosedMarketTimes(Array.from(new Set(buckets.map((b) => b.timestamp))).sort(), (ts) => ts).slice(-maxPoints);
+    // Canonical (floored) bucket-ISO keys so GEX, candles, slots and the
+    // flip line all align regardless of phase/format drift between feeds.
+    const sparse = new Map<string, number>();   // `${iso}_${strike}` -> net_gex
+    const gexSlotSet = new Set<string>();        // canonical ISO that has GEX
+    const gexMsSet = new Set<number>();
     const strikeSet = new Set<number>();
-    const map = new Map<string, number>();
     buckets.forEach((b) => {
+      const ms = bucketOf(new Date(b.timestamp).getTime());
+      if (!Number.isFinite(ms)) return;
+      const iso = isoOf(ms);
       (b.heatmap || []).forEach((c) => {
         const strike = Number(c.strike);
         if (!Number.isFinite(strike)) return;
+        gexSlotSet.add(iso);
+        gexMsSet.add(ms);
         strikeSet.add(strike);
-        map.set(`${b.timestamp}_${strike}`, Number(c.net_gex));
+        sparse.set(`${iso}_${strike}`, Number(c.net_gex));
       });
     });
     const strikes = Array.from(strikeSet).sort((a, b) => b - a);
 
-    const cells = sortedTimestamps.flatMap((ts, x) =>
-      strikes.map((strike) => ({ x, y: strike, value: map.get(`${ts}_${strike}`) ?? 0 }))
-    );
+    // Intraday timeframes get a REGULAR session-hour grid with blank slots
+    // where GEX is genuinely absent (parity with the Canvas heatmap). 1hr/
+    // 1day keep the collapsed present-bucket axis — the regular-grid +
+    // session filter doesn't map cleanly onto daily bars / RTH-only indices.
+    const isIntraday = timeframe === '1min' || timeframe === '5min' || timeframe === '15min';
+    let timestamps: string[];
+    if (isIntraday) {
+      const priceMs = new Set<number>();
+      (activePriceData || []).forEach((p) => {
+        const ms = new Date(p.timestamp).getTime();
+        if (Number.isFinite(ms)) priceMs.add(bucketOf(ms));
+      });
+      let latestMs = -Infinity;
+      gexMsSet.forEach((ms) => { if (ms > latestMs) latestMs = ms; });
+      priceMs.forEach((ms) => { if (ms > latestMs) latestMs = ms; });
+      const slots: string[] = [];
+      if (Number.isFinite(latestMs)) {
+        let t = latestMs;
+        let guard = 0;
+        const guardMax = maxPoints * 64 + 4096;
+        while (slots.length < maxPoints && guard < guardMax) {
+          if (isWithinTradingHoursForSymbol(new Date(t), symbol)) slots.push(isoOf(t));
+          t -= cadenceMs;
+          guard += 1;
+        }
+        slots.reverse();
+      }
+      timestamps = slots;
+    } else {
+      timestamps = omitClosedMarketTimes(Array.from(gexSlotSet).sort(), (ts) => ts).slice(-maxPoints);
+    }
 
-    return { cells, strikes, timestamps: sortedTimestamps };
-  }, [activeGexData, maxPoints]);
+    return { timestamps, gexSlotSet, sparse, strikes };
+  }, [activeGexData, activePriceData, maxPoints, timeframe, symbol]);
 
   // Mirror of FLIP_DEFAULT_RUNG_MAX in GammaHeatmapCanvas.tsx —
   // GAMMA_PROFILE_SPAN_LADDER[0] = 0.20 on the backend; the 0.205
@@ -110,14 +148,16 @@ export default function GammaHeatmap() {
   const FLIP_DEFAULT_RUNG_MAX = 0.205;
 
   const gammaFlipByTs = useMemo(() => {
-    // One flip + span per bucket from the API — no per-strike aggregation.
+    // Keyed by canonical (floored) bucket-ISO so it matches derived's slots.
+    const cadenceMs = timeframe === '1min' ? 60_000 : timeframe === '5min' ? 300_000 : timeframe === '15min' ? 900_000 : timeframe === '1hr' ? 3_600_000 : 86_400_000;
+    const canon = (ts: string) => new Date(Math.floor(new Date(ts).getTime() / cadenceMs) * cadenceMs).toISOString();
     const result = new Map<string, { value: number; expanded: boolean }>();
     activeGexData.forEach((b) => {
       if (b.gamma_flip == null || !Number.isFinite(Number(b.gamma_flip))) return;
       const span = b.gamma_flip_span_used != null && Number.isFinite(Number(b.gamma_flip_span_used))
         ? Number(b.gamma_flip_span_used)
         : 0;
-      result.set(b.timestamp, { value: Number(b.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
+      result.set(canon(b.timestamp), { value: Number(b.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
     });
     if (result.size === 0) {
       activeGexHistoricalData.forEach((row) => {
@@ -125,15 +165,15 @@ export default function GammaHeatmap() {
         const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
           ? Number(row.gamma_flip_span_used)
           : 0;
-        result.set(row.timestamp, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
+        result.set(canon(row.timestamp), { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
       });
     }
     return result;
-  }, [activeGexData, activeGexHistoricalData]);
+  }, [activeGexData, activeGexHistoricalData, timeframe]);
 
-  if (effectiveLoading && derived.cells.length === 0) return <LoadingSpinner size="lg" />;
+  if (effectiveLoading && derived.strikes.length === 0) return <LoadingSpinner size="lg" />;
   if (effectiveError) return <ErrorMessage message={effectiveError} />;
-  if (derived.cells.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
+  if (derived.strikes.length === 0) return <div className="rounded-lg p-8 text-center" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}><p style={{ color: colors.muted }}>No heatmap data available</p></div>;
 
   const getColor = (value: number, maxAbsValue: number) => {
     if (maxAbsValue < 1e-9) return 'var(--color-surface-elevated)';
@@ -166,7 +206,9 @@ export default function GammaHeatmap() {
   const cellWidth = plotWidth / Math.max(1, derived.timestamps.length);
 
   const priceRows = omitClosedMarketTimes(activePriceData, (p) => p.timestamp);
-  const priceByTs = new Map(priceRows.map((p) => [p.timestamp, p]));
+  const cadenceMs = timeframe === '1min' ? 60_000 : timeframe === '5min' ? 300_000 : timeframe === '15min' ? 900_000 : timeframe === '1hr' ? 3_600_000 : 86_400_000;
+  const canonIso = (ts: string) => new Date(Math.floor(new Date(ts).getTime() / cadenceMs) * cadenceMs).toISOString();
+  const priceByTs = new Map(priceRows.map((p) => [canonIso(p.timestamp), p]));
   const minStrike = Math.min(...derived.strikes);
   const maxStrike = Math.max(...derived.strikes);
   const priceLow = Math.min(...priceRows.map((p) => Number(p.low ?? p.close ?? p.open ?? Infinity)));
@@ -183,19 +225,18 @@ export default function GammaHeatmap() {
   const yLevels = Array.from({ length: Math.max(1, topLevel - bottomLevel + 1) }, (_, i) => topLevel - i);
   const yLabelStep = Math.max(1, Math.ceil(yLevels.length / 16));
 
-  const cellValueMap = new Map<string, number>();
-  derived.cells.forEach((cell) => {
-    const ts = derived.timestamps[cell.x];
-    if (!ts) return;
-    cellValueMap.set(`${ts}_${Number(cell.y).toFixed(2)}`, Number(cell.value || 0));
-  });
-
+  // Cells only for slots that actually have GEX; slots with no GEX render as
+  // blank columns (the card background shows through), so sparsity is visible
+  // instead of painted as neutral zero. Within a populated column, levels
+  // without a reported strike keep the prior neutral-zero fill.
   const filledCells = derived.timestamps.flatMap((ts, x) =>
-    yLevels.map((level) => ({
-      x,
-      y: level,
-      value: cellValueMap.get(`${ts}_${Number(level).toFixed(2)}`) ?? 0,
-    })),
+    derived.gexSlotSet.has(ts)
+      ? yLevels.map((level) => ({
+          x,
+          y: level,
+          value: derived.sparse.get(`${ts}_${level}`) ?? 0,
+        }))
+      : [],
   );
 
   const cellHeight = plotHeight / Math.max(1, yLevels.length);
@@ -262,7 +303,7 @@ export default function GammaHeatmap() {
     if (!hoveredTs || hoveredLevel == null) return null;
     return {
       strike: hoveredLevel,
-      value: cellValueMap.get(`${hoveredTs}_${Number(hoveredLevel).toFixed(2)}`) ?? 0,
+      value: derived.sparse.get(`${hoveredTs}_${hoveredLevel}`) ?? 0,
     };
   })();
 
