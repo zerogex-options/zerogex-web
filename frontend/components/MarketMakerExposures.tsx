@@ -143,6 +143,10 @@ const FLIP_LINE = '#FFB44A';
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
 const ZOOM_STEP = 1.43; // ≈ 1/0.7
+// One zoom-in step above ZOOM_MIN — the "second most zoomed in" level.
+// Used as the default for compact mode so the dashboard tile opens with
+// a tight price window already framed around spot.
+const ZOOM_SECOND_MOST_IN = ZOOM_MIN * ZOOM_STEP;
 
 const DEFAULTS = {
   tf: '5m' as ChartTf,
@@ -179,11 +183,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
+  const defaultZoomMul = compact ? ZOOM_SECOND_MOST_IN : DEFAULTS.zoomMul;
+
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
   const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
-  const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
+  const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
@@ -204,7 +210,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
     setSelectedExpiry(DEFAULTS.selectedExpiry);
-    setZoomMul(DEFAULTS.zoomMul);
+    setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
@@ -739,6 +745,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         backgroundColor: cardBg,
         border: `1px solid ${border}`,
         overflow: 'hidden',
+        // In compact mode, fill the parent (the dashboard's grid cell) and
+        // let the SVG region absorb whatever vertical space the toolbar/legend
+        // strips don't claim, so the whole tile matches the 2×2 cards' height.
+        ...(compact && !fullscreen
+          ? { height: '100%', width: '100%', display: 'flex', flexDirection: 'column' as const }
+          : {}),
       };
 
   const popoverStyle: React.CSSProperties = {
@@ -756,7 +768,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     <div className="rounded-2xl" style={containerStyle}>
       {/* Title bar */}
       <div
-        className="flex items-center justify-between px-5 py-3"
+        className={`flex items-center justify-between px-5 py-3 ${compact ? 'shrink-0' : ''}`}
         style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
       >
         <div className="text-sm font-semibold tracking-wide">{symbol} Strike Profile</div>
@@ -772,7 +784,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
+      <div className={`flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 ${compact ? 'shrink-0' : ''}`}>
         {/* Date label (informational, no nav — historical date selection requires a backend date param) */}
         <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
           <Clock size={12} />
@@ -998,12 +1010,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       </div>
 
       {/* Composite chart */}
-      <div ref={containerRef} className="relative overflow-x-auto px-2 pb-2">
+      <div
+        ref={containerRef}
+        className={`relative px-2 pb-2 ${compact ? 'flex-1 min-h-0 overflow-hidden' : 'overflow-x-auto'}`}
+      >
         <svg
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMidYMid meet"
-          className="block w-full"
-          style={{ minWidth: compact ? 360 : 760 }}
+          className={`block ${compact ? 'h-full w-full' : 'w-full'}`}
+          style={compact ? undefined : { minWidth: 760 }}
           onMouseMove={onSvgMouseMove}
           onMouseLeave={() => setHover(null)}
         >
@@ -1493,7 +1508,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
       {/* Legend strip */}
       <div
-        className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
+        className={`flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs ${compact ? 'shrink-0' : ''}`}
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
         <span className="flex items-center gap-1.5" title="Current spot price for the underlying">
@@ -1525,7 +1540,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
       {/* Bottom strip */}
       <div
-        className="flex items-center justify-between px-5 py-2 text-xs"
+        className={`flex items-center justify-between px-5 py-2 text-xs ${compact ? 'shrink-0' : ''}`}
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
         <span>Powered by ZeroGEX</span>

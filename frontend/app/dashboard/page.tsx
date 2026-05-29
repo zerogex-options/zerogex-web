@@ -203,8 +203,14 @@ export default function DashboardPage() {
               theme={theme}
             />
           </div>
-          <div className="md:col-start-3 md:col-span-2 md:row-start-1 md:row-span-2">
-            <MarketMakerExposures compact />
+          {/* The chart fills the right half by absolute-positioning inside the
+              grid cell — that keeps the SVG's natural max-content from pushing
+              the row heights past the cards' natural stacked height, so the
+              tile matches the 2×2 cards' size exactly. */}
+          <div className="md:col-start-3 md:col-span-2 md:row-start-1 md:row-span-2 md:relative">
+            <div className="md:absolute md:inset-0">
+              <MarketMakerExposures compact />
+            </div>
           </div>
         </div>
       </section>
