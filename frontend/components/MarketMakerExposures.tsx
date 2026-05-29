@@ -120,8 +120,10 @@ function computeDte(expiryStr: string | null | undefined): number | null {
 const CW = 1200;
 const CH = 648;
 const PLOT_TOP = 24;
-const PLOT_BOTTOM = CH - 72;
-const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+// Compact mode drops the grouped date row and panel-axis labels, so the
+// chart can claim more of the bottom padding for its own y-axis range.
+const PLOT_BOTTOM_FULL = CH - 72;
+const PLOT_BOTTOM_COMPACT = CH - 32;
 
 const LEFT_X = 0;
 const LEFT_W_FULL = 540;
@@ -175,6 +177,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const MID_X = STRIKE_X + STRIKE_W + GAP;
   const RIGHT_X = MID_X + MID_W + GAP;
   const RIGHT_W = compact ? 0 : CW - RIGHT_X;
+  const PLOT_BOTTOM = compact ? PLOT_BOTTOM_COMPACT : PLOT_BOTTOM_FULL;
+  const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
@@ -639,7 +643,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     return items;
-  }, [gexSummary, chartSpot, yBounds]);
+  }, [gexSummary, chartSpot, yBounds, PLOT_HEIGHT]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -737,18 +741,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         inset: 0,
         zIndex: 60,
         borderRadius: 0,
-        overflow: 'auto',
+        // In compact mode the layout is flex-column so the SVG region absorbs
+        // the remaining viewport — overflow stays hidden so the chart fits
+        // the browser window cleanly rather than scrolling.
+        overflow: compact ? 'hidden' : 'auto',
         backgroundColor: cardBg,
         border: 'none',
+        ...(compact
+          ? { display: 'flex', flexDirection: 'column' as const }
+          : {}),
       }
     : {
         backgroundColor: cardBg,
         border: `1px solid ${border}`,
         overflow: 'hidden',
         // In compact mode, fill the parent (the dashboard's grid cell) and
-        // let the SVG region absorb whatever vertical space the toolbar/legend
-        // strips don't claim, so the whole tile matches the 2×2 cards' height.
-        ...(compact && !fullscreen
+        // let the SVG region absorb whatever vertical space the toolbar
+        // doesn't claim, so the whole tile matches the card column's height.
+        ...(compact
           ? { height: '100%', width: '100%', display: 'flex', flexDirection: 'column' as const }
           : {}),
       };
@@ -766,22 +776,25 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   return (
     <div className="rounded-2xl" style={containerStyle}>
-      {/* Title bar */}
-      <div
-        className={`flex items-center justify-between px-5 py-3 ${compact ? 'shrink-0' : ''}`}
-        style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
-      >
-        <div className="text-sm font-semibold tracking-wide">{symbol} Strike Profile</div>
-        <button
-          type="button"
-          onClick={() => setFullscreen((v) => !v)}
-          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-          className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
-          style={{ color: subtle }}
+      {/* Title bar — hidden in compact mode (the expand button moves into the
+          toolbar below to reclaim the row's vertical space). */}
+      {!compact && (
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
         >
-          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        </button>
-      </div>
+          <div className="text-sm font-semibold tracking-wide">{symbol} Strike Profile</div>
+          <button
+            type="button"
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
+            style={{ color: subtle }}
+          >
+            {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className={`flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 ${compact ? 'shrink-0' : ''}`}>
@@ -940,6 +953,20 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         >
           <RotateCcw size={12} />
         </button>
+
+        {/* Fullscreen toggle — in compact mode the title bar is hidden, so
+            the expand button lives here in the toolbar instead. */}
+        {compact && (
+          <button
+            type="button"
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            onClick={() => setFullscreen((v) => !v)}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(fullscreen)}
+          >
+            {fullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+          </button>
+        )}
 
         {/* Settings */}
         <div ref={settingsRef} className="relative">
@@ -1106,8 +1133,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
           {/* Grouped date row beneath the time labels, centered under each
               session's span of candles. Skips groups that are too narrow to
-              fit a label. */}
-          {candleDateGroups.length > 1 || (candleDateGroups.length === 1 && visibleCandles.length > 1)
+              fit a label. Hidden in compact mode to reclaim bottom padding. */}
+          {!compact && (candleDateGroups.length > 1 || (candleDateGroups.length === 1 && visibleCandles.length > 1))
             ? candleDateGroups.map((g) => {
                 if (visibleCandles.length === 0) return null;
                 const startX = xForIndex(g.startIdx);
@@ -1506,9 +1533,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         })()}
       </div>
 
-      {/* Legend strip */}
+      {/* Legend strip — hidden in compact mode to reclaim vertical space. */}
+      {!compact && (
       <div
-        className={`flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs ${compact ? 'shrink-0' : ''}`}
+        className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
         <span className="flex items-center gap-1.5" title="Current spot price for the underlying">
@@ -1537,15 +1565,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </span>
         <span className="ml-auto">Hover any panel for details</span>
       </div>
+      )}
 
-      {/* Bottom strip */}
+      {/* Bottom strip — hidden in compact mode to reclaim vertical space. */}
+      {!compact && (
       <div
-        className={`flex items-center justify-between px-5 py-2 text-xs ${compact ? 'shrink-0' : ''}`}
+        className="flex items-center justify-between px-5 py-2 text-xs"
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
         <span>Powered by ZeroGEX</span>
-        {!compact && <span>Gamma / Positions</span>}
+        <span>Gamma / Positions</span>
       </div>
+      )}
     </div>
   );
 }
