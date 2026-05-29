@@ -9,6 +9,7 @@ import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTra
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
+import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -149,51 +150,62 @@ export default function DashboardPage() {
       {/* Market Overview */}
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-          <MetricCard
-            title={`${symbol} Price`}
-            value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
-            subtitle={(
-              <div className="flex flex-col gap-1">
-                <span
-                  style={{
-                    color: underlyingPrice.change != null
-                      ? (underlyingPrice.isPositive ? 'var(--color-bull)' : 'var(--color-bear)')
-                      : undefined,
-                  }}
-                >
-                  {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                    ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}% vs previous`
-                    : 'Awaiting previous-close context'}
-                </span>
-                <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
-              </div>
-            )}
-            tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
-            theme={theme}
-            trend="neutral"
-          />
-          <MetricCard
-            title="Net GEX"
-            value={formatCompactUsd(gexData?.net_gex, true)}
-            trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
-            theme={theme}
-          />
-          <PriceDistanceMetricCard
-            title="Gamma Flip"
-            level={gexData?.gamma_flip}
-            spotPrice={quoteData?.close}
-            tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
-            theme={theme}
-          />
-          <PriceDistanceMetricCard
-            title="Max Pain"
-            level={gexData?.max_pain}
-            spotPrice={quoteData?.close}
-            tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
-            theme={theme}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
+          <div className="md:col-start-1 md:row-start-1">
+            <MetricCard
+              title={`${symbol} Price`}
+              value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
+              subtitle={(
+                <div className="flex flex-col gap-1">
+                  <span
+                    style={{
+                      color: underlyingPrice.change != null
+                        ? (underlyingPrice.isPositive ? 'var(--color-bull)' : 'var(--color-bear)')
+                        : undefined,
+                    }}
+                  >
+                    {underlyingPrice.change != null && underlyingPrice.changePercent != null
+                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}% vs previous`
+                      : 'Awaiting previous-close context'}
+                  </span>
+                  <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
+                </div>
+              )}
+              tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
+              theme={theme}
+              trend="neutral"
+            />
+          </div>
+          <div className="md:col-start-2 md:row-start-1">
+            <MetricCard
+              title="Net GEX"
+              value={formatCompactUsd(gexData?.net_gex, true)}
+              trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
+              tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
+              theme={theme}
+            />
+          </div>
+          <div className="md:col-start-1 md:row-start-2">
+            <PriceDistanceMetricCard
+              title="Gamma Flip"
+              level={gexData?.gamma_flip}
+              spotPrice={quoteData?.close}
+              tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
+              theme={theme}
+            />
+          </div>
+          <div className="md:col-start-2 md:row-start-2">
+            <PriceDistanceMetricCard
+              title="Max Pain"
+              level={gexData?.max_pain}
+              spotPrice={quoteData?.close}
+              tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
+              theme={theme}
+            />
+          </div>
+          <div className="md:col-start-3 md:col-span-2 md:row-start-1 md:row-span-2">
+            <MarketMakerExposures compact />
+          </div>
         </div>
       </section>
 
