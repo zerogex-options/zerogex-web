@@ -117,7 +117,10 @@ function computeDte(expiryStr: string | null | undefined): number | null {
 }
 
 // SVG layout constants — sized to fit on a standard desktop without scrolling.
-const CW = 1200;
+const CW_FULL = 1200;
+// Compact width keeps the candles panel + strike labels and reserves a small
+// right margin for the key-level pills, yielding a roughly square viewBox.
+const CW_COMPACT = 700;
 const CH = 648;
 const PLOT_TOP = 24;
 const PLOT_BOTTOM = CH - 72;
@@ -131,7 +134,7 @@ const GAP = 12;
 const MID_X = STRIKE_X + STRIKE_W + GAP;
 const MID_W = 280;
 const RIGHT_X = MID_X + MID_W + GAP;
-const RIGHT_W = CW - RIGHT_X;
+const RIGHT_W_FULL = CW_FULL - RIGHT_X;
 
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
@@ -152,9 +155,22 @@ const DEFAULTS = {
   showGrid: true,
 };
 
-export default function MarketMakerExposures() {
+interface MarketMakerExposuresProps {
+  /**
+   * When true, hides the middle "Gamma (Call / Put)" panel and the right
+   * "Positions" panel, leaving just the candlestick price chart with strike
+   * labels and key-level overlays. Used by the dashboard's Market Overview
+   * tile to fit the chart into a roughly square space alongside the metric
+   * cards.
+   */
+  compact?: boolean;
+}
+
+export default function MarketMakerExposures({ compact = false }: MarketMakerExposuresProps = {}) {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
+  const CW = compact ? CW_COMPACT : CW_FULL;
+  const RIGHT_W = compact ? 0 : RIGHT_W_FULL;
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
@@ -642,8 +658,8 @@ export default function MarketMakerExposures() {
     let panel: HoverState['panel'] = null;
     if (svgY >= PLOT_TOP && svgY <= PLOT_BOTTOM) {
       if (svgX >= LEFT_X && svgX <= LEFT_X + LEFT_W) panel = 'left';
-      else if (svgX >= MID_X && svgX <= MID_X + MID_W) panel = 'middle';
-      else if (svgX >= RIGHT_X && svgX <= RIGHT_X + RIGHT_W) panel = 'right';
+      else if (!compact && svgX >= MID_X && svgX <= MID_X + MID_W) panel = 'middle';
+      else if (!compact && svgX >= RIGHT_X && svgX <= RIGHT_X + RIGHT_W) panel = 'right';
     }
     setHover({ pxX, pxY, svgX, svgY, panel });
   };
@@ -824,17 +840,19 @@ export default function MarketMakerExposures() {
           <span>DTE {dteLabel}</span>
         </div>
 
-        {/* Gamma display mode toggle */}
-        <button
-          type="button"
-          onClick={() => setGexMode((m) => (m === 'split' ? 'net' : 'split'))}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle(gexMode === 'net')}
-          title={`Gamma mode: ${gexMode === 'split' ? 'Call/Put split' : 'Net only'} (click to toggle)`}
-        >
-          <BarChart3 size={12} />
-          <span>{gexMode === 'split' ? 'Split' : 'Net'}</span>
-        </button>
+        {/* Gamma display mode toggle — hidden in compact mode (no middle panel to control) */}
+        {!compact && (
+          <button
+            type="button"
+            onClick={() => setGexMode((m) => (m === 'split' ? 'net' : 'split'))}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(gexMode === 'net')}
+            title={`Gamma mode: ${gexMode === 'split' ? 'Call/Put split' : 'Net only'} (click to toggle)`}
+          >
+            <BarChart3 size={12} />
+            <span>{gexMode === 'split' ? 'Split' : 'Net'}</span>
+          </button>
+        )}
 
         {/* Timeframe selector */}
         <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
@@ -930,14 +948,16 @@ export default function MarketMakerExposures() {
               className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
               style={{ ...popoverStyle, minWidth: 200 }}
             >
-              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                <input
-                  type="checkbox"
-                  checked={showOiDots}
-                  onChange={(e) => setShowOiDots(e.target.checked)}
-                />
-                <span>Show OI dots</span>
-              </label>
+              {!compact && (
+                <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                  <input
+                    type="checkbox"
+                    checked={showOiDots}
+                    onChange={(e) => setShowOiDots(e.target.checked)}
+                  />
+                  <span>Show OI dots</span>
+                </label>
+              )}
               <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
                 <input
                   type="checkbox"
@@ -983,7 +1003,7 @@ export default function MarketMakerExposures() {
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMidYMid meet"
           className="block w-full"
-          style={{ minWidth: 760 }}
+          style={{ minWidth: compact ? 360 : 760 }}
           onMouseMove={onSvgMouseMove}
           onMouseLeave={() => setHover(null)}
         >
@@ -995,8 +1015,12 @@ export default function MarketMakerExposures() {
                 {showGrid && (
                   <>
                     <line x1={LEFT_X} x2={STRIKE_X} y1={y} y2={y} stroke={gridStroke} />
-                    <line x1={MID_X} x2={MID_X + MID_W} y1={y} y2={y} stroke={gridStroke} />
-                    <line x1={RIGHT_X} x2={RIGHT_X + RIGHT_W} y1={y} y2={y} stroke={gridStroke} />
+                    {!compact && (
+                      <>
+                        <line x1={MID_X} x2={MID_X + MID_W} y1={y} y2={y} stroke={gridStroke} />
+                        <line x1={RIGHT_X} x2={RIGHT_X + RIGHT_W} y1={y} y2={y} stroke={gridStroke} />
+                      </>
+                    )}
                   </>
                 )}
                 <text
@@ -1099,15 +1123,17 @@ export default function MarketMakerExposures() {
             : null}
 
           {/* ── MIDDLE PANEL: Gamma horizontal bars ── */}
-          <line
-            x1={MID_X + MID_W / 2}
-            x2={MID_X + MID_W / 2}
-            y1={PLOT_TOP}
-            y2={PLOT_BOTTOM}
-            stroke={subtle}
-            opacity={0.35}
-          />
-          {visibleStrikes.map((s) => {
+          {!compact && (
+            <line
+              x1={MID_X + MID_W / 2}
+              x2={MID_X + MID_W / 2}
+              y1={PLOT_TOP}
+              y2={PLOT_BOTTOM}
+              stroke={subtle}
+              opacity={0.35}
+            />
+          )}
+          {!compact && visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
@@ -1163,36 +1189,42 @@ export default function MarketMakerExposures() {
               </g>
             );
           })}
-          <text x={MID_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
-            -{formatExposure(gammaXMax)}
-          </text>
-          <text x={MID_X + MID_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
-            0
-          </text>
-          <text x={MID_X + MID_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
-            {formatExposure(gammaXMax)}
-          </text>
-          <text
-            x={MID_X + MID_W / 2}
-            y={PLOT_BOTTOM + 38}
-            fontSize={11}
-            fill={textPrimary}
-            textAnchor="middle"
-            fontWeight={600}
-          >
-            Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
-          </text>
+          {!compact && (
+            <>
+              <text x={MID_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
+                -{formatExposure(gammaXMax)}
+              </text>
+              <text x={MID_X + MID_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
+                0
+              </text>
+              <text x={MID_X + MID_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
+                {formatExposure(gammaXMax)}
+              </text>
+              <text
+                x={MID_X + MID_W / 2}
+                y={PLOT_BOTTOM + 38}
+                fontSize={11}
+                fill={textPrimary}
+                textAnchor="middle"
+                fontWeight={600}
+              >
+                Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
+              </text>
+            </>
+          )}
 
           {/* ── RIGHT PANEL: Positions horizontal bars ── */}
-          <line
-            x1={RIGHT_X + RIGHT_W / 2}
-            x2={RIGHT_X + RIGHT_W / 2}
-            y1={PLOT_TOP}
-            y2={PLOT_BOTTOM}
-            stroke={subtle}
-            opacity={0.35}
-          />
-          {visibleStrikes.map((s) => {
+          {!compact && (
+            <line
+              x1={RIGHT_X + RIGHT_W / 2}
+              x2={RIGHT_X + RIGHT_W / 2}
+              y1={PLOT_TOP}
+              y2={PLOT_BOTTOM}
+              stroke={subtle}
+              opacity={0.35}
+            />
+          )}
+          {!compact && visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const callW = (s.callOi / positionsXMax) * (RIGHT_W / 2);
@@ -1224,25 +1256,29 @@ export default function MarketMakerExposures() {
               </g>
             );
           })}
-          <text x={RIGHT_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
-            -{formatExposure(positionsXMax)}
-          </text>
-          <text x={RIGHT_X + RIGHT_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
-            0
-          </text>
-          <text x={RIGHT_X + RIGHT_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
-            {formatExposure(positionsXMax)}
-          </text>
-          <text
-            x={RIGHT_X + RIGHT_W / 2}
-            y={PLOT_BOTTOM + 38}
-            fontSize={11}
-            fill={textPrimary}
-            textAnchor="middle"
-            fontWeight={600}
-          >
-            Positions
-          </text>
+          {!compact && (
+            <>
+              <text x={RIGHT_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
+                -{formatExposure(positionsXMax)}
+              </text>
+              <text x={RIGHT_X + RIGHT_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
+                0
+              </text>
+              <text x={RIGHT_X + RIGHT_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
+                {formatExposure(positionsXMax)}
+              </text>
+              <text
+                x={RIGHT_X + RIGHT_W / 2}
+                y={PLOT_BOTTOM + 38}
+                fontSize={11}
+                fill={textPrimary}
+                textAnchor="middle"
+                fontWeight={600}
+              >
+                Positions
+              </text>
+            </>
+          )}
 
           {/* ── Shared horizontal price level lines (drawn last so they sit on top) ── */}
           {(() => {
@@ -1493,7 +1529,7 @@ export default function MarketMakerExposures() {
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
         <span>Powered by ZeroGEX</span>
-        <span>Gamma / Positions</span>
+        {!compact && <span>Gamma / Positions</span>}
       </div>
     </div>
   );
