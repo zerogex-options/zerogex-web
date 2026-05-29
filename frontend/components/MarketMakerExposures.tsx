@@ -117,24 +117,21 @@ function computeDte(expiryStr: string | null | undefined): number | null {
 }
 
 // SVG layout constants — sized to fit on a standard desktop without scrolling.
-const CW_FULL = 1200;
-// Compact width keeps the candles panel + strike labels and reserves a small
-// right margin for the key-level pills, yielding a roughly square viewBox.
-const CW_COMPACT = 700;
+const CW = 1200;
 const CH = 648;
 const PLOT_TOP = 24;
 const PLOT_BOTTOM = CH - 72;
 const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
 
 const LEFT_X = 0;
-const LEFT_W = 540;
-const STRIKE_X = LEFT_X + LEFT_W;
+const LEFT_W_FULL = 540;
+// In compact mode the middle and right panels are hidden, so the candles
+// panel expands across the bulk of the viewBox. This keeps the dashboard
+// tile visually filled with chart content instead of letterboxed.
+const LEFT_W_COMPACT = 1056;
 const STRIKE_W = 64;
 const GAP = 12;
-const MID_X = STRIKE_X + STRIKE_W + GAP;
 const MID_W = 280;
-const RIGHT_X = MID_X + MID_W + GAP;
-const RIGHT_W_FULL = CW_FULL - RIGHT_X;
 
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
@@ -173,8 +170,11 @@ interface MarketMakerExposuresProps {
 export default function MarketMakerExposures({ compact = false }: MarketMakerExposuresProps = {}) {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
-  const CW = compact ? CW_COMPACT : CW_FULL;
-  const RIGHT_W = compact ? 0 : RIGHT_W_FULL;
+  const LEFT_W = compact ? LEFT_W_COMPACT : LEFT_W_FULL;
+  const STRIKE_X = LEFT_X + LEFT_W;
+  const MID_X = STRIKE_X + STRIKE_W + GAP;
+  const RIGHT_X = MID_X + MID_W + GAP;
+  const RIGHT_W = compact ? 0 : CW - RIGHT_X;
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;

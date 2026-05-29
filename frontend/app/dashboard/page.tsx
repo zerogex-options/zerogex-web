@@ -151,7 +151,8 @@ export default function DashboardPage() {
       <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
-          <div className="md:col-start-1 md:row-start-1">
+          {/* Left column: 4 cards stacked, each sized to its content. */}
+          <div className="md:col-span-1 grid grid-cols-1 gap-4 content-start">
             <MetricCard
               title={`${symbol} Price`}
               value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
@@ -175,8 +176,6 @@ export default function DashboardPage() {
               theme={theme}
               trend="neutral"
             />
-          </div>
-          <div className="md:col-start-2 md:row-start-1">
             <MetricCard
               title="Net GEX"
               value={formatCompactUsd(gexData?.net_gex, true)}
@@ -184,8 +183,6 @@ export default function DashboardPage() {
               tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
               theme={theme}
             />
-          </div>
-          <div className="md:col-start-1 md:row-start-2">
             <PriceDistanceMetricCard
               title="Gamma Flip"
               level={gexData?.gamma_flip}
@@ -193,8 +190,6 @@ export default function DashboardPage() {
               tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
               theme={theme}
             />
-          </div>
-          <div className="md:col-start-2 md:row-start-2">
             <PriceDistanceMetricCard
               title="Max Pain"
               level={gexData?.max_pain}
@@ -203,11 +198,11 @@ export default function DashboardPage() {
               theme={theme}
             />
           </div>
-          {/* The chart fills the right half by absolute-positioning inside the
-              grid cell — that keeps the SVG's natural max-content from pushing
-              the row heights past the cards' natural stacked height, so the
-              tile matches the 2×2 cards' size exactly. */}
-          <div className="md:col-start-3 md:col-span-2 md:row-start-1 md:row-span-2 md:relative">
+          {/* The chart fills cols 2-4 by absolute-positioning inside the grid
+              cell — that keeps the SVG's natural max-content from pushing the
+              row tracks past the card column's stacked height, so the tile
+              matches the 4-card column's size exactly. */}
+          <div className="md:col-span-3 md:relative">
             <div className="md:absolute md:inset-0">
               <MarketMakerExposures compact />
             </div>
