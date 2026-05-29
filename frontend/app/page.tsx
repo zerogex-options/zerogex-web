@@ -385,6 +385,24 @@ export default function LandingPage() {
             </button>
           </Link>
 
+          {/* Login */}
+          <Link href="/login" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              Login
+            </button>
+          </Link>
+
           {/* Launch App CTA */}
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button
