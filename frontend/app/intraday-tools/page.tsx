@@ -487,6 +487,8 @@ export default function IntradayToolsPage() {
                     <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
                       <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${lowPct}%` }}>${orbLow.toFixed(2)}</span>
                       <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orbHigh.toFixed(2)}</span>
+                    </div>
+                    <div className="relative h-4 text-[10px]">
                       <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold" style={{ left: `${pricePct}%`, color: textColor }}>
                         ${currentPrice.toFixed(2)}
                       </span>

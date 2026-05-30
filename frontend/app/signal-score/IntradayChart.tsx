@@ -35,7 +35,23 @@ function filterByWindow(rows: CompositeHistoryRow[], win: Window): CompositeHist
   }
   if (win === 'TODAY') {
     const todayKey = etDateKey(now);
-    return rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === todayKey);
+    const todayRows = rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === todayKey);
+    if (todayRows.length > 0) return todayRows;
+    // No data for today (weekend / holiday / pre-engine). Freeze on the
+    // most recent ET date in history so the chart shows the last
+    // session instead of rendering empty.
+    const lastKey = etDateKey(Date.parse(rows[rows.length - 1].timestamp));
+    return rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === lastKey);
+  }
+  if (win === '5D') {
+    // Last 5 distinct ET dates that have data, regardless of calendar
+    // gaps. Walking newest→oldest keeps weekend / holiday days out of
+    // the count naturally.
+    const keep = new Set<string>();
+    for (let i = rows.length - 1; i >= 0 && keep.size < 5; i--) {
+      keep.add(etDateKey(Date.parse(rows[i].timestamp)));
+    }
+    return rows.filter((r) => keep.has(etDateKey(Date.parse(r.timestamp))));
   }
   return rows;
 }
@@ -56,6 +72,14 @@ function formatAxisTime(ms: number): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+  });
+}
+
+function formatAxisDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short',
+    day: 'numeric',
   });
 }
 
@@ -122,6 +146,58 @@ function IntradayChartImpl({ history, currentScore }: Props) {
     return buildTimeTicks(data[0].ts, data[data.length - 1].ts);
   }, [data]);
 
+  // Mark the first tick on each ET calendar day so the axis can render
+  // a secondary "May 30" label beneath the time on day boundaries
+  // (1H / TODAY hits this once; 5D hits it at every day change).
+  const dateMarkerTicks = useMemo(() => {
+    const set = new Set<number>();
+    let prev: string | null = null;
+    for (const t of xTicks) {
+      const key = etDateKey(t);
+      if (key !== prev) {
+        set.add(t);
+        prev = key;
+      }
+    }
+    return set;
+  }, [xTicks]);
+
+  const renderXTick = (props: {
+    x?: number | string;
+    y?: number | string;
+    payload?: { value?: number | string };
+  }) => {
+    const x = Number(props?.x ?? 0);
+    const y = Number(props?.y ?? 0);
+    const value = Number(props?.payload?.value ?? NaN);
+    if (!Number.isFinite(value)) return <g transform={`translate(${x},${y})`} />;
+    const time = formatAxisTime(value);
+    const date = dateMarkerTicks.has(value) ? formatAxisDate(value) : null;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          dy={12}
+          textAnchor="middle"
+          fill="var(--color-text-secondary)"
+          fontSize={11}
+        >
+          {time}
+        </text>
+        {date ? (
+          <text
+            dy={26}
+            textAnchor="middle"
+            fill="var(--color-text-secondary)"
+            fontSize={10}
+            opacity={0.75}
+          >
+            {date}
+          </text>
+        ) : null}
+      </g>
+    );
+  };
+
   const lineColor = classifyRegime(currentScore).color;
 
   if (data.length === 0) {
@@ -153,7 +229,7 @@ function IntradayChartImpl({ history, currentScore }: Props) {
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height: 320 }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 16, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
             <XAxis
               dataKey="ts"
@@ -161,8 +237,8 @@ function IntradayChartImpl({ history, currentScore }: Props) {
               domain={['dataMin', 'dataMax']}
               ticks={xTicks}
               interval={0}
-              tickFormatter={formatAxisTime}
-              tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+              tick={renderXTick}
+              height={38}
               stroke="var(--color-border)"
             />
             <YAxis
@@ -220,10 +296,9 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
       </button>
       <button
         type="button"
-        disabled
-        title="coming soon"
-        className="rounded-md border px-2 py-1 text-[var(--color-text-secondary)] opacity-50 cursor-not-allowed"
-        style={{ borderColor: 'var(--color-border)' }}
+        onClick={() => onChange('5D')}
+        className={`rounded-md border px-2 py-1 ${value === '5D' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+        style={{ borderColor: 'var(--color-border)', background: value === '5D' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
         5D
       </button>

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CompositeHistoryRow, CompositePayload, parseHistory, parsePayload } from './data';
 import { getMarketSession } from '@/core/utils';
 
-const HISTORY_LIMIT = 390;
+// One trading day at the engine's minute cadence is ~390 rows; multiplied
+// to cover the chart's 5D preset (5 trading days + weekend buffer).
+const HISTORY_LIMIT = 2000;
+const HISTORY_LOOKBACK_DAYS = 8;
 const REFOCUS_HISTORY_REFRESH_MS = 2 * 60 * 1000;
 
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
@@ -16,6 +19,10 @@ export interface CompositeState {
   intervalMs: number;
   connection: ConnectionState;
   loading: boolean;
+  // True until the initial /score-history fetch resolves. The chart waits
+  // on this rather than `loading` so it doesn't paint a single appended
+  // tick while the bulk history is still in flight.
+  historyLoaded: boolean;
   refetch: () => void;
 }
 
@@ -37,6 +44,7 @@ export function useCompositeData(symbol: string): CompositeState {
   const [intervalMs, setIntervalMs] = useState<number>(pickIntervalMs());
   const [connection, setConnection] = useState<ConnectionState>('idle');
   const [loading, setLoading] = useState(true);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const consecutiveFailuresRef = useRef(0);
   const retryTimerRef = useRef<number | null>(null);
@@ -106,6 +114,7 @@ export function useCompositeData(symbol: string): CompositeState {
       params.set('symbol', sym);
       params.set('underlying', sym);
       params.set('limit', String(HISTORY_LIMIT));
+      params.set('lookback_days', String(HISTORY_LOOKBACK_DAYS));
       const signal = lifetimeAbortRef.current?.signal;
       const res = await fetch(`${apiBaseUrl()}/api/signals/score-history?${params.toString()}`, { signal });
       if (!res.ok) return;
@@ -124,6 +133,8 @@ export function useCompositeData(symbol: string): CompositeState {
       });
     } catch {
       // history is best-effort; the live tick stream will rebuild it
+    } finally {
+      if (symbolRef.current === sym) setHistoryLoaded(true);
     }
   }, []);
 
@@ -169,6 +180,7 @@ export function useCompositeData(symbol: string): CompositeState {
     setLastUpdatedAt(null);
     setConnection('idle');
     setLoading(true);
+    setHistoryLoaded(false);
     consecutiveFailuresRef.current = 0;
     // Abort any fetches still in flight from the previous symbol, then
     // open a fresh lifetime for this one.
@@ -275,6 +287,7 @@ export function useCompositeData(symbol: string): CompositeState {
     intervalMs,
     connection,
     loading,
+    historyLoaded,
     refetch,
   };
 }
