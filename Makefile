@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user backup-monitoring clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user seed-founders backup-monitoring clean deploy logo
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
+	@echo "  make seed-founders - Flag current users as founding_eligible (DRY_RUN=1 to preview, YES=1 to apply, BEFORE=<iso> for cutoff)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
@@ -96,6 +97,13 @@ all-to-pro:
 delete-user:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make delete-user EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/delete-user.mjs --email $(EMAIL) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# One-shot grant of founding_eligible=1 to existing users so they can redeem
+# the founding code at checkout. Run once at cutover. Pass DRY_RUN=1 first to
+# preview, then YES=1 to apply. Pass BEFORE=<iso> to freeze the cohort at a
+# specific cutoff instead of "now".
+seed-founders:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/seed-founders.mjs $(if $(BEFORE),--before $(BEFORE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Backup Admin->Monitoring data files (frontend/data/monitoring.json and
 # signups.json) into a timestamped tar.gz. Defaults to a dir OUTSIDE the

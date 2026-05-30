@@ -134,6 +134,17 @@ ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
 ensureColumn('users', 'disclaimer_version_acknowledged', 'TEXT');
 
+// Founding-member program. `founding_eligible` is a one-time grant set via
+// scripts/seed-founders.mjs for the launch cohort; new signups default to 0
+// and cannot redeem the founding code. `founding_member_started_at` is set
+// when the user actually subscribes with the founding code, and the webhook
+// uses (now - started_at >= 12 months) to apply the lifetime 25%-off coupon
+// once. `founding_lifetime_applied_at` is the latch that prevents re-apply
+// on subsequent renewal events.
+ensureColumn('users', 'founding_eligible', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('users', 'founding_member_started_at', 'TEXT');
+ensureColumn('users', 'founding_lifetime_applied_at', 'TEXT');
+
 // Users who acked before versioning existed implicitly acked v1.
 db.exec(
   `UPDATE users

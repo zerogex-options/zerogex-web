@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { requireSession, validateCsrf } from '@/core/serverAuth';
-import { getAppUrl, getStripe, isBillableTier, tierToPriceId } from '@/core/stripe';
+import {
+  getActivePromoCouponId,
+  getAppUrl,
+  getFoundingIntroCouponId,
+  getFoundingPromoCode,
+  getStripe,
+  isBillableTier,
+  isBillingCadence,
+  isPaidSignupDisabled,
+  skuToPriceId,
+  type BillableTier,
+} from '@/core/stripe';
 
 type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  founding_eligible: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -13,20 +26,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
   }
 
+  if (isPaidSignupDisabled()) {
+    return NextResponse.json(
+      { error: 'Subscriptions are temporarily unavailable. Please try again later.' },
+      { status: 503 },
+    );
+  }
+
   const actor = await requireSession();
   if (!actor) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { tier?: unknown };
+  if (actor.user.tier === 'admin') {
+    return NextResponse.json({ error: 'Admin accounts cannot subscribe.' }, { status: 403 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as {
+    tier?: unknown;
+    cadence?: unknown;
+    foundingCode?: unknown;
+  };
+
   if (!isBillableTier(body.tier)) {
     return NextResponse.json({ error: 'tier must be one of basic, pro' }, { status: 400 });
   }
-  const tier = body.tier;
+  if (!isBillingCadence(body.cadence)) {
+    return NextResponse.json({ error: 'cadence must be one of monthly, annual' }, { status: 400 });
+  }
+  const tier: BillableTier = body.tier;
+  const cadence = body.cadence;
+  const foundingCode =
+    typeof body.foundingCode === 'string' && body.foundingCode.length > 0
+      ? body.foundingCode
+      : null;
 
   const db = getDb();
   const row = db
-    .prepare('SELECT stripe_customer_id, stripe_subscription_id FROM users WHERE id = ?')
+    .prepare(
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible FROM users WHERE id = ?',
+    )
     .get(actor.user.id) as UserBillingRow | undefined;
 
   if (row?.stripe_subscription_id) {
@@ -34,6 +73,19 @@ export async function POST(request: NextRequest) {
       { error: 'You already have an active subscription. Use the billing portal to change plans.' },
       { status: 409 },
     );
+  }
+
+  // Resolve any discount before talking to Stripe so we can fail fast on
+  // misconfiguration (e.g. founding code accepted but coupon env unset)
+  // without leaving a half-created customer behind on retries.
+  const discountResult = resolveDiscount({
+    tier,
+    cadence,
+    foundingCode,
+    foundingEligible: (row?.founding_eligible ?? 0) === 1,
+  });
+  if (!discountResult.ok) {
+    return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
   }
 
   const stripe = getStripe();
@@ -53,20 +105,85 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     customer: customerId,
     client_reference_id: actor.user.id,
-    line_items: [{ price: tierToPriceId(tier), quantity: 1 }],
+    line_items: [{ price: skuToPriceId({ tier, cadence }), quantity: 1 }],
     success_url: `${appUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
-    allow_promotion_codes: true,
-    subscription_data: { metadata: { user_id: actor.user.id, tier } },
-  });
+    subscription_data: {
+      metadata: {
+        user_id: actor.user.id,
+        tier,
+        cadence,
+        ...(discountResult.foundingApplied ? { founding: '1' } : {}),
+      },
+    },
+  };
+
+  if (discountResult.couponId) {
+    // Server-applied discount. Disallow Stripe's promo-code field so customers
+    // can't stack a second discount on top of an auto-applied promo or a
+    // founding rate.
+    sessionParams.discounts = [{ coupon: discountResult.couponId }];
+  } else {
+    sessionParams.allow_promotion_codes = true;
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams);
 
   if (!session.url) {
     return NextResponse.json({ error: 'Stripe did not return a checkout URL' }, { status: 502 });
   }
 
   return NextResponse.json({ url: session.url });
+}
+
+type DiscountResolution =
+  | { ok: true; couponId: string | null; foundingApplied: boolean }
+  | { ok: false; status: number; error: string };
+
+function resolveDiscount(input: {
+  tier: BillableTier;
+  cadence: 'monthly' | 'annual';
+  foundingCode: string | null;
+  foundingEligible: boolean;
+}): DiscountResolution {
+  if (input.foundingCode) {
+    const expected = getFoundingPromoCode();
+    if (!expected || input.foundingCode !== expected) {
+      return { ok: false, status: 400, error: 'Invalid founding-member code.' };
+    }
+    if (!input.foundingEligible) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'This account is not eligible for the founding-member offer.',
+      };
+    }
+    if (input.cadence !== 'monthly') {
+      return {
+        ok: false,
+        status: 400,
+        error: 'The founding-member rate is available on monthly plans only.',
+      };
+    }
+    const couponId = getFoundingIntroCouponId(input.tier);
+    if (!couponId) {
+      return {
+        ok: false,
+        status: 500,
+        error: 'Founding-member discount is not configured for this plan.',
+      };
+    }
+    return { ok: true, couponId, foundingApplied: true };
+  }
+
+  const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
+  if (promoCouponId) {
+    return { ok: true, couponId: promoCouponId, foundingApplied: false };
+  }
+
+  return { ok: true, couponId: null, foundingApplied: false };
 }

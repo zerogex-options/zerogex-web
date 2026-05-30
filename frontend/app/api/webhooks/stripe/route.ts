@@ -3,11 +3,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { TierId } from '@/core/auth';
-import { getCurrentPeriodEndUnix, getStripe, priceIdToTier } from '@/core/stripe';
+import {
+  getCurrentPeriodEndUnix,
+  getFoundingLifetimeCouponId,
+  getStripe,
+  priceIdToTier,
+} from '@/core/stripe';
 
 export const runtime = 'nodejs';
 
-type UserIdRow = { id: string; email: string };
+type UserRow = {
+  id: string;
+  email: string;
+  founding_member_started_at: string | null;
+  founding_lifetime_applied_at: string | null;
+};
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
 // the subscription to past_due and emits customer.subscription.updated, so
@@ -28,6 +38,12 @@ const LIFECYCLE_EVENT_TYPES = new Set<string>([
   'customer.subscription.paused',
   'customer.subscription.deleted',
 ]);
+
+// 11 months chosen so the lifetime coupon is on the subscription before the
+// post-intro renewal invoice is generated. The intro coupon exhausts after
+// 12 invoices, so applying at month 11 lets the cycle-13 invoice pick up the
+// 25% lifetime instead of charging full rack rate once.
+const FOUNDING_LIFETIME_ELIGIBLE_AFTER_MONTHS = 11;
 
 function extractSubscriptionId(event: Stripe.Event): string | null {
   const obj = event.data.object as unknown as Record<string, unknown>;
@@ -52,10 +68,13 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function findUserByCustomerId(customerId: string): UserIdRow | null {
+function findUserByCustomerId(customerId: string): UserRow | null {
   const row = getDb()
-    .prepare('SELECT id, email FROM users WHERE stripe_customer_id = ?')
-    .get(customerId) as UserIdRow | undefined;
+    .prepare(
+      `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at
+       FROM users WHERE stripe_customer_id = ?`,
+    )
+    .get(customerId) as UserRow | undefined;
   return row ?? null;
 }
 
@@ -77,7 +96,58 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
     );
 }
 
-function syncSubscriptionToUser(subscription: Stripe.Subscription) {
+function shouldApplyFoundingLifetime(user: UserRow): boolean {
+  if (!user.founding_member_started_at) return false;
+  if (user.founding_lifetime_applied_at) return false;
+  const start = new Date(user.founding_member_started_at);
+  if (Number.isNaN(start.getTime())) return false;
+  const eligibleAt = new Date(start);
+  eligibleAt.setMonth(eligibleAt.getMonth() + FOUNDING_LIFETIME_ELIGIBLE_AFTER_MONTHS);
+  return eligibleAt.getTime() <= Date.now();
+}
+
+async function maybeApplyFoundingLifetime(
+  subscriptionId: string,
+  user: UserRow,
+): Promise<void> {
+  if (!shouldApplyFoundingLifetime(user)) return;
+  const couponId = getFoundingLifetimeCouponId();
+  if (!couponId) {
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Founding lifetime due for sub ${subscriptionId} but STRIPE_COUPON_FOUNDING_LIFETIME is unset`,
+    });
+    return;
+  }
+  try {
+    await getStripe().subscriptions.update(subscriptionId, {
+      discounts: [{ coupon: couponId }],
+    });
+    const stamp = nowIso();
+    getDb()
+      .prepare('UPDATE users SET founding_lifetime_applied_at = ?, updated_at = ? WHERE id = ?')
+      .run(stamp, stamp, user.id);
+    logAudit({
+      type: 'stripe_founding_lifetime_applied',
+      userId: user.id,
+      email: user.email,
+      message: `Lifetime 25% coupon ${couponId} applied to sub ${subscriptionId}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'apply lifetime failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Apply founding lifetime to sub ${subscriptionId} failed: ${message}`,
+    });
+    // Swallow — the tier sync above already succeeded; retry on next sub event.
+  }
+}
+
+async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const user = findUserByCustomerId(customerId);
@@ -98,6 +168,14 @@ function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
   const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
 
+  // Founding redemption is signalled by subscription.metadata.founding='1',
+  // set at checkout time. First sync after redemption stamps the column;
+  // COALESCE keeps the original timestamp on subsequent syncs.
+  const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
+  const stampFoundingStart =
+    subMetadata.founding === '1' && !user.founding_member_started_at;
+  const newlyStampedAt = stampFoundingStart ? nowIso() : null;
+
   getDb()
     .prepare(
       `UPDATE users SET
@@ -107,6 +185,7 @@ function syncSubscriptionToUser(subscription: Stripe.Subscription) {
          subscription_status = ?,
          current_period_end = ?,
          cancel_at_period_end = ?,
+         founding_member_started_at = COALESCE(founding_member_started_at, ?),
          updated_at = ?
        WHERE id = ?`,
     )
@@ -117,9 +196,20 @@ function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       subscription.status,
       periodEndIso,
       subscription.cancel_at_period_end ? 1 : 0,
+      newlyStampedAt,
       nowIso(),
       user.id,
     );
+
+  if (stampFoundingStart) {
+    user.founding_member_started_at = newlyStampedAt;
+    logAudit({
+      type: 'stripe_founding_redeemed',
+      userId: user.id,
+      email: user.email,
+      message: `Founding redemption recorded for sub ${subscription.id}`,
+    });
+  }
 
   logAudit({
     type: 'stripe_subscription_sync',
@@ -127,6 +217,8 @@ function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  await maybeApplyFoundingLifetime(subscription.id, user);
 }
 
 function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
@@ -223,7 +315,7 @@ export async function POST(request: NextRequest) {
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
-          syncSubscriptionToUser(subscription);
+          await syncSubscriptionToUser(subscription);
         }
         break;
       }
@@ -231,7 +323,7 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.updated':
       case 'customer.subscription.resumed':
       case 'customer.subscription.paused': {
-        syncSubscriptionToUser(event.data.object as Stripe.Subscription);
+        await syncSubscriptionToUser(event.data.object as Stripe.Subscription);
         break;
       }
       case 'customer.subscription.deleted': {

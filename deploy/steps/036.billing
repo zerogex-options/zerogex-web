@@ -9,7 +9,7 @@
 # — existing values are never overwritten. Empty placeholders are added for
 # secret keys; operators fill them in from the Stripe dashboard before going
 # live. Without these, /api/billing/checkout 500s with
-# "Stripe price not configured for tier: <tier>".
+# "Stripe price not configured for sku: <tier>/<cadence>".
 
 set -euo pipefail
 
@@ -48,8 +48,18 @@ log "  → Merging billing keys into $ENV_FILE"
 ensure_env_key "NEXT_PUBLIC_APP_URL" "$APP_URL_DEFAULT"
 ensure_env_key "STRIPE_SECRET_KEY" ""
 ensure_env_key "STRIPE_WEBHOOK_SECRET" ""
-ensure_env_key "STRIPE_PRICE_BASIC" ""
-ensure_env_key "STRIPE_PRICE_PRO" ""
+ensure_env_key "STRIPE_PRICE_BASIC_MONTHLY" ""
+ensure_env_key "STRIPE_PRICE_BASIC_ANNUAL" ""
+ensure_env_key "STRIPE_PRICE_PRO_MONTHLY" ""
+ensure_env_key "STRIPE_PRICE_PRO_ANNUAL" ""
+ensure_env_key "STRIPE_COUPON_PROMO_BASIC_MONTHLY" ""
+ensure_env_key "STRIPE_COUPON_PROMO_PRO_MONTHLY" ""
+ensure_env_key "STRIPE_COUPON_FOUNDING_BASIC_INTRO" ""
+ensure_env_key "STRIPE_COUPON_FOUNDING_PRO_INTRO" ""
+ensure_env_key "STRIPE_COUPON_FOUNDING_LIFETIME" ""
+ensure_env_key "FOUNDING_PROMO_CODE" ""
+ensure_env_key "PROMO_END_AT" ""
+ensure_env_key "BILLING_PAID_SIGNUP_DISABLED" ""
 chmod 600 "$ENV_FILE"
 
 log ""
@@ -58,10 +68,23 @@ log "Summary:"
 log "  ✓ Stripe + app URL keys present in .env.local"
 log ""
 log "Before going live, fill in from the Stripe dashboard:"
-log "  • STRIPE_SECRET_KEY        (https://dashboard.stripe.com/apikeys)"
-log "  • STRIPE_WEBHOOK_SECRET    (webhook endpoint -> signing secret)"
-log "  • STRIPE_PRICE_BASIC       (Product -> Price ID for the basic tier)"
-log "  • STRIPE_PRICE_PRO         (Product -> Price ID for the pro tier)"
+log "  • STRIPE_SECRET_KEY                  (https://dashboard.stripe.com/apikeys)"
+log "  • STRIPE_WEBHOOK_SECRET              (webhook endpoint -> signing secret)"
+log "  • STRIPE_PRICE_BASIC_MONTHLY         (Basic product -> monthly price ID)"
+log "  • STRIPE_PRICE_BASIC_ANNUAL          (Basic product -> annual price ID)"
+log "  • STRIPE_PRICE_PRO_MONTHLY           (Pro product -> monthly price ID)"
+log "  • STRIPE_PRICE_PRO_ANNUAL            (Pro product -> annual price ID)"
+log "  • STRIPE_COUPON_PROMO_BASIC_MONTHLY  (\$15 off, 3 months, basic monthly)"
+log "  • STRIPE_COUPON_PROMO_PRO_MONTHLY    (\$20 off, 3 months, pro monthly)"
+log "  • STRIPE_COUPON_FOUNDING_BASIC_INTRO (\$27 off, 12 months, basic monthly)"
+log "  • STRIPE_COUPON_FOUNDING_PRO_INTRO   (\$40 off, 12 months, pro monthly)"
+log "  • STRIPE_COUPON_FOUNDING_LIFETIME    (25% off, duration=forever)"
+log "  • FOUNDING_PROMO_CODE                (customer-facing token, e.g. FOUNDING25)"
+log "  • PROMO_END_AT                       (ISO timestamp; public promo auto-applies until this)"
+log "  • BILLING_PAID_SIGNUP_DISABLED       (set to 1 to kill checkout without a deploy)"
+log ""
+log "Deprecated keys (no longer read; safe to delete from .env.local):"
+log "  • STRIPE_PRICE_BASIC, STRIPE_PRICE_PRO"
 log ""
 log "Webhook endpoint to register in Stripe:"
 if [ -n "$DOMAIN_NAME" ]; then
