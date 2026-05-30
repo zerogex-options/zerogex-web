@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CompositeHistoryRow, CompositePayload, parseHistory, parsePayload } from './data';
 import { getMarketSession } from '@/core/utils';
 
-const HISTORY_LIMIT = 390;
+// One trading day at the engine's minute cadence is ~390 rows; multiplied
+// to cover the chart's 5D preset (5 trading days + weekend buffer).
+const HISTORY_LIMIT = 2000;
+const HISTORY_LOOKBACK_DAYS = 8;
 const REFOCUS_HISTORY_REFRESH_MS = 2 * 60 * 1000;
 
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
@@ -106,6 +109,7 @@ export function useCompositeData(symbol: string): CompositeState {
       params.set('symbol', sym);
       params.set('underlying', sym);
       params.set('limit', String(HISTORY_LIMIT));
+      params.set('lookback_days', String(HISTORY_LOOKBACK_DAYS));
       const signal = lifetimeAbortRef.current?.signal;
       const res = await fetch(`${apiBaseUrl()}/api/signals/score-history?${params.toString()}`, { signal });
       if (!res.ok) return;

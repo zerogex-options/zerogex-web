@@ -35,7 +35,23 @@ function filterByWindow(rows: CompositeHistoryRow[], win: Window): CompositeHist
   }
   if (win === 'TODAY') {
     const todayKey = etDateKey(now);
-    return rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === todayKey);
+    const todayRows = rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === todayKey);
+    if (todayRows.length > 0) return todayRows;
+    // No data for today (weekend / holiday / pre-engine). Freeze on the
+    // most recent ET date in history so the chart shows the last
+    // session instead of rendering empty.
+    const lastKey = etDateKey(Date.parse(rows[rows.length - 1].timestamp));
+    return rows.filter((r) => etDateKey(Date.parse(r.timestamp)) === lastKey);
+  }
+  if (win === '5D') {
+    // Last 5 distinct ET dates that have data, regardless of calendar
+    // gaps. Walking newest→oldest keeps weekend / holiday days out of
+    // the count naturally.
+    const keep = new Set<string>();
+    for (let i = rows.length - 1; i >= 0 && keep.size < 5; i--) {
+      keep.add(etDateKey(Date.parse(rows[i].timestamp)));
+    }
+    return rows.filter((r) => keep.has(etDateKey(Date.parse(r.timestamp))));
   }
   return rows;
 }
@@ -220,10 +236,9 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
       </button>
       <button
         type="button"
-        disabled
-        title="coming soon"
-        className="rounded-md border px-2 py-1 text-[var(--color-text-secondary)] opacity-50 cursor-not-allowed"
-        style={{ borderColor: 'var(--color-border)' }}
+        onClick={() => onChange('5D')}
+        className={`rounded-md border px-2 py-1 ${value === '5D' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+        style={{ borderColor: 'var(--color-border)', background: value === '5D' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
         5D
       </button>

@@ -23,7 +23,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
-import { isWithinTradingHoursForSymbol } from '@/core/utils';
+import { isWithinTradingHoursForSymbol, getMarketSession } from '@/core/utils';
 
 interface HeatmapCell { strike: number; net_gex: number; }
 interface GammaBucket {
@@ -872,8 +872,19 @@ export default function GammaHeatmapCanvas() {
     if (lagMs <= 0) return null; // candles caught up or ahead
     return Math.floor(lagMs / 60000);
   }, [gexData, priceData]);
+  // When no session is trading (overnight, weekend, holiday) both feeds
+  // are stale at their last close and the gap between them isn't
+  // actionable — suppress the badge to avoid alarming users about an
+  // "outage" when nothing is moving.
+  const marketSession = getMarketSession();
+  const marketActive =
+    marketSession === 'open' ||
+    marketSession === 'pre-market' ||
+    marketSession === 'after-hours';
   const showCandleLagBadge =
-    candleLagMinutes != null && candleLagMinutes >= CANDLE_LAG_BADGE_MIN;
+    marketActive &&
+    candleLagMinutes != null &&
+    candleLagMinutes >= CANDLE_LAG_BADGE_MIN;
 
   if (loading && !gexData) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
