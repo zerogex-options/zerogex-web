@@ -19,6 +19,10 @@ export interface CompositeState {
   intervalMs: number;
   connection: ConnectionState;
   loading: boolean;
+  // True until the initial /score-history fetch resolves. The chart waits
+  // on this rather than `loading` so it doesn't paint a single appended
+  // tick while the bulk history is still in flight.
+  historyLoaded: boolean;
   refetch: () => void;
 }
 
@@ -40,6 +44,7 @@ export function useCompositeData(symbol: string): CompositeState {
   const [intervalMs, setIntervalMs] = useState<number>(pickIntervalMs());
   const [connection, setConnection] = useState<ConnectionState>('idle');
   const [loading, setLoading] = useState(true);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const consecutiveFailuresRef = useRef(0);
   const retryTimerRef = useRef<number | null>(null);
@@ -128,6 +133,8 @@ export function useCompositeData(symbol: string): CompositeState {
       });
     } catch {
       // history is best-effort; the live tick stream will rebuild it
+    } finally {
+      if (symbolRef.current === sym) setHistoryLoaded(true);
     }
   }, []);
 
@@ -173,6 +180,7 @@ export function useCompositeData(symbol: string): CompositeState {
     setLastUpdatedAt(null);
     setConnection('idle');
     setLoading(true);
+    setHistoryLoaded(false);
     consecutiveFailuresRef.current = 0;
     // Abort any fetches still in flight from the previous symbol, then
     // open a fresh lifetime for this one.
@@ -279,6 +287,7 @@ export function useCompositeData(symbol: string): CompositeState {
     intervalMs,
     connection,
     loading,
+    historyLoaded,
     refetch,
   };
 }

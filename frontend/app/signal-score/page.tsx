@@ -260,7 +260,7 @@ function LiveIndicator({
 
 export default function CompositeScorePage() {
   const { symbol } = useTimeframe();
-  const { payload, history, lastUpdatedAt, connection, loading, refetch } = useCompositeData(symbol);
+  const { payload, history, lastUpdatedAt, connection, loading, historyLoaded, refetch } = useCompositeData(symbol);
 
   const composite = payload?.composite ?? null;
   const components = payload?.components ?? emptyComponents();
@@ -382,14 +382,8 @@ export default function CompositeScorePage() {
           <TooltipWrapper text={INTRADAY_TOOLTIP} placement="bottom">
             <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
           </TooltipWrapper>
-          <span
-            className="ml-auto text-xs text-[var(--color-text-secondary)] font-mono font-normal"
-            style={{ fontVariantNumeric: 'tabular-nums' }}
-          >
-            {history.length} pts
-          </span>
         </h2>
-        {loading && history.length === 0 ? (
+        {!historyLoaded ? (
           <Skeleton height={320} label="Loading chart…" />
         ) : (
           <IntradayChart history={history} currentScore={composite} />
