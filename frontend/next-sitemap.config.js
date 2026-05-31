@@ -69,6 +69,9 @@ module.exports = {
     // Admin
     '/admin',
     '/admin/*',
+    // Invite-only preview of paid pricing — soft-gated by EARLY_ACCESS_KEY,
+    // surfaces nowhere on the public site.
+    '/preview',
     // /landing is served by a 308 redirect to / (see next.config.ts)
     '/landing',
     // Auth-gated tools — middleware 307s anonymous Googlebot to /login,
