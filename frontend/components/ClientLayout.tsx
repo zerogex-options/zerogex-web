@@ -14,13 +14,13 @@ import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 import OptionChainPrewarm from './OptionChainPrewarm';
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/preview', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
+const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
-// full legal text). /preview is also suppressed so the founding-cohort onboarding
-// flow isn't blocked by a modal between register and subscribe.
-const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/preview']);
+// full legal text). /pricing is also suppressed so a new register→/pricing
+// redirect doesn't trip the modal before the user has even chosen a plan.
+const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing']);
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();

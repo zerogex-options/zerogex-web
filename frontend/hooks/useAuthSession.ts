@@ -7,6 +7,11 @@ type SessionUser = {
   id: string;
   email: string;
   tier: TierId;
+  // True iff the user has a Stripe subscription on file (stripe_subscription_id
+  // is non-null). Distinct from `tier` so the UI can tell grandfathered users
+  // (tier=basic|pro without a Stripe sub) apart from real subscribers; only
+  // real subscribers can use the billing portal.
+  hasActiveSubscription?: boolean;
   disclaimerAcknowledgedAt?: string | null;
   disclaimerVersionAcknowledged?: string | null;
 };

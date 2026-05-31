@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerUser, selfSignupTier, validateCsrf } from '@/core/serverAuth';
+import {
+  attachSessionCookie,
+  issueCsrfCookie,
+  registerAndStartSession,
+  selfSignupTier,
+  validateCsrf,
+} from '@/core/serverAuth';
 
 // Auth mutation route; never cache the response at the /api/ proxy.
 export const dynamic = 'force-dynamic';
@@ -27,9 +33,19 @@ export async function POST(request: NextRequest) {
     // only 'basic' when the operator sets SELF_SIGNUP_DEFAULT_TIER=basic
     // (the pre-Stripe free-beta setting). 'pro' is never self-grantable;
     // paid tiers otherwise come solely from the Stripe webhook or an admin.
-    const user = await registerUser(request, email, password, selfSignupTier());
-    const response = NextResponse.json({ ok: true, user });
+    //
+    // Post-cutover we ALSO auto-login the new account — the registration
+    // form is the entry point for paid signup, and bouncing through /login
+    // afterwards breaks the register→checkout flow.
+    const session = await registerAndStartSession(request, email, password, selfSignupTier());
+    const response = NextResponse.json({
+      ok: true,
+      user: session.user,
+      expiresAt: session.expiresAt,
+    });
     response.headers.set('Cache-Control', 'no-store, private');
+    attachSessionCookie(response, session.token);
+    issueCsrfCookie(response, session.csrfToken);
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Registration failed';

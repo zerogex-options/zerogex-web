@@ -28,6 +28,7 @@ type SessionWithUser = {
     id: string;
     email: string;
     tier: TierId;
+    hasActiveSubscription: boolean;
     disclaimerAcknowledgedAt: string | null;
     disclaimerVersionAcknowledged: string | null;
   };
@@ -152,8 +153,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
     .prepare(
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
-              u.id as user_id2, u.email, u.tier, u.disclaimer_acknowledged_at,
-              u.disclaimer_version_acknowledged
+              u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
+              u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
@@ -167,6 +168,11 @@ function getSessionByToken(token: string): SessionWithUser | null {
       id: row.user_id2 as string,
       email: row.email as string,
       tier: normalizeTier(row.tier as string),
+      // Source of truth for "has a paid sub right now" is the Stripe sub id —
+      // not the tier alone. A grandfathered user (tier=basic|pro without a
+      // Stripe sub) returns false here so the client knows to route to
+      // checkout, not the portal (which would 400 on missing stripe_customer_id).
+      hasActiveSubscription: !!row.stripe_subscription_id,
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
     },
@@ -196,9 +202,16 @@ function createSessionForUser(user: AuthUser) {
   ).run(createId('session'), user.id, sha256(token), csrfSecret, now, expiresAt, now);
 
   const ackRow = db
-    .prepare('SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged FROM users WHERE id = ?')
+    .prepare(
+      `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged, stripe_subscription_id
+       FROM users WHERE id = ?`
+    )
     .get(user.id) as
-    | { disclaimer_acknowledged_at: string | null; disclaimer_version_acknowledged: string | null }
+    | {
+        disclaimer_acknowledged_at: string | null;
+        disclaimer_version_acknowledged: string | null;
+        stripe_subscription_id: string | null;
+      }
     | undefined;
 
   return {
@@ -209,6 +222,7 @@ function createSessionForUser(user: AuthUser) {
       id: user.id,
       email: user.email,
       tier: user.tier,
+      hasActiveSubscription: !!ackRow?.stripe_subscription_id,
       disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
     },
@@ -320,6 +334,22 @@ export async function registerUser(request: NextRequest, email: string, password
   });
 
   return { id: user.id, email: user.email, tier: user.tier };
+}
+
+// Register + immediately issue a session so the user is logged in without a
+// second round-trip through /login. Bypasses createSessionForUserCredentials'
+// login rate limit and password re-verification — we just hashed the
+// password ourselves in registerUser, so re-verifying is pointless.
+export async function registerAndStartSession(
+  request: NextRequest,
+  email: string,
+  password: string,
+  tier: TierId = 'public',
+) {
+  await registerUser(request, email, password, tier);
+  const fullUser = getUserByEmail(email.trim().toLowerCase());
+  if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
+  return createSessionForUser(fullUser);
 }
 
 export async function createSessionForUserCredentials(request: NextRequest, email: string, password: string) {

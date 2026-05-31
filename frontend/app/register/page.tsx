@@ -34,6 +34,11 @@ function RegisterPageContent() {
     return next;
   }, [searchParams]);
 
+  // Where to send the user after successful register. /pricing is the default
+  // because (post-cutover) new accounts are created at tier=public — they have
+  // no premium access until they subscribe, and /pricing is the conversion path.
+  const successHref = nextPath ?? '/pricing';
+
   const loginHref = useMemo(() => {
     return nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login';
   }, [nextPath]);
@@ -69,21 +74,21 @@ function RegisterPageContent() {
         return;
       }
 
-      router.replace(loginHref);
+      // /api/auth/register now sets the session cookie itself; skip the
+      // /login bounce and go straight to the next destination.
+      router.replace(successHref);
     } finally {
       setLoading(false);
     }
   };
-
-  const tierLabel = selectedTier === 'pro' ? 'Pro' : 'Basic';
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
         <h1 className="text-3xl font-bold">Create account</h1>
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          You&rsquo;re signing up for the <span className="font-semibold text-[var(--color-text-primary)]">{tierLabel}</span> tier.
-          Use a strong password (12+ characters).
+          New accounts have no premium access until they subscribe — you&rsquo;ll be sent to
+          the pricing page after sign-up. Use a strong password (12+ characters).
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">

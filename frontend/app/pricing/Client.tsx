@@ -34,18 +34,7 @@ const DISPLAY = {
   },
 } as const;
 
-const TIER_RANK: Record<TierId, number> = {
-  public: 0,
-  basic: 10,
-  pro: 20,
-  admin: 30,
-};
-
 type Props = {
-  accessKey: string;
-  // True when PROMO_END_AT is in the future AND a monthly promo coupon is
-  // configured. Computed server-side so the client never calls Date.now()
-  // during render. Monthly-cadence gating is still applied below.
   promoActive: boolean;
   foundingCodeConfigured: boolean;
 };
@@ -57,9 +46,7 @@ type TierAction =
   | { kind: 'current'; label: string };
 
 function formatMoney(amount: number): string {
-  return Number.isInteger(amount)
-    ? `$${amount}`
-    : `$${amount.toFixed(2)}`;
+  return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
 }
 
 function CtaButton({
@@ -333,7 +320,7 @@ function CadenceToggle({
   );
 }
 
-export default function PreviewClient({ accessKey, promoActive: serverPromoActive, foundingCodeConfigured }: Props) {
+export default function PricingClient({ promoActive: serverPromoActive, foundingCodeConfigured }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const isDark = theme === 'dark';
@@ -348,17 +335,17 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
     [authSession?.user?.tier],
   );
   const isAuthed = !!authSession?.authenticated;
-  // hasPaidSubscription includes basic, not just pro: a basic subscriber
-  // clicking Pro should land in the portal (which knows how to swap prices),
-  // not /api/billing/checkout (which 409s if the user already has a sub).
-  const hasPaidSubscription = currentTier === 'basic' || currentTier === 'pro';
+  // True only when there's an actual Stripe subscription on file. Grandfathered
+  // tier=basic|pro users (without a Stripe sub) are false — so the CTA routes
+  // to checkout (which works) instead of portal (which 400s on missing
+  // stripe_customer_id).
+  const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
 
-  // Server already verified PROMO_END_AT is in the future at request time;
-  // here we just gate on the cadence the user has selected.
+  // Server already gated PROMO_END_AT + coupon configuration; just AND with
+  // the currently selected cadence (annual is never eligible per spec).
   const promoActive = serverPromoActive && cadence === 'monthly';
 
-  const previewHref = `/preview?key=${encodeURIComponent(accessKey)}`;
-  const registerHref = `/register?next=${encodeURIComponent(previewHref)}`;
+  const registerHref = '/register?next=/pricing';
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
@@ -398,7 +385,7 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
       setError(null);
       setBusyTier(tier);
       try {
-        if (hasPaidSubscription) {
+        if (hasActiveSubscription) {
           await callBilling('/api/billing/portal');
         } else {
           const trimmedCode = foundingCode.trim();
@@ -413,16 +400,7 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
         setBusyTier(null);
       }
     },
-    [
-      callBilling,
-      cadence,
-      currentTier,
-      foundingCode,
-      hasPaidSubscription,
-      isAuthed,
-      registerHref,
-      router,
-    ],
+    [callBilling, cadence, currentTier, foundingCode, hasActiveSubscription, isAuthed, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -444,16 +422,18 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
         return { kind: 'link', href: registerHref, label: 'Sign up to subscribe' };
       }
       if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
-      if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
-      if (TIER_RANK[currentTier] > TIER_RANK[tier]) {
-        return { kind: 'portal', label: 'Manage Subscription' };
-      }
-      if (hasPaidSubscription) {
+
+      if (hasActiveSubscription) {
+        // Real subscriber: the tier truly reflects which plan they're on.
+        if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
         return { kind: 'portal', label: `Switch to ${label}` };
       }
+
+      // No active Stripe sub — public OR grandfathered. Either way, "Subscribe"
+      // is the only action that makes sense; portal would 400.
       return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
     },
-    [authLoading, currentTier, hasPaidSubscription, isAuthed, registerHref],
+    [authLoading, currentTier, hasActiveSubscription, isAuthed],
   );
 
   const basicHighlights: string[] = [];
@@ -541,14 +521,14 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
                 textTransform: 'uppercase',
               }}
             >
-              <Sparkles size={14} /> Early Access
+              <Sparkles size={14} /> Pricing
             </div>
             <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
               Choose Your Plan
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
-              You&rsquo;re looking at an invite-only preview of ZeroGEX paid plans.
-              Upgrades, downgrades, and cancellations are pro-rated automatically through the billing portal.
+              Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal.
+              Cancel anytime — no email or support request required.
             </p>
           </div>
 
@@ -721,18 +701,6 @@ export default function PreviewClient({ accessKey, promoActive: serverPromoActiv
               </ul>
             </div>
           </section>
-
-          <p
-            style={{
-              marginTop: 24,
-              textAlign: 'center',
-              fontSize: 12,
-              color: C.muted,
-              letterSpacing: '0.04em',
-            }}
-          >
-            Invite-only preview. Not currently linked from any public page.
-          </p>
         </div>
       </section>
 
