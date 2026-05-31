@@ -13,6 +13,12 @@
 
 set -euo pipefail
 
+# `log` is normally exported from deploy.sh, but operators sometimes invoke
+# a single step directly (e.g. `bash deploy/steps/036.billing` to refresh
+# env placeholders without re-running the whole pipeline). Define a thin
+# fallback so this script doesn't blow up on line 1.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
 log "Billing / Stripe Setup"
 
 APP_DIR="${WEB_APP_DIR:-$HOME/zerogex-web/frontend}"
