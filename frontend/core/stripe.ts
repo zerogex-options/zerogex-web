@@ -109,6 +109,17 @@ export function isPaidSignupDisabled(): boolean {
   return process.env.BILLING_PAID_SIGNUP_DISABLED === '1';
 }
 
+// Billing portal configuration id (bpc_...). When set, the portal route
+// passes it explicitly as `configuration` so we use this exact configuration
+// regardless of Stripe's account-level default. When unset, the portal falls
+// back to Stripe's default config (Stripe's API does not allow flipping the
+// is_default flag via update — only at creation — so pinning the id here is
+// the auditable, env-driven alternative).
+export function getPortalConfigId(): string | null {
+  const id = process.env.STRIPE_PORTAL_CONFIG_ID;
+  return id && id.length > 0 ? id : null;
+}
+
 export function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 }
