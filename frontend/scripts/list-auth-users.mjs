@@ -69,10 +69,16 @@ const userCols = new Set(db.prepare(`PRAGMA table_info(users)`).all().map((c) =>
 const hasLegacyProvider = userCols.has('provider') && userCols.has('provider_id');
 const hasDisclaimerCols =
   userCols.has('disclaimer_acknowledged_at') && userCols.has('disclaimer_version_acknowledged');
+const hasFoundingEligible = userCols.has('founding_eligible');
+const hasFoundingStartedAt = userCols.has('founding_member_started_at');
+const hasFoundingLifetime = userCols.has('founding_lifetime_applied_at');
 
 const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
 if (hasLegacyProvider) baseCols.push('provider', 'provider_id');
 if (hasDisclaimerCols) baseCols.push('disclaimer_acknowledged_at', 'disclaimer_version_acknowledged');
+if (hasFoundingEligible) baseCols.push('founding_eligible');
+if (hasFoundingStartedAt) baseCols.push('founding_member_started_at');
+if (hasFoundingLifetime) baseCols.push('founding_lifetime_applied_at');
 const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
 
 const hasIdentitiesTable = !!db
@@ -125,6 +131,20 @@ function disclaimerAccepted(row) {
   return true;
 }
 
+// Founder status compressed to a single char so the column stays narrow.
+//   — : not founding-eligible (default for post-seed signups)
+//   E : eligible, hasn't redeemed the founding code yet
+//   R : redeemed, currently inside the 12-month intro-discount window
+//   L : intro window passed, lifetime 25%-off coupon applied by the webhook
+function foundingStatus(row) {
+  if (!hasFoundingEligible) return null;
+  const eligible = Number(row.founding_eligible) === 1;
+  if (!eligible) return '—';
+  if (hasFoundingLifetime && row.founding_lifetime_applied_at) return 'L';
+  if (hasFoundingStartedAt && row.founding_member_started_at) return 'R';
+  return 'E';
+}
+
 const records = rows
   .map((row) => {
     const flags = authFlags(row);
@@ -135,6 +155,7 @@ const records = rows
       flags,
       authString: formatAuthFlags(flags),
       disclaimer: disclaimerAccepted(row),
+      founder: foundingStatus(row),
     };
   })
   .filter((rec) => {
@@ -160,16 +181,22 @@ if (emailOnly) {
   process.exit(0);
 }
 
-const headers = ['User ID', 'Email', 'Tier', 'Auth', 'Disclaimer'];
+const headers = ['User ID', 'Email', 'Tier', 'Auth'];
+if (hasFoundingEligible) headers.push('Founder');
+headers.push('Disclaimer');
 const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
 
-const tableRows = sortedRecords.map((rec) => [
-  rec.id,
-  rec.email,
-  tierLabelFor(rec.tier),
-  rec.authString,
-  rec.disclaimer ? '✓' : '',
-]);
+const tableRows = sortedRecords.map((rec) => {
+  const cells = [
+    rec.id,
+    rec.email,
+    tierLabelFor(rec.tier),
+    rec.authString,
+  ];
+  if (hasFoundingEligible) cells.push(rec.founder ?? '');
+  cells.push(rec.disclaimer ? '✓' : '');
+  return cells;
+});
 
 const widths = headers.map((h, i) =>
   Math.max(h.length, ...tableRows.map((r) => [...r[i]].length)),

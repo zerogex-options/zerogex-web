@@ -14,6 +14,7 @@ help:
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
 	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, EMAIL_ONLY=yes)"
+	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
