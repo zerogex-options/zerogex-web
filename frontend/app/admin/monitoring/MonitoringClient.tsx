@@ -23,6 +23,20 @@ type SignupPoint = {
   disclaimer: number;
 };
 
+type WebhookHealth = {
+  errors24h: number;
+  errors7d: number;
+  orphans24h: number;
+  orphans7d: number;
+  staleSkipped24h: number;
+  staleSkipped7d: number;
+  paymentFailed24h: number;
+  paymentFailed7d: number;
+  foundingRedeemed: number;
+  foundingLifetimeApplied: number;
+  recentErrors: Array<{ createdAt: string; message: string }>;
+};
+
 type Snapshot = {
   ok: boolean;
   signups: SignupPoint[];
@@ -30,6 +44,7 @@ type Snapshot = {
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
   topUsers: Array<{ userId: string; email: string | null; count: number }>;
+  webhookHealth: WebhookHealth;
   lastFlushAt: string | null;
   generatedAt: string;
 };
@@ -44,6 +59,7 @@ type MetricKey = 'apiCalls' | 'pageAccesses' | 'uniqueUsers' | 'uniqueIps';
 // 5. Unique Source IPs
 // 6. Top Source IPs
 // 7. Top Users
+// 8. Stripe Webhook Health
 const ROW_COLORS = {
   signups: '#2c4875',
   apiCalls: '#8a508f',
@@ -52,6 +68,7 @@ const ROW_COLORS = {
   uniqueIps: '#ff8531',
   topIps: '#ffa600',
   topUsers: '#ffd380',
+  webhookHealth: '#003f5c',
 } as const;
 
 const METRICS: Array<{ key: MetricKey; title: string; color: string; description: string }> = [
@@ -278,6 +295,184 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           )}
         </div>
       </section>
+
+      <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Stripe Webhook Health</h2>
+          <span className="text-xs" style={{ color: mutedText }}>
+            audit_events roll-up. Errors &gt; 0 in 24h means handler failures Stripe will keep retrying.
+          </span>
+        </div>
+        <WebhookHealthCard
+          health={data.webhookHealth}
+          cardBg={cardBg}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+      </section>
+    </div>
+  );
+}
+
+type StatCellProps = {
+  label: string;
+  primary: number;
+  secondaryLabel: string;
+  secondary: number;
+  alert: boolean;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+};
+
+function StatCell({ label, primary, secondaryLabel, secondary, alert, borderColor, mutedText, textColor }: StatCellProps) {
+  const alertColor = 'var(--color-bear)';
+  return (
+    <div
+      className="rounded-lg p-3"
+      style={{
+        border: `1px solid ${alert ? alertColor : `${borderColor}55`}`,
+        backgroundColor: alert ? 'var(--color-bear-soft)' : 'transparent',
+      }}
+    >
+      <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{label}</div>
+      <div
+        className="text-3xl font-bold tabular-nums mt-1"
+        style={{ color: alert ? alertColor : textColor }}
+      >
+        {primary.toLocaleString()}
+      </div>
+      <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>
+        {secondaryLabel}: {secondary.toLocaleString()}
+      </div>
+    </div>
+  );
+}
+
+function FoundingStatCell({
+  label,
+  count,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  label: string;
+  count: number;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  return (
+    <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+      <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{label}</div>
+      <div className="text-3xl font-bold tabular-nums mt-1" style={{ color: textColor }}>
+        {count.toLocaleString()}
+      </div>
+      <div className="text-xs mt-1" style={{ color: mutedText }}>all-time</div>
+    </div>
+  );
+}
+
+function WebhookHealthCard({
+  health,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  health: WebhookHealth;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCell
+          label="Errors"
+          primary={health.errors24h}
+          secondaryLabel="7d"
+          secondary={health.errors7d}
+          alert={health.errors24h > 0}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatCell
+          label="Orphans"
+          primary={health.orphans24h}
+          secondaryLabel="7d"
+          secondary={health.orphans7d}
+          alert={false}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatCell
+          label="Stale Skipped"
+          primary={health.staleSkipped24h}
+          secondaryLabel="7d"
+          secondary={health.staleSkipped7d}
+          alert={false}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatCell
+          label="Payment Failed"
+          primary={health.paymentFailed24h}
+          secondaryLabel="7d"
+          secondary={health.paymentFailed7d}
+          alert={health.paymentFailed24h > 0}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+        <FoundingStatCell
+          label="Founding redemptions"
+          count={health.foundingRedeemed}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <FoundingStatCell
+          label="Lifetime coupons applied"
+          count={health.foundingLifetimeApplied}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+      </div>
+
+      {health.recentErrors.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold mb-2" style={{ color: textColor }}>
+            Recent errors (last 7 days)
+          </h3>
+          <ul className="space-y-2">
+            {health.recentErrors.map((err, idx) => (
+              <li
+                key={`${err.createdAt}-${idx}`}
+                className="rounded p-2 text-xs"
+                style={{
+                  border: `1px solid ${borderColor}55`,
+                  fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
+                }}
+              >
+                <div style={{ color: mutedText }}>{err.createdAt}</div>
+                <div className="mt-1 whitespace-pre-wrap break-words" style={{ color: textColor }}>
+                  {err.message}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

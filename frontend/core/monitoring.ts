@@ -42,12 +42,37 @@ export type SignupPoint = {
   disclaimer: number;
 };
 
+export type WebhookHealth = {
+  // Counters of audit_events rows in two trailing windows. Errors are real
+  // handler failures (5xx-returning); orphans are events for unknown
+  // customer ids; stale_skipped means the ordering guard threw out an
+  // out-of-order delivery; payment_failed mirrors Stripe dunning events.
+  errors24h: number;
+  errors7d: number;
+  orphans24h: number;
+  orphans7d: number;
+  staleSkipped24h: number;
+  staleSkipped7d: number;
+  paymentFailed24h: number;
+  paymentFailed7d: number;
+  // Founding-cohort all-time counters: redemptions vs lifetime-coupon
+  // applications. Lifetime stays at 0 for ~12 months after the first
+  // redemption; a meaningful lag between these counters past month 13
+  // would signal the apply-on-month-13 branch isn't firing.
+  foundingRedeemed: number;
+  foundingLifetimeApplied: number;
+  // Recent (last-7-day) error rows for inline display when errors24h > 0.
+  // Capped at 10 to keep the payload bounded.
+  recentErrors: Array<{ createdAt: string; message: string }>;
+};
+
 export type MonitoringSnapshot = {
   signups: SignupPoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
   topUsers: Array<{ userId: string; email: string | null; count: number }>;
+  webhookHealth: WebhookHealth;
   lastFlushAt: string | null;
   generatedAt: string;
 };
@@ -375,6 +400,53 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
+// Counts audit_events rows of `type` whose created_at is newer than
+// `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
+// table is treated as zero so this never throws back to the API route.
+function countAuditSince(type: string, intervalSql: string | null): number {
+  try {
+    const sql = intervalSql
+      ? `SELECT COUNT(*) AS c FROM audit_events WHERE type = ? AND created_at > datetime('now', ?)`
+      : `SELECT COUNT(*) AS c FROM audit_events WHERE type = ?`;
+    const row = intervalSql
+      ? (getDb().prepare(sql).get(type, intervalSql) as { c?: number } | undefined)
+      : (getDb().prepare(sql).get(type) as { c?: number } | undefined);
+    return Number(row?.c) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function buildWebhookHealth(): WebhookHealth {
+  let recentErrors: WebhookHealth['recentErrors'] = [];
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_webhook_error' AND created_at > datetime('now', '-7 days')
+         ORDER BY created_at DESC LIMIT 10`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    recentErrors = rows.map((r) => ({ createdAt: r.created_at, message: r.message }));
+  } catch {
+    recentErrors = [];
+  }
+
+  return {
+    errors24h: countAuditSince('stripe_webhook_error', '-1 day'),
+    errors7d: countAuditSince('stripe_webhook_error', '-7 days'),
+    orphans24h: countAuditSince('stripe_webhook_orphan', '-1 day'),
+    orphans7d: countAuditSince('stripe_webhook_orphan', '-7 days'),
+    staleSkipped24h: countAuditSince('stripe_webhook_stale_skipped', '-1 day'),
+    staleSkipped7d: countAuditSince('stripe_webhook_stale_skipped', '-7 days'),
+    paymentFailed24h: countAuditSince('stripe_payment_failed', '-1 day'),
+    paymentFailed7d: countAuditSince('stripe_payment_failed', '-7 days'),
+    foundingRedeemed: countAuditSince('stripe_founding_redeemed', null),
+    foundingLifetimeApplied: countAuditSince('stripe_founding_lifetime_applied', null),
+    recentErrors,
+  };
+}
+
 export function getSnapshot(): MonitoringSnapshot {
   // Read fresh from disk: the proxy bundle that calls recordRequest() is
   // a separate Next.js 16 runtime and its in-memory store is invisible
@@ -389,6 +461,7 @@ export function getSnapshot(): MonitoringSnapshot {
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),
     topUsers: aggregateTopUsers(live.daily, 10),
+    webhookHealth: buildWebhookHealth(),
     lastFlushAt: live.lastFlushAt,
     generatedAt: now.toISOString(),
   };
