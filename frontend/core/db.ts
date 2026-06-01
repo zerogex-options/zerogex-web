@@ -82,6 +82,19 @@ function initDb(): DatabaseSync {
   `);
   db.exec('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);');
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      consumed_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_email_verifications_user_id ON email_verifications(user_id);');
+
   // Stripe webhook idempotency + event ordering. `id` is Stripe's event.id
   // (globally unique) so a redelivered/retried event is a no-op. `created`
   // is the Stripe event.created unix timestamp, used to reject a stale
@@ -129,11 +142,11 @@ function initDb(): DatabaseSync {
     if (hasLegacyProvider) db.exec(`ALTER TABLE users DROP COLUMN provider`);
   })();
 
-  function ensureColumn(table: string, column: string, definition: string) {
+  function ensureColumn(table: string, column: string, definition: string): boolean {
     const existing = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-    if (!existing.some((row) => row.name === column)) {
-      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-    }
+    if (existing.some((row) => row.name === column)) return false;
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    return true;
   }
 
   ensureColumn('users', 'stripe_customer_id', 'TEXT');
@@ -155,6 +168,22 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'founding_eligible', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('users', 'founding_member_started_at', 'TEXT');
   ensureColumn('users', 'founding_lifetime_applied_at', 'TEXT');
+
+  // Email verification gate. NULL = not yet verified; set to the ISO timestamp
+  // at which the user proved ownership (either by clicking a verification
+  // link or by completing OAuth, where the provider already attested it).
+  //
+  // The backfill is gated on ensureColumn's "I just added this" return so it
+  // runs exactly once, the same boot the column is born. Subsequent boots
+  // see the column already present and skip the block — that's what keeps a
+  // genuinely-unverified row from being silently re-stamped on restart.
+  // The cohort being grandfathered here is the 119 founding members + admin
+  // that predate the requirement; locking them out would be a regression.
+  if (ensureColumn('users', 'email_verified_at', 'TEXT')) {
+    db.prepare(
+      `UPDATE users SET email_verified_at = ? WHERE email_verified_at IS NULL`,
+    ).run(new Date().toISOString());
+  }
 
   // Users who acked before versioning existed implicitly acked v1.
   db.exec(
