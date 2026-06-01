@@ -157,37 +157,30 @@ function disclaimerAccepted(row) {
   return true;
 }
 
-// Founder status compressed to a single char so the column stays narrow.
-//   — : not founding-eligible (default for post-seed signups)
-//   E : eligible, hasn't redeemed the founding code yet
-//   R : redeemed, currently inside the 12-month intro-discount window
-//   L : intro window passed, lifetime 25%-off coupon applied by the webhook
-function foundingStatus(row) {
-  if (!hasFoundingEligible) return null;
-  const eligible = Number(row.founding_eligible) === 1;
-  if (!eligible) return '—';
-  if (hasFoundingLifetime && row.founding_lifetime_applied_at) return 'L';
-  if (hasFoundingStartedAt && row.founding_member_started_at) return 'R';
-  return 'E';
-}
+// Three former columns (Paid / Founder / Verified) are now per-user badges
+// appended to the Tier cell. Done to keep the table narrower than a 100-col
+// terminal — three separate columns + their 2-char separators added ~20 cols
+// of width for one bit of info each. ANSI colour only when stdout is a TTY,
+// so piping into less/grep doesn't dump escape codes.
+//
+// Founder collapses the prior E/R/L substates into a single icon: it's still
+// "this account is in the founding cohort." Run a webhook-health or audit
+// query if you need to break out who's in which window.
+const useColor = !!process.stdout.isTTY;
+const RESET = '\x1b[0m';
+const GREEN = '\x1b[32m';
+const GOLD = '\x1b[1;33m';
+const wrap = (color, glyph) => (useColor ? `${color}${glyph}${RESET}` : glyph);
+const ICON_PAID = wrap(GREEN, '$');
+const ICON_FOUNDER = wrap(GOLD, '♔');
+const ICON_VERIFIED = wrap(GREEN, '✉');
 
-// Has-active-Stripe-subscription column. Mirrors the hasActiveSubscription
-// derivation on the session payload — non-null subscription id means a
-// real Stripe sub exists; grandfathered tier=basic|pro users return '—'.
-function paidStatus(row) {
-  if (!hasStripeSub) return null;
-  return row.stripe_subscription_id ? 'Y' : '—';
-}
-
-// Email-verification gate. Mirrors the emailVerified derivation on the
-// session payload — non-null email_verified_at means the user proved
-// ownership (either by clicking a verification link or by signing in via
-// OAuth, which stamps it at user-creation time). Pre-cutover users were
-// backfilled by the migration so this is ✓ for everyone except brand-new
-// self-signups who haven't clicked the link yet.
-function verifiedStatus(row) {
-  if (!hasEmailVerified) return null;
-  return row.email_verified_at ? '✓' : '';
+function tierBadges(row) {
+  const badges = [];
+  if (hasStripeSub && row.stripe_subscription_id) badges.push(ICON_PAID);
+  if (hasFoundingEligible && Number(row.founding_eligible) === 1) badges.push(ICON_FOUNDER);
+  if (hasEmailVerified && row.email_verified_at) badges.push(ICON_VERIFIED);
+  return badges.join('');
 }
 
 // YYYY-MM-DD only (the time-of-day rarely matters for this overview).
@@ -204,12 +197,10 @@ const records = rows
       id: shortId(row.id),
       email: String(row.email ?? ''),
       tier: row.tier || 'public',
+      badges: tierBadges(row),
       flags,
       authString: formatAuthFlags(flags),
       disclaimer: disclaimerAccepted(row),
-      founder: foundingStatus(row),
-      paid: paidStatus(row),
-      verified: verifiedStatus(row),
       createdAt: formatDate(row.created_at),
       lastLoginAt: formatDate(lastLoginByUser.get(row.id) ?? null),
     };
@@ -237,32 +228,38 @@ if (emailOnly) {
   process.exit(0);
 }
 
-const headers = ['User ID', 'Email', 'Tier'];
-if (hasStripeSub) headers.push('Paid');
-headers.push('Auth');
-if (hasFoundingEligible) headers.push('Founder');
-if (hasEmailVerified) headers.push('Verified');
-headers.push('Disclaimer', 'Created', 'Last login');
+const headers = ['User ID', 'Email', 'Tier', 'Auth', 'Disclaimer', 'Created', 'Last login'];
 const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
 
-const tableRows = sortedRecords.map((rec) => {
-  const cells = [rec.id, rec.email, tierLabelFor(rec.tier)];
-  if (hasStripeSub) cells.push(rec.paid ?? '');
-  cells.push(rec.authString);
-  if (hasFoundingEligible) cells.push(rec.founder ?? '');
-  if (hasEmailVerified) cells.push(rec.verified ?? '');
-  cells.push(rec.disclaimer ? '✓' : '');
-  cells.push(rec.createdAt, rec.lastLoginAt);
-  return cells;
-});
+function tierCell(rec) {
+  const label = tierLabelFor(rec.tier);
+  return rec.badges ? `${label} ${rec.badges}` : label;
+}
+
+const tableRows = sortedRecords.map((rec) => [
+  rec.id,
+  rec.email,
+  tierCell(rec),
+  rec.authString,
+  rec.disclaimer ? '✓' : '',
+  rec.createdAt,
+  rec.lastLoginAt,
+]);
+
+// CSI escape sequences from ANSI colour are zero-width; strip them before
+// counting so the column-width math doesn't over-pad cells that contain
+// coloured badge glyphs.
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+function visualLength(text) {
+  return [...text.replace(ANSI_RE, '')].length;
+}
 
 const widths = headers.map((h, i) =>
-  Math.max(h.length, ...tableRows.map((r) => [...r[i]].length)),
+  Math.max(h.length, ...tableRows.map((r) => visualLength(r[i]))),
 );
 
 function padCell(text, width) {
-  const visualLength = [...text].length;
-  return text + ' '.repeat(Math.max(0, width - visualLength));
+  return text + ' '.repeat(Math.max(0, width - visualLength(text)));
 }
 
 function renderRow(cells) {
@@ -281,14 +278,10 @@ console.log(`Total: ${records.length}`);
 console.log('');
 console.log('Legend:');
 console.log('  Tier        Admin / Pro / Basic / Public');
-console.log('  Paid        Y = has an active Stripe subscription; — = none on file');
+console.log(`              ${ICON_PAID} active Stripe subscription`);
+console.log(`              ${ICON_FOUNDER} founding member (eligible, redeemed, or on lifetime discount)`);
+console.log(`              ${ICON_VERIFIED} email verified (link clicked, OAuth, or pre-cutover backfill)`);
 console.log('  Auth        L = local password, G = Google, A = Apple (- if absent)');
-console.log('  Founder     E = eligible (not yet redeemed)');
-console.log('              R = redeemed, in the 12-month intro window ($12 / $19 mo)');
-console.log('              L = lifetime applied (post-intro, 25% off forever)');
-console.log('              — = not in the founding cohort');
-console.log('  Verified    ✓ = email_verified_at is set (via link, OAuth, or pre-cutover backfill)');
-console.log('              blank = brand-new self-signup hasn\'t clicked the verification link yet');
 console.log('  Disclaimer  ✓ = acknowledged the current disclaimer version');
 console.log('  Last login  Most recent /api/auth/login success; — for users');
 console.log('              who only ever auto-session\'d through /register.');
