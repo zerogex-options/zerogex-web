@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user seed-founders backup-monitoring clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user seed-founders webhook-health backup-monitoring clean deploy logo
 
 # Default target
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
 	@echo "  make seed-founders - Flag current users as founding_eligible (DRY_RUN=1 to preview, YES=1 to apply, BEFORE=<iso> for cutoff)"
+	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
@@ -105,6 +106,14 @@ delete-user:
 # specific cutoff instead of "now".
 seed-founders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/seed-founders.mjs $(if $(BEFORE),--before $(BEFORE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Stripe webhook health snapshot — counts of stripe_webhook_error /
+# orphan / stale_skipped / payment_failed audit rows over the last 24h
+# and 7d, plus all-time founding redemption + lifetime-coupon-applied
+# counters. Exits non-zero if errors > 0 in the last 24h so it can be
+# wired into cron with the standard "mail on non-zero exit" convention.
+webhook-health:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/webhook-health.mjs'
 
 # Backup Admin->Monitoring data files (frontend/data/monitoring.json and
 # signups.json) into a timestamped tar.gz. Defaults to a dir OUTSIDE the
