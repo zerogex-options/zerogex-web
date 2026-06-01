@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
-import { useGEXByStrike, useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
-import GexStrikeChart from '@/components/GexStrikeChart';
+import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
   TrendingUp,
   TrendingDown,
@@ -235,7 +234,6 @@ export default function LandingPage() {
   // Dealer gamma AT SPOT (sign-consistent with the gamma flip), not the
   // chain-wide total. Falls back to the total until the backend writes it.
   const spyNetGexAtSpot = spyGex?.net_gex_at_spot ?? spyGex?.net_gex ?? null;
-  const { data: spyStrikeData } = useGEXByStrike('SPY', 42, 60000, 'distance');
 
   const formatPrice = (value?: number | null, decimals = 2) => (value != null ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : '--');
   const formatSigned = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
@@ -292,26 +290,6 @@ export default function LandingPage() {
     ];
   }, [spyGex]);
 
-  const previewStrikeBars = useMemo(
-    () =>
-      (spyStrikeData || []).map((row) => ({
-        strike: Number(row.strike),
-        netGex: Number(row.net_gex || 0),
-        callGex: Number(row.call_gex || 0),
-        putGex: Number(row.put_gex || 0),
-      })),
-    [spyStrikeData],
-  );
-  const previewStrikeChartData = useMemo(
-    () =>
-      previewStrikeBars.map((row) => ({
-        strike: row.strike,
-        netGexB: row.netGex / 1_000_000_000,
-        callGexB: row.callGex / 1_000_000_000,
-        putGexB: row.putGex / 1_000_000_000,
-      })),
-    [previewStrikeBars],
-  );
 
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -614,16 +592,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div style={{ marginTop: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <div style={{ minWidth: 620 }}>
-                <GexStrikeChart
-                  strikeData={previewStrikeChartData}
-                  gammaFlip={spyGex?.gamma_flip}
-                  spotPrice={spyQuote?.close}
-                />
-              </div>
             </div>
           </div>
         </div>

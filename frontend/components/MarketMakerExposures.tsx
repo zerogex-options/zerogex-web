@@ -252,7 +252,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const strikeInterval = paused ? 0 : 1000;
   const oiInterval = paused ? 0 : 1000;
 
-  // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexStrikeChart, GexWallsChart) ──
+  // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexWallsChart) ──
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
   const { data: quote } = useMarketQuote(symbol, quoteInterval);
   const { data: gexByStrike } = useGEXByStrike(symbol, 200, strikeInterval, 'impact');

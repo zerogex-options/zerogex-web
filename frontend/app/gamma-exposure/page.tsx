@@ -16,7 +16,6 @@ import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
-import GexStrikeChart from '@/components/GexStrikeChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GexWallsChart from '@/components/GexWallsChart';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
@@ -172,19 +171,6 @@ export default function GammaExposurePage() {
     });
     return cloned;
   }, [strikeData, sortKey, sortDir]);
-
-  // Prepare chart data — keep the per-strike call / put / net split so the
-  // strike chart can render Net/Call/Put columns alongside the bar.
-  const chartStrikeData = useMemo(
-    () =>
-      strikeData.map((row) => ({
-        strike: row.strike,
-        netGexB: row.netGexM / 1000,
-        callGexB: row.callGexM / 1000,
-        putGexB: row.putGexM / 1000,
-      })),
-    [strikeData],
-  );
 
   // Raw-dollar strike rows for the GEX Profile chart.  The /api/gex/profile
   // endpoint returns the spot-shift curve in raw dollars per 1% move, so
@@ -380,18 +366,7 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
-      {/* Section 3: GEX by Strike */}
-      <section className="mb-8">
-        <div className="grid grid-cols-1 gap-4">
-          <GexStrikeChart
-            strikeData={chartStrikeData}
-            gammaFlip={gexData?.gamma_flip}
-            spotPrice={quoteData?.close}
-          />
-        </div>
-      </section>
-
-      {/* Section 3b: GEX Profile overlay — bars + spot-shift profile curve. */}
+      {/* Section 3: GEX Profile overlay — bars + spot-shift profile curve. */}
       <section className="mb-8">
         <div className="grid grid-cols-1 gap-4">
           <GexProfileChart
