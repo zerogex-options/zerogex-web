@@ -72,6 +72,7 @@ const hasDisclaimerCols =
 const hasFoundingEligible = userCols.has('founding_eligible');
 const hasFoundingStartedAt = userCols.has('founding_member_started_at');
 const hasFoundingLifetime = userCols.has('founding_lifetime_applied_at');
+const hasStripeSub = userCols.has('stripe_subscription_id');
 
 const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
 if (hasLegacyProvider) baseCols.push('provider', 'provider_id');
@@ -79,7 +80,30 @@ if (hasDisclaimerCols) baseCols.push('disclaimer_acknowledged_at', 'disclaimer_v
 if (hasFoundingEligible) baseCols.push('founding_eligible');
 if (hasFoundingStartedAt) baseCols.push('founding_member_started_at');
 if (hasFoundingLifetime) baseCols.push('founding_lifetime_applied_at');
+if (hasStripeSub) baseCols.push('stripe_subscription_id');
 const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
+
+// Most recent login_success per user. Single grouped query is cheaper than
+// N correlated subqueries and the audit_events.user_id index would help if
+// it existed. For users who only registered and auto-session'd (Phase 4
+// register API) and never explicitly logged in, this map has no entry.
+const hasAuditEvents = !!db
+  .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='audit_events'`)
+  .get();
+const lastLoginByUser = new Map();
+if (hasAuditEvents) {
+  const loginRows = db
+    .prepare(
+      `SELECT user_id, MAX(created_at) AS last_login_at
+       FROM audit_events
+       WHERE type = 'login_success' AND user_id IS NOT NULL
+       GROUP BY user_id`,
+    )
+    .all();
+  for (const r of loginRows) {
+    if (r.user_id && r.last_login_at) lastLoginByUser.set(r.user_id, r.last_login_at);
+  }
+}
 
 const hasIdentitiesTable = !!db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_identities'`)
@@ -145,6 +169,21 @@ function foundingStatus(row) {
   return 'E';
 }
 
+// Has-active-Stripe-subscription column. Mirrors the hasActiveSubscription
+// derivation on the session payload — non-null subscription id means a
+// real Stripe sub exists; grandfathered tier=basic|pro users return '—'.
+function paidStatus(row) {
+  if (!hasStripeSub) return null;
+  return row.stripe_subscription_id ? 'Y' : '—';
+}
+
+// YYYY-MM-DD only (the time-of-day rarely matters for this overview).
+function formatDate(iso) {
+  if (!iso) return '—';
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(iso));
+  return m ? m[1] : '—';
+}
+
 const records = rows
   .map((row) => {
     const flags = authFlags(row);
@@ -156,6 +195,9 @@ const records = rows
       authString: formatAuthFlags(flags),
       disclaimer: disclaimerAccepted(row),
       founder: foundingStatus(row),
+      paid: paidStatus(row),
+      createdAt: formatDate(row.created_at),
+      lastLoginAt: formatDate(lastLoginByUser.get(row.id) ?? null),
     };
   })
   .filter((rec) => {
@@ -181,20 +223,20 @@ if (emailOnly) {
   process.exit(0);
 }
 
-const headers = ['User ID', 'Email', 'Tier', 'Auth'];
+const headers = ['User ID', 'Email', 'Tier'];
+if (hasStripeSub) headers.push('Paid');
+headers.push('Auth');
 if (hasFoundingEligible) headers.push('Founder');
-headers.push('Disclaimer');
+headers.push('Disclaimer', 'Created', 'Last login');
 const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
 
 const tableRows = sortedRecords.map((rec) => {
-  const cells = [
-    rec.id,
-    rec.email,
-    tierLabelFor(rec.tier),
-    rec.authString,
-  ];
+  const cells = [rec.id, rec.email, tierLabelFor(rec.tier)];
+  if (hasStripeSub) cells.push(rec.paid ?? '');
+  cells.push(rec.authString);
   if (hasFoundingEligible) cells.push(rec.founder ?? '');
   cells.push(rec.disclaimer ? '✓' : '');
+  cells.push(rec.createdAt, rec.lastLoginAt);
   return cells;
 });
 
@@ -220,3 +262,15 @@ console.log(renderDivider());
 for (const row of tableRows) console.log(renderRow(row));
 console.log('');
 console.log(`Total: ${records.length}`);
+console.log('');
+console.log('Legend:');
+console.log('  Tier        Admin / Pro / Basic / Public');
+console.log('  Paid        Y = has an active Stripe subscription; — = none on file');
+console.log('  Auth        L = local password, G = Google, A = Apple (- if absent)');
+console.log('  Founder     E = eligible (not yet redeemed)');
+console.log('              R = redeemed, in the 12-month intro window ($12 / $19 mo)');
+console.log('              L = lifetime applied (post-intro, 25% off forever)');
+console.log('              — = not in the founding cohort');
+console.log('  Disclaimer  ✓ = acknowledged the current disclaimer version');
+console.log('  Last login  Most recent /api/auth/login success; — for users');
+console.log('              who only ever auto-session\'d through /register.');
