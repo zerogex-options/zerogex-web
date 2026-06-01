@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrLoginOAuthUser, attachSessionCookie, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
+import { createOrLoginOAuthUser, attachSessionCookie, enforceSignupRateLimit, getClientIp, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
 import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME, verifyGoogleIdToken } from '@/core/oauth';
 
 function clearOAuthCookies(response: NextResponse) {
@@ -17,6 +17,14 @@ export async function GET(request: NextRequest) {
 
   if (!state || !code || !expectedState || state !== expectedState || !expectedNonce) {
     return NextResponse.redirect(new URL('/login?error=oauth_state_mismatch', baseUrl));
+  }
+
+  // Per-IP signup-attempt limit, shared with /api/auth/register. Returning
+  // users that exceed the bucket get bounced to /login with an error rather
+  // than blocked silently; this same bucket throttles fresh signups too.
+  const ipLimit = enforceSignupRateLimit(getClientIp(request));
+  if (!ipLimit.allowed) {
+    return NextResponse.redirect(new URL('/login?error=oauth_rate_limited', baseUrl));
   }
 
   const config = getOAuthConfig('google');

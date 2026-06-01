@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
-import { requireSession, validateCsrf } from '@/core/serverAuth';
+import { appendAuditEvent, getClientIp, requireSession, validateCsrf } from '@/core/serverAuth';
 import {
   getActivePromoCouponId,
   getAppUrl,
@@ -166,6 +166,17 @@ export async function POST(request: NextRequest) {
   if (!session.url) {
     return NextResponse.json({ error: 'Stripe did not return a checkout URL' }, { status: 502 });
   }
+
+  // Funnel marker. The webhook later logs stripe_subscription_sync on
+  // payment-complete; pairing the two lets us count "started checkout but
+  // didn't pay" without scraping the Stripe dashboard.
+  appendAuditEvent({
+    type: 'billing_checkout_started',
+    userId: actor.user.id,
+    email: actor.user.email,
+    ip: getClientIp(request),
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} session=${session.id}`,
+  });
 
   return NextResponse.json({ url: session.url });
 }

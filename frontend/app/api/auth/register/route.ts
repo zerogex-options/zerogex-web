@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   attachSessionCookie,
+  enforceSignupRateLimit,
+  getClientIp,
   issueCsrfCookie,
   registerAndStartSession,
   selfSignupTier,
@@ -13,6 +15,17 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
     return NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+  }
+
+  const ip = getClientIp(request);
+  const limit = enforceSignupRateLimit(ip);
+  if (!limit.allowed) {
+    const response = NextResponse.json(
+      { error: `Too many signup attempts. Retry in ${limit.retryAfterSeconds}s.` },
+      { status: 429 },
+    );
+    response.headers.set('Retry-After', String(limit.retryAfterSeconds));
+    return response;
   }
 
   const body = (await request.json().catch(() => ({}))) as {

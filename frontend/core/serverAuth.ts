@@ -73,6 +73,12 @@ const PASSWORD_MIN_LENGTH = 12;
 const EMAIL_VERIFICATION_TTL_SECONDS = readPositiveInt('AUTH_EMAIL_VERIFICATION_TTL_SECONDS', 24 * 60 * 60);
 const EMAIL_VERIFICATION_WINDOW_MS = 60 * 60 * 1000;
 const EMAIL_VERIFICATION_MAX_REQUESTS = 3;
+// Signup attempts cover BOTH /api/auth/register and the OAuth callbacks. One
+// hour / 5 attempts mirrors the password-reset limiter and is permissive
+// enough that a real user retrying after a typo / OAuth bounce won't hit it,
+// but tight enough that a scripted spray gets stopped after the fifth row.
+const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
+const SIGNUP_MAX_ATTEMPTS = 5;
 const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -81,6 +87,7 @@ const passwordResetAttempts = new Map<string, { count: number; resetAt: number }
 // the natural unit of abuse is the account itself (3 resends/hour). An IP-keyed
 // limit would let a shared NAT lock every user behind it out of resending.
 const emailVerificationAttempts = new Map<string, { count: number; resetAt: number }>();
+const signupAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function nowIso() {
   return new Date().toISOString();
@@ -108,7 +115,7 @@ function verifyPassword(password: string, encodedHash?: string) {
   return stored.length === derived.length && timingSafeEqual(stored, derived);
 }
 
-function getClientIp(request: NextRequest) {
+export function getClientIp(request: NextRequest) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 }
 
@@ -246,7 +253,7 @@ function createSessionForUser(user: AuthUser) {
   };
 }
 
-function appendAuditEvent(input: {
+export function appendAuditEvent(input: {
   type: string;
   userId?: string;
   actorUserId?: string;
@@ -259,6 +266,24 @@ function appendAuditEvent(input: {
     `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(createId('audit'), input.type, input.userId ?? null, input.actorUserId ?? null, input.email ?? null, input.ip ?? null, input.message, nowIso());
+}
+
+export function enforceSignupRateLimit(ip: string) {
+  const now = Date.now();
+  const entry = signupAttempts.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    signupAttempts.set(ip, { count: 1, resetAt: now + SIGNUP_WINDOW_MS });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  if (entry.count >= SIGNUP_MAX_ATTEMPTS) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+
+  entry.count += 1;
+  signupAttempts.set(ip, entry);
+  return { allowed: true, retryAfterSeconds: 0 };
 }
 
 export function enforceLoginRateLimit(ip: string) {

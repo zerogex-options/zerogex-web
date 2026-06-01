@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrLoginOAuthUser, attachSessionCookie, issueCsrfCookie } from '@/core/serverAuth';
+import { createOrLoginOAuthUser, attachSessionCookie, enforceSignupRateLimit, getClientIp, issueCsrfCookie } from '@/core/serverAuth';
 import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, verifyAppleIdToken } from '@/core/oauth';
 
 async function handleCallback(request: NextRequest, state: string | null, code: string | null) {
@@ -9,6 +9,13 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
 
   if (!state || !code || !expectedState || state !== expectedState || !expectedNonce) {
     return NextResponse.redirect(new URL('/login?error=apple_state_mismatch', baseUrl));
+  }
+
+  // Per-IP signup-attempt limit, shared with /api/auth/register. See the
+  // Google callback for the rationale; same bucket throttles both providers.
+  const ipLimit = enforceSignupRateLimit(getClientIp(request));
+  if (!ipLimit.allowed) {
+    return NextResponse.redirect(new URL('/login?error=apple_rate_limited', baseUrl));
   }
 
   const config = getOAuthConfig('apple');
