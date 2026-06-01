@@ -112,6 +112,19 @@ export async function POST(request: NextRequest) {
     line_items: [{ price: skuToPriceId({ tier, cadence }), quantity: 1 }],
     success_url: `${appUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+    // Stripe Tax: enabled so the Tax engine evaluates every session. Today
+    // we have no tax registrations, so Stripe calculates $0 tax for every
+    // jurisdiction and nothing changes on the customer's bill. When we
+    // register in a state later (Stripe Dashboard → Tax → Registrations),
+    // tax automatically starts being charged for customers in that state
+    // without a code redeploy.
+    //
+    // customer_update.address/name is required when automatic_tax is on
+    // with an existing customer: Stripe needs explicit permission to write
+    // the address it collects during checkout back to the customer object
+    // (otherwise the API errors at session-create time).
+    automatic_tax: { enabled: true },
+    customer_update: { address: 'auto', name: 'auto' },
     subscription_data: {
       metadata: {
         user_id: actor.user.id,
