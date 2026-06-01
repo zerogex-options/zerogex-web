@@ -97,7 +97,9 @@ export default function GexStrikeChart({ strikeData, gammaFlip, spotPrice }: Gex
                     <th className="text-left font-semibold uppercase tracking-wider py-2 pr-3" style={{ width: 88 }}>
                       Strike
                     </th>
-                    <th className="font-semibold uppercase tracking-wider py-2" />
+                    <th className="text-center font-semibold uppercase tracking-wider py-2">
+                      Net GEX
+                    </th>
                     <th className="text-right font-semibold uppercase tracking-wider py-2 px-3" style={{ width: 110 }}>
                       Net GEX
                     </th>
