@@ -46,7 +46,11 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
     email: payload.email,
   });
 
-  const response = NextResponse.redirect(new URL('/dashboard', baseUrl));
+  // Public users have no paid access; /dashboard would just bounce them to
+  // /unauthorized. Route them straight to /pricing — the conversion path is
+  // the right next step for a fresh, unpaid signup.
+  const destination = session.user.tier === 'public' ? '/pricing' : '/dashboard';
+  const response = NextResponse.redirect(new URL(destination, baseUrl));
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
   response.cookies.set({ name: getOAuthStateCookieName('apple'), value: '', path: '/', maxAge: 0 });

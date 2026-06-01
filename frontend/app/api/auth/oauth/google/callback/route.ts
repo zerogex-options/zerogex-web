@@ -75,7 +75,11 @@ export async function GET(request: NextRequest) {
     email: profile.email,
   });
 
-  const redirectTo = new URL('/dashboard', baseUrl);
+  // Public users have no paid access; /dashboard would just bounce them to
+  // /unauthorized. Route them straight to /pricing — the conversion path is
+  // the right next step for a fresh, unpaid signup.
+  const destination = session.user.tier === 'public' ? '/pricing' : '/dashboard';
+  const redirectTo = new URL(destination, baseUrl);
   const response = NextResponse.redirect(redirectTo);
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
