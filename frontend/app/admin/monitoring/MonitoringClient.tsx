@@ -703,11 +703,15 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                   );
                 }}
               />
-              <Legend
-                verticalAlign="top"
-                height={28}
-                iconType="square"
-                wrapperStyle={{ fontSize: 12, color: axisStroke }}
+              <Area
+                type="monotone"
+                dataKey="public"
+                name="Public"
+                stackId="signups"
+                stroke={publicColor}
+                fill={publicColor}
+                fillOpacity={0.5}
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -726,16 +730,6 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                 stackId="signups"
                 stroke={proColor}
                 fill={proColor}
-                fillOpacity={0.5}
-                isAnimationActive={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="public"
-                name="Public"
-                stackId="signups"
-                stroke={publicColor}
-                fill={publicColor}
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />
