@@ -39,6 +39,8 @@ export type SignupPoint = {
   day: string;
   basic: number;
   pro: number;
+  public: number;
+  paying: number;
   disclaimer: number;
 };
 
@@ -291,7 +293,7 @@ function aggregateTopUsers(
   return top.map((t) => ({ userId: t.userId, email: emails.get(t.userId) ?? null, count: t.count }));
 }
 
-type SignupDay = { basic: number; pro: number; disclaimer: number };
+type SignupDay = { basic: number; pro: number; public: number; paying: number; disclaimer: number };
 
 type SignupStoreShape = {
   version: 1;
@@ -308,6 +310,8 @@ function readSignupStore(): SignupStoreShape {
         days[k] = {
           basic: Number(v?.basic) || 0,
           pro: Number(v?.pro) || 0,
+          public: Number(v?.public) || 0,
+          paying: Number(v?.paying) || 0,
           disclaimer: Number(v?.disclaimer) || 0,
         };
       }
@@ -332,9 +336,9 @@ function writeSignupStore(s: SignupStoreShape) {
 }
 
 // Live headcount by billing tier. Legacy tier ids fold into the current
-// two-tier system (starter -> basic, elite -> pro); admin/public excluded.
-function currentTierCounts(): { basic: number; pro: number } {
-  const counts = { basic: 0, pro: 0 };
+// tier system (starter -> basic, elite -> pro); admin excluded.
+function currentTierCounts(): { basic: number; pro: number; public: number } {
+  const counts = { basic: 0, pro: 0, public: 0 };
   try {
     const rows = getDb()
       .prepare('SELECT tier, COUNT(*) AS c FROM users GROUP BY tier')
@@ -343,11 +347,26 @@ function currentTierCounts(): { basic: number; pro: number } {
       const c = Number(row.c) || 0;
       if (row.tier === 'basic' || row.tier === 'starter') counts.basic += c;
       else if (row.tier === 'pro' || row.tier === 'elite') counts.pro += c;
+      else if (row.tier === 'public') counts.public += c;
     }
   } catch {
     // If the count fails, fall back to zeros for this sample.
   }
   return counts;
+}
+
+// Users with an active Stripe subscription. Mirrors the "$" badge in
+// `make users`: the stripe_subscription_id column is cleared on
+// subscription.deleted webhooks, so a non-null id means currently paying.
+function currentPayingCount(): number {
+  try {
+    const row = getDb()
+      .prepare('SELECT COUNT(*) AS c FROM users WHERE stripe_subscription_id IS NOT NULL')
+      .get() as { c?: number } | undefined;
+    return Number(row?.c) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 // Total users who have acknowledged the CURRENT disclaimer version. Mirrors
@@ -378,12 +397,21 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   const store = readSignupStore();
   const counts = currentTierCounts();
   const disclaimer = currentDisclaimerCount();
-  const sample: SignupDay = { basic: counts.basic, pro: counts.pro, disclaimer };
+  const paying = currentPayingCount();
+  const sample: SignupDay = {
+    basic: counts.basic,
+    pro: counts.pro,
+    public: counts.public,
+    paying,
+    disclaimer,
+  };
   const existing = store.days[today];
   if (
     !existing ||
     existing.basic !== sample.basic ||
     existing.pro !== sample.pro ||
+    existing.public !== sample.public ||
+    existing.paying !== sample.paying ||
     existing.disclaimer !== sample.disclaimer
   ) {
     store.days[today] = sample;
@@ -392,10 +420,17 @@ function buildSignupSeries(now: Date): SignupPoint[] {
 
   const dailyKeys = generateDailyKeys(now);
   const series: SignupPoint[] = [];
-  let last: SignupDay = { basic: 0, pro: 0, disclaimer: 0 };
+  let last: SignupDay = { basic: 0, pro: 0, public: 0, paying: 0, disclaimer: 0 };
   for (const day of dailyKeys) {
     if (store.days[day]) last = store.days[day];
-    series.push({ day, basic: last.basic, pro: last.pro, disclaimer: last.disclaimer });
+    series.push({
+      day,
+      basic: last.basic,
+      pro: last.pro,
+      public: last.public,
+      paying: last.paying,
+      disclaimer: last.disclaimer,
+    });
   }
   return series;
 }
