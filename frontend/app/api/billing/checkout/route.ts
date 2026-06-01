@@ -19,6 +19,7 @@ type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   founding_eligible: number;
+  email_verified_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -72,6 +73,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'You already have an active subscription. Use the billing portal to change plans.' },
       { status: 409 },
+    );
+  }
+
+  // Verification gate. The migration backfilled every pre-cutover account, so
+  // this only blocks brand-new self-signups who haven't clicked the link yet.
+  // The stable `code` lets the pricing client distinguish this from generic
+  // failures and surface the "verify your email" banner inline instead of a
+  // red error toast.
+  if (!row?.email_verified_at) {
+    return NextResponse.json(
+      {
+        error: 'EMAIL_NOT_VERIFIED',
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email before subscribing.',
+      },
+      { status: 403 },
     );
   }
 
