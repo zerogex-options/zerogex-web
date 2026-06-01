@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -209,7 +210,7 @@ export default function FoundingClient({ foundingCode }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const isDark = theme === 'dark';
-  const { data: authSession, loading: authLoading } = useAuthSession();
+  const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -219,6 +220,9 @@ export default function FoundingClient({ foundingCode }: Props) {
   );
   const isAuthed = !!authSession?.authenticated;
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Only render once we know definitively (undefined while loading would
+  // flash the banner for verified users).
+  const showVerifyBanner = isAuthed && authSession?.user?.emailVerified === false;
 
   const foundingHref = '/founding';
   const registerHref = `/register?next=${encodeURIComponent(foundingHref)}`;
@@ -239,9 +243,16 @@ export default function FoundingClient({ foundingCode }: Props) {
         },
         body: body ? JSON.stringify(body) : undefined,
       });
-      const payload = (await response.json()) as { url?: string; error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+        code?: string;
+        message?: string;
+      };
       if (!response.ok || !payload.url) {
-        throw new Error(payload.error ?? 'Billing request failed');
+        const thrown = new Error(payload.message ?? payload.error ?? 'Billing request failed');
+        if (payload.code) (thrown as Error & { code?: string }).code = payload.code;
+        throw thrown;
       }
       window.location.href = payload.url;
     },
@@ -271,11 +282,17 @@ export default function FoundingClient({ foundingCode }: Props) {
           });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong.');
+        const code = (err as Error & { code?: string })?.code;
+        if (code === 'EMAIL_NOT_VERIFIED') {
+          void refreshSession();
+          setError('Please verify your email first — use the Resend button in the banner above.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Something went wrong.');
+        }
         setBusyTier(null);
       }
     },
-    [callBilling, currentTier, foundingCode, hasActiveSubscription, isAuthed, registerHref, router],
+    [callBilling, currentTier, foundingCode, hasActiveSubscription, isAuthed, refreshSession, registerHref, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -395,6 +412,10 @@ export default function FoundingClient({ foundingCode }: Props) {
               applies on monthly billing only.
             </p>
           </div>
+
+          {showVerifyBanner && authSession?.user?.email && (
+            <VerifyEmailBanner email={authSession.user.email} />
+          )}
 
           {error && (
             <div

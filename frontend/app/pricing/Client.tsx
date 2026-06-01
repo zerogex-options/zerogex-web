@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -319,14 +320,58 @@ function CadenceToggle({
   );
 }
 
-export default function PricingClient({ promoActive: serverPromoActive }: Props) {
+// useSearchParams() forces this subtree out of static rendering, so wrap the
+// inner body in Suspense at the top level. Matches the pattern used by
+// /register and /reset-password.
+export default function PricingClient(props: Props) {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--color-bg)' }} />}>
+      <PricingClientInner {...props} />
+    </Suspense>
+  );
+}
+
+function PricingClientInner({ promoActive: serverPromoActive }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isDark = theme === 'dark';
-  const { data: authSession, loading: authLoading } = useAuthSession();
+  const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
   const [cadence, setCadence] = useState<Cadence>('monthly');
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived (not stored) from ?verified=1 / ?verify_error=… so we don't have
+  // to setState inside an effect. If the user reloads the page, the param
+  // is still present and the banner re-renders — that's the correct read
+  // (verified state hasn't regressed; an invalid link is still invalid).
+  const verifyNotice = useMemo<{ kind: 'success' | 'error'; message: string } | null>(() => {
+    if (searchParams.get('verified') === '1') {
+      return { kind: 'success', message: 'Email verified! You can now subscribe.' };
+    }
+    const verifyError = searchParams.get('verify_error');
+    if (verifyError === 'expired') {
+      return {
+        kind: 'error',
+        message: 'That verification link has expired. Use Resend below to get a new one.',
+      };
+    }
+    if (verifyError === 'invalid') {
+      return {
+        kind: 'error',
+        message: 'That verification link is no longer valid. Use Resend below to get a new one.',
+      };
+    }
+    return null;
+  }, [searchParams]);
+
+  // When the user lands here from the verify-email redirect, their session
+  // was minted BEFORE email_verified_at was stamped — so emailVerified is
+  // still false in the cached payload. Refresh once so the resend banner
+  // disappears alongside the success notice.
+  useEffect(() => {
+    if (verifyNotice?.kind === 'success') void refreshSession();
+  }, [verifyNotice, refreshSession]);
 
   const currentTier: TierId = useMemo(
     () => normalizeTier(authSession?.user?.tier),
@@ -338,6 +383,10 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
   // to checkout (which works) instead of portal (which 400s on missing
   // stripe_customer_id).
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Banner only shows when we have a definitive false. While the session is
+  // loading, emailVerified is undefined; rendering the banner then would
+  // flash it for everyone on every pricing-page visit.
+  const showVerifyBanner = isAuthed && authSession?.user?.emailVerified === false;
 
   // Server already gated PROMO_END_AT + coupon configuration; just AND with
   // the currently selected cadence (annual is never eligible per spec).
@@ -361,9 +410,16 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
         },
         body: body ? JSON.stringify(body) : undefined,
       });
-      const payload = (await response.json()) as { url?: string; error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+        code?: string;
+        message?: string;
+      };
       if (!response.ok || !payload.url) {
-        throw new Error(payload.error ?? 'Billing request failed');
+        const thrown = new Error(payload.message ?? payload.error ?? 'Billing request failed');
+        if (payload.code) (thrown as Error & { code?: string }).code = payload.code;
+        throw thrown;
       }
       window.location.href = payload.url;
     },
@@ -389,11 +445,19 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
           await callBilling('/api/billing/checkout', { tier, cadence });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong.');
+        const code = (err as Error & { code?: string })?.code;
+        if (code === 'EMAIL_NOT_VERIFIED') {
+          // Refresh in case verification just happened in another tab — if
+          // it did, the banner above will be gone too and the user can retry.
+          void refreshSession();
+          setError('Please verify your email first — use the Resend button in the banner above.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Something went wrong.');
+        }
         setBusyTier(null);
       }
     },
-    [callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, router],
+    [callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -528,6 +592,29 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
             <CadenceToggle cadence={cadence} setCadence={setCadence} />
           </div>
+
+          {verifyNotice && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: `1px solid var(${verifyNotice.kind === 'success' ? '--color-bull' : '--color-bear'})`,
+                color: `var(${verifyNotice.kind === 'success' ? '--color-bull' : '--color-bear'})`,
+                background: `var(${verifyNotice.kind === 'success' ? '--color-bull-soft' : '--color-bear-soft'})`,
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {verifyNotice.message}
+            </div>
+          )}
+
+          {showVerifyBanner && authSession?.user?.email && (
+            <VerifyEmailBanner email={authSession.user.email} />
+          )}
 
           {error && (
             <div

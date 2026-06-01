@@ -73,6 +73,7 @@ const hasFoundingEligible = userCols.has('founding_eligible');
 const hasFoundingStartedAt = userCols.has('founding_member_started_at');
 const hasFoundingLifetime = userCols.has('founding_lifetime_applied_at');
 const hasStripeSub = userCols.has('stripe_subscription_id');
+const hasEmailVerified = userCols.has('email_verified_at');
 
 const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
 if (hasLegacyProvider) baseCols.push('provider', 'provider_id');
@@ -81,6 +82,7 @@ if (hasFoundingEligible) baseCols.push('founding_eligible');
 if (hasFoundingStartedAt) baseCols.push('founding_member_started_at');
 if (hasFoundingLifetime) baseCols.push('founding_lifetime_applied_at');
 if (hasStripeSub) baseCols.push('stripe_subscription_id');
+if (hasEmailVerified) baseCols.push('email_verified_at');
 const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
 
 // Most recent login_success per user. Single grouped query is cheaper than
@@ -177,6 +179,17 @@ function paidStatus(row) {
   return row.stripe_subscription_id ? 'Y' : '—';
 }
 
+// Email-verification gate. Mirrors the emailVerified derivation on the
+// session payload — non-null email_verified_at means the user proved
+// ownership (either by clicking a verification link or by signing in via
+// OAuth, which stamps it at user-creation time). Pre-cutover users were
+// backfilled by the migration so this is ✓ for everyone except brand-new
+// self-signups who haven't clicked the link yet.
+function verifiedStatus(row) {
+  if (!hasEmailVerified) return null;
+  return row.email_verified_at ? '✓' : '';
+}
+
 // YYYY-MM-DD only (the time-of-day rarely matters for this overview).
 function formatDate(iso) {
   if (!iso) return '—';
@@ -196,6 +209,7 @@ const records = rows
       disclaimer: disclaimerAccepted(row),
       founder: foundingStatus(row),
       paid: paidStatus(row),
+      verified: verifiedStatus(row),
       createdAt: formatDate(row.created_at),
       lastLoginAt: formatDate(lastLoginByUser.get(row.id) ?? null),
     };
@@ -227,6 +241,7 @@ const headers = ['User ID', 'Email', 'Tier'];
 if (hasStripeSub) headers.push('Paid');
 headers.push('Auth');
 if (hasFoundingEligible) headers.push('Founder');
+if (hasEmailVerified) headers.push('Verified');
 headers.push('Disclaimer', 'Created', 'Last login');
 const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -235,6 +250,7 @@ const tableRows = sortedRecords.map((rec) => {
   if (hasStripeSub) cells.push(rec.paid ?? '');
   cells.push(rec.authString);
   if (hasFoundingEligible) cells.push(rec.founder ?? '');
+  if (hasEmailVerified) cells.push(rec.verified ?? '');
   cells.push(rec.disclaimer ? '✓' : '');
   cells.push(rec.createdAt, rec.lastLoginAt);
   return cells;
@@ -271,6 +287,8 @@ console.log('  Founder     E = eligible (not yet redeemed)');
 console.log('              R = redeemed, in the 12-month intro window ($12 / $19 mo)');
 console.log('              L = lifetime applied (post-intro, 25% off forever)');
 console.log('              — = not in the founding cohort');
+console.log('  Verified    ✓ = email_verified_at is set (via link, OAuth, or pre-cutover backfill)');
+console.log('              blank = brand-new self-signup hasn\'t clicked the verification link yet');
 console.log('  Disclaimer  ✓ = acknowledged the current disclaimer version');
 console.log('  Last login  Most recent /api/auth/login success; — for users');
 console.log('              who only ever auto-session\'d through /register.');

@@ -12,6 +12,10 @@ type SessionUser = {
   // (tier=basic|pro without a Stripe sub) apart from real subscribers; only
   // real subscribers can use the billing portal.
   hasActiveSubscription?: boolean;
+  // True iff users.email_verified_at is set. Gates /api/billing/checkout
+  // server-side; the pricing/founding clients show a "verify your email"
+  // banner when false so the user can resend the link.
+  emailVerified?: boolean;
   disclaimerAcknowledgedAt?: string | null;
   disclaimerVersionAcknowledged?: string | null;
 };
