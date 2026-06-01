@@ -1,7 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { hasTierAccess } from '@/core/auth';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
+
+/**
+ * Endpoints anyone can hit without a session. Anything else requires at least
+ * Basic tier when auth is enabled. Kept narrow on purpose — the public landing
+ * page (frontend/app/page.tsx) is the only thing that needs to read upstream
+ * data without a logged-in user. Match by exact path or `${prefix}/` subpath.
+ */
+const PUBLIC_API_PREFIXES = [
+  '/api/health',
+  '/api/market/quote',
+  '/api/gex/summary',
+  '/api/gex/by-strike',
+];
+
+function isPublicApiPath(pathname: string): boolean {
+  return PUBLIC_API_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function denyResponse(message: string, status: 401 | 403): NextResponse {
+  const response = NextResponse.json({ error: message }, { status });
+  // Browser callers don't supply Authorization, so nginx's /api/ cache key
+  // doesn't naturally partition this 401/403 away from a later authenticated
+  // 200. Opt out of caching explicitly so an anon deny can never be served
+  // to a logged-in user (or vice versa) within the cache TTL.
+  response.headers.set('Cache-Control', 'no-store, private');
+  return response;
+}
 
 /**
  * Server-side BFF proxy for /api/* routes that reach the FastAPI
@@ -76,10 +106,16 @@ function buildUpstreamHeaders(
  * fail-safe: any error (no session, DB hiccup, signing failure) yields
  * `null` so the proxied request still goes out with the Bearer key — a
  * broken token must never break a working API call.
+ *
+ * Accepts a pre-resolved session to avoid a duplicate DB lookup when the
+ * caller already gated on the session up-front (the common case now that
+ * non-public endpoints require auth).
  */
-async function resolveEndUserToken(): Promise<string | null> {
+async function resolveEndUserToken(
+  preResolved?: Awaited<ReturnType<typeof requireSession>>,
+): Promise<string | null> {
   try {
-    const session = await requireSession();
+    const session = preResolved !== undefined ? preResolved : await requireSession();
     if (!session?.user?.id) return null;
     return await mintEndUserToken(session.user.id);
   } catch (err) {
@@ -109,9 +145,29 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const targetUrl = `${UPSTREAM_BASE}${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const pathname = request.nextUrl.pathname;
 
-  const endUserToken = await resolveEndUserToken();
+  // Gate the BFF the same way the page middleware (proxy.ts) gates routes:
+  // when auth is enabled, anything outside the public allowlist requires a
+  // session at minimum-Basic tier. Without this, hitting /api/signals/...
+  // directly returned the same data a paying subscriber gets, even though
+  // the page that displays it (/signal-score, /basic-signals, etc.) is
+  // redirected to /login.
+  const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
+  let session: Awaited<ReturnType<typeof requireSession>> = null;
+  if (authEnabled && !isPublicApiPath(pathname)) {
+    session = await requireSession();
+    if (!session) {
+      return denyResponse('Authentication required', 401);
+    }
+    if (!hasTierAccess(session.user.tier, 'basic')) {
+      return denyResponse('Subscription required', 403);
+    }
+  }
+
+  const targetUrl = `${UPSTREAM_BASE}${pathname}${request.nextUrl.search}`;
+
+  const endUserToken = await resolveEndUserToken(session);
 
   const init: RequestInit = {
     method: request.method,
