@@ -109,6 +109,32 @@ export async function POST(request: NextRequest) {
   const appUrl = getAppUrl();
 
   let customerId = row?.stripe_customer_id ?? null;
+  if (customerId) {
+    // Verify the cached customer still exists on Stripe before reusing it.
+    // Customers can vanish from under us: test-mode artifacts from a
+    // previous Stripe env, dashboard deletes, the 5-year inactivity sweep.
+    // Without this probe, the next sessions.create blows up with "No such
+    // customer" and the user sees the generic "Billing request failed"
+    // toast. resource_missing → null the cached id and fall through to
+    // re-provision; any other error is real and should propagate.
+    try {
+      await stripe.customers.retrieve(customerId);
+    } catch (err) {
+      const code = (err as { code?: string } | undefined)?.code;
+      if (code === 'resource_missing') {
+        appendAuditEvent({
+          type: 'billing_customer_reprovisioned',
+          userId: actor.user.id,
+          email: actor.user.email,
+          ip: getClientIp(request),
+          message: `Stripe customer ${customerId} returned resource_missing; provisioning a fresh customer`,
+        });
+        customerId = null;
+      } else {
+        throw err;
+      }
+    }
+  }
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: actor.user.email,
