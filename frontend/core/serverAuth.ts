@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
 import { getDb } from '@/core/db';
+import { sendEmailVerification } from '@/core/mailer';
 
 export type AuthUser = {
   id: string;
@@ -29,6 +30,7 @@ type SessionWithUser = {
     email: string;
     tier: TierId;
     hasActiveSubscription: boolean;
+    emailVerified: boolean;
     disclaimerAcknowledgedAt: string | null;
     disclaimerVersionAcknowledged: string | null;
   };
@@ -68,10 +70,17 @@ const PASSWORD_RESET_TTL_SECONDS = readPositiveInt('AUTH_PASSWORD_RESET_TTL_SECO
 const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000;
 const PASSWORD_RESET_MAX_REQUESTS = 5;
 const PASSWORD_MIN_LENGTH = 12;
+const EMAIL_VERIFICATION_TTL_SECONDS = readPositiveInt('AUTH_EMAIL_VERIFICATION_TTL_SECONDS', 24 * 60 * 60);
+const EMAIL_VERIFICATION_WINDOW_MS = 60 * 60 * 1000;
+const EMAIL_VERIFICATION_MAX_REQUESTS = 3;
 const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const passwordResetAttempts = new Map<string, { count: number; resetAt: number }>();
+// Keyed by userId, not IP: the verify-email/start endpoint is session-gated, so
+// the natural unit of abuse is the account itself (3 resends/hour). An IP-keyed
+// limit would let a shared NAT lock every user behind it out of resending.
+const emailVerificationAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function nowIso() {
   return new Date().toISOString();
@@ -154,6 +163,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
+              u.email_verified_at,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged
        FROM sessions s
        JOIN users u ON u.id = s.user_id
@@ -173,6 +183,10 @@ function getSessionByToken(token: string): SessionWithUser | null {
       // Stripe sub) returns false here so the client knows to route to
       // checkout, not the portal (which would 400 on missing stripe_customer_id).
       hasActiveSubscription: !!row.stripe_subscription_id,
+      // Mirrors the same shape: source of truth is the column, not the tier.
+      // Gated on /api/billing/checkout so unverified users can't subscribe;
+      // surfaced in the session so the pricing UI can prompt for resend.
+      emailVerified: !!row.email_verified_at,
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
     },
@@ -203,7 +217,8 @@ function createSessionForUser(user: AuthUser) {
 
   const ackRow = db
     .prepare(
-      `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged, stripe_subscription_id
+      `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
+              stripe_subscription_id, email_verified_at
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -211,6 +226,7 @@ function createSessionForUser(user: AuthUser) {
         disclaimer_acknowledged_at: string | null;
         disclaimer_version_acknowledged: string | null;
         stripe_subscription_id: string | null;
+        email_verified_at: string | null;
       }
     | undefined;
 
@@ -223,6 +239,7 @@ function createSessionForUser(user: AuthUser) {
       email: user.email,
       tier: user.tier,
       hasActiveSubscription: !!ackRow?.stripe_subscription_id,
+      emailVerified: !!ackRow?.email_verified_at,
       disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
     },
@@ -349,6 +366,16 @@ export async function registerAndStartSession(
   await registerUser(request, email, password, tier);
   const fullUser = getUserByEmail(email.trim().toLowerCase());
   if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
+
+  // Fire the verification email but don't let a mailer failure unwind the
+  // signup — the account already exists and the session below auto-logs them
+  // in. The pricing-page banner has a Resend button for retrying.
+  try {
+    await issueEmailVerification(request, fullUser.id, fullUser.email);
+  } catch (err) {
+    console.error('[register] failed to issue verification email:', err);
+  }
+
   return createSessionForUser(fullUser);
 }
 
@@ -556,6 +583,150 @@ export async function resetPasswordWithToken(request: NextRequest, token: string
   return { email: row.email };
 }
 
+function enforceEmailVerificationRateLimit(userId: string) {
+  const now = Date.now();
+  const entry = emailVerificationAttempts.get(userId);
+  if (!entry || now > entry.resetAt) {
+    emailVerificationAttempts.set(userId, { count: 1, resetAt: now + EMAIL_VERIFICATION_WINDOW_MS });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  if (entry.count >= EMAIL_VERIFICATION_MAX_REQUESTS) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+  entry.count += 1;
+  emailVerificationAttempts.set(userId, entry);
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+export function isEmailVerified(userId: string): boolean {
+  const row = getDb()
+    .prepare('SELECT email_verified_at FROM users WHERE id = ?')
+    .get(userId) as { email_verified_at: string | null } | undefined;
+  return !!row?.email_verified_at;
+}
+
+export async function issueEmailVerification(request: NextRequest, userId: string, email: string) {
+  const limit = enforceEmailVerificationRateLimit(userId);
+  if (!limit.allowed) {
+    throw new Error(`Too many verification emails. Retry in ${limit.retryAfterSeconds}s.`);
+  }
+
+  const db = getDb();
+  // base64url so the token survives going into a URL query param without
+  // additional escaping. 32 raw bytes ≈ 43 chars after encoding.
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = sha256(token);
+  const now = nowIso();
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_SECONDS * 1000).toISOString();
+
+  db.prepare(
+    `INSERT INTO email_verifications (id, user_id, token_hash, created_at, expires_at, consumed_at)
+     VALUES (?, ?, ?, ?, ?, NULL)`
+  ).run(createId('emailv'), userId, tokenHash, now, expiresAt);
+
+  appendAuditEvent({
+    type: 'email_verify_request',
+    userId,
+    email,
+    ip: getClientIp(request),
+    message: 'Email verification link issued',
+  });
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? new URL(request.url).origin;
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  await sendEmailVerification(email, verifyUrl);
+
+  return { expiresAt };
+}
+
+export type EmailVerificationResult =
+  | { status: 'ok'; userId: string; email: string }
+  | { status: 'expired' }
+  | { status: 'invalid' };
+
+export async function consumeEmailVerification(
+  request: NextRequest,
+  token: string,
+): Promise<EmailVerificationResult> {
+  if (!token || typeof token !== 'string') return { status: 'invalid' };
+
+  const ip = getClientIp(request);
+  const db = getDb();
+  const tokenHash = sha256(token);
+
+  const row = db
+    .prepare(
+      `SELECT t.id as token_id, t.user_id, t.expires_at, t.consumed_at,
+              u.email
+       FROM email_verifications t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = ?`
+    )
+    .get(tokenHash) as
+    | { token_id: string; user_id: string; expires_at: string; consumed_at: string | null; email: string }
+    | undefined;
+
+  if (!row) {
+    appendAuditEvent({ type: 'email_verify_failure', ip, message: 'Verify attempted with unknown token' });
+    return { status: 'invalid' };
+  }
+  if (row.consumed_at) {
+    // Treat already-consumed as 'invalid' rather than 'expired': a previously
+    // successful verification means the user IS verified, so re-clicking an
+    // old link should land them on the same banner an unrecognized token does.
+    appendAuditEvent({
+      type: 'email_verify_failure',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message: 'Verify attempted with already-consumed token',
+    });
+    return { status: 'invalid' };
+  }
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    appendAuditEvent({
+      type: 'email_verify_failure',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message: 'Verify attempted with expired token',
+    });
+    return { status: 'expired' };
+  }
+
+  const now = nowIso();
+  db.exec('BEGIN');
+  try {
+    db.prepare('UPDATE users SET email_verified_at = ?, updated_at = ? WHERE id = ?').run(
+      now,
+      now,
+      row.user_id,
+    );
+    db.prepare('UPDATE email_verifications SET consumed_at = ? WHERE id = ?').run(now, row.token_id);
+    // Drop any other outstanding verification tokens for this user — they're
+    // no longer needed and there's no reason to leave a second valid link
+    // floating in an inbox somewhere.
+    db.prepare('DELETE FROM email_verifications WHERE user_id = ? AND id != ?').run(
+      row.user_id,
+      row.token_id,
+    );
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  appendAuditEvent({
+    type: 'email_verify_success',
+    userId: row.user_id,
+    email: row.email,
+    ip,
+    message: 'Email verified',
+  });
+
+  return { status: 'ok', userId: row.user_id, email: row.email };
+}
+
 export async function createOrLoginOAuthUser(request: NextRequest, input: { provider: 'google' | 'apple'; providerId: string; email: string; }) {
   const db = getDb();
   const normalizedEmail = input.email.trim().toLowerCase();
@@ -586,17 +757,22 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
       if (emailRow) {
         user = rowToUser(emailRow);
       } else {
+        const oauthNow = nowIso();
         user = {
           id: createId('user'),
           email: normalizedEmail,
           tier: 'basic',
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
+          createdAt: oauthNow,
+          updatedAt: oauthNow,
         };
+        // OAuth providers already attested this email address (Google/Apple
+        // won't issue an id_token for a mailbox the user can't read), so
+        // stamp email_verified_at immediately and skip the verification
+        // round-trip the local-password flow goes through.
         db.prepare(
-          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
-           VALUES (?, ?, NULL, ?, ?, ?)`
-        ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt);
+          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at)
+           VALUES (?, ?, NULL, ?, ?, ?, ?)`
+        ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt, oauthNow);
       }
 
       const now = nowIso();
