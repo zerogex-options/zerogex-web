@@ -25,10 +25,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/guides/*',
   '/help',
   '/pricing',
+  '/founding',
   '/privacy',
   '/terms',
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
   '/unauthorized',
 ] as const;
 
@@ -44,9 +47,12 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/trap-detection', minimumTier: 'pro' },
   { pattern: '/0dte-position-imbalance', minimumTier: 'pro' },
   { pattern: '/gamma-vwap-confluence', minimumTier: 'pro' },
+  { pattern: '/range-break-imminence', minimumTier: 'pro' },
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/market-pressure', minimumTier: 'pro' },
-  // Basic Signals — included with Basic.
+  // Basic dashboards & per-signal pages — included with Basic.
+  { pattern: '/dashboard', minimumTier: 'basic' },
+  { pattern: '/underlying-price-action', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
@@ -54,6 +60,18 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
   { pattern: '/gex-gradient', minimumTier: 'basic' },
   { pattern: '/positioning-trap', minimumTier: 'basic' },
+  // Metrics — included with Basic.
+  { pattern: '/gamma-exposure', minimumTier: 'basic' },
+  { pattern: '/greeks-gex', minimumTier: 'basic' },
+  { pattern: '/flow-analysis', minimumTier: 'basic' },
+  { pattern: '/smart-money', minimumTier: 'basic' },
+  { pattern: '/max-pain', minimumTier: 'basic' },
+  { pattern: '/intraday-tools', minimumTier: 'basic' },
+  // Strategy tools — included with Basic.
+  { pattern: '/options-calculator', minimumTier: 'basic' },
+  { pattern: '/option-contracts', minimumTier: 'basic' },
+  // Account self-service — any logged-in tier (incl. public/unpaid) can manage their own account.
+  { pattern: '/account', minimumTier: 'public' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(

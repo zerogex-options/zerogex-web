@@ -171,11 +171,18 @@ server {
         # from one credential is never served to a different credential
         # (or to an anonymous request). MUST stay in sync with zerogex-oa's
         # 120.nginx_api / 130.ssl blocks.
+        #
+        # The session cookie is included because browser callers don't send
+        # an Authorization header — without it, the BFF's 401/403 deny for
+        # anonymous requests to a Basic/Pro endpoint would be cached and
+        # then served to a freshly-authenticated user (and vice versa) for
+        # the cache TTL. Partitioning by zgx_session keeps anon and each
+        # logged-in session in separate cache slots.
         proxy_cache zerogex_cache;
         proxy_cache_methods GET;
         proxy_cache_valid 200 5s;
         proxy_cache_valid 404 1s;
-        proxy_cache_key "\$request_method\$request_uri\$http_authorization\$http_x_api_key";
+        proxy_cache_key "\$request_method\$request_uri\$http_authorization\$http_x_api_key\$cookie_zgx_session";
         proxy_cache_lock on;
         proxy_cache_lock_timeout 90s;
         proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
