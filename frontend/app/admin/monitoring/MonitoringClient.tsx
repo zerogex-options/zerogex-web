@@ -297,80 +297,35 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       </section>
 
       <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Stripe Webhook Health</h2>
-          <span className="text-xs" style={{ color: mutedText }}>
-            audit_events roll-up. Errors &gt; 0 in 24h means handler failures Stripe will keep retrying.
-          </span>
-        </div>
+        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
         <WebhookHealthCard
           health={data.webhookHealth}
           cardBg={cardBg}
           borderColor={borderColor}
           mutedText={mutedText}
           textColor={textColor}
+          axisStroke={axisStroke}
         />
       </section>
     </div>
   );
 }
 
-type StatCellProps = {
-  label: string;
-  primary: number;
-  secondaryLabel: string;
-  secondary: number;
-  alert: boolean;
-  borderColor: string;
-  mutedText: string;
-  textColor: string;
-};
+type StatusTone = 'ok' | 'warn' | 'alert';
 
-function StatCell({ label, primary, secondaryLabel, secondary, alert, borderColor, mutedText, textColor }: StatCellProps) {
-  const alertColor = 'var(--color-bear)';
+function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+  const palette = {
+    ok: { bg: 'var(--color-bull-soft)', fg: 'var(--color-bull)' },
+    warn: { bg: 'var(--color-brand-primary-soft, rgba(255, 165, 0, 0.12))', fg: 'var(--color-brand-primary, #ffa600)' },
+    alert: { bg: 'var(--color-bear-soft)', fg: 'var(--color-bear)' },
+  }[tone];
   return (
-    <div
-      className="rounded-lg p-3"
-      style={{
-        border: `1px solid ${alert ? alertColor : `${borderColor}55`}`,
-        backgroundColor: alert ? 'var(--color-bear-soft)' : 'transparent',
-      }}
+    <span
+      className="text-xs font-semibold px-2 py-0.5 rounded-full"
+      style={{ background: palette.bg, color: palette.fg }}
     >
-      <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{label}</div>
-      <div
-        className="text-3xl font-bold tabular-nums mt-1"
-        style={{ color: alert ? alertColor : textColor }}
-      >
-        {primary.toLocaleString()}
-      </div>
-      <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>
-        {secondaryLabel}: {secondary.toLocaleString()}
-      </div>
-    </div>
-  );
-}
-
-function FoundingStatCell({
-  label,
-  count,
-  borderColor,
-  mutedText,
-  textColor,
-}: {
-  label: string;
-  count: number;
-  borderColor: string;
-  mutedText: string;
-  textColor: string;
-}) {
-  return (
-    <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
-      <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{label}</div>
-      <div className="text-3xl font-bold tabular-nums mt-1" style={{ color: textColor }}>
-        {count.toLocaleString()}
-      </div>
-      <div className="text-xs mt-1" style={{ color: mutedText }}>all-time</div>
-    </div>
+      {label}
+    </span>
   );
 }
 
@@ -380,73 +335,156 @@ function WebhookHealthCard({
   borderColor,
   mutedText,
   textColor,
+  axisStroke,
 }: {
   health: WebhookHealth;
   cardBg: string;
   borderColor: string;
   mutedText: string;
   textColor: string;
+  axisStroke: string;
 }) {
+  const eventChart = useMemo(
+    () => [
+      { name: 'Errors', '24h': health.errors24h, '7d': health.errors7d },
+      { name: 'Orphans', '24h': health.orphans24h, '7d': health.orphans7d },
+      { name: 'Stale Skipped', '24h': health.staleSkipped24h, '7d': health.staleSkipped7d },
+      { name: 'Payment Failed', '24h': health.paymentFailed24h, '7d': health.paymentFailed7d },
+    ],
+    [health],
+  );
+
+  const totalsPeak = useMemo(
+    () => eventChart.reduce((m, p) => Math.max(m, p['24h'], p['7d']), 0),
+    [eventChart],
+  );
+  const yScale = niceYScale(totalsPeak);
+
+  const status: { tone: StatusTone; label: string } = useMemo(() => {
+    if (health.errors24h > 0 || health.paymentFailed24h > 0) {
+      const bits: string[] = [];
+      if (health.errors24h > 0) bits.push(`${health.errors24h} error${health.errors24h === 1 ? '' : 's'}`);
+      if (health.paymentFailed24h > 0) bits.push(`${health.paymentFailed24h} payment failure${health.paymentFailed24h === 1 ? '' : 's'}`);
+      return { tone: 'alert', label: `${bits.join(' + ')} in last 24h` };
+    }
+    if (health.errors7d > 0 || health.paymentFailed7d > 0) {
+      return { tone: 'warn', label: 'Recent activity in 7d window' };
+    }
+    return { tone: 'ok', label: 'All clear — last 7 days' };
+  }, [health]);
+
+  const founding = useMemo(
+    () => [
+      { name: 'Redemptions', count: health.foundingRedeemed },
+      { name: 'Lifetime applied', count: health.foundingLifetimeApplied },
+    ],
+    [health],
+  );
+  const foundingPeak = useMemo(
+    () => Math.max(1, ...founding.map((f) => f.count)),
+    [founding],
+  );
+  const foundingScale = niceYScale(foundingPeak);
+
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCell
-          label="Errors"
-          primary={health.errors24h}
-          secondaryLabel="7d"
-          secondary={health.errors7d}
-          alert={health.errors24h > 0}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
-        <StatCell
-          label="Orphans"
-          primary={health.orphans24h}
-          secondaryLabel="7d"
-          secondary={health.orphans7d}
-          alert={false}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
-        <StatCell
-          label="Stale Skipped"
-          primary={health.staleSkipped24h}
-          secondaryLabel="7d"
-          secondary={health.staleSkipped7d}
-          alert={false}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
-        <StatCell
-          label="Payment Failed"
-          primary={health.paymentFailed24h}
-          secondaryLabel="7d"
-          secondary={health.paymentFailed7d}
-          alert={health.paymentFailed24h > 0}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="text-sm" style={{ color: mutedText }}>
+          Webhook events (24h vs 7d) and all-time founding cohort counters.
+        </div>
+        <StatusPill tone={status.tone} label={status.label} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-        <FoundingStatCell
-          label="Founding redemptions"
-          count={health.foundingRedeemed}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
-        <FoundingStatCell
-          label="Lifetime coupons applied"
-          count={health.foundingLifetimeApplied}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+          <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
+            Webhook events
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={eventChart} margin={{ top: 4, right: 12, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} vertical={false} />
+              <XAxis
+                dataKey="name"
+                stroke={axisStroke}
+                tick={{ fill: mutedText, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: `${borderColor}77` }}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: mutedText, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: `${borderColor}77` }}
+                allowDecimals={false}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+              />
+              <Tooltip
+                cursor={{ fill: `${borderColor}22` }}
+                contentStyle={{
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: 8,
+                  color: textColor,
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: textColor, fontWeight: 600 }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, color: mutedText, paddingTop: 4 }}
+                iconType="circle"
+                iconSize={8}
+              />
+              <Bar dataKey="24h" fill={ROW_COLORS.uniqueUsers} radius={[4, 4, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="7d" fill={lighten(ROW_COLORS.uniqueUsers, 0.55)} radius={[4, 4, 0, 0]} maxBarSize={36} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+          <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
+            Founding cohort (all-time)
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              data={founding}
+              layout="vertical"
+              margin={{ top: 4, right: 12, left: 8, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} horizontal={false} />
+              <XAxis
+                type="number"
+                stroke={axisStroke}
+                tick={{ fill: mutedText, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: `${borderColor}77` }}
+                allowDecimals={false}
+                domain={[0, foundingScale.max]}
+                ticks={foundingScale.ticks}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke={axisStroke}
+                tick={{ fill: mutedText, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: `${borderColor}77` }}
+                width={110}
+              />
+              <Tooltip
+                cursor={{ fill: `${borderColor}22` }}
+                contentStyle={{
+                  backgroundColor: cardBg,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: 8,
+                  color: textColor,
+                  fontSize: 12,
+                }}
+              />
+              <Bar dataKey="count" fill={ROW_COLORS.webhookHealth} radius={[0, 4, 4, 0]} maxBarSize={28} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {health.recentErrors.length > 0 && (
