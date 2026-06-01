@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
-import { ArrowRight, CheckCircle2, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Crown, Loader2, Moon, Sun } from 'lucide-react';
 
 const C = {
   card: 'var(--color-surface)',
@@ -17,24 +17,18 @@ const C = {
   border: 'var(--border-default)',
 };
 
-type Cadence = 'monthly' | 'annual';
 type BillableTier = 'basic' | 'pro';
 
-// Display-only pricing. Source of truth for what Stripe actually charges is
-// the price IDs configured in env; if those drift from these numbers the UI
-// will show stale prices until this constant is updated.
-const DISPLAY = {
-  basic: {
-    monthly: { rack: 39, promo: 24, founding: 12 },
-    annual: { rack: 199, perMonth: 16.58, savingsPct: 57 },
-  },
-  pro: {
-    monthly: { rack: 59, promo: 39, founding: 19 },
-    annual: { rack: 299, perMonth: 24.92, savingsPct: 58 },
-  },
+// Display-only pricing. Source of truth is Stripe (price IDs in env).
+// Founding intro = $27 off Basic / $40 off Pro monthly, for 12 months.
+// After month 12 the lifetime 25%-off coupon is applied automatically.
+const FOUNDING = {
+  basic: { rack: 39, intro: 12, postLifetime: 29.25 },
+  pro: { rack: 59, intro: 19, postLifetime: 44.25 },
 } as const;
 
 type Props = {
+  foundingCode: string;
   promoActive: boolean;
 };
 
@@ -125,55 +119,6 @@ function CtaButton({
   );
 }
 
-function PriceDisplay({
-  cadence,
-  tier,
-  promoActive,
-}: {
-  cadence: Cadence;
-  tier: BillableTier;
-  promoActive: boolean;
-}) {
-  if (cadence === 'annual') {
-    const { rack, perMonth } = DISPLAY[tier].annual;
-    return (
-      <div style={{ marginTop: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-            {formatMoney(rack)}
-          </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/year</span>
-        </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>
-          ≈ {formatMoney(perMonth)}/mo, billed annually
-        </div>
-      </div>
-    );
-  }
-  const { rack, promo } = DISPLAY[tier].monthly;
-  if (promoActive) {
-    return (
-      <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
-          {formatMoney(rack)}
-        </span>
-        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-          {formatMoney(promo)}
-        </span>
-        <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
-      </div>
-    );
-  }
-  return (
-    <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-      <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-        {formatMoney(rack)}
-      </span>
-      <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
-    </div>
-  );
-}
-
 function Badge({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
     <span
@@ -194,12 +139,9 @@ function Badge({ children, accent }: { children: React.ReactNode; accent: string
   );
 }
 
-function TierCard({
+function FoundingCard({
   title,
   tier,
-  cadence,
-  promoActive,
-  highlights,
   features,
   accent,
   action,
@@ -209,9 +151,6 @@ function TierCard({
 }: {
   title: string;
   tier: BillableTier;
-  cadence: Cadence;
-  promoActive: boolean;
-  highlights: string[];
   features: string[];
   accent: string;
   action: TierAction;
@@ -219,6 +158,8 @@ function TierCard({
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
+  const { rack, intro, postLifetime } = FOUNDING[tier];
+
   return (
     <article
       style={{
@@ -233,18 +174,22 @@ function TierCard({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
-        {highlights.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            {highlights.map((h) => (
-              <Badge key={h} accent={accent}>
-                {h}
-              </Badge>
-            ))}
-          </div>
-        )}
+        <Badge accent={accent}>Founding Rate</Badge>
       </div>
 
-      <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} />
+      <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+          {formatMoney(rack)}
+        </span>
+        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+          {formatMoney(intro)}
+        </span>
+        <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+      </div>
+      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+        First 12 months at this rate, then <strong style={{ color: C.light }}>{formatMoney(postLifetime)}/mo</strong>{' '}
+        for life (25% off standard).
+      </p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
@@ -260,71 +205,11 @@ function TierCard({
   );
 }
 
-function CadenceToggle({
-  cadence,
-  setCadence,
-}: {
-  cadence: Cadence;
-  setCadence: (c: Cadence) => void;
-}) {
-  const btn = (active: boolean) =>
-    ({
-      flex: 1,
-      padding: '10px 18px',
-      border: 'none',
-      borderRadius: 999,
-      fontSize: 13,
-      fontWeight: 800,
-      letterSpacing: '0.04em',
-      cursor: 'pointer',
-      color: active ? 'var(--text-inverse)' : C.muted,
-      background: active ? `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)` : 'transparent',
-      transition: 'all 0.18s ease',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    }) as const;
-
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        gap: 4,
-        padding: 4,
-        borderRadius: 999,
-        background: 'var(--bg-hover)',
-        border: `1px solid ${C.border}`,
-      }}
-    >
-      <button type="button" style={btn(cadence === 'monthly')} onClick={() => setCadence('monthly')}>
-        Monthly
-      </button>
-      <button type="button" style={btn(cadence === 'annual')} onClick={() => setCadence('annual')}>
-        Annual
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            padding: '2px 6px',
-            borderRadius: 999,
-            background: cadence === 'annual' ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
-            color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
-          }}
-        >
-          SAVE 57%
-        </span>
-      </button>
-    </div>
-  );
-}
-
-export default function PricingClient({ promoActive: serverPromoActive }: Props) {
+export default function FoundingClient({ foundingCode }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const isDark = theme === 'dark';
   const { data: authSession, loading: authLoading } = useAuthSession();
-  const [cadence, setCadence] = useState<Cadence>('monthly');
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -333,17 +218,10 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
     [authSession?.user?.tier],
   );
   const isAuthed = !!authSession?.authenticated;
-  // True only when there's an actual Stripe subscription on file. Grandfathered
-  // tier=basic|pro users (without a Stripe sub) are false — so the CTA routes
-  // to checkout (which works) instead of portal (which 400s on missing
-  // stripe_customer_id).
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
 
-  // Server already gated PROMO_END_AT + coupon configuration; just AND with
-  // the currently selected cadence (annual is never eligible per spec).
-  const promoActive = serverPromoActive && cadence === 'monthly';
-
-  const registerHref = '/register?next=/pricing';
+  const foundingHref = '/founding';
+  const registerHref = `/register?next=${encodeURIComponent(foundingHref)}`;
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
@@ -386,14 +264,18 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
         if (hasActiveSubscription) {
           await callBilling('/api/billing/portal');
         } else {
-          await callBilling('/api/billing/checkout', { tier, cadence });
+          await callBilling('/api/billing/checkout', {
+            tier,
+            cadence: 'monthly',
+            foundingCode,
+          });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Something went wrong.');
         setBusyTier(null);
       }
     },
-    [callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, router],
+    [callBilling, currentTier, foundingCode, hasActiveSubscription, isAuthed, registerHref, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -412,30 +294,18 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
       const label = tier === 'basic' ? 'Basic' : 'Pro';
       if (authLoading) return { kind: 'link', href: registerHref, label: 'Get Started' };
       if (!isAuthed) {
-        return { kind: 'link', href: registerHref, label: 'Sign up to subscribe' };
+        return { kind: 'link', href: registerHref, label: 'Sign up to activate' };
       }
       if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
 
       if (hasActiveSubscription) {
-        // Real subscriber: the tier truly reflects which plan they're on.
         if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
         return { kind: 'portal', label: `Switch to ${label}` };
       }
-
-      // No active Stripe sub — public OR grandfathered. Either way, "Subscribe"
-      // is the only action that makes sense; portal would 400.
-      return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
+      return { kind: 'subscribe', tier, label: `Activate ${label} at $${FOUNDING[tier].intro}/mo` };
     },
-    [authLoading, currentTier, hasActiveSubscription, isAuthed],
+    [authLoading, currentTier, hasActiveSubscription, isAuthed, registerHref],
   );
-
-  const basicHighlights: string[] = [];
-  if (promoActive) basicHighlights.push('Limited Time');
-  if (cadence === 'annual') basicHighlights.push('Save 57%');
-
-  const proHighlights: string[] = ['Most Popular'];
-  if (promoActive) proHighlights.push('Limited Time');
-  if (cadence === 'annual') proHighlights.push('Save 58%');
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -496,7 +366,7 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
             pointerEvents: 'none',
           }}
         />
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div
               style={{
@@ -514,19 +384,16 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
                 textTransform: 'uppercase',
               }}
             >
-              <Sparkles size={14} /> Pricing
+              <Crown size={14} /> Founding Member Activation
             </div>
-            <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-              Choose Your Plan
+            <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 56px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
+              Lock in your founding rate.
             </h1>
-            <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
-              Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal.
-              Cancel anytime — no email or support request required.
+            <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 17, lineHeight: 1.7 }}>
+              Invitation only. As one of our earliest accounts you pay $12/mo for Basic or $19/mo for Pro
+              for your first 12 months, then a permanent 25% discount on the standard rate. Discount
+              applies on monthly billing only.
             </p>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-            <CadenceToggle cadence={cadence} setCadence={setCadence} />
           </div>
 
           {error && (
@@ -548,13 +415,10 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
-            <TierCard
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, maxWidth: 820, margin: '0 auto' }}>
+            <FoundingCard
               title="Basic"
               tier="basic"
-              cadence={cadence}
-              promoActive={promoActive}
-              highlights={basicHighlights}
               accent="var(--color-brand-primary)"
               features={[
                 'Real-time metrics and full strategy tools.',
@@ -566,12 +430,9 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
               onSubscribe={handleSubscribe}
               onPortal={handlePortal}
             />
-            <TierCard
+            <FoundingCard
               title="Pro"
               tier="pro"
-              cadence={cadence}
-              promoActive={promoActive}
-              highlights={proHighlights}
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',
@@ -584,6 +445,26 @@ export default function PricingClient({ promoActive: serverPromoActive }: Props)
               onPortal={handlePortal}
             />
           </div>
+
+          <p
+            style={{
+              marginTop: 28,
+              textAlign: 'center',
+              fontSize: 13,
+              color: C.muted,
+              maxWidth: 720,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              lineHeight: 1.7,
+            }}
+          >
+            Only accounts on the founding-member list can activate this rate. If you weren&rsquo;t expecting
+            this page, see{' '}
+            <Link href="/pricing" style={{ color: C.amber, fontWeight: 700 }}>
+              standard pricing
+            </Link>{' '}
+            instead.
+          </p>
 
           <section
             style={{

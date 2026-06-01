@@ -69,6 +69,9 @@ module.exports = {
     // Admin
     '/admin',
     '/admin/*',
+    // Invitation-only founding-member activation page — not in sitemap and
+    // marked noindex,nofollow at the page level.
+    '/founding',
     // /landing is served by a 308 redirect to / (see next.config.ts)
     '/landing',
     // Auth-gated tools — middleware 307s anonymous Googlebot to /login,
