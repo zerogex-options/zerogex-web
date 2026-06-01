@@ -586,10 +586,16 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
       if (emailRow) {
         user = rowToUser(emailRow);
       } else {
+        // Tier on fresh OAuth signup must mirror the local-password
+        // registration default: selfSignupTier() (public unless an operator
+        // has explicitly set SELF_SIGNUP_DEFAULT_TIER=basic for the
+        // pre-Stripe beta phase). Hardcoding 'basic' here was a paywall
+        // bypass — Google sign-ins were granted Basic for free while
+        // local-password signups correctly defaulted to public.
         user = {
           id: createId('user'),
           email: normalizedEmail,
-          tier: 'basic',
+          tier: selfSignupTier(),
           createdAt: nowIso(),
           updatedAt: nowIso(),
         };
