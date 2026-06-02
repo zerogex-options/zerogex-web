@@ -85,12 +85,29 @@ export function getActivePromoCouponId(sku: Sku): string | null {
   return process.env[envKey] ?? null;
 }
 
-// Founding intro coupon for the 12-month locked rate ($12 basic / $19 pro).
-// Monthly-only; pro coupon for pro, basic for basic. Returns null if not
-// configured for that tier (in which case the redemption should be refused).
-export function getFoundingIntroCouponId(tier: BillableTier): string | null {
+// Founding intro coupon for the locked rate during the first 12 months.
+// Stripe has 4 distinct coupons here, one per (tier, cadence) combo:
+//   basic monthly: $27 off (locks $39 -> $12/mo, applies for 12 invoices)
+//   basic annual:  $79 off (locks $199 -> $120/yr, applies for 1 invoice)
+//   pro monthly:   $40 off (locks $59 -> $19/mo, applies for 12 invoices)
+//   pro annual:    $109 off (locks $299 -> $190/yr, applies for 1 invoice)
+// Returns null if the matching coupon env isn't set — the page-level
+// configuration check 404s the /founding route when monthly coupons are
+// missing, and the annual cadence is opt-in (toggle only renders when both
+// annual coupons exist).
+export function getFoundingIntroCouponId(
+  tier: BillableTier,
+  cadence: BillingCadence,
+): string | null {
+  if (cadence === 'monthly') {
+    const envKey =
+      tier === 'basic' ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO' : 'STRIPE_COUPON_FOUNDING_PRO_INTRO';
+    return process.env[envKey] ?? null;
+  }
   const envKey =
-    tier === 'basic' ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO' : 'STRIPE_COUPON_FOUNDING_PRO_INTRO';
+    tier === 'basic'
+      ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO_ANNUAL'
+      : 'STRIPE_COUPON_FOUNDING_PRO_INTRO_ANNUAL';
   return process.env[envKey] ?? null;
 }
 
