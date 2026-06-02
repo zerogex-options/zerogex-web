@@ -22,14 +22,26 @@ export const metadata = {
 // the founding flow isn't fully configured so the URL leaks no signal.
 export default function FoundingPage() {
   const foundingCode = getFoundingPromoCode();
-  const basicCoupon = getFoundingIntroCouponId('basic');
-  const proCoupon = getFoundingIntroCouponId('pro');
-  // Founding is "configured" only when the code AND both intro coupons exist.
-  // Missing either means subscribe-side will 500 — better to 404 the page.
-  if (!foundingCode || !basicCoupon || !proCoupon) {
+  const basicMonthlyCoupon = getFoundingIntroCouponId('basic', 'monthly');
+  const proMonthlyCoupon = getFoundingIntroCouponId('pro', 'monthly');
+  // Founding is "configured" only when the code AND both monthly intro coupons
+  // exist. Missing either means subscribe-side will 500 — better to 404 the
+  // page. Annual coupons are opt-in: when both basic + pro annual coupons are
+  // present the client renders the cadence toggle; otherwise the page renders
+  // monthly-only.
+  if (!foundingCode || !basicMonthlyCoupon || !proMonthlyCoupon) {
     notFound();
   }
+  const basicAnnualCoupon = getFoundingIntroCouponId('basic', 'annual');
+  const proAnnualCoupon = getFoundingIntroCouponId('pro', 'annual');
+  const annualEnabled = !!basicAnnualCoupon && !!proAnnualCoupon;
 
   const promoActive = getActivePromoCouponId({ tier: 'basic', cadence: 'monthly' }) !== null;
-  return <FoundingClient foundingCode={foundingCode} promoActive={promoActive} />;
+  return (
+    <FoundingClient
+      foundingCode={foundingCode}
+      promoActive={promoActive}
+      annualEnabled={annualEnabled}
+    />
+  );
 }

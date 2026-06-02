@@ -229,19 +229,16 @@ function resolveDiscount(input: {
         error: 'This account is not eligible for the founding-member offer.',
       };
     }
-    if (input.cadence !== 'monthly') {
-      return {
-        ok: false,
-        status: 400,
-        error: 'The founding-member rate is available on monthly plans only.',
-      };
-    }
-    const couponId = getFoundingIntroCouponId(input.tier);
+    // Founding intro is per-(tier, cadence). Monthly + annual coupons live in
+    // separate env keys; getFoundingIntroCouponId returns null when the
+    // matching coupon isn't configured (e.g. annual founding rolled out
+    // without the annual coupons being created in Stripe yet).
+    const couponId = getFoundingIntroCouponId(input.tier, input.cadence);
     if (!couponId) {
       return {
         ok: false,
         status: 500,
-        error: 'Founding-member discount is not configured for this plan.',
+        error: `Founding-member discount is not configured for this plan (${input.tier}/${input.cadence}).`,
       };
     }
     return { ok: true, couponId, foundingApplied: true };

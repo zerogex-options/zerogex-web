@@ -19,18 +19,34 @@ const C = {
 };
 
 type BillableTier = 'basic' | 'pro';
+type Cadence = 'monthly' | 'annual';
 
 // Display-only pricing. Source of truth is Stripe (price IDs in env).
-// Founding intro = $27 off Basic / $40 off Pro monthly, for 12 months.
-// After month 12 the lifetime 25%-off coupon is applied automatically.
+// Founding intro coupons:
+//   basic monthly: $27 off  ($39 -> $12/mo for 12 invoices)
+//   basic annual : $79 off  ($199 -> $120/yr for 1 invoice)
+//   pro monthly  : $40 off  ($59 -> $19/mo for 12 invoices)
+//   pro annual   : $109 off ($299 -> $190/yr for 1 invoice)
+// After the intro period the lifetime 25%-off coupon is applied
+// automatically by the webhook; post-intro renewal cost shown below.
 const FOUNDING = {
-  basic: { rack: 39, intro: 12, postLifetime: 29.25 },
-  pro: { rack: 59, intro: 19, postLifetime: 44.25 },
+  basic: {
+    monthly: { rack: 39, intro: 12, postLifetime: 29.25 },
+    annual: { rack: 199, intro: 120, perMonth: 10.0, postLifetime: 149.25 },
+  },
+  pro: {
+    monthly: { rack: 59, intro: 19, postLifetime: 44.25 },
+    annual: { rack: 299, intro: 190, perMonth: 15.83, postLifetime: 224.25 },
+  },
 } as const;
 
 type Props = {
   foundingCode: string;
   promoActive: boolean;
+  // True when both annual founding coupons are configured server-side.
+  // The cadence toggle only renders when true; checkout will still
+  // 500 if somehow called with annual cadence and no coupon.
+  annualEnabled: boolean;
 };
 
 type TierAction =
@@ -140,9 +156,69 @@ function Badge({ children, accent }: { children: React.ReactNode; accent: string
   );
 }
 
+function CadenceToggle({
+  cadence,
+  setCadence,
+}: {
+  cadence: Cadence;
+  setCadence: (c: Cadence) => void;
+}) {
+  const btn = (active: boolean) =>
+    ({
+      flex: 1,
+      padding: '10px 18px',
+      border: 'none',
+      borderRadius: 999,
+      fontSize: 13,
+      fontWeight: 800,
+      letterSpacing: '0.04em',
+      cursor: 'pointer',
+      color: active ? 'var(--text-inverse)' : C.muted,
+      background: active ? `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)` : 'transparent',
+      transition: 'all 0.18s ease',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    }) as const;
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        gap: 4,
+        padding: 4,
+        borderRadius: 999,
+        background: 'var(--bg-hover)',
+        border: `1px solid ${C.border}`,
+      }}
+    >
+      <button type="button" style={btn(cadence === 'monthly')} onClick={() => setCadence('monthly')}>
+        Monthly
+      </button>
+      <button type="button" style={btn(cadence === 'annual')} onClick={() => setCadence('annual')}>
+        Annual
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 800,
+            padding: '2px 6px',
+            borderRadius: 999,
+            background: cadence === 'annual' ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
+            color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
+          }}
+        >
+          2 MONTHS FREE
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function FoundingCard({
   title,
   tier,
+  cadence,
   features,
   accent,
   action,
@@ -152,6 +228,7 @@ function FoundingCard({
 }: {
   title: string;
   tier: BillableTier;
+  cadence: Cadence;
   features: string[];
   accent: string;
   action: TierAction;
@@ -159,7 +236,7 @@ function FoundingCard({
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
-  const { rack, intro, postLifetime } = FOUNDING[tier];
+  const plan = FOUNDING[tier][cadence];
 
   return (
     <article
@@ -178,19 +255,44 @@ function FoundingCard({
         <Badge accent={accent}>Founding Rate</Badge>
       </div>
 
-      <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
-          {formatMoney(rack)}
-        </span>
-        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-          {formatMoney(intro)}
-        </span>
-        <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
-      </div>
-      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-        First 12 months at this rate, then <strong style={{ color: C.light }}>{formatMoney(postLifetime)}/mo</strong>{' '}
-        for life (25% off standard).
-      </p>
+      {cadence === 'monthly' ? (
+        <>
+          <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+              {formatMoney(plan.rack)}
+            </span>
+            <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+              {formatMoney(plan.intro)}
+            </span>
+            <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+            First 12 months at this rate, then{' '}
+            <strong style={{ color: C.light }}>{formatMoney(plan.postLifetime)}/mo</strong>{' '}
+            for life (25% off standard).
+          </p>
+        </>
+      ) : (
+        <>
+          <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+              {formatMoney(plan.rack)}
+            </span>
+            <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+              {formatMoney(plan.intro)}
+            </span>
+            <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/yr</span>
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
+            ≈ {formatMoney(plan.perMonth)}/mo, billed annually — two months free vs the monthly founding rate.
+          </p>
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+            Year 1 at this rate, then{' '}
+            <strong style={{ color: C.light }}>{formatMoney(plan.postLifetime)}/yr</strong>{' '}
+            for life (25% off standard).
+          </p>
+        </>
+      )}
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
@@ -206,11 +308,12 @@ function FoundingCard({
   );
 }
 
-export default function FoundingClient({ foundingCode }: Props) {
+export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const isDark = theme === 'dark';
   const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
+  const [cadence, setCadence] = useState<Cadence>('monthly');
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -277,7 +380,7 @@ export default function FoundingClient({ foundingCode }: Props) {
         } else {
           await callBilling('/api/billing/checkout', {
             tier,
-            cadence: 'monthly',
+            cadence,
             foundingCode,
           });
         }
@@ -292,7 +395,7 @@ export default function FoundingClient({ foundingCode }: Props) {
         setBusyTier(null);
       }
     },
-    [callBilling, currentTier, foundingCode, hasActiveSubscription, isAuthed, refreshSession, registerHref, router],
+    [callBilling, cadence, currentTier, foundingCode, hasActiveSubscription, isAuthed, refreshSession, registerHref, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -407,14 +510,19 @@ export default function FoundingClient({ foundingCode }: Props) {
               Lock in your founding rate.
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 17, lineHeight: 1.7 }}>
-              Invitation only. As one of our earliest accounts you pay $12/mo for Basic or $19/mo for Pro
-              for your first 12 months, then a permanent 25% discount on the standard rate. Discount
-              applies on monthly billing only.
+              Invitation only. As one of our earliest accounts you lock in our founding rate{' '}
+              {annualEnabled ? '— pick monthly or annual ' : ''}for your first 12 months, then a permanent
+              25% discount on the standard rate for life.
             </p>
           </div>
 
           {showVerifyBanner && authSession?.user?.email && (
             <VerifyEmailBanner email={authSession.user.email} />
+          )}
+          {annualEnabled && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+              <CadenceToggle cadence={cadence} setCadence={setCadence} />
+            </div>
           )}
 
           {error && (
@@ -440,6 +548,7 @@ export default function FoundingClient({ foundingCode }: Props) {
             <FoundingCard
               title="Basic"
               tier="basic"
+              cadence={cadence}
               accent="var(--color-brand-primary)"
               features={[
                 'Real-time metrics and full strategy tools.',
@@ -454,6 +563,7 @@ export default function FoundingClient({ foundingCode }: Props) {
             <FoundingCard
               title="Pro"
               tier="pro"
+              cadence={cadence}
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',
