@@ -37,7 +37,26 @@ type WebhookHealth = {
   foundingRedeemed: number;
   foundingLifetimeApplied: number;
   recentErrors: Array<{ createdAt: string; message: string }>;
+  recentStaleSkipped: Array<{
+    createdAt: string;
+    message: string;
+    subscriptionId: string | null;
+    eventType: string | null;
+    deltaSeconds: number | null;
+    linkedPaymentFailed: {
+      createdAt: string;
+      email: string | null;
+      message: string;
+    } | null;
+  }>;
 };
+
+// Δ ≤ 5s with no linked payment failure is the textbook Stripe burst
+// pattern (multi-event-per-state-change at checkout / on first dunning):
+// the ordering guard correctly skipped a near-simultaneous duplicate.
+// Dimming these visually keeps the list scannable so the entries that
+// warrant attention (linked-to-payment-failed, or large Δ) stand out.
+const STALE_NOISE_DELTA_SECONDS = 5;
 
 type Snapshot = {
   ok: boolean;
@@ -510,6 +529,72 @@ function WebhookHealthCard({
                 </div>
               </li>
             ))}
+          </ul>
+        </div>
+      )}
+
+      {health.recentStaleSkipped.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold mb-2" style={{ color: textColor }}>
+            Recent stale-skipped events (last 7 days)
+          </h3>
+          <ul className="space-y-2">
+            {health.recentStaleSkipped.map((row, idx) => {
+              const isLinked = row.linkedPaymentFailed !== null;
+              const isNoise =
+                !isLinked &&
+                row.deltaSeconds !== null &&
+                row.deltaSeconds <= STALE_NOISE_DELTA_SECONDS;
+              const deltaLabel =
+                row.deltaSeconds === null
+                  ? null
+                  : `Δ ${row.deltaSeconds}s`;
+              return (
+                <li
+                  key={`${row.createdAt}-${idx}`}
+                  className="rounded p-2 text-xs"
+                  style={{
+                    border: `1px solid ${borderColor}55`,
+                    fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
+                    opacity: isNoise ? 0.55 : 1,
+                  }}
+                >
+                  <div className="flex items-center gap-2 flex-wrap" style={{ color: mutedText }}>
+                    <span>{row.createdAt}</span>
+                    {deltaLabel && (
+                      <span
+                        className="px-1.5 py-0.5 rounded"
+                        style={{
+                          background: `${borderColor}33`,
+                          color: textColor,
+                        }}
+                      >
+                        {deltaLabel}
+                      </span>
+                    )}
+                    {isLinked ? (
+                      <StatusPill tone="alert" label="linked to payment failure" />
+                    ) : isNoise ? (
+                      <StatusPill tone="ok" label="routine burst" />
+                    ) : null}
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap break-words" style={{ color: textColor }}>
+                    {row.message}
+                  </div>
+                  {row.linkedPaymentFailed && (
+                    <div
+                      className="mt-1 pl-2 border-l-2 whitespace-pre-wrap break-words"
+                      style={{ borderColor: 'var(--color-bear)', color: mutedText }}
+                    >
+                      ↳ {row.linkedPaymentFailed.createdAt}
+                      {row.linkedPaymentFailed.email ? ` · ${row.linkedPaymentFailed.email}` : ''}
+                      {' — '}
+                      {row.linkedPaymentFailed.message}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

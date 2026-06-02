@@ -336,11 +336,17 @@ export async function POST(request: NextRequest) {
           typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const user = customerId ? findUserByCustomerId(customerId) : null;
         if (user) {
+          const invoiceSub =
+            typeof invoice.subscription === 'string'
+              ? invoice.subscription
+              : invoice.subscription?.id ?? null;
           logAudit({
             type: 'stripe_payment_failed',
             userId: user.id,
             email: user.email,
-            message: `Invoice ${invoice.id} payment failed`,
+            message: invoiceSub
+              ? `Invoice ${invoice.id} payment failed for sub ${invoiceSub}`
+              : `Invoice ${invoice.id} payment failed`,
           });
         }
         break;

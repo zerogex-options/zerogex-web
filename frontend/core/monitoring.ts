@@ -66,6 +66,24 @@ export type WebhookHealth = {
   // Recent (last-7-day) error rows for inline display when errors24h > 0.
   // Capped at 10 to keep the payload bounded.
   recentErrors: Array<{ createdAt: string; message: string }>;
+  // Recent (last-7-day) stale-skipped rows with the per-row Δ between the
+  // skipped event's `created` and the newer one that beat it, plus any
+  // payment-failed audit on the same subscription within ±10 minutes.
+  // Tight-Δ rows with no link are almost always Stripe's normal multi-event
+  // checkout / dunning bursts; the link surfaces the kenji-style pairing
+  // where the skip is collateral to a real payment failure.
+  recentStaleSkipped: Array<{
+    createdAt: string;
+    message: string;
+    subscriptionId: string | null;
+    eventType: string | null;
+    deltaSeconds: number | null;
+    linkedPaymentFailed: {
+      createdAt: string;
+      email: string | null;
+      message: string;
+    } | null;
+  }>;
 };
 
 export type MonitoringSnapshot = {
@@ -452,6 +470,60 @@ function countAuditSince(type: string, intervalSql: string | null): number {
   }
 }
 
+// ±10 minutes is wide enough to catch the Stripe dunning burst that pairs
+// an invoice.payment_failed with the subscription.updated events around it
+// (kenji-style: 21s apart), but tight enough to avoid false-linking an
+// unrelated later payment failure on the same sub.
+const STALE_PAYMENT_LINK_WINDOW_MINUTES = 10;
+
+type AuditRow = { created_at: string; message: string; email: string | null };
+
+function parseStaleSkippedMessage(message: string): {
+  subscriptionId: string | null;
+  eventType: string | null;
+  deltaSeconds: number | null;
+} {
+  // Skipped stale <eventType> (created=<old>) for sub <subId>; a newer event (created=<new>) was already processed
+  const typeMatch = message.match(/Skipped stale (\S+) /);
+  const subMatch = message.match(/for sub (sub_[A-Za-z0-9]+)/);
+  const createds = Array.from(message.matchAll(/created=(\d+)/g)).map((m) => Number(m[1]));
+  const [createdOld, createdNew] = createds;
+  const deltaSeconds =
+    Number.isFinite(createdOld) && Number.isFinite(createdNew) ? createdNew - createdOld : null;
+  return {
+    subscriptionId: subMatch?.[1] ?? null,
+    eventType: typeMatch?.[1] ?? null,
+    deltaSeconds,
+  };
+}
+
+function findLinkedPaymentFailed(
+  subscriptionId: string,
+  createdAt: string,
+): { createdAt: string; email: string | null; message: string } | null {
+  try {
+    const row = getDb()
+      .prepare(
+        `SELECT created_at, email, message FROM audit_events
+         WHERE type = 'stripe_payment_failed'
+           AND message LIKE ?
+           AND ABS((julianday(created_at) - julianday(?)) * 1440) <= ?
+         ORDER BY ABS(julianday(created_at) - julianday(?)) ASC
+         LIMIT 1`,
+      )
+      .get(
+        `%${subscriptionId}%`,
+        createdAt,
+        STALE_PAYMENT_LINK_WINDOW_MINUTES,
+        createdAt,
+      ) as AuditRow | undefined;
+    if (!row) return null;
+    return { createdAt: row.created_at, email: row.email, message: row.message };
+  } catch {
+    return null;
+  }
+}
+
 function buildWebhookHealth(): WebhookHealth {
   let recentErrors: WebhookHealth['recentErrors'] = [];
   try {
@@ -467,6 +539,33 @@ function buildWebhookHealth(): WebhookHealth {
     recentErrors = [];
   }
 
+  let recentStaleSkipped: WebhookHealth['recentStaleSkipped'] = [];
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_webhook_stale_skipped' AND created_at > datetime('now', '-7 days')
+         ORDER BY created_at DESC LIMIT 10`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    recentStaleSkipped = rows.map((r) => {
+      const parsed = parseStaleSkippedMessage(r.message);
+      const linked = parsed.subscriptionId
+        ? findLinkedPaymentFailed(parsed.subscriptionId, r.created_at)
+        : null;
+      return {
+        createdAt: r.created_at,
+        message: r.message,
+        subscriptionId: parsed.subscriptionId,
+        eventType: parsed.eventType,
+        deltaSeconds: parsed.deltaSeconds,
+        linkedPaymentFailed: linked,
+      };
+    });
+  } catch {
+    recentStaleSkipped = [];
+  }
+
   return {
     errors24h: countAuditSince('stripe_webhook_error', '-1 day'),
     errors7d: countAuditSince('stripe_webhook_error', '-7 days'),
@@ -479,6 +578,7 @@ function buildWebhookHealth(): WebhookHealth {
     foundingRedeemed: countAuditSince('stripe_founding_redeemed', null),
     foundingLifetimeApplied: countAuditSince('stripe_founding_lifetime_applied', null),
     recentErrors,
+    recentStaleSkipped,
   };
 }
 
