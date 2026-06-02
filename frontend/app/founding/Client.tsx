@@ -236,7 +236,12 @@ function FoundingCard({
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
-  const plan = FOUNDING[tier][cadence];
+  // Bind to the cadence-specific plan inside each branch so TypeScript can
+  // narrow the union shape. Pre-binding `plan = FOUNDING[tier][cadence]` and
+  // then accessing .perMonth in the annual branch doesn't type-check because
+  // the union loses the discriminating cadence info.
+  const monthlyPlan = FOUNDING[tier].monthly;
+  const annualPlan = FOUNDING[tier].annual;
 
   return (
     <article
@@ -259,16 +264,16 @@ function FoundingCard({
         <>
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
-              {formatMoney(plan.rack)}
+              {formatMoney(monthlyPlan.rack)}
             </span>
             <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-              {formatMoney(plan.intro)}
+              {formatMoney(monthlyPlan.intro)}
             </span>
             <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
           </div>
           <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
             First 12 months at this rate, then{' '}
-            <strong style={{ color: C.light }}>{formatMoney(plan.postLifetime)}/mo</strong>{' '}
+            <strong style={{ color: C.light }}>{formatMoney(monthlyPlan.postLifetime)}/mo</strong>{' '}
             for life (25% off standard).
           </p>
         </>
@@ -276,19 +281,19 @@ function FoundingCard({
         <>
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
-              {formatMoney(plan.rack)}
+              {formatMoney(annualPlan.rack)}
             </span>
             <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-              {formatMoney(plan.intro)}
+              {formatMoney(annualPlan.intro)}
             </span>
             <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/yr</span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
-            ≈ {formatMoney(plan.perMonth)}/mo, billed annually — two months free vs the monthly founding rate.
+            ≈ {formatMoney(annualPlan.perMonth)}/mo, billed annually — two months free vs the monthly founding rate.
           </p>
           <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
             Year 1 at this rate, then{' '}
-            <strong style={{ color: C.light }}>{formatMoney(plan.postLifetime)}/yr</strong>{' '}
+            <strong style={{ color: C.light }}>{formatMoney(annualPlan.postLifetime)}/yr</strong>{' '}
             for life (25% off standard).
           </p>
         </>
@@ -422,9 +427,11 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
         return { kind: 'portal', label: `Switch to ${label}` };
       }
-      return { kind: 'subscribe', tier, label: `Activate ${label} at $${FOUNDING[tier].intro}/mo` };
+      const plan = FOUNDING[tier][cadence];
+      const suffix = cadence === 'monthly' ? '/mo' : '/yr';
+      return { kind: 'subscribe', tier, label: `Activate ${label} at $${plan.intro}${suffix}` };
     },
-    [authLoading, currentTier, hasActiveSubscription, isAuthed, registerHref],
+    [authLoading, cadence, currentTier, hasActiveSubscription, isAuthed, registerHref],
   );
 
   return (
