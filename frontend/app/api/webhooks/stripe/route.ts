@@ -169,8 +169,17 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
 
   // Founding redemption is signalled by subscription.metadata.founding='1',
-  // set at checkout time. First sync after redemption stamps the column;
-  // COALESCE keeps the original timestamp on subsequent syncs.
+  // set at checkout time. First sync after redemption stamps both founding
+  // columns at once:
+  // - founding_member_started_at: the 12-month intro clock starts.
+  // - founding_lifetime_applied_at: the lifetime 25%-off coupon is attached
+  //   alongside the intro at /api/billing/checkout (see resolveDiscount), so
+  //   it's "applied" from day one — there's no month-11 transition to wait
+  //   for. The webhook's month-11 apply path (maybeApplyFoundingLifetime
+  //   below) becomes a no-op for new redemptions because
+  //   founding_lifetime_applied_at is already set; it stays as a safety net
+  //   for any pre-existing founding subs created before this change.
+  // COALESCE keeps the original timestamps on subsequent syncs.
   const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
   const stampFoundingStart =
     subMetadata.founding === '1' && !user.founding_member_started_at;
@@ -186,6 +195,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
          current_period_end = ?,
          cancel_at_period_end = ?,
          founding_member_started_at = COALESCE(founding_member_started_at, ?),
+         founding_lifetime_applied_at = COALESCE(founding_lifetime_applied_at, ?),
          updated_at = ?
        WHERE id = ?`,
     )
@@ -197,17 +207,19 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       periodEndIso,
       subscription.cancel_at_period_end ? 1 : 0,
       newlyStampedAt,
+      newlyStampedAt,
       nowIso(),
       user.id,
     );
 
   if (stampFoundingStart) {
     user.founding_member_started_at = newlyStampedAt;
+    user.founding_lifetime_applied_at = newlyStampedAt;
     logAudit({
       type: 'stripe_founding_redeemed',
       userId: user.id,
       email: user.email,
-      message: `Founding redemption recorded for sub ${subscription.id}`,
+      message: `Founding redemption recorded for sub ${subscription.id} (lifetime stacked at checkout)`,
     });
   }
 

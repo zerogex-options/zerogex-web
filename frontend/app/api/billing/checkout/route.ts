@@ -6,6 +6,7 @@ import {
   getActivePromoCouponId,
   getAppUrl,
   getFoundingIntroCouponId,
+  getFoundingLifetimeCouponId,
   getFoundingPromoCode,
   getStripe,
   isBillableTier,
@@ -135,11 +136,22 @@ export async function POST(request: NextRequest) {
     },
   };
 
-  if (discountResult.couponId) {
-    // Server-applied discount. Disallow Stripe's promo-code field so customers
-    // can't stack a second discount on top of an auto-applied promo or a
-    // founding rate.
-    sessionParams.discounts = [{ coupon: discountResult.couponId }];
+  if (discountResult.couponIds.length > 0) {
+    // Server-applied discount(s). Disallow Stripe's promo-code field so
+    // customers can't stack a third coupon on top of an auto-applied promo
+    // or a founding rate.
+    //
+    // For founding we attach TWO coupons in the order [lifetime, intro]:
+    // - lifetime (25% off, duration=forever) is applied first so the
+    //   intro's amount_off is computed against the already-25%-reduced
+    //   subtotal. The intro's amount_off in Stripe is calibrated for
+    //   this stacking math.
+    // - intro (duration_in_months=12) expires after year 1 (monthly: after
+    //   12 invoices; annual: after the first invoice), leaving only the
+    //   lifetime — which makes Stripe Checkout's "Then $X after coupon
+    //   expires" line show the correct post-intro price (with 25% off)
+    //   instead of the misleading rack rate.
+    sessionParams.discounts = discountResult.couponIds.map((coupon) => ({ coupon }));
   } else {
     sessionParams.allow_promotion_codes = true;
   }
@@ -154,7 +166,7 @@ export async function POST(request: NextRequest) {
 }
 
 type DiscountResolution =
-  | { ok: true; couponId: string | null; foundingApplied: boolean }
+  | { ok: true; couponIds: string[]; foundingApplied: boolean }
   | { ok: false; status: number; error: string };
 
 function resolveDiscount(input: {
@@ -177,23 +189,39 @@ function resolveDiscount(input: {
     }
     // Founding intro is per-(tier, cadence). Monthly + annual coupons live in
     // separate env keys; getFoundingIntroCouponId returns null when the
-    // matching coupon isn't configured (e.g. annual founding rolled out
-    // without the annual coupons being created in Stripe yet).
-    const couponId = getFoundingIntroCouponId(input.tier, input.cadence);
-    if (!couponId) {
+    // matching coupon isn't configured.
+    const introCouponId = getFoundingIntroCouponId(input.tier, input.cadence);
+    if (!introCouponId) {
       return {
         ok: false,
         status: 500,
         error: `Founding-member discount is not configured for this plan (${input.tier}/${input.cadence}).`,
       };
     }
-    return { ok: true, couponId, foundingApplied: true };
+    // Lifetime 25%-off is attached at checkout time alongside the intro so
+    // Stripe knows the post-intro renewal still has 25% off applied — the
+    // "Then $X after coupon expires" line on the Checkout page then shows
+    // the real post-intro price, not the rack rate. The intro coupon's
+    // amount_off is calibrated for the [lifetime, intro] stacking order.
+    const lifetimeCouponId = getFoundingLifetimeCouponId();
+    if (!lifetimeCouponId) {
+      return {
+        ok: false,
+        status: 500,
+        error: 'Founding-member lifetime coupon is not configured.',
+      };
+    }
+    return {
+      ok: true,
+      couponIds: [lifetimeCouponId, introCouponId],
+      foundingApplied: true,
+    };
   }
 
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
   if (promoCouponId) {
-    return { ok: true, couponId: promoCouponId, foundingApplied: false };
+    return { ok: true, couponIds: [promoCouponId], foundingApplied: false };
   }
 
-  return { ok: true, couponId: null, foundingApplied: false };
+  return { ok: true, couponIds: [], foundingApplied: false };
 }
