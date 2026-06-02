@@ -18,6 +18,8 @@ type SessionUser = {
   emailVerified?: boolean;
   disclaimerAcknowledgedAt?: string | null;
   disclaimerVersionAcknowledged?: string | null;
+  foundingEligible?: boolean;
+  foundingLockinDismissedAt?: string | null;
 };
 
 type SessionResponse = {

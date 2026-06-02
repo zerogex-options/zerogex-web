@@ -168,6 +168,11 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'founding_eligible', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('users', 'founding_member_started_at', 'TEXT');
   ensureColumn('users', 'founding_lifetime_applied_at', 'TEXT');
+  // ISO timestamp the user clicked "do not show again" on the founding-rate
+  // lock-in reminder. NULL = still eligible to see the reminder once per fresh
+  // login. Cleared implicitly by hasActiveSubscription becoming true (the
+  // reminder is gated on the user not yet paying).
+  ensureColumn('users', 'founding_lockin_dismissed_at', 'TEXT');
 
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
