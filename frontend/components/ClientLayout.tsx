@@ -1,17 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
+import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import DisclaimerModal from './DisclaimerModal';
+import FoundingLockinModal from './FoundingLockinModal';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 import OptionChainPrewarm from './OptionChainPrewarm';
+
+const FOUNDING_LOCKIN_SESSION_KEY = 'zgx.foundingLockinShown';
+
+// useSyncExternalStore subscribe is a no-op: nothing externally mutates the
+// values we care about (sessionStorage flag is only written by us, deadline
+// is a fixed ISO string). The hook is just for the SSR-safe getServerSnapshot
+// boundary so we don't risk a hydration mismatch.
+const noopSubscribe = () => () => {};
+const getFoundingLockinGateServer = () => false;
+const getFoundingLockinGateClient = () => {
+  try {
+    const alreadyShown =
+      window.sessionStorage.getItem(FOUNDING_LOCKIN_SESSION_KEY) === '1';
+    const deadlinePassed = Date.now() >= Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
+    return !alreadyShown && !deadlinePassed;
+  } catch {
+    return false;
+  }
+};
 
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
@@ -23,11 +44,25 @@ const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/founding', '/login', '/r
 // user has even chosen a plan.
 const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding']);
 
+// Don't interrupt the founding-rate reminder where it makes no sense: the
+// auth flow, the legal pages, and the pages the CTA links to (so the user
+// isn't reminded on the page they're actively converting from).
+const FOUNDING_LOCKIN_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding']);
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const [acknowledgedLocally, setAcknowledgedLocally] = useState(false);
+  const [foundingLockinClosed, setFoundingLockinClosed] = useState(false);
+  // SSR returns false (suppress modal); client snapshot reads sessionStorage
+  // + checks the deadline. Avoids the impure-Date.now()-during-render lint
+  // and the hydration mismatch a naive useState lazy initializer would cause.
+  const foundingLockinGatePassed = useSyncExternalStore(
+    noopSubscribe,
+    getFoundingLockinGateClient,
+    getFoundingLockinGateServer,
+  );
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -49,11 +84,45 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     />
   ) : null;
 
+  // Waits for the disclaimer to clear so the two don't overlap. Deadline and
+  // sessionStorage checks come from the useSyncExternalStore snapshot above.
+  const shouldShowFoundingLockin =
+    !shouldShowDisclaimer &&
+    foundingLockinGatePassed &&
+    !foundingLockinClosed &&
+    !FOUNDING_LOCKIN_SUPPRESSED_ROUTES.has(pathname) &&
+    authSession?.authenticated === true &&
+    authSession.user?.foundingEligible === true &&
+    authSession.user?.hasActiveSubscription === false &&
+    !authSession.user?.foundingLockinDismissedAt;
+
+  const markFoundingLockinSeenForSession = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(FOUNDING_LOCKIN_SESSION_KEY, '1');
+    } catch {
+      // sessionStorage unavailable (private mode quirks); the in-memory flag
+      // below still prevents re-render within this tab.
+    }
+    setFoundingLockinClosed(true);
+  }, []);
+
+  const foundingLockinModal = shouldShowFoundingLockin ? (
+    <FoundingLockinModal
+      theme={theme}
+      onClose={markFoundingLockinSeenForSession}
+      onDismissedPermanently={() => {
+        markFoundingLockinSeenForSession();
+        void refreshAuth();
+      }}
+    />
+  ) : null;
+
   if (STANDALONE_ROUTES.includes(pathname)) {
     return (
       <>
         {children}
         {disclaimerModal}
+        {foundingLockinModal}
       </>
     );
   }
@@ -77,6 +146,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </main>
       <Footer theme={theme} />
       {disclaimerModal}
+      {foundingLockinModal}
     </div>
   );
 }

@@ -33,6 +33,8 @@ type SessionWithUser = {
     emailVerified: boolean;
     disclaimerAcknowledgedAt: string | null;
     disclaimerVersionAcknowledged: string | null;
+    foundingEligible: boolean;
+    foundingLockinDismissedAt: string | null;
   };
   session: SessionRecord;
 };
@@ -171,7 +173,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
               s.expires_at, s.last_rotated_at,
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
               u.email_verified_at,
-              u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged
+              u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
+              u.founding_eligible, u.founding_lockin_dismissed_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
@@ -196,6 +199,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
       emailVerified: !!row.email_verified_at,
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
+      foundingEligible: !!row.founding_eligible,
+      foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -225,7 +230,8 @@ function createSessionForUser(user: AuthUser) {
   const ackRow = db
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
-              stripe_subscription_id, email_verified_at
+              stripe_subscription_id, email_verified_at,
+              founding_eligible, founding_lockin_dismissed_at
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -234,6 +240,8 @@ function createSessionForUser(user: AuthUser) {
         disclaimer_version_acknowledged: string | null;
         stripe_subscription_id: string | null;
         email_verified_at: string | null;
+        founding_eligible: number | null;
+        founding_lockin_dismissed_at: string | null;
       }
     | undefined;
 
@@ -249,6 +257,8 @@ function createSessionForUser(user: AuthUser) {
       emailVerified: !!ackRow?.email_verified_at,
       disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
+      foundingEligible: !!ackRow?.founding_eligible,
+      foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
     },
   };
 }
@@ -985,6 +995,23 @@ export async function acknowledgeDisclaimerForRequest(request: NextRequest, vers
   return {
     acknowledgedAt: now,
     version,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+export async function dismissFoundingLockinForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const now = nowIso();
+  db.prepare(
+    'UPDATE users SET founding_lockin_dismissed_at = ?, updated_at = ? WHERE id = ?'
+  ).run(now, now, data.user.id);
+
+  return {
+    dismissedAt: now,
     rotatedToken: data.rotatedToken,
     csrfToken: data.csrfToken,
   };
