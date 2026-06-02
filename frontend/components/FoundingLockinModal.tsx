@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { X } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 
@@ -102,6 +103,7 @@ export default function FoundingLockinModal({
         style={{
           width: '100%',
           maxWidth: 520,
+          position: 'relative',
           backgroundColor: 'var(--bg-card)',
           color: 'var(--text-primary)',
           border: '1px solid var(--border-default)',
@@ -110,6 +112,31 @@ export default function FoundingLockinModal({
           padding: '28px 28px 24px',
         }}
       >
+        <button
+          type="button"
+          onClick={handleClose}
+          disabled={submitting}
+          aria-label="Close"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            width: 32,
+            height: 32,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-secondary)',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderRadius: 6,
+            cursor: submitting ? 'not-allowed' : 'pointer',
+            padding: 0,
+          }}
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+
         <div
           id="founding-lockin-modal-title"
           style={{
@@ -204,7 +231,7 @@ export default function FoundingLockinModal({
               cursor: submitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {submitting ? 'Saving…' : 'Remind me later'}
+            {submitting ? 'Saving…' : 'Close'}
           </button>
           <Link
             ref={buttonRef}
