@@ -379,7 +379,7 @@ export default function MaxPainPage() {
           <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: colors.muted }}>
             <div className="text-xs mb-1 flex items-center gap-1" style={{ color: colors.muted }}>
               Current Max Pain
-              <TooltipWrapper text="The live max pain price — the strike where the most option value would expire worthless, drawing price toward it into expiration. Calculated from the latest open-interest snapshot across all listed expirations and refreshed about every 30 seconds. This is the authoritative current value and is what drives the Implied Move below.">
+              <TooltipWrapper text="Whole-chain max pain: the single strike where the most option value across ALL listed expirations would expire worthless, pooled into one payout curve. Open interest only changes at settlement, so this is recomputed once a day (pre-market). It's the authoritative value and is what drives the Implied Move below.">
                 <Info size={12} />
               </TooltipWrapper>
             </div>
@@ -400,7 +400,7 @@ export default function MaxPainPage() {
               {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
             </div>
           </div>
-          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="The most recent point on the intraday Max Pain trend chart below. It's sampled from the time series feed (refreshing about every 10 seconds), so it can differ slightly from Current Max Pain when the two feeds update on different cadences. Use it to see where max pain sits along the plotted trend." theme={theme} />
+          <MetricCard title="Last Series Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Front-month max pain: the latest point on the trend chart below, computed from only the nearest (front-month) expiration and sampled through the day. Because it covers a single expiration — unlike the whole-chain Current Max Pain above — the two can sit a few points apart, and it stays roughly flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
