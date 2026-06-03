@@ -215,6 +215,12 @@ function initDb(): DatabaseSync {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code) WHERE referral_code IS NOT NULL'
   );
 
+  // One-time stamp marking that the "first paid subscription" welcome email
+  // was delivered. After it is set, subsequent paid checkouts (re-subscribes
+  // after a cancel) trigger a "welcome back" email instead, and pure upgrades
+  // (basic → premium with no intervening cancel) trigger nothing.
+  ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).

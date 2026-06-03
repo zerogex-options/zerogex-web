@@ -121,6 +121,106 @@ export async function sendReferralRewardEmail(
   }
 }
 
+// TODO: replace placeholder subject/body with final marketing copy.
+export async function sendPaidWelcomeEmail(to: string) {
+  const subject = 'Welcome to ZeroGEX';
+  const text = [
+    'Thanks for subscribing to ZeroGEX.',
+    '',
+    'Your account is active and you now have full access to your plan.',
+    '',
+    "Reply to this email if you have any questions — we'd love to hear from you.",
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome to ZeroGEX</h1>
+      <p>Thanks for subscribing. Your account is active and you now have full access to your plan.</p>
+      <p style="font-size: 13px; color: #555;">Reply to this email if you have any questions &mdash; we'd love to hear from you.</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// TODO: replace placeholder subject/body with final founding-member copy.
+export async function sendFoundingWelcomeEmail(to: string) {
+  const subject = 'Welcome, founding member';
+  const text = [
+    "Thank you for joining ZeroGEX as a founding member.",
+    '',
+    'Your founding subscription is active. As a thank-you for backing us early, the 25% lifetime discount will be applied automatically after your first year.',
+    '',
+    "Reply to this email any time — your feedback shapes what we build next.",
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome, founding member</h1>
+      <p>Thank you for joining ZeroGEX as a founding member.</p>
+      <p>Your founding subscription is active. As a thank-you for backing us early, the 25% lifetime discount will be applied automatically after your first year.</p>
+      <p style="font-size: 13px; color: #555;">Reply to this email any time &mdash; your feedback shapes what we build next.</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// TODO: replace placeholder subject/body with final re-subscribe copy.
+export async function sendWelcomeBackEmail(to: string) {
+  const subject = 'Welcome back to ZeroGEX';
+  const text = [
+    'Welcome back to ZeroGEX.',
+    '',
+    "Your subscription is active again — full access has been restored.",
+    '',
+    "If anything has changed about what you need from us, just reply to this email.",
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome back to ZeroGEX</h1>
+      <p>Your subscription is active again &mdash; full access has been restored.</p>
+      <p style="font-size: 13px; color: #555;">If anything has changed about what you need from us, just reply to this email.</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';

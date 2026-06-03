@@ -4,6 +4,11 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { TierId } from '@/core/auth';
 import {
+  sendFoundingWelcomeEmail,
+  sendPaidWelcomeEmail,
+  sendWelcomeBackEmail,
+} from '@/core/mailer';
+import {
   getCurrentPeriodEndUnix,
   getFoundingLifetimeCouponId,
   getStripe,
@@ -288,6 +293,103 @@ async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscrip
   }
 }
 
+type WelcomePreState = {
+  id: string;
+  email: string;
+  tier: TierId;
+  paid_welcome_email_sent_at: string | null;
+};
+
+function findWelcomePreState(customerId: string): WelcomePreState | null {
+  const row = getDb()
+    .prepare(
+      `SELECT id, email, tier, paid_welcome_email_sent_at
+       FROM users WHERE stripe_customer_id = ?`,
+    )
+    .get(customerId) as WelcomePreState | undefined;
+  return row ?? null;
+}
+
+// Fired after syncSubscriptionToUser on checkout.session.completed. Decides
+// between three states using the user's tier *before* the sync ran:
+//   1. First-time paid signup (tier was 'public', no prior welcome stamp)
+//      → founding vs regular welcome based on subscription metadata.founding
+//   2. Re-subscribe (tier was 'public', welcome stamp already exists)
+//      → welcome-back email
+//   3. Upgrade (tier was already paid) → no email
+// Webhook-level idempotency in stripe_webhook_events guarantees this runs
+// exactly once per checkout event; the first-time path additionally CAS-stamps
+// paid_welcome_email_sent_at so a duplicate event from any other source still
+// can't double-send.
+async function maybeSendPaidWelcomeEmail(
+  pre: WelcomePreState,
+  subscription: Stripe.Subscription,
+): Promise<void> {
+  if (pre.tier !== 'public') return;
+  if (!ACTIVE_STATUSES.has(subscription.status)) return;
+
+  const isFirstTime = !pre.paid_welcome_email_sent_at;
+
+  if (isFirstTime) {
+    const stamp = nowIso();
+    const updated = getDb()
+      .prepare(
+        `UPDATE users SET paid_welcome_email_sent_at = ?, updated_at = ?
+         WHERE id = ? AND paid_welcome_email_sent_at IS NULL`,
+      )
+      .run(stamp, stamp, pre.id) as { changes: number | bigint };
+    if (Number(updated.changes) === 0) return;
+
+    const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
+    const isFounding = subMetadata.founding === '1';
+    try {
+      if (isFounding) {
+        await sendFoundingWelcomeEmail(pre.email);
+      } else {
+        await sendPaidWelcomeEmail(pre.email);
+      }
+      logAudit({
+        type: 'paid_welcome_email_sent',
+        userId: pre.id,
+        email: pre.email,
+        message: isFounding
+          ? `Sent founding welcome email for sub ${subscription.id}`
+          : `Sent paid welcome email for sub ${subscription.id}`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'welcome email send failed';
+      logAudit({
+        type: 'paid_welcome_email_error',
+        userId: pre.id,
+        email: pre.email,
+        message: `Welcome email send failed for sub ${subscription.id}: ${message}`,
+      });
+      // Swallow — tier sync already succeeded and the stamp is set, so
+      // failure here is a non-critical email that needs manual follow-up
+      // rather than a webhook retry (which would no-op on the stamp).
+    }
+    return;
+  }
+
+  try {
+    await sendWelcomeBackEmail(pre.email);
+    logAudit({
+      type: 'paid_welcome_back_email_sent',
+      userId: pre.id,
+      email: pre.email,
+      message: `Sent welcome-back email for sub ${subscription.id}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'welcome-back email send failed';
+    logAudit({
+      type: 'paid_welcome_email_error',
+      userId: pre.id,
+      email: pre.email,
+      message: `Welcome-back email send failed for sub ${subscription.id}: ${message}`,
+    });
+  }
+}
+
 function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
@@ -382,7 +484,17 @@ export async function POST(request: NextRequest) {
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+          // Snapshot the user's pre-sync state so we can tell first-paid vs
+          // re-subscribe vs upgrade — the sync below overwrites the tier.
+          const customerId =
+            typeof subscription.customer === 'string'
+              ? subscription.customer
+              : subscription.customer.id;
+          const welcomePre = findWelcomePreState(customerId);
           await syncSubscriptionToUser(subscription);
+          if (welcomePre) {
+            await maybeSendPaidWelcomeEmail(welcomePre, subscription);
+          }
         }
         break;
       }
