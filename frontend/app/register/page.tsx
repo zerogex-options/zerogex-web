@@ -34,6 +34,20 @@ function RegisterPageContent() {
     return next;
   }, [searchParams]);
 
+  // Referral code from the inbound link (zerogex.com/register?ref=CODE). Persist
+  // it in a first-party cookie so the attribution survives the user browsing
+  // around (and the OAuth round-trip) before they actually register.
+  const refCode = useMemo(() => {
+    const raw = searchParams.get('ref');
+    return raw ? raw.trim() : null;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!refCode) return;
+    const maxAge = 60 * 60 * 24 * 30; // 30 days
+    document.cookie = `zgx_ref=${encodeURIComponent(refCode)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  }, [refCode]);
+
   // Where to send the user after successful register. /pricing is the default
   // because (post-cutover) new accounts are created at tier=public — they have
   // no premium access until they subscribe, and /pricing is the conversion path.
@@ -65,7 +79,7 @@ function RegisterPageContent() {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
         },
-        body: JSON.stringify({ email, password, tier: selectedTier }),
+        body: JSON.stringify({ email, password, tier: selectedTier, ref: refCode ?? undefined }),
       });
 
       const payload = (await response.json()) as { error?: string };

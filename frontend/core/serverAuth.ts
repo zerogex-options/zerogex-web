@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
 import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
+import { recordReferralSignup } from '@/core/referrals';
+
+// First-party cookie that carries an inbound ?ref= code from the landing page
+// through to account creation (incl. the OAuth round-trip).
+export const REFERRAL_COOKIE_NAME = 'zgx_ref';
 
 export type AuthUser = {
   id: string;
@@ -348,7 +353,13 @@ export function validateCsrf(request: NextRequest) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export async function registerUser(request: NextRequest, email: string, password: string, tier: TierId = 'public') {
+export async function registerUser(
+  request: NextRequest,
+  email: string,
+  password: string,
+  tier: TierId = 'public',
+  referralCode?: string | null,
+) {
   const normalizedEmail = email.trim().toLowerCase();
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
@@ -366,6 +377,16 @@ export async function registerUser(request: NextRequest, email: string, password
     `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt);
+
+  // Best-effort referral attribution — an invalid/absent code just leaves the
+  // signup organic and must never block account creation.
+  if (referralCode) {
+    try {
+      recordReferralSignup(user.id, referralCode);
+    } catch (err) {
+      console.error('[register] referral attribution failed:', err);
+    }
+  }
 
   appendAuditEvent({
     type: 'register',
@@ -387,8 +408,9 @@ export async function registerAndStartSession(
   email: string,
   password: string,
   tier: TierId = 'public',
+  referralCode?: string | null,
 ) {
-  await registerUser(request, email, password, tier);
+  await registerUser(request, email, password, tier, referralCode);
   const fullUser = getUserByEmail(email.trim().toLowerCase());
   if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
 
@@ -804,6 +826,18 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
           `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at)
            VALUES (?, ?, NULL, ?, ?, ?, ?)`
         ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt, oauthNow);
+
+        // Attribute the OAuth signup to any inbound referral the user carried
+        // through the provider round-trip in the zgx_ref cookie. Best-effort:
+        // a bad/absent code leaves the signup organic.
+        const refCode = request.cookies.get(REFERRAL_COOKIE_NAME)?.value;
+        if (refCode) {
+          try {
+            recordReferralSignup(user.id, refCode);
+          } catch (err) {
+            console.error('[oauth] referral attribution failed:', err);
+          }
+        }
       }
 
       const now = nowIso();

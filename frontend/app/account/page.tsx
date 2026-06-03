@@ -2,13 +2,23 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Copy, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 
 type IdentitiesPayload = {
   hasPassword: boolean;
   identities: Array<{ provider: 'google' | 'apple'; createdAt: string }>;
+};
+
+type ReferralPayload = {
+  enabled: boolean;
+  code?: string;
+  link?: string;
+  totalSignups?: number;
+  totalConverted?: number;
+  monthsEarned?: number;
+  bankedMonths?: number;
 };
 
 const PASSWORD_MIN_LENGTH = 12;
@@ -55,6 +65,8 @@ function AccountPageContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [settingPassword, setSettingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [referral, setReferral] = useState<ReferralPayload | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   const refreshIdentities = async () => {
     setIdentitiesLoading(true);
@@ -76,6 +88,35 @@ function AccountPageContent() {
   useEffect(() => {
     if (authSession?.authenticated) refreshIdentities();
   }, [authSession?.authenticated]);
+
+  useEffect(() => {
+    if (!authSession?.authenticated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/account/referrals', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = (await response.json()) as ReferralPayload;
+        if (!cancelled) setReferral(data);
+      } catch {
+        /* referral card is non-critical; silently skip on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSession?.authenticated]);
+
+  const handleCopyReferral = async () => {
+    if (!referral?.link) return;
+    try {
+      await navigator.clipboard.writeText(referral.link);
+      setReferralCopied(true);
+      setTimeout(() => setReferralCopied(false), 2000);
+    } catch {
+      setFeedback({ type: 'error', message: 'Could not copy link. Copy it manually.' });
+    }
+  };
 
   useEffect(() => {
     const link = searchParams?.get('link');
@@ -521,8 +562,93 @@ function AccountPageContent() {
             <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
           </button>
         </section>
+
+        {referral?.enabled && referral.link && (
+          <section style={{ marginTop: 24 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Gift size={18} /> Refer a friend
+            </h2>
+            <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+              Share your link. Your friend gets their first month free (or 10% off their first year on annual),
+              and you earn a free month every time a referral subscribes.
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 14px',
+                borderRadius: 12,
+                border: `1px solid ${C.border}`,
+                background: 'var(--bg-active)',
+              }}
+            >
+              <input
+                readOnly
+                value={referral.link}
+                onFocus={(e) => e.currentTarget.select()}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  color: C.light,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  outline: 'none',
+                  minWidth: 0,
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleCopyReferral}
+                style={{
+                  ...primaryLinkButtonStyle(),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Copy size={14} /> {referralCopied ? 'Copied!' : 'Copy link'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+              <ReferralStat label="Signed up" value={referral.totalSignups ?? 0} />
+              <ReferralStat label="Subscribed" value={referral.totalConverted ?? 0} />
+              <ReferralStat label="Free months earned" value={referral.monthsEarned ?? 0} />
+              {(referral.bankedMonths ?? 0) > 0 && (
+                <ReferralStat label="Months banked" value={referral.bankedMonths ?? 0} />
+              )}
+            </div>
+            {(referral.bankedMonths ?? 0) > 0 && (
+              <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
+                Banked months are applied automatically as account credit the next time you subscribe.
+              </p>
+            )}
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+function ReferralStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div
+      style={{
+        flex: '1 1 120px',
+        minWidth: 120,
+        padding: '14px 16px',
+        borderRadius: 12,
+        border: `1px solid ${C.border}`,
+        background: 'var(--bg-active)',
+      }}
+    >
+      <div style={{ fontSize: 24, fontWeight: 800, color: C.light }}>{value}</div>
+      <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{label}</div>
+    </div>
   );
 }
 

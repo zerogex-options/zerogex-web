@@ -13,13 +13,16 @@ import {
   isPaidSignupDisabled,
   skuToPriceId,
   type BillableTier,
+  type BillingCadence,
 } from '@/core/stripe';
+import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 
 type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   founding_eligible: number;
   email_verified_at: string | null;
+  referred_by_code: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -100,6 +103,7 @@ export async function POST(request: NextRequest) {
     cadence,
     foundingCode,
     foundingEligible: (row?.founding_eligible ?? 0) === 1,
+    referredByCode: row?.referred_by_code ?? null,
   });
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
@@ -201,21 +205,22 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
 }
 
 type DiscountResolution =
-  | { ok: true; couponId: string | null; foundingApplied: boolean }
+  | { ok: true; couponId: string | null; foundingApplied: boolean; referralApplied: boolean }
   | { ok: false; status: number; error: string };
 
 function resolveDiscount(input: {
   tier: BillableTier;
-  cadence: 'monthly' | 'annual';
+  cadence: BillingCadence;
   foundingCode: string | null;
   foundingEligible: boolean;
+  referredByCode: string | null;
 }): DiscountResolution {
   if (input.foundingCode) {
     const expected = getFoundingPromoCode();
@@ -244,13 +249,23 @@ function resolveDiscount(input: {
         error: 'Founding-member discount is not configured for this plan.',
       };
     }
-    return { ok: true, couponId, foundingApplied: true };
+    return { ok: true, couponId, foundingApplied: true, referralApplied: false };
   }
 
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
   if (promoCouponId) {
-    return { ok: true, couponId: promoCouponId, foundingApplied: false };
+    return { ok: true, couponId: promoCouponId, foundingApplied: false, referralApplied: false };
   }
 
-  return { ok: true, couponId: null, foundingApplied: false };
+  // Referee discount: a referred user gets first-month-free (monthly) or
+  // 10%-off-first-year (annual). Lowest priority — founding and the time-boxed
+  // promo above intentionally win so discounts never stack.
+  if (input.referredByCode && isReferralProgramEnabled()) {
+    const refereeCoupon = getRefereeCouponId(input.cadence);
+    if (refereeCoupon) {
+      return { ok: true, couponId: refereeCoupon, foundingApplied: false, referralApplied: true };
+    }
+  }
+
+  return { ok: true, couponId: null, foundingApplied: false, referralApplied: false };
 }

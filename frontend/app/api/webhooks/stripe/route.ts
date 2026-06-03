@@ -9,6 +9,7 @@ import {
   getStripe,
   priceIdToTier,
 } from '@/core/stripe';
+import { redeemBankedReferralCredit, rewardReferrerForConvertedReferee } from '@/core/referrals';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +18,10 @@ type UserRow = {
   email: string;
   founding_member_started_at: string | null;
   founding_lifetime_applied_at: string | null;
+  referred_by_code: string | null;
+  referral_credit_months: number;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -71,7 +76,8 @@ function nowIso() {
 function findUserByCustomerId(customerId: string): UserRow | null {
   const row = getDb()
     .prepare(
-      `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at
+      `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
+              referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -219,6 +225,67 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   });
 
   await maybeApplyFoundingLifetime(subscription.id, user);
+
+  if (isActive) {
+    await maybeProcessReferral(user, subscription);
+  }
+}
+
+// Referral side-effects, run once the subscription is active (first paid
+// invoice). Two independent concerns:
+//   1. If THIS user was referred, reward their referrer with a free month.
+//   2. If THIS user is a referrer with banked free months, cash them into a
+//      balance credit now that they have a priceable subscription.
+// All latched inside core/referrals so webhook retries can't double-apply, and
+// all best-effort: a failure here must never unwind the tier sync above.
+async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscription): Promise<void> {
+  try {
+    if (user.referred_by_code) {
+      const outcome = await rewardReferrerForConvertedReferee(user.id);
+      if (outcome.kind === 'credited') {
+        logAudit({
+          type: 'referral_reward_credited',
+          userId: user.id,
+          email: user.email,
+          message: `Referee ${user.id} converted; referrer credited ${outcome.amount} ${outcome.currency}`,
+        });
+      } else if (outcome.kind === 'banked') {
+        logAudit({
+          type: 'referral_reward_banked',
+          userId: user.id,
+          email: user.email,
+          message: `Referee ${user.id} converted; referrer free month banked (no active sub)`,
+        });
+      } else if (outcome.kind === 'error') {
+        logAudit({
+          type: 'referral_reward_error',
+          userId: user.id,
+          email: user.email,
+          message: `Crediting referrer for referee ${user.id} failed (banked as fallback): ${outcome.message}`,
+        });
+      }
+    }
+
+    if (user.referral_credit_months > 0) {
+      const redeemed = await redeemBankedReferralCredit(user, subscription);
+      if (redeemed) {
+        logAudit({
+          type: 'referral_credit_redeemed',
+          userId: user.id,
+          email: user.email,
+          message: `Banked referral credit redeemed: ${redeemed.amount} ${redeemed.currency}`,
+        });
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'referral processing error';
+    logAudit({
+      type: 'referral_processing_error',
+      userId: user.id,
+      email: user.email,
+      message: `Referral processing for ${user.id} failed: ${message}`,
+    });
+  }
 }
 
 function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
