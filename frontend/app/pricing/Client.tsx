@@ -340,6 +340,13 @@ function PricingClientInner({ promoActive: serverPromoActive }: Props) {
   const [cadence, setCadence] = useState<Cadence>('monthly');
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A referred visitor carries the zgx_ref cookie set when they landed on the
+  // ?ref= link; surface a reminder that their discount applies at checkout.
+  // Lazily derived (no effect) — this subtree is client-rendered (it bails out
+  // of SSR via useSearchParams), so reading document.cookie here is safe.
+  const [referralPresent] = useState(
+    () => typeof document !== 'undefined' && /(?:^|;\s*)zgx_ref=/.test(document.cookie),
+  );
 
   // Derived (not stored) from ?verified=1 / ?verify_error=… so we don't have
   // to setState inside an effect. If the user reloads the page, the param
@@ -592,6 +599,25 @@ function PricingClientInner({ promoActive: serverPromoActive }: Props) {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
             <CadenceToggle cadence={cadence} setCadence={setCadence} />
           </div>
+
+          {referralPresent && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--color-brand-primary)',
+                color: 'var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              🎉 A friend referred you — your discount is applied automatically at checkout.
+            </div>
+          )}
 
           {verifyNotice && (
             <div

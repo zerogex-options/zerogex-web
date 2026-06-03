@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { getAppUrl, getStripe } from '@/core/stripe';
 import type { BillingCadence } from '@/core/stripe';
+import { sendReferralRewardEmail } from '@/core/mailer';
 
 // Master switch. The whole program is inert (no codes minted, no discounts, no
 // rewards) unless the operator opts in, mirroring how /founding self-gates on
@@ -220,6 +221,10 @@ export async function rewardReferrerForConvertedReferee(
             monthly.currency,
             `Referral reward: 1 free month (referee ${refereeUserId})`,
           );
+          await notifyRewardSafe(referrer.email, {
+            kind: 'credited',
+            amountFormatted: formatAmount(monthly.amount, monthly.currency),
+          });
           return { kind: 'credited', amount: monthly.amount, currency: monthly.currency };
         }
       }
@@ -227,13 +232,40 @@ export async function rewardReferrerForConvertedReferee(
       // Fall through to banking so the reward isn't lost; record the reason.
       const message = err instanceof Error ? err.message : 'credit failed';
       bankMonth(referrer.id);
+      await notifyRewardSafe(referrer.email, { kind: 'banked' });
       return { kind: 'error', message };
     }
   }
 
   // No active subscription -> bank a month for later redemption.
   bankMonth(referrer.id);
+  await notifyRewardSafe(referrer.email, { kind: 'banked' });
   return { kind: 'banked' };
+}
+
+// Format a smallest-unit Stripe amount as a human currency string for email.
+function formatAmount(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
+  } catch {
+    return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
+
+// Best-effort reward notification — a mailer failure (e.g. Resend unset in a
+// given env) must never unwind the reward that was already granted.
+async function notifyRewardSafe(
+  email: string,
+  opts: { kind: 'credited' | 'banked'; amountFormatted?: string },
+): Promise<void> {
+  try {
+    await sendReferralRewardEmail(email, { ...opts, accountUrl: `${getAppUrl()}/account` });
+  } catch (err) {
+    console.error('[referrals] reward email failed:', err);
+  }
 }
 
 function bankMonth(userId: string): void {
@@ -296,9 +328,12 @@ export type ReferralStats = {
   totalConverted: number;
   monthsEarned: number;
   bankedMonths: number;
+  // Formatted account credit currently sitting on the referrer's Stripe
+  // balance that will auto-apply to their next invoice (undefined when none).
+  creditOnNextBill?: string;
 };
 
-export function getReferralStats(userId: string): ReferralStats {
+export async function getReferralStats(userId: string): Promise<ReferralStats> {
   const db = getDb();
   const code = getOrCreateReferralCode(userId);
 
@@ -311,9 +346,26 @@ export function getReferralStats(userId: string): ReferralStats {
     )
     .get(userId) as { total: number | null; converted: number | null };
 
-  const banked = db
-    .prepare('SELECT referral_credit_months FROM users WHERE id = ?')
-    .get(userId) as { referral_credit_months: number | null } | undefined;
+  const userRow = db
+    .prepare('SELECT referral_credit_months, stripe_customer_id FROM users WHERE id = ?')
+    .get(userId) as { referral_credit_months: number | null; stripe_customer_id: string | null } | undefined;
+
+  // A negative Stripe customer balance is credit Stripe will auto-apply to the
+  // next invoice. Best-effort: a Stripe hiccup just omits the figure.
+  let creditOnNextBill: string | undefined;
+  if (userRow?.stripe_customer_id) {
+    try {
+      const customer = await getStripe().customers.retrieve(userRow.stripe_customer_id);
+      if (!('deleted' in customer) || !customer.deleted) {
+        const balance = (customer as Stripe.Customer).balance;
+        if (typeof balance === 'number' && balance < 0) {
+          creditOnNextBill = formatAmount(-balance, (customer as Stripe.Customer).currency ?? 'usd');
+        }
+      }
+    } catch {
+      /* leave creditOnNextBill undefined */
+    }
+  }
 
   const totalConverted = Number(counts.converted ?? 0);
   return {
@@ -323,6 +375,7 @@ export function getReferralStats(userId: string): ReferralStats {
     totalConverted,
     // Every converted referral earns exactly one free month.
     monthsEarned: totalConverted,
-    bankedMonths: Number(banked?.referral_credit_months ?? 0),
+    bankedMonths: Number(userRow?.referral_credit_months ?? 0),
+    creditOnNextBill,
   };
 }

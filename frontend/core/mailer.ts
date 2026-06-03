@@ -70,6 +70,57 @@ export async function sendEmailVerification(to: string, verifyUrl: string) {
   }
 }
 
+// Sent to a referrer when one of their referrals subscribes and they earn a
+// free month. `kind` distinguishes an immediate Stripe balance credit (they
+// have an active subscription) from a banked month (they don't yet).
+export async function sendReferralRewardEmail(
+  to: string,
+  opts: { kind: 'credited' | 'banked'; amountFormatted?: string; accountUrl: string },
+) {
+  const safeLink = escapeHtml(opts.accountUrl);
+  const subject = '🎉 You earned a free month on ZeroGEX';
+
+  const rewardSentence =
+    opts.kind === 'credited'
+      ? `We've added ${opts.amountFormatted ?? 'a free month'} of account credit, which will be applied automatically to your next invoice.`
+      : "You've earned a free month — we'll apply it as account credit automatically the next time you subscribe.";
+
+  const text = [
+    'Great news!',
+    '',
+    `Someone you referred just subscribed to ZeroGEX. ${rewardSentence}`,
+    '',
+    'See your referrals and rewards here:',
+    opts.accountUrl,
+    '',
+    'Thanks for spreading the word.',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">🎉 You earned a free month</h1>
+      <p>Someone you referred just subscribed to ZeroGEX. ${escapeHtml(rewardSentence)}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">View your referrals</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">Thanks for spreading the word.</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';

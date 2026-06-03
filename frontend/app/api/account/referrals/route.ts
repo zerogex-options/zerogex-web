@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return off;
   }
 
-  const stats = getReferralStats(session.user.id);
+  const stats = await getReferralStats(session.user.id);
   const response = NextResponse.json({ enabled: true, ...stats });
   // User-specific payload; same no-store rationale as the identities route.
   response.headers.set('Cache-Control', 'no-store, private');

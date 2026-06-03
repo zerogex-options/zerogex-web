@@ -19,6 +19,7 @@ type ReferralPayload = {
   totalConverted?: number;
   monthsEarned?: number;
   bankedMonths?: number;
+  creditOnNextBill?: string;
 };
 
 const PASSWORD_MIN_LENGTH = 12;
@@ -622,6 +623,22 @@ function AccountPageContent() {
                 <ReferralStat label="Months banked" value={referral.bankedMonths ?? 0} />
               )}
             </div>
+            {referral.creditOnNextBill && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: '1px solid var(--color-bull)',
+                  background: 'var(--color-bull-soft)',
+                  color: 'var(--color-bull)',
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                {referral.creditOnNextBill} credit will be applied to your next bill.
+              </div>
+            )}
             {(referral.bankedMonths ?? 0) > 0 && (
               <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
                 Banked months are applied automatically as account credit the next time you subscribe.

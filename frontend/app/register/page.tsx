@@ -42,10 +42,18 @@ function RegisterPageContent() {
     return raw ? raw.trim() : null;
   }, [searchParams]);
 
+  // Drives the "you were referred" banner. True when a ?ref= code is on the URL
+  // OR a zgx_ref cookie from an earlier visit is still around.
+  const [referralPresent, setReferralPresent] = useState(false);
+
   useEffect(() => {
-    if (!refCode) return;
-    const maxAge = 60 * 60 * 24 * 30; // 30 days
-    document.cookie = `zgx_ref=${encodeURIComponent(refCode)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    if (refCode) {
+      const maxAge = 60 * 60 * 24 * 30; // 30 days
+      document.cookie = `zgx_ref=${encodeURIComponent(refCode)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      setReferralPresent(true);
+      return;
+    }
+    setReferralPresent(/(?:^|;\s*)zgx_ref=/.test(document.cookie));
   }, [refCode]);
 
   // Where to send the user after successful register. /pricing is the default
@@ -100,6 +108,11 @@ function RegisterPageContent() {
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
         <h1 className="text-3xl font-bold">Create account</h1>
+        {referralPresent && (
+          <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
+            🎉 A friend referred you — your discount is applied at checkout.
+          </div>
+        )}
         <p className="mt-3 text-[var(--color-text-secondary)]">
           New accounts have no premium access until they subscribe — you&rsquo;ll be sent to
           the pricing page after sign-up. Use a strong password (12+ characters).
