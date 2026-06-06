@@ -400,7 +400,7 @@ export default function MaxPainPage() {
               {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
             </div>
           </div>
-          <MetricCard title="Front-Month Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Front-month max pain: the latest point on the trend chart below, computed from only the nearest (front-month) expiration and sampled through the day. Because it covers a single expiration — unlike the whole-chain Current Max Pain above — the two can sit a few points apart, and it stays roughly flat intraday since open interest only changes at settlement." theme={theme} />
+          <MetricCard title="Nearest-Expiration Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Nearest-expiration max pain: the latest point on the trend chart below, computed from only the nearest non-expired expiration (often a daily or weekly contract) and sampled through the day. Because it covers a single expiration — unlike the whole-chain Current Max Pain above — the two can sit a few points apart, and it stays roughly flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
