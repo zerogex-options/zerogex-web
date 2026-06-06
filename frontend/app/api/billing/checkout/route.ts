@@ -263,6 +263,15 @@ function resolveDiscount(input: {
   if (input.referredByCode && isReferralProgramEnabled()) {
     const refereeCoupon = getRefereeCouponId(input.cadence);
     if (refereeCoupon) {
+      // Defense-in-depth: the monthly referee coupon is 100%-off (first month
+      // free). On an annual line item that same coupon would make the entire
+      // first YEAR free. The coupon is already keyed to cadence, but guard the
+      // env-misconfig case where the annual var was pointed at the monthly
+      // coupon — drop the discount rather than give away a free year.
+      const monthlyCoupon = getRefereeCouponId('monthly');
+      if (input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon) {
+        return { ok: true, couponId: null, foundingApplied: false, referralApplied: false };
+      }
       return { ok: true, couponId: refereeCoupon, foundingApplied: false, referralApplied: true };
     }
   }

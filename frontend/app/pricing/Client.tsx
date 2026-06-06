@@ -37,6 +37,7 @@ const DISPLAY = {
 
 type Props = {
   promoActive: boolean;
+  referralEnabled: boolean;
 };
 
 type TierAction =
@@ -331,7 +332,7 @@ export default function PricingClient(props: Props) {
   );
 }
 
-function PricingClientInner({ promoActive: serverPromoActive }: Props) {
+function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -344,9 +345,11 @@ function PricingClientInner({ promoActive: serverPromoActive }: Props) {
   // ?ref= link; surface a reminder that their discount applies at checkout.
   // Lazily derived (no effect) — this subtree is client-rendered (it bails out
   // of SSR via useSearchParams), so reading document.cookie here is safe.
-  const [referralPresent] = useState(
+  const [hasRefCookie] = useState(
     () => typeof document !== 'undefined' && /(?:^|;\s*)zgx_ref=/.test(document.cookie),
   );
+  // Only promise a discount when the program is actually live.
+  const referralPresent = hasRefCookie && referralEnabled;
 
   // Derived (not stored) from ?verified=1 / ?verify_error=… so we don't have
   // to setState inside an effect. If the user reloads the page, the param
