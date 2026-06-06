@@ -22,6 +22,7 @@ import {
   useMarketQuote,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useGexLevelHistory, levelsAt, type GexLevelSource } from '@/hooks/useGexLevelHistory';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -74,9 +75,17 @@ function tfToApi(tf: ChartTf): string {
 // proportionally — 1m → ~1.3h, 15m → ~3 sessions, 1h → ~12 sessions, 1d → ~16 weeks.
 const TARGET_VISIBLE_CANDLES = 78;
 
-// Match UnderlyingCandlesChart's proven baseline so the historical endpoint
-// reliably returns data for every interval (1m through 1d).
-const FETCH_WINDOW = 90;
+// Pull a wide candle window so the rewind scrubber can reach the start of the
+// session on every interval — a full 1m RTH session is 390 bars, so 480 covers
+// it (and any prior-session context the "With Prev" overlay needs) while
+// staying under useMarketHistorical's 576-bar cache ceiling. Only the latest
+// TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the rewind range.
+const FETCH_WINDOW = 480;
+
+// `/api/gex/historical` caps window_units at 90. At the chart's default 5m
+// timeframe that is a full session of flip/wall history; on 1m it reaches back
+// ~90 minutes, with the live running cache covering the rest from page open.
+const GEX_HISTORY_UNITS = 90;
 
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
@@ -273,6 +282,27 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const { rows: priceBarsAll } = useMarketHistorical(symbol, tfToApi(tf));
   const priceBars: PriceBar[] = useMemo(() => priceBarsAll.slice(-FETCH_WINDOW), [priceBarsAll]);
 
+  // Historical dealer-positioning levels for the rewind feature. This endpoint
+  // returns full summary rows over time — gamma_flip AND call_wall/put_wall —
+  // so it doubles as the backfill source for the session level cache below.
+  const { data: gexHistorical } = useApiData<GexLevelSource[] | null>(
+    `/api/gex/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${GEX_HISTORY_UNITS}`,
+    { refreshInterval: paused ? 0 : 1000 },
+  );
+
+  // Running per-session cache of flip/walls. Records the live summary while the
+  // chart is live (not paused), and is seeded with history below so rewinding
+  // can resolve the levels in effect at any earlier point in the session.
+  const { samples: levelSamples, backfill: backfillLevels } = useGexLevelHistory(
+    symbol,
+    (gexSummary ?? null) as GexLevelSource | null,
+    !paused,
+  );
+
+  useEffect(() => {
+    if (gexHistorical && gexHistorical.length > 0) backfillLevels(gexHistorical);
+  }, [gexHistorical, backfillLevels]);
+
   const openInterestRows = useMemo<OpenInterestRow[]>(() => {
     if (!openInterestData) return [];
     if (Array.isArray(openInterestData)) return openInterestData;
@@ -387,6 +417,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (allCandles.length === 0) return '';
     return nyDateFmt.format(new Date(allCandles[allCandles.length - 1].timestamp));
   }, [allCandles, nyDateFmt]);
+
+  // First candle index that belongs to the current (most recent) session. The
+  // rewind scrubber is clamped to [sessionStartIndex, last] so "rewind to the
+  // start" lands on the session open, not on prior-session bars that allCandles
+  // also carries for the With-Prev overlay.
+  const sessionStartIndex = useMemo(() => {
+    if (allCandles.length === 0 || !todaySessionDate) return 0;
+    for (let i = allCandles.length - 1; i >= 0; i -= 1) {
+      if (nyDateFmt.format(new Date(allCandles[i].timestamp)) !== todaySessionDate) return i + 1;
+    }
+    return 0;
+  }, [allCandles, todaySessionDate, nyDateFmt]);
 
   // Resolve the rewind anchor (a timestamp) to an index into allCandles. The
   // index becomes the right edge of the rendered window, so the chart shows the
@@ -661,26 +703,36 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return spot;
   }, [visibleCandles, spot]);
 
+  // Resolve the flip / call wall / put wall to draw. While rewinding, look them
+  // up from the session level cache at the scrubbed candle's time; otherwise use
+  // the live summary. Each field independently falls back to the live value when
+  // the cache has no recording for that moment (e.g. early in a 1m session).
+  const rewoundLevels = rewindActive && rewindIndex != null && allCandles[rewindIndex]
+    ? levelsAt(levelSamples, new Date(allCandles[rewindIndex].timestamp).getTime())
+    : null;
+  const effFlip = rewoundLevels?.flip ?? gexSummary?.gamma_flip ?? null;
+  const effCallWall = rewoundLevels?.callWall ?? gexSummary?.call_wall ?? null;
+  const effPutWall = rewoundLevels?.putWall ?? gexSummary?.put_wall ?? null;
+
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
     const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }> = [];
-    const flip = gexSummary?.gamma_flip;
-    if (flip != null && Number.isFinite(flip)) {
-      items.push({ y: yFor(flip), price: flip, color: FLIP_LINE, label: 'Gamma Flip' });
+    if (effFlip != null && Number.isFinite(effFlip)) {
+      items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
-    if (gexSummary?.call_wall != null && Number.isFinite(gexSummary.call_wall)) {
-      items.push({ y: yFor(gexSummary.call_wall), price: gexSummary.call_wall, color: KEY_LEVEL, label: 'Call Wall' });
+    if (effCallWall != null && Number.isFinite(effCallWall)) {
+      items.push({ y: yFor(effCallWall), price: effCallWall, color: KEY_LEVEL, label: 'Call Wall' });
     }
     if (chartSpot != null) {
       items.push({ y: yFor(chartSpot), price: chartSpot, color: SPOT_LINE, label: 'Spot', emphasized: true });
     }
-    if (gexSummary?.put_wall != null && Number.isFinite(gexSummary.put_wall)) {
-      items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL, label: 'Put Wall' });
+    if (effPutWall != null && Number.isFinite(effPutWall)) {
+      items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     return items;
-  }, [gexSummary, chartSpot, yBounds, PLOT_HEIGHT]);
+  }, [effFlip, effCallWall, effPutWall, chartSpot, yBounds, PLOT_HEIGHT]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -755,11 +807,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   }, [quote, gexSummary]);
 
   // ── Rewind scrubber wiring ──
-  // The slider runs over allCandles indices: 0 = oldest loaded plot point
-  // (session start), max = most recent. Toggling rewind on freezes live
-  // updates and seeds the anchor at "now"; toggling off resumes live.
+  // The slider runs over allCandles indices clamped to the current session:
+  // sessionStartIndex (session open) on the left, the latest bar on the right.
+  // Toggling rewind on freezes live updates and seeds the anchor at "now";
+  // toggling off resumes live.
   const rewindMax = Math.max(0, allCandles.length - 1);
-  const rewindValue = rewindIndex != null ? rewindIndex : rewindMax;
+  const rewindMin = Math.min(sessionStartIndex, rewindMax);
+  const rewindValue = clamp(rewindIndex != null ? rewindIndex : rewindMax, rewindMin, rewindMax);
   const rewindCandle = allCandles[rewindValue];
   const tsFmt = (ts: string | number | undefined): string => {
     if (ts == null) return '—';
@@ -775,10 +829,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         });
   };
   const rewindLabel = rewindCandle ? tsFmt(rewindCandle.timestamp) : '—';
-  const rewindStartLabel = allCandles[0] ? tsFmt(allCandles[0].timestamp) : '—';
+  const rewindStartLabel = allCandles[rewindMin] ? tsFmt(allCandles[rewindMin].timestamp) : '—';
   const rewindEndLabel = allCandles[rewindMax] ? tsFmt(allCandles[rewindMax].timestamp) : '—';
-  const rewindFillPct = rewindMax > 0 ? (rewindValue / rewindMax) * 100 : 100;
+  const rewindFillPct = rewindMax > rewindMin ? ((rewindValue - rewindMin) / (rewindMax - rewindMin)) * 100 : 100;
   const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+  const rewindAvailable = rewindMax > rewindMin;
 
   const toggleRewind = () => {
     if (rewindActive) {
@@ -797,7 +852,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   };
 
   const onRewindScrub = (raw: number) => {
-    const idx = clamp(Math.round(raw), 0, rewindMax);
+    const idx = clamp(Math.round(raw), rewindMin, rewindMax);
     const candle = allCandles[idx];
     if (candle) setRewindTime(new Date(candle.timestamp).getTime());
   };
@@ -1038,7 +1093,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             onClick={toggleRewind}
             className={toolbarBtnClass}
             style={toolbarBtnStyle(rewindActive)}
-            disabled={allCandles.length < 2}
+            disabled={!rewindActive && !rewindAvailable}
           >
             <Rewind size={12} />
             <span>Rewind</span>
@@ -1654,6 +1709,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider" style={{ color: SPOT_LINE }}>
               <Rewind size={12} />
               Rewind
+              <span className="font-normal normal-case tracking-normal" style={{ color: subtle }}>
+                · price, spot, gamma flip &amp; walls
+              </span>
             </span>
             <span className="font-mono tabular-nums" style={{ color: textPrimary }}>
               {rewindLabel}
@@ -1661,7 +1719,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </div>
           <input
             type="range"
-            min={0}
+            min={rewindMin}
             max={rewindMax}
             step={1}
             value={rewindValue}
