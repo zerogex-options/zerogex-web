@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { X } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
+import { FOUNDING_LOCKIN_DEADLINE_LABEL } from '@/core/foundingLockin';
+import FoundingLockinCountdown from './FoundingLockinCountdown';
 
 interface FoundingLockinModalProps {
   theme: Theme;
@@ -151,8 +153,8 @@ export default function FoundingLockinModal({
           Founding Member
         </div>
 
-        <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 16px 0', lineHeight: 1.3 }}>
-          Lock in your Founding Member rate before July 1
+        <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 14px 0', lineHeight: 1.3 }}>
+          Lock in your Founding Member rate
         </h2>
 
         <div
@@ -161,18 +163,19 @@ export default function FoundingLockinModal({
             fontSize: 14,
             lineHeight: 1.65,
             color: 'var(--text-secondary)',
-            marginBottom: 20,
+            marginBottom: 16,
           }}
         >
-          <p style={{ margin: '0 0 12px 0' }}>
+          <p style={{ margin: '0 0 10px 0' }}>
             You&apos;re on the Founding Member list, which means you can subscribe at the
             founding rate &mdash; locked in for life as long as your subscription stays active.
           </p>
           <p style={{ margin: 0 }}>
-            This offer expires <strong>July 1</strong>. Activate your subscription before then
-            to keep the founding price.
+            Offer ends <strong>{FOUNDING_LOCKIN_DEADLINE_LABEL}</strong>:
           </p>
         </div>
+
+        <FoundingLockinCountdown />
 
         {error && (
           <div
