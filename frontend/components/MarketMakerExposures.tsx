@@ -9,6 +9,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  Rewind,
   RotateCcw,
   Settings2,
   ZoomIn,
@@ -195,6 +196,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
+  // ── Rewind state ──
+  // When active, the chart freezes (paused) and a scrubber lets the user move
+  // the candlestick chart's right edge back through the session's plot points.
+  // The selected point is anchored to a candle *timestamp* (not an array index)
+  // so it stays put even if the shared historical cache appends a new bar.
+  const [rewindActive, setRewindActive] = useState<boolean>(false);
+  const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
@@ -216,6 +224,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setSelectedExpiry(DEFAULTS.selectedExpiry);
     setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
+    setRewindActive(false);
+    setRewindTime(null);
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
@@ -378,14 +388,37 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return nyDateFmt.format(new Date(allCandles[allCandles.length - 1].timestamp));
   }, [allCandles, nyDateFmt]);
 
+  // Resolve the rewind anchor (a timestamp) to an index into allCandles. The
+  // index becomes the right edge of the rendered window, so the chart shows the
+  // session "as it looked" at that moment. Returns null when not rewinding,
+  // which makes every downstream calc fall back to the live (latest) edge.
+  const rewindIndex = useMemo(() => {
+    if (!rewindActive || rewindTime == null || allCandles.length === 0) return null;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < allCandles.length; i += 1) {
+      const t = new Date(allCandles[i].timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      const dist = Math.abs(t - rewindTime);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }, [rewindActive, rewindTime, allCandles]);
+
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // Always render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
-    // tracks "now" regardless of session boundaries. With-Prev controls the
-    // opacity of prior-session bars in the render pass instead of dropping them
-    // (so the user can still see the full window).
-    return allCandles.slice(-TARGET_VISIBLE_CANDLES);
-  }, [allCandles]);
+    // Normally render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
+    // tracks "now" regardless of session boundaries. While rewinding, the right
+    // edge is pinned to the scrubbed candle instead, revealing the chart as it
+    // appeared at that earlier point. With-Prev controls the opacity of
+    // prior-session bars in the render pass instead of dropping them.
+    const rightEdge = rewindIndex != null ? rewindIndex : allCandles.length - 1;
+    const start = Math.max(0, rightEdge - TARGET_VISIBLE_CANDLES + 1);
+    return allCandles.slice(start, rightEdge + 1);
+  }, [allCandles, rewindIndex]);
 
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
@@ -399,6 +432,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   if (anchorSymbol !== symbol) {
     setAnchorSymbol(symbol);
     setYAnchor(null);
+    // A rewound point on the old symbol's timeline is meaningless on the new
+    // one, so drop back to live when the underlying changes.
+    setRewindActive(false);
+    setRewindTime(null);
   }
 
   if (yAnchor == null && spot != null && spot > 0) {
@@ -717,6 +754,54 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return ts ? new Date(ts).toLocaleTimeString() : '—';
   }, [quote, gexSummary]);
 
+  // ── Rewind scrubber wiring ──
+  // The slider runs over allCandles indices: 0 = oldest loaded plot point
+  // (session start), max = most recent. Toggling rewind on freezes live
+  // updates and seeds the anchor at "now"; toggling off resumes live.
+  const rewindMax = Math.max(0, allCandles.length - 1);
+  const rewindValue = rewindIndex != null ? rewindIndex : rewindMax;
+  const rewindCandle = allCandles[rewindValue];
+  const tsFmt = (ts: string | number | undefined): string => {
+    if (ts == null) return '—';
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime())
+      ? '—'
+      : d.toLocaleString('en-US', {
+          timeZone: 'America/New_York',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+  };
+  const rewindLabel = rewindCandle ? tsFmt(rewindCandle.timestamp) : '—';
+  const rewindStartLabel = allCandles[0] ? tsFmt(allCandles[0].timestamp) : '—';
+  const rewindEndLabel = allCandles[rewindMax] ? tsFmt(allCandles[rewindMax].timestamp) : '—';
+  const rewindFillPct = rewindMax > 0 ? (rewindValue / rewindMax) * 100 : 100;
+  const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+
+  const toggleRewind = () => {
+    if (rewindActive) {
+      // Resume live updates and snap the right edge back to "now".
+      setRewindActive(false);
+      setRewindTime(null);
+      setPaused(false);
+      return;
+    }
+    // Activating rewind freezes the chart and anchors the scrubber at the most
+    // recent plot point so the user can drag back toward the session start.
+    const last = allCandles[allCandles.length - 1];
+    setRewindActive(true);
+    setRewindTime(last ? new Date(last.timestamp).getTime() : null);
+    setPaused(true);
+  };
+
+  const onRewindScrub = (raw: number) => {
+    const idx = clamp(Math.round(raw), 0, rewindMax);
+    const candle = allCandles[idx];
+    if (candle) setRewindTime(new Date(candle.timestamp).getTime());
+  };
+
   if (!yBounds) {
     return (
       <div
@@ -943,6 +1028,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           {paused ? <Play size={12} /> : <Pause size={12} />}
         </button>
 
+        {/* Rewind — freezes the chart and reveals a scrubber to replay the
+            session back to any earlier plot point. Hidden in compact mode
+            (the dashboard tile has no room for the scrubber strip). */}
+        {!compact && (
+          <button
+            type="button"
+            title={rewindActive ? 'Exit rewind (return to live)' : 'Rewind through the session'}
+            onClick={toggleRewind}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(rewindActive)}
+            disabled={allCandles.length < 2}
+          >
+            <Rewind size={12} />
+            <span>Rewind</span>
+          </button>
+        )}
+
         {/* Reset all */}
         <button
           type="button"
@@ -1024,13 +1126,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
 
         <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
-          {paused && (
+          {rewindActive ? (
             <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1"
+              style={{ color: SPOT_LINE, backgroundColor: 'rgba(6, 182, 212, 0.16)' }}
             >
-              Paused
+              <Rewind size={10} />
+              Rewinding
             </span>
+          ) : (
+            paused && (
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              >
+                Paused
+              </span>
+            )
           )}
           <span>Updated {updatedLabel}</span>
         </div>
@@ -1532,6 +1644,51 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           );
         })()}
       </div>
+
+      {/* Rewind scrubber — a scroll bar with a circle slider that appears only
+          while rewind is active. Dragging it moves the chart's right edge from
+          the most recent plot point (right) back to the session start (left). */}
+      {!compact && rewindActive && (
+        <div className="px-5 pt-2 pb-3" style={{ borderTop: `1px solid ${border}` }}>
+          <div className="flex items-center justify-between mb-1.5 text-[11px]">
+            <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider" style={{ color: SPOT_LINE }}>
+              <Rewind size={12} />
+              Rewind
+            </span>
+            <span className="font-mono tabular-nums" style={{ color: textPrimary }}>
+              {rewindLabel}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={rewindMax}
+            step={1}
+            value={rewindValue}
+            onChange={(e) => onRewindScrub(Number(e.target.value))}
+            aria-label="Rewind to a point earlier in the session"
+            className="w-full h-2 cursor-pointer appearance-none rounded-full outline-none
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-[#06B6D4]
+              [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white
+              [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab
+              [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-[#06B6D4]
+              [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white
+              [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid"
+            style={{
+              background: `linear-gradient(to right, ${SPOT_LINE} 0%, ${SPOT_LINE} ${rewindFillPct}%, ${rewindTrackBg} ${rewindFillPct}%, ${rewindTrackBg} 100%)`,
+            }}
+          />
+          <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: subtle }}>
+            <span>Session start · {rewindStartLabel}</span>
+            <span>Most recent · {rewindEndLabel}</span>
+          </div>
+        </div>
+      )}
 
       {/* Legend strip — hidden in compact mode to reclaim vertical space. */}
       {!compact && (
