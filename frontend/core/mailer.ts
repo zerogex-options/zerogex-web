@@ -121,22 +121,32 @@ export async function sendReferralRewardEmail(
   }
 }
 
-// TODO: replace placeholder subject/body with final marketing copy.
 export async function sendPaidWelcomeEmail(to: string) {
-  const subject = 'Welcome to ZeroGEX';
+  const subject = 'Thank you for subscribing to ZeroGEX!';
   const text = [
-    'Thanks for subscribing to ZeroGEX.',
+    'Hello,',
     '',
-    'Your account is active and you now have full access to your plan.',
+    'I just wanted to personally thank you for subscribing to ZeroGEX.',
     '',
-    "Reply to this email if you have any questions — we'd love to hear from you.",
+    "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
+    '',
+    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
+    '',
+    'Thanks again — I really appreciate your support.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
   ].join('\n');
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
-      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome to ZeroGEX</h1>
-      <p>Thanks for subscribing. Your account is active and you now have full access to your plan.</p>
-      <p style="font-size: 13px; color: #555;">Reply to this email if you have any questions &mdash; we'd love to hear from you.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
+      <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
+      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
+      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
@@ -154,23 +164,32 @@ export async function sendPaidWelcomeEmail(to: string) {
   }
 }
 
-// TODO: replace placeholder subject/body with final founding-member copy.
 export async function sendFoundingWelcomeEmail(to: string) {
-  const subject = 'Welcome, founding member';
+  const subject = 'Thank you for becoming a ZeroGEX founding member!';
   const text = [
-    "Thank you for joining ZeroGEX as a founding member.",
+    'Hello,',
     '',
-    'Your founding subscription is active. As a thank-you for backing us early, the 25% lifetime discount will be applied automatically after your first year.',
+    'I just wanted to personally thank you for joining ZeroGEX as a founding member.',
     '',
-    "Reply to this email any time — your feedback shapes what we build next.",
+    "The founding tier exists because the people who back us this early genuinely shape what the platform becomes. ZeroGEX is still growing quickly, and founders like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. Your founding rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
+    '',
+    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and feedback from founding members carries real weight in how I'm shaping the product.",
+    '',
+    'Thanks again — I really appreciate your support.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
   ].join('\n');
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
-      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome, founding member</h1>
-      <p>Thank you for joining ZeroGEX as a founding member.</p>
-      <p>Your founding subscription is active. As a thank-you for backing us early, the 25% lifetime discount will be applied automatically after your first year.</p>
-      <p style="font-size: 13px; color: #555;">Reply to this email any time &mdash; your feedback shapes what we build next.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I just wanted to personally thank you for joining ZeroGEX as a founding member.</p>
+      <p>The founding tier exists because the people who back us this early genuinely shape what the platform becomes. ZeroGEX is still growing quickly, and founders like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. Your founding rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
+      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and feedback from founding members carries real weight in how I'm shaping the product.</p>
+      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
@@ -188,22 +207,32 @@ export async function sendFoundingWelcomeEmail(to: string) {
   }
 }
 
-// TODO: replace placeholder subject/body with final re-subscribe copy.
 export async function sendWelcomeBackEmail(to: string) {
-  const subject = 'Welcome back to ZeroGEX';
+  const subject = 'Welcome back to ZeroGEX!';
   const text = [
-    'Welcome back to ZeroGEX.',
+    'Hello,',
     '',
-    "Your subscription is active again — full access has been restored.",
+    'I just wanted to personally thank you for coming back to ZeroGEX — it really does mean a lot to have you here again.',
     '',
-    "If anything has changed about what you need from us, just reply to this email.",
+    "ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.",
+    '',
+    "Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
+    '',
+    'Thanks again — I really appreciate your support.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
   ].join('\n');
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
-      <h1 style="font-size: 20px; margin: 0 0 16px;">Welcome back to ZeroGEX</h1>
-      <p>Your subscription is active again &mdash; full access has been restored.</p>
-      <p style="font-size: 13px; color: #555;">If anything has changed about what you need from us, just reply to this email.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I just wanted to personally thank you for coming back to ZeroGEX &mdash; it really does mean a lot to have you here again.</p>
+      <p>ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.</p>
+      <p>Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
+      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
