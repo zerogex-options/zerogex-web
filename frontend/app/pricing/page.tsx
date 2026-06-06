@@ -1,4 +1,5 @@
 import { getActivePromoCouponId } from '@/core/stripe';
+import { isReferralProgramEnabled } from '@/core/referrals';
 import PricingClient from './Client';
 
 export const metadata = {
@@ -19,5 +20,5 @@ export const metadata = {
 export default function PricingPage() {
   const promoActive = getActivePromoCouponId({ tier: 'basic', cadence: 'monthly' }) !== null;
 
-  return <PricingClient promoActive={promoActive} />;
+  return <PricingClient promoActive={promoActive} referralEnabled={isReferralProgramEnabled()} />;
 }

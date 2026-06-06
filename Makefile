@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring clean deploy logo
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  make status     - Check PM2 status"
 	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, EMAIL_ONLY=yes)"
 	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
+	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -86,6 +87,12 @@ status:
 #   EMAIL_ONLY=yes          Print only email addresses, one per line
 users:
 	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+
+# Print the referral ledger from SQLite: every referrer->referee relationship
+# with its status (pending/rewarded) and dates, a per-referrer summary, and
+# banked free-month totals.
+referrals:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-referrals.mjs'
 
 # Promote every non-admin user to the pro tier. Walks each known non-admin
 # source tier (basic, public, and the legacy starter/elite ids) so any user
