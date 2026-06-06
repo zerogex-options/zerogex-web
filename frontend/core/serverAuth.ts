@@ -1044,6 +1044,14 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
     'UPDATE users SET founding_lockin_dismissed_at = ?, updated_at = ? WHERE id = ?'
   ).run(now, now, data.user.id);
 
+  appendAuditEvent({
+    type: 'founding_lockin_dismiss',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    message: 'User dismissed founding-rate lock-in reminder permanently',
+  });
+
   return {
     dismissedAt: now,
     rotatedToken: data.rotatedToken,
