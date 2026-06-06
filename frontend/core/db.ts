@@ -174,6 +174,47 @@ function initDb(): DatabaseSync {
   // reminder is gated on the user not yet paying).
   ensureColumn('users', 'founding_lockin_dismissed_at', 'TEXT');
 
+  // Double-sided referral program.
+  //   `referral_code`         - this user's own shareable code (lazily minted
+  //                             on first view of the account referral card).
+  //                             UNIQUE so an inbound ?ref= resolves to exactly
+  //                             one referrer.
+  //   `referred_by_code`      - the code this account signed up under, captured
+  //                             from the zgx_ref cookie / register body at
+  //                             account creation (NULL for organic signups).
+  //   `referral_credit_months`- free months OWED to this user as a referrer but
+  //                             not yet cashable because they had no active
+  //                             subscription at reward time. Redeemed as a
+  //                             Stripe balance credit the next time they
+  //                             subscribe, then reset to 0.
+  ensureColumn('users', 'referral_code', 'TEXT');
+  ensureColumn('users', 'referred_by_code', 'TEXT');
+  ensureColumn('users', 'referral_credit_months', 'INTEGER NOT NULL DEFAULT 0');
+
+  // Referral ledger: one row per (referrer -> referee) relationship. A user can
+  // only ever be referred once (UNIQUE referee_user_id), which is the primary
+  // anti-abuse latch. `status` walks pending -> rewarded; the referrer is only
+  // rewarded when the referee's first invoice is actually paid (subscription
+  // goes active), never at signup, so unpaid signups earn nothing.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id TEXT PRIMARY KEY,
+      referrer_user_id TEXT NOT NULL,
+      referee_user_id TEXT NOT NULL UNIQUE,
+      code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      converted_at TEXT,
+      rewarded_at TEXT,
+      FOREIGN KEY(referrer_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(referee_user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id);');
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code) WHERE referral_code IS NOT NULL'
+  );
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).

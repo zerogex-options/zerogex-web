@@ -4,6 +4,7 @@ import {
   enforceSignupRateLimit,
   getClientIp,
   issueCsrfCookie,
+  REFERRAL_COOKIE_NAME,
   registerAndStartSession,
   selfSignupTier,
   validateCsrf,
@@ -31,9 +32,16 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
     email?: string;
     password?: string;
+    ref?: string;
   };
   const email = body.email?.trim().toLowerCase();
   const password = body.password ?? '';
+  // Referral code: prefer the value posted with the form, fall back to the
+  // zgx_ref cookie dropped when the user first landed on a ?ref= link.
+  const referralCode =
+    (typeof body.ref === 'string' && body.ref.length > 0 ? body.ref : null) ??
+    request.cookies.get(REFERRAL_COOKIE_NAME)?.value ??
+    null;
 
   if (!email || !password || password.length < 12) {
     return NextResponse.json({ error: 'Email and password (12+ chars) are required' }, { status: 400 });
@@ -50,7 +58,13 @@ export async function POST(request: NextRequest) {
     // Post-cutover we ALSO auto-login the new account — the registration
     // form is the entry point for paid signup, and bouncing through /login
     // afterwards breaks the register→checkout flow.
-    const session = await registerAndStartSession(request, email, password, selfSignupTier());
+    const session = await registerAndStartSession(
+      request,
+      email,
+      password,
+      selfSignupTier(),
+      referralCode,
+    );
     const response = NextResponse.json({
       ok: true,
       user: session.user,

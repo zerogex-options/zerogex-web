@@ -34,6 +34,28 @@ function RegisterPageContent() {
     return next;
   }, [searchParams]);
 
+  // Referral code from the inbound link (zerogex.com/register?ref=CODE). Persist
+  // it in a first-party cookie so the attribution survives the user browsing
+  // around (and the OAuth round-trip) before they actually register.
+  const refCode = useMemo(() => {
+    const raw = searchParams.get('ref');
+    return raw ? raw.trim() : null;
+  }, [searchParams]);
+
+  // Drives the "you were referred" banner. True when a ?ref= code is on the URL
+  // OR a zgx_ref cookie from an earlier visit is still around.
+  const [referralPresent, setReferralPresent] = useState(false);
+
+  useEffect(() => {
+    if (refCode) {
+      const maxAge = 60 * 60 * 24 * 30; // 30 days
+      document.cookie = `zgx_ref=${encodeURIComponent(refCode)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      setReferralPresent(true);
+      return;
+    }
+    setReferralPresent(/(?:^|;\s*)zgx_ref=/.test(document.cookie));
+  }, [refCode]);
+
   // Where to send the user after successful register. /pricing is the default
   // because (post-cutover) new accounts are created at tier=public — they have
   // no premium access until they subscribe, and /pricing is the conversion path.
@@ -65,7 +87,7 @@ function RegisterPageContent() {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
         },
-        body: JSON.stringify({ email, password, tier: selectedTier }),
+        body: JSON.stringify({ email, password, tier: selectedTier, ref: refCode ?? undefined }),
       });
 
       const payload = (await response.json()) as { error?: string };
@@ -86,6 +108,11 @@ function RegisterPageContent() {
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
         <h1 className="text-3xl font-bold">Create account</h1>
+        {referralPresent && (
+          <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
+            🎉 A friend referred you — your discount is applied at checkout.
+          </div>
+        )}
         <p className="mt-3 text-[var(--color-text-secondary)]">
           New accounts have no premium access until they subscribe — you&rsquo;ll be sent to
           the pricing page after sign-up. Use a strong password (12+ characters).
