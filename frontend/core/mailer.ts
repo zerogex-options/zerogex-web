@@ -165,15 +165,15 @@ export async function sendPaidWelcomeEmail(to: string) {
 }
 
 export async function sendFoundingWelcomeEmail(to: string) {
-  const subject = 'Thank you for becoming a ZeroGEX founding member!';
+  const subject = 'Thank you for subscribing to ZeroGEX!';
   const text = [
     'Hello,',
     '',
-    'I just wanted to personally thank you for joining ZeroGEX as a founding member.',
+    'I just wanted to personally thank you for subscribing to ZeroGEX.',
     '',
-    "The founding tier exists because the people who back us this early genuinely shape what the platform becomes. ZeroGEX is still growing quickly, and founders like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. Your founding rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
+    "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
     '',
-    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and feedback from founding members carries real weight in how I'm shaping the product.",
+    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again — I really appreciate your support.',
     '',
@@ -185,9 +185,9 @@ export async function sendFoundingWelcomeEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I just wanted to personally thank you for joining ZeroGEX as a founding member.</p>
-      <p>The founding tier exists because the people who back us this early genuinely shape what the platform becomes. ZeroGEX is still growing quickly, and founders like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. Your founding rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
-      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and feedback from founding members carries real weight in how I'm shaping the product.</p>
+      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
+      <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
+      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
