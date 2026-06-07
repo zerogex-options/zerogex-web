@@ -9,6 +9,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  Rewind,
   RotateCcw,
   Settings2,
   ZoomIn,
@@ -21,6 +22,8 @@ import {
   useMarketQuote,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useGexLevelHistory, levelsAt, type GexLevelSource } from '@/hooks/useGexLevelHistory';
+import { useGexStrikeHistory, type HeatmapNetBucket } from '@/hooks/useGexStrikeHistory';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -73,9 +76,22 @@ function tfToApi(tf: ChartTf): string {
 // proportionally — 1m → ~1.3h, 15m → ~3 sessions, 1h → ~12 sessions, 1d → ~16 weeks.
 const TARGET_VISIBLE_CANDLES = 78;
 
-// Match UnderlyingCandlesChart's proven baseline so the historical endpoint
-// reliably returns data for every interval (1m through 1d).
-const FETCH_WINDOW = 90;
+// Pull a wide candle window so the rewind scrubber can reach the start of the
+// session on every interval — a full 1m RTH session is 390 bars, so 480 covers
+// it (and any prior-session context the "With Prev" overlay needs) while
+// staying under useMarketHistorical's 576-bar cache ceiling. Only the latest
+// TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the rewind range.
+const FETCH_WINDOW = 480;
+
+// `/api/gex/historical` caps window_units at 90. At the chart's default 5m
+// timeframe that is a full session of flip/wall history; on 1m it reaches back
+// ~90 minutes, with the live running cache covering the rest from page open.
+const GEX_HISTORY_UNITS = 90;
+
+// Per-strike net GEX history comes from the strike×time heatmap grid (the only
+// historical by-strike source). 300 buckets covers a full session at 5m/15m and
+// ~5h at 1m; the live recorder fills the remainder.
+const HEATMAP_UNITS = 300;
 
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
@@ -195,6 +211,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
+  // ── Rewind state ──
+  // When active, the chart freezes (paused) and a scrubber lets the user move
+  // the candlestick chart's right edge back through the session's plot points.
+  // The selected point is anchored to a candle *timestamp* (not an array index)
+  // so it stays put even if the shared historical cache appends a new bar.
+  const [rewindActive, setRewindActive] = useState<boolean>(false);
+  const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
@@ -216,6 +239,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setSelectedExpiry(DEFAULTS.selectedExpiry);
     setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
+    setRewindActive(false);
+    setRewindTime(null);
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
@@ -262,6 +287,38 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   );
   const { rows: priceBarsAll } = useMarketHistorical(symbol, tfToApi(tf));
   const priceBars: PriceBar[] = useMemo(() => priceBarsAll.slice(-FETCH_WINDOW), [priceBarsAll]);
+
+  // Historical dealer-positioning levels for the rewind feature. This endpoint
+  // returns full summary rows over time — gamma_flip AND call_wall/put_wall —
+  // so it doubles as the backfill source for the session level cache below.
+  const { data: gexHistorical } = useApiData<GexLevelSource[] | null>(
+    `/api/gex/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${GEX_HISTORY_UNITS}`,
+    { refreshInterval: paused ? 0 : 1000 },
+  );
+
+  // Per-strike net GEX over time (strike×time grid) — the historical source for
+  // the by-strike panels. Polled slowly: it only backfills *past* buckets (which
+  // don't change); the live recorder covers the most recent edge. Filtered by
+  // expiry to stay consistent with the panels' selectedExpiry view.
+  const heatmapExpiryParam =
+    selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
+  const { data: gexHeatmap } = useApiData<HeatmapNetBucket[] | null>(
+    `/api/gex/heatmap?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${HEATMAP_UNITS}${heatmapExpiryParam}`,
+    { refreshInterval: paused ? 0 : 30000 },
+  );
+
+  // Running per-session cache of flip/walls. Records the live summary while the
+  // chart is live (not paused), and is seeded with history below so rewinding
+  // can resolve the levels in effect at any earlier point in the session.
+  const { samples: levelSamples, backfill: backfillLevels } = useGexLevelHistory(
+    symbol,
+    (gexSummary ?? null) as GexLevelSource | null,
+    !paused,
+  );
+
+  useEffect(() => {
+    if (gexHistorical && gexHistorical.length > 0) backfillLevels(gexHistorical);
+  }, [gexHistorical, backfillLevels]);
 
   const openInterestRows = useMemo<OpenInterestRow[]>(() => {
     if (!openInterestData) return [];
@@ -338,6 +395,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return Array.from(grouped.values()).sort((a, b) => b.strike - a.strike);
   }, [filteredGexByStrike, filteredOiByStrike]);
 
+  // Timestamp of the current by-strike snapshot, used to bucket recordings.
+  const strikeTs = useMemo(() => {
+    const ts = gexByStrike && gexByStrike[0]?.timestamp;
+    const ms = ts ? new Date(ts).getTime() : NaN;
+    return Number.isFinite(ms) ? ms : null;
+  }, [gexByStrike]);
+
+  // Per-session recorder for the by-strike panels. Keyed by symbol+expiry so a
+  // changed expiry filter gets its own consistent timeline. backfillNet seeds
+  // full-session net GEX from the heatmap; the live feed adds call/put split
+  // and OI from page open onward.
+  const { snapshotAt: strikeSnapshotAt, backfillNet: backfillStrikeNet, liveCoverageStartMs } =
+    useGexStrikeHistory(`${symbol}|${selectedExpiry}`, strikeAggregations, strikeTs, !paused);
+
+  useEffect(() => {
+    if (gexHeatmap && gexHeatmap.length > 0) backfillStrikeNet(gexHeatmap);
+  }, [gexHeatmap, backfillStrikeNet]);
+
   const spot = useMemo(() => {
     const candidates = [quote?.close, gexSummary?.spot_price].filter((v) => Number.isFinite(Number(v)));
     return candidates.length > 0 ? Number(candidates[0]) : null;
@@ -378,14 +453,49 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return nyDateFmt.format(new Date(allCandles[allCandles.length - 1].timestamp));
   }, [allCandles, nyDateFmt]);
 
+  // First candle index that belongs to the current (most recent) session. The
+  // rewind scrubber is clamped to [sessionStartIndex, last] so "rewind to the
+  // start" lands on the session open, not on prior-session bars that allCandles
+  // also carries for the With-Prev overlay.
+  const sessionStartIndex = useMemo(() => {
+    if (allCandles.length === 0 || !todaySessionDate) return 0;
+    for (let i = allCandles.length - 1; i >= 0; i -= 1) {
+      if (nyDateFmt.format(new Date(allCandles[i].timestamp)) !== todaySessionDate) return i + 1;
+    }
+    return 0;
+  }, [allCandles, todaySessionDate, nyDateFmt]);
+
+  // Resolve the rewind anchor (a timestamp) to an index into allCandles. The
+  // index becomes the right edge of the rendered window, so the chart shows the
+  // session "as it looked" at that moment. Returns null when not rewinding,
+  // which makes every downstream calc fall back to the live (latest) edge.
+  const rewindIndex = useMemo(() => {
+    if (!rewindActive || rewindTime == null || allCandles.length === 0) return null;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < allCandles.length; i += 1) {
+      const t = new Date(allCandles[i].timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      const dist = Math.abs(t - rewindTime);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }, [rewindActive, rewindTime, allCandles]);
+
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // Always render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
-    // tracks "now" regardless of session boundaries. With-Prev controls the
-    // opacity of prior-session bars in the render pass instead of dropping them
-    // (so the user can still see the full window).
-    return allCandles.slice(-TARGET_VISIBLE_CANDLES);
-  }, [allCandles]);
+    // Normally render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
+    // tracks "now" regardless of session boundaries. While rewinding, the right
+    // edge is pinned to the scrubbed candle instead, revealing the chart as it
+    // appeared at that earlier point. With-Prev controls the opacity of
+    // prior-session bars in the render pass instead of dropping them.
+    const rightEdge = rewindIndex != null ? rewindIndex : allCandles.length - 1;
+    const start = Math.max(0, rightEdge - TARGET_VISIBLE_CANDLES + 1);
+    return allCandles.slice(start, rightEdge + 1);
+  }, [allCandles, rewindIndex]);
 
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
@@ -399,6 +509,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   if (anchorSymbol !== symbol) {
     setAnchorSymbol(symbol);
     setYAnchor(null);
+    // A rewound point on the old symbol's timeline is meaningless on the new
+    // one, so drop back to live when the underlying changes.
+    setRewindActive(false);
+    setRewindTime(null);
   }
 
   if (yAnchor == null && spot != null && spot > 0) {
@@ -470,10 +584,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return labels;
   }, [yBounds]);
 
+  // While rewinding, swap the live aggregation for the recorded snapshot at the
+  // scrubbed moment so the Gamma and Positions panels replay alongside the
+  // candles. Net GEX is backfilled to the full session; the call/put split and
+  // OI are present only from when recording began (liveCoverageStartMs).
+  const rewoundStrikeSnap = rewindActive && rewindIndex != null && allCandles[rewindIndex]
+    ? strikeSnapshotAt(new Date(allCandles[rewindIndex].timestamp).getTime())
+    : null;
+  const effStrikeAggregations = rewoundStrikeSnap?.strikes ?? strikeAggregations;
+  // If the rewound snapshot has no call/put split, render the panel as Net so it
+  // stays meaningful (net is available full-session) instead of going blank.
+  const effGexMode: 'split' | 'net' =
+    rewoundStrikeSnap && !rewoundStrikeSnap.hasSplit ? 'net' : gexMode;
+
   const visibleStrikes = useMemo(() => {
     if (!yBounds) return [] as StrikeAggregation[];
-    return strikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
-  }, [strikeAggregations, yBounds]);
+    return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
+  }, [effStrikeAggregations, yBounds]);
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -624,26 +751,36 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return spot;
   }, [visibleCandles, spot]);
 
+  // Resolve the flip / call wall / put wall to draw. While rewinding, look them
+  // up from the session level cache at the scrubbed candle's time; otherwise use
+  // the live summary. Each field independently falls back to the live value when
+  // the cache has no recording for that moment (e.g. early in a 1m session).
+  const rewoundLevels = rewindActive && rewindIndex != null && allCandles[rewindIndex]
+    ? levelsAt(levelSamples, new Date(allCandles[rewindIndex].timestamp).getTime())
+    : null;
+  const effFlip = rewoundLevels?.flip ?? gexSummary?.gamma_flip ?? null;
+  const effCallWall = rewoundLevels?.callWall ?? gexSummary?.call_wall ?? null;
+  const effPutWall = rewoundLevels?.putWall ?? gexSummary?.put_wall ?? null;
+
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
     const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }> = [];
-    const flip = gexSummary?.gamma_flip;
-    if (flip != null && Number.isFinite(flip)) {
-      items.push({ y: yFor(flip), price: flip, color: FLIP_LINE, label: 'Gamma Flip' });
+    if (effFlip != null && Number.isFinite(effFlip)) {
+      items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
-    if (gexSummary?.call_wall != null && Number.isFinite(gexSummary.call_wall)) {
-      items.push({ y: yFor(gexSummary.call_wall), price: gexSummary.call_wall, color: KEY_LEVEL, label: 'Call Wall' });
+    if (effCallWall != null && Number.isFinite(effCallWall)) {
+      items.push({ y: yFor(effCallWall), price: effCallWall, color: KEY_LEVEL, label: 'Call Wall' });
     }
     if (chartSpot != null) {
       items.push({ y: yFor(chartSpot), price: chartSpot, color: SPOT_LINE, label: 'Spot', emphasized: true });
     }
-    if (gexSummary?.put_wall != null && Number.isFinite(gexSummary.put_wall)) {
-      items.push({ y: yFor(gexSummary.put_wall), price: gexSummary.put_wall, color: KEY_LEVEL, label: 'Put Wall' });
+    if (effPutWall != null && Number.isFinite(effPutWall)) {
+      items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     return items;
-  }, [gexSummary, chartSpot, yBounds, PLOT_HEIGHT]);
+  }, [effFlip, effCallWall, effPutWall, chartSpot, yBounds, PLOT_HEIGHT]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -709,13 +846,69 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
   const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
   const dteValue = computeDte(dteSourceExpiry);
-  const dteLabel = dteValue != null ? `${dteValue}d` : '—';
+  // With all expirations selected there's no single DTE to show, so mirror the
+  // expiry chip and display "All" instead of the front-month's days-to-expiry.
+  const dteLabel = selectedExpiry === 'all' ? 'All' : dteValue != null ? `${dteValue}d` : '—';
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   const updatedLabel = useMemo(() => {
     const ts = quote?.timestamp || gexSummary?.timestamp;
     return ts ? new Date(ts).toLocaleTimeString() : '—';
   }, [quote, gexSummary]);
+
+  // ── Rewind scrubber wiring ──
+  // The slider runs over allCandles indices clamped to the current session:
+  // sessionStartIndex (session open) on the left, the latest bar on the right.
+  // Toggling rewind on freezes live updates and seeds the anchor at "now";
+  // toggling off resumes live.
+  const rewindMax = Math.max(0, allCandles.length - 1);
+  const rewindMin = Math.min(sessionStartIndex, rewindMax);
+  const rewindValue = clamp(rewindIndex != null ? rewindIndex : rewindMax, rewindMin, rewindMax);
+  const rewindCandle = allCandles[rewindValue];
+  const tsFmt = (ts: string | number | undefined): string => {
+    if (ts == null) return '—';
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime())
+      ? '—'
+      : d.toLocaleString('en-US', {
+          timeZone: 'America/New_York',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+  };
+  const rewindLabel = rewindCandle ? tsFmt(rewindCandle.timestamp) : '—';
+  const rewindStartLabel = allCandles[rewindMin] ? tsFmt(allCandles[rewindMin].timestamp) : '—';
+  const rewindEndLabel = allCandles[rewindMax] ? tsFmt(allCandles[rewindMax].timestamp) : '—';
+  const rewindFillPct = rewindMax > rewindMin ? ((rewindValue - rewindMin) / (rewindMax - rewindMin)) * 100 : 100;
+  const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+  const rewindAvailable = rewindMax > rewindMin;
+  // Coverage note for the by-strike panels: net GEX is backfilled to the full
+  // session, but call/put split + OI only exist from when recording began.
+  const splitCoverageLabel = liveCoverageStartMs != null ? tsFmt(liveCoverageStartMs) : null;
+
+  const toggleRewind = () => {
+    if (rewindActive) {
+      // Resume live updates and snap the right edge back to "now".
+      setRewindActive(false);
+      setRewindTime(null);
+      setPaused(false);
+      return;
+    }
+    // Activating rewind freezes the chart and anchors the scrubber at the most
+    // recent plot point so the user can drag back toward the session start.
+    const last = allCandles[allCandles.length - 1];
+    setRewindActive(true);
+    setRewindTime(last ? new Date(last.timestamp).getTime() : null);
+    setPaused(true);
+  };
+
+  const onRewindScrub = (raw: number) => {
+    const idx = clamp(Math.round(raw), rewindMin, rewindMax);
+    const candle = allCandles[idx];
+    if (candle) setRewindTime(new Date(candle.timestamp).getTime());
+  };
 
   if (!yBounds) {
     return (
@@ -861,7 +1054,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
 
         {/* DTE label (auto-derived) */}
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry (front month or selected)">
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
           <span>DTE {dteLabel}</span>
         </div>
 
@@ -942,6 +1135,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         >
           {paused ? <Play size={12} /> : <Pause size={12} />}
         </button>
+
+        {/* Rewind — freezes the chart and reveals a scrubber to replay the
+            session back to any earlier plot point. Hidden in compact mode
+            (the dashboard tile has no room for the scrubber strip). */}
+        {!compact && (
+          <button
+            type="button"
+            title={rewindActive ? 'Exit rewind (return to live)' : 'Rewind through the session'}
+            onClick={toggleRewind}
+            className={toolbarBtnClass}
+            style={toolbarBtnStyle(rewindActive)}
+            disabled={!rewindActive && !rewindAvailable}
+          >
+            <Rewind size={12} />
+            <span>Rewind</span>
+          </button>
+        )}
 
         {/* Reset all */}
         <button
@@ -1024,13 +1234,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
 
         <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
-          {paused && (
+          {rewindActive ? (
             <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1"
+              style={{ color: SPOT_LINE, backgroundColor: 'rgba(6, 182, 212, 0.16)' }}
             >
-              Paused
+              <Rewind size={10} />
+              Rewinding
             </span>
+          ) : (
+            paused && (
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              >
+                Paused
+              </span>
+            )
           )}
           <span>Updated {updatedLabel}</span>
         </div>
@@ -1180,7 +1400,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
-            if (gexMode === 'net') {
+            if (effGexMode === 'net') {
               const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
               const positive = s.netGex >= 0;
               return (
@@ -1250,7 +1470,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 textAnchor="middle"
                 fontWeight={600}
               >
-                Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
+                Gamma {effGexMode === 'split' ? '(Call / Put)' : '(Net)'}
               </text>
             </>
           )}
@@ -1492,7 +1712,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'middle' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  {gexMode === 'split' ? (
+                  {effGexMode === 'split' ? (
                     <>
                       <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
@@ -1532,6 +1752,60 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           );
         })()}
       </div>
+
+      {/* Rewind scrubber — a scroll bar with a circle slider that appears only
+          while rewind is active. Dragging it moves the chart's right edge from
+          the most recent plot point (right) back to the session start (left). */}
+      {!compact && rewindActive && (
+        <div className="px-5 pt-2 pb-3" style={{ borderTop: `1px solid ${border}` }}>
+          <div className="flex items-center justify-between mb-1.5 text-[11px]">
+            <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider" style={{ color: SPOT_LINE }}>
+              <Rewind size={12} />
+              Rewind
+              <span className="font-normal normal-case tracking-normal" style={{ color: subtle }}>
+                · price, levels, gamma &amp; positions
+              </span>
+            </span>
+            <span className="font-mono tabular-nums" style={{ color: textPrimary }}>
+              {rewindLabel}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={rewindMin}
+            max={rewindMax}
+            step={1}
+            value={rewindValue}
+            onChange={(e) => onRewindScrub(Number(e.target.value))}
+            aria-label="Rewind to a point earlier in the session"
+            className="w-full h-2 cursor-pointer appearance-none rounded-full outline-none
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-[#06B6D4]
+              [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white
+              [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab
+              [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-[#06B6D4]
+              [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white
+              [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid"
+            style={{
+              background: `linear-gradient(to right, ${SPOT_LINE} 0%, ${SPOT_LINE} ${rewindFillPct}%, ${rewindTrackBg} ${rewindFillPct}%, ${rewindTrackBg} 100%)`,
+            }}
+          />
+          <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: subtle }}>
+            <span>Session start · {rewindStartLabel}</span>
+            <span>Most recent · {rewindEndLabel}</span>
+          </div>
+          <div className="mt-1 text-[10px]" style={{ color: subtle }}>
+            Net gamma covers the full session.{' '}
+            {splitCoverageLabel
+              ? `Call/put split recorded from ${splitCoverageLabel}; OI is end-of-day (flat intraday).`
+              : 'Call/put split & OI record live while open.'}
+          </div>
+        </div>
+      )}
 
       {/* Legend strip — hidden in compact mode to reclaim vertical space. */}
       {!compact && (
