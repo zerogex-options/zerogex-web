@@ -4,12 +4,14 @@
  * replay the middle "Gamma" and right "Positions" panels, not just price and
  * the key levels.
  *
- * Why a recorder: `/api/gex/by-strike` and `/api/market/open-interest` are
- * snapshot-only (no date params), so there is no way to fetch historical
- * call/put split or OI per strike. We therefore record the live aggregation as
- * it ticks. The one field that *does* have history is net GEX per strike, via
- * the strike×time `/api/gex/heatmap` grid — `backfillNet()` seeds that across
- * the whole session.
+ * Why a recorder (and only a recorder): `/api/gex/by-strike` and
+ * `/api/market/open-interest` are snapshot-only, and the one historical
+ * per-strike source — the `/api/gex/heatmap` grid — reports net GEX on a
+ * *different basis* than the live by-strike aggregation (e.g. it doesn't sum
+ * across expirations the way the panels do with "Expiry All"), so mixing it in
+ * makes the rewound bars jump scale relative to the live view. We therefore
+ * record the live aggregation as it ticks and treat that as the single source
+ * of truth, which keeps every rewound frame on the same basis as "now".
  *
  * Keeping it light (the reason this doesn't cripple anything):
  *   - Samples are collapsed into one-minute buckets; the latest reading wins
@@ -21,9 +23,9 @@
  *     reads happen only while scrubbing. The buffer is module-scoped per symbol
  *     so it survives remounts within a session.
  *
- * Coverage: net GEX rewinds across the full session (heatmap backfill); the
- * call/put split and OI rewind back to when recording began (page open). Use
- * `liveCoverageStartMs` to message that boundary in the UI.
+ * Coverage: the Gamma and Positions panels rewind back to when recording began
+ * (page open); earlier scrub points resolve to the nearest recording. Use
+ * `coverageStartMs` to message that boundary in the UI.
  */
 
 'use client';
@@ -39,40 +41,10 @@ export interface StrikeAgg {
   putOi: number;
 }
 
-export interface StrikeSnapshot {
-  /** Bucket timestamp (ms epoch) the snapshot resolved to. */
-  t: number;
-  strikes: StrikeAgg[];
-  /** Whether this snapshot carries call/put GEX split (live-recorded). */
-  hasSplit: boolean;
-  /** Whether this snapshot carries call/put OI (live-recorded). */
-  hasOi: boolean;
-}
-
-/** A heatmap time bucket: per-strike net GEX over time (backfill source). */
-export interface HeatmapNetBucket {
-  timestamp?: string | null;
-  heatmap?: Array<{ strike?: number | string | null; net_gex?: number | string | null }> | null;
-}
-
-interface StrikeCell {
-  netGex: number | null;
-  callGex: number | null;
-  putGex: number | null;
-  callOi: number | null;
-  putOi: number | null;
-}
-
-interface StrikeBucket {
-  t: number;
-  cells: Map<number, StrikeCell>;
-  /** True once recorded from the live by-strike feed (has split + OI). */
-  live: boolean;
-}
-
 interface SymbolBuffer {
   sessionKey: string;
-  buckets: Map<number, StrikeBucket>;
+  /** bucketMs → recorded per-strike aggregation. */
+  buckets: Map<number, StrikeAgg[]>;
   /** Ascending bucket keys, kept sorted for binary-search lookups. */
   sortedKeys: number[];
   version: number;
@@ -94,12 +66,6 @@ function bucketOf(ms: number): number {
 
 function etDateKey(ms: number): string {
   return etDateFmt.format(new Date(ms));
-}
-
-function numOrNull(v: number | string | null | undefined): number | null {
-  if (v == null) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
 }
 
 function getBuffer(symbol: string): SymbolBuffer {
@@ -140,7 +106,6 @@ function insertKey(b: SymbolBuffer, bm: number): void {
   b.sortedKeys.splice(lo, 0, bm);
 }
 
-// Enforce the bucket cap by evicting the oldest buckets.
 function enforceCap(b: SymbolBuffer): void {
   while (b.sortedKeys.length > MAX_BUCKETS) {
     const oldest = b.sortedKeys.shift();
@@ -152,20 +117,10 @@ function enforceCap(b: SymbolBuffer): void {
 function recordLive(b: SymbolBuffer, tMs: number, strikes: StrikeAgg[]): boolean {
   ensureSession(b, etDateKey(tMs));
   const bm = bucketOf(tMs);
-  const cells = new Map<number, StrikeCell>();
-  for (const s of strikes) {
-    if (!Number.isFinite(s.strike)) continue;
-    cells.set(s.strike, {
-      netGex: Number.isFinite(s.netGex) ? s.netGex : null,
-      callGex: Number.isFinite(s.callGex) ? s.callGex : null,
-      putGex: Number.isFinite(s.putGex) ? s.putGex : null,
-      callOi: Number.isFinite(s.callOi) ? s.callOi : null,
-      putOi: Number.isFinite(s.putOi) ? s.putOi : null,
-    });
-  }
-  if (cells.size === 0) return false;
+  // Clone so later mutations of the source array can't alter the recording.
+  const snapshot = strikes.map((s) => ({ ...s }));
   const existed = b.buckets.has(bm);
-  b.buckets.set(bm, { t: bm, cells, live: true });
+  b.buckets.set(bm, snapshot);
   if (!existed) {
     insertKey(b, bm);
     enforceCap(b);
@@ -175,70 +130,8 @@ function recordLive(b: SymbolBuffer, tMs: number, strikes: StrikeAgg[]): boolean
   return false;
 }
 
-/** Seed per-strike net GEX from the heatmap grid, never overwriting live data. */
-function backfillNet(b: SymbolBuffer, rows: HeatmapNetBucket[]): boolean {
-  if (rows.length === 0) return false;
-  let latest = -Infinity;
-  for (const r of rows) {
-    if (!r.timestamp) continue;
-    const t = new Date(r.timestamp).getTime();
-    if (Number.isFinite(t) && t > latest) latest = t;
-  }
-  if (latest === -Infinity) return false;
-  ensureSession(b, etDateKey(latest));
-
-  let changed = false;
-  for (const r of rows) {
-    if (!r.timestamp || !r.heatmap) continue;
-    const t = new Date(r.timestamp).getTime();
-    if (!Number.isFinite(t) || etDateKey(t) !== b.sessionKey) continue;
-    const bm = bucketOf(t);
-    const existing = b.buckets.get(bm);
-    // Live buckets are authoritative; don't let a net-only seed clobber them.
-    if (existing?.live) continue;
-
-    const bucket: StrikeBucket = existing ?? { t: bm, cells: new Map(), live: false };
-    for (const cell of r.heatmap) {
-      const strike = numOrNull(cell.strike);
-      if (strike == null) continue;
-      const ng = numOrNull(cell.net_gex);
-      const cur = bucket.cells.get(strike);
-      if (!cur) {
-        bucket.cells.set(strike, { netGex: ng, callGex: null, putGex: null, callOi: null, putOi: null });
-        changed = true;
-      } else if (cur.netGex == null && ng != null) {
-        cur.netGex = ng;
-        changed = true;
-      }
-    }
-    if (!existing && bucket.cells.size > 0) {
-      b.buckets.set(bm, bucket);
-      insertKey(b, bm);
-      changed = true;
-    }
-  }
-  if (changed) enforceCap(b);
-  return changed;
-}
-
-// Nearest bucket (in either time direction) that was recorded from the live
-// by-strike feed, i.e. carries call/put split + OI.
-function nearestLiveKey(b: SymbolBuffer, target: number): number | null {
-  let best: number | null = null;
-  let bestDist = Infinity;
-  for (const k of b.sortedKeys) {
-    if (!b.buckets.get(k)?.live) continue;
-    const d = Math.abs(k - target);
-    if (d < bestDist) {
-      bestDist = d;
-      best = k;
-    }
-  }
-  return best;
-}
-
 /** Resolve the recorded snapshot at or before `tMs` (falling forward if none). */
-function snapshotAt(b: SymbolBuffer, tMs: number): StrikeSnapshot | null {
+function snapshotAt(b: SymbolBuffer, tMs: number): StrikeAgg[] | null {
   if (b.sortedKeys.length === 0) return null;
   const target = bucketOf(tMs);
   // Largest key <= target.
@@ -250,76 +143,22 @@ function snapshotAt(b: SymbolBuffer, tMs: number): StrikeSnapshot | null {
     else hi = mid;
   }
   const key = lo > 0 ? b.sortedKeys[lo - 1] : b.sortedKeys[0];
-  const bucket = b.buckets.get(key);
-  if (!bucket) return null;
-
-  // Clone the resolved bucket's cells (never mutate the stored buffer).
-  const cells = new Map<number, StrikeCell>();
-  let primaryHasOi = false;
-  bucket.cells.forEach((c, strike) => {
-    if (c.callOi != null || c.putOi != null) primaryHasOi = true;
-    cells.set(strike, { ...c });
-  });
-
-  // The resolved bucket is often a net-only heatmap backfill (e.g. when scrubbed
-  // to a candle's open time, which precedes the wall-clock minute the live feed
-  // recorded into). Open interest is end-of-day data — effectively flat
-  // intraday — so overlay the nearest live bucket's OI so the Positions panel
-  // stays populated. We intentionally do NOT overlay the call/put GEX split,
-  // which varies intraday and stays historically correct (Gamma falls back to
-  // Net when a moment predates split coverage).
-  if (!primaryHasOi) {
-    const liveKey = nearestLiveKey(b, target);
-    const live = liveKey != null ? b.buckets.get(liveKey) : undefined;
-    live?.cells.forEach((c, strike) => {
-      const cur = cells.get(strike) ?? {
-        netGex: null,
-        callGex: null,
-        putGex: null,
-        callOi: null,
-        putOi: null,
-      };
-      cur.callOi = c.callOi;
-      cur.putOi = c.putOi;
-      if (cur.netGex == null) cur.netGex = c.netGex;
-      cells.set(strike, cur);
-    });
-  }
-
-  let hasSplit = false;
-  let hasOi = false;
-  const strikes: StrikeAgg[] = [];
-  cells.forEach((cell, strike) => {
-    if (cell.callGex != null || cell.putGex != null) hasSplit = true;
-    if (cell.callOi != null || cell.putOi != null) hasOi = true;
-    strikes.push({
-      strike,
-      netGex: cell.netGex ?? 0,
-      callGex: cell.callGex ?? 0,
-      putGex: cell.putGex ?? 0,
-      callOi: cell.callOi ?? 0,
-      putOi: cell.putOi ?? 0,
-    });
-  });
-  // Match the live aggregation's ordering (strike descending).
-  strikes.sort((p, q) => q.strike - p.strike);
-  return { t: key, strikes, hasSplit, hasOi };
+  return b.buckets.get(key) ?? null;
 }
 
 export interface UseGexStrikeHistoryResult {
   /** Look up the recorded per-strike snapshot in effect at a timestamp. */
-  snapshotAt: (tMs: number) => StrikeSnapshot | null;
-  /** Seed per-strike net GEX from the heatmap grid (full-session history). */
-  backfillNet: (rows: HeatmapNetBucket[]) => void;
-  /** Earliest time for which call/put split + OI were recorded, or null. */
-  liveCoverageStartMs: number | null;
+  snapshotAt: (tMs: number) => StrikeAgg[] | null;
+  /** Earliest time for which per-strike data was recorded, or null. */
+  coverageStartMs: number | null;
 }
 
 /**
- * Record the live per-strike aggregation and expose lookup/backfill entry
- * points for the rewind feature.
+ * Record the live per-strike aggregation and expose a lookup for the rewind
+ * feature.
  *
- * @param symbol  underlying symbol (one buffer per symbol)
+ * @param symbol  buffer key (caller passes symbol+expiry so each filter view
+ *                gets its own consistent timeline)
  * @param strikes the current per-strike aggregation (what the panels render)
  * @param tMs     timestamp of `strikes` (ms epoch), or null to skip recording
  * @param record  whether to record (pass false while paused/rewinding)
@@ -347,22 +186,9 @@ export function useGexStrikeHistory(
     if (recordLive(b, tMs, strikes)) notify(b);
   }, [b, record, tMs, strikes]);
 
-  const backfill = useCallback(
-    (rows: HeatmapNetBucket[]) => {
-      if (backfillNet(b, rows)) notify(b);
-    },
-    [b],
-  );
-
   const lookup = useCallback((t: number) => snapshotAt(b, t), [b]);
 
-  let liveCoverageStartMs: number | null = null;
-  for (const key of b.sortedKeys) {
-    if (b.buckets.get(key)?.live) {
-      liveCoverageStartMs = key;
-      break;
-    }
-  }
+  const coverageStartMs = b.sortedKeys.length > 0 ? b.sortedKeys[0] : null;
 
-  return { snapshotAt: lookup, backfillNet: backfill, liveCoverageStartMs };
+  return { snapshotAt: lookup, coverageStartMs };
 }
