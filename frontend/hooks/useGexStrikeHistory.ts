@@ -221,6 +221,22 @@ function backfillNet(b: SymbolBuffer, rows: HeatmapNetBucket[]): boolean {
   return changed;
 }
 
+// Nearest bucket (in either time direction) that was recorded from the live
+// by-strike feed, i.e. carries call/put split + OI.
+function nearestLiveKey(b: SymbolBuffer, target: number): number | null {
+  let best: number | null = null;
+  let bestDist = Infinity;
+  for (const k of b.sortedKeys) {
+    if (!b.buckets.get(k)?.live) continue;
+    const d = Math.abs(k - target);
+    if (d < bestDist) {
+      bestDist = d;
+      best = k;
+    }
+  }
+  return best;
+}
+
 /** Resolve the recorded snapshot at or before `tMs` (falling forward if none). */
 function snapshotAt(b: SymbolBuffer, tMs: number): StrikeSnapshot | null {
   if (b.sortedKeys.length === 0) return null;
@@ -237,10 +253,43 @@ function snapshotAt(b: SymbolBuffer, tMs: number): StrikeSnapshot | null {
   const bucket = b.buckets.get(key);
   if (!bucket) return null;
 
+  // Clone the resolved bucket's cells (never mutate the stored buffer).
+  const cells = new Map<number, StrikeCell>();
+  let primaryHasOi = false;
+  bucket.cells.forEach((c, strike) => {
+    if (c.callOi != null || c.putOi != null) primaryHasOi = true;
+    cells.set(strike, { ...c });
+  });
+
+  // The resolved bucket is often a net-only heatmap backfill (e.g. when scrubbed
+  // to a candle's open time, which precedes the wall-clock minute the live feed
+  // recorded into). Open interest is end-of-day data — effectively flat
+  // intraday — so overlay the nearest live bucket's OI so the Positions panel
+  // stays populated. We intentionally do NOT overlay the call/put GEX split,
+  // which varies intraday and stays historically correct (Gamma falls back to
+  // Net when a moment predates split coverage).
+  if (!primaryHasOi) {
+    const liveKey = nearestLiveKey(b, target);
+    const live = liveKey != null ? b.buckets.get(liveKey) : undefined;
+    live?.cells.forEach((c, strike) => {
+      const cur = cells.get(strike) ?? {
+        netGex: null,
+        callGex: null,
+        putGex: null,
+        callOi: null,
+        putOi: null,
+      };
+      cur.callOi = c.callOi;
+      cur.putOi = c.putOi;
+      if (cur.netGex == null) cur.netGex = c.netGex;
+      cells.set(strike, cur);
+    });
+  }
+
   let hasSplit = false;
   let hasOi = false;
   const strikes: StrikeAgg[] = [];
-  bucket.cells.forEach((cell, strike) => {
+  cells.forEach((cell, strike) => {
     if (cell.callGex != null || cell.putGex != null) hasSplit = true;
     if (cell.callOi != null || cell.putOi != null) hasOi = true;
     strikes.push({

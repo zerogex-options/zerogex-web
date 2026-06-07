@@ -1799,7 +1799,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <div className="mt-1 text-[10px]" style={{ color: subtle }}>
             Net gamma covers the full session.{' '}
             {splitCoverageLabel
-              ? `Call/put split & OI recorded from ${splitCoverageLabel}.`
+              ? `Call/put split recorded from ${splitCoverageLabel}; OI is end-of-day (flat intraday).`
               : 'Call/put split & OI record live while open.'}
           </div>
         </div>
