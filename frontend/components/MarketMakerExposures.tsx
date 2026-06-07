@@ -23,6 +23,7 @@ import {
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useGexLevelHistory, levelsAt, type GexLevelSource } from '@/hooks/useGexLevelHistory';
+import { useGexStrikeHistory, type HeatmapNetBucket } from '@/hooks/useGexStrikeHistory';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
@@ -86,6 +87,11 @@ const FETCH_WINDOW = 480;
 // timeframe that is a full session of flip/wall history; on 1m it reaches back
 // ~90 minutes, with the live running cache covering the rest from page open.
 const GEX_HISTORY_UNITS = 90;
+
+// Per-strike net GEX history comes from the strike×time heatmap grid (the only
+// historical by-strike source). 300 buckets covers a full session at 5m/15m and
+// ~5h at 1m; the live recorder fills the remainder.
+const HEATMAP_UNITS = 300;
 
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
@@ -290,6 +296,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     { refreshInterval: paused ? 0 : 1000 },
   );
 
+  // Per-strike net GEX over time (strike×time grid) — the historical source for
+  // the by-strike panels. Polled slowly: it only backfills *past* buckets (which
+  // don't change); the live recorder covers the most recent edge. Filtered by
+  // expiry to stay consistent with the panels' selectedExpiry view.
+  const heatmapExpiryParam =
+    selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
+  const { data: gexHeatmap } = useApiData<HeatmapNetBucket[] | null>(
+    `/api/gex/heatmap?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${HEATMAP_UNITS}${heatmapExpiryParam}`,
+    { refreshInterval: paused ? 0 : 30000 },
+  );
+
   // Running per-session cache of flip/walls. Records the live summary while the
   // chart is live (not paused), and is seeded with history below so rewinding
   // can resolve the levels in effect at any earlier point in the session.
@@ -377,6 +394,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     return Array.from(grouped.values()).sort((a, b) => b.strike - a.strike);
   }, [filteredGexByStrike, filteredOiByStrike]);
+
+  // Timestamp of the current by-strike snapshot, used to bucket recordings.
+  const strikeTs = useMemo(() => {
+    const ts = gexByStrike && gexByStrike[0]?.timestamp;
+    const ms = ts ? new Date(ts).getTime() : NaN;
+    return Number.isFinite(ms) ? ms : null;
+  }, [gexByStrike]);
+
+  // Per-session recorder for the by-strike panels. Keyed by symbol+expiry so a
+  // changed expiry filter gets its own consistent timeline. backfillNet seeds
+  // full-session net GEX from the heatmap; the live feed adds call/put split
+  // and OI from page open onward.
+  const { snapshotAt: strikeSnapshotAt, backfillNet: backfillStrikeNet, liveCoverageStartMs } =
+    useGexStrikeHistory(`${symbol}|${selectedExpiry}`, strikeAggregations, strikeTs, !paused);
+
+  useEffect(() => {
+    if (gexHeatmap && gexHeatmap.length > 0) backfillStrikeNet(gexHeatmap);
+  }, [gexHeatmap, backfillStrikeNet]);
 
   const spot = useMemo(() => {
     const candidates = [quote?.close, gexSummary?.spot_price].filter((v) => Number.isFinite(Number(v)));
@@ -549,10 +584,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return labels;
   }, [yBounds]);
 
+  // While rewinding, swap the live aggregation for the recorded snapshot at the
+  // scrubbed moment so the Gamma and Positions panels replay alongside the
+  // candles. Net GEX is backfilled to the full session; the call/put split and
+  // OI are present only from when recording began (liveCoverageStartMs).
+  const rewoundStrikeSnap = rewindActive && rewindIndex != null && allCandles[rewindIndex]
+    ? strikeSnapshotAt(new Date(allCandles[rewindIndex].timestamp).getTime())
+    : null;
+  const effStrikeAggregations = rewoundStrikeSnap?.strikes ?? strikeAggregations;
+  // If the rewound snapshot has no call/put split, render the panel as Net so it
+  // stays meaningful (net is available full-session) instead of going blank.
+  const effGexMode: 'split' | 'net' =
+    rewoundStrikeSnap && !rewoundStrikeSnap.hasSplit ? 'net' : gexMode;
+
   const visibleStrikes = useMemo(() => {
     if (!yBounds) return [] as StrikeAggregation[];
-    return strikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
-  }, [strikeAggregations, yBounds]);
+    return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
+  }, [effStrikeAggregations, yBounds]);
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -834,6 +882,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const rewindFillPct = rewindMax > rewindMin ? ((rewindValue - rewindMin) / (rewindMax - rewindMin)) * 100 : 100;
   const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
   const rewindAvailable = rewindMax > rewindMin;
+  // Coverage note for the by-strike panels: net GEX is backfilled to the full
+  // session, but call/put split + OI only exist from when recording began.
+  const splitCoverageLabel = liveCoverageStartMs != null ? tsFmt(liveCoverageStartMs) : null;
 
   const toggleRewind = () => {
     if (rewindActive) {
@@ -1347,7 +1398,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
-            if (gexMode === 'net') {
+            if (effGexMode === 'net') {
               const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
               const positive = s.netGex >= 0;
               return (
@@ -1417,7 +1468,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 textAnchor="middle"
                 fontWeight={600}
               >
-                Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
+                Gamma {effGexMode === 'split' ? '(Call / Put)' : '(Net)'}
               </text>
             </>
           )}
@@ -1659,7 +1710,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'middle' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  {gexMode === 'split' ? (
+                  {effGexMode === 'split' ? (
                     <>
                       <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
@@ -1710,7 +1761,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               <Rewind size={12} />
               Rewind
               <span className="font-normal normal-case tracking-normal" style={{ color: subtle }}>
-                · price, spot, gamma flip &amp; walls
+                · price, levels, gamma &amp; positions
               </span>
             </span>
             <span className="font-mono tabular-nums" style={{ color: textPrimary }}>
@@ -1744,6 +1795,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: subtle }}>
             <span>Session start · {rewindStartLabel}</span>
             <span>Most recent · {rewindEndLabel}</span>
+          </div>
+          <div className="mt-1 text-[10px]" style={{ color: subtle }}>
+            Net gamma covers the full session.{' '}
+            {splitCoverageLabel
+              ? `Call/put split & OI recorded from ${splitCoverageLabel}.`
+              : 'Call/put split & OI record live while open.'}
           </div>
         </div>
       )}
