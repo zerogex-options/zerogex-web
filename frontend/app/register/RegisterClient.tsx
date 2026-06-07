@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCsrfToken } from '@/core/csrfClient';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -84,11 +85,17 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
     setError(null);
 
     try {
+      // Send the live zgx_csrf cookie value: a concurrent /api/auth/session
+      // (fired by the shared layout for a still-valid session) can overwrite
+      // the cookie after mount, leaving the captured copy stale and producing
+      // an intermittent "Invalid CSRF token". The cookie is what the server
+      // validates against.
+      const token = (await getCsrfToken()) || csrfToken;
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': token,
         },
         body: JSON.stringify({ email, password, tier: selectedTier, ref: refCode ?? undefined }),
       });

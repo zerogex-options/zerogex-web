@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCsrfToken } from '@/core/csrfClient';
 
 const PASSWORD_MIN_LENGTH = 12;
 
@@ -68,14 +69,12 @@ function ResetPasswordPageContent() {
     setStatus('loading');
     setErrorMessage(null);
 
-    let csrf = csrfToken;
-    if (!csrf) {
-      const fetched = await fetchCsrf();
-      if (fetched) {
-        setCsrfToken(fetched);
-        csrf = fetched;
-      }
-    }
+    // Echo the live zgx_csrf cookie value, not the copy captured at mount: a
+    // concurrent /api/auth/session (fired by the shared layout for a still-valid
+    // session) can overwrite the cookie afterward, making a stale copy fail with
+    // an intermittent "Invalid CSRF token". The cookie is the server's source of
+    // truth.
+    const csrf = (await getCsrfToken()) || csrfToken;
     if (!csrf) {
       setStatus('error');
       setErrorMessage('Unable to initialize secure request. Please refresh and try again.');

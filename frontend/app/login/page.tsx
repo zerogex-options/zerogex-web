@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCsrfToken } from '@/core/csrfClient';
 
 export default function LoginPage() {
   return (
@@ -50,7 +51,15 @@ function LoginPageContent() {
     setError(null);
 
     try {
-      const token = csrfToken || (await loadCsrf());
+      // Echo whatever value is in the zgx_csrf cookie *now* rather than the
+      // copy captured at mount. ClientLayout fetches /api/auth/session on every
+      // page (including this one); for a still-valid session that response
+      // rewrites zgx_csrf with the session's CSRF secret, racing the
+      // /api/auth/csrf call here. If session's write lands last, the mount-time
+      // token goes stale and the server sees header != cookie — the
+      // intermittent "Invalid CSRF token". Reading the cookie at submit time
+      // always matches whatever the server will compare against.
+      const token = (await getCsrfToken()) || csrfToken;
       if (!token) {
         setError('Unable to initialize secure login. Please refresh and try again.');
         return;
