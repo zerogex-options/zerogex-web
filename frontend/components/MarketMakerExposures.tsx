@@ -71,17 +71,25 @@ function tfToApi(tf: ChartTf): string {
   return tf === '1m' ? '1min' : tf === '5m' ? '5min' : '15min';
 }
 
-// Render exactly this many candles regardless of interval. At 78 the 5m
-// timeframe fills one full session (78 × 5min = 6.5h); other intervals scale
-// proportionally — 1m → ~1.3h, 15m → ~3 sessions, 1h → ~12 sessions, 1d → ~16 weeks.
-const TARGET_VISIBLE_CANDLES = 78;
+// How many candles each interval renders. A fixed count would make the visible
+// time span scale with the interval (78 bars = ~3 sessions at 15m but only
+// ~1.3h at 1m), which is why short intervals never reached the previous
+// session. Instead we size each interval to span a comparable, multi-session
+// lookback so 1m/5m show prior-session candles like 15m does. 1m is capped by
+// the 576-bar historical cache (~1.5 sessions); its candles render thin (see
+// the lowered width floor in the candle pass) but distinct.
+const VISIBLE_CANDLES_BY_TF: Record<ChartTf, number> = {
+  '1m': 540,
+  '5m': 234,
+  '15m': 78,
+};
+// The compact dashboard tile stays tight so it isn't crowded with bars.
+const COMPACT_VISIBLE_CANDLES = 78;
 
-// Pull a wide candle window so the rewind scrubber can reach the start of the
-// session on every interval — a full 1m RTH session is 390 bars, so 480 covers
-// it (and any prior-session context the "With Prev" overlay needs) while
-// staying under useMarketHistorical's 576-bar cache ceiling. Only the latest
-// TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the rewind range.
-const FETCH_WINDOW = 480;
+// Pull the full historical cache so the visible window can reach back across
+// sessions on every interval (and the rewind scrubber has the bars it needs).
+// 576 is useMarketHistorical's cache ceiling.
+const FETCH_WINDOW = 576;
 
 // `/api/gex/historical` caps window_units at 90. At the chart's default 5m
 // timeframe that is a full session of flip/wall history; on 1m it reaches back
@@ -470,17 +478,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return bestIdx;
   }, [rewindActive, rewindTime, allCandles]);
 
+  // Candles to show at once: enough to reach the previous session per interval
+  // (compact tile stays tight). Capped by what's actually loaded.
+  const visibleCount = compact ? COMPACT_VISIBLE_CANDLES : VISIBLE_CANDLES_BY_TF[tf];
+
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // Normally render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
+    // Normally render the latest `visibleCount` candles so the chart's right edge
     // tracks "now" regardless of session boundaries. While rewinding, the right
     // edge is pinned to the scrubbed candle instead, revealing the chart as it
     // appeared at that earlier point. With-Prev controls the opacity of
     // prior-session bars in the render pass instead of dropping them.
     const rightEdge = rewindIndex != null ? rewindIndex : allCandles.length - 1;
-    const start = Math.max(0, rightEdge - TARGET_VISIBLE_CANDLES + 1);
+    const start = Math.max(0, rightEdge - visibleCount + 1);
     return allCandles.slice(start, rightEdge + 1);
-  }, [allCandles, rewindIndex]);
+  }, [allCandles, rewindIndex, visibleCount]);
 
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
@@ -1301,7 +1313,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           ) : (
             (() => {
               const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
-              const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
+              // Floor scales with spacing so dense intervals (e.g. ~540 1m bars)
+              // render as thin but distinct bars instead of overlapping into a
+              // solid block, while sparse intervals keep chunky candles.
+              const baseCandleW = Math.max(Math.min(2, xStep * 0.8), Math.min(8, xStep * 0.6));
               return visibleCandles.map((c, i) => {
                 const x = xForTime(new Date(c.timestamp).getTime());
                 const yO = yForPrice(c.open);
