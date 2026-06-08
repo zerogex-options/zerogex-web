@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import {
   useGEXSummary,
@@ -60,6 +60,59 @@ type OpenInterestApiResponse = {
   results?: Record<string, unknown>[];
 };
 
+type GexByStrikeRow = {
+  strike?: number | string;
+  expiration?: string;
+  distance_from_spot?: number | string | null;
+  net_gex?: number | string | null;
+  call_gex?: number | string | null;
+  put_gex?: number | string | null;
+  call_oi?: number | string | null;
+  put_oi?: number | string | null;
+  call_volume?: number | string | null;
+  put_volume?: number | string | null;
+  vanna_exposure?: number | string | null;
+  charm_exposure?: number | string | null;
+};
+
+// Aggregate raw by-strike rows into per-strike totals. Shared by the chart
+// (single-select expiration filter) and the snapshot table (multi-select
+// expiration filter) — each caller passes a different pre-filtered slice.
+function aggregateStrikes(rows: GexByStrikeRow[] | null | undefined): StrikeAggregate[] {
+  const grouped = new Map<string, StrikeAggregate>();
+  (rows || []).forEach((row) => {
+    const strike = Number(row.strike);
+    const key = strike.toFixed(2);
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        strike,
+        distanceFromSpot: Number(row.distance_from_spot || 0),
+        netGexM: 0,
+        callGexM: 0,
+        putGexM: 0,
+        callOi: 0,
+        putOi: 0,
+        callVolume: 0,
+        putVolume: 0,
+        vannaM: 0,
+        charmM: 0,
+      });
+    }
+    const current = grouped.get(key)!;
+    current.netGexM += Number(row.net_gex || 0) / 1000000;
+    current.callGexM += Number(row.call_gex || 0) / 1000000;
+    current.putGexM += Number(row.put_gex || 0) / 1000000;
+    current.callOi += Number(row.call_oi || 0);
+    current.putOi += Number(row.put_oi || 0);
+    current.callVolume += Number(row.call_volume || 0);
+    current.putVolume += Number(row.put_volume || 0);
+    current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
+    current.charmM += Number(row.charm_exposure || 0) / 1000000;
+    current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
+  });
+  return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
+}
+
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
@@ -116,50 +169,27 @@ export default function GammaExposurePage() {
   }, [gexByStrike]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
+  const [chartSelectedExpiration, setChartSelectedExpiration] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [vizTab, setVizTab] = useState<'heatmap' | 'mmx'>('heatmap');
 
-  // Aggregate by-strike data for the chart and table
+  // Aggregate by-strike data for the table (respects table's multi-select).
   const strikeData = useMemo(() => {
     const selected = selectedExpirations === null ? expirationOptions : selectedExpirations;
     const activeExpirations = new Set(selected);
     const filteredSource = (gexByStrike || []).filter((row) => activeExpirations.has(String(row.expiration)));
-
-    const grouped = new Map<string, StrikeAggregate>();
-    filteredSource.forEach((row) => {
-      const strike = Number(row.strike);
-      const key = strike.toFixed(2);
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          strike,
-          distanceFromSpot: Number(row.distance_from_spot || 0),
-          netGexM: 0,
-          callGexM: 0,
-          putGexM: 0,
-          callOi: 0,
-          putOi: 0,
-          callVolume: 0,
-          putVolume: 0,
-          vannaM: 0,
-          charmM: 0,
-        });
-      }
-      const current = grouped.get(key)!;
-      current.netGexM += Number(row.net_gex || 0) / 1000000;
-      current.callGexM += Number(row.call_gex || 0) / 1000000;
-      current.putGexM += Number(row.put_gex || 0) / 1000000;
-      current.callOi += Number(row.call_oi || 0);
-      current.putOi += Number(row.put_oi || 0);
-      current.callVolume += Number(row.call_volume || 0);
-      current.putVolume += Number(row.put_volume || 0);
-      current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
-      current.charmM += Number(row.charm_exposure || 0) / 1000000;
-      current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
-    });
-
-    return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
+    return aggregateStrikes(filteredSource as GexByStrikeRow[]);
   }, [gexByStrike, selectedExpirations, expirationOptions]);
+
+  // Aggregate by-strike data for the GEX-profile chart (respects the chart's
+  // single-select expiration dropdown, independent of the table's filter).
+  const chartStrikeData = useMemo(() => {
+    const filteredSource = chartSelectedExpiration === 'all'
+      ? (gexByStrike || [])
+      : (gexByStrike || []).filter((row) => String(row.expiration) === chartSelectedExpiration);
+    return aggregateStrikes(filteredSource as GexByStrikeRow[]);
+  }, [gexByStrike, chartSelectedExpiration]);
 
   const sortedRows = useMemo(() => {
     const cloned = [...strikeData];
@@ -179,13 +209,13 @@ export default function GammaExposurePage() {
   // expansion of the bar axis — see GexProfileChart).
   const profileStrikeData = useMemo(
     () =>
-      strikeData.map((row) => ({
+      chartStrikeData.map((row) => ({
         strike: row.strike,
         netGex: row.netGexM * 1_000_000,
         callGex: row.callGexM * 1_000_000,
         putGex: row.putGexM * 1_000_000,
       })),
-    [strikeData],
+    [chartStrikeData],
   );
 
   // Metric computations
@@ -311,6 +341,45 @@ export default function GammaExposurePage() {
     setSortDir('desc');
   };
 
+  // Strike closest to spot — used to center the snapshot table on the
+  // most actionable row when it first renders. Recomputes only when the
+  // visible row set or spot changes, not on every spot tick (closestStrike
+  // stays the same until spot crosses a strike-spacing midpoint).
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const closestStrikeToSpot = useMemo<number | null>(() => {
+    const spot = quoteData?.close;
+    if (spot == null || !Number.isFinite(spot) || sortedRows.length === 0) return null;
+    let best = sortedRows[0].strike;
+    let bestDist = Math.abs(best - spot);
+    for (const row of sortedRows) {
+      const dist = Math.abs(row.strike - spot);
+      if (dist < bestDist) {
+        best = row.strike;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }, [sortedRows, quoteData?.close]);
+
+  // Center the scroll on the closest-to-spot row whenever the row set
+  // changes meaningfully (initial load, sort change, expiration filter
+  // change, or spot crossing a strike midpoint). useLayoutEffect runs
+  // before paint so the user never sees a flash of top-aligned scroll.
+  useLayoutEffect(() => {
+    if (closestStrikeToSpot == null) return;
+    const container = tableScrollRef.current;
+    if (!container) return;
+    const row = container.querySelector(`tr[data-strike="${closestStrikeToSpot}"]`);
+    if (!(row instanceof HTMLElement)) return;
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const rowOffsetWithinScroll = rowRect.top - containerRect.top + container.scrollTop;
+    container.scrollTop = Math.max(
+      0,
+      rowOffsetWithinScroll - container.clientHeight / 2 + row.clientHeight / 2,
+    );
+  }, [closestStrikeToSpot, sortKey, sortDir]);
+
   if (gexLoading && !gexData) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -376,6 +445,9 @@ export default function GammaExposurePage() {
             gammaFlip={gexData?.gamma_flip}
             callWall={gexData?.call_wall}
             putWall={gexData?.put_wall}
+            expirationOptions={expirationOptions}
+            selectedExpiration={chartSelectedExpiration}
+            onSelectedExpirationChange={setChartSelectedExpiration}
           />
         </div>
       </section>
@@ -481,9 +553,13 @@ export default function GammaExposurePage() {
                   })}
                 </div>
 
-                <div className="overflow-x-auto">
+                <div
+                  ref={tableScrollRef}
+                  className="overflow-auto"
+                  style={{ maxHeight: 480 }}
+                >
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 z-10" style={{ backgroundColor: cardBg }}>
                       <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
                         <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
                         <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
@@ -505,7 +581,15 @@ export default function GammaExposurePage() {
                         </tr>
                       ) : (
                         sortedRows.map((row) => (
-                          <tr key={row.strike} className="border-b" style={{ borderColor: borderColor }}>
+                          <tr
+                            key={row.strike}
+                            data-strike={row.strike}
+                            className="border-b"
+                            style={{
+                              borderColor: borderColor,
+                              backgroundColor: row.strike === closestStrikeToSpot ? 'var(--color-info-soft)' : undefined,
+                            }}
+                          >
                             <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
                             <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
                             <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>

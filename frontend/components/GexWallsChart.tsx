@@ -63,7 +63,7 @@ interface GexWallsChartProps {
   byStrikeFallback?: Array<{ strike?: number | string; call_oi?: number | string | null; put_oi?: number | string | null }> | null;
 }
 
-type DisplayMode = 'oi' | 'exposure';
+type DisplayMode = 'oi' | 'gamma';
 
 type ChartRow = {
   strike: number;
@@ -79,15 +79,15 @@ function asNum(value: unknown): number {
 
 function formatAxisValue(value: number, mode: DisplayMode): string {
   const abs = Math.abs(value);
-  const prefix = mode === 'exposure' ? '$' : '';
+  const prefix = mode === 'gamma' ? '$' : '';
   if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B`;
   if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M`;
   if (abs >= 1e3) return `${prefix}${(value / 1e3).toFixed(0)}k`;
-  return `${prefix}${value.toFixed(mode === 'exposure' ? 2 : 0)}`;
+  return `${prefix}${value.toFixed(mode === 'gamma' ? 2 : 0)}`;
 }
 
 function formatTooltipValue(value: number, mode: DisplayMode): string {
-  if (mode === 'exposure') {
+  if (mode === 'gamma') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   return value.toLocaleString();
@@ -105,7 +105,7 @@ function WallMapTooltip({
   mode: DisplayMode;
 }) {
   if (!active || !payload?.length) return null;
-  const unitLabel = mode === 'oi' ? 'OI' : 'Exposure';
+  const unitLabel = mode === 'oi' ? 'OI' : '$ Gamma';
   return (
     <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)' }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
@@ -279,11 +279,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
-        Call {displayMode === 'oi' ? 'OI' : 'Exposure'}
+        Call {displayMode === 'oi' ? 'OI' : '$ Gamma'}
       </div>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
-        Put {displayMode === 'oi' ? 'OI' : 'Exposure'}
+        Put {displayMode === 'oi' ? 'OI' : '$ Gamma'}
       </div>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#FFD700' }} />
@@ -304,9 +304,9 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              OPEN INTEREST &amp; EXPOSURE BY STRIKE
+              OPEN INTEREST &amp; $ GAMMA BY STRIKE
             </h3>
-            <TooltipWrapper text="Strike-level view by call/put. Toggle between Open Interest and Exposure. The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper text="Strike-level view by call/put. Toggle between Open Interest (contracts outstanding) and $ Gamma (dealer gamma exposure: sign × γ × OI × 100 × spot — puts are negative, calls positive). $ Gamma is the same fundamental quantity as the GAMMA EXPOSURE BY STRIKE chart above, just normalized per $1 spot move instead of per 1% spot move (differ by a factor of spot × 0.01). The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
             <div
@@ -362,12 +362,13 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 type="button"
                 className="px-2.5 py-1 text-xs font-semibold"
                 style={{
-                  color: displayMode === 'exposure' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: displayMode === 'exposure' ? 'var(--color-info-soft)' : 'transparent',
+                  color: displayMode === 'gamma' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  backgroundColor: displayMode === 'gamma' ? 'var(--color-info-soft)' : 'transparent',
                 }}
-                onClick={() => setDisplayMode('exposure')}
+                onClick={() => setDisplayMode('gamma')}
+                title="Dealer dollar gamma exposure (sign × γ × OI × 100 × spot)"
               >
-                Exposure
+                $ Gamma
               </button>
               <button
                 type="button"
@@ -377,6 +378,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                   backgroundColor: displayMode === 'oi' ? 'var(--color-info-soft)' : 'transparent',
                 }}
                 onClick={() => setDisplayMode('oi')}
+                title="Open interest (contracts outstanding)"
               >
                 OI
               </button>
@@ -397,8 +399,8 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call Exposure'} fill={colors.bullish} opacity={1} barSize={14} />
-                <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put Exposure'} fill={colors.bearish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call $ Gamma'} fill={colors.bullish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put $ Gamma'} fill={colors.bearish} opacity={1} barSize={14} />
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />

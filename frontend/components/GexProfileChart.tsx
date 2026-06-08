@@ -42,6 +42,9 @@ interface GexProfileChartProps {
   gammaFlip?: number | null;
   callWall?: number | null;
   putWall?: number | null;
+  expirationOptions?: string[];
+  selectedExpiration?: string;
+  onSelectedExpirationChange?: (value: string) => void;
 }
 
 interface MergedRow {
@@ -318,6 +321,9 @@ export default function GexProfileChart({
   gammaFlip,
   callWall,
   putWall,
+  expirationOptions,
+  selectedExpiration,
+  onSelectedExpirationChange,
 }: GexProfileChartProps) {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -480,7 +486,7 @@ export default function GexProfileChart({
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
               GAMMA EXPOSURE BY STRIKE
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). The profile is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization. This is the same fundamental quantity shown as '$ Gamma' in the OPEN INTEREST & $ GAMMA BY STRIKE chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <div
@@ -525,6 +531,26 @@ export default function GexProfileChart({
             className="flex flex-wrap items-center gap-4 text-xs pr-14"
             style={{ color: textColor }}
           >
+            {expirationOptions && onSelectedExpirationChange && (
+              <label className="text-xs flex items-center" style={{ color: textColor }}>
+                Expiration
+                <select
+                  className="ml-2 rounded px-2 py-1"
+                  style={{
+                    backgroundColor: 'var(--color-surface-subtle)',
+                    color: 'var(--color-text-primary)',
+                    border: `1px solid var(--color-border)`,
+                  }}
+                  value={selectedExpiration ?? 'all'}
+                  onChange={(e) => onSelectedExpirationChange(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  {expirationOptions.map((exp) => (
+                    <option key={exp} value={exp}>{exp}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
               Call GEX
