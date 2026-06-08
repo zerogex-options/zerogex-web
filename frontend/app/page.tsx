@@ -329,7 +329,7 @@ export default function LandingPage() {
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
 
-          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+          <Link href="/learn" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               style={{
                 background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
@@ -925,13 +925,13 @@ export default function LandingPage() {
             }}
           >
             <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label="Dashboard — Market Overview"         color={C.amber} />
-            <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
+            <ToolPill isDark={isDark} href="/signaled-trades"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
             <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label="Flow Analysis — Smart Money Tracker" color={C.amber} />
-            <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label="Dealer Positioning — GEX Heatmap"    color={C.green} />
-            <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
+            <ToolPill isDark={isDark} href="/dealer-positioning"   icon={BarChart}     label="Dealer Positioning — GEX Heatmap"    color={C.green} />
+            <ToolPill isDark={isDark} href="/technicals"           icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
             <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
-            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
-            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="GEX Summary — Headline Levels"       color={C.green} />
+            <ToolPill isDark={isDark} href="/strategy-builder"     icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
+            <ToolPill isDark={isDark} href="/gex-summary"          icon={Layers}       label="GEX Summary — Headline Levels"       color={C.green} />
           </div>
         </div>
       </section>

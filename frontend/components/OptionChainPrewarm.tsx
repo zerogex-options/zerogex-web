@@ -2,7 +2,7 @@
  * Mounts an invisible global pre-warm for the /api/max-pain/current option
  * chain across the common tickers. Without this, the Strategy Builder pays
  * the full chain fetch (1-3s server-side) every time a user lands on
- * /options-calculator from a cold tab. The same pattern is used by
+ * /strategy-builder from a cold tab. The same pattern is used by
  * TechnicalSnapshotPrewarm for VWAP/ORB.
  *
  * The prewarm helper is fire-and-forget and de-duplicates concurrent

@@ -4,7 +4,7 @@ import { ArrowLeft, LifeBuoy } from 'lucide-react';
 export default function HelpPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
-      <Link href="/education" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
+      <Link href="/learn" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Hub
       </Link>
 
@@ -28,7 +28,7 @@ export default function HelpPage() {
             Browse Guides
           </Link>
           <Link
-            href="/education"
+            href="/learn"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
           >
             <ArrowLeft size={16} />

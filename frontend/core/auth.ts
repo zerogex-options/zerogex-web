@@ -18,7 +18,8 @@ export type RouteAccessRule = {
 const PUBLIC_ROUTE_PATTERNS = [
   '/',
   '/about',
-  '/education',
+  '/learn',
+  '/learn/*',
   '/education/*',
   '/articles',
   '/guides',
@@ -39,8 +40,8 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // Admin tools.
   { pattern: '/admin/*', minimumTier: 'admin' },
   // Advanced Signals — Pro only.
-  { pattern: '/signal-score', minimumTier: 'pro' },
-  { pattern: '/trading-signals', minimumTier: 'admin' },
+  { pattern: '/composite-score', minimumTier: 'pro' },
+  { pattern: '/signaled-trades', minimumTier: 'admin' },
   { pattern: '/advanced-signals', minimumTier: 'pro' },
   { pattern: '/eod-pressure', minimumTier: 'pro' },
   { pattern: '/squeeze-setup', minimumTier: 'pro' },
@@ -52,7 +53,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/market-pressure', minimumTier: 'pro' },
   // Basic dashboards & per-signal pages — included with Basic.
   { pattern: '/dashboard', minimumTier: 'basic' },
-  { pattern: '/underlying-price-action', minimumTier: 'basic' },
+  { pattern: '/price-action', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
@@ -60,16 +61,17 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
   { pattern: '/gex-gradient', minimumTier: 'basic' },
   { pattern: '/positioning-trap', minimumTier: 'basic' },
-  // Metrics — included with Basic.
-  { pattern: '/gamma-exposure', minimumTier: 'basic' },
-  { pattern: '/greeks-gex', minimumTier: 'basic' },
+  // Analysis — included with Basic.
+  { pattern: '/strike-profile', minimumTier: 'basic' },
+  { pattern: '/dealer-positioning', minimumTier: 'basic' },
+  { pattern: '/gex-summary', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },
-  { pattern: '/intraday-tools', minimumTier: 'basic' },
-  // Strategy tools — included with Basic.
-  { pattern: '/options-calculator', minimumTier: 'basic' },
-  { pattern: '/option-contracts', minimumTier: 'basic' },
+  { pattern: '/technicals', minimumTier: 'basic' },
+  // Tools — included with Basic.
+  { pattern: '/strategy-builder', minimumTier: 'basic' },
+  { pattern: '/options-chain', minimumTier: 'basic' },
   // Account self-service — any logged-in tier (incl. public/unpaid) can manage their own account.
   { pattern: '/account', minimumTier: 'public' },
 ];

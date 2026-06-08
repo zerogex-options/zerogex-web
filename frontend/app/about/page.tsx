@@ -210,7 +210,7 @@ export default function AboutPage() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+          <Link href="/learn" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button style={{
               background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
@@ -487,7 +487,7 @@ export default function AboutPage() {
               desc: 'The command center. Net GEX, Gamma Flip, Max Pain, Call/Put Walls, and live candlestick charts — everything you need to orient to the current market structure at a glance.',
             },
             {
-              icon: Zap, href: '/trading-signals', label: 'Trading Signals', color: C.green,
+              icon: Zap, href: '/signaled-trades', label: 'Trading Signals', color: C.green,
               desc: 'Composite buy/sell signals built from GEX regime, options flow direction, and technical momentum. Signals are rated by conviction level and tagged with the timeframe they\'re most relevant to.',
             },
             {
@@ -495,11 +495,11 @@ export default function AboutPage() {
               desc: 'Real-time smart money tracker. Identifies unusual options activity — large premium blocks, sweep orders, and sentiment-shifting prints — filtered by size, expiry, and directional bias.',
             },
             {
-              icon: BarChart2, href: '/gamma-exposure', label: 'Dealer Positioning', color: C.green,
+              icon: BarChart2, href: '/dealer-positioning', label: 'Dealer Positioning', color: C.green,
               desc: 'Full strike-by-strike GEX heatmap across all expirations. Visualize exactly where dealer gamma is concentrated, how it\'s distributed, and which levels are most likely to influence price.',
             },
             {
-              icon: Target, href: '/intraday-tools', label: 'Intraday Tools', color: C.amber,
+              icon: Target, href: '/technicals', label: 'Intraday Tools', color: C.amber,
               desc: 'Tactical intraday edge for active traders. VWAP deviation alerts, Opening Range Breakout levels, volume-weighted momentum, and gamma-adjusted support/resistance updated every minute.',
             },
             {
@@ -507,11 +507,11 @@ export default function AboutPage() {
               desc: 'Calculates max pain across all expirations — daily, weekly, monthly. Shows the gravitational pull of market maker profit maximization, especially powerful for 0DTE and options expiry weeks.',
             },
             {
-              icon: Calculator, href: '/options-calculator', label: 'Options Calculator', color: C.amber,
+              icon: Calculator, href: '/strategy-builder', label: 'Options Calculator', color: C.amber,
               desc: 'Price options in real time using Black-Scholes with live IV surfaces. Model P&L at expiry, calculate break-even prices, and analyze all five Greeks for any strike or expiration.',
             },
             {
-              icon: Layers, href: '/greeks-gex', label: 'GEX Summary', color: C.green,
+              icon: Layers, href: '/gex-summary', label: 'GEX Summary', color: C.green,
               desc: 'Headline GEX numbers (Net, Call, Put) plus the day\'s key dealer levels — gamma flip, max pain, and the call/put walls — at a glance.',
             },
           ].map((item) => (

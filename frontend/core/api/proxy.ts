@@ -151,7 +151,7 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
   // when auth is enabled, anything outside the public allowlist requires a
   // session at minimum-Basic tier. Without this, hitting /api/signals/...
   // directly returned the same data a paying subscriber gets, even though
-  // the page that displays it (/signal-score, /basic-signals, etc.) is
+  // the page that displays it (/composite-score, /basic-signals, etc.) is
   // redirected to /login.
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
   let session: Awaited<ReturnType<typeof requireSession>> = null;

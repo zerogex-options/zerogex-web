@@ -20,22 +20,40 @@ export type NavGroup = {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Main',
+    label: 'Dashboard',
     items: [
       { id: '/dashboard', label: 'Dashboard', requiredTier: 'basic' },
-      { id: '/underlying-price-action', label: 'Underlying Price Action', requiredTier: 'basic' },
+    ],
+  },
+  {
+    label: 'Live View',
+    items: [
+      { id: '/strike-profile', label: 'Strike Profile', requiredTier: 'basic' },
+      { id: '/price-action', label: 'Price Action', requiredTier: 'basic' },
+      { id: '/options-chain', label: 'Options Chain', requiredTier: 'basic' },
+    ],
+  },
+  {
+    label: 'Analysis',
+    items: [
+      { id: '/dealer-positioning', label: 'Dealer Positioning', requiredTier: 'basic' },
+      { id: '/gex-summary', label: 'GEX Summary', requiredTier: 'basic' },
+      { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+      { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
+      { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
+      { id: '/technicals', label: 'Technicals', requiredTier: 'basic' },
     ],
   },
   {
     label: 'Signals',
     items: [
-      { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
-      { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'admin' },
+      { id: '/composite-score', label: 'Composite Score', requiredTier: 'pro' },
+      { id: '/signaled-trades', label: 'Signaled Trades', requiredTier: 'admin' },
     ],
     subgroups: [
       {
         id: '/basic-signals',
-        label: 'Basic Signal Dashboard',
+        label: 'Basic Signals',
         requiredTier: 'basic',
         items: [
           { id: '/tape-flow-bias', label: 'Tape Flow Bias', requiredTier: 'basic' },
@@ -48,7 +66,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: '/advanced-signals',
-        label: 'Advanced Signal Dashboard',
+        label: 'Advanced Signals',
         requiredTier: 'pro',
         items: [
           { id: '/volatility-expansion', label: 'Volatility Expansion', requiredTier: 'pro' },
@@ -64,27 +82,15 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Metrics',
+    label: 'Tools',
     items: [
-      { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
-      { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
-      { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
-      { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
-      { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
-      { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
+      { id: '/strategy-builder', label: 'Strategy Builder', requiredTier: 'basic' },
     ],
   },
   {
-    label: 'Strategy Tools',
+    label: 'Learn',
     items: [
-      { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
-      { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
-    ],
-  },
-  {
-    label: 'Education',
-    items: [
-      { id: '/education', label: 'Hub' },
+      { id: '/learn', label: 'Education Hub' },
       { id: '/help', label: 'Help' },
     ],
     subgroups: [

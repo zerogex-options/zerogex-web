@@ -76,8 +76,8 @@ module.exports = {
     '/landing',
     // Auth-gated tools — middleware 307s anonymous Googlebot to /login,
     // which Google Search Console reports as "Page with redirect".
-    '/signal-score',
-    '/trading-signals',
+    '/composite-score',
+    '/signaled-trades',
     '/advanced-signals',
     '/eod-pressure',
     '/squeeze-setup',
@@ -109,7 +109,7 @@ module.exports = {
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
     }
-    if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {
+    if (urlPath.startsWith('/education') || urlPath.startsWith('/learn') || urlPath.startsWith('/guides') || urlPath === '/articles') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.7, lastmod };
     }
     return { loc: urlPath, changefreq: 'monthly', priority: 0.6, lastmod };

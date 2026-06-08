@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import Link from 'next/link';
+import { Info, ArrowRight } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
@@ -18,7 +19,6 @@ import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GexWallsChart from '@/components/GexWallsChart';
-import MarketMakerExposures from '@/components/MarketMakerExposures';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -118,7 +118,6 @@ export default function GammaExposurePage() {
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [vizTab, setVizTab] = useState<'heatmap' | 'mmx'>('heatmap');
 
   // Aggregate by-strike data for the chart and table
   const strikeData = useMemo(() => {
@@ -527,33 +526,18 @@ export default function GammaExposurePage() {
         </ExpandableCard>
       </section>
 
-      {/* Section 8: Tabbed visualizations */}
+      {/* Section 8: GEX Heatmap Timeseries — Strike Profile lives at its own page */}
       <section className="mb-8">
-        <div className="flex items-center gap-1 mb-4 border-b" style={{ borderColor: borderColor }}>
-          {(
-            [
-              { id: 'heatmap' as const, label: 'GEX Heatmap Timeseries' },
-              { id: 'mmx' as const, label: 'Strike Profile' },
-            ]
-          ).map((tab) => {
-            const active = vizTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setVizTab(tab.id)}
-                className="px-4 py-2 text-sm font-semibold -mb-px transition-colors"
-                style={{
-                  color: active ? 'var(--color-text-primary)' : mutedText,
-                  borderBottom: active ? '2px solid var(--color-info)' : '2px solid transparent',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between mb-4">
+          <SectionTitle title="GEX Heatmap Timeseries" tooltip="Intraday evolution of dealer gamma exposure across strikes." />
+          <Link
+            href="/strike-profile"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-info)] hover:opacity-80"
+          >
+            Open Strike Profile <ArrowRight size={14} />
+          </Link>
         </div>
-        {vizTab === 'heatmap' ? <GammaHeatmapCanvas /> : <MarketMakerExposures />}
+        <GammaHeatmapCanvas />
       </section>
     </div>
   );

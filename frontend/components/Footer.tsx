@@ -15,7 +15,7 @@ const footerLinks = [
   { href: '/dashboard', label: 'Platform', external: false },
   { href: '/about', label: 'About', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
-  { href: '/education', label: 'Education', external: false },
+  { href: '/learn', label: 'Education', external: false },
   { href: '/privacy', label: 'Privacy', external: false },
   { href: '/terms', label: 'Terms', external: false },
 ];

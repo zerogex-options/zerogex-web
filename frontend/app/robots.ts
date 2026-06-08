@@ -20,8 +20,8 @@ export default function robots(): MetadataRoute.Robots {
         // Replaced by 308 redirect to /
         '/landing',
         // Tier-gated tools (middleware 307s anonymous traffic to /login)
-        '/signal-score',
-        '/trading-signals',
+        '/composite-score',
+        '/signaled-trades',
         '/advanced-signals',
         '/eod-pressure',
         '/squeeze-setup',

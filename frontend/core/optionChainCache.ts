@@ -1,7 +1,7 @@
 /**
  * Module-scope cache for the /api/max-pain/current option chain payload that
  * powers the Strategy Builder leg pickers. The chain is the slowest call on
- * /options-calculator (potentially many expirations × many strikes computed
+ * /strategy-builder (potentially many expirations × many strikes computed
  * server-side), and useApiData resets state on every mount, so without a
  * cache here every navigation back to the page paid the full network +
  * server cost. The page hydrates state from this map synchronously on
