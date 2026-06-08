@@ -415,18 +415,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return nyDateFmt.format(new Date(allCandles[allCandles.length - 1].timestamp));
   }, [allCandles, nyDateFmt]);
 
-  // First candle index that belongs to the current (most recent) session. The
-  // rewind scrubber is clamped to [sessionStartIndex, last] so "rewind to the
-  // start" lands on the session open, not on prior-session bars that allCandles
-  // also carries for the With-Prev overlay.
-  const sessionStartIndex = useMemo(() => {
-    if (allCandles.length === 0 || !todaySessionDate) return 0;
-    for (let i = allCandles.length - 1; i >= 0; i -= 1) {
-      if (nyDateFmt.format(new Date(allCandles[i].timestamp)) !== todaySessionDate) return i + 1;
-    }
-    return 0;
-  }, [allCandles, todaySessionDate, nyDateFmt]);
-
   // Resolve the rewind anchor (a timestamp) to an index into allCandles. The
   // index becomes the right edge of the rendered window, so the chart shows the
   // session "as it looked" at that moment. Returns null when not rewinding,
@@ -813,12 +801,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   }, [quote, gexSummary]);
 
   // ── Rewind scrubber wiring ──
-  // The slider runs over allCandles indices clamped to the current session:
-  // sessionStartIndex (session open) on the left, the latest bar on the right.
-  // Toggling rewind on freezes live updates and seeds the anchor at "now";
-  // toggling off resumes live.
+  // The slider runs over allCandles indices, clamped to a (TARGET_VISIBLE_CANDLES
+  // - 1)-candle window back from the live edge.  That gives exactly the rewind
+  // depth the visible 78-candle window can scrub through using the 77 OHLC
+  // backfill candles as left-side context.  Toggling rewind on freezes live
+  // updates and seeds the anchor at "now"; toggling off resumes live.
+  const REWIND_MAX_DEPTH = TARGET_VISIBLE_CANDLES - 1;
   const rewindMax = Math.max(0, allCandles.length - 1);
-  const rewindMin = Math.min(sessionStartIndex, rewindMax);
+  const rewindMin = Math.max(0, rewindMax - REWIND_MAX_DEPTH);
   const rewindValue = clamp(rewindIndex != null ? rewindIndex : rewindMax, rewindMin, rewindMax);
   const rewindCandle = allCandles[rewindValue];
   const tsFmt = (ts: string | number | undefined): string => {
@@ -1748,11 +1738,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             }}
           />
           <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: subtle }}>
-            <span>Session start · {rewindStartLabel}</span>
+            <span>Earliest · {rewindStartLabel}</span>
             <span>Most recent · {rewindEndLabel}</span>
           </div>
           <div className="mt-1 text-[10px]" style={{ color: subtle }}>
-            Price, levels, gamma &amp; positions all cover the full returned window.
+            Rewind back through the most recent {REWIND_MAX_DEPTH} candles.
           </div>
         </div>
       )}

@@ -69,11 +69,13 @@ interface CacheEntry {
   inflightSeed: Promise<void> | null;
 }
 
-// Seed window: full rewind depth.  Capped at 480 (the backend's anti-DoS
-// bound).  480 1-min buckets covers a full RTH session plus prior-session
-// context for the "With Prev" overlay; 480 5-min buckets covers ~40h
-// (multi-day rewind).
-const SEED_WINDOW_UNITS = 480;
+// Seed window: the rewind range the chart actually exposes.  The Strike
+// Profile shows a 78-candle visible window and lets the user scrub back 77
+// candles from the live edge, so 78 GEX-data buckets is exactly the rewind
+// depth.  Older context (the 77 OHLC backfill candles the chart pulls from
+// /api/market/historical) doesn't need GEX data — it only fills the visible
+// window's leftmost slots when the scrubber is at its leftmost position.
+const SEED_WINDOW_UNITS = 78;
 // Tip window: just enough to catch a bucket transition between polls.
 // At 1Hz polling and a 1-min bucket boundary, the prior bucket can still
 // be updated for ~1s after it closes (the analytics engine writes the
