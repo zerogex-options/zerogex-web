@@ -379,12 +379,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return Array.from(grouped.values()).sort((a, b) => b.strike - a.strike);
   }, [filteredGexByStrike, filteredOiByStrike]);
 
-  // Timestamp of the current by-strike snapshot, used to bucket recordings.
+  // Timestamp used to bucket strike recordings. Use the same clock the level
+  // cache records on (gexSummary.timestamp) so the Gamma/Positions panels and
+  // the flip/wall lines rewind in lockstep and stay aligned with the candle
+  // timeline. Fall back through other live timestamps, then wall-clock, so a
+  // missing/static field can't silently stop recording — which would freeze the
+  // Gamma column across the whole scrub.
   const strikeTs = useMemo(() => {
-    const ts = gexByStrike && gexByStrike[0]?.timestamp;
-    const ms = ts ? new Date(ts).getTime() : NaN;
+    const tsRaw = gexSummary?.timestamp ?? gexByStrike?.[0]?.timestamp ?? quote?.timestamp;
+    const ms = tsRaw ? new Date(tsRaw).getTime() : NaN;
     return Number.isFinite(ms) ? ms : null;
-  }, [gexByStrike]);
+  }, [gexSummary, gexByStrike, quote]);
 
   // Per-session recorder for the by-strike panels. Keyed by symbol+expiry so a
   // changed expiry filter gets its own consistent timeline. Records the live
