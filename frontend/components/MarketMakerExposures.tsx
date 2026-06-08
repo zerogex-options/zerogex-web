@@ -16,42 +16,17 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import {
-  useApiData,
   useGEXByStrike,
   useGEXSummary,
   useMarketQuote,
 } from '@/hooks/useApiData';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
+import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useStrikeProfileTimeseries';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { omitClosedMarketTimes } from '@/core/utils';
-
-// One time bucket of /api/gex/strike-profile-timeseries. The backend already
-// pre-bucketed candles, walls, flip, and per-strike gamma on the chart's
-// chosen timeframe; the chart's rewind collapses to direct indexing into the
-// returned array (rewindIndex → buckets[rewindIndex]), so all of these line
-// up on the time axis by construction.
-interface StrikeProfileStrikeRow {
-  strike?: number | string;
-  call_gamma?: number | string | null;
-  put_gamma?: number | string | null;
-  net_gamma?: number | string | null;
-  call_oi?: number | string | null;
-  put_oi?: number | string | null;
-}
-
-interface StrikeProfileBucketRow {
-  timestamp: string;
-  symbol?: string;
-  open?: number | string | null;
-  high?: number | string | null;
-  low?: number | string | null;
-  close?: number | string | null;
-  gamma_flip?: number | string | null;
-  call_wall?: number | string | null;
-  put_wall?: number | string | null;
-  strikes?: StrikeProfileStrikeRow[];
-}
 
 interface StrikeAggregation {
   strike: number;
@@ -74,14 +49,8 @@ function tfToApi(tf: ChartTf): string {
 // therefore scales with the interval — that's intentional.
 const TARGET_VISIBLE_CANDLES = 78;
 
-// Pull a wide window so the rewind scrubber can reach the start of the session
-// on every interval — a full 1m RTH session is 390 buckets, so 480 covers that
-// plus the prior-session context the "With Prev" overlay needs. Only the
-// latest TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the
-// rewind range. The endpoint's default of 78 is the no-rewind default;
-// requesting the full 480 here is what gives rewind full-session depth right
-// after a hard refresh / make rebuild, with nothing in-browser to warm up.
-const FETCH_WINDOW = 480;
+// Window size constants live in ``useStrikeProfileTimeseries`` — that hook owns
+// the seed fetch (~480 buckets for full-session rewind) and the 1Hz tip poll.
 
 function toNumber(v: number | string | null | undefined): number | null {
   if (v == null) return null;
@@ -271,7 +240,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const summaryInterval = paused ? 0 : 1000;
   const quoteInterval = paused ? 0 : 1000;
   const strikeInterval = paused ? 0 : 1000;
-  const profileInterval = paused ? 0 : 1000;
 
   // ── Live snapshot hooks ──
   // The /api/gex/by-strike snapshot is kept ONLY to drive the expiry dropdown
@@ -285,38 +253,77 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const { data: gexByStrike } = useGEXByStrike(symbol, 200, strikeInterval, 'impact');
 
   // ── Single source of truth: aligned per-bucket Strike-Profile timeseries ──
-  // Each bucket carries candle OHLC + flip/walls + per-strike gamma & OI on a
-  // common time axis.  We request ``FETCH_WINDOW`` buckets so the rewind
-  // scrubber has full-session depth right after a hard refresh / make rebuild
-  // (the old in-browser recorders had to warm up from page-open).  The chart
-  // still displays only ``TARGET_VISIBLE_CANDLES`` at a time; the rest is the
-  // rewind range.  The endpoint URL includes the expiration so changing the
-  // expiry dropdown triggers a fresh fetch on the right basis without any
-  // client-side filtering of the strikes.
+  // Each bucket carries candle OHLC + flip/walls + per-strike gamma & OI on
+  // a common time axis.  Uses the dedicated hook's seed + tip-poll pattern:
+  // a one-time full-window seed gives rewind full-session depth, while a
+  // tiny ``window_units=3`` poll every 1s keeps the live tip fresh without
+  // re-paying the seed's ~720K-row JOIN cost on every tick.
   const expirationsParam = selectedExpiry === 'all' ? 'all' : selectedExpiry;
-  const { data: strikeProfileTimeseries } = useApiData<StrikeProfileBucketRow[] | null>(
-    `/api/gex/strike-profile-timeseries?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${FETCH_WINDOW}&expirations=${encodeURIComponent(expirationsParam)}`,
-    { refreshInterval: profileInterval },
+  const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
+    symbol, tfToApi(tf), expirationsParam, paused,
   );
 
+  // ── 77-candle backfill from /api/market/historical ──
+  // The strike-profile endpoint returns ~480 buckets per its seed fetch; when the
+  // rewind scrubber sits at the leftmost API bucket the chart would only
+  // have 1 candle of OHLC context to the left of the right edge.  The
+  // chart always wants to show TARGET_VISIBLE_CANDLES=78 candles, so we
+  // backfill the (TARGET_VISIBLE_CANDLES - 1) = 77 candles immediately
+  // preceding the API window.  Those padding candles get prepended as
+  // OHLC-only buckets with empty strikes / null walls / null flip; the 1:1
+  // index relationship ``allCandles[i] === profileBuckets[i]`` is
+  // preserved by padding BOTH arrays together.
+  const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf));
   const profileBuckets = useMemo<StrikeProfileBucketRow[]>(() => {
-    if (!strikeProfileTimeseries || !Array.isArray(strikeProfileTimeseries)) return [];
-    // The endpoint already returns buckets ASCENDING by timestamp (most recent
-    // last), session-aware, on the chosen timeframe boundary.  Filter to
-    // extended-hours so the x-axis matches what every other chart shows, and
-    // drop buckets that have no usable OHLC — those would render as blank
-    // candles and (more importantly) misalign the 1:1 index relationship
-    // ``allCandles`` and ``profileBuckets`` rely on for direct-indexed rewind.
-    const filtered = omitClosedMarketTimes(strikeProfileTimeseries, (b) => b.timestamp);
-    return filtered
+    // Filter the API response to extended-hours and to buckets with
+    // usable OHLC so the 1:1 index relationship with allCandles holds.
+    const filteredApi = omitClosedMarketTimes(strikeProfileBuckets, (b) => b.timestamp)
       .filter((b) => {
         const o = toNumber(b.open ?? b.close);
         return o != null && o > 0;
       })
-      .sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-      );
-  }, [strikeProfileTimeseries]);
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    if (filteredApi.length === 0) return filteredApi;
+
+    // Build the padding from useMarketHistorical: take every candle whose
+    // timestamp is STRICTLY BEFORE the first API bucket, then keep the
+    // most recent (TARGET_VISIBLE_CANDLES - 1) of them.  These padding
+    // buckets carry OHLC only — the chart's middle / right panels stay
+    // blank when rewound into the padding zone (semantically correct, no
+    // GEX data exists for those moments).
+    const firstApiMs = new Date(filteredApi[0].timestamp).getTime();
+    const PAD_COUNT = TARGET_VISIBLE_CANDLES - 1;
+    const filteredCandles = omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp);
+    const candidatePadding: StrikeProfileBucketRow[] = filteredCandles
+      .filter((bar) => {
+        const t = new Date(bar.timestamp).getTime();
+        return Number.isFinite(t) && t < firstApiMs;
+      })
+      .map((bar) => ({
+        // Type-conformant empty-GEX bucket: OHLC only, no walls/flip,
+        // no strikes.  The rewindIndex logic uses these for candle context
+        // but the Gamma / Positions panels render nothing for them.
+        timestamp: bar.timestamp,
+        symbol,
+        open: bar.open ?? null,
+        high: bar.high ?? null,
+        low: bar.low ?? null,
+        close: bar.close ?? null,
+        gamma_flip: null,
+        call_wall: null,
+        put_wall: null,
+        strikes: [],
+      }))
+      .filter((b) => {
+        const o = toNumber(b.open ?? b.close);
+        return o != null && o > 0;
+      })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const padding = candidatePadding.slice(-PAD_COUNT);
+    return [...padding, ...filteredApi];
+  }, [strikeProfileBuckets, marketHistoricalAll, symbol]);
 
   // Expiry dropdown universe — the rewind chart's strikes payload is
   // restricted by the API based on ``expirations``, but the dropdown itself
