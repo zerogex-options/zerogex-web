@@ -1208,8 +1208,10 @@ export default function FlowAnalysisPage() {
         <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
       </section>
 
+      {/* ── Compact charts row (Net Directional Premium · Put/Call Ratio · Net Position) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* ── Net Directional Premium ───────────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Directional Premium"
           tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
@@ -1218,11 +1220,11 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={directionalPremiumSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -1254,7 +1256,7 @@ export default function FlowAnalysisPage() {
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
-                    width={isMobile ? 42 : 62}
+                    width={isMobile ? 42 : 48}
                     tickFormatter={(v) => {
                       const n = Number(v);
                       if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -1304,7 +1306,7 @@ export default function FlowAnalysisPage() {
       </section>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Put/Call Ratio"
           tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
@@ -1313,11 +1315,11 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -1362,7 +1364,7 @@ export default function FlowAnalysisPage() {
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
-                    width={isMobile ? 38 : 62}
+                    width={isMobile ? 38 : 48}
                     domain={(() => {
                       const vals = putCallRatioSeries.map((r) => r.ratio).filter((v): v is number => v != null && Number.isFinite(v));
                       if (vals.length === 0) return [0, 2];
@@ -1413,7 +1415,7 @@ export default function FlowAnalysisPage() {
       </section>
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Position (Buys vs. Sells)"
           tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
@@ -1422,11 +1424,11 @@ export default function FlowAnalysisPage() {
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 464 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={netPositionSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 70, left: 70, bottom: 28 }}
+                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -1471,7 +1473,7 @@ export default function FlowAnalysisPage() {
                     stroke={axisStroke}
                     tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
-                    width={isMobile ? 42 : 62}
+                    width={isMobile ? 42 : 48}
                     tickFormatter={(v) => {
                       const n = Number(v);
                       const abs = Math.abs(n);
@@ -1520,6 +1522,7 @@ export default function FlowAnalysisPage() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }
