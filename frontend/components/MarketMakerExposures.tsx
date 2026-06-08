@@ -71,25 +71,17 @@ function tfToApi(tf: ChartTf): string {
   return tf === '1m' ? '1min' : tf === '5m' ? '5min' : '15min';
 }
 
-// How many candles each interval renders. A fixed count would make the visible
-// time span scale with the interval (78 bars = ~3 sessions at 15m but only
-// ~1.3h at 1m), which is why short intervals never reached the previous
-// session. Instead we size each interval to span a comparable, multi-session
-// lookback so 1m/5m show prior-session candles like 15m does. 1m is capped by
-// the 576-bar historical cache (~1.5 sessions); its candles render thin (see
-// the lowered width floor in the candle pass) but distinct.
-const VISIBLE_CANDLES_BY_TF: Record<ChartTf, number> = {
-  '1m': 540,
-  '5m': 234,
-  '15m': 78,
-};
-// The compact dashboard tile stays tight so it isn't crowded with bars.
-const COMPACT_VISIBLE_CANDLES = 78;
+// Render exactly this many candles on every interval so the chart looks the
+// same (same candle chunkiness) regardless of timeframe. The visible time span
+// therefore scales with the interval — that's intentional.
+const TARGET_VISIBLE_CANDLES = 78;
 
-// Pull the full historical cache so the visible window can reach back across
-// sessions on every interval (and the rewind scrubber has the bars it needs).
-// 576 is useMarketHistorical's cache ceiling.
-const FETCH_WINDOW = 576;
+// Pull a wide candle window so the rewind scrubber can reach the start of the
+// session on every interval — a full 1m RTH session is 390 bars, so 480 covers
+// it (and any prior-session context the "With Prev" overlay needs) while
+// staying under useMarketHistorical's 576-bar cache ceiling. Only the latest
+// TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the rewind range.
+const FETCH_WINDOW = 480;
 
 // `/api/gex/historical` caps window_units at 90. At the chart's default 5m
 // timeframe that is a full session of flip/wall history; on 1m it reaches back
@@ -478,21 +470,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return bestIdx;
   }, [rewindActive, rewindTime, allCandles]);
 
-  // Candles to show at once: enough to reach the previous session per interval
-  // (compact tile stays tight). Capped by what's actually loaded.
-  const visibleCount = compact ? COMPACT_VISIBLE_CANDLES : VISIBLE_CANDLES_BY_TF[tf];
-
   const visibleCandles = useMemo(() => {
     if (allCandles.length === 0) return allCandles;
-    // Normally render the latest `visibleCount` candles so the chart's right edge
+    // Normally render the latest TARGET_VISIBLE_CANDLES so the chart's right edge
     // tracks "now" regardless of session boundaries. While rewinding, the right
     // edge is pinned to the scrubbed candle instead, revealing the chart as it
     // appeared at that earlier point. With-Prev controls the opacity of
     // prior-session bars in the render pass instead of dropping them.
     const rightEdge = rewindIndex != null ? rewindIndex : allCandles.length - 1;
-    const start = Math.max(0, rightEdge - visibleCount + 1);
+    const start = Math.max(0, rightEdge - TARGET_VISIBLE_CANDLES + 1);
     return allCandles.slice(start, rightEdge + 1);
-  }, [allCandles, rewindIndex, visibleCount]);
+  }, [allCandles, rewindIndex]);
 
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
@@ -687,33 +675,20 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   }, [visibleCandles]);
 
   const timeLabels = useMemo(() => {
-    if (!timeBounds || visibleCandles.length === 0) return [] as Array<{ t: number; label: string }>;
+    if (visibleCandles.length === 0) return [] as Array<{ t: number; label: string }>;
     const out: Array<{ t: number; label: string }> = [];
-    const span = timeBounds.tMax - timeBounds.tMin;
-    const oneDay = 24 * 60 * 60 * 1000;
-    if (span > oneDay * 1.5) {
-      // Multi-day view — labels become per-session dates, with the time row
-      // suppressed (the grouped date row below provides the same info).
-      candleDateGroups.forEach((g) => {
-        const midIdx = Math.floor((g.startIdx + g.endIdx) / 2);
-        const t = new Date(visibleCandles[midIdx].timestamp).getTime();
-        if (!Number.isFinite(t)) return;
-        out.push({
-          t,
-          label: new Date(t).toLocaleDateString('en-US', {
-            timeZone: 'America/New_York',
-            month: 'short',
-            day: 'numeric',
-          }),
-        });
-      });
-      return out;
-    }
 
-    // Intraday view — clock-aligned time ticks in ET so labels read as
-    // "09:30, 10:30, 11:30…" instead of irregular times that depend on the
-    // sample count.
-    const tickStepMinutes = tf === '1m' ? 30 : tf === '5m' ? 60 : 120;
+    // Clock-aligned time ticks in ET. The step is a "normal" round interval
+    // (15m, 30m, 1h, 2h…) chosen so the visible window fits ~7 evenly spaced
+    // labels regardless of timeframe — so 1m reads "09:30, 09:45, 10:00…" and
+    // 15m reads "10:00, 13:00, 16:00…" rather than irregular sample-dependent
+    // times. The grouped date row below carries the session date(s).
+    const intervalMin = tf === '1m' ? 1 : tf === '5m' ? 5 : 15;
+    const spanMin = visibleCandles.length * intervalMin;
+    const NICE_STEPS_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720];
+    const stepMin =
+      NICE_STEPS_MIN.find((s) => s >= spanMin / 7) ?? NICE_STEPS_MIN[NICE_STEPS_MIN.length - 1];
+
     const etFmt = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
       hour: '2-digit',
@@ -729,14 +704,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     visibleCandles.forEach((c) => {
       const d = new Date(c.timestamp);
       const mod = minutesOfDayET(d);
-      if (mod < 0 || mod % tickStepMinutes !== 0) return;
+      if (mod < 0 || mod % stepMin !== 0) return;
       out.push({
         t: d.getTime(),
         label: etFmt.format(d),
       });
     });
     return out;
-  }, [timeBounds, visibleCandles, candleDateGroups, tf]);
+  }, [visibleCandles, tf]);
 
   // The spot line is anchored to the latest visible candle's close so it never
   // drifts out of sync with the candles (the live quote ticks on a separate
@@ -1313,10 +1288,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           ) : (
             (() => {
               const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
-              // Floor scales with spacing so dense intervals (e.g. ~540 1m bars)
-              // render as thin but distinct bars instead of overlapping into a
-              // solid block, while sparse intervals keep chunky candles.
-              const baseCandleW = Math.max(Math.min(2, xStep * 0.8), Math.min(8, xStep * 0.6));
+              const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
               return visibleCandles.map((c, i) => {
                 const x = xForTime(new Date(c.timestamp).getTime());
                 const yO = yForPrice(c.open);
