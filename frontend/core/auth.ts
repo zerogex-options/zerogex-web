@@ -52,7 +52,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/market-pressure', minimumTier: 'pro' },
   // Basic dashboards & per-signal pages — included with Basic.
   { pattern: '/dashboard', minimumTier: 'basic' },
-  { pattern: '/underlying-price-action', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },

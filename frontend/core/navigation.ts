@@ -23,7 +23,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Main',
     items: [
       { id: '/dashboard', label: 'Dashboard', requiredTier: 'basic' },
-      { id: '/underlying-price-action', label: 'Underlying Price Action', requiredTier: 'basic' },
     ],
   },
   {

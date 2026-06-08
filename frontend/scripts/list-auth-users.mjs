@@ -52,6 +52,7 @@ if (!fs.existsSync(dbPath)) {
 }
 
 const emailOnly = isTruthy(process.env.EMAIL_ONLY);
+const paidOnly = isTruthy(process.env.PAID);
 const tierFilterRaw = (process.env.TIER || '').trim().toLowerCase();
 const authFilterRaw = (process.env.AUTH || '').trim().toUpperCase();
 
@@ -197,6 +198,7 @@ const records = rows
       id: shortId(row.id),
       email: String(row.email ?? ''),
       tier: row.tier || 'public',
+      paid: hasStripeSub && !!row.stripe_subscription_id,
       badges: tierBadges(row),
       flags,
       authString: formatAuthFlags(flags),
@@ -206,6 +208,7 @@ const records = rows
     };
   })
   .filter((rec) => {
+    if (paidOnly && !rec.paid) return false;
     if (tierFilterRaw && rec.tier.toLowerCase() !== tierFilterRaw) return false;
     if (authFilterRaw && !rec.flags[authFilterRaw]) return false;
     return true;
