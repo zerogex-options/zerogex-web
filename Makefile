@@ -13,7 +13,7 @@ help:
 	@echo "  make restart    - Restart PM2 process"
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
-	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, EMAIL_ONLY=yes)"
+	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, PAID=yes, EMAIL_ONLY=yes)"
 	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
@@ -84,9 +84,10 @@ status:
 # Print auth users and entitlements from SQLite. Optional filters:
 #   TIER=Admin|Pro|Basic    Filter to one tier
 #   AUTH=L|G|A              Filter to users with that auth method (L=local, G=Google, A=Apple)
+#   PAID=yes                Filter to paying users (active Stripe subscription)
 #   EMAIL_ONLY=yes          Print only email addresses, one per line
 users:
-	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' PAID='$(PAID)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
 
 # Print the referral ledger from SQLite: every referrer->referee relationship
 # with its status (pending/rewarded) and dates, a per-referrer summary, and
