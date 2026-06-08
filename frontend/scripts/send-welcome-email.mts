@@ -41,7 +41,21 @@ function parseEnvFile(filePath: string): Record<string, string> {
     if (!line || line.startsWith('#')) continue;
     const eq = line.indexOf('=');
     if (eq === -1) continue;
-    env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    // Match Next.js's dotenv loader: strip a matched pair of surrounding
+    // single or double quotes. Required for values like
+    // RESEND_FROM_EMAIL="ZeroGEX <hello@zerogex.com>" where the quotes are
+    // needed in the file to keep spaces/angle-brackets but must not reach
+    // Resend.
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
   }
   return env;
 }
