@@ -480,17 +480,21 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        // Snapshot the user's pre-sync state BEFORE any await below. A
+        // concurrent customer.subscription.* webhook for the same customer
+        // can run its sync (public → paid) while we're awaiting Stripe, and
+        // maybeSendPaidWelcomeEmail's first-paid vs upgrade decision depends
+        // on the original tier. session.customer carries the id without an
+        // API call, so the snapshot is fully synchronous from here.
+        const sessionCustomerId =
+          typeof session.customer === 'string'
+            ? session.customer
+            : session.customer?.id ?? null;
+        const welcomePre = sessionCustomerId ? findWelcomePreState(sessionCustomerId) : null;
         const subscriptionId =
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
-          // Snapshot the user's pre-sync state so we can tell first-paid vs
-          // re-subscribe vs upgrade — the sync below overwrites the tier.
-          const customerId =
-            typeof subscription.customer === 'string'
-              ? subscription.customer
-              : subscription.customer.id;
-          const welcomePre = findWelcomePreState(customerId);
           await syncSubscriptionToUser(subscription);
           if (welcomePre) {
             await maybeSendPaidWelcomeEmail(welcomePre, subscription);
