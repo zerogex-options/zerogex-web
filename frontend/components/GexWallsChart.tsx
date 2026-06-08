@@ -63,7 +63,7 @@ interface GexWallsChartProps {
   byStrikeFallback?: Array<{ strike?: number | string; call_oi?: number | string | null; put_oi?: number | string | null }> | null;
 }
 
-type DisplayMode = 'oi' | 'gamma';
+type DisplayMode = 'oi' | 'gamma' | 'notional';
 
 type ChartRow = {
   strike: number;
@@ -79,18 +79,25 @@ function asNum(value: unknown): number {
 
 function formatAxisValue(value: number, mode: DisplayMode): string {
   const abs = Math.abs(value);
-  const prefix = mode === 'gamma' ? '$' : '';
+  const isDollar = mode === 'gamma' || mode === 'notional';
+  const prefix = isDollar ? '$' : '';
   if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B`;
   if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M`;
   if (abs >= 1e3) return `${prefix}${(value / 1e3).toFixed(0)}k`;
-  return `${prefix}${value.toFixed(mode === 'gamma' ? 2 : 0)}`;
+  return `${prefix}${value.toFixed(isDollar ? 2 : 0)}`;
 }
 
 function formatTooltipValue(value: number, mode: DisplayMode): string {
-  if (mode === 'gamma') {
+  if (mode === 'gamma' || mode === 'notional') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   return value.toLocaleString();
+}
+
+function modeLabel(mode: DisplayMode): string {
+  if (mode === 'oi') return 'OI';
+  if (mode === 'gamma') return '$ Gamma';
+  return 'Notional';
 }
 
 function WallMapTooltip({
@@ -105,7 +112,7 @@ function WallMapTooltip({
   mode: DisplayMode;
 }) {
   if (!active || !payload?.length) return null;
-  const unitLabel = mode === 'oi' ? 'OI' : '$ Gamma';
+  const unitLabel = modeLabel(mode);
   return (
     <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)' }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
@@ -151,16 +158,31 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
       if (!Number.isFinite(strike) || strike <= 0) return;
       const existing = grouped.get(strike) ?? { strike, strikeLabel: strike.toFixed(0), callValue: 0, putValue: 0 };
       const optionType = String(row.option_type || '').toUpperCase();
-      const value = displayMode === 'oi' ? asNum(row.open_interest) : asNum(row.exposure);
+      // Per-contract value for this row's display mode.  Notional is
+      // strike × multiplier × OI — the dollar value of underlying
+      // controlled if exercised at this strike, the standard derivative-
+      // industry definition of position size.
+      const oi = asNum(row.open_interest);
+      const value =
+        displayMode === 'oi'
+          ? oi
+          : displayMode === 'notional'
+            ? oi * 100 * strike
+            : asNum(row.exposure);
 
       if (optionType.startsWith('C')) {
         existing.callValue += value;
       } else if (optionType.startsWith('P')) {
         existing.putValue += value;
       } else {
+        const callOi = asNum(row.call_oi);
+        const putOi = asNum(row.put_oi);
         if (displayMode === 'oi') {
-          existing.callValue += asNum(row.call_oi);
-          existing.putValue += asNum(row.put_oi);
+          existing.callValue += callOi;
+          existing.putValue += putOi;
+        } else if (displayMode === 'notional') {
+          existing.callValue += callOi * 100 * strike;
+          existing.putValue += putOi * 100 * strike;
         } else {
           existing.callValue += asNum(row.call_exposure);
           existing.putValue += asNum(row.put_exposure);
@@ -171,13 +193,20 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
 
     let rows = Array.from(grouped.values());
 
-    if (rows.length === 0 && displayMode === 'oi' && byStrikeFallback?.length) {
+    if (rows.length === 0 && displayMode !== 'gamma' && byStrikeFallback?.length) {
       byStrikeFallback.forEach((row) => {
         const strike = asNum(row.strike);
         if (!Number.isFinite(strike) || strike <= 0) return;
         const existing = grouped.get(strike) ?? { strike, strikeLabel: strike.toFixed(0), callValue: 0, putValue: 0 };
-        existing.callValue += asNum(row.call_oi);
-        existing.putValue += asNum(row.put_oi);
+        const callOi = asNum(row.call_oi);
+        const putOi = asNum(row.put_oi);
+        if (displayMode === 'notional') {
+          existing.callValue += callOi * 100 * strike;
+          existing.putValue += putOi * 100 * strike;
+        } else {
+          existing.callValue += callOi;
+          existing.putValue += putOi;
+        }
         grouped.set(strike, existing);
       });
       rows = Array.from(grouped.values());
@@ -279,11 +308,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
-        Call {displayMode === 'oi' ? 'OI' : '$ Gamma'}
+        Call {modeLabel(displayMode)}
       </div>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
-        Put {displayMode === 'oi' ? 'OI' : '$ Gamma'}
+        Put {modeLabel(displayMode)}
       </div>
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#FFD700' }} />
@@ -304,9 +333,9 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              OPEN INTEREST &amp; $ GAMMA BY STRIKE
+              OPEN INTEREST, $ GAMMA &amp; NOTIONAL BY STRIKE
             </h3>
-            <TooltipWrapper text="Strike-level view by call/put. Toggle between Open Interest (contracts outstanding) and $ Gamma (dealer gamma exposure: sign × γ × OI × 100 × spot — puts are negative, calls positive). $ Gamma is the same fundamental quantity as the GAMMA EXPOSURE BY STRIKE chart above, just normalized per $1 spot move instead of per 1% spot move (differ by a factor of spot × 0.01). The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper text="Strike-level view by call/put with three toggleable units. OI = open contracts outstanding (raw count). $ Gamma = dealer dollar gamma exposure (sign × γ × OI × 100 × spot) — the same fundamental quantity as the GAMMA EXPOSURE BY STRIKE chart above, just measured per $1 spot move instead of per 1% spot move (differ by a factor of spot × 0.01); puts negative, calls positive. Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
             <div
@@ -362,18 +391,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 type="button"
                 className="px-2.5 py-1 text-xs font-semibold"
                 style={{
-                  color: displayMode === 'gamma' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: displayMode === 'gamma' ? 'var(--color-info-soft)' : 'transparent',
-                }}
-                onClick={() => setDisplayMode('gamma')}
-                title="Dealer dollar gamma exposure (sign × γ × OI × 100 × spot)"
-              >
-                $ Gamma
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold"
-                style={{
                   color: displayMode === 'oi' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   backgroundColor: displayMode === 'oi' ? 'var(--color-info-soft)' : 'transparent',
                 }}
@@ -381,6 +398,32 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 title="Open interest (contracts outstanding)"
               >
                 OI
+              </button>
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold"
+                style={{
+                  color: displayMode === 'gamma' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  backgroundColor: displayMode === 'gamma' ? 'var(--color-info-soft)' : 'transparent',
+                  borderLeft: `1px solid ${inputBorder}`,
+                }}
+                onClick={() => setDisplayMode('gamma')}
+                title="Dealer dollar gamma exposure per $1 spot move (sign × γ × OI × 100 × spot)"
+              >
+                $ Gamma
+              </button>
+              <button
+                type="button"
+                className="px-2.5 py-1 text-xs font-semibold"
+                style={{
+                  color: displayMode === 'notional' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  backgroundColor: displayMode === 'notional' ? 'var(--color-info-soft)' : 'transparent',
+                  borderLeft: `1px solid ${inputBorder}`,
+                }}
+                onClick={() => setDisplayMode('notional')}
+                title="Notional value of position (strike × 100 × OI) — dollars of underlying that would change hands at exercise"
+              >
+                Notional
               </button>
             </div>
           </div>
@@ -393,14 +436,31 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         ) : (
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
                 <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
-                <YAxis yAxisId="value" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => formatAxisValue(Number(v), displayMode)} />
+                <YAxis
+                  yAxisId="value"
+                  stroke={axisStroke}
+                  tick={{ fontSize: 11, fill: axisStroke }}
+                  tickFormatter={(v) => formatAxisValue(Number(v), displayMode)}
+                  label={{
+                    value:
+                      displayMode === 'oi'
+                        ? 'Open Interest (contracts)'
+                        : displayMode === 'gamma'
+                          ? '$ Gamma (per $1 move)'
+                          : 'Notional ($ at exercise)',
+                    angle: -90,
+                    position: 'insideLeft',
+                    offset: 8,
+                    style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
+                  }}
+                />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="value" dataKey="callValue" name={displayMode === 'oi' ? 'Call OI' : 'Call $ Gamma'} fill={colors.bullish} opacity={1} barSize={14} />
-                <Bar yAxisId="value" dataKey="putValue" name={displayMode === 'oi' ? 'Put OI' : 'Put $ Gamma'} fill={colors.bearish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={colors.bullish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={colors.bearish} opacity={1} barSize={14} />
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
