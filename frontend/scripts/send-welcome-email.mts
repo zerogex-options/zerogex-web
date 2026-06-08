@@ -231,9 +231,11 @@ console.log(`Prior stamp: ${user.paid_welcome_email_sent_at ?? '(none)'}`);
 if (cliArgs.dryRun) {
   console.log(`\n[dry-run] Would send "${cliArgs.variant}" welcome email to ${email}.`);
   if (stampsThisVariant) {
-    console.log(`[dry-run] Would stamp paid_welcome_email_sent_at and insert audit row.`);
+    console.log(
+      `[dry-run] Would stamp paid_welcome_email_sent_at, clear subscription_lapsed, insert audit row.`,
+    );
   } else {
-    console.log(`[dry-run] Would insert audit row (welcome-back does not stamp).`);
+    console.log(`[dry-run] Would clear subscription_lapsed and insert audit row.`);
   }
   process.exit(0);
 }
@@ -248,11 +250,23 @@ if (cliArgs.variant === 'paid') {
 
 const nowIso = new Date().toISOString();
 
+// Always clear subscription_lapsed so the next webhook for this user doesn't
+// also fire a welcome-back. For paid/founding, additionally stamp the
+// first-time send column.
 if (stampsThisVariant) {
   execSqlite(
     dbPath,
     `UPDATE users
      SET paid_welcome_email_sent_at = '${escapeSqlLiteral(nowIso)}',
+         subscription_lapsed = 0,
+         updated_at = '${escapeSqlLiteral(nowIso)}'
+     WHERE id = '${escapeSqlLiteral(user.id)}';`,
+  );
+} else {
+  execSqlite(
+    dbPath,
+    `UPDATE users
+     SET subscription_lapsed = 0,
          updated_at = '${escapeSqlLiteral(nowIso)}'
      WHERE id = '${escapeSqlLiteral(user.id)}';`,
   );
@@ -288,4 +302,5 @@ console.log(`\nSent ${cliArgs.variant} welcome email to ${email}.`);
 if (stampsThisVariant) {
   console.log(`Stamped users.paid_welcome_email_sent_at = ${nowIso}.`);
 }
+console.log(`Cleared users.subscription_lapsed.`);
 console.log(`Wrote audit_events row id=${auditId} type=${auditType}.`);

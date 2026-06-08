@@ -233,6 +233,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
 
   if (isActive) {
     await maybeProcessReferral(user, subscription);
+    await maybeSendPaidWelcomeEmail(user, subscription);
   }
 }
 
@@ -293,65 +294,56 @@ async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscrip
   }
 }
 
-type WelcomePreState = {
-  id: string;
-  email: string;
-  tier: TierId;
-  paid_welcome_email_sent_at: string | null;
-};
-
-function findWelcomePreState(customerId: string): WelcomePreState | null {
-  const row = getDb()
-    .prepare(
-      `SELECT id, email, tier, paid_welcome_email_sent_at
-       FROM users WHERE stripe_customer_id = ?`,
-    )
-    .get(customerId) as WelcomePreState | undefined;
-  return row ?? null;
-}
-
-// Fired after syncSubscriptionToUser on checkout.session.completed. Decides
-// between three states using the user's tier *before* the sync ran:
-//   1. First-time paid signup (tier was 'public', no prior welcome stamp)
-//      → founding vs regular welcome based on subscription metadata.founding
-//   2. Re-subscribe (tier was 'public', welcome stamp already exists)
-//      → welcome-back email
-//   3. Upgrade (tier was already paid) → no email
-// Webhook-level idempotency in stripe_webhook_events guarantees this runs
-// exactly once per checkout event; the first-time path additionally CAS-stamps
-// paid_welcome_email_sent_at so a duplicate event from any other source still
-// can't double-send.
+// Called from syncSubscriptionToUser whenever a subscription has just been
+// observed in an active+paid state. Three branches, all decided race-safely
+// via atomic CAS UPDATEs — no pre-state snapshot is read, so concurrent
+// customer.subscription.* events for the same signup flow can't influence
+// the outcome:
+//
+//   1. First-time paid signup → CAS-claim paid_welcome_email_sent_at
+//      (NULL → stamp). The single event that wins sends paid (or founding,
+//      based on subscription.metadata.founding) and also clears
+//      subscription_lapsed in the same UPDATE so a stale-but-still-set
+//      lapse flag from before this column existed can't double-fire.
+//   2. Welcome-back after a prior cancel → CAS-claim subscription_lapsed
+//      (1 → 0). Only set to 1 by clearSubscriptionFromUser on
+//      customer.subscription.deleted, which is a different event from the
+//      welcome triggers, so the flag is never raced.
+//   3. Pure upgrade (paid → paid, no intervening cancel) → both CAS
+//      UPDATEs no-op and the function returns silently.
+//
+// Webhook-level idempotency in stripe_webhook_events plus the two CAS
+// claims together guarantee at most one welcome / welcome-back per
+// signup, regardless of redelivery, retries, or which lifecycle event
+// arrives first.
 async function maybeSendPaidWelcomeEmail(
-  pre: WelcomePreState,
+  user: UserRow,
   subscription: Stripe.Subscription,
 ): Promise<void> {
-  if (pre.tier !== 'public') return;
   if (!ACTIVE_STATUSES.has(subscription.status)) return;
 
-  const isFirstTime = !pre.paid_welcome_email_sent_at;
+  const stamp = nowIso();
 
-  if (isFirstTime) {
-    const stamp = nowIso();
-    const updated = getDb()
-      .prepare(
-        `UPDATE users SET paid_welcome_email_sent_at = ?, updated_at = ?
-         WHERE id = ? AND paid_welcome_email_sent_at IS NULL`,
-      )
-      .run(stamp, stamp, pre.id) as { changes: number | bigint };
-    if (Number(updated.changes) === 0) return;
+  const firstTimeClaim = getDb()
+    .prepare(
+      `UPDATE users SET paid_welcome_email_sent_at = ?, subscription_lapsed = 0, updated_at = ?
+       WHERE id = ? AND paid_welcome_email_sent_at IS NULL`,
+    )
+    .run(stamp, stamp, user.id) as { changes: number | bigint };
 
+  if (Number(firstTimeClaim.changes) > 0) {
     const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
     const isFounding = subMetadata.founding === '1';
     try {
       if (isFounding) {
-        await sendFoundingWelcomeEmail(pre.email);
+        await sendFoundingWelcomeEmail(user.email);
       } else {
-        await sendPaidWelcomeEmail(pre.email);
+        await sendPaidWelcomeEmail(user.email);
       }
       logAudit({
         type: 'paid_welcome_email_sent',
-        userId: pre.id,
-        email: pre.email,
+        userId: user.id,
+        email: user.email,
         message: isFounding
           ? `Sent founding welcome email for sub ${subscription.id}`
           : `Sent paid welcome email for sub ${subscription.id}`,
@@ -360,31 +352,39 @@ async function maybeSendPaidWelcomeEmail(
       const message = err instanceof Error ? err.message : 'welcome email send failed';
       logAudit({
         type: 'paid_welcome_email_error',
-        userId: pre.id,
-        email: pre.email,
+        userId: user.id,
+        email: user.email,
         message: `Welcome email send failed for sub ${subscription.id}: ${message}`,
       });
-      // Swallow — tier sync already succeeded and the stamp is set, so
-      // failure here is a non-critical email that needs manual follow-up
-      // rather than a webhook retry (which would no-op on the stamp).
+      // Swallow — the stamp is set, so a webhook retry will no-op rather
+      // than re-send. Manual recovery via scripts/send-welcome-email.mts.
     }
     return;
   }
 
+  const welcomeBackClaim = getDb()
+    .prepare(
+      `UPDATE users SET subscription_lapsed = 0, updated_at = ?
+       WHERE id = ? AND subscription_lapsed = 1`,
+    )
+    .run(stamp, user.id) as { changes: number | bigint };
+
+  if (Number(welcomeBackClaim.changes) === 0) return;
+
   try {
-    await sendWelcomeBackEmail(pre.email);
+    await sendWelcomeBackEmail(user.email);
     logAudit({
       type: 'paid_welcome_back_email_sent',
-      userId: pre.id,
-      email: pre.email,
+      userId: user.id,
+      email: user.email,
       message: `Sent welcome-back email for sub ${subscription.id}`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'welcome-back email send failed';
     logAudit({
       type: 'paid_welcome_email_error',
-      userId: pre.id,
-      email: pre.email,
+      userId: user.id,
+      email: user.email,
       message: `Welcome-back email send failed for sub ${subscription.id}: ${message}`,
     });
   }
@@ -396,6 +396,9 @@ function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const user = findUserByCustomerId(customerId);
   if (!user) return;
 
+  // subscription_lapsed = 1 is the signal maybeSendPaidWelcomeEmail consumes
+  // (race-safely, via CAS) to fire a welcome-back if and when the customer
+  // resubscribes. Cleared back to 0 atomically in that send path.
   getDb()
     .prepare(
       `UPDATE users SET
@@ -405,6 +408,7 @@ function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          subscription_status = ?,
          current_period_end = NULL,
          cancel_at_period_end = 0,
+         subscription_lapsed = 1,
          updated_at = ?
        WHERE id = ?`,
     )
@@ -480,25 +484,14 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        // Snapshot the user's pre-sync state BEFORE any await below. A
-        // concurrent customer.subscription.* webhook for the same customer
-        // can run its sync (public → paid) while we're awaiting Stripe, and
-        // maybeSendPaidWelcomeEmail's first-paid vs upgrade decision depends
-        // on the original tier. session.customer carries the id without an
-        // API call, so the snapshot is fully synchronous from here.
-        const sessionCustomerId =
-          typeof session.customer === 'string'
-            ? session.customer
-            : session.customer?.id ?? null;
-        const welcomePre = sessionCustomerId ? findWelcomePreState(sessionCustomerId) : null;
         const subscriptionId =
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+          // syncSubscriptionToUser drives the welcome internally via the
+          // CAS-based maybeSendPaidWelcomeEmail, so this handler no longer
+          // needs to pre-snapshot any state.
           await syncSubscriptionToUser(subscription);
-          if (welcomePre) {
-            await maybeSendPaidWelcomeEmail(welcomePre, subscription);
-          }
         }
         break;
       }

@@ -221,6 +221,28 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
+  // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
+  // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
+  // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when
+  // it fires the welcome-back. This lets the welcome handler tell apart
+  // "customer cancelled then came back" (welcome-back) from "customer is
+  // upgrading in place" (silent) via two race-safe CAS claims (on the stamp
+  // and on this flag), with no dependence on any column mutated by
+  // concurrent customer.subscription.* events for the same signup flow —
+  // which is what caused the original race where the welcome was skipped.
+  //
+  // Backfill on first add: a user who's been welcomed but no longer has a
+  // subscription id likely cancelled before this column existed. Mark them
+  // so their next checkout fires welcome-back instead of falling through to
+  // the silent-upgrade branch.
+  if (ensureColumn('users', 'subscription_lapsed', 'INTEGER NOT NULL DEFAULT 0')) {
+    db.exec(
+      `UPDATE users SET subscription_lapsed = 1
+       WHERE paid_welcome_email_sent_at IS NOT NULL
+         AND stripe_subscription_id IS NULL`,
+    );
+  }
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).
