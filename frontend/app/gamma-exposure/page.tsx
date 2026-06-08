@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Info } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
@@ -31,6 +31,56 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
     <div className="flex items-center gap-2 mb-4">
       <h2 className="text-2xl font-semibold">{title}</h2>
       <TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper>
+    </div>
+  );
+}
+
+// Dismissible callout that sits between the GAMMA EXPOSURE chart (per-1%
+// units) and the OPEN INTEREST chart (per-$1 units), spelling out what
+// the two normalizations are and why we show both. The "Gamma Exposure"
+// vs "$ Gamma" naming is right next to industry convention but the
+// formulas and equivalence are worth making explicit at least once on the
+// page. Dismissal is per-page-view (no persistence) — coming back fresh
+// after navigating away re-shows it, which is fine for a reference card.
+function UnitsCallout() {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div
+      className="rounded-lg p-4 flex items-start gap-3 text-sm"
+      style={{
+        backgroundColor: 'var(--color-info-soft)',
+        border: '1px solid var(--color-info)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
+      <Info size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-info)' }} />
+      <div className="flex-1">
+        <div className="font-semibold mb-1">Reading the two strike charts: same quantity, different units</div>
+        <ul className="space-y-1 list-disc pl-4">
+          <li>
+            <span className="font-semibold">GAMMA EXPOSURE BY STRIKE</span> (above) shows dealer dollar gamma <span className="font-semibold">per 1% spot move</span>:{' '}
+            <code className="font-mono opacity-90">γ × OI × 100 × spot² × 0.01</code>. This is the industry-standard normalization — what every &ldquo;Net GEX = $X B&rdquo; headline refers to. Comparable across underlyings of different price levels.
+          </li>
+          <li>
+            <span className="font-semibold">$ GAMMA</span> in the OPEN INTEREST chart (below) shows dealer dollar gamma <span className="font-semibold">per $1 spot move</span>:{' '}
+            <code className="font-mono opacity-90">sign × γ × OI × 100 × spot</code>. The raw per-strike quantity, signed by call/put.
+          </li>
+        </ul>
+        <div className="mt-2" style={{ color: 'var(--color-text-secondary)' }}>
+          They&rsquo;re the same dealer-gamma reading scaled by <code className="font-mono">spot × 0.01</code> — at SPX 6000, GEX values are ~60× the $ Gamma values. Same sign, same shape, same walls. <span className="font-semibold">Notional</span> (third toggle below) is unrelated to gamma: it&rsquo;s <code className="font-mono">strike × 100 × OI</code>, the dollar value of underlying that would change hands at exercise.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setHidden(true)}
+        className="p-1 rounded shrink-0 hover:opacity-80"
+        style={{ color: 'var(--color-text-secondary)' }}
+        aria-label="Dismiss units explainer"
+        title="Hide"
+      >
+        <X size={14} />
+      </button>
     </div>
   );
 }
@@ -450,6 +500,13 @@ export default function GammaExposurePage() {
             onSelectedExpirationChange={setChartSelectedExpiration}
           />
         </div>
+      </section>
+
+      {/* Inline units explainer — sits at the unit boundary between the
+          per-1% chart above and the per-$1 chart below so the distinction
+          is right where readers naturally hit it. */}
+      <section className="mb-8">
+        <UnitsCallout />
       </section>
 
       {/* Section 4: Call/Put Wall Map */}
