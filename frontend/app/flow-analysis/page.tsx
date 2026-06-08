@@ -24,6 +24,7 @@ import {
   type FlowSeriesPoint,
 } from "@/hooks/useFlowSeries";
 import ErrorMessage from "@/components/ErrorMessage";
+import ExpandableCard from "@/components/ExpandableCard";
 import MetricCard from "@/components/MetricCard";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
@@ -413,6 +414,24 @@ function is30MinBoundary(ts: string): boolean {
   if (isNaN(d.getTime())) return false;
   const m = d.getUTCMinutes();
   return m === 0 || m === 30;
+}
+
+const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
+
+/** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
+ *  by the compact-row charts to thin labels down to a handful of major
+ *  intraday markers. DST-safe via Intl. */
+function isMajorTwoHourTick(ts: string): boolean {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return false;
+  if (d.getUTCMinutes() !== 0) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hourCycle: "h23",
+    hour: "2-digit",
+  }).formatToParts(d);
+  const etHour = Number(parts.find((p) => p.type === "hour")?.value);
+  return MAJOR_TICK_ET_HOURS.has(etHour);
 }
 
 function getDynamicLeftMargin(rows: TimeseriesRow[]) {
@@ -1073,6 +1092,10 @@ export default function FlowAnalysisPage() {
     () => getDateMarkerMeta(netPositionSeries.map((r) => r.timestamp)),
     [netPositionSeries],
   );
+  const directionalPremiumDateMarkerMeta = useMemo(
+    () => getDateMarkerMeta(directionalPremiumSeries.map((r) => r.timestamp)),
+    [directionalPremiumSeries],
+  );
 
   // ── Filter chip toggles ───────────────────────────────────────────────────
 
@@ -1211,7 +1234,8 @@ export default function FlowAnalysisPage() {
       {/* ── Compact charts row (Net Directional Premium · Put/Call Ratio · Net Position) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* ── Net Directional Premium ───────────────────────────────────── */}
-      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Directional Premium"
           tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
@@ -1236,18 +1260,29 @@ export default function FlowAnalysisPage() {
                       x?: number | string;
                       y?: number | string;
                       payload?: { value?: string | number };
+                      index?: number;
                     }) => {
                       const x = Number(props?.x ?? 0);
                       const y = Number(props?.y ?? 0);
-                      const ts = String(props?.payload?.value || "");
-                      const showTime = is30MinBoundary(ts);
-                      if (!showTime) return <g transform={`translate(${x},${y})`} />;
+                      const payload = props?.payload;
+                      const index = Number(props?.index ?? -1);
+                      const ts = String(payload?.value || "");
+                      const dateLabel = directionalPremiumDateMarkerMeta.get(index);
+                      const showTime = isMajorTwoHourTick(ts);
+                      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                       return (
                         <g transform={`translate(${x},${y})`}>
                           <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                          <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                            {safeTimeLabel(ts)}
-                          </text>
+                          {showTime ? (
+                            <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
+                              {safeTimeLabel(ts)}
+                            </text>
+                          ) : null}
+                          {dateLabel ? (
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                              {dateLabel}
+                            </text>
+                          ) : null}
                         </g>
                       );
                     }}
@@ -1303,10 +1338,12 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </section>
+      </div>
+      </ExpandableCard>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
-      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Put/Call Ratio"
           tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
@@ -1340,7 +1377,7 @@ export default function FlowAnalysisPage() {
                       const ts = String(payload?.value || "");
                       const timeLabel = safeTimeLabel(ts);
                       const dateLabel = ratioDateMarkerMeta.get(index);
-                      const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                      const showTime = isMajorTwoHourTick(ts);
                       if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                       return (
                         <g transform={`translate(${x},${y})`}>
@@ -1412,10 +1449,12 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </section>
+      </div>
+      </ExpandableCard>
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
-      <section className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionTitle
           title="Net Position (Buys vs. Sells)"
           tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
@@ -1449,7 +1488,7 @@ export default function FlowAnalysisPage() {
                       const ts = String(payload?.value || "");
                       const timeLabel = safeTimeLabel(ts);
                       const dateLabel = netPositionDateMarkerMeta.get(index);
-                      const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+                      const showTime = isMajorTwoHourTick(ts);
                       if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
                       return (
                         <g transform={`translate(${x},${y})`}>
@@ -1521,7 +1560,8 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </section>
+      </div>
+      </ExpandableCard>
       </div>
     </div>
   );
