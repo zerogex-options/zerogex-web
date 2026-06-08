@@ -21,38 +21,36 @@ import {
   useGEXSummary,
   useMarketQuote,
 } from '@/hooks/useApiData';
-import { useMarketHistorical } from '@/hooks/useMarketHistorical';
-import { useGexLevelHistory, levelsAt, type GexLevelSource } from '@/hooks/useGexLevelHistory';
-import { useGexStrikeHistory } from '@/hooks/useGexStrikeHistory';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { omitClosedMarketTimes } from '@/core/utils';
 
-interface PriceBar {
-  timestamp: string;
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-}
-
-type OpenInterestApiResponse = {
-  spot_price?: number | string;
-  contracts?: Record<string, unknown>[];
-  rows?: Record<string, unknown>[];
-  data?: Record<string, unknown>[];
-  items?: Record<string, unknown>[];
-  results?: Record<string, unknown>[];
-};
-
-interface OpenInterestRow {
+// One time bucket of /api/gex/strike-profile-timeseries. The backend already
+// pre-bucketed candles, walls, flip, and per-strike gamma on the chart's
+// chosen timeframe; the chart's rewind collapses to direct indexing into the
+// returned array (rewindIndex → buckets[rewindIndex]), so all of these line
+// up on the time axis by construction.
+interface StrikeProfileStrikeRow {
   strike?: number | string;
-  expiration?: string;
-  option_type?: string | null;
-  open_interest?: number | string | null;
+  call_gamma?: number | string | null;
+  put_gamma?: number | string | null;
+  net_gamma?: number | string | null;
   call_oi?: number | string | null;
   put_oi?: number | string | null;
+}
+
+interface StrikeProfileBucketRow {
+  timestamp: string;
+  symbol?: string;
+  open?: number | string | null;
+  high?: number | string | null;
+  low?: number | string | null;
+  close?: number | string | null;
+  gamma_flip?: number | string | null;
+  call_wall?: number | string | null;
+  put_wall?: number | string | null;
+  strikes?: StrikeProfileStrikeRow[];
 }
 
 interface StrikeAggregation {
@@ -76,17 +74,20 @@ function tfToApi(tf: ChartTf): string {
 // therefore scales with the interval — that's intentional.
 const TARGET_VISIBLE_CANDLES = 78;
 
-// Pull a wide candle window so the rewind scrubber can reach the start of the
-// session on every interval — a full 1m RTH session is 390 bars, so 480 covers
-// it (and any prior-session context the "With Prev" overlay needs) while
-// staying under useMarketHistorical's 576-bar cache ceiling. Only the latest
-// TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the rewind range.
+// Pull a wide window so the rewind scrubber can reach the start of the session
+// on every interval — a full 1m RTH session is 390 buckets, so 480 covers that
+// plus the prior-session context the "With Prev" overlay needs. Only the
+// latest TARGET_VISIBLE_CANDLES are ever shown at once; the rest are the
+// rewind range. The endpoint's default of 78 is the no-rewind default;
+// requesting the full 480 here is what gives rewind full-session depth right
+// after a hard refresh / make rebuild, with nothing in-browser to warm up.
 const FETCH_WINDOW = 480;
 
-// `/api/gex/historical` caps window_units at 90. At the chart's default 5m
-// timeframe that is a full session of flip/wall history; on 1m it reaches back
-// ~90 minutes, with the live running cache covering the rest from page open.
-const GEX_HISTORY_UNITS = 90;
+function toNumber(v: number | string | null | undefined): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 function formatExposure(v: number): string {
   const abs = Math.abs(v);
@@ -270,157 +271,126 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const summaryInterval = paused ? 0 : 1000;
   const quoteInterval = paused ? 0 : 1000;
   const strikeInterval = paused ? 0 : 1000;
-  const oiInterval = paused ? 0 : 1000;
+  const profileInterval = paused ? 0 : 1000;
 
-  // ── Data fetching (mirrors hooks used by UnderlyingCandlesChart, GexWallsChart) ──
+  // ── Live snapshot hooks ──
+  // The /api/gex/by-strike snapshot is kept ONLY to drive the expiry dropdown
+  // (it carries the universe of expirations available for the current symbol);
+  // every value the chart actually renders — candles, flip/walls, per-strike
+  // gamma & OI, at the live edge AND at every rewind point — comes from the
+  // strike-profile-timeseries below.  useGEXSummary / useMarketQuote remain
+  // for the "Updated" label and the y-axis anchor fallback spot.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
   const { data: quote } = useMarketQuote(symbol, quoteInterval);
   const { data: gexByStrike } = useGEXByStrike(symbol, 200, strikeInterval, 'impact');
-  const { data: openInterestData } = useApiData<OpenInterestApiResponse | OpenInterestRow[] | null>(
-    `/api/market/open-interest?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: oiInterval },
-  );
-  const { rows: priceBarsAll } = useMarketHistorical(symbol, tfToApi(tf));
-  const priceBars: PriceBar[] = useMemo(() => priceBarsAll.slice(-FETCH_WINDOW), [priceBarsAll]);
 
-  // Historical dealer-positioning levels for the rewind feature. This endpoint
-  // returns full summary rows over time — gamma_flip AND call_wall/put_wall —
-  // so it doubles as the backfill source for the session level cache below.
-  const { data: gexHistorical } = useApiData<GexLevelSource[] | null>(
-    `/api/gex/historical?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${GEX_HISTORY_UNITS}`,
-    { refreshInterval: paused ? 0 : 1000 },
-  );
-
-  // Running per-session cache of flip/walls. Records the live summary while the
-  // chart is live (not paused), and is seeded with history below so rewinding
-  // can resolve the levels in effect at any earlier point in the session.
-  const { samples: levelSamples, backfill: backfillLevels } = useGexLevelHistory(
-    symbol,
-    (gexSummary ?? null) as GexLevelSource | null,
-    !paused,
+  // ── Single source of truth: aligned per-bucket Strike-Profile timeseries ──
+  // Each bucket carries candle OHLC + flip/walls + per-strike gamma & OI on a
+  // common time axis.  We request ``FETCH_WINDOW`` buckets so the rewind
+  // scrubber has full-session depth right after a hard refresh / make rebuild
+  // (the old in-browser recorders had to warm up from page-open).  The chart
+  // still displays only ``TARGET_VISIBLE_CANDLES`` at a time; the rest is the
+  // rewind range.  The endpoint URL includes the expiration so changing the
+  // expiry dropdown triggers a fresh fetch on the right basis without any
+  // client-side filtering of the strikes.
+  const expirationsParam = selectedExpiry === 'all' ? 'all' : selectedExpiry;
+  const { data: strikeProfileTimeseries } = useApiData<StrikeProfileBucketRow[] | null>(
+    `/api/gex/strike-profile-timeseries?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&timeframe=${tfToApi(tf)}&window_units=${FETCH_WINDOW}&expirations=${encodeURIComponent(expirationsParam)}`,
+    { refreshInterval: profileInterval },
   );
 
-  useEffect(() => {
-    if (gexHistorical && gexHistorical.length > 0) backfillLevels(gexHistorical);
-  }, [gexHistorical, backfillLevels]);
+  const profileBuckets = useMemo<StrikeProfileBucketRow[]>(() => {
+    if (!strikeProfileTimeseries || !Array.isArray(strikeProfileTimeseries)) return [];
+    // The endpoint already returns buckets ASCENDING by timestamp (most recent
+    // last), session-aware, on the chosen timeframe boundary.  Filter to
+    // extended-hours so the x-axis matches what every other chart shows, and
+    // drop buckets that have no usable OHLC — those would render as blank
+    // candles and (more importantly) misalign the 1:1 index relationship
+    // ``allCandles`` and ``profileBuckets`` rely on for direct-indexed rewind.
+    const filtered = omitClosedMarketTimes(strikeProfileTimeseries, (b) => b.timestamp);
+    return filtered
+      .filter((b) => {
+        const o = toNumber(b.open ?? b.close);
+        return o != null && o > 0;
+      })
+      .sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+  }, [strikeProfileTimeseries]);
 
-  const openInterestRows = useMemo<OpenInterestRow[]>(() => {
-    if (!openInterestData) return [];
-    if (Array.isArray(openInterestData)) return openInterestData;
-    const p = openInterestData as Record<string, unknown>;
-    for (const key of ['contracts', 'rows', 'data', 'items', 'results'] as const) {
-      if (Array.isArray(p[key])) return p[key] as OpenInterestRow[];
-    }
-    return [];
-  }, [openInterestData]);
-
+  // Expiry dropdown universe — the rewind chart's strikes payload is
+  // restricted by the API based on ``expirations``, but the dropdown itself
+  // still has to show every expiration the symbol carries.  The live
+  // /api/gex/by-strike snapshot is the lightest source of "which expirations
+  // exist right now" that doesn't require an additional endpoint.
   const availableExpirations = useMemo(() => {
     const exps = new Set<string>();
     (gexByStrike || []).forEach((row) => {
       const exp = String(row.expiration || '').trim();
       if (exp) exps.add(exp);
     });
-    openInterestRows.forEach((row) => {
-      const exp = String(row.expiration || '').trim();
-      if (exp) exps.add(exp);
-    });
     return Array.from(exps).sort();
-  }, [gexByStrike, openInterestRows]);
+  }, [gexByStrike]);
 
-  const filteredGexByStrike = useMemo(() => {
-    if (selectedExpiry === 'all') return gexByStrike || [];
-    return (gexByStrike || []).filter((row) => String(row.expiration || '') === selectedExpiry);
-  }, [gexByStrike, selectedExpiry]);
+  // Map one bucket's strikes payload into the existing StrikeAggregation
+  // shape the Gamma / Positions panels render.  ``call_gamma`` /
+  // ``put_gamma`` / ``net_gamma`` from the API carry the same dollar-gamma
+  // quantities the live by-strike endpoint calls call_gex / put_gex /
+  // net_gex, so they map straight through to ``callGex`` / ``putGex`` /
+  // ``netGex`` with no recomputation.
+  const bucketToStrikeAggregations = (
+    bucket: StrikeProfileBucketRow | null,
+  ): StrikeAggregation[] => {
+    if (!bucket || !Array.isArray(bucket.strikes)) return [];
+    return bucket.strikes
+      .map((row): StrikeAggregation | null => {
+        const strike = toNumber(row.strike);
+        if (strike == null) return null;
+        return {
+          strike,
+          callGex: toNumber(row.call_gamma) ?? 0,
+          putGex: toNumber(row.put_gamma) ?? 0,
+          netGex: toNumber(row.net_gamma) ?? 0,
+          callOi: Math.max(0, Math.trunc(toNumber(row.call_oi) ?? 0)),
+          putOi: Math.max(0, Math.trunc(toNumber(row.put_oi) ?? 0)),
+        };
+      })
+      .filter((s): s is StrikeAggregation => s != null)
+      .sort((a, b) => b.strike - a.strike);
+  };
 
-  const filteredOiByStrike = useMemo(() => {
-    const grouped = new Map<number, { callOi: number; putOi: number }>();
-    const source = selectedExpiry === 'all'
-      ? openInterestRows
-      : openInterestRows.filter((row) => String(row.expiration || '') === selectedExpiry);
-    source.forEach((row) => {
-      const strike = Number(row.strike);
-      if (!Number.isFinite(strike) || strike <= 0) return;
-      const existing = grouped.get(strike) ?? { callOi: 0, putOi: 0 };
-      const optionType = String(row.option_type || '').toUpperCase();
-      const oi = Number(row.open_interest ?? 0);
-      if (optionType.startsWith('C')) existing.callOi += oi;
-      else if (optionType.startsWith('P')) existing.putOi += oi;
-      else {
-        existing.callOi += Number(row.call_oi ?? 0);
-        existing.putOi += Number(row.put_oi ?? 0);
-      }
-      grouped.set(strike, existing);
-    });
-    return grouped;
-  }, [openInterestRows, selectedExpiry]);
-
-  const strikeAggregations = useMemo<StrikeAggregation[]>(() => {
-    const grouped = new Map<number, StrikeAggregation>();
-    filteredGexByStrike.forEach((row) => {
-      const strike = Number(row.strike);
-      if (!Number.isFinite(strike)) return;
-      const existing = grouped.get(strike) ?? { strike, netGex: 0, callGex: 0, putGex: 0, callOi: 0, putOi: 0 };
-      existing.netGex += Number(row.net_gex || 0);
-      existing.callGex += Number(row.call_gex || 0);
-      existing.putGex += Number(row.put_gex || 0);
-      existing.callOi += Number(row.call_oi || 0);
-      existing.putOi += Number(row.put_oi || 0);
-      grouped.set(strike, existing);
-    });
-    if (filteredOiByStrike.size > 0) {
-      grouped.forEach((value, key) => {
-        const oi = filteredOiByStrike.get(key);
-        if (oi) {
-          value.callOi = oi.callOi;
-          value.putOi = oi.putOi;
-        }
-      });
-    }
-    return Array.from(grouped.values()).sort((a, b) => b.strike - a.strike);
-  }, [filteredGexByStrike, filteredOiByStrike]);
-
-  // Timestamp used to bucket strike recordings. Use the same clock the level
-  // cache records on (gexSummary.timestamp) so the Gamma/Positions panels and
-  // the flip/wall lines rewind in lockstep and stay aligned with the candle
-  // timeline. Fall back through other live timestamps, then wall-clock, so a
-  // missing/static field can't silently stop recording — which would freeze the
-  // Gamma column across the whole scrub.
-  const strikeTs = useMemo(() => {
-    const tsRaw = gexSummary?.timestamp ?? gexByStrike?.[0]?.timestamp ?? quote?.timestamp;
-    const ms = tsRaw ? new Date(tsRaw).getTime() : NaN;
-    return Number.isFinite(ms) ? ms : null;
-  }, [gexSummary, gexByStrike, quote]);
-
-  // Per-session recorder for the by-strike panels. Keyed by symbol+expiry so a
-  // changed expiry filter gets its own consistent timeline. Records the live
-  // aggregation tick by tick — the single source of truth so every rewound
-  // frame stays on the same basis (net/split/OI) as the live view.
-  const { snapshotAt: strikeSnapshotAt, coverageStartMs } =
-    useGexStrikeHistory(`${symbol}|${selectedExpiry}`, strikeAggregations, strikeTs, !paused);
+  // Live strike-aggregation snapshot (right edge of the timeseries).  Used
+  // for the y-axis anchor's initial spread estimate and as the fallback the
+  // visibleStrikes memo resolves to whenever we're NOT actively scrubbed off
+  // the right edge.
+  const profileTipBucket = profileBuckets.length > 0 ? profileBuckets[profileBuckets.length - 1] : null;
+  const strikeAggregations = useMemo<StrikeAggregation[]>(
+    () => bucketToStrikeAggregations(profileTipBucket),
+    [profileTipBucket],
+  );
 
   const spot = useMemo(() => {
-    const candidates = [quote?.close, gexSummary?.spot_price].filter((v) => Number.isFinite(Number(v)));
-    return candidates.length > 0 ? Number(candidates[0]) : null;
-  }, [quote, gexSummary]);
+    const candidates = [
+      toNumber(profileTipBucket?.close),
+      toNumber(quote?.close),
+      toNumber(gexSummary?.spot_price),
+    ].filter((v): v is number => v != null);
+    return candidates.length > 0 ? candidates[0] : null;
+  }, [profileTipBucket, quote, gexSummary]);
 
+  // Thin projection of profileBuckets onto the existing candle shape.  No
+  // additional filtering / sorting here: profileBuckets is already RTH-clipped,
+  // OHLC-validated, and ASCENDING — and the chart's rewind relies on the 1:1
+  // index relationship ``allCandles[i] === profileBuckets[i]``.
   const allCandles = useMemo(() => {
-    const filtered = omitClosedMarketTimes(priceBars || [], (b) => b.timestamp);
-    const normalized = filtered
-      .map((b) => ({
-        timestamp: b.timestamp,
-        open: Number(b.open ?? b.close ?? 0),
-        close: Number(b.close ?? b.open ?? 0),
-        high: Number(b.high ?? b.close ?? 0),
-        low: Number(b.low ?? b.close ?? 0),
-      }))
-      .filter((c) => Number.isFinite(c.open) && c.open > 0);
-    // Defensive sort: the historical endpoint isn't guaranteed to return rows
-    // in chronological order, and slice(-78) below relies on the newest bars
-    // sitting at the end of the array — otherwise we'd drop the newest 12
-    // bars and anchor the Spot line to the oldest visible candle's close.
-    normalized.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    return normalized;
-  }, [priceBars]);
+    return profileBuckets.map((b) => ({
+      timestamp: b.timestamp,
+      open: Number(b.open ?? b.close ?? 0),
+      close: Number(b.close ?? b.open ?? 0),
+      high: Number(b.high ?? b.close ?? 0),
+      low: Number(b.low ?? b.close ?? 0),
+    }));
+  }, [profileBuckets]);
 
   const nyDateFmt = useMemo(
     () =>
@@ -569,19 +539,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return labels;
   }, [yBounds]);
 
-  // At the right edge (most recent plot point) the rewind should match the live
-  // frozen view exactly, so render live data there; only once scrubbed left do
-  // we swap in recorded snapshots. This avoids the most-recent frame disagreeing
-  // with "now" just because the live recording is bucketed a minute later than
-  // the last candle's open time.
+  // At the right edge (most recent plot point) the rewind matches the live
+  // view exactly because both read the same bucket — the timeseries' tip.
+  // Only once scrubbed left do we swap in an earlier bucket's strikes / walls.
   const atRewindRightEdge = rewindIndex == null || rewindIndex >= allCandles.length - 1;
 
-  // While rewinding (and off the right edge), swap the live aggregation for the
-  // recorded snapshot at the scrubbed moment so the Gamma and Positions panels
-  // replay alongside the candles, on the same basis as live.
-  const rewoundStrikes = rewindActive && !atRewindRightEdge && rewindIndex != null && allCandles[rewindIndex]
-    ? strikeSnapshotAt(new Date(allCandles[rewindIndex].timestamp).getTime())
+  // While rewinding (and off the right edge), swap the live tip bucket for the
+  // scrubbed bucket so the Gamma / Positions panels and the flip / wall lines
+  // replay alongside the candles.  Because allCandles is built from
+  // profileBuckets in the same order (1:1), the rewindIndex into allCandles is
+  // ALSO the index into profileBuckets — no per-bucket lookup, no recorder.
+  const rewoundBucket = rewindActive && !atRewindRightEdge && rewindIndex != null
+    ? profileBuckets[rewindIndex] ?? null
     : null;
+  const rewoundStrikes = useMemo(
+    () => (rewoundBucket ? bucketToStrikeAggregations(rewoundBucket) : null),
+    [rewoundBucket],
+  );
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
   const visibleStrikes = useMemo(() => {
@@ -725,17 +699,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return spot;
   }, [visibleCandles, spot]);
 
-  // Resolve the flip / call wall / put wall to draw. While rewinding (and off
-  // the right edge), look them up from the session level cache at the scrubbed
-  // candle's time; at the right edge / when live, use the live summary so the
-  // most-recent frame matches "now". Each field independently falls back to the
-  // live value when the cache has no recording for that moment.
-  const rewoundLevels = rewindActive && !atRewindRightEdge && rewindIndex != null && allCandles[rewindIndex]
-    ? levelsAt(levelSamples, new Date(allCandles[rewindIndex].timestamp).getTime())
-    : null;
-  const effFlip = rewoundLevels?.flip ?? gexSummary?.gamma_flip ?? null;
-  const effCallWall = rewoundLevels?.callWall ?? gexSummary?.call_wall ?? null;
-  const effPutWall = rewoundLevels?.putWall ?? gexSummary?.put_wall ?? null;
+  // Resolve the flip / call wall / put wall to draw.  While rewinding (and off
+  // the right edge), read them from the scrubbed bucket directly — same
+  // 1:1 index relationship the strikes use above.  At the right edge / when
+  // live, fall back to the live tip bucket so the most-recent frame matches
+  // "now".  Each field independently falls back to the live summary if the
+  // bucket has no recorded value (rare — typically when the analytics writer
+  // hadn't resolved the flip yet on that cycle).
+  const levelSourceBucket = rewoundBucket ?? profileTipBucket;
+  const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
+  const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
+  const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
@@ -859,9 +833,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const rewindFillPct = rewindMax > rewindMin ? ((rewindValue - rewindMin) / (rewindMax - rewindMin)) * 100 : 100;
   const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
   const rewindAvailable = rewindMax > rewindMin;
-  // Coverage note: price + key levels rewind across the full session, but the
-  // by-strike Gamma/Positions panels only have data from when recording began.
-  const strikeCoverageLabel = coverageStartMs != null ? tsFmt(coverageStartMs) : null;
 
   const toggleRewind = () => {
     if (rewindActive) {
@@ -1774,10 +1745,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span>Most recent · {rewindEndLabel}</span>
           </div>
           <div className="mt-1 text-[10px]" style={{ color: subtle }}>
-            Price &amp; levels cover the full session.{' '}
-            {strikeCoverageLabel
-              ? `Gamma & positions are recorded live from ${strikeCoverageLabel} (earlier points show the nearest recording).`
-              : 'Gamma & positions record live while the chart is open.'}
+            Price, levels, gamma &amp; positions all cover the full returned window.
           </div>
         </div>
       )}
