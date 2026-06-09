@@ -1403,7 +1403,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           style={{
             ...(compact ? {} : { minWidth: 760 }),
             cursor: isPanning ? 'grabbing' : 'grab',
-            touchAction: 'none',
+            // Let mobile browsers own touch scrolling — the chart has no
+            // touch handlers of its own (only mouse-driven click-and-drag
+            // y-pan, which still works on desktop), so ``touch-action: none``
+            // was blocking both the non-compact view's horizontal scroll
+            // through the ``overflow-x-auto`` container AND the page's
+            // vertical scroll when a touch landed on the dashboard tile.
+            touchAction: 'pan-x pan-y',
           }}
           onMouseMove={onSvgMouseMove}
           onMouseDown={onSvgMouseDown}
