@@ -472,41 +472,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // OHLC-validated, and ASCENDING — and the chart's rewind relies on the 1:1
   // index relationship ``allCandles[i] === profileBuckets[i]``.
   //
-  // ── Tip-candle live-quote merge ──
-  // The CLOSE of the tip candle is overridden with the live /api/market/quote
-  // close so the candle, the cyan spot line, and the header price all tick on
-  // the same 1Hz cadence.  Two guard rails make this safe across the bucket
-  // boundary, where both endpoints' cadence diverges from real time:
+  // The tip candle's CLOSE is overridden with the live /api/market/quote
+  // close so the most-recent candle, the cyan spot line, and the header
+  // price all read the same number on the same 1Hz tick.  Only the close
+  // is touched — open / high / low remain exactly what the analytics
+  // engine wrote, so the candle's silhouette never widens past what
+  // /api/gex/strike-profile-timeseries reported.  When a new bucket
+  // arrives via the tip-poll, the previous tip reverts cleanly to API
+  // values with no leftover stretching from the live merge.
   //
-  // (1) Gate on the last cached bucket being the CURRENT window's bucket.
-  //     Floor the live quote's timestamp to the timeframe boundary; that's
-  //     the bucket the analytics engine should be writing right now.  The
-  //     engine doesn't always emit it the instant the boundary crosses — it
-  //     can lag the boundary by anywhere from a few seconds to a full ~60s
-  //     cycle.  During that lag the last cached bucket is still the PRIOR
-  //     window's, and merging the live close into it would stretch its close
-  //     past the value the engine recorded; when the new bucket finally lands
-  //     the prior tip visibly snaps back down.  Suppressing the merge until
-  //     the cache actually holds the current window's bucket keeps the prior
-  //     bucket painted at its API close through the gap.
-  //
-  // (2) Pin the tip's OPEN to the prior candle's close.  When the engine
-  //     first emits a new bucket it seeds OHLC from the price at write time,
-  //     not the actual first observed tick in the window — so for the
-  //     bucket's first 1–2 engine cycles the API-reported open can sit
-  //     several ticks above (or below) the prior close, painting a visible
-  //     gap from the previous candle that only resolves when the engine
-  //     refines.  Pinning the open keeps the candle visually continuous with
-  //     its predecessor through that refinement period; the moment the
-  //     bucket is no longer the tip (next bucket lands) it reverts to the
-  //     engine's open with a sub-tick snap that's well below typical chart
-  //     precision.  HIGH / LOW widen only enough to enclose the pinned open
-  //     — never the live close — so the wick stays geometrically valid
-  //     without re-introducing the "silhouette puffs up then snaps narrow"
-  //     issue the prior fix removed.
-  //
-  // The merge is also gated on the session being LIVE — for indexes (SPX)
-  // the backend reports "closed" outside the cash session because indexes
+  // The merge is gated on the session being LIVE — for indexes (SPX) the
+  // backend reports "closed" outside the cash session because indexes
   // don't have extended-hours trading, and for stocks/ETFs (SPY, QQQ) it
   // reports "closed" only outside 04:00–20:00 ET.  So the same gate
   // ("session is not in the closed family") expresses both rules
@@ -521,31 +497,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       high: Number(b.high ?? b.close ?? 0),
       low: Number(b.low ?? b.close ?? 0),
     }));
-    if (candles.length === 0 || !isSessionLive(quote?.session) || !quote) return candles;
-
-    const liveClose = Number(quote.close);
-    if (!Number.isFinite(liveClose) || liveClose <= 0) return candles;
-
-    const bucketMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
-    const quoteMs = quote.timestamp ? new Date(quote.timestamp).getTime() : NaN;
-    if (!Number.isFinite(quoteMs)) return candles;
-    const currentBucketStart = Math.floor(quoteMs / bucketMs) * bucketMs;
-
-    const lastIdx = candles.length - 1;
-    const lastTs = new Date(candles[lastIdx].timestamp).getTime();
-    if (!Number.isFinite(lastTs) || lastTs < currentBucketStart) return candles;
-
-    const tip = candles[lastIdx];
-    if (lastIdx > 0) {
-      const open = candles[lastIdx - 1].close;
-      const high = Math.max(tip.high, open);
-      const low = Math.min(tip.low, open);
-      candles[lastIdx] = { ...tip, open, close: liveClose, high, low };
-    } else {
-      candles[lastIdx] = { ...tip, close: liveClose };
+    if (candles.length > 0 && isSessionLive(quote?.session) && quote) {
+      const liveClose = Number(quote.close);
+      if (Number.isFinite(liveClose) && liveClose > 0) {
+        const tip = candles[candles.length - 1];
+        candles[candles.length - 1] = { ...tip, close: liveClose };
+      }
     }
     return candles;
-  }, [profileBuckets, quote, tf]);
+  }, [profileBuckets, quote]);
 
   const nyDateFmt = useMemo(
     () =>
