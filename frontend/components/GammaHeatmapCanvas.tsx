@@ -45,6 +45,15 @@ const BEARISH: RGB = { r: 44, g: 72, b: 117 };   // negative GEX (cool)
 const NEUTRAL: RGB = { r: 255, g: 246, b: 237 }; // zero (warm white)
 const BULLISH: RGB = { r: 255, g: 133, b: 49 };  // positive GEX (warm)
 
+// Darker bullish / bearish for candle bodies on top of the heatmap.
+// The standard colors.bullish (#1BC47D) and colors.bearish (#FF4D5A)
+// wash out against the orange / warm-white centre of the heatmap
+// gradient; these darker variants stay readable everywhere the
+// candles overlay.  Neutral candles continue to use the theme's
+// textPrimary so they pop against any cell colour.
+const CANDLE_BULLISH = '#0A6E3E';
+const CANDLE_BEARISH = '#8C1F2D';
+
 const blend = (a: RGB, b: RGB, t: number): RGB => ({
   r: Math.round(a.r + (b.r - a.r) * t),
   g: Math.round(a.g + (b.g - a.g) * t),
@@ -189,12 +198,15 @@ export default function GammaHeatmapCanvas() {
     { refreshInterval: heatmapInterval },
   );
   const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
-  // Live quote for the tip-candle merge.  Mirrors MarketMakerExposures'
-  // behaviour: while the session is live (cash for indexes, 04:00–20:00
-  // for stocks/ETFs) the most recent slot's close is overridden with
-  // /api/market/quote.close so the candle moves on the same 1Hz tick as
-  // the header.  Outside the session the merge is skipped and the
-  // candle reverts to whatever /api/market/historical reported.
+  // Live quote for the tip-candle close merge.  Mirrors the Strike
+  // Profile chart's behaviour: while the session is live (cash for
+  // indexes, 04:00–20:00 for stocks/ETFs) ONLY the most recent slot's
+  // close is overridden with /api/market/quote.close so the candle and
+  // spot line move on the same 1Hz tick as the header.  open / high /
+  // low remain exactly what the analytics engine wrote so the candle's
+  // silhouette never widens past the bucket the engine recorded —
+  // when a new bucket arrives the previous tip reverts cleanly to API
+  // values.  Outside the live session the merge is skipped entirely.
   const { data: quote } = useMarketQuote(symbol, quoteInterval);
   const priceData: PriceDataPoint[] = useMemo(() => {
     const sliced = priceRowsAll.slice(-fetchUnits);
@@ -203,19 +215,7 @@ export default function GammaHeatmapCanvas() {
     const liveClose = Number(quote.close);
     if (!Number.isFinite(liveClose) || liveClose <= 0) return sliced;
     const tip = sliced[sliced.length - 1];
-    const tipOpen = Number(tip.open ?? tip.close);
-    const tipHighRaw = Number(tip.high ?? tip.close);
-    const tipLowRaw = Number(tip.low ?? tip.close);
-    const tipHigh = Number.isFinite(tipHighRaw) ? tipHighRaw : liveClose;
-    const tipLow = Number.isFinite(tipLowRaw) ? tipLowRaw : liveClose;
-    const updatedTip: PriceDataPoint = {
-      ...tip,
-      close: liveClose,
-      high: Math.max(tipHigh, liveClose),
-      low: Math.min(tipLow, liveClose),
-      open: Number.isFinite(tipOpen) ? tipOpen : liveClose,
-    };
-    return [...sliced.slice(0, -1), updatedTip];
+    return [...sliced.slice(0, -1), { ...tip, close: liveClose }];
   }, [priceRowsAll, fetchUnits, quote]);
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
@@ -692,14 +692,17 @@ export default function GammaHeatmapCanvas() {
         // Colour by close vs previous close.  Blank slots between
         // candles are bridged — prevClose only updates when a candle
         // is actually drawn, so a gap doesn't force the next candle
-        // to neutral.
+        // to neutral.  Darker bullish/bearish variants are used so the
+        // candles stay readable against the heatmap's warm gradient
+        // (Strike Profile uses the brighter colors.bullish/bearish
+        // because its background is the card surface, not a heatmap).
         let color: string;
         if (prevClose == null || close === prevClose) {
           color = textPrimary;
         } else if (close > prevClose) {
-          color = colors.bullish;
+          color = CANDLE_BULLISH;
         } else {
-          color = colors.bearish;
+          color = CANDLE_BEARISH;
         }
 
         const hollow = close > open;

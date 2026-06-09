@@ -466,14 +466,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // OHLC-validated, and ASCENDING — and the chart's rewind relies on the 1:1
   // index relationship ``allCandles[i] === profileBuckets[i]``.
   //
-  // The tip candle's close is overridden with the live /api/market/quote
-  // close (and high/low stretched to include it) so the most-recent candle,
-  // the cyan spot line, and the header's price all read the same number on
-  // the same 1Hz tick.  strike-profile-timeseries writes OHLC on the
-  // analytics engine's cycle; without this merge the tip candle drifts up
-  // to one cycle behind the header.  Only the last element is touched, so
-  // historical candles (and any candle the rewind scrubber lands on) keep
-  // exactly what the analytics engine wrote.
+  // The tip candle's CLOSE is overridden with the live /api/market/quote
+  // close so the most-recent candle, the cyan spot line, and the header
+  // price all read the same number on the same 1Hz tick.  Only the close
+  // is touched — open / high / low remain exactly what the analytics
+  // engine wrote, so the candle's silhouette never widens past what
+  // /api/gex/strike-profile-timeseries reported.  When a new bucket
+  // arrives via the tip-poll, the previous tip reverts cleanly to API
+  // values with no leftover stretching from the live merge.
   //
   // The merge is gated on the session being LIVE — for indexes (SPX) the
   // backend reports "closed" outside the cash session because indexes
@@ -495,12 +495,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       const liveClose = Number(quote.close);
       if (Number.isFinite(liveClose) && liveClose > 0) {
         const tip = candles[candles.length - 1];
-        candles[candles.length - 1] = {
-          ...tip,
-          close: liveClose,
-          high: Math.max(tip.high, liveClose),
-          low: Math.min(tip.low, liveClose),
-        };
+        candles[candles.length - 1] = { ...tip, close: liveClose };
       }
     }
     return candles;
