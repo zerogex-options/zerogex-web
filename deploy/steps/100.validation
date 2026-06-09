@@ -256,6 +256,24 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
+# Section 5d: Auth DB backup timer (installed by 080.backup). The auth DB
+# is the only copy of account data, so confirm the hourly backup timer is
+# actually enabled rather than silently absent.
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "5d. Auth Backup Timer"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+if sudo systemctl is-enabled --quiet zerogex-web-auth-backup.timer 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend zerogex-web-auth-backup.timer 2>/dev/null | awk '{print $1, $2}')
+    log "  ✓ auth-backup timer enabled (next run: ${NEXT:-unknown})"
+    PASSED_CHECKS=$((PASSED_CHECKS + 1))
+else
+    log "  ✗ auth-backup timer not enabled — run 080.backup (or ./deploy.sh --start-from backup)"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+fi
+
 # Section 6: Firewall
 log ""
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

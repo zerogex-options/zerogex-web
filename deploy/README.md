@@ -180,6 +180,18 @@ The deployment process runs these steps in order:
 - Installs and configures fail2ban
 - Sets default deny incoming policy
 
+### Step 080: Auth DB Backup Timer (idempotent)
+- Ensures `sqlite3` is installed (required for the online `.backup`)
+- Pre-creates the `~/zerogex-auth-backups` output dir (mode 700) so the
+  hardened service's `ReadWritePaths` resolves
+- Installs and enables `zerogex-web-auth-backup.{service,timer}` (hourly,
+  `Persistent=true`) from `deploy/systemd/`
+- Seeds `deploy/systemd/backup-auth.env` (mode 600) from the example on
+  first run — backups are local-only until you set `S3_BUCKET` /
+  `BACKUP_GPG_RECIPIENT` there
+- Runs one verification backup if the auth DB already exists
+- See "Auth Database Backups" below for restore + the S3/encryption knobs
+
 ### Step 100: Deployment Validation
 - Comprehensive deployment validation
 - Checks Node.js installation
@@ -187,6 +199,7 @@ The deployment process runs these steps in order:
 - Confirms PM2 process running
 - Tests nginx configuration
 - Validates port connectivity
+- Confirms the auth-DB backup timer is enabled
 - Reports summary with pass/fail
 
 ## Partial Deployment

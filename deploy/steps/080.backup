@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# ==============================================
+# Step 080: Auth DB Backup Timer (systemd)
+# ==============================================
+#
+# Installs the hourly auth-database backup units (see deploy/systemd/) and
+# enables the timer. The SQLite auth DB is the only copy of every account,
+# session, OAuth identity, and the user->tier mapping, so it must be backed
+# up off-box. Idempotent — safe to re-run; an existing backup-auth.env is
+# left untouched.
+#
+# The actual backup logic lives in `make backup-auth` (online SQLite
+# .backup -> integrity-check -> gzip -> optional GPG + S3). Configure the
+# S3 bucket / GPG recipient by editing deploy/systemd/backup-auth.env.
+
+set -e
+
+log "Auth DB Backup Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
+# re-points HOME to the sudo user but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-auth-backup"
+BACKUP_DIR="$HOME/zerogex-auth-backups"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer" "backup-auth.env.example"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# `make backup-auth` needs the sqlite3 CLI for the online .backup. A plain
+# cp of a live WAL database can be corrupt, so this is a hard dependency.
+if command -v sqlite3 >/dev/null 2>&1; then
+    log "  ✓ sqlite3 present"
+else
+    log "  → Installing sqlite3 (required for online .backup)..."
+    if sudo apt-get install -y sqlite3 >/dev/null 2>&1; then
+        log "     ✓ sqlite3 installed"
+    else
+        log "     ✗ failed to install sqlite3"
+        exit 1
+    fi
+fi
+
+# --- Pre-create the backup output dir --------------------------------
+# The service runs ProtectSystem=strict with ReadWritePaths pointing here.
+# systemd cannot set up the unit's mount namespace if the path is missing,
+# so the directory must exist before the timer is enabled. Mode 0700 — the
+# archives contain password hashes + PII.
+log "  → Creating backup output dir: $BACKUP_DIR"
+sudo install -d -o "$OWNER" -g "$OWNER" -m 0700 "$BACKUP_DIR"
+
+# --- Optional config file --------------------------------------------
+# Copy the example to backup-auth.env on first run so the operator has a
+# 600-mode file to edit. Defaults are all-commented => local-only backup.
+# Never overwrite an existing one (may already name a bucket / GPG key).
+if [ -f "$SYSTEMD_SOURCE/backup-auth.env" ]; then
+    log "  ✓ backup-auth.env already present (left as-is)"
+else
+    sudo cp "$SYSTEMD_SOURCE/backup-auth.env.example" "$SYSTEMD_SOURCE/backup-auth.env"
+    sudo chown "$OWNER:$OWNER" "$SYSTEMD_SOURCE/backup-auth.env"
+    sudo chmod 600 "$SYSTEMD_SOURCE/backup-auth.env"
+    log "     ✓ created backup-auth.env"
+    log "       Backups are LOCAL-ONLY until you set S3_BUCKET / BACKUP_GPG_RECIPIENT there."
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (hourly, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Verify with a one-off run (only if the DB exists yet) ------------
+# The auth DB is created lazily on the app's first runtime DB call, so at
+# deploy time it may not exist. Resolve its path the way the Makefile does,
+# and only trigger a test backup if the file is there — otherwise the first
+# real backup just fires on the next hourly tick.
+DB_PATH="$(grep -E '^AUTH_DB_PATH=' "$APP_DIR/frontend/.env.local" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')"
+[ -z "$DB_PATH" ] && DB_PATH="$APP_DIR/frontend/data/auth.db"
+
+if [ -f "$DB_PATH" ]; then
+    log "  → Verifying with a one-off backup run..."
+    if sudo systemctl start "${UNIT}.service"; then
+        LATEST=$(ls -t "$BACKUP_DIR"/auth-*.db.gz* 2>/dev/null | head -1)
+        log "     ✓ test backup produced: ${LATEST:-<none found, check journal>}"
+    else
+        log "     ✗ test backup run failed — see: journalctl -u ${UNIT}"
+    fi
+else
+    log "  ℹ Auth DB not present yet ($DB_PATH); it is created on first app use."
+    log "     The first backup will run on the next hourly tick once it exists."
+fi
+
+log ""
+log "Auth DB backup timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (hourly, Persistent=true catches missed runs)"
+log "  ✓ Output dir: $BACKUP_DIR (mode 700)"
+log "  ✓ Config: $SYSTEMD_SOURCE/backup-auth.env"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer       - next/last run"
+log "  • sudo systemctl start ${UNIT}.service       - back up now"
+log "  • journalctl -u ${UNIT} -n 50                - recent backup logs"
+log "  • sudoedit $SYSTEMD_SOURCE/backup-auth.env   - set S3_BUCKET / GPG recipient"
+log ""
+log "Off-box hardening (S3 versioning/Object Lock, cross-region, EBS):"
+log "  see zerogex-oa/deploy/BACKUP_RESILIENCE.md"
