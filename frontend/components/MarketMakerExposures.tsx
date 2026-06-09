@@ -102,10 +102,12 @@ function computeDte(expiryStr: string | null | undefined): number | null {
 const CW = 1200;
 const CH = 648;
 const PLOT_TOP = 24;
-// Compact mode drops the grouped date row and panel-axis labels, so the
-// chart can claim more of the bottom padding for its own y-axis range.
+// Compact mode keeps the grouped date row (just below the time labels at
+// ``PLOT_BOTTOM + 34``) but still drops the middle/right panel-axis labels —
+// so its bottom padding only needs to fit the time + date rows, not the panel
+// axis titles the full layout reserves space for too.
 const PLOT_BOTTOM_FULL = CH - 72;
-const PLOT_BOTTOM_COMPACT = CH - 32;
+const PLOT_BOTTOM_COMPACT = CH - 52;
 
 const LEFT_X = 0;
 const LEFT_W_FULL = 540;
@@ -1604,8 +1606,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
           {/* Grouped date row beneath the time labels, centered under each
               session's span of candles. Skips groups that are too narrow to
-              fit a label. Hidden in compact mode to reclaim bottom padding. */}
-          {!compact && (candleDateGroups.length > 1 || (candleDateGroups.length === 1 && visibleCandles.length > 1))
+              fit a label. */}
+          {(candleDateGroups.length > 1 || (candleDateGroups.length === 1 && visibleCandles.length > 1))
             ? candleDateGroups.map((g) => {
                 if (visibleCandles.length === 0) return null;
                 const startX = xForIndex(g.startIdx);
