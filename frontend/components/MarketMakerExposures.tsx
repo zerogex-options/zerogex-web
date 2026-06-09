@@ -925,8 +925,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   useEffect(() => {
     if (!rewindActive || !playbackActive) return;
     if (rewindMax <= rewindMin) return;
-    // Base tick at 1× = one candle per second; faster speeds scale down.
-    const BASE_TICK_MS = 1000;
+    // Base tick: 1× = two candles per second.  Calibrated against the prior
+    // 1000ms base which was reported as "extremely slow" — at this base, 4×
+    // (~125ms / candle) is fast-scrub territory and 1× is comfortable review.
+    const BASE_TICK_MS = 500;
     const intervalMs = Math.max(50, Math.round(BASE_TICK_MS / playbackSpeed));
     const id = setInterval(() => {
       // Functional update so the tick always reads the latest rewindTime
@@ -1877,7 +1879,22 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 type="button"
                 onClick={() => setPlaybackLoop((v) => !v)}
                 className={toolbarBtnClass}
-                style={toolbarBtnStyle(playbackLoop)}
+                // Active loop uses the rewind-cyan accent (same colour the
+                // "Rewinding" pill uses up in the toolbar) so it reads as
+                // distinctly engaged at a glance — the default toolbar
+                // active-state was too subtle for a sticky toggle that
+                // changes how playback terminates.
+                style={
+                  playbackLoop
+                    ? {
+                        border: `1px solid ${SPOT_LINE}`,
+                        color: SPOT_LINE,
+                        backgroundColor: 'rgba(6, 182, 212, 0.18)',
+                        boxShadow: `0 0 0 1px rgba(6, 182, 212, 0.35) inset`,
+                        fontWeight: 600,
+                      }
+                    : toolbarBtnStyle(false)
+                }
                 title={playbackLoop ? 'Loop on (click to disable)' : 'Loop off (click to enable continuous playback)'}
                 aria-label={playbackLoop ? 'Disable loop' : 'Enable loop'}
                 aria-pressed={playbackLoop}
