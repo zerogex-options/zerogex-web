@@ -1788,9 +1788,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span>Earliest · {rewindStartLabel}</span>
             <span>Most recent · {rewindEndLabel}</span>
           </div>
-          <div className="mt-1 text-[10px]" style={{ color: subtle }}>
-            Rewind back through the most recent {rewindMax - rewindMin} candles.
-          </div>
         </div>
       )}
 
