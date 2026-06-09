@@ -207,6 +207,20 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // Cleared by Reset or by switching symbol — both should re-anchor.
   const [yAnchor, setYAnchor] = useState<{ spot: number; halfRange: number } | null>(null);
 
+  // Click-and-drag pan offset for the price axis. Positive values shift the
+  // visible price window UP (so the candles slide DOWN on screen, revealing
+  // higher prices at the top) — i.e. grab-pan semantics. Reset by Reset and
+  // when the underlying symbol changes (alongside ``yAnchor``).
+  const [yPanOffset, setYPanOffset] = useState<number>(0);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  // Transient pan-start snapshot held in a ref so per-frame mouse moves don't
+  // each trigger a re-render of the start values themselves.
+  const panStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    yPanOffsetStart: number;
+  } | null>(null);
+
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
@@ -222,6 +236,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
     setYAnchor(null);
+    setYPanOffset(0);
   };
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
@@ -509,6 +524,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   if (anchorSymbol !== symbol) {
     setAnchorSymbol(symbol);
     setYAnchor(null);
+    setYPanOffset(0);
     // A rewound point on the old symbol's timeline is meaningless on the new
     // one, so drop back to live when the underlying changes.
     setRewindActive(false);
@@ -528,11 +544,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const yBounds = useMemo(() => {
     // Preferred path: use the captured anchor. Center stays fixed at the
-    // spot-at-load value; only zoom changes the half-range. This is the
-    // single change that prevents the chart from jumping as quotes tick.
+    // spot-at-load value plus the user's pan offset; only zoom changes the
+    // half-range. yPanOffset lets the user grab-pan the price axis without
+    // disturbing the anchor itself, so quotes ticking in still don't re-fit
+    // the y-bounds while the user is exploring a different strike band.
     if (yAnchor != null) {
       const halfRange = yAnchor.halfRange * zoomMul;
-      return { yMin: yAnchor.spot - halfRange, yMax: yAnchor.spot + halfRange };
+      const center = yAnchor.spot + yPanOffset;
+      return { yMin: center - halfRange, yMax: center + halfRange };
     }
 
     // Pre-anchor fallback (first render before the effect runs). Mirrors the
@@ -549,13 +568,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         ? Math.max(Math.max(...prices) - spot, spot - Math.min(...prices))
         : spot * 0.02;
       const halfRange = Math.max(baseSpread, spot * 0.012) * zoomMul;
-      return { yMin: spot - halfRange, yMax: spot + halfRange };
+      const center = spot + yPanOffset;
+      return { yMin: center - halfRange, yMax: center + halfRange };
     }
 
     if (prices.length > 0) {
       const pMin = Math.min(...prices);
       const pMax = Math.max(...prices);
-      const center = (pMin + pMax) / 2;
+      const center = (pMin + pMax) / 2 + yPanOffset;
       const halfRange = Math.max((pMax - pMin) / 2, center * 0.02) * zoomMul;
       return { yMin: center - halfRange, yMax: center + halfRange };
     }
@@ -564,7 +584,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       yMin: Math.min(...strikeAggregations.map((s) => s.strike)),
       yMax: Math.max(...strikeAggregations.map((s) => s.strike)),
     };
-  }, [yAnchor, visibleCandles, strikeAggregations, spot, zoomMul]);
+  }, [yAnchor, visibleCandles, strikeAggregations, spot, zoomMul, yPanOffset]);
 
   const yForPrice = (price: number): number => {
     if (!yBounds) return PLOT_TOP;
@@ -778,6 +798,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   type HoverState = {
     pxX: number;
     pxY: number;
@@ -790,6 +811,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
+
+    // While panning, translate the cursor's vertical displacement into a price
+    // delta and shift the y-axis center. Using the SVG's screen height (mapped
+    // through the viewBox ratio) keeps the cursor visually anchored to the
+    // grabbed price level regardless of the chart's rendered size.
+    if (isPanning && panStartRef.current && yBounds) {
+      const screenPlotHeight = (rect.height * PLOT_HEIGHT) / CH;
+      if (screenPlotHeight > 0) {
+        const dyPx = e.clientY - panStartRef.current.clientY;
+        const dPrice = (dyPx / screenPlotHeight) * (yBounds.yMax - yBounds.yMin);
+        setYPanOffset(panStartRef.current.yPanOffsetStart + dPrice);
+      }
+      // Suppress hover tooltips/crosshair while actively dragging — they
+      // distract from the pan gesture and lag behind the cursor anyway.
+      setHover(null);
+      return;
+    }
+
     const containerRect = containerRef.current?.getBoundingClientRect();
     if (!containerRect) return;
     const pxX = e.clientX - containerRect.left;
@@ -804,6 +843,49 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     setHover({ pxX, pxY, svgX, svgY, panel });
   };
+
+  // Pan gesture entry: left-button mouse-down anywhere on the chart captures
+  // the starting position and current pan offset so the move handler can
+  // compute deltas relative to where the user first grabbed.
+  const onSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    panStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      yPanOffsetStart: yPanOffset,
+    };
+    setIsPanning(true);
+    setHover(null);
+  };
+
+  // Document-level mouseup so the gesture cleanly terminates even when the
+  // user releases the button outside the SVG (e.g. drags off the bottom edge).
+  useEffect(() => {
+    if (!isPanning) return;
+    const onUp = () => {
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+    document.addEventListener('mouseup', onUp);
+    return () => document.removeEventListener('mouseup', onUp);
+  }, [isPanning]);
+
+  // Mouse-wheel zoom. Attached imperatively with ``{ passive: false }`` so
+  // ``preventDefault`` can suppress the page from scrolling underneath the
+  // chart. Each wheel notch multiplies/divides ``zoomMul`` by ZOOM_STEP, the
+  // same delta the toolbar's +/- buttons use.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+      setZoomMul((v) => clamp(v * factor, ZOOM_MIN, ZOOM_MAX));
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Linear scans — cheap enough to compute on every render without useMemo, and
   // avoids tripping the manual-memoization lint rule on the inline closures.
@@ -1327,12 +1409,20 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         className={`relative px-2 pb-2 ${compact ? 'flex-1 min-h-0 overflow-hidden' : 'overflow-x-auto'}`}
       >
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMidYMid meet"
           className={`block ${compact ? 'h-full w-full' : 'w-full'}`}
-          style={compact ? undefined : { minWidth: 760 }}
+          style={{
+            ...(compact ? {} : { minWidth: 760 }),
+            cursor: isPanning ? 'grabbing' : 'grab',
+            touchAction: 'none',
+          }}
           onMouseMove={onSvgMouseMove}
-          onMouseLeave={() => setHover(null)}
+          onMouseDown={onSvgMouseDown}
+          onMouseLeave={() => {
+            if (!isPanning) setHover(null);
+          }}
         >
           {/* Shared horizontal grid + strike labels */}
           {strikeLabels.map((p) => {

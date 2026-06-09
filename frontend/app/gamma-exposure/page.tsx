@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import {
   useGEXSummary,
@@ -22,7 +22,7 @@ import MarketMakerExposures from '@/components/MarketMakerExposures';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
-import ExpandableCard from '@/components/ExpandableCard';
+import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 
@@ -34,6 +34,24 @@ function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
     </div>
   );
 }
+
+// Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
+// expanded-card state — collapsed view fits ~20 rows, expanded view fills the
+// browser viewport minus the modal chrome above/below the table.
+const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
+  function StrikeTableScroll({ children }, ref) {
+    const expanded = useExpandedCard();
+    return (
+      <div
+        ref={ref}
+        className="overflow-auto"
+        style={{ maxHeight: expanded ? 'calc(100vh - 260px)' : 800 }}
+      >
+        {children}
+      </div>
+    );
+  },
+);
 
 type StrikeAggregate = {
   strike: number;
@@ -553,11 +571,7 @@ export default function GammaExposurePage() {
                   })}
                 </div>
 
-                <div
-                  ref={tableScrollRef}
-                  className="overflow-auto"
-                  style={{ maxHeight: 480 }}
-                >
+                <StrikeTableScroll ref={tableScrollRef}>
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10" style={{ backgroundColor: cardBg }}>
                       <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
@@ -604,7 +618,7 @@ export default function GammaExposurePage() {
                       )}
                     </tbody>
                   </table>
-                </div>
+                </StrikeTableScroll>
               </>
             )}
           </div>
