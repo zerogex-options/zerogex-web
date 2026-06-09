@@ -9,6 +9,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  Repeat,
   Rewind,
   RotateCcw,
   Settings2,
@@ -183,6 +184,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // so it stays put even if the shared historical cache appends a new bar.
   const [rewindActive, setRewindActive] = useState<boolean>(false);
   const [rewindTime, setRewindTime] = useState<number | null>(null);
+  // ── Rewind playback state ──
+  // Only meaningful while ``rewindActive`` is true.  Playback advances the
+  // scrubber forward one candle per tick at a rate derived from
+  // ``playbackSpeed``; on reaching the live edge it either stops or loops
+  // back to the leftmost rewindable position depending on ``playbackLoop``.
+  const [playbackActive, setPlaybackActive] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
+  const [playbackLoop, setPlaybackLoop] = useState<boolean>(false);
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
@@ -206,6 +215,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setPaused(DEFAULTS.paused);
     setRewindActive(false);
     setRewindTime(null);
+    setPlaybackActive(false);
+    setPlaybackSpeed(1);
+    setPlaybackLoop(false);
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
@@ -880,9 +892,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const toggleRewind = () => {
     if (rewindActive) {
-      // Resume live updates and snap the right edge back to "now".
+      // Resume live updates and snap the right edge back to "now".  Also
+      // stop playback — it's only meaningful inside rewind mode, so leaving
+      // it engaged would silently restart on the next rewind toggle.
       setRewindActive(false);
       setRewindTime(null);
+      setPlaybackActive(false);
       setPaused(false);
       return;
     }
@@ -899,6 +914,64 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const candle = allCandles[idx];
     if (candle) setRewindTime(new Date(candle.timestamp).getTime());
   };
+
+  // ── Rewind playback driver ──
+  // Advances the rewind scrubber forward one candle per tick at the
+  // selected speed.  When the scrubber reaches the live edge (rewindMax)
+  // the next tick either jumps back to the leftmost rewindable position
+  // (loop) or stops playback (one-shot).  The interval is suspended
+  // whenever rewind mode is off, playback is paused, or there's no
+  // rewindable range — so the cleanup never fires from a stale closure.
+  useEffect(() => {
+    if (!rewindActive || !playbackActive) return;
+    if (rewindMax <= rewindMin) return;
+    // Base tick at 1× = one candle per second; faster speeds scale down.
+    const BASE_TICK_MS = 1000;
+    const intervalMs = Math.max(50, Math.round(BASE_TICK_MS / playbackSpeed));
+    const id = setInterval(() => {
+      // Functional update so the tick always reads the latest rewindTime
+      // even if the user scrubbed manually since the interval was scheduled.
+      setRewindTime((prevTime) => {
+        if (allCandles.length === 0) return prevTime;
+        // Resolve prevTime → current index inside allCandles.
+        let currentIdx = rewindMax;
+        if (prevTime != null) {
+          let bestDist = Infinity;
+          for (let i = 0; i < allCandles.length; i += 1) {
+            const t = new Date(allCandles[i].timestamp).getTime();
+            if (!Number.isFinite(t)) continue;
+            const dist = Math.abs(t - prevTime);
+            if (dist < bestDist) {
+              bestDist = dist;
+              currentIdx = i;
+            }
+          }
+        }
+        let nextIdx = currentIdx + 1;
+        if (nextIdx > rewindMax) {
+          if (playbackLoop) {
+            nextIdx = rewindMin;
+          } else {
+            // Defer the playbackActive flip out of the setRewindTime
+            // updater so React doesn't see a setState inside a setState.
+            setTimeout(() => setPlaybackActive(false), 0);
+            return prevTime;
+          }
+        }
+        const nextCandle = allCandles[nextIdx];
+        return nextCandle ? new Date(nextCandle.timestamp).getTime() : prevTime;
+      });
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [
+    rewindActive,
+    playbackActive,
+    playbackSpeed,
+    playbackLoop,
+    allCandles,
+    rewindMin,
+    rewindMax,
+  ]);
 
   if (!yBounds) {
     return (
@@ -1760,30 +1833,69 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {rewindLabel}
             </span>
           </div>
-          <input
-            type="range"
-            min={rewindMin}
-            max={rewindMax}
-            step={1}
-            value={rewindValue}
-            onChange={(e) => onRewindScrub(Number(e.target.value))}
-            aria-label="Rewind to a point earlier in the session"
-            className="w-full h-2 cursor-pointer appearance-none rounded-full outline-none
-              [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
-              [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:bg-[#06B6D4]
-              [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white
-              [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab
-              [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4
-              [&::-moz-range-thumb]:rounded-full
-              [&::-moz-range-thumb]:bg-[#06B6D4]
-              [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white
-              [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid"
-            style={{
-              background: `linear-gradient(to right, ${SPOT_LINE} 0%, ${SPOT_LINE} ${rewindFillPct}%, ${rewindTrackBg} ${rewindFillPct}%, ${rewindTrackBg} 100%)`,
-            }}
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={rewindMin}
+              max={rewindMax}
+              step={1}
+              value={rewindValue}
+              onChange={(e) => onRewindScrub(Number(e.target.value))}
+              aria-label="Rewind to a point earlier in the session"
+              className="flex-1 h-2 cursor-pointer appearance-none rounded-full outline-none
+                [&::-webkit-slider-thumb]:appearance-none
+                [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
+                [&::-webkit-slider-thumb]:rounded-full
+                [&::-webkit-slider-thumb]:bg-[#06B6D4]
+                [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white
+                [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab
+                [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4
+                [&::-moz-range-thumb]:rounded-full
+                [&::-moz-range-thumb]:bg-[#06B6D4]
+                [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white
+                [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid"
+              style={{
+                background: `linear-gradient(to right, ${SPOT_LINE} 0%, ${SPOT_LINE} ${rewindFillPct}%, ${rewindTrackBg} ${rewindFillPct}%, ${rewindTrackBg} 100%)`,
+              }}
+            />
+            {/* Playback controls — play/pause toggle, loop toggle, speed cycle.
+                Disabled when there's no rewindable range so a no-op click can't
+                start an interval that immediately stops. */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPlaybackActive((v) => !v)}
+                disabled={!rewindAvailable}
+                className={toolbarBtnClass}
+                style={toolbarBtnStyle(playbackActive)}
+                title={playbackActive ? 'Pause playback' : 'Play forward from the current scrubber position'}
+                aria-label={playbackActive ? 'Pause rewind playback' : 'Play rewind playback'}
+              >
+                {playbackActive ? <Pause size={12} /> : <Play size={12} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaybackLoop((v) => !v)}
+                className={toolbarBtnClass}
+                style={toolbarBtnStyle(playbackLoop)}
+                title={playbackLoop ? 'Loop on (click to disable)' : 'Loop off (click to enable continuous playback)'}
+                aria-label={playbackLoop ? 'Disable loop' : 'Enable loop'}
+                aria-pressed={playbackLoop}
+              >
+                <Repeat size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
+                className={toolbarBtnClass}
+                style={toolbarBtnStyle(playbackSpeed !== 1)}
+                title={`Playback speed: ${playbackSpeed}× (click to cycle 1× → 2× → 4×)`}
+                aria-label={`Playback speed ${playbackSpeed}x, click to cycle`}
+              >
+                <span className="font-mono tabular-nums">{playbackSpeed}×</span>
+              </button>
+            </div>
+          </div>
           <div className="flex items-center justify-between mt-1 text-[10px]" style={{ color: subtle }}>
             <span>Earliest · {rewindStartLabel}</span>
             <span>Most recent · {rewindEndLabel}</span>
