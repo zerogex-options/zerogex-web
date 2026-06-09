@@ -333,7 +333,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              OPEN INTEREST, $ GAMMA &amp; NOTIONAL BY STRIKE
+              OPEN INTEREST &amp; EXPOSURE BY STRIKE
             </h3>
             <TooltipWrapper text="Strike-level view by call/put with three toggleable units. OI = open contracts outstanding (raw count). $ Gamma = dealer dollar gamma exposure (sign × γ × OI × 100 × spot) — the same fundamental quantity as the GAMMA EXPOSURE BY STRIKE chart above, just measured per $1 spot move instead of per 1% spot move (differ by a factor of spot × 0.01); puts negative, calls positive. Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />

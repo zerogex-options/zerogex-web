@@ -484,9 +484,9 @@ export default function GexProfileChart({
         <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              GAMMA EXPOSURE BY STRIKE <span className="opacity-60">· per 1% move</span>
+              GAMMA EXPOSURE BY STRIKE
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the OPEN INTEREST, $ GAMMA & NOTIONAL BY STRIKE chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the OPEN INTEREST & EXPOSURE BY STRIKE chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <div
