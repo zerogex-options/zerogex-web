@@ -124,10 +124,12 @@ const FLIP_LINE = '#FFB44A';
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
 const ZOOM_STEP = 1.43; // ≈ 1/0.7
-// One zoom-in step above ZOOM_MIN — the "second most zoomed in" level.
-// Used as the default for compact mode so the dashboard tile opens with
-// a tight price window already framed around spot.
-const ZOOM_SECOND_MOST_IN = ZOOM_MIN * ZOOM_STEP;
+// At zoomMul = 1.0 the visible half-range equals yAnchor.halfRange — sized to
+// the displayed candles' wick spread around spot — so the chart opens at the
+// most zoomed-in level that still frames the session's high and low. Used as
+// the compact-mode default so the dashboard tile fits the entire visible
+// session without cropping the wicks.
+const ZOOM_FIT_RANGE = 1.0;
 
 const DEFAULTS = {
   tf: '5m' as ChartTf,
@@ -169,7 +171,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
-  const defaultZoomMul = compact ? ZOOM_SECOND_MOST_IN : DEFAULTS.zoomMul;
+  const defaultZoomMul = compact ? ZOOM_FIT_RANGE : DEFAULTS.zoomMul;
 
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
@@ -199,11 +201,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
-  // Anchor for the price (y) axis: captured ONCE when valid spot data is
-  // first available, then held stable so the chart doesn't shift as live
+  // Anchor for the price (y) axis: captured ONCE after spot AND at least one
+  // candle are available, then held stable so the chart doesn't shift as live
   // quotes/candles arrive. `spot` is the y-axis center; `halfRange` is the
-  // un-zoomed half-span derived from the initial candle spread. Final
-  // halfRange = anchor.halfRange × zoomMul, so user zoom still works.
+  // un-zoomed half-span derived from the candle spread at capture time. Final
+  // halfRange = anchor.halfRange × zoomMul, so user zoom still works. Waiting
+  // for a candle lets zoomMul = 1.0 (the compact-mode default) frame the
+  // session's high and low instead of freezing at the spot-only fallback.
   // Cleared by Reset or by switching symbol — both should re-anchor.
   const [yAnchor, setYAnchor] = useState<{ spot: number; halfRange: number } | null>(null);
 
@@ -568,13 +572,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setRewindTime(null);
   }
 
-  if (yAnchor == null && spot != null && spot > 0) {
+  if (yAnchor == null && spot != null && spot > 0 && visibleCandles.length > 0) {
     const prices: number[] = [];
     visibleCandles.forEach((c) => prices.push(c.high, c.low));
     prices.push(spot);
-    const baseSpread = prices.length > 1
-      ? Math.max(Math.max(...prices) - spot, spot - Math.min(...prices))
-      : spot * 0.02;
+    const baseSpread = Math.max(Math.max(...prices) - spot, spot - Math.min(...prices));
     const halfRange = Math.max(baseSpread, spot * 0.012);
     setYAnchor({ spot, halfRange });
   }
