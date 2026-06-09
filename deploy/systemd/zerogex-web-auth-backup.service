@@ -1,0 +1,38 @@
+[Unit]
+Description=ZeroGEX web auth-DB backup (online SQLite .backup -> gzip -> optional S3)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# Tools used by `make backup-auth`: sqlite3, gzip, gpg, aws. No nvm/node needed.
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+# Optional config: S3_BUCKET, BACKUP_GPG_RECIPIENT, AUTH_DB_PATH,
+# AUTH_BACKUP_DIR, AUTH_BACKUP_RETENTION_DAYS. The leading '-' makes the file
+# optional so the unit still runs (local-only backup) if it is absent.
+EnvironmentFile=-/home/ubuntu/zerogex-web/deploy/systemd/backup-auth.env
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web backup-auth
+
+# The job is tiny; cap it so a hung S3 upload can't run forever.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the zerogex-oa units).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exceptions: the auth-DB dir (SQLite's online backup maps the live -shm,
+# so the source dir must be writable) and the backup output dir. If you change
+# AUTH_DB_PATH or AUTH_BACKUP_DIR in backup-auth.env, update these to match.
+ReadWritePaths=/var/lib/zerogex /home/ubuntu/zerogex-auth-backups
+
+# Logging -> journald (view with: journalctl -u zerogex-web-auth-backup)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-auth-backup

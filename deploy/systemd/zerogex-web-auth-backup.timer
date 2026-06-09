@@ -1,0 +1,16 @@
+[Unit]
+Description=Hourly ZeroGEX web auth-DB backup timer
+
+[Timer]
+# Top of every hour. The auth DB holds account data that changes all day
+# (signups, sessions, password resets, tier changes), so back it up hourly
+# rather than nightly to keep the RPO ~1h.
+OnCalendar=*-*-* *:00:00
+# Spread load / avoid colliding with the 02:00 + 02:30 cron jobs.
+RandomizedDelaySec=3m
+# If the box was down at the scheduled time, run as soon as it is back —
+# the main reason to prefer a timer over cron for backups.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

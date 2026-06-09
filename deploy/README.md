@@ -712,8 +712,44 @@ Options (all optional):
 - `S3_BUCKET` — if set, also `aws s3 cp` the archive there.
 - `BACKUP_GPG_RECIPIENT` — encrypt the archive with GPG before it leaves the box. **Strongly recommended:** the archive contains password hashes and PII. If this is unset, the destination S3 bucket MUST be private with server-side encryption (see `zerogex-oa/deploy/BACKUP_RESILIENCE.md`).
 
-Because the DB is small, back it up **hourly** with long retention rather
-than daily. Add to `crontab -e` (offset from the 02:00/02:30 jobs):
+Because the DB is small and holds account data that changes all day
+(signups, sessions, password resets, tier changes), back it up **hourly**
+with long retention — not nightly.
+
+#### Scheduling (systemd timer — recommended)
+
+A timer is preferred over cron here because `Persistent=true` re-runs a
+missed backup as soon as the box comes back up (cron silently skips it),
+and you get journald logging plus `systemctl list-timers` visibility. The
+units live in `deploy/systemd/`:
+
+```bash
+# Optional config (S3 bucket, GPG recipient, paths). Without it, the job
+# takes a local-only, unencrypted backup.
+sudo cp deploy/systemd/backup-auth.env.example deploy/systemd/backup-auth.env
+sudo chmod 600 deploy/systemd/backup-auth.env
+sudoedit deploy/systemd/backup-auth.env        # set S3_BUCKET, BACKUP_GPG_RECIPIENT
+
+sudo cp deploy/systemd/zerogex-web-auth-backup.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now zerogex-web-auth-backup.timer
+
+systemctl list-timers zerogex-web-auth-backup.timer   # confirm next run
+sudo systemctl start zerogex-web-auth-backup.service   # run once now to verify
+journalctl -u zerogex-web-auth-backup -n 20            # check it succeeded
+```
+
+The service runs as `ubuntu` with `ProtectSystem=strict`; its
+`ReadWritePaths` are `/var/lib/zerogex` (SQLite's online backup maps the
+live `-shm`, so the source dir must be writable) and the backup output
+dir. If you change `AUTH_DB_PATH` or `AUTH_BACKUP_DIR`, update
+`ReadWritePaths` in the service to match.
+
+#### Scheduling (cron alternative)
+
+If you'd rather keep the web box purely on cron (matching the
+`backup-monitoring` and whole-app backup jobs), add to `crontab -e`
+(offset from the 02:00/02:30 jobs):
 
 ```
 15 * * * * cd ~/zerogex-web && make backup-auth S3_BUCKET=s3://your-bucket/zerogex/auth >> ~/zerogex-auth-backup.log 2>&1
