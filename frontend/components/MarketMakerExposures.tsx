@@ -19,7 +19,6 @@ import {
 import {
   useApiData,
   useGEXSummary,
-  useMarketQuote,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
@@ -27,7 +26,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { omitClosedMarketTimes, isSessionLive } from '@/core/utils';
+import { omitClosedMarketTimes } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -271,18 +270,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── Pause-aware polling intervals (passing 0 disables the interval after the initial fetch).
   // Default to 1s on every hook so candles, gamma bars, and OI bars all tick in real time.
   const summaryInterval = paused ? 0 : 1000;
-  const quoteInterval = paused ? 0 : 1000;
   // Expirations universe changes at most once per trading day, so a long
   // refresh interval is fine and saves bandwidth on a frequently-mounted chart.
   const expirationsInterval = paused ? 0 : 30_000;
 
   // ── Live snapshot hooks ──
-  // useGEXSummary / useMarketQuote remain only for the "Updated" label and the
-  // y-axis anchor fallback spot — every value the chart actually renders
-  // (candles, flip/walls, per-strike gamma & OI, at the live edge AND at every
-  // rewind point) comes from the strike-profile-timeseries below.
+  // useGEXSummary feeds the "Updated" label and supplies fallback values for
+  // the key levels (gamma_flip / call_wall / put_wall) when the timeseries
+  // bucket has nulls on its first-emit cycle.  useMarketQuote is no longer
+  // needed for candle data — the price chart pulls OHLC from
+  // /api/market/historical below, which is the dedicated tape source.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
-  const { data: quote } = useMarketQuote(symbol, quoteInterval);
 
   // Expiry dropdown universe.  Sourced from a dedicated lightweight endpoint
   // that scans a TRAILING WINDOW of gex_by_strike — NOT just the latest
@@ -297,103 +295,71 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     { refreshInterval: expirationsInterval },
   );
 
-  // ── Single source of truth: aligned per-bucket Strike-Profile timeseries ──
-  // Each bucket carries candle OHLC + flip/walls + per-strike gamma & OI on
-  // a common time axis.  Uses the dedicated hook's seed + tip-poll pattern:
-  // a one-time full-window seed gives rewind full-session depth, while a
-  // tiny ``window_units=3`` poll every 1s keeps the live tip fresh without
-  // re-paying the seed's ~720K-row JOIN cost on every tick.
+  // ── Strike-Profile timeseries: GEX data only ──
+  // Per-bucket flip / call & put walls / per-strike gamma & OI on a common
+  // 5-minute time axis.  We do NOT read OHLC from these buckets anymore —
+  // the engine seeds new buckets from the price at write time (not the
+  // actual first observed tick in the window), so the API-reported open
+  // can sit several ticks off the prior close until the engine refines on
+  // its next 1-2 cycles, painting a transient gap.  Candle OHLC comes from
+  // /api/market/historical below, which is the dedicated tape source and
+  // handles intra-bar merging correctly via useMarketHistorical.
+  //
+  // The hook keeps its seed (full-session rewind depth) + 1Hz tip-poll
+  // pattern so the live edge's GEX data ticks in real time.
   const expirationsParam = selectedExpiry === 'all' ? 'all' : selectedExpiry;
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, tfToApi(tf), expirationsParam, paused,
   );
 
-  // ── 77-candle backfill from /api/market/historical ──
-  // The strike-profile endpoint returns ~480 buckets per its seed fetch; when the
-  // rewind scrubber sits at the leftmost API bucket the chart would only
-  // have 1 candle of OHLC context to the left of the right edge.  The
-  // chart always wants to show TARGET_VISIBLE_CANDLES=78 candles, so we
-  // backfill the (TARGET_VISIBLE_CANDLES - 1) = 77 candles immediately
-  // preceding the API window.  Those padding candles get prepended as
-  // OHLC-only buckets with empty strikes / null walls / null flip; the 1:1
-  // index relationship ``allCandles[i] === profileBuckets[i]`` is
-  // preserved by padding BOTH arrays together.
+  // ── Candles: /api/market/historical ──
+  // Single source of truth for OHLC.  useMarketHistorical's pollLatestBar
+  // updates the live tip bar's close on every 1s tick while pinning the
+  // open at bar start and widening high/low only when the live close
+  // sticks out — the same intra-bar semantics a real candlestick chart
+  // wants, with none of the analytics-engine-seeding quirks the strike-
+  // profile timeseries exhibits.
   const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf));
-  const profileBuckets = useMemo<StrikeProfileBucketRow[]>(() => {
-    // Filter the API response to extended-hours and to buckets with
-    // usable OHLC so the 1:1 index relationship with allCandles holds.
-    const filteredApi = omitClosedMarketTimes(strikeProfileBuckets, (b) => b.timestamp)
+  const candleBuckets = useMemo(() => {
+    return omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp)
       .filter((b) => {
         const o = toNumber(b.open ?? b.close);
         return o != null && o > 0;
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [marketHistoricalAll]);
 
-    if (filteredApi.length === 0) return filteredApi;
+  // ── Strike-Profile bucket lookup by timestamp ──
+  // Candles and GEX data come from different endpoints with different
+  // history depths (~576 candle bars from /api/market/historical vs ~78
+  // GEX buckets from /api/gex/strike-profile-timeseries), so they're no
+  // longer index-aligned.  Index by candle timestamp for the rewind +
+  // live-edge lookups: for any candle's timestamp, gexByTs returns the
+  // matching strike-profile bucket if one exists, or undefined for
+  // candles that predate the GEX window (Gamma / Positions panels stay
+  // empty in that case, same UX as the prior backfill zone).
+  const gexByTs = useMemo(() => {
+    const map = new Map<number, StrikeProfileBucketRow>();
+    for (const b of strikeProfileBuckets) {
+      const ms = new Date(b.timestamp).getTime();
+      if (Number.isFinite(ms)) map.set(ms, b);
+    }
+    return map;
+  }, [strikeProfileBuckets]);
 
-    // Build the padding from useMarketHistorical: take every candle whose
-    // timestamp is STRICTLY BEFORE the first API bucket, then keep the
-    // most recent (TARGET_VISIBLE_CANDLES - 1) of them.  These padding
-    // buckets carry OHLC only — the chart's middle / right panels stay
-    // blank when rewound into the padding zone (semantically correct, no
-    // GEX data exists for those moments).
-    const firstApiMs = new Date(filteredApi[0].timestamp).getTime();
-    const PAD_COUNT = TARGET_VISIBLE_CANDLES - 1;
-    const filteredCandles = omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp);
-    const candidatePadding: StrikeProfileBucketRow[] = filteredCandles
-      .filter((bar) => {
-        const t = new Date(bar.timestamp).getTime();
-        return Number.isFinite(t) && t < firstApiMs;
-      })
-      .map((bar) => ({
-        // Type-conformant empty-GEX bucket: OHLC only, no walls/flip,
-        // no strikes.  The rewindIndex logic uses these for candle context
-        // but the Gamma / Positions panels render nothing for them.
-        timestamp: bar.timestamp,
-        symbol,
-        open: bar.open ?? null,
-        high: bar.high ?? null,
-        low: bar.low ?? null,
-        close: bar.close ?? null,
-        gamma_flip: null,
-        call_wall: null,
-        put_wall: null,
-        strikes: [],
-      }))
-      .filter((b) => {
-        const o = toNumber(b.open ?? b.close);
-        return o != null && o > 0;
-      })
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-    const padding = candidatePadding.slice(-PAD_COUNT);
-    return [...padding, ...filteredApi];
-  }, [strikeProfileBuckets, marketHistoricalAll, symbol]);
-
-  // First profileBuckets index that carries GEX-bucket data (not backfill).
-  // Backfill buckets are constructed with strikes: [] and null walls/flip, so
-  // the first index where ANY of those carry data marks the boundary.
-  //
-  // Used to clamp the rewind scrubber's left edge so the user can never drag
-  // it into the backfill zone (the gamma / positions panels would render
-  // blank there — the symptom the user reported as "going back about half
-  // way then blanks out" on 1-min when the API window's actual bucket count
-  // ends up smaller than the visible 78-candle frame).  Past this index
-  // every position has GEX data, so the panels always render something.
+  // First candle index whose timestamp has a matching GEX bucket.  Clamps
+  // the rewind scrubber's left edge so the user can never drag it into the
+  // candles-only history zone (where the Gamma / Positions panels would
+  // render blank — the symptom previously reported as "goes back about
+  // half way then blanks out" on 1-min).  Past this index every candle has
+  // GEX data, so the right panels always render something.
   const firstGexBucketIndex = useMemo(() => {
-    for (let i = 0; i < profileBuckets.length; i += 1) {
-      const b = profileBuckets[i];
-      if (
-        (Array.isArray(b.strikes) && b.strikes.length > 0) ||
-        b.gamma_flip != null ||
-        b.call_wall != null ||
-        b.put_wall != null
-      ) {
-        return i;
-      }
+    for (let i = 0; i < candleBuckets.length; i += 1) {
+      const ms = new Date(candleBuckets[i].timestamp).getTime();
+      if (Number.isFinite(ms) && gexByTs.has(ms)) return i;
     }
     return 0;
-  }, [profileBuckets]);
+  }, [candleBuckets, gexByTs]);
 
   // Expiry dropdown universe — straight pass-through of the dedicated
   // /api/gex/expirations endpoint, which already ASC-sorts and deduplicates
@@ -441,71 +407,42 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // for the y-axis anchor's initial spread estimate and as the fallback the
   // visibleStrikes memo resolves to whenever we're NOT actively scrubbed off
   // the right edge.
-  const profileTipBucket = profileBuckets.length > 0 ? profileBuckets[profileBuckets.length - 1] : null;
+  const liveGexBucket = strikeProfileBuckets.length > 0
+    ? strikeProfileBuckets[strikeProfileBuckets.length - 1]
+    : null;
   const strikeAggregations = useMemo<StrikeAggregation[]>(
-    () => bucketToStrikeAggregations(profileTipBucket),
-    [profileTipBucket],
+    () => bucketToStrikeAggregations(liveGexBucket),
+    [liveGexBucket],
   );
 
-  // Fallback used as the y-axis anchor before any candles have loaded and
-  // when chartSpot has nothing visible to read from.  During a live
-  // session the realtime quote is preferred so the anchor matches the
-  // header before the seed lands; outside the session the analytics tip
-  // is preferred so the anchor matches whatever the chart will paint
-  // once candles arrive.  In normal operation the chart spot reads from
-  // visibleCandles[last].close (with the live-quote merge already
-  // applied to the tip during a live session), so this fallback only
-  // matters during the brief seed-loading phase.
+  // Y-axis anchor fallback for the brief moment before any candle has loaded.
+  // Normal path reads from visibleCandles[last].close (which is the live tip
+  // bar from useMarketHistorical, kept fresh by its 1s pollLatestBar) — this
+  // fallback only matters during the historical-seed-loading phase.
   const spot = useMemo(() => {
-    const liveClose = toNumber(quote?.close);
-    const tipClose = toNumber(profileTipBucket?.close);
+    const tipClose = candleBuckets.length > 0
+      ? toNumber(candleBuckets[candleBuckets.length - 1].close)
+      : null;
     const summaryClose = toNumber(gexSummary?.spot_price);
-    const order = isSessionLive(quote?.session)
-      ? [liveClose, tipClose, summaryClose]
-      : [tipClose, liveClose, summaryClose];
-    for (const v of order) if (v != null) return v;
+    if (tipClose != null) return tipClose;
+    if (summaryClose != null) return summaryClose;
     return null;
-  }, [quote, profileTipBucket, gexSummary]);
+  }, [candleBuckets, gexSummary]);
 
-  // Thin projection of profileBuckets onto the existing candle shape.  No
-  // additional filtering / sorting here: profileBuckets is already RTH-clipped,
-  // OHLC-validated, and ASCENDING — and the chart's rewind relies on the 1:1
-  // index relationship ``allCandles[i] === profileBuckets[i]``.
-  //
-  // The tip candle's CLOSE is overridden with the live /api/market/quote
-  // close so the most-recent candle, the cyan spot line, and the header
-  // price all read the same number on the same 1Hz tick.  Only the close
-  // is touched — open / high / low remain exactly what the analytics
-  // engine wrote, so the candle's silhouette never widens past what
-  // /api/gex/strike-profile-timeseries reported.  When a new bucket
-  // arrives via the tip-poll, the previous tip reverts cleanly to API
-  // values with no leftover stretching from the live merge.
-  //
-  // The merge is gated on the session being LIVE — for indexes (SPX) the
-  // backend reports "closed" outside the cash session because indexes
-  // don't have extended-hours trading, and for stocks/ETFs (SPY, QQQ) it
-  // reports "closed" only outside 04:00–20:00 ET.  So the same gate
-  // ("session is not in the closed family") expresses both rules
-  // simultaneously.  When the market is closed, the quote endpoint
-  // returns a stale value that would otherwise paint as a ghost close on
-  // the tip candle and pull the spot line off the analytics-engine close.
+  // Thin projection of candleBuckets onto the chart's candle shape.  No
+  // live merge layered on here: useMarketHistorical's pollLatestBar already
+  // pins the live tip bar's open at bar start, widens high/low only when
+  // the live close sticks out, and updates the close on every 1s poll.
+  // candleBuckets is already RTH-clipped, OHLC-validated and ASCENDING.
   const allCandles = useMemo(() => {
-    const candles = profileBuckets.map((b) => ({
+    return candleBuckets.map((b) => ({
       timestamp: b.timestamp,
       open: Number(b.open ?? b.close ?? 0),
       close: Number(b.close ?? b.open ?? 0),
       high: Number(b.high ?? b.close ?? 0),
       low: Number(b.low ?? b.close ?? 0),
     }));
-    if (candles.length > 0 && isSessionLive(quote?.session) && quote) {
-      const liveClose = Number(quote.close);
-      if (Number.isFinite(liveClose) && liveClose > 0) {
-        const tip = candles[candles.length - 1];
-        candles[candles.length - 1] = { ...tip, close: liveClose };
-      }
-    }
-    return candles;
-  }, [profileBuckets, quote]);
+  }, [candleBuckets]);
 
   const nyDateFmt = useMemo(
     () =>
@@ -650,14 +587,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // Only once scrubbed left do we swap in an earlier bucket's strikes / walls.
   const atRewindRightEdge = rewindIndex == null || rewindIndex >= allCandles.length - 1;
 
-  // While rewinding (and off the right edge), swap the live tip bucket for the
-  // scrubbed bucket so the Gamma / Positions panels and the flip / wall lines
-  // replay alongside the candles.  Because allCandles is built from
-  // profileBuckets in the same order (1:1), the rewindIndex into allCandles is
-  // ALSO the index into profileBuckets — no per-bucket lookup, no recorder.
-  const rewoundBucket = rewindActive && !atRewindRightEdge && rewindIndex != null
-    ? profileBuckets[rewindIndex] ?? null
-    : null;
+  // While rewinding (and off the right edge), swap the live tip GEX bucket
+  // for the scrubbed one so the Gamma / Positions panels and the flip /
+  // wall lines replay alongside the candles.  Candles and GEX buckets
+  // aren't index-aligned anymore (separate endpoints, different history
+  // depths), so look the GEX bucket up by the rewound candle's timestamp.
+  const rewoundBucket = useMemo<StrikeProfileBucketRow | null>(() => {
+    if (!rewindActive || atRewindRightEdge || rewindIndex == null) return null;
+    const candle = allCandles[rewindIndex];
+    if (!candle) return null;
+    const ms = new Date(candle.timestamp).getTime();
+    return Number.isFinite(ms) ? (gexByTs.get(ms) ?? null) : null;
+  }, [rewindActive, atRewindRightEdge, rewindIndex, allCandles, gexByTs]);
   const rewoundStrikes = useMemo(
     () => (rewoundBucket ? bucketToStrikeAggregations(rewoundBucket) : null),
     [rewoundBucket],
@@ -793,10 +734,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return out;
   }, [visibleCandles, tf]);
 
-  // The spot line is anchored to the latest visible candle's close so it never
-  // drifts out of sync with the candles (the live quote ticks on a separate
-  // 1s timer than /api/market/historical). Falls back to the live quote when
-  // no candles are loaded.
+  // The spot line is anchored to the latest visible candle's close so it
+  // always reads the same number as the rightmost candle paints.  Falls
+  // back to the bootstrap spot (gex summary's spot_price) when no candles
+  // have loaded yet.
   const chartSpot = useMemo(() => {
     if (visibleCandles.length > 0) {
       const last = visibleCandles[visibleCandles.length - 1];
@@ -812,7 +753,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // "now".  Each field independently falls back to the live summary if the
   // bucket has no recorded value (rare — typically when the analytics writer
   // hadn't resolved the flip yet on that cycle).
-  const levelSourceBucket = rewoundBucket ?? profileTipBucket;
+  const levelSourceBucket = rewoundBucket ?? liveGexBucket;
   const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
   const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
@@ -969,23 +910,28 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   const updatedLabel = useMemo(() => {
-    const ts = quote?.timestamp || gexSummary?.timestamp;
+    // The latest candle bar's timestamp lives at bar-start precision (e.g.
+    // 16:00 for the 16:00-16:05 5m bucket), so prefer the gex summary's
+    // analytics-write timestamp when present — it ticks once per engine
+    // cycle and reads closer to "now" in the header.
+    const ts = gexSummary?.timestamp || candleBuckets[candleBuckets.length - 1]?.timestamp;
     return ts ? new Date(ts).toLocaleTimeString() : '—';
-  }, [quote, gexSummary]);
+  }, [gexSummary, candleBuckets]);
 
   // ── Rewind scrubber wiring ──
   // The slider runs over allCandles indices, clamped on both ends:
   //   * upper end (rewindMax) is the live tip (allCandles.length - 1);
   //   * lower end (rewindMin) is the LATER of:
   //       (a) ``TARGET_VISIBLE_CANDLES - 1`` candles back from the live edge —
-  //           the 78-candle visible window's rewind depth using the 77 OHLC
-  //           backfill candles as left-side context; and
-  //       (b) the first profileBuckets index with GEX data — so the user can
-  //           never drag past the backfill boundary into a region where the
-  //           gamma / positions panels would blank out.  At 1-min, the API
-  //           sometimes returns fewer than 78 buckets (sparse analytics
-  //           cycle), and without this clamp the scrubber's leftmost
-  //           positions would point at backfill candles with empty strikes.
+  //           the 78-candle visible window's rewind depth, using the older
+  //           candles in /api/market/historical as left-side context; and
+  //       (b) the first candle whose timestamp has a matching GEX bucket —
+  //           so the user can never drag past the GEX-data boundary into a
+  //           region where the gamma / positions panels would blank out.
+  //           At 1-min, the strike-profile API sometimes returns fewer than
+  //           78 buckets (sparse analytics cycle), and without this clamp
+  //           the scrubber's leftmost positions would point at candles with
+  //           no matching GEX data.
   // Toggling rewind on freezes live updates and seeds the anchor at "now";
   // toggling off resumes live.
   const REWIND_MAX_DEPTH = TARGET_VISIBLE_CANDLES - 1;
