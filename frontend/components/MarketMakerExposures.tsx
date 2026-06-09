@@ -1539,12 +1539,27 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
                 const bodyTop = Math.min(yO, yC);
                 const bodyH = Math.max(1, Math.abs(yO - yC));
+                const bodyBottom = bodyTop + bodyH;
                 const isHovered = hoveredCandle?.timestamp === c.timestamp;
                 const candleW = isHovered ? baseCandleW * 1.6 : baseCandleW;
+                const wickWidth = isHovered ? 1.6 : 1;
                 const opacity = isPrevSession(c.timestamp) && !withPrev ? 0.35 : 1;
+                // For hollow candles split the wick into top (high → body
+                // top) and bottom (body bottom → low) segments so the empty
+                // body doesn't reveal the wick passing through it.  Solid
+                // candles cover the wick with their fill, so a single
+                // high → low line is fine.  Dojis keep the full wick on
+                // purpose — that's what gives them the familiar "+" look.
                 return (
                   <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
-                    <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />
+                    {hollow ? (
+                      <>
+                        <line x1={x} x2={x} y1={yH} y2={bodyTop} stroke={color} strokeWidth={wickWidth} />
+                        <line x1={x} x2={x} y1={bodyBottom} y2={yL} stroke={color} strokeWidth={wickWidth} />
+                      </>
+                    ) : (
+                      <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={wickWidth} />
+                    )}
                     <rect
                       x={x - candleW / 2}
                       y={bodyTop}
