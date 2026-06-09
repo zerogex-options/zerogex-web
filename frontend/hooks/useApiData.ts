@@ -608,8 +608,182 @@ export function useFlipSurface(
   );
 }
 
+// ── Shared /api/market/quote cache ──
+// Header, dashboard Price card, Strike Profile spot line / tip-close
+// merge, GEX Heatmap, and every other chart consumer all read the live
+// quote.  Without a shared cache, each call site mounts its own
+// setInterval and starts ticking from its mount time — the intervals
+// are all 1Hz but phase-offset by milliseconds, so different cards
+// visibly update at different sub-second moments and can land on
+// different server snapshots.  This module-level cache lets every
+// subscriber receive the same quote at the same instant from a single
+// fetch loop whose period is the smallest interval any live
+// subscriber asked for.
+//
+// refreshInterval = 0 ("paused"): the subscriber receives the cached
+// snapshot plus the result of any initial fetch, then freezes — it
+// doesn't drive the poll loop and doesn't react to further updates.
+// Mirrors the pre-shared-cache behaviour of useApiData with
+// refreshInterval=0 so chart pause / rewind continues to freeze the
+// quote-driven candles and spot line as it always did.
+interface MarketQuoteCacheEntry {
+  data: MarketQuoteRow | null;
+  loading: boolean;
+  error: string | null;
+  hasFetched: boolean;
+  listeners: Set<() => void>;
+  liveIntervals: Map<number, number>;
+  pollTimer: ReturnType<typeof setInterval> | null;
+  pollIntervalMs: number;
+  inflight: AbortController | null;
+}
+
+const marketQuoteCache = new Map<string, MarketQuoteCacheEntry>();
+let nextMarketQuoteSubscriberId = 0;
+
+function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
+  let entry = marketQuoteCache.get(symbol);
+  if (!entry) {
+    entry = {
+      data: null,
+      loading: true,
+      error: null,
+      hasFetched: false,
+      listeners: new Set(),
+      liveIntervals: new Map(),
+      pollTimer: null,
+      pollIntervalMs: 0,
+      inflight: null,
+    };
+    marketQuoteCache.set(symbol, entry);
+  }
+  return entry;
+}
+
+async function fetchMarketQuote(symbol: string): Promise<void> {
+  const entry = marketQuoteCache.get(symbol);
+  if (!entry) return;
+  if (entry.inflight) entry.inflight.abort();
+  const controller = new AbortController();
+  entry.inflight = controller;
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+    const endpoint = `/api/market/quote?${symbolQuery(symbol)}`;
+    const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
+    if (controller.signal.aborted) return;
+    if (!response.ok) {
+      throw new Error(response.status === 404 ? 'No data available yet' : `API error: ${response.status}`);
+    }
+    const raw = await response.json();
+    if (controller.signal.aborted) return;
+    entry.data = normalizeNumbers(raw) as MarketQuoteRow;
+    entry.loading = false;
+    entry.error = null;
+    entry.hasFetched = true;
+    entry.listeners.forEach((fn) => fn());
+  } catch (err) {
+    if (controller.signal.aborted) return;
+    if (err instanceof DOMException && err.name === 'AbortError') return;
+    entry.error = err instanceof Error ? err.message : 'Failed to fetch';
+    entry.loading = false;
+    entry.listeners.forEach((fn) => fn());
+  } finally {
+    if (entry.inflight === controller) entry.inflight = null;
+  }
+}
+
+function syncMarketQuotePoll(symbol: string): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  let minInterval = Infinity;
+  entry.liveIntervals.forEach((interval) => {
+    if (interval > 0 && interval < minInterval) minInterval = interval;
+  });
+  const requestedInterval = Number.isFinite(minInterval)
+    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
+    : 0;
+  if (requestedInterval === entry.pollIntervalMs) return;
+  if (entry.pollTimer) {
+    clearInterval(entry.pollTimer);
+    entry.pollTimer = null;
+  }
+  entry.pollIntervalMs = requestedInterval;
+  if (requestedInterval > 0) {
+    entry.pollTimer = setInterval(() => { void fetchMarketQuote(symbol); }, requestedInterval);
+  }
+}
+
+function ensureInitialMarketQuoteFetch(symbol: string): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  if (!entry.hasFetched && !entry.inflight) {
+    void fetchMarketQuote(symbol);
+  }
+}
+
+function snapshotMarketQuote(entry: MarketQuoteCacheEntry): {
+  data: MarketQuoteRow | null;
+  loading: boolean;
+  error: string | null;
+} {
+  return { data: entry.data, loading: entry.loading, error: entry.error };
+}
+
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
-  return useApiData<MarketQuoteRow>(`/api/market/quote?${symbolQuery(symbol)}`, { refreshInterval });
+  const [state, setState] = useState(() => snapshotMarketQuote(getOrCreateMarketQuoteEntry(symbol)));
+
+  // Synchronously swap snapshots when the symbol changes so stale data
+  // from the previous symbol isn't briefly displayed during the effect
+  // teardown / re-mount cycle.
+  const trackedSymbolRef = useRef(symbol);
+  if (trackedSymbolRef.current !== symbol) {
+    trackedSymbolRef.current = symbol;
+    setState(snapshotMarketQuote(getOrCreateMarketQuoteEntry(symbol)));
+  }
+
+  // Stable subscriber id so unmount cleanly removes this caller's
+  // interval contribution without disturbing other subscribers.
+  const idRef = useRef<number>(0);
+  if (idRef.current === 0) idRef.current = ++nextMarketQuoteSubscriberId;
+  const id = idRef.current;
+
+  useEffect(() => {
+    const entry = getOrCreateMarketQuoteEntry(symbol);
+    ensureInitialMarketQuoteFetch(symbol);
+
+    if (refreshInterval <= 0) {
+      // Frozen subscriber: snapshot now; if no fetch has landed yet,
+      // listen ONCE so the initial value gets through, then freeze.
+      setState(snapshotMarketQuote(entry));
+      if (entry.hasFetched) return;
+      const oneShot = () => {
+        setState(snapshotMarketQuote(entry));
+        entry.listeners.delete(oneShot);
+      };
+      entry.listeners.add(oneShot);
+      return () => {
+        entry.listeners.delete(oneShot);
+      };
+    }
+
+    // Live subscriber: contribute to the shared poll and receive every update.
+    entry.liveIntervals.set(id, refreshInterval);
+    syncMarketQuotePoll(symbol);
+
+    const listener = () => setState(snapshotMarketQuote(entry));
+    entry.listeners.add(listener);
+    listener();
+
+    return () => {
+      entry.listeners.delete(listener);
+      entry.liveIntervals.delete(id);
+      syncMarketQuotePoll(symbol);
+    };
+  }, [symbol, refreshInterval, id]);
+
+  const refetch = useCallback(() => {
+    void fetchMarketQuote(symbol);
+  }, [symbol]);
+
+  return { ...state, refetch };
 }
 
 export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current' | 'prior' = 'current', refreshInterval = 10000) {
