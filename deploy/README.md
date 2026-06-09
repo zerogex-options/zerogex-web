@@ -682,6 +682,56 @@ tar -xzf ~/zerogex-monitoring-backups/monitoring-data-YYYYMMDD-HHMMSS.tar.gz -C 
 make restart
 ```
 
+### Auth Database Backups
+
+The SQLite auth DB (`AUTH_DB_PATH`, default `/var/lib/zerogex/auth.db`) is
+the **only** copy of every user account, session, OAuth identity link,
+password-reset token, and the user→tier mapping that reconciles against
+Stripe. It lives on the instance volume and nothing else replicates it, so
+losing the volume loses every account. Back it up.
+
+`make backup-auth` takes an **online** snapshot via SQLite's `.backup`
+command — safe to run against the live PM2 process in WAL mode, unlike a
+plain `cp` which can capture a torn WAL and produce a corrupt copy. The
+snapshot is integrity-checked (`PRAGMA integrity_check`) before it is kept,
+then gzip'd into `~/zerogex-auth-backups` (outside the repo). Requires the
+`sqlite3` CLI (`sudo apt-get install -y sqlite3`).
+
+```bash
+cd ~/zerogex-web
+make backup-auth                                                 # local only
+make backup-auth S3_BUCKET=s3://your-bucket/zerogex/auth          # also upload to S3
+make backup-auth BACKUP_GPG_RECIPIENT=ops@zerogex.com S3_BUCKET=s3://your-bucket/zerogex/auth  # encrypt at rest
+```
+
+Options (all optional):
+
+- `AUTH_DB_PATH` — source DB; defaults to the value in `frontend/.env.local`, then `frontend/data/auth.db`.
+- `AUTH_BACKUP_DIR` — where archives are written (default `~/zerogex-auth-backups`).
+- `AUTH_BACKUP_RETENTION_DAYS` — prune local archives older than N days (default 30).
+- `S3_BUCKET` — if set, also `aws s3 cp` the archive there.
+- `BACKUP_GPG_RECIPIENT` — encrypt the archive with GPG before it leaves the box. **Strongly recommended:** the archive contains password hashes and PII. If this is unset, the destination S3 bucket MUST be private with server-side encryption (see `zerogex-oa/deploy/BACKUP_RESILIENCE.md`).
+
+Because the DB is small, back it up **hourly** with long retention rather
+than daily. Add to `crontab -e` (offset from the 02:00/02:30 jobs):
+
+```
+15 * * * * cd ~/zerogex-web && make backup-auth S3_BUCKET=s3://your-bucket/zerogex/auth >> ~/zerogex-auth-backup.log 2>&1
+```
+
+Restore (the snapshot is a complete, standalone database):
+
+```bash
+make stop                                                        # stop the single writer
+gunzip -c ~/zerogex-auth-backups/auth-YYYYMMDD-HHMMSS.db.gz > "$AUTH_DB_PATH"   # add .gpg + gpg -d if encrypted
+sqlite3 "$AUTH_DB_PATH" 'PRAGMA integrity_check;'                # expect: ok
+make start
+```
+
+> AWS-side hardening for these backups (S3 versioning + Object Lock,
+> cross-region copy, EBS snapshots, RDS retention/PITR/Multi-AZ) is
+> tracked as a checklist in `zerogex-oa/deploy/BACKUP_RESILIENCE.md`.
+
 ## Logs
 
 ### Application Logs

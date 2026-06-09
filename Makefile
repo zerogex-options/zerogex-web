@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring backup-auth clean deploy logo
 
 # Default target
 help:
@@ -23,6 +23,7 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
+	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -161,6 +162,61 @@ backup-monitoring:
 	fi; \
 	find "$(BACKUP_DIR)" -name 'monitoring-data-*.tar.gz' -mtime +$(BACKUP_RETENTION_DAYS) -delete; \
 	echo "Backup complete. Local dir: $(BACKUP_DIR) (retention: $(BACKUP_RETENTION_DAYS) days)."
+
+# Backup the SQLite auth database (users, sessions, OAuth identities,
+# password-reset tokens, audit log). This file has NO other backup, so
+# losing the instance volume loses every account and the user->tier
+# mapping. Uses SQLite's online ".backup" (safe against the live PM2
+# writer in WAL mode) instead of cp, which can capture a torn WAL and
+# produce a corrupt copy. The snapshot is integrity-checked, gzip'd, and
+# written to a dir OUTSIDE the repo. Set S3_BUCKET to also upload, and
+# BACKUP_GPG_RECIPIENT to encrypt at rest -- STRONGLY recommended: this
+# archive contains password hashes and PII. Prunes local archives older
+# than AUTH_BACKUP_RETENTION_DAYS (default 30). AUTH_DB_PATH defaults to
+# the value in frontend/.env.local, then frontend/data/auth.db.
+AUTH_DB_PATH ?=
+AUTH_BACKUP_DIR ?= $(HOME)/zerogex-auth-backups
+AUTH_BACKUP_RETENTION_DAYS ?= 30
+backup-auth:
+	@command -v sqlite3 >/dev/null 2>&1 || { \
+		echo "ERROR: sqlite3 CLI not found. Install it: sudo apt-get install -y sqlite3"; \
+		echo "(A plain cp of a live WAL database can be corrupt; .backup is required.)"; \
+		exit 1; \
+	}; \
+	db="$(AUTH_DB_PATH)"; \
+	if [ -z "$$db" ] && [ -f frontend/.env.local ]; then \
+		db=$$(grep -E '^AUTH_DB_PATH=' frontend/.env.local | head -1 | cut -d= -f2- | tr -d '"'); \
+	fi; \
+	if [ -z "$$db" ]; then db="frontend/data/auth.db"; fi; \
+	if [ ! -f "$$db" ]; then echo "Auth DB not found at '$$db' (set AUTH_DB_PATH). Nothing to back up."; exit 1; fi; \
+	mkdir -p "$(AUTH_BACKUP_DIR)"; \
+	ts=$$(date +%Y%m%d-%H%M%S); \
+	snap="$(AUTH_BACKUP_DIR)/auth-$$ts.db"; \
+	archive="$$snap.gz"; \
+	echo "Backing up $$db ..."; \
+	sqlite3 "$$db" ".backup '$$snap'"; \
+	if ! sqlite3 "$$snap" 'PRAGMA integrity_check;' | head -1 | grep -q '^ok$$'; then \
+		echo "ERROR: integrity_check failed on snapshot; not keeping it."; rm -f "$$snap"; exit 1; \
+	fi; \
+	gzip -f "$$snap"; \
+	if [ -n "$(BACKUP_GPG_RECIPIENT)" ]; then \
+		if command -v gpg >/dev/null 2>&1; then \
+			gpg --yes --batch --encrypt --recipient "$(BACKUP_GPG_RECIPIENT)" "$$archive" && rm -f "$$archive" && archive="$$archive.gpg"; \
+		else \
+			echo "WARNING: BACKUP_GPG_RECIPIENT set but gpg not found; storing UNENCRYPTED."; \
+		fi; \
+	fi; \
+	echo "Created $$archive"; \
+	if [ -n "$(S3_BUCKET)" ]; then \
+		if command -v aws >/dev/null 2>&1; then \
+			echo "Uploading to $(S3_BUCKET)/ ..."; \
+			aws s3 cp "$$archive" "$(S3_BUCKET)/"; \
+		else \
+			echo "WARNING: S3_BUCKET set but aws CLI not found; skipped upload."; \
+		fi; \
+	fi; \
+	find "$(AUTH_BACKUP_DIR)" -name 'auth-*.db.gz*' -mtime +$(AUTH_BACKUP_RETENTION_DAYS) -delete; \
+	echo "Backup complete. Local dir: $(AUTH_BACKUP_DIR) (retention: $(AUTH_BACKUP_RETENTION_DAYS) days)."
 
 # Clean build artifacts
 clean:
