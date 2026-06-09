@@ -441,28 +441,54 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     [profileTipBucket],
   );
 
+  // Order matters: /api/market/quote is the live 1Hz endpoint the header
+  // displays, so prefer it first so the y-axis anchor (and the chartSpot
+  // fallback when no candles are loaded) reads the same number the user
+  // sees up top.  profileTipBucket.close trails by up to one analytics
+  // cycle; gexSummary.spot_price is the legacy fallback for the rare case
+  // where both live sources are unavailable.
   const spot = useMemo(() => {
     const candidates = [
-      toNumber(profileTipBucket?.close),
       toNumber(quote?.close),
+      toNumber(profileTipBucket?.close),
       toNumber(gexSummary?.spot_price),
     ].filter((v): v is number => v != null);
     return candidates.length > 0 ? candidates[0] : null;
-  }, [profileTipBucket, quote, gexSummary]);
+  }, [quote, profileTipBucket, gexSummary]);
 
   // Thin projection of profileBuckets onto the existing candle shape.  No
   // additional filtering / sorting here: profileBuckets is already RTH-clipped,
   // OHLC-validated, and ASCENDING — and the chart's rewind relies on the 1:1
   // index relationship ``allCandles[i] === profileBuckets[i]``.
+  //
+  // The tip candle's close is overridden with the live /api/market/quote
+  // close (and high/low stretched to include it) so the most-recent candle,
+  // the cyan spot line, and the header's price all read the same number on
+  // the same 1Hz tick.  strike-profile-timeseries writes OHLC on the
+  // analytics engine's cycle; without this merge the tip candle drifts up
+  // to one cycle behind the header.  Only the last element is touched, so
+  // historical candles (and any candle the rewind scrubber lands on) keep
+  // exactly what the analytics engine wrote.
   const allCandles = useMemo(() => {
-    return profileBuckets.map((b) => ({
+    const candles = profileBuckets.map((b) => ({
       timestamp: b.timestamp,
       open: Number(b.open ?? b.close ?? 0),
       close: Number(b.close ?? b.open ?? 0),
       high: Number(b.high ?? b.close ?? 0),
       low: Number(b.low ?? b.close ?? 0),
     }));
-  }, [profileBuckets]);
+    const liveClose = Number(quote?.close);
+    if (candles.length > 0 && Number.isFinite(liveClose) && liveClose > 0) {
+      const tip = candles[candles.length - 1];
+      candles[candles.length - 1] = {
+        ...tip,
+        close: liveClose,
+        high: Math.max(tip.high, liveClose),
+        low: Math.min(tip.low, liveClose),
+      };
+    }
+    return candles;
+  }, [profileBuckets, quote]);
 
   const nyDateFmt = useMemo(
     () =>
@@ -1469,14 +1495,48 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             (() => {
               const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
               const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
+              // Resolve the candle that precedes the visible window so the
+              // leftmost visible candle's color rule (close vs PREVIOUS close)
+              // has a real predecessor instead of falling to neutral just
+              // because it sits at the edge of the rendered slice.
+              const firstVisibleIdx = visibleCandles.length > 0
+                ? allCandles.findIndex((ac) => ac.timestamp === visibleCandles[0].timestamp)
+                : -1;
+              const closeBeforeFirstVisible = firstVisibleIdx > 0
+                ? allCandles[firstVisibleIdx - 1].close
+                : null;
               return visibleCandles.map((c, i) => {
                 const x = xForTime(new Date(c.timestamp).getTime());
                 const yO = yForPrice(c.open);
                 const yC = yForPrice(c.close);
                 const yH = yForPrice(c.high);
                 const yL = yForPrice(c.low);
-                const up = c.close >= c.open;
-                const color = up ? colors.bullish : colors.bearish;
+
+                // ── Color: close vs PREVIOUS candle's close ──
+                // > prior close → bullish, < prior close → bearish,
+                // == prior close (or no prior available) → neutral.
+                // The neutral colour tracks the theme so it stays visible
+                // in both light and dark modes.
+                const prevClose = i > 0
+                  ? visibleCandles[i - 1].close
+                  : closeBeforeFirstVisible;
+                let color: string;
+                if (prevClose == null || c.close === prevClose) {
+                  color = textPrimary;
+                } else if (c.close > prevClose) {
+                  color = colors.bullish;
+                } else {
+                  color = colors.bearish;
+                }
+
+                // ── Fill: close vs OPEN ──
+                // close > open  → hollow (stroke-only body)
+                // close < open  → filled (solid body)
+                // close == open → doji; body height clamps to 1 px and
+                //                 renders as a horizontal line, always
+                //                 filled (nothing to hollow out).
+                const hollow = c.close > c.open;
+
                 const bodyTop = Math.min(yO, yC);
                 const bodyH = Math.max(1, Math.abs(yO - yC));
                 const isHovered = hoveredCandle?.timestamp === c.timestamp;
@@ -1485,7 +1545,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 return (
                   <g key={`cdl-${i}-${c.timestamp}`} opacity={opacity}>
                     <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth={isHovered ? 1.6 : 1} />
-                    <rect x={x - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
+                    <rect
+                      x={x - candleW / 2}
+                      y={bodyTop}
+                      width={candleW}
+                      height={bodyH}
+                      fill={hollow ? 'none' : color}
+                      stroke={color}
+                      strokeWidth={hollow ? 1 : 0}
+                    />
                   </g>
                 );
               });
