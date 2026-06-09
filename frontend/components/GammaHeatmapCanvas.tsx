@@ -45,15 +45,6 @@ const BEARISH: RGB = { r: 44, g: 72, b: 117 };   // negative GEX (cool)
 const NEUTRAL: RGB = { r: 255, g: 246, b: 237 }; // zero (warm white)
 const BULLISH: RGB = { r: 255, g: 133, b: 49 };  // positive GEX (warm)
 
-// Darker bullish / bearish for candle bodies on top of the heatmap.
-// The standard colors.bullish (#1BC47D) and colors.bearish (#FF4D5A)
-// wash out against the orange / warm-white centre of the heatmap
-// gradient; these darker variants stay readable everywhere the
-// candles overlay.  Neutral candles continue to use the theme's
-// textPrimary so they pop against any cell colour.
-const CANDLE_BULLISH = '#0A6E3E';
-const CANDLE_BEARISH = '#8C1F2D';
-
 const blend = (a: RGB, b: RGB, t: number): RGB => ({
   r: Math.round(a.r + (b.r - a.r) * t),
   g: Math.round(a.g + (b.g - a.g) * t),
@@ -64,6 +55,22 @@ const blend = (a: RGB, b: RGB, t: number): RGB => ({
 function colorForRatio(ratio: number): RGB {
   if (ratio >= 0) return blend(NEUTRAL, BULLISH, Math.min(1, ratio));
   return blend(BEARISH, NEUTRAL, Math.min(1, 1 + ratio));
+}
+
+function hexToRgb(hex: string): RGB {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+// Darker shade of a hex color, used to outline candles so they read
+// against the heatmap underneath.
+function darken(hex: string, factor: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
 }
 
 function percentile(values: number[], p: number): number {
@@ -648,32 +655,18 @@ export default function GammaHeatmapCanvas() {
       ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     }
 
-    // Underlying candlesticks on top of the heatmap.  Hollow-candle
-    // convention: colour is close vs PREVIOUS candle's close (bullish /
-    // bearish / theme-aware neutral on equal), fill is close vs OWN
-    // open (hollow when close > open, filled otherwise).  Mirrors the
-    // Strike Profile chart's logic so both tabs read the same way.
+    // Underlying candlesticks on top of the heatmap.  Solid bodies with
+    // a darker edge — keeps the brightness of the brand bullish/bearish
+    // colours for at-a-glance direction reading while the darker outline
+    // and the wick split at the body edges keep the candles legible
+    // against the heatmap's blue→warm-white→orange gradient underneath.
     if (priceData && priceData.length > 0) {
       const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
-
-      // Seed prevClose from the most recent price row strictly BEFORE
-      // the first visible slot, so the leftmost visible candle's
-      // colour rule isn't orphaned to neutral by the slot-window edge.
-      let prevClose: number | null = null;
-      const firstSlotMs = grid.slotsMs[0];
-      for (let pi = priceData.length - 1; pi >= 0; pi -= 1) {
-        const p = priceData[pi];
-        const pMs = Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs;
-        if (pMs < firstSlotMs) {
-          const c = Number(p.close ?? p.open);
-          if (Number.isFinite(c)) prevClose = c;
-          break;
-        }
-      }
-
+      const bullEdge = darken(colors.bullish, 0.6);
+      const bearEdge = darken(colors.bearish, 0.6);
       grid.slotsMs.forEach((ms, i) => {
         const row = priceByMs.get(ms);
         if (!row) return;
@@ -688,33 +681,15 @@ export default function GammaHeatmapCanvas() {
         const yClose = yForStrike(close);
         const yHigh = yForStrike(high);
         const yLow = yForStrike(low);
-
-        // Colour by close vs previous close.  Blank slots between
-        // candles are bridged — prevClose only updates when a candle
-        // is actually drawn, so a gap doesn't force the next candle
-        // to neutral.  Darker bullish/bearish variants are used so the
-        // candles stay readable against the heatmap's warm gradient
-        // (Strike Profile uses the brighter colors.bullish/bearish
-        // because its background is the card surface, not a heatmap).
-        let color: string;
-        if (prevClose == null || close === prevClose) {
-          color = textPrimary;
-        } else if (close > prevClose) {
-          color = CANDLE_BULLISH;
-        } else {
-          color = CANDLE_BEARISH;
-        }
-
-        const hollow = close > open;
+        const up = close >= open;
+        const fill = up ? colors.bullish : colors.bearish;
+        const edge = up ? bullEdge : bearEdge;
         const bodyTop = Math.min(yOpen, yClose);
         const bodyBottom = Math.max(yOpen, yClose);
         const bodyH = Math.max(1, bodyBottom - bodyTop);
 
-        // Wick split at the body edges so an empty hollow body never
-        // shows the wick passing through it.  Solid candles cover the
-        // wick with their fill so the same split is harmless there.
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = edge;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(cx, yHigh);
         ctx.lineTo(cx, bodyTop);
@@ -722,16 +697,11 @@ export default function GammaHeatmapCanvas() {
         ctx.lineTo(cx, yLow);
         ctx.stroke();
 
-        if (hollow) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cx - candleW / 2, bodyTop, candleW, bodyH);
-        } else {
-          ctx.fillStyle = color;
-          ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
-        }
-
-        prevClose = close;
+        ctx.fillStyle = fill;
+        ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+        ctx.strokeStyle = edge;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - candleW / 2, bodyTop, candleW, bodyH);
       });
     }
 
@@ -853,7 +823,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, textPrimary, size, hover, showGrid, tf]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
