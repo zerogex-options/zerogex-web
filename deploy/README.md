@@ -738,10 +738,11 @@ units live in `deploy/systemd/`:
 
 ```bash
 # Optional config (S3 bucket, GPG recipient, paths). Without it, the job
-# takes a local-only, unencrypted backup.
-sudo cp deploy/systemd/backup-auth.env.example deploy/systemd/backup-auth.env
-sudo chmod 600 deploy/systemd/backup-auth.env
-sudoedit deploy/systemd/backup-auth.env        # set S3_BUCKET, BACKUP_GPG_RECIPIENT
+# takes a local-only, unencrypted backup. The file lives in your own repo
+# dir, so edit it directly — no sudo (sudoedit refuses a user-writable dir).
+cp deploy/systemd/backup-auth.env.example deploy/systemd/backup-auth.env
+chmod 600 deploy/systemd/backup-auth.env
+$EDITOR deploy/systemd/backup-auth.env         # set S3_BUCKET, BACKUP_GPG_RECIPIENT
 
 sudo cp deploy/systemd/zerogex-web-auth-backup.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
