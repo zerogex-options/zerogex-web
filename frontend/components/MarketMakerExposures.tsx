@@ -27,7 +27,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { omitClosedMarketTimes, isSessionLive } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -441,19 +441,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     [profileTipBucket],
   );
 
-  // Order matters: /api/market/quote is the live 1Hz endpoint the header
-  // displays, so prefer it first so the y-axis anchor (and the chartSpot
-  // fallback when no candles are loaded) reads the same number the user
-  // sees up top.  profileTipBucket.close trails by up to one analytics
-  // cycle; gexSummary.spot_price is the legacy fallback for the rare case
-  // where both live sources are unavailable.
+  // Fallback used as the y-axis anchor before any candles have loaded and
+  // when chartSpot has nothing visible to read from.  During a live
+  // session the realtime quote is preferred so the anchor matches the
+  // header before the seed lands; outside the session the analytics tip
+  // is preferred so the anchor matches whatever the chart will paint
+  // once candles arrive.  In normal operation the chart spot reads from
+  // visibleCandles[last].close (with the live-quote merge already
+  // applied to the tip during a live session), so this fallback only
+  // matters during the brief seed-loading phase.
   const spot = useMemo(() => {
-    const candidates = [
-      toNumber(quote?.close),
-      toNumber(profileTipBucket?.close),
-      toNumber(gexSummary?.spot_price),
-    ].filter((v): v is number => v != null);
-    return candidates.length > 0 ? candidates[0] : null;
+    const liveClose = toNumber(quote?.close);
+    const tipClose = toNumber(profileTipBucket?.close);
+    const summaryClose = toNumber(gexSummary?.spot_price);
+    const order = isSessionLive(quote?.session)
+      ? [liveClose, tipClose, summaryClose]
+      : [tipClose, liveClose, summaryClose];
+    for (const v of order) if (v != null) return v;
+    return null;
   }, [quote, profileTipBucket, gexSummary]);
 
   // Thin projection of profileBuckets onto the existing candle shape.  No
@@ -469,6 +474,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // to one cycle behind the header.  Only the last element is touched, so
   // historical candles (and any candle the rewind scrubber lands on) keep
   // exactly what the analytics engine wrote.
+  //
+  // The merge is gated on the session being LIVE — for indexes (SPX) the
+  // backend reports "closed" outside the cash session because indexes
+  // don't have extended-hours trading, and for stocks/ETFs (SPY, QQQ) it
+  // reports "closed" only outside 04:00–20:00 ET.  So the same gate
+  // ("session is not in the closed family") expresses both rules
+  // simultaneously.  When the market is closed, the quote endpoint
+  // returns a stale value that would otherwise paint as a ghost close on
+  // the tip candle and pull the spot line off the analytics-engine close.
   const allCandles = useMemo(() => {
     const candles = profileBuckets.map((b) => ({
       timestamp: b.timestamp,
@@ -477,15 +491,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       high: Number(b.high ?? b.close ?? 0),
       low: Number(b.low ?? b.close ?? 0),
     }));
-    const liveClose = Number(quote?.close);
-    if (candles.length > 0 && Number.isFinite(liveClose) && liveClose > 0) {
-      const tip = candles[candles.length - 1];
-      candles[candles.length - 1] = {
-        ...tip,
-        close: liveClose,
-        high: Math.max(tip.high, liveClose),
-        low: Math.min(tip.low, liveClose),
-      };
+    if (candles.length > 0 && isSessionLive(quote?.session) && quote) {
+      const liveClose = Number(quote.close);
+      if (Number.isFinite(liveClose) && liveClose > 0) {
+        const tip = candles[candles.length - 1];
+        candles[candles.length - 1] = {
+          ...tip,
+          close: liveClose,
+          high: Math.max(tip.high, liveClose),
+          low: Math.min(tip.low, liveClose),
+        };
+      }
     }
     return candles;
   }, [profileBuckets, quote]);

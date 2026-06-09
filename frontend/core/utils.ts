@@ -93,6 +93,28 @@ export const isWithinTradingHoursForSymbol = (
     ? isWithinRegularMarketHours(timestamp)
     : isWithinExtendedMarketHours(timestamp);
 
+/**
+ * Whether the session string reported by /api/market/quote indicates the
+ * symbol is currently in a live, trading session.  For indexes (SPX,
+ * NDX, …) the backend reports "closed" outside the cash session because
+ * indexes don't trade extended hours; for stocks/ETFs (SPY, QQQ, …) it
+ * reports "closed" only outside 04:00–20:00 ET.  So treating "anything
+ * not in the closed family" as live correctly covers both cases.  Used
+ * to gate live-quote merging onto chart tip candles so closed-market
+ * stale quotes don't paint as ghost data.
+ */
+export const isSessionLive = (session: string | null | undefined): boolean => {
+  if (session == null) return false;
+  switch (session) {
+    case 'open':
+    case 'pre-market':
+    case 'after-hours':
+      return true;
+    default:
+      return false;
+  }
+};
+
 export const omitClosedMarketTimes = <T>(
   data: T[],
   getTimestamp: (item: T) => string | Date

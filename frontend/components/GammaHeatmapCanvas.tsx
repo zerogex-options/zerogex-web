@@ -14,7 +14,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useApiData, useGEXByStrike } from '@/hooks/useApiData';
+import { useApiData, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -23,7 +23,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
-import { isWithinTradingHoursForSymbol, getMarketSession } from '@/core/utils';
+import { isWithinTradingHoursForSymbol, getMarketSession, isSessionLive } from '@/core/utils';
 
 interface HeatmapCell { strike: number; net_gex: number; }
 interface GammaBucket {
@@ -55,22 +55,6 @@ const blend = (a: RGB, b: RGB, t: number): RGB => ({
 function colorForRatio(ratio: number): RGB {
   if (ratio >= 0) return blend(NEUTRAL, BULLISH, Math.min(1, ratio));
   return blend(BEARISH, NEUTRAL, Math.min(1, 1 + ratio));
-}
-
-function hexToRgb(hex: string): RGB {
-  const h = hex.replace('#', '');
-  return {
-    r: parseInt(h.slice(0, 2), 16),
-    g: parseInt(h.slice(2, 4), 16),
-    b: parseInt(h.slice(4, 6), 16),
-  };
-}
-
-// Darker shade of a hex color, used to outline candles so they read against
-// the heatmap underneath.
-function darken(hex: string, factor: number): string {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
 }
 
 function percentile(values: number[], p: number): number {
@@ -185,6 +169,7 @@ export default function GammaHeatmapCanvas() {
   const heatmapInterval = paused ? 0 : 1000;
   const historicalInterval = paused ? 0 : 1000;
   const byStrikeInterval = paused ? 0 : 10000; // only used to source expiration list
+  const quoteInterval = paused ? 0 : 1000;
 
   const baseMaxPoints = getMaxDataPoints();
   // With-Prev doubles the time window so the heatmap reaches into the prior session.
@@ -204,10 +189,34 @@ export default function GammaHeatmapCanvas() {
     { refreshInterval: heatmapInterval },
   );
   const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
-  const priceData: PriceDataPoint[] = useMemo(
-    () => priceRowsAll.slice(-fetchUnits),
-    [priceRowsAll, fetchUnits],
-  );
+  // Live quote for the tip-candle merge.  Mirrors MarketMakerExposures'
+  // behaviour: while the session is live (cash for indexes, 04:00–20:00
+  // for stocks/ETFs) the most recent slot's close is overridden with
+  // /api/market/quote.close so the candle moves on the same 1Hz tick as
+  // the header.  Outside the session the merge is skipped and the
+  // candle reverts to whatever /api/market/historical reported.
+  const { data: quote } = useMarketQuote(symbol, quoteInterval);
+  const priceData: PriceDataPoint[] = useMemo(() => {
+    const sliced = priceRowsAll.slice(-fetchUnits);
+    if (sliced.length === 0) return sliced;
+    if (!isSessionLive(quote?.session) || !quote) return sliced;
+    const liveClose = Number(quote.close);
+    if (!Number.isFinite(liveClose) || liveClose <= 0) return sliced;
+    const tip = sliced[sliced.length - 1];
+    const tipOpen = Number(tip.open ?? tip.close);
+    const tipHighRaw = Number(tip.high ?? tip.close);
+    const tipLowRaw = Number(tip.low ?? tip.close);
+    const tipHigh = Number.isFinite(tipHighRaw) ? tipHighRaw : liveClose;
+    const tipLow = Number.isFinite(tipLowRaw) ? tipLowRaw : liveClose;
+    const updatedTip: PriceDataPoint = {
+      ...tip,
+      close: liveClose,
+      high: Math.max(tipHigh, liveClose),
+      low: Math.min(tipLow, liveClose),
+      open: Number.isFinite(tipOpen) ? tipOpen : liveClose,
+    };
+    return [...sliced.slice(0, -1), updatedTip];
+  }, [priceRowsAll, fetchUnits, quote]);
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
     { refreshInterval: historicalInterval },
@@ -639,14 +648,32 @@ export default function GammaHeatmapCanvas() {
       ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     }
 
-    // Underlying candlesticks on top of the heatmap.
+    // Underlying candlesticks on top of the heatmap.  Hollow-candle
+    // convention: colour is close vs PREVIOUS candle's close (bullish /
+    // bearish / theme-aware neutral on equal), fill is close vs OWN
+    // open (hollow when close > open, filled otherwise).  Mirrors the
+    // Strike Profile chart's logic so both tabs read the same way.
     if (priceData && priceData.length > 0) {
       const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
-      const bullEdge = darken(colors.bullish, 0.6);
-      const bearEdge = darken(colors.bearish, 0.6);
+
+      // Seed prevClose from the most recent price row strictly BEFORE
+      // the first visible slot, so the leftmost visible candle's
+      // colour rule isn't orphaned to neutral by the slot-window edge.
+      let prevClose: number | null = null;
+      const firstSlotMs = grid.slotsMs[0];
+      for (let pi = priceData.length - 1; pi >= 0; pi -= 1) {
+        const p = priceData[pi];
+        const pMs = Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs;
+        if (pMs < firstSlotMs) {
+          const c = Number(p.close ?? p.open);
+          if (Number.isFinite(c)) prevClose = c;
+          break;
+        }
+      }
+
       grid.slotsMs.forEach((ms, i) => {
         const row = priceByMs.get(ms);
         if (!row) return;
@@ -661,15 +688,30 @@ export default function GammaHeatmapCanvas() {
         const yClose = yForStrike(close);
         const yHigh = yForStrike(high);
         const yLow = yForStrike(low);
-        const up = close >= open;
-        const fill = up ? colors.bullish : colors.bearish;
-        const edge = up ? bullEdge : bearEdge;
+
+        // Colour by close vs previous close.  Blank slots between
+        // candles are bridged — prevClose only updates when a candle
+        // is actually drawn, so a gap doesn't force the next candle
+        // to neutral.
+        let color: string;
+        if (prevClose == null || close === prevClose) {
+          color = textPrimary;
+        } else if (close > prevClose) {
+          color = colors.bullish;
+        } else {
+          color = colors.bearish;
+        }
+
+        const hollow = close > open;
         const bodyTop = Math.min(yOpen, yClose);
         const bodyBottom = Math.max(yOpen, yClose);
         const bodyH = Math.max(1, bodyBottom - bodyTop);
 
-        ctx.strokeStyle = edge;
-        ctx.lineWidth = 1.5;
+        // Wick split at the body edges so an empty hollow body never
+        // shows the wick passing through it.  Solid candles cover the
+        // wick with their fill so the same split is harmless there.
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(cx, yHigh);
         ctx.lineTo(cx, bodyTop);
@@ -677,11 +719,16 @@ export default function GammaHeatmapCanvas() {
         ctx.lineTo(cx, yLow);
         ctx.stroke();
 
-        ctx.fillStyle = fill;
-        ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
-        ctx.strokeStyle = edge;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+        if (hollow) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
+        }
+
+        prevClose = close;
       });
     }
 
@@ -803,7 +850,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, textPrimary, size, hover, showGrid, tf]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
