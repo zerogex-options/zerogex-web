@@ -16,7 +16,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import {
-  useGEXByStrike,
+  useApiData,
   useGEXSummary,
   useMarketQuote,
 } from '@/hooks/useApiData';
@@ -239,18 +239,30 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // Default to 1s on every hook so candles, gamma bars, and OI bars all tick in real time.
   const summaryInterval = paused ? 0 : 1000;
   const quoteInterval = paused ? 0 : 1000;
-  const strikeInterval = paused ? 0 : 1000;
+  // Expirations universe changes at most once per trading day, so a long
+  // refresh interval is fine and saves bandwidth on a frequently-mounted chart.
+  const expirationsInterval = paused ? 0 : 30_000;
 
   // ── Live snapshot hooks ──
-  // The /api/gex/by-strike snapshot is kept ONLY to drive the expiry dropdown
-  // (it carries the universe of expirations available for the current symbol);
-  // every value the chart actually renders — candles, flip/walls, per-strike
-  // gamma & OI, at the live edge AND at every rewind point — comes from the
-  // strike-profile-timeseries below.  useGEXSummary / useMarketQuote remain
-  // for the "Updated" label and the y-axis anchor fallback spot.
+  // useGEXSummary / useMarketQuote remain only for the "Updated" label and the
+  // y-axis anchor fallback spot — every value the chart actually renders
+  // (candles, flip/walls, per-strike gamma & OI, at the live edge AND at every
+  // rewind point) comes from the strike-profile-timeseries below.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
   const { data: quote } = useMarketQuote(symbol, quoteInterval);
-  const { data: gexByStrike } = useGEXByStrike(symbol, 200, strikeInterval, 'impact');
+
+  // Expiry dropdown universe.  Sourced from a dedicated lightweight endpoint
+  // that scans a TRAILING WINDOW of gex_by_strike — NOT just the latest
+  // snapshot the live /api/gex/by-strike endpoint returns.  Why: post-close
+  // (e.g. 18:10 ET on Monday) the analytics engine stops writing rows for
+  // today's expired 0DTE contracts, so today's expiration vanishes from the
+  // latest snapshot.  The rewind feature still has data from earlier in the
+  // day when those contracts were live, so today's date needs to stay in the
+  // dropdown for the rest of the trading shift.
+  const { data: gexExpirations } = useApiData<string[] | null>(
+    `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
+    { refreshInterval: expirationsInterval },
+  );
 
   // ── Single source of truth: aligned per-bucket Strike-Profile timeseries ──
   // Each bucket carries candle OHLC + flip/walls + per-strike gamma & OI on
@@ -325,19 +337,45 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return [...padding, ...filteredApi];
   }, [strikeProfileBuckets, marketHistoricalAll, symbol]);
 
-  // Expiry dropdown universe — the rewind chart's strikes payload is
-  // restricted by the API based on ``expirations``, but the dropdown itself
-  // still has to show every expiration the symbol carries.  The live
-  // /api/gex/by-strike snapshot is the lightest source of "which expirations
-  // exist right now" that doesn't require an additional endpoint.
-  const availableExpirations = useMemo(() => {
-    const exps = new Set<string>();
-    (gexByStrike || []).forEach((row) => {
-      const exp = String(row.expiration || '').trim();
-      if (exp) exps.add(exp);
-    });
-    return Array.from(exps).sort();
-  }, [gexByStrike]);
+  // First profileBuckets index that carries GEX-bucket data (not backfill).
+  // Backfill buckets are constructed with strikes: [] and null walls/flip, so
+  // the first index where ANY of those carry data marks the boundary.
+  //
+  // Used to clamp the rewind scrubber's left edge so the user can never drag
+  // it into the backfill zone (the gamma / positions panels would render
+  // blank there — the symptom the user reported as "going back about half
+  // way then blanks out" on 1-min when the API window's actual bucket count
+  // ends up smaller than the visible 78-candle frame).  Past this index
+  // every position has GEX data, so the panels always render something.
+  const firstGexBucketIndex = useMemo(() => {
+    for (let i = 0; i < profileBuckets.length; i += 1) {
+      const b = profileBuckets[i];
+      if (
+        (Array.isArray(b.strikes) && b.strikes.length > 0) ||
+        b.gamma_flip != null ||
+        b.call_wall != null ||
+        b.put_wall != null
+      ) {
+        return i;
+      }
+    }
+    return 0;
+  }, [profileBuckets]);
+
+  // Expiry dropdown universe — straight pass-through of the dedicated
+  // /api/gex/expirations endpoint, which already ASC-sorts and deduplicates
+  // server-side.  Defensive normalisation (trim, drop empties) guards
+  // against an empty-string entry from a malformed cache row, but the
+  // endpoint should never return one.
+  const availableExpirations = useMemo<string[]>(() => {
+    if (!Array.isArray(gexExpirations)) return [];
+    const out: string[] = [];
+    for (const raw of gexExpirations) {
+      const exp = String(raw ?? '').trim();
+      if (exp) out.push(exp);
+    }
+    return out;
+  }, [gexExpirations]);
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
   // shape the Gamma / Positions panels render.  ``call_gamma`` /
@@ -801,14 +839,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   }, [quote, gexSummary]);
 
   // ── Rewind scrubber wiring ──
-  // The slider runs over allCandles indices, clamped to a (TARGET_VISIBLE_CANDLES
-  // - 1)-candle window back from the live edge.  That gives exactly the rewind
-  // depth the visible 78-candle window can scrub through using the 77 OHLC
-  // backfill candles as left-side context.  Toggling rewind on freezes live
-  // updates and seeds the anchor at "now"; toggling off resumes live.
+  // The slider runs over allCandles indices, clamped on both ends:
+  //   * upper end (rewindMax) is the live tip (allCandles.length - 1);
+  //   * lower end (rewindMin) is the LATER of:
+  //       (a) ``TARGET_VISIBLE_CANDLES - 1`` candles back from the live edge —
+  //           the 78-candle visible window's rewind depth using the 77 OHLC
+  //           backfill candles as left-side context; and
+  //       (b) the first profileBuckets index with GEX data — so the user can
+  //           never drag past the backfill boundary into a region where the
+  //           gamma / positions panels would blank out.  At 1-min, the API
+  //           sometimes returns fewer than 78 buckets (sparse analytics
+  //           cycle), and without this clamp the scrubber's leftmost
+  //           positions would point at backfill candles with empty strikes.
+  // Toggling rewind on freezes live updates and seeds the anchor at "now";
+  // toggling off resumes live.
   const REWIND_MAX_DEPTH = TARGET_VISIBLE_CANDLES - 1;
   const rewindMax = Math.max(0, allCandles.length - 1);
-  const rewindMin = Math.max(0, rewindMax - REWIND_MAX_DEPTH);
+  const rewindMin = Math.max(firstGexBucketIndex, rewindMax - REWIND_MAX_DEPTH);
   const rewindValue = clamp(rewindIndex != null ? rewindIndex : rewindMax, rewindMin, rewindMax);
   const rewindCandle = allCandles[rewindValue];
   const tsFmt = (ts: string | number | undefined): string => {
@@ -1742,7 +1789,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span>Most recent · {rewindEndLabel}</span>
           </div>
           <div className="mt-1 text-[10px]" style={{ color: subtle }}>
-            Rewind back through the most recent {REWIND_MAX_DEPTH} candles.
+            Rewind back through the most recent {rewindMax - rewindMin} candles.
           </div>
         </div>
       )}
