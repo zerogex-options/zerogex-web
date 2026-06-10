@@ -29,6 +29,19 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
+// Friendly trial-end date for billing copy, e.g. "July 1, 2026". Anchored to
+// America/New_York so the displayed day matches how we describe deadlines to
+// users (the founding deadline is 9:30 AM ET on July 1, and a 7-day trial that
+// crosses midnight UTC shouldn't read as the wrong calendar day).
+function formatTrialEndDate(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(iso));
+}
+
 export async function sendEmailVerification(to: string, verifyUrl: string) {
   const safeLink = escapeHtml(verifyUrl);
   const subject = 'Verify your ZeroGEX email';
@@ -121,13 +134,22 @@ export async function sendReferralRewardEmail(
   }
 }
 
-export async function sendPaidWelcomeEmail(to: string) {
-  const subject = 'Thank you for subscribing to ZeroGEX!';
+export async function sendPaidWelcomeEmail(to: string, opts?: { trialEndIso?: string | null }) {
+  const trialDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const subject = trialDate
+    ? 'Welcome to ZeroGEX — your free trial has started'
+    : 'Thank you for subscribing to ZeroGEX!';
+
+  const trialText = trialDate
+    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialDate}. If ZeroGEX isn't the right fit, you can cancel anytime before then from the billing portal on your account page and you won't be billed a cent.`
+    : null;
+
   const text = [
     'Hello,',
     '',
-    'I just wanted to personally thank you for subscribing to ZeroGEX.',
+    'I just wanted to personally thank you for starting your ZeroGEX subscription.',
     '',
+    ...(trialText ? [trialText, ''] : []),
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
     '',
     "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
@@ -139,10 +161,15 @@ export async function sendPaidWelcomeEmail(to: string) {
     'Founder, ZeroGEX',
   ].join('\n');
 
+  const trialHtml = trialDate
+    ? `<p>Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until <strong>${escapeHtml(trialDate)}</strong>. If ZeroGEX isn't the right fit, you can cancel anytime before then from the billing portal on your account page and you won't be billed a cent.</p>`
+    : '';
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
+      <p>I just wanted to personally thank you for starting your ZeroGEX subscription.</p>
+      ${trialHtml}
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
@@ -164,13 +191,20 @@ export async function sendPaidWelcomeEmail(to: string) {
   }
 }
 
-export async function sendFoundingWelcomeEmail(to: string) {
-  const subject = 'Thank you for subscribing to ZeroGEX!';
+export async function sendFoundingWelcomeEmail(to: string, opts?: { trialEndIso?: string | null }) {
+  const trialDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const subject = 'Welcome to ZeroGEX — your founding rate is locked in';
+
+  const billingText = trialDate
+    ? `Your account is active now and your founding rate is locked in — but you won't be charged until ${trialDate}. Your first payment, at your founding rate, happens then. If you change your mind before that you can cancel from the billing portal on your account page and you won't be billed.`
+    : null;
+
   const text = [
     'Hello,',
     '',
-    'I just wanted to personally thank you for subscribing to ZeroGEX.',
+    'I just wanted to personally thank you for becoming a ZeroGEX Founding Member.',
     '',
+    ...(billingText ? [billingText, ''] : []),
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
     '',
     "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
@@ -182,10 +216,15 @@ export async function sendFoundingWelcomeEmail(to: string) {
     'Founder, ZeroGEX',
   ].join('\n');
 
+  const billingHtml = trialDate
+    ? `<p>Your account is active now and your founding rate is locked in &mdash; but you won't be charged until <strong>${escapeHtml(trialDate)}</strong>. Your first payment, at your founding rate, happens then. If you change your mind before that you can cancel from the billing portal on your account page and you won't be billed.</p>`
+    : '';
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
+      <p>I just wanted to personally thank you for becoming a ZeroGEX Founding Member.</p>
+      ${billingHtml}
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
