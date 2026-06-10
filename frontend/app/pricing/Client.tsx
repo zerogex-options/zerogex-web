@@ -612,7 +612,8 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
               Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
-              Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal.
+              On paid plans, upgrades and downgrades are pro-rated automatically through the Stripe-hosted billing portal.
+              Switching plans during your trial ends the trial and starts billing immediately.
               Cancel anytime — no email or support request required.
             </p>
           </div>
@@ -761,6 +762,11 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
                 <li>
                   <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
                   billing portal — no email or support request required.
+                </li>
+                <li>
+                  <strong>Plan switches during trial.</strong> Changing plans while on the free
+                  trial ends the trial early and charges you for the new plan immediately. To keep
+                  the trial, wait until it ends before switching plans.
                 </li>
                 <li>
                   <strong>No prorated refunds.</strong> Except where required by law, payments are

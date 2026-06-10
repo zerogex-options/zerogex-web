@@ -538,7 +538,7 @@ function AccountPageContent() {
         <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes are pro-rated automatically.
+            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.
           </p>
           <button
             type="button"
