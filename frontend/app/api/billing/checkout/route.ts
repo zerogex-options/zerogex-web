@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { appendAuditEvent, getClientIp, requireSession, validateCsrf } from '@/core/serverAuth';
+import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import {
   getActivePromoCouponId,
   getAppUrl,
@@ -17,12 +18,26 @@ import {
 } from '@/core/stripe';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 
+// Card is collected at checkout (Stripe subscription mode defaults
+// payment_method_collection to 'always'); tier is granted immediately
+// because the webhook treats 'trialing' as active. Once-per-account: a
+// churned member resubscribing has paid_welcome_email_sent_at set, so the
+// trial is suppressed below — no farming a fresh free week on every cycle.
+const TRIAL_PERIOD_DAYS = 7;
+
+// Stripe rejects a trial_end that's effectively now; require at least a
+// 48h cushion so timezone slop / clock skew can't push it past the cutoff
+// between this branch and the API call.
+const MIN_TRIAL_END_BUFFER_MS = 48 * 60 * 60 * 1000;
+
 type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   founding_eligible: number;
   email_verified_at: string | null;
   referred_by_code: string | null;
+  paid_welcome_email_sent_at: string | null;
+  subscription_lapsed: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -68,7 +83,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -108,6 +123,27 @@ export async function POST(request: NextRequest) {
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
   }
+
+  // Once-per-account trial gate. Anyone who has previously held a paid
+  // sub on this account (either a stamped welcome email or the lapsed
+  // flag set by clearSubscriptionFromUser) is ineligible.
+  const hasPriorPaidSubscription =
+    row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
+  const trialDays = hasPriorPaidSubscription ? null : TRIAL_PERIOD_DAYS;
+
+  // Founding members get the deferral-to-July-1 trial instead of the 7-day
+  // one. Absolute trial_end (not a day count) so every founding member
+  // converges on the same first-charge date regardless of when they
+  // activate. Falls back to the 7-day trial if the deadline is <48h out or
+  // already passed (Stripe would reject the near/past trial_end).
+  const foundingDeadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
+  const foundingTrialEndUnix =
+    discountResult.foundingApplied &&
+    !hasPriorPaidSubscription &&
+    Number.isFinite(foundingDeadlineMs) &&
+    foundingDeadlineMs - Date.now() >= MIN_TRIAL_END_BUFFER_MS
+      ? Math.floor(foundingDeadlineMs / 1000)
+      : null;
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
@@ -179,6 +215,14 @@ export async function POST(request: NextRequest) {
         cadence,
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
       },
+      // Stripe accepts only one of trial_end / trial_period_days. Founding
+      // members get the absolute July-1 trial_end; everyone else (first-time
+      // only) gets the 7-day day-count trial.
+      ...(foundingTrialEndUnix
+        ? { trial_end: foundingTrialEndUnix }
+        : trialDays
+          ? { trial_period_days: trialDays }
+          : {}),
     },
   };
 
@@ -205,7 +249,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
