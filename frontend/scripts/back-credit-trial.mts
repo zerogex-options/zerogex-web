@@ -32,6 +32,7 @@ type Args = {
   yes: boolean;
   help: boolean;
   previewTo: string | null;
+  exclude: Set<string>;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -57,13 +58,24 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { dryRun: false, yes: false, help: false, previewTo: null };
+  const args: Args = {
+    dryRun: false,
+    yes: false,
+    help: false,
+    previewTo: null,
+    exclude: new Set<string>(),
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
     else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--exclude') {
+      for (const e of (argv[++i] ?? '').split(',')) {
+        const trimmed = e.trim().toLowerCase();
+        if (trimmed) args.exclude.add(trimmed);
+      }
+    } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
@@ -86,6 +98,8 @@ Skipped cohorts:
 Options:
       --dry-run             Print what would happen; no Stripe or DB writes.
   -y, --yes                 Apply the credits and send emails.
+      --exclude <emails>    Comma-separated emails to skip entirely (e.g.
+                            users who were manually credited via Dashboard).
       --preview-to <email>  Render the notification email and send ONE copy
                             to <email> with a sample amount. No Stripe or DB
                             writes; exits immediately.
@@ -284,12 +298,15 @@ const alreadyCredited = new Set(
   ).map((r) => r.user_id),
 );
 
-const eligible = users.filter((u) => !alreadyCredited.has(u.id));
-const skippedAlready = users.length - eligible.length;
+const afterAuditFilter = users.filter((u) => !alreadyCredited.has(u.id));
+const skippedAlready = users.length - afterAuditFilter.length;
+const eligible = afterAuditFilter.filter((u) => !cliArgs.exclude.has(u.email.toLowerCase()));
+const skippedExcluded = afterAuditFilter.length - eligible.length;
 
 console.log(`Auth DB:               ${dbPath}`);
 console.log(`Non-founding actives:  ${users.length}`);
 console.log(`Already credited:      ${skippedAlready}`);
+console.log(`Excluded by flag:      ${skippedExcluded}`);
 console.log(`To consider:           ${eligible.length}`);
 
 if (eligible.length === 0) {

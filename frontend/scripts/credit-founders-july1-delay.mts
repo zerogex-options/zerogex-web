@@ -42,6 +42,7 @@ type Args = {
   help: boolean;
   previewTo: string | null;
   previewTier: Tier;
+  exclude: Set<string>;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -73,6 +74,7 @@ function parseArgs(argv: string[]): Args {
     help: false,
     previewTo: null,
     previewTier: 'pro',
+    exclude: new Set<string>(),
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -82,6 +84,11 @@ function parseArgs(argv: string[]): Args {
     else if (arg === '--preview-tier') {
       const next = argv[++i];
       if (next === 'basic' || next === 'pro') args.previewTier = next;
+    } else if (arg === '--exclude') {
+      for (const e of (argv[++i] ?? '').split(',')) {
+        const trimmed = e.trim().toLowerCase();
+        if (trimmed) args.exclude.add(trimmed);
+      }
     } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
@@ -101,6 +108,8 @@ also sends a notification email to the credited founder.
 Options:
       --dry-run               Print what would happen; no Stripe or DB writes.
   -y, --yes                   Apply the credits and send emails.
+      --exclude <emails>      Comma-separated emails to skip entirely (e.g.
+                              users who were manually credited via Dashboard).
       --preview-to <email>    Render the notification email and send ONE
                               copy to <email>. No Stripe or DB writes; exits
                               immediately.
@@ -323,12 +332,15 @@ const alreadyCredited = new Set(
   ).map((r) => r.user_id),
 );
 
-const eligible = founders.filter((u) => !alreadyCredited.has(u.id));
-const skippedAlready = founders.length - eligible.length;
+const afterAuditFilter = founders.filter((u) => !alreadyCredited.has(u.id));
+const skippedAlready = founders.length - afterAuditFilter.length;
+const eligible = afterAuditFilter.filter((u) => !cliArgs.exclude.has(u.email.toLowerCase()));
+const skippedExcluded = afterAuditFilter.length - eligible.length;
 
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Founders total:   ${founders.length}`);
 console.log(`Already credited: ${skippedAlready}`);
+console.log(`Excluded by flag: ${skippedExcluded}`);
 console.log(`To consider:      ${eligible.length}`);
 
 if (eligible.length === 0) {
