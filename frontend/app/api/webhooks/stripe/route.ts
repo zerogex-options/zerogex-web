@@ -334,11 +334,18 @@ async function maybeSendPaidWelcomeEmail(
   if (Number(firstTimeClaim.changes) > 0) {
     const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
     const isFounding = subMetadata.founding === '1';
+    // When the welcome fires the subscription is in its trial window, so
+    // trial_end is the date of the first charge — surface it in the email so
+    // the customer knows exactly when (and whether) they'll be billed.
+    const trialEndIso =
+      subscription.status === 'trialing' && typeof subscription.trial_end === 'number'
+        ? new Date(subscription.trial_end * 1000).toISOString()
+        : null;
     try {
       if (isFounding) {
-        await sendFoundingWelcomeEmail(user.email);
+        await sendFoundingWelcomeEmail(user.email, { trialEndIso });
       } else {
-        await sendPaidWelcomeEmail(user.email);
+        await sendPaidWelcomeEmail(user.email, { trialEndIso });
       }
       logAudit({
         type: 'paid_welcome_email_sent',
