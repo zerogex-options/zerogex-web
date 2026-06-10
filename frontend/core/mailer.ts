@@ -29,6 +29,18 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
+// ET-bound so the displayed day matches how we describe deadlines elsewhere
+// (founding lockin uses 09:30 ET). Formatting in the user's local zone or
+// UTC would produce a confusing off-by-one near midnight on the trial end.
+function formatTrialEndDate(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(iso));
+}
+
 export async function sendEmailVerification(to: string, verifyUrl: string) {
   const safeLink = escapeHtml(verifyUrl);
   const subject = 'Verify your ZeroGEX email';
@@ -121,11 +133,26 @@ export async function sendReferralRewardEmail(
   }
 }
 
-export async function sendPaidWelcomeEmail(to: string) {
-  const subject = 'Thank you for subscribing to ZeroGEX!';
+export async function sendPaidWelcomeEmail(
+  to: string,
+  opts?: { trialEndIso?: string | null },
+) {
+  const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const subject = trialEndDate
+    ? 'Welcome to ZeroGEX — your free trial has started'
+    : 'Thank you for subscribing to ZeroGEX!';
+
+  const trialLineText = trialEndDate
+    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialEndDate}. Cancel anytime before then from the billing portal on your account page and you won't be billed a cent.`
+    : null;
+  const trialLineHtml = trialEndDate
+    ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your account page and you won't be billed a cent.`
+    : null;
+
   const text = [
     'Hello,',
     '',
+    ...(trialLineText ? [trialLineText, ''] : []),
     'I just wanted to personally thank you for subscribing to ZeroGEX.',
     '',
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
@@ -142,6 +169,7 @@ export async function sendPaidWelcomeEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
+      ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
@@ -164,11 +192,24 @@ export async function sendPaidWelcomeEmail(to: string) {
   }
 }
 
-export async function sendFoundingWelcomeEmail(to: string) {
+export async function sendFoundingWelcomeEmail(
+  to: string,
+  opts?: { trialEndIso?: string | null },
+) {
+  const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const subject = 'Thank you for subscribing to ZeroGEX!';
+
+  const trialLineText = trialEndDate
+    ? `Your founding rate is locked in — but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that and you won't be billed.`
+    : null;
+  const trialLineHtml = trialEndDate
+    ? `Your founding rate is locked in &mdash; but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that and you won't be billed.`
+    : null;
+
   const text = [
     'Hello,',
     '',
+    ...(trialLineText ? [trialLineText, ''] : []),
     'I just wanted to personally thank you for subscribing to ZeroGEX.',
     '',
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
@@ -185,6 +226,7 @@ export async function sendFoundingWelcomeEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
+      ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>

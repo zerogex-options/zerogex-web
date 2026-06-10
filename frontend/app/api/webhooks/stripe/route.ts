@@ -334,11 +334,20 @@ async function maybeSendPaidWelcomeEmail(
   if (Number(firstTimeClaim.changes) > 0) {
     const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
     const isFounding = subMetadata.founding === '1';
+    // Derive the trial-end date the email mentions from the real Stripe
+    // trial_end so the copy can't drift from what Stripe will actually
+    // charge. Only meaningful while still in 'trialing' — if the sub
+    // already activated past the trial (no trial set, or trial elapsed),
+    // emit the no-trial copy.
+    const trialEndIso =
+      subscription.status === 'trialing' && typeof subscription.trial_end === 'number'
+        ? new Date(subscription.trial_end * 1000).toISOString()
+        : null;
     try {
       if (isFounding) {
-        await sendFoundingWelcomeEmail(user.email);
+        await sendFoundingWelcomeEmail(user.email, { trialEndIso });
       } else {
-        await sendPaidWelcomeEmail(user.email);
+        await sendPaidWelcomeEmail(user.email, { trialEndIso });
       }
       logAudit({
         type: 'paid_welcome_email_sent',
