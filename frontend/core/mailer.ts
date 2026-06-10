@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { getAppUrl } from '@/core/stripe';
 
 let cachedClient: Resend | null = null;
 
@@ -142,11 +143,13 @@ export async function sendPaidWelcomeEmail(
     ? 'Welcome to ZeroGEX — your free trial has started'
     : 'Thank you for subscribing to ZeroGEX!';
 
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialEndDate}. Cancel anytime before then from the billing portal on your account page and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialEndDate}. Cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed a cent.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your account page and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed a cent.`
     : null;
 
   const text = [
@@ -199,11 +202,13 @@ export async function sendFoundingWelcomeEmail(
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const subject = 'Thank you for subscribing to ZeroGEX!';
 
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
   const trialLineText = trialEndDate
-    ? `Your founding rate is locked in — but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that and you won't be billed.`
+    ? `Your founding rate is locked in — but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your founding rate is locked in &mdash; but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that and you won't be billed.`
+    ? `Your founding rate is locked in &mdash; but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
 
   const text = [
