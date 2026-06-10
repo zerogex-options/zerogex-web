@@ -45,6 +45,7 @@ export default function Navigation({ theme }: NavigationProps) {
   });
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
+  const isAuthenticated = !!authSession?.authenticated;
   const isPublicUser = normalizeTier(currentTier) === "public";
   const shouldForcePricing = (id: string) => {
     // API Specs is a Pro-tier entitlement per the pricing page, so anyone
@@ -63,13 +64,17 @@ export default function Navigation({ theme }: NavigationProps) {
       ...NAV_GROUPS,
       {
         label: "More",
+        // Account is appended last so it sits at the bottom of the sidebar.
+        // Only shown for authed users — for guests the link would just bounce
+        // through /login and add a confusing detour.
         items: [
           { id: "/about", label: "About" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+          ...(isAuthenticated ? [{ id: "/account", label: "Account" }] : []),
         ],
       },
     ],
-    [],
+    [isAuthenticated],
   );
   const filteredNavGroups = useMemo(
     () =>

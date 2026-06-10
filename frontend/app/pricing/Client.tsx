@@ -160,14 +160,19 @@ function PriceDisplay({
   const { rack, promo } = DISPLAY[tier].monthly;
   if (promoActive) {
     return (
-      <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
-          {formatMoney(rack)}
-        </span>
-        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-          {formatMoney(promo)}
-        </span>
-        <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+      <div style={{ marginTop: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+            {formatMoney(rack)}
+          </span>
+          <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+            {formatMoney(promo)}
+          </span>
+          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+        </div>
+        <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>
+          First 3 months at this rate, then {formatMoney(rack)}/mo.
+        </div>
       </div>
     );
   }

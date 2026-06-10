@@ -545,19 +545,20 @@ function AccountPageContent() {
             onClick={handleManageSubscription}
             disabled={!canManageBilling || opening}
             style={{
-              background: 'transparent',
-              border: '1px solid',
-              borderColor: C.border,
-              color: C.light,
+              background:
+                'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--heat-mid) 100%)',
+              border: 'none',
+              color: 'var(--text-inverse)',
               borderRadius: 10,
               padding: '10px 18px',
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: 14,
               cursor: canManageBilling && !opening ? 'pointer' : 'not-allowed',
               opacity: canManageBilling && !opening ? 1 : 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
+              boxShadow: '0 6px 20px var(--color-brand-primary-soft, rgba(245,180,0,0.25))',
             }}
           >
             <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}

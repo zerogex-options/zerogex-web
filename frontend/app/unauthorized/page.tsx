@@ -17,18 +17,31 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // we land here for most often: the obvious next step is /pricing, not the
   // login form they're already authenticated to.
   const needsSubscription = current === 'public' && (required === 'basic' || required === 'pro');
+  // Basic subscriber hitting a Pro-only page: route them to /pricing for an
+  // upgrade rather than the generic "access denied" with no next step.
+  const needsUpgrade = current === 'basic' && required === 'pro';
+  const tierLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+  let heading: string;
+  let message: string;
+  if (needsSubscription) {
+    heading = 'Subscribe to unlock';
+    message = `This page is included with the ${required === 'pro' ? 'Pro' : 'Basic'} plan. Pick a plan to unlock it and the rest of the paid features.`;
+  } else if (needsUpgrade) {
+    heading = 'Upgrade to unlock';
+    message = `Your current ${tierLabel(current)} plan does not include this page. Upgrade to ${tierLabel(required)} to unlock it.`;
+  } else {
+    heading = 'Access denied';
+    message = 'Your current tier does not grant permission for this page.';
+  }
+
+  const showPricingCta = needsSubscription || needsUpgrade;
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">
-          {needsSubscription ? 'Subscribe to unlock' : 'Access denied'}
-        </h1>
-        <p className="mt-4 text-[var(--color-text-secondary)]">
-          {needsSubscription
-            ? `This page is included with the ${required === 'pro' ? 'Pro' : 'Basic'} plan. Pick a plan to unlock it and the rest of the paid features.`
-            : 'Your current tier does not grant permission for this page.'}
-        </p>
+        <h1 className="text-3xl font-bold">{heading}</h1>
+        <p className="mt-4 text-[var(--color-text-secondary)]">{message}</p>
 
         <dl className="mt-6 space-y-2 text-sm">
           <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
@@ -46,10 +59,10 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
         </dl>
 
         <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-          {needsSubscription ? (
+          {showPricingCta ? (
             <>
               <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-black font-semibold">
-                See pricing
+                {needsUpgrade ? 'Upgrade your plan' : 'See pricing'}
               </Link>
               <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
                 Sign in as a different user
