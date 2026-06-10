@@ -74,18 +74,18 @@ type MetricKey = 'apiCalls' | 'pageAccesses' | 'uniqueUsers' | 'uniqueIps';
 
 // One brand color per row on this page. Order matches the rows below:
 // 1. User Signups (signups + disclaimer acceptance)
-// 2. API Calls
+// 2. Unique Users (Logged In)
 // 3. Page Accesses
-// 4. Unique Users (Logged In)
+// 4. API Calls
 // 5. Unique Source IPs
 // 6. Top Source IPs
 // 7. Top Users
 // 8. Stripe Webhook Health
 const ROW_COLORS = {
   signups: '#2c4875',
-  apiCalls: '#8a508f',
-  pageAccesses: '#bc5090',
   uniqueUsers: '#ff6361',
+  pageAccesses: '#bc5090',
+  apiCalls: '#8a508f',
   uniqueIps: '#ff8531',
   topIps: '#ffa600',
   topUsers: '#ffd380',
@@ -93,9 +93,9 @@ const ROW_COLORS = {
 } as const;
 
 const METRICS: Array<{ key: MetricKey; title: string; color: string; description: string }> = [
-  { key: 'apiCalls', title: 'API Calls', color: ROW_COLORS.apiCalls, description: 'Total requests to /api/* per bucket.' },
-  { key: 'pageAccesses', title: 'Page Accesses', color: ROW_COLORS.pageAccesses, description: 'Server-rendered page hits per bucket (excludes Next.js client-side route changes).' },
   { key: 'uniqueUsers', title: 'Unique Users (Logged In)', color: ROW_COLORS.uniqueUsers, description: 'Distinct authenticated users active during the bucket.' },
+  { key: 'pageAccesses', title: 'Page Accesses', color: ROW_COLORS.pageAccesses, description: 'Server-rendered page hits per bucket (excludes Next.js client-side route changes).' },
+  { key: 'apiCalls', title: 'API Calls', color: ROW_COLORS.apiCalls, description: 'Total requests to /api/* per bucket.' },
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
