@@ -21,12 +21,18 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import { Resend } from 'resend';
 
 const TRIAL_DAYS = 7;
 const MONTH_DAYS = 31;
 const AUDIT_TYPE = 'billing_trial_back_credit';
 
-type Args = { dryRun: boolean; yes: boolean; help: boolean };
+type Args = {
+  dryRun: boolean;
+  yes: boolean;
+  help: boolean;
+  previewTo: string | null;
+};
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -51,11 +57,12 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { dryRun: false, yes: false, help: false };
+  const args: Args = { dryRun: false, yes: false, help: false, previewTo: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
+    else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
     else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
@@ -63,11 +70,13 @@ function parseArgs(argv: string[]): Args {
 
 function usage() {
   console.log(`Usage:
-  node --experimental-strip-types scripts/back-credit-trial.mts [--dry-run | --yes]
+  node --experimental-strip-types scripts/back-credit-trial.mts \\
+    [--dry-run | --yes | --preview-to <email>]
 
 For each MONTHLY non-Founding active subscriber, posts a Stripe
 customer-balance credit equal to ${TRIAL_DAYS}/${MONTH_DAYS} of the price they
-paid on their most recent invoice. Auto-applies to their next invoice.
+paid on their most recent invoice. Auto-applies to their next invoice. On
+--yes, also sends a notification email to the credited user.
 
 Skipped cohorts:
   - Annual subscribers (annual rate is already discounted).
@@ -75,12 +84,15 @@ Skipped cohorts:
   - Users already credited (audit_events.type = \`${AUDIT_TYPE}\`).
 
 Options:
-      --dry-run   Print what would happen; no Stripe or DB writes.
-  -y, --yes       Apply the credits.
-  -h, --help      Show this help.
+      --dry-run             Print what would happen; no Stripe or DB writes.
+  -y, --yes                 Apply the credits and send emails.
+      --preview-to <email>  Render the notification email and send ONE copy
+                            to <email> with a sample amount. No Stripe or DB
+                            writes; exits immediately.
+  -h, --help                Show this help.
 
-Reads STRIPE_SECRET_KEY from env or .env.local. Set AUTH_DB_PATH to override
-the default DB path.`);
+Reads STRIPE_SECRET_KEY, RESEND_API_KEY, RESEND_FROM_EMAIL from env or
+.env.local. Set AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -129,8 +141,9 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-if (cliArgs.dryRun && cliArgs.yes) {
-  console.error('Error: --dry-run and --yes are mutually exclusive.');
+const exclusiveFlags = [cliArgs.dryRun, cliArgs.yes, !!cliArgs.previewTo].filter(Boolean).length;
+if (exclusiveFlags > 1) {
+  console.error('Error: --dry-run, --yes, and --preview-to are mutually exclusive.');
   process.exit(1);
 }
 
@@ -141,6 +154,87 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRE
 if (!STRIPE_SECRET_KEY) {
   console.error('Error: STRIPE_SECRET_KEY not set in env or .env.local.');
   process.exit(1);
+}
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
+if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
+  console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
+  process.exit(1);
+}
+
+function formatUsd(amountCents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amountCents / 100);
+  } catch {
+    return `${(amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTrialBackCreditEmail(amountFormatted: string): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const subject = 'A small credit on your ZeroGEX account';
+  const text = [
+    'Hello,',
+    '',
+    `A quick note — I recently introduced a 7-day free trial for new ZeroGEX signups. Since you subscribed before that, I credited your account ${amountFormatted} — roughly 7 days at your current plan rate. The credit will apply automatically to your next invoice.`,
+    '',
+    'Thanks for being an early supporter — it means a lot.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>A quick note &mdash; I recently introduced a 7-day free trial for new ZeroGEX signups. Since you subscribed before that, I credited your account <strong>${escapeHtml(amountFormatted)}</strong> &mdash; roughly 7 days at your current plan rate. The credit will apply automatically to your next invoice.</p>
+      <p>Thanks for being an early supporter &mdash; it means a lot.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+  return { subject, text, html };
+}
+
+let resend: Resend | null = null;
+function getResend(): Resend {
+  if (!resend) resend = new Resend(RESEND_API_KEY!);
+  return resend;
+}
+
+async function sendBackCreditEmail(to: string, amountFormatted: string): Promise<void> {
+  const { subject, text, html } = renderTrialBackCreditEmail(amountFormatted);
+  const result = await getResend().emails.send({
+    from: RESEND_FROM_EMAIL!,
+    to,
+    subject,
+    text,
+    html,
+  });
+  if (result.error) throw new Error(`Resend error: ${result.error.message}`);
+}
+
+if (cliArgs.previewTo) {
+  const sample = formatUsd(881, 'usd'); // $8.81 — matches a $39 monthly plan
+  console.log(`Sending preview to ${cliArgs.previewTo} (sample amount ${sample})...`);
+  await sendBackCreditEmail(cliArgs.previewTo, sample);
+  console.log('Preview sent.');
+  process.exit(0);
 }
 
 const dbPath =
@@ -299,6 +393,7 @@ if (!cliArgs.yes) {
 
 let successCount = 0;
 let failCount = 0;
+let emailFailCount = 0;
 
 for (const plan of plans) {
   try {
@@ -325,6 +420,17 @@ for (const plan of plans) {
        );`,
     );
     successCount++;
+
+    // Notify after the credit + audit row are committed. A mail failure must
+    // NOT cause the credit to be re-attempted on a re-run (the audit row is
+    // the idempotency latch), so swallow and log.
+    try {
+      await sendBackCreditEmail(plan.user.email, formatUsd(plan.amount, plan.currency));
+    } catch (err) {
+      emailFailCount++;
+      const message = err instanceof Error ? err.message : 'unknown error';
+      console.error(`  EMAIL-FAIL ${plan.user.email}: ${message}`);
+    }
   } catch (err) {
     failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
@@ -332,4 +438,6 @@ for (const plan of plans) {
   }
 }
 
-console.log(`\nDone. ${successCount} credited, ${failCount} failed.`);
+console.log(
+  `\nDone. ${successCount} credited, ${failCount} failed${emailFailCount ? `, ${emailFailCount} email send(s) failed (credit still posted)` : ''}.`,
+);

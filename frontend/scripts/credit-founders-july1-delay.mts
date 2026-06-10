@@ -24,6 +24,7 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import { Resend } from 'resend';
 
 type Tier = 'basic' | 'pro';
 // Founding monthly rates. Stripe amounts are in the smallest currency unit
@@ -35,7 +36,13 @@ const TIER_CREDIT_CENTS: Record<Tier, number> = {
 const CREDIT_CURRENCY = 'usd';
 const AUDIT_TYPE = 'billing_founding_july1_credit';
 
-type Args = { dryRun: boolean; yes: boolean; help: boolean };
+type Args = {
+  dryRun: boolean;
+  yes: boolean;
+  help: boolean;
+  previewTo: string | null;
+  previewTier: Tier;
+};
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -60,12 +67,22 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { dryRun: false, yes: false, help: false };
+  const args: Args = {
+    dryRun: false,
+    yes: false,
+    help: false,
+    previewTo: null,
+    previewTier: 'pro',
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
+    else if (arg === '--preview-tier') {
+      const next = argv[++i];
+      if (next === 'basic' || next === 'pro') args.previewTier = next;
+    } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
@@ -73,23 +90,29 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/credit-founders-july1-delay.mts \\
-    [--dry-run | --yes]
+    [--dry-run | --yes | --preview-to <email> [--preview-tier basic|pro]]
 
 For each Founding Member (users.founding_member_started_at IS NOT NULL),
 posts a Stripe customer-balance credit of $${(TIER_CREDIT_CENTS.basic / 100).toFixed(2)} (Basic) or
 $${(TIER_CREDIT_CENTS.pro / 100).toFixed(2)} (Pro) — one month at the founding rate. Auto-applies to the
-next invoice. Same flat amount for monthly and annual cadence.
+next invoice. Same flat amount for monthly and annual cadence. On --yes,
+also sends a notification email to the credited founder.
 
 Options:
-      --dry-run   Print what would happen; no Stripe or DB writes.
-  -y, --yes       Apply the credits.
-  -h, --help      Show this help.
+      --dry-run               Print what would happen; no Stripe or DB writes.
+  -y, --yes                   Apply the credits and send emails.
+      --preview-to <email>    Render the notification email and send ONE
+                              copy to <email>. No Stripe or DB writes; exits
+                              immediately.
+      --preview-tier <tier>   basic | pro for the preview amount. Default: pro.
+  -h, --help                  Show this help.
 
 Idempotent: skips users with an existing audit_events row of type
 \`${AUDIT_TYPE}\`. Safe to re-run after a partial failure.
 
-Reads STRIPE_SECRET_KEY and STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL} from env
-or .env.local. Set AUTH_DB_PATH to override the default DB path.`);
+Reads STRIPE_SECRET_KEY, STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL},
+RESEND_API_KEY, and RESEND_FROM_EMAIL from env or .env.local. Set
+AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -138,8 +161,9 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-if (cliArgs.dryRun && cliArgs.yes) {
-  console.error('Error: --dry-run and --yes are mutually exclusive.');
+const exclusiveFlags = [cliArgs.dryRun, cliArgs.yes, !!cliArgs.previewTo].filter(Boolean).length;
+if (exclusiveFlags > 1) {
+  console.error('Error: --dry-run, --yes, and --preview-to are mutually exclusive.');
   process.exit(1);
 }
 
@@ -153,6 +177,89 @@ const STRIPE_SECRET_KEY = envOrLocal('STRIPE_SECRET_KEY');
 if (!STRIPE_SECRET_KEY) {
   console.error('Error: STRIPE_SECRET_KEY not set in env or .env.local.');
   process.exit(1);
+}
+
+const RESEND_API_KEY = envOrLocal('RESEND_API_KEY');
+const RESEND_FROM_EMAIL = envOrLocal('RESEND_FROM_EMAIL');
+if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
+  console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
+  process.exit(1);
+}
+
+function formatUsd(amountCents: number): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amountCents / 100);
+  } catch {
+    return `$${(amountCents / 100).toFixed(2)}`;
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderFoundingDelayEmail(amountFormatted: string): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const subject = 'A credit on your ZeroGEX Founding Member account';
+  const text = [
+    'Hello,',
+    '',
+    `A quick note — I recently changed the founding-member flow so new founders aren't charged until July 1. You signed up before that change and paid right away, so I credited your account ${amountFormatted} — one month at the founding rate — to make it right. The credit will apply automatically to your next invoice.`,
+    '',
+    'Thanks for being a Founding Member. Your support this early really matters.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>A quick note &mdash; I recently changed the founding-member flow so new founders aren't charged until July 1. You signed up before that change and paid right away, so I credited your account <strong>${escapeHtml(amountFormatted)}</strong> &mdash; one month at the founding rate &mdash; to make it right. The credit will apply automatically to your next invoice.</p>
+      <p>Thanks for being a Founding Member. Your support this early really matters.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+  return { subject, text, html };
+}
+
+let resend: Resend | null = null;
+function getResend(): Resend {
+  if (!resend) resend = new Resend(RESEND_API_KEY!);
+  return resend;
+}
+
+async function sendFoundingDelayEmail(to: string, amountFormatted: string): Promise<void> {
+  const { subject, text, html } = renderFoundingDelayEmail(amountFormatted);
+  const result = await getResend().emails.send({
+    from: RESEND_FROM_EMAIL!,
+    to,
+    subject,
+    text,
+    html,
+  });
+  if (result.error) throw new Error(`Resend error: ${result.error.message}`);
+}
+
+if (cliArgs.previewTo) {
+  const sample = formatUsd(TIER_CREDIT_CENTS[cliArgs.previewTier]);
+  console.log(
+    `Sending preview to ${cliArgs.previewTo} (tier=${cliArgs.previewTier}, amount ${sample})...`,
+  );
+  await sendFoundingDelayEmail(cliArgs.previewTo, sample);
+  console.log('Preview sent.');
+  process.exit(0);
 }
 
 const priceIdToTier: Map<string, Tier> = new Map();
@@ -321,6 +428,7 @@ if (!cliArgs.yes) {
 
 let successCount = 0;
 let failCount = 0;
+let emailFailCount = 0;
 
 for (const plan of plans) {
   try {
@@ -347,6 +455,14 @@ for (const plan of plans) {
        );`,
     );
     successCount++;
+
+    try {
+      await sendFoundingDelayEmail(plan.user.email, formatUsd(plan.amount));
+    } catch (err) {
+      emailFailCount++;
+      const message = err instanceof Error ? err.message : 'unknown error';
+      console.error(`  EMAIL-FAIL ${plan.user.email}: ${message}`);
+    }
   } catch (err) {
     failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
@@ -354,4 +470,6 @@ for (const plan of plans) {
   }
 }
 
-console.log(`\nDone. ${successCount} credited, ${failCount} failed.`);
+console.log(
+  `\nDone. ${successCount} credited, ${failCount} failed${emailFailCount ? `, ${emailFailCount} email send(s) failed (credit still posted)` : ''}.`,
+);
