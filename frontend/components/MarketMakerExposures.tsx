@@ -403,13 +403,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       .sort((a, b) => b.strike - a.strike);
   };
 
-  // Live strike-aggregation snapshot (right edge of the timeseries).  Used
-  // for the y-axis anchor's initial spread estimate and as the fallback the
-  // visibleStrikes memo resolves to whenever we're NOT actively scrubbed off
-  // the right edge.
-  const liveGexBucket = strikeProfileBuckets.length > 0
-    ? strikeProfileBuckets[strikeProfileBuckets.length - 1]
-    : null;
+  // Live strike-aggregation snapshot: walk strikeProfileBuckets back-to-front
+  // and pick the most-recent bucket that actually carries strikes.  The
+  // analytics engine keeps emitting buckets through extended-hours (so the
+  // OHLC fields stay current for the candle alignment downstream) but stops
+  // populating the per-strike rows once the regular session is over —
+  // ``strikeProfileBuckets[last]`` is therefore often a valid bucket whose
+  // strikes array is [], which would blank the Gamma / Positions panels at
+  // the live edge.  Falling back to the latest with-strikes bucket keeps the
+  // panels populated with the freshest GEX snapshot available, which is the
+  // session's closing GEX surface during after-hours.
+  const liveGexBucket = useMemo<StrikeProfileBucketRow | null>(() => {
+    for (let i = strikeProfileBuckets.length - 1; i >= 0; i -= 1) {
+      const b = strikeProfileBuckets[i];
+      if (Array.isArray(b.strikes) && b.strikes.length > 0) return b;
+    }
+    return null;
+  }, [strikeProfileBuckets]);
   const strikeAggregations = useMemo<StrikeAggregation[]>(
     () => bucketToStrikeAggregations(liveGexBucket),
     [liveGexBucket],
@@ -599,10 +609,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const ms = new Date(candle.timestamp).getTime();
     return Number.isFinite(ms) ? (gexByTs.get(ms) ?? null) : null;
   }, [rewindActive, atRewindRightEdge, rewindIndex, allCandles, gexByTs]);
-  const rewoundStrikes = useMemo(
-    () => (rewoundBucket ? bucketToStrikeAggregations(rewoundBucket) : null),
-    [rewoundBucket],
-  );
+  // ``null`` (not ``[]``) for an empty bucket so ``effStrikeAggregations``
+  // can fall through to the live snapshot — otherwise scrubbing into the
+  // after-hours zone (where buckets exist for OHLC alignment but carry no
+  // strikes) would blank the Gamma / Positions panels.
+  const rewoundStrikes = useMemo(() => {
+    if (!rewoundBucket) return null;
+    const aggs = bucketToStrikeAggregations(rewoundBucket);
+    return aggs.length > 0 ? aggs : null;
+  }, [rewoundBucket]);
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
   const visibleStrikes = useMemo(() => {
