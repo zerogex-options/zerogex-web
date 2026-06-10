@@ -21,6 +21,11 @@ const C = {
 type Cadence = 'monthly' | 'annual';
 type BillableTier = 'basic' | 'pro';
 
+// Display mirror of TRIAL_PERIOD_DAYS in
+// frontend/app/api/billing/checkout/route.ts. Keep in sync — the server is
+// the source of truth for what Stripe actually does.
+const TRIAL_DAYS = 7;
+
 // Display-only pricing. Source of truth for what Stripe actually charges is
 // the price IDs configured in env; if those drift from these numbers the UI
 // will show stale prices until this constant is updated.
@@ -247,6 +252,10 @@ function TierCard({
       </div>
 
       <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} />
+
+      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+        {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&rsquo;t be charged.
+      </p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
@@ -484,9 +493,10 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
       const label = tier === 'basic' ? 'Basic' : 'Pro';
-      if (authLoading) return { kind: 'link', href: registerHref, label: 'Get Started' };
+      const trialLabel = `Start ${TRIAL_DAYS}-day free trial`;
+      if (authLoading) return { kind: 'link', href: registerHref, label: trialLabel };
       if (!isAuthed) {
-        return { kind: 'link', href: registerHref, label: 'Sign up to subscribe' };
+        return { kind: 'link', href: registerHref, label: trialLabel };
       }
       if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
 
@@ -496,9 +506,11 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
         return { kind: 'portal', label: `Switch to ${label}` };
       }
 
-      // No active Stripe sub — public OR grandfathered. Either way, "Subscribe"
-      // is the only action that makes sense; portal would 400.
-      return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
+      // No active Stripe sub — public OR grandfathered. Either way, "Start
+      // trial" is the only action that makes sense; portal would 400. The
+      // server suppresses the trial for grandfathered users with prior paid
+      // history, but they're rare enough that the label still reads true.
+      return { kind: 'subscribe', tier, label: trialLabel };
     },
     [authLoading, currentTier, hasActiveSubscription, isAuthed],
   );
@@ -594,6 +606,7 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
               Choose Your Plan
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
+              Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
               Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal.
               Cancel anytime — no email or support request required.
             </p>
@@ -735,6 +748,11 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
                 page.
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
+                <li>
+                  <strong>{TRIAL_DAYS}-day free trial.</strong> You get full access right away. Your card
+                  is collected at signup but isn&rsquo;t charged until the trial ends. Cancel before then
+                  and you pay nothing.
+                </li>
                 <li>
                   <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
                   billing portal — no email or support request required.
