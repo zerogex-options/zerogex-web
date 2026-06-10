@@ -23,7 +23,16 @@ type UserBillingRow = {
   founding_eligible: number;
   email_verified_at: string | null;
   referred_by_code: string | null;
+  paid_welcome_email_sent_at: string | null;
+  subscription_lapsed: number;
 };
+
+// New subscribers get a 7-day free trial: Stripe collects the card at checkout
+// but doesn't charge until day 7, and the webhook grants the tier immediately
+// (subscription.status='trialing' is in ACTIVE_STATUSES). The trial is offered
+// once per account — see hasPriorPaidSubscription below — so a churned member
+// can't farm a fresh free week on every resubscribe.
+const TRIAL_PERIOD_DAYS = 7;
 
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -108,6 +117,13 @@ export async function POST(request: NextRequest) {
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
   }
+
+  // Trial is for first-time subscribers only. A non-null paid_welcome_email or a
+  // lapsed flag both mean this account has been a paying member before, so the
+  // free week was already consumed (or forfeited) — resubscribes bill immediately.
+  const hasPriorPaidSubscription =
+    row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
+  const trialDays = hasPriorPaidSubscription ? null : TRIAL_PERIOD_DAYS;
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
@@ -173,6 +189,7 @@ export async function POST(request: NextRequest) {
     automatic_tax: { enabled: true },
     customer_update: { address: 'auto', name: 'auto' },
     subscription_data: {
+      ...(trialDays ? { trial_period_days: trialDays } : {}),
       metadata: {
         user_id: actor.user.id,
         tier,
@@ -205,7 +222,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} trial=${trialDays ? '1' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
