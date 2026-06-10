@@ -53,6 +53,7 @@ if (!fs.existsSync(dbPath)) {
 
 const emailOnly = isTruthy(process.env.EMAIL_ONLY);
 const paidOnly = isTruthy(process.env.PAID);
+const trialOnly = isTruthy(process.env.TRIAL);
 const tierFilterRaw = (process.env.TIER || '').trim().toLowerCase();
 const authFilterRaw = (process.env.AUTH || '').trim().toUpperCase();
 
@@ -74,6 +75,7 @@ const hasFoundingEligible = userCols.has('founding_eligible');
 const hasFoundingStartedAt = userCols.has('founding_member_started_at');
 const hasFoundingLifetime = userCols.has('founding_lifetime_applied_at');
 const hasStripeSub = userCols.has('stripe_subscription_id');
+const hasSubStatus = userCols.has('subscription_status');
 const hasEmailVerified = userCols.has('email_verified_at');
 
 const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
@@ -83,6 +85,7 @@ if (hasFoundingEligible) baseCols.push('founding_eligible');
 if (hasFoundingStartedAt) baseCols.push('founding_member_started_at');
 if (hasFoundingLifetime) baseCols.push('founding_lifetime_applied_at');
 if (hasStripeSub) baseCols.push('stripe_subscription_id');
+if (hasSubStatus) baseCols.push('subscription_status');
 if (hasEmailVerified) baseCols.push('email_verified_at');
 const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
 
@@ -170,15 +173,29 @@ function disclaimerAccepted(row) {
 const useColor = !!process.stdout.isTTY;
 const RESET = '\x1b[0m';
 const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
 const GOLD = '\x1b[1;33m';
 const wrap = (color, glyph) => (useColor ? `${color}${glyph}${RESET}` : glyph);
 const ICON_PAID = wrap(GREEN, '$');
+const ICON_TRIAL = wrap(YELLOW, '⏳');
 const ICON_FOUNDER = wrap(GOLD, '♔');
 const ICON_VERIFIED = wrap(GREEN, '✉');
 
-function tierBadges(row) {
+// Paid vs trialing: both have a non-null stripe_subscription_id, but only
+// 'active' has actually been charged. On older DBs without
+// subscription_status we keep the legacy "any sub = paid" mapping.
+function paidState(row) {
+  if (!hasStripeSub || !row.stripe_subscription_id) return 'none';
+  if (!hasSubStatus) return 'paid';
+  if (row.subscription_status === 'active') return 'paid';
+  if (row.subscription_status === 'trialing') return 'trial';
+  return 'none';
+}
+
+function tierBadges(row, state) {
   const badges = [];
-  if (hasStripeSub && row.stripe_subscription_id) badges.push(ICON_PAID);
+  if (state === 'paid') badges.push(ICON_PAID);
+  else if (state === 'trial') badges.push(ICON_TRIAL);
   if (hasFoundingEligible && Number(row.founding_eligible) === 1) badges.push(ICON_FOUNDER);
   if (hasEmailVerified && row.email_verified_at) badges.push(ICON_VERIFIED);
   return badges.join('');
@@ -194,12 +211,14 @@ function formatDate(iso) {
 const records = rows
   .map((row) => {
     const flags = authFlags(row);
+    const state = paidState(row);
     return {
       id: shortId(row.id),
       email: String(row.email ?? ''),
       tier: row.tier || 'public',
-      paid: hasStripeSub && !!row.stripe_subscription_id,
-      badges: tierBadges(row),
+      paid: state === 'paid',
+      trial: state === 'trial',
+      badges: tierBadges(row, state),
       flags,
       authString: formatAuthFlags(flags),
       disclaimer: disclaimerAccepted(row),
@@ -209,6 +228,7 @@ const records = rows
   })
   .filter((rec) => {
     if (paidOnly && !rec.paid) return false;
+    if (trialOnly && !rec.trial) return false;
     if (tierFilterRaw && rec.tier.toLowerCase() !== tierFilterRaw) return false;
     if (authFilterRaw && !rec.flags[authFilterRaw]) return false;
     return true;
@@ -281,7 +301,8 @@ console.log(`Total: ${records.length}`);
 console.log('');
 console.log('Legend:');
 console.log('  Tier        Admin / Pro / Basic / Public');
-console.log(`              ${ICON_PAID} active Stripe subscription`);
+console.log(`              ${ICON_PAID} active paying Stripe subscription (subscription_status='active')`);
+console.log(`              ${ICON_TRIAL} on free trial (subscription_status='trialing', card collected but not yet charged)`);
 console.log(`              ${ICON_FOUNDER} founding member (eligible, redeemed, or on lifetime discount)`);
 console.log(`              ${ICON_VERIFIED} email verified (link clicked, OAuth, or pre-cutover backfill)`);
 console.log('  Auth        L = local password, G = Google, A = Apple (- if absent)');
