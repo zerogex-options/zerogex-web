@@ -404,19 +404,31 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   };
 
   // Live strike-aggregation snapshot: walk strikeProfileBuckets back-to-front
-  // and pick the most-recent bucket that actually carries strikes.  The
-  // analytics engine keeps emitting buckets through extended-hours (so the
-  // OHLC fields stay current for the candle alignment downstream) but stops
-  // populating the per-strike rows once the regular session is over —
-  // ``strikeProfileBuckets[last]`` is therefore often a valid bucket whose
-  // strikes array is [], which would blank the Gamma / Positions panels at
-  // the live edge.  Falling back to the latest with-strikes bucket keeps the
-  // panels populated with the freshest GEX snapshot available, which is the
-  // session's closing GEX surface during after-hours.
+  // and pick the most-recent bucket that actually carries non-zero per-strike
+  // gamma.  The analytics engine keeps emitting buckets through extended
+  // hours (so the OHLC fields stay current for the candle alignment
+  // downstream), but stops populating per-strike gamma once the regular
+  // session is over — and depending on the cycle it'll either ship an empty
+  // strikes array or an array of strike rows with all-zero gex values.
+  // Either way the Gamma / Positions panels would blank at the live edge if
+  // we trusted the literal last bucket.  Walking back to the latest bucket
+  // with real values keeps the panels populated with the session's closing
+  // GEX surface while in extended hours.
   const liveGexBucket = useMemo<StrikeProfileBucketRow | null>(() => {
     for (let i = strikeProfileBuckets.length - 1; i >= 0; i -= 1) {
       const b = strikeProfileBuckets[i];
-      if (Array.isArray(b.strikes) && b.strikes.length > 0) return b;
+      if (!Array.isArray(b.strikes) || b.strikes.length === 0) continue;
+      const hasGex = b.strikes.some((s) => {
+        const cg = Number(s.call_gamma);
+        const pg = Number(s.put_gamma);
+        const ng = Number(s.net_gamma);
+        return (
+          (Number.isFinite(cg) && cg !== 0) ||
+          (Number.isFinite(pg) && pg !== 0) ||
+          (Number.isFinite(ng) && ng !== 0)
+        );
+      });
+      if (hasGex) return b;
     }
     return null;
   }, [strikeProfileBuckets]);
@@ -609,14 +621,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const ms = new Date(candle.timestamp).getTime();
     return Number.isFinite(ms) ? (gexByTs.get(ms) ?? null) : null;
   }, [rewindActive, atRewindRightEdge, rewindIndex, allCandles, gexByTs]);
-  // ``null`` (not ``[]``) for an empty bucket so ``effStrikeAggregations``
-  // can fall through to the live snapshot — otherwise scrubbing into the
-  // after-hours zone (where buckets exist for OHLC alignment but carry no
-  // strikes) would blank the Gamma / Positions panels.
+  // ``null`` (not ``[]``) for an empty or all-zero bucket so
+  // ``effStrikeAggregations`` can fall through to the live snapshot —
+  // otherwise scrubbing into the after-hours zone (where buckets exist
+  // for OHLC alignment but carry no real per-strike gamma) would blank
+  // the Gamma / Positions panels.
   const rewoundStrikes = useMemo(() => {
     if (!rewoundBucket) return null;
     const aggs = bucketToStrikeAggregations(rewoundBucket);
-    return aggs.length > 0 ? aggs : null;
+    const hasGex = aggs.some(
+      (s) => s.callGex !== 0 || s.putGex !== 0 || s.netGex !== 0,
+    );
+    return hasGex ? aggs : null;
   }, [rewoundBucket]);
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
