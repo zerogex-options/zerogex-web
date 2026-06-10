@@ -16,6 +16,7 @@ import {
   type BillingCadence,
 } from '@/core/stripe';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
+import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 
 type UserBillingRow = {
   stripe_customer_id: string | null;
@@ -33,6 +34,17 @@ type UserBillingRow = {
 // once per account — see hasPriorPaidSubscription below — so a churned member
 // can't farm a fresh free week on every resubscribe.
 const TRIAL_PERIOD_DAYS = 7;
+
+// Founding members get a longer trial that lands exactly on the founding
+// deadline instead of the standard 7 days: they activate now (locking the
+// founding rate) but aren't charged until July 1. We pass Stripe an absolute
+// `trial_end` rather than a day count so every founding member converges on
+// the same billing date regardless of when they activate.
+//
+// Stripe rejects a `trial_end` less than ~48h out, so if someone activates in
+// the final stretch before the deadline we fall back to the standard 7-day
+// trial — they still get a free week, we just don't risk an invalid trial_end.
+const MIN_TRIAL_END_BUFFER_MS = 48 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -125,6 +137,19 @@ export async function POST(request: NextRequest) {
     row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
   const trialDays = hasPriorPaidSubscription ? null : TRIAL_PERIOD_DAYS;
 
+  // Founding activations defer the first charge to the founding deadline
+  // (July 1) instead of the standard 7-day window. Only for first-time
+  // founding redemptions, and only while the deadline is comfortably in the
+  // future (else fall back to trialDays above).
+  const foundingDeadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
+  const foundingTrialEndUnix =
+    discountResult.foundingApplied &&
+    !hasPriorPaidSubscription &&
+    Number.isFinite(foundingDeadlineMs) &&
+    foundingDeadlineMs - Date.now() >= MIN_TRIAL_END_BUFFER_MS
+      ? Math.floor(foundingDeadlineMs / 1000)
+      : null;
+
   const stripe = getStripe();
   const appUrl = getAppUrl();
 
@@ -189,7 +214,13 @@ export async function POST(request: NextRequest) {
     automatic_tax: { enabled: true },
     customer_update: { address: 'auto', name: 'auto' },
     subscription_data: {
-      ...(trialDays ? { trial_period_days: trialDays } : {}),
+      // Founding `trial_end` (absolute July-1 instant) wins over the standard
+      // day-count trial; Stripe accepts only one of the two.
+      ...(foundingTrialEndUnix
+        ? { trial_end: foundingTrialEndUnix }
+        : trialDays
+          ? { trial_period_days: trialDays }
+          : {}),
       metadata: {
         user_id: actor.user.id,
         tier,
@@ -222,7 +253,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} trial=${trialDays ? '1' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });

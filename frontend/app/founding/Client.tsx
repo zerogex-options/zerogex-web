@@ -8,6 +8,7 @@ import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { FOUNDING_BILLING_START_LABEL } from '@/core/foundingLockin';
 import { ArrowRight, CheckCircle2, Crown, Loader2, Moon, Sun } from 'lucide-react';
 
 const C = {
@@ -523,6 +524,29 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             </p>
           </div>
 
+          <div
+            role="note"
+            style={{
+              maxWidth: 720,
+              margin: '0 auto 28px',
+              padding: '14px 18px',
+              borderRadius: 12,
+              border: `1px solid ${C.amber}66`,
+              background: `${C.amber}12`,
+              color: C.light,
+              fontSize: 15,
+              lineHeight: 1.6,
+              textAlign: 'center',
+            }}
+          >
+            <strong>No charge today.</strong>{' '}
+            <span style={{ color: C.muted }}>
+              Activate now to lock in your founding rate — your first payment isn&rsquo;t until{' '}
+              <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>. Cancel anytime
+              before then from your account and you won&rsquo;t be billed.
+            </span>
+          </div>
+
           {showVerifyBanner && authSession?.user?.email && (
             <VerifyEmailBanner email={authSession.user.email} />
           )}
@@ -629,9 +653,10 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             </h2>
             <div style={{ marginTop: 12, color: C.muted, fontSize: 15, lineHeight: 1.75 }}>
               <p style={{ margin: 0 }}>
-                Paid subscriptions are billed in advance on a recurring basis through Stripe. You can
-                cancel your subscription at any time from the Stripe-hosted billing portal, accessible
-                from your{' '}
+                Your founding activation isn&rsquo;t charged until {FOUNDING_BILLING_START_LABEL}; after
+                that, subscriptions are billed in advance on a recurring basis through Stripe. You can
+                cancel your subscription at any time — including before that first charge — from the
+                Stripe-hosted billing portal, accessible from your{' '}
                 <Link href="/account" style={{ color: C.amber }}>
                   account
                 </Link>{' '}
