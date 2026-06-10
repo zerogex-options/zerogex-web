@@ -21,6 +21,10 @@ const C = {
 type Cadence = 'monthly' | 'annual';
 type BillableTier = 'basic' | 'pro';
 
+// Length of the free trial new subscribers get at checkout. Mirrors
+// TRIAL_PERIOD_DAYS in app/api/billing/checkout/route.ts — keep the two in sync.
+const TRIAL_DAYS = 7;
+
 // Display-only pricing. Source of truth for what Stripe actually charges is
 // the price IDs configured in env; if those drift from these numbers the UI
 // will show stale prices until this constant is updated.
@@ -247,6 +251,10 @@ function TierCard({
       </div>
 
       <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} />
+
+      <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: accent }}>
+        {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&apos;t be charged.
+      </p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
@@ -484,9 +492,9 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
       const label = tier === 'basic' ? 'Basic' : 'Pro';
-      if (authLoading) return { kind: 'link', href: registerHref, label: 'Get Started' };
+      if (authLoading) return { kind: 'link', href: registerHref, label: `Start ${TRIAL_DAYS}-day free trial` };
       if (!isAuthed) {
-        return { kind: 'link', href: registerHref, label: 'Sign up to subscribe' };
+        return { kind: 'link', href: registerHref, label: `Start ${TRIAL_DAYS}-day free trial` };
       }
       if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
 
@@ -496,9 +504,12 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
         return { kind: 'portal', label: `Switch to ${label}` };
       }
 
-      // No active Stripe sub — public OR grandfathered. Either way, "Subscribe"
-      // is the only action that makes sense; portal would 400.
-      return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
+      // No active Stripe sub — public OR grandfathered. Either way, starting a
+      // trial-backed checkout is the only action that makes sense; portal would
+      // 400. (Returning/churned members don't get a fresh trial — the checkout
+      // route gates that server-side — but the CTA copy stays trial-forward
+      // since first-time subscribers are the overwhelming majority here.)
+      return { kind: 'subscribe', tier, label: `Start ${TRIAL_DAYS}-day free trial` };
     },
     [authLoading, currentTier, hasActiveSubscription, isAuthed],
   );
@@ -594,8 +605,9 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
               Choose Your Plan
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
-              Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal.
-              Cancel anytime — no email or support request required.
+              Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
+              Upgrades, downgrades, and cancellations are pro-rated automatically through the Stripe-hosted billing portal,
+              and you can cancel anytime — no email or support request required.
             </p>
           </div>
 
@@ -735,6 +747,11 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
                 page.
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
+                <li>
+                  <strong>{TRIAL_DAYS}-day free trial.</strong> New subscribers get full access for{' '}
+                  {TRIAL_DAYS} days with no charge. We collect your card at signup, but you are not
+                  billed until the trial ends. Cancel before then and you pay nothing.
+                </li>
                 <li>
                   <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
                   billing portal — no email or support request required.
