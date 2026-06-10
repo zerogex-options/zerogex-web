@@ -373,13 +373,19 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
   return counts;
 }
 
-// Users with an active Stripe subscription. Mirrors the "$" badge in
-// `make users`: the stripe_subscription_id column is cleared on
-// subscription.deleted webhooks, so a non-null id means currently paying.
+// Users currently entitled to paid features via Stripe — mirrors the
+// webhook's ACTIVE_STATUSES set ('active' + 'trialing'). Trial users are
+// intentionally counted here: they have full access and the slot is taken.
+// If they cancel before the trial ends, the subscription.deleted webhook
+// flips their subscription_status off this list and they drop out of the
+// count immediately. past_due users are excluded — the webhook downgrades
+// them to public, so counting them as paying would overstate the bucket.
 function currentPayingCount(): number {
   try {
     const row = getDb()
-      .prepare('SELECT COUNT(*) AS c FROM users WHERE stripe_subscription_id IS NOT NULL')
+      .prepare(
+        "SELECT COUNT(*) AS c FROM users WHERE subscription_status IN ('active', 'trialing')",
+      )
       .get() as { c?: number } | undefined;
     return Number(row?.c) || 0;
   } catch {
