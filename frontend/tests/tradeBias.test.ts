@@ -222,6 +222,52 @@ test('CHOP regime never flags convictionDriven', () => {
   assert.equal(result.convictionDriven, false);
 });
 
+test('CHOP surfaces a "watching" entry for each signal at conviction levels', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60,
+    tapeFlow: 80,
+    vannaCharm: -80,
+    odtePositioning: 5,
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'CHOP');
+  const tape = result.watching.find((w) => w.key === 'tapeFlow');
+  const vanna = result.watching.find((w) => w.key === 'vannaCharm');
+  assert.equal(tape?.direction, 'bullish');
+  assert.equal(vanna?.direction, 'bearish');
+  assert.equal(result.watching.length, 2);
+});
+
+test('directional regimes do not surface "watching" entries', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    msi: 30,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
+  assert.equal(result.watching.length, 0);
+});
+
+test('CHOP with no conviction-level signals has empty watching list', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60,
+    tapeFlow: 30,
+    vannaCharm: -30,
+    odtePositioning: 5,
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'CHOP');
+  assert.equal(result.watching.length, 0);
+});
+
 test('single dominant structure signal carries the majority by itself', () => {
   const result = computeBias({
     ...empty,

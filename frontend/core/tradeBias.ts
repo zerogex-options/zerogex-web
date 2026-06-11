@@ -20,6 +20,12 @@ export interface BiasInput {
   msi: number | null;
 }
 
+export interface WatchingSignal {
+  key: string;
+  label: string;
+  direction: 'bullish' | 'bearish';
+}
+
 export interface BiasResult {
   marketState: MarketState;
   regimeLabel: string;
@@ -35,7 +41,17 @@ export interface BiasResult {
   checklist: Array<{ label: string; passed: boolean }>;
   hasData: boolean;
   convictionDriven: boolean;
+  watching: WatchingSignal[];
 }
+
+const SIGNAL_LABELS = {
+  tapeFlow: 'Tape Flow',
+  vannaCharm: 'Vanna/Charm',
+  odtePositioning: '0DTE Positioning',
+  positioningTrap: 'Positioning Trap',
+  trapDetection: 'Trap Detection',
+  gammaVWAP: 'Gamma/VWAP',
+} as const;
 
 export const STRONG = 25;
 export const MODERATE = 12;
@@ -299,6 +315,27 @@ export function computeBias(inp: BiasInput): BiasResult {
       break;
   }
 
+  // In CHOP, surface any signal that's at conviction levels but hasn't yet
+  // pulled the regime directional — a "brewing" indicator so traders can see
+  // a potential regime swap forming before it triggers.
+  const watching: WatchingSignal[] = [];
+  if (marketState === 'CHOP') {
+    const check = (v: number | null, key: keyof typeof SIGNAL_LABELS) => {
+      if (v == null || Math.abs(v) <= DOMINANT) return;
+      watching.push({
+        key,
+        label: SIGNAL_LABELS[key],
+        direction: v > 0 ? 'bullish' : 'bearish',
+      });
+    };
+    check(tapeFlow, 'tapeFlow');
+    check(vannaCharm, 'vannaCharm');
+    check(odtePositioning, 'odtePositioning');
+    check(positioningTrap, 'positioningTrap');
+    check(trapDetection, 'trapDetection');
+    check(gammaVWAP, 'gammaVWAP');
+  }
+
   return {
     marketState,
     regimeLabel,
@@ -314,5 +351,6 @@ export function computeBias(inp: BiasInput): BiasResult {
     checklist,
     hasData: available >= 3,
     convictionDriven,
+    watching,
   };
 }
