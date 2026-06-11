@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
 
@@ -11,6 +12,24 @@ function parseInline(text: string): ReactNode[] {
     const token = match[0];
     if (token.startsWith('**')) {
       nodes.push(<strong key={`${match.index}-b`}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith('[')) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        const [, label, href] = linkMatch;
+        const isInternal = href.startsWith('/');
+        const linkClass = 'font-medium text-[var(--color-warning)] underline-offset-2 hover:underline';
+        if (isInternal) {
+          nodes.push(<Link key={`${match.index}-a`} href={href} className={linkClass}>{label}</Link>);
+        } else {
+          nodes.push(
+            <a key={`${match.index}-a`} href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+              {label}
+            </a>,
+          );
+        }
+      } else {
+        nodes.push(token);
+      }
     } else {
       nodes.push(<em key={`${match.index}-i`}>{token.slice(1, -1)}</em>);
     }
