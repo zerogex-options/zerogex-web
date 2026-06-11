@@ -468,7 +468,7 @@ export default function LandingPage() {
               color: text,
             }}
           >
-            Trade with{' '}
+            Know the{' '}
             <span
               style={{
                 background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 50%, var(--color-warning) 100%)`,
@@ -477,10 +477,10 @@ export default function LandingPage() {
                 backgroundClip: 'text',
               }}
             >
-              Institutional
+              levels that matter
             </span>
             <br />
-            Grade Gamma Insights
+            before SPY gets there.
           </h1>
 
           {/* Sub-headline */}
@@ -493,9 +493,8 @@ export default function LandingPage() {
               margin: '0 auto 40px',
             }}
           >
-            ZeroGEX puts real-time gamma exposure analytics, dealer positioning, and options flow
-            tracking at your fingertips — the same intelligence used by institutional desks,
-            now available to every trader.
+            ZeroGEX gives SPY/SPX/QQQ traders a live map of where options positioning may
+            create support, resistance, acceleration, pinning, or squeeze risk.
           </p>
 
           {/* CTAs */}
@@ -521,7 +520,7 @@ export default function LandingPage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${C.amber}55`;
                 }}
               >
-                Open Dashboard <ArrowRight size={18} />
+                View Live Dashboard <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
