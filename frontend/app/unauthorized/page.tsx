@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowRight, BarChart2, BookOpen, Sparkles } from 'lucide-react';
 
 type UnauthorizedPageProps = {
   searchParams: Promise<{
@@ -38,51 +39,112 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   const showPricingCta = needsSubscription || needsUpgrade;
 
   return (
-    <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
-      <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">{heading}</h1>
-        <p className="mt-4 text-[var(--color-text-secondary)]">{message}</p>
+    <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+      <div className="w-full max-w-3xl space-y-6">
+        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+          <h1 className="text-3xl font-bold">{heading}</h1>
+          <p className="mt-4 text-[var(--color-text-secondary)]">{message}</p>
 
-        <dl className="mt-6 space-y-2 text-sm">
-          <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-            <dt className="text-[var(--color-text-secondary)]">Requested path</dt>
-            <dd className="font-medium">{params.path ?? 'Unknown'}</dd>
-          </div>
-          <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-            <dt className="text-[var(--color-text-secondary)]">Current tier</dt>
-            <dd className="font-medium">{current}</dd>
-          </div>
-          <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-            <dt className="text-[var(--color-text-secondary)]">Required tier</dt>
-            <dd className="font-medium">{required}</dd>
-          </div>
-        </dl>
+          <dl className="mt-6 space-y-2 text-sm">
+            <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
+              <dt className="text-[var(--color-text-secondary)]">Requested path</dt>
+              <dd className="font-medium">{params.path ?? 'Unknown'}</dd>
+            </div>
+            <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
+              <dt className="text-[var(--color-text-secondary)]">Current tier</dt>
+              <dd className="font-medium">{current}</dd>
+            </div>
+            <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
+              <dt className="text-[var(--color-text-secondary)]">Required tier</dt>
+              <dd className="font-medium">{required}</dd>
+            </div>
+          </dl>
 
-        <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-          {showPricingCta ? (
-            <>
-              <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-black font-semibold">
-                {needsUpgrade ? 'Upgrade your plan' : 'See pricing'}
-              </Link>
-              <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
-                Sign in as a different user
-              </Link>
-              <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                Back to Landing
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-black font-semibold">
-                Sign in as a different user
-              </Link>
-              <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                Back to Landing
-              </Link>
-            </>
-          )}
-        </div>
-      </section>
+          <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
+            {showPricingCta ? (
+              <>
+                <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
+                  {needsUpgrade ? 'Upgrade your plan' : 'See pricing'}
+                </Link>
+                <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
+                  Sign in as a different user
+                </Link>
+                <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
+                  Back to Landing
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
+                  Sign in as a different user
+                </Link>
+                <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
+                  Back to Landing
+                </Link>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Conversion-funnel CTAs — surface the free dashboard and the education
+            stack so visitors who hit this page from a paid-tier deep link have
+            an obvious next step that isn't "go away." */}
+        <section className="grid gap-4 sm:grid-cols-3">
+          <Link
+            href="/dashboard"
+            className="zg-feature-shell group flex h-full flex-col p-5 transition hover:border-[var(--color-warning-soft)]"
+          >
+            <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
+              <BarChart2 size={18} />
+            </div>
+            <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
+              Try the free dashboard
+            </h2>
+            <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
+              Net GEX, the gamma flip, call and put walls, max pain — real-time, no signup, no card.
+            </p>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
+              Open dashboard <ArrowRight size={14} />
+            </span>
+          </Link>
+
+          <Link
+            href="/education/gamma-exposure-explained"
+            className="zg-feature-shell group flex h-full flex-col p-5 transition hover:border-[var(--color-warning-soft)]"
+          >
+            <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
+              <BookOpen size={18} />
+            </div>
+            <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
+              Start with the GEX guide
+            </h2>
+            <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
+              The pillar piece — what gamma exposure is, the flip, the walls, and how to read the regime intraday.
+            </p>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
+              Read the pillar <ArrowRight size={14} />
+            </span>
+          </Link>
+
+          <Link
+            href="/real-time-gex-0dte"
+            className="zg-feature-shell group flex h-full flex-col p-5 transition hover:border-[var(--color-warning-soft)]"
+          >
+            <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
+              <Sparkles size={18} />
+            </div>
+            <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
+              See what Pro includes
+            </h2>
+            <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
+              Real-time dealer book, live regime reads, and the Advanced Signal stack built for 0DTE traders.
+            </p>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
+              Tour the product <ArrowRight size={14} />
+            </span>
+          </Link>
+        </section>
+      </div>
     </main>
   );
 }

@@ -3,6 +3,8 @@ import path from 'node:path';
 import Link from 'next/link';
 import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import ArticleJsonLd from '@/components/ArticleJsonLd';
+import RelatedArticles from '@/components/RelatedArticles';
 
 export const metadata = {
   title: 'Gamma Exposure (GEX) Explained: The Complete Guide',
@@ -17,6 +19,7 @@ export default function GammaExposureExplainedPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      <ArticleJsonLd slug="gamma-exposure-explained" />
       <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Articles
       </Link>
@@ -25,6 +28,8 @@ export default function GammaExposureExplainedPage() {
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 16 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
+
+      <RelatedArticles slug="gamma-exposure-explained" />
 
       <div className="zg-feature-shell mt-8 p-6 md:p-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">

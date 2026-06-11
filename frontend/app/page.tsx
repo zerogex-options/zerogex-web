@@ -936,37 +936,32 @@ export default function LandingPage() {
       </section>
 
 
-      <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px 56px' }}>
+      {/* ── Education hub callout ─────────────────────────────────────────────── */}
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 56px' }}>
         <div
           style={{
-            border: `1px solid ${C.border}`,
-            borderRadius: 18,
-            padding: '26px 24px',
-            background: isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'var(--bg-card)',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-end',
             justifyContent: 'space-between',
             gap: 18,
+            marginBottom: 18,
             flexWrap: 'wrap',
           }}
         >
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber, marginBottom: 8 }}>
-              Latest from Education
+              Education Hub
             </div>
-            <div style={{ fontSize: 21, fontWeight: 800, color: C.light, marginBottom: 6 }}>
-              New: Decoding Gamma Exposure
-            </div>
-            <div style={{ fontSize: 14, color: subtext, maxWidth: 720 }}>
-              Learn how positive vs. negative gamma can shape volatility, trend persistence, and mean-reversion behavior.
+            <div style={{ fontSize: 26, fontWeight: 900, color: C.light, letterSpacing: '-0.5px' }}>
+              Read the methodology, then read the tape.
             </div>
           </div>
-          <Link href="/education/decoding-gamma-exposure" style={{ textDecoration: 'none' }}>
+          <Link href="/articles" style={{ textDecoration: 'none' }}>
             <button
               style={{
                 borderRadius: 10,
-                border: `1px solid ${C.amber}55`,
-                background: `${C.amber}18`,
+                border: `1px solid ${C.border}`,
+                background: 'transparent',
                 color: C.light,
                 padding: '10px 16px',
                 fontSize: 13,
@@ -977,9 +972,68 @@ export default function LandingPage() {
                 gap: 8,
               }}
             >
-              Read the guide <ArrowRight size={14} />
+              See all articles <ArrowRight size={14} />
             </button>
           </Link>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 14,
+          }}
+        >
+          {[
+            {
+              href: '/education/gamma-exposure-explained',
+              eyebrow: 'Pillar Guide',
+              title: 'Gamma Exposure (GEX) Explained',
+              body: 'The complete guide — what GEX is, how dealer gamma is calculated, and how the flip and walls structure the intraday tape.',
+            },
+            {
+              href: '/real-time-gex-0dte',
+              eyebrow: 'For 0DTE Traders',
+              title: 'Real-Time GEX for 0DTE',
+              body: 'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow.',
+            },
+            {
+              href: '/education/best-gex-tools',
+              eyebrow: 'Comparison',
+              title: 'Best GEX Tools, Fairly Compared',
+              body: 'Real-time vs delayed, 0DTE coverage, methodology, signals, and price — the criteria that matter when picking a GEX tool.',
+            },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+              <div
+                style={{
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 16,
+                  padding: '22px 22px 20px',
+                  background: isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  height: '100%',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.18s ease, transform 0.18s ease',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber }}>
+                  {item.eyebrow}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.light, letterSpacing: '-0.2px' }}>
+                  {item.title}
+                </div>
+                <div style={{ fontSize: 13, color: subtext, lineHeight: 1.6, flex: 1 }}>
+                  {item.body}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Read <ArrowRight size={14} />
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 

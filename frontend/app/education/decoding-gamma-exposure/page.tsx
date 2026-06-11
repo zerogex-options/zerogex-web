@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import ArticleJsonLd from '@/components/ArticleJsonLd';
+import RelatedArticles from '@/components/RelatedArticles';
 
 const articlePath = path.join(process.cwd(), 'content/articles/decoding-gamma-exposure.md');
 
@@ -10,6 +12,7 @@ export default function DecodingGammaExposurePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      <ArticleJsonLd slug="decoding-gamma-exposure" />
       <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Articles
       </Link>
@@ -18,6 +21,8 @@ export default function DecodingGammaExposurePage() {
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 15 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
+
+      <RelatedArticles slug="decoding-gamma-exposure" />
     </div>
   );
 }

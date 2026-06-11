@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import ArticleJsonLd from '@/components/ArticleJsonLd';
+import RelatedArticles from '@/components/RelatedArticles';
 
 const articlePath = path.join(process.cwd(), 'content/articles/net-volume-vs-directional-flow.md');
 
@@ -10,6 +12,7 @@ export default function NetVolumeVsDirectionalFlowPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      <ArticleJsonLd slug="net-volume-vs-directional-flow" />
       <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Articles
       </Link>
@@ -18,6 +21,8 @@ export default function NetVolumeVsDirectionalFlowPage() {
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 11 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
+
+      <RelatedArticles slug="net-volume-vs-directional-flow" />
     </div>
   );
 }
