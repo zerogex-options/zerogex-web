@@ -10,6 +10,7 @@ import {
   useApiData,
 } from '@/hooks/useApiData';
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
+import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -208,6 +209,27 @@ export default function GammaExposurePage() {
       : (gexByStrike || []).filter((row) => String(row.expiration) === chartSelectedExpiration);
     return aggregateStrikes(filteredSource as GexByStrikeRow[]);
   }, [gexByStrike, chartSelectedExpiration]);
+
+  // Strike-profile timeseries drives the chart's Call/Put Wall reference lines
+  // from the latest bucket, filtered by the chart's expiration dropdown.
+  // Timeframe is pinned to '5min' to share the cache key MarketMakerExposures
+  // populates by default (DEFAULTS.tf = '5m') — wall values are snapshots, so
+  // the bucket cadence doesn't affect them, only cache reuse.
+  const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
+    symbol, '5min', chartSelectedExpiration,
+  );
+  const { chartCallWall, chartPutWall } = useMemo(() => {
+    if (strikeProfileBuckets.length === 0) {
+      return { chartCallWall: undefined, chartPutWall: undefined };
+    }
+    const latest = strikeProfileBuckets[strikeProfileBuckets.length - 1];
+    const cw = Number(latest?.call_wall);
+    const pw = Number(latest?.put_wall);
+    return {
+      chartCallWall: Number.isFinite(cw) ? cw : undefined,
+      chartPutWall: Number.isFinite(pw) ? pw : undefined,
+    };
+  }, [strikeProfileBuckets]);
 
   const sortedRows = useMemo(() => {
     const cloned = [...strikeData];
@@ -461,8 +483,8 @@ export default function GammaExposurePage() {
             strikeData={profileStrikeData}
             spotPrice={quoteData?.close}
             gammaFlip={gexData?.gamma_flip}
-            callWall={gexData?.call_wall}
-            putWall={gexData?.put_wall}
+            callWall={chartCallWall}
+            putWall={chartPutWall}
             expirationOptions={expirationOptions}
             selectedExpiration={chartSelectedExpiration}
             onSelectedExpirationChange={setChartSelectedExpiration}
