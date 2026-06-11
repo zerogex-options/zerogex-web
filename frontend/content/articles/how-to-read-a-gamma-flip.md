@@ -8,7 +8,7 @@
 
 Most traders read price action against support and resistance. The gamma flip is something different: it is a **regime boundary**, not a target. When spot is above the flip, dealer-hedging mechanics tend to *dampen* volatility. When spot is below it, those same mechanics tend to *amplify* it. The setups that work in one regime are usually the wrong setups in the other — and recognizing which regime you are in is most of the edge.
 
-This piece is the trader-facing read. We will cover what the flip level actually is, what changes when spot crosses it, and how to use it inside a session. If you want the underlying market structure in more depth, start with the [Gamma Exposure pillar](/blog/gamma-exposure-explained); for the calculation methodology, see the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
+This piece is the trader-facing read. We will cover what the flip level actually is, what changes when spot crosses it, and how to use it inside a session. If you want the underlying market structure in more depth, start with the [Gamma Exposure pillar](/education/gamma-exposure-explained); for the calculation methodology, see the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 

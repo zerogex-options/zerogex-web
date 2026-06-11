@@ -135,6 +135,57 @@ export default function ArticlesPage() {
           <ArrowRight size={16} />
         </Link>
       </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Pillar • June 11, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Gamma Exposure (GEX) Explained: The Complete Guide
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The comprehensive read on gamma exposure — what GEX is, how dealer gamma is calculated and signed, why positive and negative regimes behave so differently, and how the gamma flip and the walls structure the intraday tape. The central pillar for everything else in the Education section.
+        </p>
+        <Link
+          href="/education/gamma-exposure-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 11, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Max Pain Explained — and Does It Actually Work?
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The honest version of the max pain question — what max pain is, the theory people cite for it, what the evidence actually suggests about whether it moves price, and how to use it as cross-check rather than forecast. Why the gamma magnet, not the writer-payout argument, is usually the real mechanism.
+        </p>
+        <Link
+          href="/education/max-pain-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 11, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Vanna and Charm Explained for Options Traders
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          What vanna and charm are, why they drive a meaningful share of dealer hedging flows, how vanna produces the persistent vol-compression grind, how charm shapes the predictable into-close flow, and how both interact with the gamma regime to either reinforce or invert the structural drift.
+        </p>
+        <Link
+          href="/education/vanna-and-charm-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
     </div>
   );
 }

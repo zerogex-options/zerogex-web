@@ -10,7 +10,7 @@ Dealer positioning has always mattered to options traders. What has changed in t
 
 If you trade SPX during the cash session and you are not reading dealer positioning through the 0DTE lens, you are reading a stale book.
 
-This piece is the practical read for what "0DTE dealer positioning" and "dealer gamma 0DTE" actually mean in real time. We will cover why the 0DTE bucket matters more than longer-dated bucketing, what changes between negative- and positive-gamma regimes specifically for 0DTE, and how to read the tape differently in each. Pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the regime line itself, [Gamma Walls Explained](/education/gamma-walls-explained) for the boundary levels, and the [Gamma Exposure pillar](/blog/gamma-exposure-explained) for the full structural background.
+This piece is the practical read for what "0DTE dealer positioning" and "dealer gamma 0DTE" actually mean in real time. We will cover why the 0DTE bucket matters more than longer-dated bucketing, what changes between negative- and positive-gamma regimes specifically for 0DTE, and how to read the tape differently in each. Pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the regime line itself, [Gamma Walls Explained](/education/gamma-walls-explained) for the boundary levels, and the [Gamma Exposure pillar](/education/gamma-exposure-explained) for the full structural background.
 
 ---
 

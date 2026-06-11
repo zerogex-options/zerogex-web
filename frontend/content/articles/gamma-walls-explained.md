@@ -10,7 +10,7 @@ A gamma wall is a strike on the option chain where dealer gamma exposure is conc
 
 Walls are not moving averages or psychological levels. They emerge from real positioning: open interest, contract-by-contract, weighted by the gamma each contract carries. When traders ask about the call wall put wall meaning, what they are really asking is: *where do dealer hedging flows concentrate, and how do those flows affect price?*
 
-This piece walks through what each wall is, why price tends to react at them, how they shift intraday, and when the wall thesis holds versus when it breaks. For the regime context that decides whether a gamma wall *dampens* or *amplifies* the move, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/blog/gamma-exposure-explained).
+This piece walks through what each wall is, why price tends to react at them, how they shift intraday, and when the wall thesis holds versus when it breaks. For the regime context that decides whether a gamma wall *dampens* or *amplifies* the move, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
