@@ -152,7 +152,7 @@ test('hasData flips true at ≥3 available inputs', () => {
   assert.equal(three.hasData, true);
 });
 
-test('TREND_UP requires MSI non-negative; negative MSI falls through to CHOP', () => {
+test('TREND_UP blocked when MSI is outside tolerance band; falls through to CHOP', () => {
   const bullishExceptMsi = computeBias({
     ...empty,
     netGEX: 50,
@@ -160,10 +160,66 @@ test('TREND_UP requires MSI non-negative; negative MSI falls through to CHOP', (
     tapeFlow: 80,
     vannaCharm: 60,
     odtePositioning: 60,
-    msi: -10,
+    msi: -15,
   });
   assert.equal(bullishExceptMsi.marketState, 'CHOP');
   assert.equal(bullishExceptMsi.trend, 'neutral');
+});
+
+test('MSI within tolerance band does not block TREND_UP', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    msi: -8,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
+});
+
+test('single dominant flow signal carries the majority by itself', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 80,
+    vannaCharm: -15,
+    odtePositioning: -5,
+    msi: 20,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
+  assert.equal(result.bias, 'BUY_DIPS');
+});
+
+test('single dominant structure signal carries the majority by itself', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: -50,
+    gexGradient: -60,
+    tapeFlow: 80,
+    vannaCharm: 60,
+    odtePositioning: 60,
+    positioningTrap: -10,
+    trapDetection: -80,
+    gammaVWAP: 5,
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'TRAP_REVERSAL');
+});
+
+test('opposing dominant flow signals cancel — no directional regime', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 80,
+    vannaCharm: -80,
+    odtePositioning: -5,
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'CHOP');
 });
 
 test('confidence clamps into [0, maxConfidence]', () => {

@@ -38,6 +38,8 @@ export interface BiasResult {
 
 export const STRONG = 25;
 export const MODERATE = 12;
+export const DOMINANT = 65;
+export const MSI_TOLERANCE = 10;
 
 export function computeBias(inp: BiasInput): BiasResult {
   const {
@@ -63,36 +65,42 @@ export function computeBias(inp: BiasInput): BiasResult {
   const isLongGamma =
     netGEX != null && netGEX > 0 && (gexGradient == null || gexGradient > -MODERATE);
 
-  // Flow direction: 2-of-3 majority across tape, vanna/charm, and 0DTE
-  // positioning. A single weak or contradicting signal no longer blocks the
-  // regime — agreement among the majority is sufficient.
-  const flowVotes = (sign: 1 | -1) => {
-    let votes = 0;
-    if (tapeFlow != null && tapeFlow * sign > STRONG) votes += 1;
-    if (vannaCharm != null && vannaCharm * sign > MODERATE) votes += 1;
-    if (odtePositioning != null && odtePositioning * sign > MODERATE) votes += 1;
-    return votes;
+  // Conviction-weighted voting: a signal contributes 1 vote past its base
+  // threshold, or 2 votes past DOMINANT — so a single high-conviction reading
+  // can singlehandedly produce the 2-of-3 majority. The strict `>` comparison
+  // on the opposing tally cancels ties: opposing dominant signals net to a
+  // draw rather than letting the if/else order pick a winner.
+  const conviction = (v: number | null, sign: 1 | -1, base: number): number => {
+    if (v == null) return 0;
+    const aligned = v * sign;
+    if (aligned > DOMINANT) return 2;
+    if (aligned > base) return 1;
+    return 0;
   };
-  const bullishFlow = flowVotes(1) >= 2;
-  const bearishFlow = flowVotes(-1) >= 2;
 
-  // Structure: 2-of-3 majority across positioning trap, trap detection,
-  // and gamma/VWAP confluence.
-  const structureVotes = (sign: 1 | -1) => {
-    let votes = 0;
-    if (positioningTrap != null && positioningTrap * sign > MODERATE) votes += 1;
-    if (trapDetection != null && trapDetection * sign > STRONG) votes += 1;
-    if (gammaVWAP != null && gammaVWAP * sign > MODERATE) votes += 1;
-    return votes;
-  };
-  const bearishStructure = structureVotes(-1) >= 2;
-  const bullishStructure = structureVotes(1) >= 2;
+  const flowVotes = (sign: 1 | -1) =>
+    conviction(tapeFlow, sign, STRONG) +
+    conviction(vannaCharm, sign, MODERATE) +
+    conviction(odtePositioning, sign, MODERATE);
+  const bullFlowVotes = flowVotes(1);
+  const bearFlowVotes = flowVotes(-1);
+  const bullishFlow = bullFlowVotes >= 2 && bullFlowVotes > bearFlowVotes;
+  const bearishFlow = bearFlowVotes >= 2 && bearFlowVotes > bullFlowVotes;
+
+  const structureVotes = (sign: 1 | -1) =>
+    conviction(positioningTrap, sign, MODERATE) +
+    conviction(trapDetection, sign, STRONG) +
+    conviction(gammaVWAP, sign, MODERATE);
+  const bullStructVotes = structureVotes(1);
+  const bearStructVotes = structureVotes(-1);
+  const bullishStructure = bullStructVotes >= 2 && bullStructVotes > bearStructVotes;
+  const bearishStructure = bearStructVotes >= 2 && bearStructVotes > bullStructVotes;
 
   let marketState: MarketState = 'UNKNOWN';
   if (isShortGamma && bullishFlow && bearishStructure) marketState = 'TRAP_REVERSAL';
   else if (isShortGamma && bearishFlow && bullishStructure) marketState = 'TRAP_SQUEEZE';
-  else if (isLongGamma && bullishFlow && (msi == null || msi >= 0)) marketState = 'TREND_UP';
-  else if (isLongGamma && bearishFlow && (msi == null || msi <= 0)) marketState = 'TREND_DOWN';
+  else if (isLongGamma && bullishFlow && (msi == null || msi >= -MSI_TOLERANCE)) marketState = 'TREND_UP';
+  else if (isLongGamma && bearishFlow && (msi == null || msi <= MSI_TOLERANCE)) marketState = 'TREND_DOWN';
   else if (available >= 4) marketState = 'CHOP';
 
   const biasScores: number[] = [];
