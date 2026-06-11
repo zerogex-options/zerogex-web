@@ -35,7 +35,7 @@ const getFoundingLockinGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy'];
+const STANDALONE_ROUTES = ['/', '/about', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte'];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
