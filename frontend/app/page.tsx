@@ -480,7 +480,7 @@ export default function LandingPage() {
               levels that matter
             </span>
             <br />
-            before SPY gets there.
+            before SPY/SPX/QQQ get there.
           </h1>
 
           {/* Sub-headline */}
