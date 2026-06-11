@@ -333,16 +333,19 @@ export default function SmartMoneyPage() {
   }, [applyHoverHighlight]);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  // The backend's default page size is well below the 50-row table cap, which
-  // silently truncated mid-tier blocks (e.g. ATM 0DTE puts at notional positions
-  // ~#9-#15) before they ever reached the filter chain. Match the fallback
-  // queries below so the primary path returns enough rows to fill the table.
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
+  // Match the table's default `tableRowLimit` so the backend returns the full
+  // window the UI actually paints. The old code omitted `limit`, which fell
+  // back to the backend's much smaller default and silently truncated mid-tier
+  // blocks (e.g. ATM 0DTE puts at notional positions ~#9-#15) before they
+  // reached the filter chain. The 100 the fallbacks below previously used is
+  // out of range (422) on the current backend; 50 is the largest value the
+  // endpoint is known to accept.
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=50`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
   const { data: smartMoneyLimitedData, error: smartMoneyLimitedError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
+    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=50`,
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError), shouldAcceptData: acceptSmartMoneySnapshot }
   );
-  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=100`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length, shouldAcceptData: acceptSmartMoneySnapshot });
+  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=50`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length, shouldAcceptData: acceptSmartMoneySnapshot });
   const { rows: smartMoneyPriceBars } = useMarketHistorical(symbol, '5min');
   const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
   const otherSession = sessionView === 'current' ? 'prior' : 'current';
