@@ -64,7 +64,6 @@ module.exports = {
     // User-scoped data routes
     '/account',
     '/account/*',
-    '/dashboard',
     '/dashboard/*',
     // Admin
     '/admin',

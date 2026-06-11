@@ -60,6 +60,29 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       continue;
     }
 
+    const blockImage = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (blockImage) {
+      const [, alt, src] = blockImage;
+      out.push(
+        <figure key={`img-${i}`} className="my-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="w-full rounded-2xl border border-[var(--color-border)]"
+          />
+          {alt && (
+            <figcaption className="mt-3 text-center text-sm italic text-[var(--text-muted)]">
+              {alt}
+            </figcaption>
+          )}
+        </figure>,
+      );
+      i += 1;
+      continue;
+    }
+
     if (trimmed.startsWith('# ')) {
       out.push(<h1 key={`h1-${i}`} className="mt-2 mb-6 text-4xl font-extrabold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(2))}</h1>);
       i += 1;

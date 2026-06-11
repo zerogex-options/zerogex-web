@@ -18,6 +18,7 @@ export type RouteAccessRule = {
 const PUBLIC_ROUTE_PATTERNS = [
   '/',
   '/about',
+  '/dashboard',
   '/education',
   '/education/*',
   '/articles',
@@ -51,7 +52,9 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/market-pressure', minimumTier: 'pro' },
   // Basic dashboards & per-signal pages — included with Basic.
-  { pattern: '/dashboard', minimumTier: 'basic' },
+  // /dashboard is intentionally public so anonymous visitors can preview the
+  // GEX/walls/flip cards (public APIs); paid panels (signals, trades, flow)
+  // surface their own "no data" state without breaking the page.
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
