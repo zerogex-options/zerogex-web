@@ -1246,6 +1246,15 @@ export default function GammaHeatmapCanvas() {
         </div>
         </>
       )}
+
+      {/* Bottom strip */}
+      <div
+        className="flex items-center justify-between px-5 py-2 text-xs"
+        style={{ borderTop: `1px solid ${border}`, color: subtle }}
+      >
+        <span>Powered by ZeroGEX</span>
+        <span>Gamma / Heatmap</span>
+      </div>
     </div>
   );
 }
