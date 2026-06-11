@@ -344,6 +344,47 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* ── Founder Intro ────────────────────────────────────────────────────── */}
+      <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto' }}>
+        <div
+          style={{
+            background: isDark ? `${C.card}aa` : 'var(--bg-card)',
+            border: `1px solid ${C.border}`,
+            borderRadius: 20,
+            padding: 'clamp(28px, 4vw, 44px)',
+            backdropFilter: 'blur(12px)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, bottom: 0,
+              width: 4,
+              background: `linear-gradient(180deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
+            }}
+          />
+          <div
+            style={{
+              display: 'inline-block', fontSize: 11, fontWeight: 700,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: C.amber, background: `${C.amber}18`,
+              border: `1px solid ${C.amber}40`, borderRadius: 100,
+              padding: '4px 14px', marginBottom: 18,
+            }}
+          >
+            About ZeroGEX
+          </div>
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
+            ZeroGEX was built for traders who want more than lagging indicators and hand-drawn levels.
+            It provides a live map of SPY/SPX/QQQ options positioning — including gamma exposure,
+            call/put walls, gamma flip, dealer positioning, and flow pressure — so traders can better
+            understand where support, resistance, acceleration, pinning, or squeeze risk may develop.
+          </p>
+        </div>
+      </section>
+
       {/* ── Mission ──────────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{

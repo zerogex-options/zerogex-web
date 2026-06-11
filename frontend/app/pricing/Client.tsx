@@ -608,9 +608,13 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
               <Sparkles size={14} /> Pricing
             </div>
             <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-              Choose Your Plan
+              Trade with a live map of the options levels that matter.
             </h1>
-            <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 18, lineHeight: 1.7 }}>
+            <p style={{ margin: '0 auto 18px', maxWidth: 760, color: C.light, fontSize: 18, lineHeight: 1.7, fontWeight: 500 }}>
+              ZeroGEX helps SPY/SPX/QQQ traders track gamma exposure, call/put walls, gamma flip,
+              dealer positioning, and flow pressure in real time.
+            </p>
+            <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
               Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
               On paid plans, upgrades and downgrades are pro-rated automatically through the Stripe-hosted billing portal.
               Switching plans during your trial ends the trial and starts billing immediately.

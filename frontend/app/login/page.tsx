@@ -93,6 +93,9 @@ function LoginPageContent() {
         <p className="mt-3 text-[var(--color-text-secondary)]">
           Use your account credentials to authenticate. Session tokens are secure, HttpOnly cookies.
         </p>
+        <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
+          ZeroGEX helps traders understand where the market may react before price gets there.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <label className="block text-sm">
