@@ -66,6 +66,19 @@ function formatExposure(v: number): string {
   return v.toFixed(0);
 }
 
+function formatVolume(v: number): string {
+  if (!Number.isFinite(v) || v <= 0) return '0';
+  if (v >= 1e6) {
+    const m = v / 1e6;
+    return Number.isInteger(m) ? `${m.toFixed(0)}M` : `${m.toFixed(1)}M`;
+  }
+  if (v >= 1e3) {
+    const k = v / 1e3;
+    return Number.isInteger(k) ? `${k.toFixed(0)}K` : `${k.toFixed(1)}K`;
+  }
+  return `${Math.round(v)}`;
+}
+
 function niceStep(range: number, targetCount = 10): number {
   if (!Number.isFinite(range) || range <= 0) return 1;
   const rough = range / Math.max(1, targetCount);
@@ -164,6 +177,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const RIGHT_W = compact ? 0 : CW - RIGHT_X;
   const PLOT_BOTTOM = compact ? PLOT_BOTTOM_COMPACT : PLOT_BOTTOM_FULL;
   const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+  // Volume overlay region inside the left price panel (compact mode only).
+  // Takes the bottom 20% of the plot vertically; candles still span the full
+  // price area and paint over the volume bars in the overlap zone.
+  const VOL_AREA_TOP = PLOT_BOTTOM - PLOT_HEIGHT * 0.2;
+  const VOL_AREA_BOTTOM = PLOT_BOTTOM;
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
@@ -457,13 +475,28 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // the live close sticks out, and updates the close on every 1s poll.
   // candleBuckets is already RTH-clipped, OHLC-validated and ASCENDING.
   const allCandles = useMemo(() => {
-    return candleBuckets.map((b) => ({
-      timestamp: b.timestamp,
-      open: Number(b.open ?? b.close ?? 0),
-      close: Number(b.close ?? b.open ?? 0),
-      high: Number(b.high ?? b.close ?? 0),
-      low: Number(b.low ?? b.close ?? 0),
-    }));
+    return candleBuckets.map((b) => {
+      const open = Number(b.open ?? b.close ?? 0);
+      const close = Number(b.close ?? b.open ?? 0);
+      const volume = Number(b.volume ?? 0);
+      const apiUp = b.up_volume == null ? null : Number(b.up_volume);
+      const apiDown = b.down_volume == null ? null : Number(b.down_volume);
+      // Fall back to bar-direction split when the API doesn't carry an
+      // up/down breakdown — same logic UnderlyingCandlesChart uses so the
+      // two charts agree on the per-bar volume coloring.
+      const isUp = close >= open;
+      const upVolume = apiUp != null && apiDown != null ? apiUp : isUp ? volume : 0;
+      const downVolume = apiUp != null && apiDown != null ? apiDown : isUp ? 0 : volume;
+      return {
+        timestamp: b.timestamp,
+        open,
+        close,
+        high: Number(b.high ?? b.close ?? 0),
+        low: Number(b.low ?? b.close ?? 0),
+        upVolume: Number.isFinite(upVolume) ? upVolume : 0,
+        downVolume: Number.isFinite(downVolume) ? downVolume : 0,
+      };
+    });
   }, [candleBuckets]);
 
   const nyDateFmt = useMemo(
@@ -659,6 +692,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const times = visibleCandles.map((c) => new Date(c.timestamp).getTime()).filter(Number.isFinite);
     if (times.length === 0) return null;
     return { tMin: Math.min(...times), tMax: Math.max(...times) };
+  }, [visibleCandles]);
+
+  // Peak total volume across the visible window — scales the bottom-20% volume
+  // overlay's y-axis. Recomputed when the visible slice shifts (e.g. rewind).
+  const maxVolume = useMemo(() => {
+    if (visibleCandles.length === 0) return 0;
+    let m = 0;
+    for (const c of visibleCandles) {
+      const total = c.upVolume + c.downVolume;
+      if (total > m) m = total;
+    }
+    return m;
   }, [visibleCandles]);
 
   // Index-based time positioning: candles are placed at evenly spaced slots so
@@ -1478,6 +1523,48 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             );
           })}
 
+          {/* ── LEFT PANEL: volume overlay (compact mode only) ──
+              Stacked up/down volume on its own y-scale, occupying the bottom
+              20% of the price panel. Painted before the candles so candle
+              bodies/wicks stay readable in the overlap zone. */}
+          {compact && visibleCandles.length > 0 && maxVolume > 0 && (() => {
+            const volXStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
+            const volBarW = Math.max(2, Math.min(8, volXStep * 0.6));
+            const volH = VOL_AREA_BOTTOM - VOL_AREA_TOP;
+            return visibleCandles.map((c, i) => {
+              const x = xForTime(new Date(c.timestamp).getTime());
+              const total = c.upVolume + c.downVolume;
+              if (total <= 0) return null;
+              const downH = (c.downVolume / maxVolume) * volH;
+              const upH = (c.upVolume / maxVolume) * volH;
+              const downY = VOL_AREA_BOTTOM - downH;
+              const upY = downY - upH;
+              const sessionOpacity = isPrevSession(c.timestamp) && !withPrev ? 0.35 : 1;
+              return (
+                <g key={`vol-${i}-${c.timestamp}`} opacity={0.6 * sessionOpacity}>
+                  {c.downVolume > 0 && (
+                    <rect
+                      x={x - volBarW / 2}
+                      y={downY}
+                      width={volBarW}
+                      height={Math.max(0, downH)}
+                      fill={colors.bearish}
+                    />
+                  )}
+                  {c.upVolume > 0 && (
+                    <rect
+                      x={x - volBarW / 2}
+                      y={upY}
+                      width={volBarW}
+                      height={Math.max(0, upH)}
+                      fill={colors.bullish}
+                    />
+                  )}
+                </g>
+              );
+            });
+          })()}
+
           {/* ── LEFT PANEL: candlestick price chart ── */}
           {visibleCandles.length === 0 ? (
             <text
@@ -1943,6 +2030,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     {(hoveredCandle.close - hoveredCandle.open).toFixed(2)} (
                     {(((hoveredCandle.close - hoveredCandle.open) / Math.max(1e-9, hoveredCandle.open)) * 100).toFixed(2)}%)
                   </div>
+                  {compact && (hoveredCandle.upVolume + hoveredCandle.downVolume > 0) && (
+                    <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                      Vol {formatVolume(hoveredCandle.upVolume + hoveredCandle.downVolume)}
+                      {' · '}
+                      <span style={{ color: colors.bullish }}>↑ {formatVolume(hoveredCandle.upVolume)}</span>
+                      {' / '}
+                      <span style={{ color: colors.bearish }}>↓ {formatVolume(hoveredCandle.downVolume)}</span>
+                    </div>
+                  )}
                 </>
               )}
               {hover.panel === 'middle' && hoveredStrike && (
