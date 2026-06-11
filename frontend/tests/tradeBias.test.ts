@@ -191,6 +191,35 @@ test('single dominant flow signal carries the majority by itself', () => {
   });
   assert.equal(result.marketState, 'TREND_UP');
   assert.equal(result.bias, 'BUY_DIPS');
+  assert.equal(result.convictionDriven, true);
+});
+
+test('broad-consensus regime is not flagged as conviction-driven', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: 60,
+    tapeFlow: 40,
+    vannaCharm: 30,
+    odtePositioning: 30,
+    msi: 30,
+  });
+  assert.equal(result.marketState, 'TREND_UP');
+  assert.equal(result.convictionDriven, false);
+});
+
+test('CHOP regime never flags convictionDriven', () => {
+  const result = computeBias({
+    ...empty,
+    netGEX: 50,
+    gexGradient: -60,
+    tapeFlow: 5,
+    vannaCharm: -5,
+    odtePositioning: 5,
+    msi: 0,
+  });
+  assert.equal(result.marketState, 'CHOP');
+  assert.equal(result.convictionDriven, false);
 });
 
 test('single dominant structure signal carries the majority by itself', () => {

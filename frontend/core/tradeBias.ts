@@ -34,6 +34,7 @@ export interface BiasResult {
   expectedBehavior: string[];
   checklist: Array<{ label: string; passed: boolean }>;
   hasData: boolean;
+  convictionDriven: boolean;
 }
 
 export const STRONG = 25;
@@ -69,28 +70,30 @@ export function computeBias(inp: BiasInput): BiasResult {
   // threshold, or 2 votes past DOMINANT — so a single high-conviction reading
   // can singlehandedly produce the 2-of-3 majority. The strict `>` comparison
   // on the opposing tally cancels ties: opposing dominant signals net to a
-  // draw rather than letting the if/else order pick a winner.
-  const conviction = (v: number | null, sign: 1 | -1, base: number): number => {
+  // draw rather than letting the if/else order pick a winner. `boost=false`
+  // skips the DOMINANT bonus so we can detect whether a regime was carried
+  // by conviction alone (a flat-vote re-count below).
+  const conviction = (v: number | null, sign: 1 | -1, base: number, boost = true): number => {
     if (v == null) return 0;
     const aligned = v * sign;
-    if (aligned > DOMINANT) return 2;
+    if (boost && aligned > DOMINANT) return 2;
     if (aligned > base) return 1;
     return 0;
   };
 
-  const flowVotes = (sign: 1 | -1) =>
-    conviction(tapeFlow, sign, STRONG) +
-    conviction(vannaCharm, sign, MODERATE) +
-    conviction(odtePositioning, sign, MODERATE);
+  const flowVotes = (sign: 1 | -1, boost = true) =>
+    conviction(tapeFlow, sign, STRONG, boost) +
+    conviction(vannaCharm, sign, MODERATE, boost) +
+    conviction(odtePositioning, sign, MODERATE, boost);
   const bullFlowVotes = flowVotes(1);
   const bearFlowVotes = flowVotes(-1);
   const bullishFlow = bullFlowVotes >= 2 && bullFlowVotes > bearFlowVotes;
   const bearishFlow = bearFlowVotes >= 2 && bearFlowVotes > bullFlowVotes;
 
-  const structureVotes = (sign: 1 | -1) =>
-    conviction(positioningTrap, sign, MODERATE) +
-    conviction(trapDetection, sign, STRONG) +
-    conviction(gammaVWAP, sign, MODERATE);
+  const structureVotes = (sign: 1 | -1, boost = true) =>
+    conviction(positioningTrap, sign, MODERATE, boost) +
+    conviction(trapDetection, sign, STRONG, boost) +
+    conviction(gammaVWAP, sign, MODERATE, boost);
   const bullStructVotes = structureVotes(1);
   const bearStructVotes = structureVotes(-1);
   const bullishStructure = bullStructVotes >= 2 && bullStructVotes > bearStructVotes;
@@ -274,6 +277,28 @@ export function computeBias(inp: BiasInput): BiasResult {
     },
   ];
 
+  // True when the active regime would NOT have triggered without the DOMINANT
+  // conviction bonus — i.e. a single high-conviction signal carried the
+  // majority alone. UI surfaces this so traders can size knowing the regime
+  // is one-signal-driven rather than broad-consensus.
+  const flowMajorityFlat = (sign: 1 | -1) => flowVotes(sign, false) >= 2;
+  const structureMajorityFlat = (sign: 1 | -1) => structureVotes(sign, false) >= 2;
+  let convictionDriven = false;
+  switch (marketState) {
+    case 'TREND_UP':
+      convictionDriven = !flowMajorityFlat(1);
+      break;
+    case 'TREND_DOWN':
+      convictionDriven = !flowMajorityFlat(-1);
+      break;
+    case 'TRAP_REVERSAL':
+      convictionDriven = !flowMajorityFlat(1) || !structureMajorityFlat(-1);
+      break;
+    case 'TRAP_SQUEEZE':
+      convictionDriven = !flowMajorityFlat(-1) || !structureMajorityFlat(1);
+      break;
+  }
+
   return {
     marketState,
     regimeLabel,
@@ -288,5 +313,6 @@ export function computeBias(inp: BiasInput): BiasResult {
     expectedBehavior,
     checklist,
     hasData: available >= 3,
+    convictionDriven,
   };
 }
