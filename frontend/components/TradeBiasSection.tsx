@@ -25,10 +25,9 @@ import { asObject, getNumber, humanize, trendColor } from '@/core/signalHelpers'
 import { computeBias, type BiasResult, type MarketState } from '@/core/tradeBias';
 import TooltipWrapper from './TooltipWrapper';
 
-// Number of consecutive ticks a new regime must appear before we swap. Keeps
-// the cards from flipping on a single noisy reading while still letting them
-// settle into the new state within ~one refresh cycle.
-const REGIME_CONFIRM_TICKS = 2;
+// Number of consecutive ticks a new regime must appear before we swap. 1 means
+// the cards swap on the first disagreeing tick (no hysteresis).
+const REGIME_CONFIRM_TICKS = 1;
 
 function BiasCard({
   title,

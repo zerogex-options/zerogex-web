@@ -207,9 +207,9 @@ test('just-below-threshold flow does not trigger TREND_UP', () => {
     ...empty,
     netGEX: 50,
     gexGradient: 60,
-    tapeFlow: 35,
-    vannaCharm: 20,
-    odtePositioning: 20,
+    tapeFlow: 25,
+    vannaCharm: 12,
+    odtePositioning: 12,
     msi: 50,
   });
   assert.notEqual(result.marketState, 'TREND_UP');

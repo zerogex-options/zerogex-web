@@ -36,8 +36,8 @@ export interface BiasResult {
   hasData: boolean;
 }
 
-export const STRONG = 35;
-export const MODERATE = 20;
+export const STRONG = 25;
+export const MODERATE = 12;
 
 export function computeBias(inp: BiasInput): BiasResult {
   const {
