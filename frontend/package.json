@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test:auth": "bash scripts/test-auth.sh",
     "test:trade-bias": "bash scripts/test-trade-bias.sh",
-    "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts"
+    "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts",
+    "test:smart-money": "node --experimental-strip-types --test tests/smartMoneyFilters.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

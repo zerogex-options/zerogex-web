@@ -333,7 +333,11 @@ export default function SmartMoneyPage() {
   }, [applyHoverHighlight]);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
+  // The backend's default page size is well below the 50-row table cap, which
+  // silently truncated mid-tier blocks (e.g. ATM 0DTE puts at notional positions
+  // ~#9-#15) before they ever reached the filter chain. Match the fallback
+  // queries below so the primary path returns enough rows to fill the table.
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
   const { data: smartMoneyLimitedData, error: smartMoneyLimitedError } = useApiData<SmartMoneyRow[]>(
     `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=100`,
     { refreshInterval: 10000, enabled: Boolean(smartMoneyError), shouldAcceptData: acceptSmartMoneySnapshot }
