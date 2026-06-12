@@ -10,6 +10,7 @@ export const metadata = {
   title: 'Vanna and Charm Explained for Options Traders',
   description:
     'Vanna and charm explained — what each Greek is, why they drive dealer hedging flows, how vanna creates the vol-compression grind, and how charm shapes the close.',
+  alternates: { canonical: '/education/vanna-and-charm-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/vanna-and-charm-explained.md');

@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, GraduationCap } from 'lucide-react';
 
+export const metadata = {
+  title: 'ZeroGEX Guides: Signals & Gamma Flip Reference',
+  description:
+    'ZeroGEX Guides — reference material for the platform. Every signal explained, score interpretation, and the gamma flip calculation methodology.',
+  alternates: { canonical: '/guides' },
+};
+
 export default function GuidesPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">

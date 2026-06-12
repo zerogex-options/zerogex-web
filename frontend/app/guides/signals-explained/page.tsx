@@ -3,6 +3,13 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 
+export const metadata = {
+  title: 'ZeroGEX Signals Explained: Score Reference & Trigger Guide',
+  description:
+    'Every ZeroGEX signal on one page — what each asks, the timeframe, when it fires, and what a positive, negative, or zero score actually means.',
+  alternates: { canonical: '/guides/signals-explained' },
+};
+
 const guidePath = path.join(process.cwd(), 'content/guides/signals-explained.md');
 
 export default function SignalsExplainedGuidePage() {

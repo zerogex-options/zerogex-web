@@ -91,10 +91,25 @@ module.exports = {
     '/dealer-delta-pressure',
     '/gex-gradient',
     '/positioning-trap',
+    '/gamma-exposure',
+    '/max-pain',
+    '/greeks-gex',
+    '/flow-analysis',
+    '/smart-money',
+    '/intraday-tools',
+    '/options-calculator',
+    '/option-contracts',
+    '/range-break-imminence',
+    '/market-pressure',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',
     '/_next/*',
+    // next-sitemap auto-includes file-convention routes that aren't pages.
+    // /robots.txt is a non-HTML route; per-route OG images are PNG handlers.
+    '/robots.txt',
+    '/*/opengraph-image',
+    '/*/*/opengraph-image',
   ],
 
   autoLastmod: true,

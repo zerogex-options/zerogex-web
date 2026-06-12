@@ -6,6 +6,13 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 
+export const metadata = {
+  title: 'Squeeze Setup, Positioning Trap & Trap Detection',
+  description:
+    'Squeeze Setup, Positioning Trap, and Trap Detection — three ZeroGEX Advanced Signals with the same number line answering entirely different questions.',
+  alternates: { canonical: '/education/squeeze-setup-positioning-trap-and-trap-detection' },
+};
+
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-positioning-trap-and-trap-detection.md');
 
 export default function SqueezeSetupPositioningTrapAndTrapDetectionPage() {

@@ -6,6 +6,13 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 
+export const metadata = {
+  title: 'Trading the Close: EOD Pressure and Trap Detection',
+  description:
+    'How EOD Pressure and Trap Detection read dealer hedging in real time — charm-driven drift into the close and failed-breakout fades.',
+  alternates: { canonical: '/education/eod-pressure-and-trap-detection' },
+};
+
 const articlePath = path.join(process.cwd(), 'content/articles/eod-pressure-and-trap-detection.md');
 
 export default function EodPressureAndTrapDetectionPage() {

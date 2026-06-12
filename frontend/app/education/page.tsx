@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, BookOpen, Newspaper, GraduationCap, LifeBuoy } from 'lucide-react';
 
+export const metadata = {
+  title: 'ZeroGEX Education: Articles & Guides for Options Flow',
+  description:
+    'ZeroGEX Education — long-form articles on gamma exposure, dealer hedging, vanna and charm, max pain, and reference guides for every ZeroGEX signal.',
+  alternates: { canonical: '/education' },
+};
+
 const sections = [
   {
     href: '/articles',

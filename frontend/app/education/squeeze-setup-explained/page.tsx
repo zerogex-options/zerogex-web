@@ -10,6 +10,7 @@ export const metadata = {
   title: 'Squeeze Setup Signal Explained: Reading Coiled Markets',
   description:
     'Squeeze Setup signal explained — what it asks, the five headline inputs, how the score triggers, and how to use it to identify markets coiled for a directional move.',
+  alternates: { canonical: '/education/squeeze-setup-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-explained.md');

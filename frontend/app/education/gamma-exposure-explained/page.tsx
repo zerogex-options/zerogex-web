@@ -10,6 +10,7 @@ export const metadata = {
   title: 'Gamma Exposure (GEX) Explained: The Complete Guide',
   description:
     'Gamma exposure explained from the ground up — what GEX is, how dealer gamma is calculated, what positive and negative regimes mean, and how to use it intraday.',
+  alternates: { canonical: '/education/gamma-exposure-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/gamma-exposure-explained.md');

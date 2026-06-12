@@ -10,6 +10,7 @@ export const metadata = {
   title: '0DTE Dealer Positioning Explained (Dealer Gamma 0DTE)',
   description:
     '0DTE dealer positioning explained — why dealer gamma matters most for same-day expiries, how negative vs positive gamma regimes change the tape, and how to read SPX 0DTE flow.',
+  alternates: { canonical: '/education/0dte-dealer-positioning-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/0dte-dealer-positioning-explained.md');

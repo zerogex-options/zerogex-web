@@ -10,6 +10,7 @@ export const metadata = {
   title: 'EOD Pressure Signal Explained: Reading the Close',
   description:
     'EOD Pressure signal explained — how charm decay and pin gravity drive forced hedging into the close, how the score is built, and how to read it in the final 90 minutes.',
+  alternates: { canonical: '/education/eod-pressure-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/eod-pressure-explained.md');

@@ -10,6 +10,7 @@ export const metadata = {
   title: 'Gamma Walls Explained: Call Wall and Put Wall',
   description:
     'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break. Practical SPX trader guide.',
+  alternates: { canonical: '/education/gamma-walls-explained' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/gamma-walls-explained.md');

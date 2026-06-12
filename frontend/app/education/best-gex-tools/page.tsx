@@ -10,6 +10,7 @@ export const metadata = {
   title: 'Best Gamma Exposure (GEX) Tools: A Fair Comparison',
   description:
     'Best GEX tools and gamma exposure trackers compared fairly — what matters in a GEX tool, real-time vs delayed, 0DTE coverage, methodology, signal quality, and price.',
+  alternates: { canonical: '/education/best-gex-tools' },
 };
 
 const articlePath = path.join(process.cwd(), 'content/articles/best-gex-tools.md');
