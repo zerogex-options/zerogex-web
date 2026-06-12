@@ -398,6 +398,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     )}
                   </div>
                 )}
+                {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {isCollapsed && (
                   <select
                     value={symbol}
@@ -416,7 +417,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <option>QQQ</option>
                   </select>
                 )}
-                {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1">
                     <select
