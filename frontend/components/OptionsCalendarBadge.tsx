@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, X } from "lucide-react";
 import { Theme } from "@/core/types";
 import { colors } from "@/core/colors";
@@ -22,6 +23,7 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
 
   // Refresh "days until" once per hour — calendar-day granularity is fine.
   useEffect(() => {
@@ -32,8 +34,12 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The popup may be portaled outside wrapperRef (compact mode), so we
+      // check both refs before closing.
+      if (wrapperRef.current?.contains(target)) return;
+      if (popupRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -111,29 +117,42 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
     </button>
   );
 
-  return (
-    <div ref={wrapperRef} style={{ position: "relative" }}>
-      {trigger}
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Upcoming options events"
-          className="rounded-xl border"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 10px)",
-            width: "min(92vw, 360px)",
-            maxHeight: "min(70vh, 460px)",
-            overflowY: "auto",
-            background: cardBg,
-            borderColor: border,
-            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.28)",
-            zIndex: 70,
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-          }}
-        >
+  // In compact mode (mobile + desktop-collapsed header), the trigger sits in
+  // the middle of a short top bar — anchoring the popup to its right edge
+  // pushes it off-screen to the left. We portal it to the body and pin it to
+  // viewport center so it's always visible regardless of trigger position.
+  const popupPositioning: React.CSSProperties = compact
+    ? {
+        position: "fixed",
+        top: "calc(var(--zgx-header-height, 56px) + 10px)",
+        left: "50%",
+        transform: "translateX(-50%)",
+      }
+    : {
+        position: "absolute",
+        right: 0,
+        top: "calc(100% + 10px)",
+      };
+
+  const popup = open && (
+    <div
+      ref={popupRef}
+      role="dialog"
+      aria-label="Upcoming options events"
+      className="rounded-xl border"
+      style={{
+        ...popupPositioning,
+        width: "min(92vw, 360px)",
+        maxHeight: "min(70vh, 460px)",
+        overflowY: "auto",
+        background: cardBg,
+        borderColor: border,
+        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.28)",
+        zIndex: 70,
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
+    >
           <div
             className="flex items-center justify-between px-4 py-3 border-b"
             style={{ borderColor: border }}
@@ -231,7 +250,14 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
             Dates computed from US options calendar conventions.
           </div>
         </div>
-      )}
+  );
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+      {trigger}
+      {open && compact
+        ? createPortal(popup, document.body)
+        : popup}
     </div>
   );
 }

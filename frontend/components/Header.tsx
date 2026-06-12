@@ -315,24 +315,24 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
                 <button
                   onClick={onToggleTheme}
-                  className="rounded-full border p-2 transition-colors"
-                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: "12px" }}
+                  className="rounded-full border transition-colors"
+                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: "12px", padding: isCollapsed ? "6px" : "9px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                   aria-label="Toggle theme"
                 >
-                  {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
+                  {theme === "dark" ? <Moon size={isCollapsed ? 18 : 20} /> : <Sun size={isCollapsed ? 18 : 20} />}
                 </button>
                 {isCollapsed && (
                   <div ref={profileMenuRef} style={{ position: "relative" }}>
                     <button
                       type="button"
                       onClick={() => setProfileMenuOpen((prev) => !prev)}
-                      className="rounded-full border p-2.5"
-                      style={{ borderColor: border, color: colors.muted, background: "transparent" }}
+                      className="rounded-full border"
+                      style={{ borderColor: border, color: colors.muted, background: "transparent", padding: "6px", cursor: "pointer" }}
                       aria-label="Open profile menu"
                     >
-                      <CircleUserRound size={28} />
+                      <CircleUserRound size={18} />
                     </button>
                     {profileMenuOpen && (
                       <div
@@ -482,11 +482,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="rounded-full border p-2.5"
-                    style={{ borderColor: border, color: colors.muted, background: "transparent" }}
+                    className="rounded-full border"
+                    style={{ borderColor: border, color: colors.muted, background: "transparent", padding: "9px", cursor: "pointer" }}
                     aria-label="Open profile menu"
                   >
-                    <CircleUserRound size={28} />
+                    <CircleUserRound size={20} />
                   </button>
                   {profileMenuOpen && (
                     <div
@@ -589,11 +589,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <OptionsCalendarBadge theme={theme} compact />
               <button
                 onClick={onToggleTheme}
-                className="rounded-full border p-1"
-                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent" }}
+                className="rounded-full border"
+                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
                 aria-label="Toggle theme"
               >
-                {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
+                {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
               </button>
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-0 mr-1">
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
