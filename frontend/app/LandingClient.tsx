@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
@@ -307,9 +308,12 @@ export default function LandingPage() {
         }}
       >
         <div className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ margin: 0, padding: 0, lineHeight: 0 }}>
-          <img
+          <Image
             src='/title.svg'
             alt="ZeroGEX"
+            width={300}
+            height={60}
+            priority
             className="h-[130%] sm:h-[150%] w-auto block"
             style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
           />

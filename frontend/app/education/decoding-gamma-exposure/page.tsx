@@ -4,13 +4,9 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Decoding Gamma Exposure — The Hidden Force Driving Markets',
-  description:
-    'Learn how dealer hedging flows can stabilize or destabilize price action, why the gamma flip matters, and how to adapt strategy selection across volatility regimes.',
-  alternates: { canonical: '/education/decoding-gamma-exposure' },
-};
+export const metadata = articleMetadata('decoding-gamma-exposure');
 
 const articlePath = path.join(process.cwd(), 'content/articles/decoding-gamma-exposure.md');
 

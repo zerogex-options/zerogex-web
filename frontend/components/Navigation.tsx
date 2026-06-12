@@ -6,6 +6,7 @@ import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
@@ -190,9 +191,11 @@ export default function Navigation({ theme }: NavigationProps) {
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
                 <Link href="/" className="flex w-full items-center overflow-hidden">
-                  <img
+                  <Image
                     src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
                     alt="ZeroGEX"
+                    width={160}
+                    height={160}
                     style={{ width: "118%", maxWidth: "118%", height: "auto", objectFit: "cover", marginLeft: "-9%" }}
                   />
                 </Link>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Menu,
@@ -488,9 +489,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             {!isCollapsed && (
             <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
-                <img
+                <Image
                   src="/title.svg"
                   alt="ZeroGEX"
+                  width={300}
+                  height={60}
+                  priority
                   style={{ width: "auto", height: "150%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
                 />
               </Link>
@@ -594,9 +598,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         <div className="md:hidden">
           <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
             <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(66vw, 240px)", padding: 0, margin: 0, lineHeight: 0 }}>
-              <img
+              <Image
                 src="/title.svg"
                 alt="ZeroGEX"
+                width={300}
+                height={60}
+                priority
                 style={{
                   height: "130%",
                   width: "auto",

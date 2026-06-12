@@ -4,13 +4,9 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Net Volume vs Directional Flow: What Matters in Options Tape?',
-  description:
-    'Net volume vs directional flow explained — why raw contract counts can mislead, when directional volume adds signal, and why premium-weighted flow leads.',
-  alternates: { canonical: '/education/net-volume-vs-directional-flow' },
-};
+export const metadata = articleMetadata('net-volume-vs-directional-flow');
 
 const articlePath = path.join(process.cwd(), 'content/articles/net-volume-vs-directional-flow.md');
 

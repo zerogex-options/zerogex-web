@@ -5,13 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Best Gamma Exposure (GEX) Tools: A Fair Comparison',
-  description:
-    'Best GEX tools and gamma exposure trackers compared fairly — what matters in a GEX tool, real-time vs delayed, 0DTE coverage, methodology, signal quality, and price.',
-  alternates: { canonical: '/education/best-gex-tools' },
-};
+export const metadata = articleMetadata('best-gex-tools');
 
 const articlePath = path.join(process.cwd(), 'content/articles/best-gex-tools.md');
 

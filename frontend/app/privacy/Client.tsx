@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
@@ -61,9 +62,12 @@ export default function PrivacyPage() {
           className="h-full flex items-center overflow-hidden flex-shrink-0"
           style={{ textDecoration: 'none', lineHeight: 0 }}
         >
-          <img
+          <Image
             src="/title.svg"
             alt="ZeroGEX"
+            width={300}
+            height={60}
+            priority
             className="h-[130%] sm:h-[150%] w-auto block"
             style={{ maxHeight: 'none', objectFit: 'contain' }}
           />

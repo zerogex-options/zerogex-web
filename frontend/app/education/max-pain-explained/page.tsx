@@ -5,13 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Max Pain Explained — and Does It Actually Work?',
-  description:
-    'Max pain explained honestly — what max pain is, the theory, and the evidence on whether max pain actually moves price. Does max pain work? A balanced read.',
-  alternates: { canonical: '/education/max-pain-explained' },
-};
+export const metadata = articleMetadata('max-pain-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/max-pain-explained.md');
 
