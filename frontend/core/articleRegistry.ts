@@ -26,7 +26,11 @@ export type ArticleMeta = {
 
 export const SITE_URL = 'https://zerogex.io';
 export const SITE_NAME = 'ZeroGEX';
-export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
+// Site-wide default OG image, served dynamically by app/opengraph-image.tsx
+// via the Next.js file convention (1200×630 PNG, brand-matched to the
+// per-route OG images). Pages that have their own opengraph-image.tsx
+// override this; the rest inherit through layout metadata.
+export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph-image`;
 
 export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'decoding-gamma-exposure': {
