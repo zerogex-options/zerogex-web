@@ -17,9 +17,14 @@ import {
 interface OptionsCalendarBadgeProps {
   theme: Theme;
   compact?: boolean;
+  // When true, the popup is centered on the viewport (mobile). When false
+  // (desktop, whether collapsed or expanded), the popup is anchored to the
+  // right side of the viewport so it lands in the same place users are
+  // already used to from the expanded header.
+  mobile?: boolean;
 }
 
-export default function OptionsCalendarBadge({ theme, compact = false }: OptionsCalendarBadgeProps) {
+export default function OptionsCalendarBadge({ theme, compact = false, mobile = false }: OptionsCalendarBadgeProps) {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -127,22 +132,35 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
     </button>
   );
 
-  // In compact mode (mobile + desktop-collapsed header), the trigger sits in
-  // the middle of a short top bar — anchoring the popup to its right edge
-  // pushes it off-screen to the left. We portal it to the body and pin it to
-  // viewport center so it's always visible regardless of trigger position.
-  const popupPositioning: React.CSSProperties = compact
+  // Popup positioning:
+  //  - Mobile: pinned to viewport center (the trigger sits mid-bar, so
+  //    anchoring relative to it would push the popup off the left edge).
+  //  - Desktop collapsed: trigger is in the upper-left of the header but the
+  //    popup should still feel like it's "on the right" (matching the
+  //    desktop-expanded experience), so we pin to viewport right.
+  //  - Desktop expanded: trigger is already on the right side of the header,
+  //    so a button-anchored absolute popup works fine.
+  // Both fixed cases are portaled to body to avoid backdrop-filter
+  // containing-block surprises in the sticky header.
+  const usePortal = compact;
+  const popupPositioning: React.CSSProperties = mobile
     ? {
         position: "fixed",
         top: "calc(var(--zgx-header-height, 56px) + 10px)",
         left: "50%",
         transform: "translateX(-50%)",
       }
-    : {
-        position: "absolute",
-        right: 0,
-        top: "calc(100% + 10px)",
-      };
+    : compact
+      ? {
+          position: "fixed",
+          top: "calc(var(--zgx-header-height, 56px) + 10px)",
+          right: "12px",
+        }
+      : {
+          position: "absolute",
+          right: 0,
+          top: "calc(100% + 10px)",
+        };
 
   const popup = open && (
     <div
@@ -265,7 +283,7 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
       {trigger}
-      {open && compact
+      {open && usePortal
         ? createPortal(popup, document.body)
         : popup}
     </div>

@@ -611,7 +611,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <OptionsCalendarBadge theme={theme} compact />
+              <OptionsCalendarBadge theme={theme} compact mobile />
               <button
                 onClick={onToggleTheme}
                 className="rounded-full border transition-colors"
