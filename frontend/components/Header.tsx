@@ -27,6 +27,7 @@ import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
+import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -413,6 +414,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <option>QQQ</option>
                   </select>
                 )}
+                {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1">
                     <select
@@ -475,6 +477,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             {!isCollapsed && (
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
                 <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+                <OptionsCalendarBadge theme={theme} />
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -583,6 +586,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <OptionsCalendarBadge theme={theme} compact />
               <button
                 onClick={onToggleTheme}
                 className="rounded-full border p-1"
