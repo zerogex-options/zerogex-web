@@ -328,8 +328,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <button
                       type="button"
                       onClick={() => setProfileMenuOpen((prev) => !prev)}
-                      className="rounded-full border"
-                      style={{ borderColor: border, color: colors.muted, background: "transparent", padding: "6px", cursor: "pointer" }}
+                      className="rounded-full border transition-colors"
+                      style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                       aria-label="Open profile menu"
                     >
                       <CircleUserRound size={18} />
@@ -482,8 +484,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="rounded-full border"
-                    style={{ borderColor: border, color: colors.muted, background: "transparent", padding: "9px", cursor: "pointer" }}
+                    className="rounded-full border transition-colors"
+                    style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                     aria-label="Open profile menu"
                   >
                     <CircleUserRound size={20} />
@@ -589,8 +593,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <OptionsCalendarBadge theme={theme} compact />
               <button
                 onClick={onToggleTheme}
-                className="rounded-full border"
+                className="rounded-full border transition-colors"
                 style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}

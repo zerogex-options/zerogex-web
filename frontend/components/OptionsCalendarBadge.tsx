@@ -62,19 +62,29 @@ export default function OptionsCalendarBadge({ theme, compact = false }: Options
 
   const iconSize = compact ? 18 : 20;
 
-  // The trigger button. Borders + colors come from the closest event's
-  // urgency so the badge itself signals how close we are.
+  // The trigger button mirrors the header's theme toggle (transparent +
+  // muted icon, accent-tinted on hover). Urgency is conveyed via the corner
+  // pill, not the button shell, so all header buttons stay visually
+  // uniform.
   const trigger = (
     <button
       type="button"
       onClick={() => setOpen((prev) => !prev)}
       className="relative rounded-full border transition-colors"
       style={{
-        borderColor: palette.border,
-        color: palette.fg,
-        background: palette.bg,
+        borderColor: border,
+        color: colors.muted,
+        backgroundColor: "transparent",
         padding: compact ? "6px" : "9px",
         cursor: "pointer",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = `${colors.accent}26`;
+        e.currentTarget.style.color = colors.accent;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "transparent";
+        e.currentTarget.style.color = colors.muted;
       }}
       aria-label="Options calendar"
       title={
