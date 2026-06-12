@@ -19,6 +19,23 @@ export default function ArticlesPage() {
       <div className="zg-feature-shell p-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 11, 2026 • 16:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Best Gamma Exposure (GEX) Tools: A Fair Comparison for 2026
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          A balanced comparison of the real category of GEX/options-flow tools — real-time vs delayed, 0DTE coverage, methodology, signal quality, and price — including ZeroGEX on equal footing with the rest of the category.
+        </p>
+        <Link
+          href="/education/best-gex-tools"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 11, 2026 • 16:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           Vanna and Charm Explained for Options Traders
         </h2>
         <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
