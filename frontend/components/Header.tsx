@@ -403,12 +403,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <select
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                    className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
+                    className="rounded-lg border text-xs font-semibold transition-all duration-200"
                     style={{
                       background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
                       borderColor: border,
                       color: theme === "dark" ? colors.light : colors.dark,
                       width: "90px",
+                      padding: "6px",
                       backdropFilter: "blur(8px)",
                     }}
                   >
