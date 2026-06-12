@@ -17,6 +17,57 @@ export default function ArticlesPage() {
       </div>
 
       <div className="zg-feature-shell p-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 12, 2026 • 18:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          EOD Pressure Signal Explained: Reading the Close
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The trader-facing read on the EOD Pressure signal — how charm decay and pin gravity combine into a directional drift estimator for the final 90 minutes, how the four core components are weighted, and how to use the score inside the active window.
+        </p>
+        <Link
+          href="/education/eod-pressure-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 12, 2026 • 18:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Positioning Trap Signal Explained: Fading the Crowd
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          What the Positioning Trap signal measures, why crowded options trades break, how the score combines PCR + smart-money imbalance + regime context, and how to fade the crowd at the right moment instead of being trapped with them.
+        </p>
+        <Link
+          href="/education/positioning-trap-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 12, 2026 • 18:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Squeeze Setup Signal Explained: Reading Coiled Markets
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The practical deep-dive on the Squeeze Setup signal — what it asks, the five inputs that drive the score, when it triggers versus stays silent, and how to use it as a precondition filter for directional breakouts.
+        </p>
+        <Link
+          href="/education/squeeze-setup-explained"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 11, 2026 • 16:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           Best Gamma Exposure (GEX) Tools: A Fair Comparison for 2026

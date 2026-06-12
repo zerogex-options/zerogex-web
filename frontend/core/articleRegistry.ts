@@ -173,6 +173,42 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 0,
     kind: 'landing',
   },
+  'squeeze-setup-explained': {
+    slug: 'squeeze-setup-explained',
+    href: '/education/squeeze-setup-explained',
+    title: 'Squeeze Setup Signal Explained: Reading Coiled Markets',
+    blurb:
+      'The practical deep-dive on the Squeeze Setup signal — what it asks, the five inputs that drive the score, when it triggers, and how to use it as a precondition filter for directional breakouts.',
+    description:
+      'Squeeze Setup signal explained — what it asks, the five headline inputs, how the score triggers, and how to use it to identify markets coiled for a directional move.',
+    datePublished: '2026-06-12',
+    readMinutes: 10,
+    kind: 'tier2',
+  },
+  'positioning-trap-explained': {
+    slug: 'positioning-trap-explained',
+    href: '/education/positioning-trap-explained',
+    title: 'Positioning Trap Signal Explained: Fading the Crowd',
+    blurb:
+      'What the Positioning Trap signal measures, why crowded options trades break, how the score is built from PCR + smart-money imbalance + regime, and how to fade the crowd at the right moment.',
+    description:
+      'Positioning Trap signal explained — what it measures, how the score is built, why crowded options trades break, and how to fade the crowd instead of being trapped.',
+    datePublished: '2026-06-12',
+    readMinutes: 9,
+    kind: 'tier2',
+  },
+  'eod-pressure-explained': {
+    slug: 'eod-pressure-explained',
+    href: '/education/eod-pressure-explained',
+    title: 'EOD Pressure Signal Explained: Reading the Close',
+    blurb:
+      'The trader-facing read on the EOD Pressure signal — how charm decay and pin gravity combine into a directional drift estimator for the final 90 minutes of the cash session.',
+    description:
+      'EOD Pressure signal explained — how charm decay and pin gravity drive forced hedging into the close, how the score is built, and how to read it in the final 90 minutes.',
+    datePublished: '2026-06-12',
+    readMinutes: 11,
+    kind: 'tier2',
+  },
 };
 
 /**
@@ -223,9 +259,9 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-walls-explained',
   ],
   'eod-pressure-and-trap-detection': [
-    'squeeze-setup-positioning-trap-and-trap-detection',
+    'eod-pressure-explained',
     'vanna-and-charm-explained',
-    'gamma-exposure-explained',
+    'squeeze-setup-positioning-trap-and-trap-detection',
   ],
   'net-volume-vs-directional-flow': [
     'gamma-exposure-explained',
@@ -233,9 +269,24 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     '0dte-dealer-positioning-explained',
   ],
   'squeeze-setup-positioning-trap-and-trap-detection': [
-    'eod-pressure-and-trap-detection',
+    'squeeze-setup-explained',
+    'positioning-trap-explained',
+    'eod-pressure-explained',
+  ],
+  'squeeze-setup-explained': [
+    'positioning-trap-explained',
+    'eod-pressure-explained',
+    'gamma-exposure-explained',
+  ],
+  'positioning-trap-explained': [
+    'squeeze-setup-explained',
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
+  ],
+  'eod-pressure-explained': [
+    'vanna-and-charm-explained',
+    'squeeze-setup-explained',
+    'eod-pressure-and-trap-detection',
   ],
 };
 
