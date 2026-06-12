@@ -29,7 +29,8 @@ export default function GreeksGEXPage() {
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const netGexPositive = (gexData?.net_gex ?? 0) >= 0;
+  const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
+  const netGexPositive = (netGexAtSpot ?? 0) >= 0;
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -70,7 +71,7 @@ export default function GreeksGEXPage() {
           />
           <MetricCard
             title="Net GEX"
-            value={gexData?.net_gex != null ? formatGexValue(gexData.net_gex) : '--'}
+            value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
             tooltip="Cumulative dealer gamma at the current spot price (sign-consistent with the gamma flip). Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification)."
             theme={theme}
