@@ -316,7 +316,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <button
                   onClick={onToggleTheme}
                   className="rounded-full border transition-colors"
-                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: "12px", padding: isCollapsed ? "6px" : "9px" }}
+                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px", padding: isCollapsed ? "6px" : "9px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
                   aria-label="Toggle theme"
@@ -400,25 +400,43 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 )}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {isCollapsed && (
-                  <select
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                    className="rounded-lg border text-xs font-semibold transition-all duration-200"
-                    style={{
-                      background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
-                      borderColor: border,
-                      color: theme === "dark" ? colors.light : colors.dark,
-                      width: "90px",
-                      height: "32px",
-                      padding: "0 8px",
-                      boxSizing: "border-box",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <option>SPY</option>
-                    <option>SPX</option>
-                    <option>QQQ</option>
-                  </select>
+                  <div style={{ position: "relative", width: "76px", height: "32px", flexShrink: 0 }}>
+                    <select
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                      className="rounded-lg border text-xs font-semibold transition-all duration-200"
+                      style={{
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                        borderColor: border,
+                        color: theme === "dark" ? colors.light : colors.dark,
+                        width: "100%",
+                        height: "100%",
+                        padding: "0 22px 0 10px",
+                        boxSizing: "border-box",
+                        backdropFilter: "blur(8px)",
+                        cursor: "pointer",
+                        lineHeight: 1,
+                      }}
+                    >
+                      <option>SPY</option>
+                      <option>SPX</option>
+                      <option>QQQ</option>
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        position: "absolute",
+                        right: 6,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                        color: colors.muted,
+                      }}
+                    />
+                  </div>
                 )}
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1">
