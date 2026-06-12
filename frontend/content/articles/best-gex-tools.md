@@ -61,7 +61,7 @@ The category roughly splits into four buckets. Specific feature claims about nam
 
 ### Bucket 1: Established gamma research vendors
 
-The vendors that pioneered the publicly-tracked GEX category. Generally use the spot-shift methodology, have deep historical archives, and serve a mix of retail and pro audiences. Tend to be daily-cadence or near-real-time, with subscription pricing in the higher tiers for live intraday access. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
+The vendors that pioneered the publicly-tracked GEX category. Generally use the spot-shift methodology, have deep historical archives, and serve a mix of retail and pro audiences. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
 
 *Tools commonly cited in this bucket: SpotGamma, SqueezeMetrics. Verify current pricing and coverage on their sites.*
 
