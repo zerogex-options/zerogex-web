@@ -222,6 +222,9 @@ frontend/public/og-image.png
 frontend/public/favicon.ico
 frontend/public/target.svg
 
+# blog post images, synced from assets/blog by `make blog-images`
+frontend/public/blog/
+
 # monitoring data
 frontend/data/
 

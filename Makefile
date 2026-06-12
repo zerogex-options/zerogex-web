@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring backup-auth clean deploy logo
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders clear-zombie-customers webhook-health backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
+	@echo "  make blog-images - Copy blog post images from assets/blog to frontend/public/blog"
 	@echo ""
 
 # Install dependencies
@@ -237,6 +238,20 @@ logo:
 	cp assets/branding/og-image.png frontend/public/.
 	@echo "Logos copied successfully!"
 
+# Copy blog post images from assets/blog to the Next.js public/blog directory
+# (the path referenced by markdown image links like /blog/<name>.png). Source
+# and destination filenames are identical, so a wildcard makes this target
+# self-maintaining as more images get added. Skips gracefully when the source
+# directory is empty so a fresh worktree doesn't fail the deploy chain.
+blog-images:
+	@echo "Copying blog images from assets to public..."
+	@mkdir -p frontend/public/blog
+	@if ls assets/blog/*.png >/dev/null 2>&1; then \
+		cp assets/blog/*.png frontend/public/blog/ && echo "Blog images copied successfully!"; \
+	else \
+		echo "(no blog images found in assets/blog/ — skipping)"; \
+	fi
+
 # Full deployment
 deploy:
 	@echo "Starting full deployment..."
@@ -246,12 +261,14 @@ deploy:
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
 	@echo "3. Copying logos..."
 	@make logo
-	@echo "4. Rebuilding application..."
+	@echo "4. Copying blog images..."
+	@make blog-images
+	@echo "5. Rebuilding application..."
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
-	@echo "5. Restarting PM2..."
+	@echo "6. Restarting PM2..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
-	@echo "6. Saving PM2 config..."
+	@echo "7. Saving PM2 config..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 save'
 	@echo "Deployment complete!"
 	@echo ""
