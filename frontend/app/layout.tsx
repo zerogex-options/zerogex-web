@@ -22,17 +22,19 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
   },
   metadataBase: new URL('https://zerogex.io'),
-  // OG and Twitter images are auto-attached from app/opengraph-image.tsx
-  // (the Next.js file convention), so each route inherits the dynamic
-  // 1200×630 image rendered by next/og — including pages that don't have
-  // their own per-route opengraph-image.tsx. The three routes that DO
-  // (pillar, comparison, 0DTE landing) override per-route via the same
-  // file convention.
   openGraph: {
     title: 'ZeroGEX™ | Real-Time Options Analytics',
     description: SITE_DESCRIPTION,
     url: 'https://zerogex.io',
     siteName: 'ZeroGEX',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'ZeroGEX Options Analytics Platform',
+      },
+    ],
     locale: 'en_US',
     type: 'website',
   },
@@ -40,6 +42,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'ZeroGEX™ | Real-Time Options Analytics',
     description: SITE_DESCRIPTION,
+    images: ['/og-image.png'],
   },
 };
 
