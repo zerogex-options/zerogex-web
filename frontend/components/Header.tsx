@@ -409,7 +409,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       borderColor: border,
                       color: theme === "dark" ? colors.light : colors.dark,
                       width: "90px",
-                      padding: "6px",
+                      height: "32px",
+                      padding: "0 8px",
+                      boxSizing: "border-box",
                       backdropFilter: "blur(8px)",
                     }}
                   >
