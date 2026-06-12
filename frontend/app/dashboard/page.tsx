@@ -178,8 +178,8 @@ export default function DashboardPage() {
             />
             <MetricCard
               title="Net GEX"
-              value={formatCompactUsd(gexData?.net_gex, true)}
-              trend={gexData && gexData.net_gex > 0 ? 'bullish' : 'bearish'}
+              value={formatCompactUsd(gexData?.net_gex_at_spot ?? gexData?.net_gex, true)}
+              trend={(gexData?.net_gex_at_spot ?? gexData?.net_gex ?? 0) > 0 ? 'bullish' : 'bearish'}
               tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
               theme={theme}
             />
