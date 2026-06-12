@@ -216,6 +216,38 @@ function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: stri
   });
 }
 
+// Inserts an interpolated zero-crossing row between any two adjacent rows
+// whose premium values straddle zero. Without it, the positive/negative Area
+// series each start or end at the bar boundary rather than at the actual
+// crossing, which renders as a visible step where the line crosses the axis.
+function insertPremiumZeroCrossings(rows: NetDirectionalPremiumRow[]): NetDirectionalPremiumRow[] {
+  const result: NetDirectionalPremiumRow[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const cur = rows[i];
+    result.push(cur);
+    const next = rows[i + 1];
+    if (!next) continue;
+    const a = cur.premium;
+    const b = next.premium;
+    if (a == null || b == null) continue;
+    if ((a > 0 && b < 0) || (a < 0 && b > 0)) {
+      const tA = new Date(cur.timestamp).getTime();
+      const tB = new Date(next.timestamp).getTime();
+      if (Number.isFinite(tA) && Number.isFinite(tB) && tB > tA) {
+        const ratio = Math.abs(a) / (Math.abs(a) + Math.abs(b));
+        const tCrossMs = tA + (tB - tA) * ratio;
+        result.push({
+          timestamp: new Date(tCrossMs).toISOString(),
+          premium: 0,
+          positivePremium: 0,
+          negativePremium: 0,
+        });
+      }
+    }
+  }
+  return result;
+}
+
 function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]): NetPositionRow[] {
   const byTs = new Map(rows.map((r) => [r.timestamp, r]));
   const lastMs = latestRowMs(rows);
@@ -1067,7 +1099,8 @@ export default function FlowAnalysisPage() {
   const directionalPremiumSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
     const base = mapSeriesToPremiumRows(flowSeriesUnfiltered ?? []);
-    return alignPremiumToTimeline(base, sessionTimeline);
+    const aligned = alignPremiumToTimeline(base, sessionTimeline);
+    return insertPremiumZeroCrossings(aligned);
   }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
   // ── Net Position (Buys vs Sells), unfiltered ─────────────────────────────
