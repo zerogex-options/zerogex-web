@@ -35,7 +35,7 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
     return next;
   }, [searchParams]);
 
-  // Referral code from the inbound link (zerogex.com/register?ref=CODE). Persist
+  // Referral code from the inbound link (zerogex.io/register?ref=CODE). Persist
   // it in a first-party cookie so the attribution survives the user browsing
   // around (and the OAuth round-trip) before they actually register.
   const refCode = useMemo(() => {
