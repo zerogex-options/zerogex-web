@@ -6,6 +6,7 @@ export const metadata = {
   title: 'Pricing — ZeroGEX',
   description:
     'ZeroGEX paid plans. Monthly and annual billing for Basic and Pro tiers.',
+  alternates: { canonical: '/pricing' },
 };
 
 // Public pricing page. Reads env state server-side (active promo coupon

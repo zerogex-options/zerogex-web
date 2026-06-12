@@ -5,6 +5,9 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
+
+export const metadata = articleMetadata('eod-pressure-and-trap-detection');
 
 const articlePath = path.join(process.cwd(), 'content/articles/eod-pressure-and-trap-detection.md');
 

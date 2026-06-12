@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Positioning Trap Signal Explained: Fading the Crowd',
-  description:
-    'Positioning Trap signal explained — what it measures, how the score is built, why crowded options trades break, and how to fade the crowd instead of being trapped.',
-};
+export const metadata = articleMetadata('positioning-trap-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/positioning-trap-explained.md');
 

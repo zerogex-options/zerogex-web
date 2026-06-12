@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'How to Read a Gamma Flip (Gamma Flip Explained)',
-  description:
-    'How to read a gamma flip intraday — what the flip level is, what changes above vs below, and how dealer hedging behavior shifts. Gamma flip explained for SPX traders.',
-};
+export const metadata = articleMetadata('how-to-read-a-gamma-flip');
 
 const articlePath = path.join(process.cwd(), 'content/articles/how-to-read-a-gamma-flip.md');
 

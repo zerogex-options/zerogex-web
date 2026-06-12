@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Squeeze Setup Signal Explained: Reading Coiled Markets',
-  description:
-    'Squeeze Setup signal explained — what it asks, the five headline inputs, how the score triggers, and how to use it to identify markets coiled for a directional move.',
-};
+export const metadata = articleMetadata('squeeze-setup-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-explained.md');
 

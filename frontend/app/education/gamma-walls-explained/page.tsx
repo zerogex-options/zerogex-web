@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Gamma Walls Explained: Call Wall and Put Wall',
-  description:
-    'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break. Practical SPX trader guide.',
-};
+export const metadata = articleMetadata('gamma-walls-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/gamma-walls-explained.md');
 

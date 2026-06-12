@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { ArrowLeft, LifeBuoy } from 'lucide-react';
 
+export const metadata = {
+  title: 'ZeroGEX Help Center: FAQs and Product Guides',
+  description:
+    'ZeroGEX help and how-to walkthroughs. While the help center is under construction, the Guides and Articles sections cover how every signal works.',
+  alternates: { canonical: '/help' },
+};
+
 export default function HelpPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">

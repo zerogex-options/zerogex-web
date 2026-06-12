@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
 
+export const metadata = {
+  title: 'ZeroGEX Articles: Gamma Exposure, Dealer Hedging & Flow',
+  description:
+    'ZeroGEX articles — practical market-structure breakdowns for options traders. Gamma exposure, dealer hedging, vanna and charm, max pain, and signal deep-dives.',
+  alternates: { canonical: '/articles' },
+};
+
 export default function ArticlesPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">

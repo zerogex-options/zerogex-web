@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
+
+export const metadata = articleMetadata('decoding-gamma-exposure');
 
 const articlePath = path.join(process.cwd(), 'content/articles/decoding-gamma-exposure.md');
 

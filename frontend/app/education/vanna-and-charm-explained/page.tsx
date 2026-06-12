@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'Vanna and Charm Explained for Options Traders',
-  description:
-    'Vanna and charm explained — what each Greek is, why they drive dealer hedging flows, how vanna creates the vol-compression grind, and how charm shapes the close.',
-};
+export const metadata = articleMetadata('vanna-and-charm-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/vanna-and-charm-explained.md');
 

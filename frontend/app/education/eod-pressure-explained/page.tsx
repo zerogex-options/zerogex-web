@@ -5,12 +5,9 @@ import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
+import { articleMetadata } from '@/core/articleRegistry';
 
-export const metadata = {
-  title: 'EOD Pressure Signal Explained: Reading the Close',
-  description:
-    'EOD Pressure signal explained — how charm decay and pin gravity drive forced hedging into the close, how the score is built, and how to read it in the final 90 minutes.',
-};
+export const metadata = articleMetadata('eod-pressure-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/eod-pressure-explained.md');
 

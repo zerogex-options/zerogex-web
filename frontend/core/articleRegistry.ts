@@ -80,7 +80,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'how-to-read-a-gamma-flip': {
     slug: 'how-to-read-a-gamma-flip',
     href: '/education/how-to-read-a-gamma-flip',
-    title: 'How to Read a Gamma Flip',
+    title: 'How to Read a Gamma Flip (Gamma Flip Explained)',
     blurb:
       'The practical intraday read on the gamma flip — what changes above versus below, how dealer hedging behavior shifts, and how to use it as a filter.',
     description:
@@ -92,11 +92,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'gamma-walls-explained': {
     slug: 'gamma-walls-explained',
     href: '/education/gamma-walls-explained',
-    title: 'Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts',
+    title: 'Gamma Walls Explained: Call Wall and Put Wall',
     blurb:
       'What gamma walls actually are, why price tends to react at the call wall and put wall, how the walls migrate, and when they hold versus break.',
     description:
-      'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break.',
+      'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break. Practical SPX trader guide.',
     datePublished: '2026-06-11',
     readMinutes: 9,
     kind: 'tier1',
@@ -104,11 +104,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   '0dte-dealer-positioning-explained': {
     slug: '0dte-dealer-positioning-explained',
     href: '/education/0dte-dealer-positioning-explained',
-    title: '0DTE Dealer Positioning Explained',
+    title: '0DTE Dealer Positioning Explained (Dealer Gamma 0DTE)',
     blurb:
       'Why same-day expiries dominate the intraday dealer book, how positive/negative gamma regimes change the tape for 0DTE, and how to read SPX 0DTE flow.',
     description:
-      '0DTE dealer positioning explained — why dealer gamma matters most for same-day expiries, negative vs positive gamma regimes, and how to read SPX 0DTE flow.',
+      '0DTE dealer positioning explained — why dealer gamma matters most for same-day expiries, how negative vs positive gamma regimes change the tape, and how to read SPX 0DTE flow.',
     datePublished: '2026-06-11',
     readMinutes: 9,
     kind: 'tier1',
@@ -164,7 +164,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'real-time-gex-0dte': {
     slug: 'real-time-gex-0dte',
     href: '/real-time-gex-0dte',
-    title: 'Real-Time GEX for 0DTE Traders',
+    title: 'Real-Time GEX for 0DTE Traders | ZeroGEX',
     blurb:
       'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
     description:
@@ -292,6 +292,26 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
 
 export function getArticle(slug: string): ArticleMeta | null {
   return ARTICLE_REGISTRY[slug] ?? null;
+}
+
+/**
+ * Returns the `metadata` object a registered article page should export —
+ * title, description, and self-referencing canonical, all pulled from the
+ * registry so the page's <title> tag and the ArticleJsonLd structured-data
+ * payload can never drift apart. Throws if the slug isn't registered so
+ * missed entries surface at build time rather than silently shipping a
+ * blank metadata block.
+ */
+export function articleMetadata(slug: string) {
+  const article = ARTICLE_REGISTRY[slug];
+  if (!article) {
+    throw new Error(`articleMetadata: unknown slug "${slug}"`);
+  }
+  return {
+    title: article.title,
+    description: article.description,
+    alternates: { canonical: article.href },
+  };
 }
 
 export function getRelatedArticles(slug: string): ArticleMeta[] {

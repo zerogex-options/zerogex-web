@@ -9,6 +9,7 @@ import FoundingClient from './Client';
 export const metadata = {
   title: 'Founding Member Activation — ZeroGEX',
   robots: { index: false, follow: false },
+  alternates: { canonical: '/founding' },
 };
 
 // Convenience landing page for the founding-member cohort. Reads

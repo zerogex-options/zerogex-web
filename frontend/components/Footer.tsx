@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { Mail } from 'lucide-react';
 import { Theme } from '@/core/types';
@@ -159,9 +160,11 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img
+            <Image
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
+              width={360}
+              height={360}
               style={{ height: '360px', width: 'auto', objectFit: 'contain' }}
             />
           </div>
@@ -214,9 +217,11 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <img
+            <Image
               src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
               alt="ZeroGEX"
+              width={160}
+              height={160}
               style={{ width: '100%', maxWidth: 160, height: 'auto' }}
             />
           </div>
