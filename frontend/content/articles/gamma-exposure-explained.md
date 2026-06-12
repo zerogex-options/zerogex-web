@@ -244,7 +244,7 @@ The dashboard centralizes the live reads:
 - **The strike-profile chart** plots the dealer gamma profile across strikes — the curve from which Net GEX and the flip are both derived.
 - **The strike-by-DTE heatmap** breaks gamma down by expiry bucket, surfacing the 0DTE concentration that increasingly dominates the intraday read.
 
-*[Image placeholder: ZeroGEX dashboard overview showing Net GEX, Gamma Flip, Call Wall, and Put Wall cards — drop file at /public/blog/zerogex-dashboard-overview.png]*
+![ZeroGEX dashboard overview showing Net GEX, Gamma Flip, Call Wall, and Put Wall cards](/blog/zerogex-dashboard-overview.png)
 
 A worked example. Suppose SPX is at 5,830 and the dashboard shows:
 
@@ -255,7 +255,7 @@ A worked example. Suppose SPX is at 5,830 and the dashboard shows:
 
 The composite read: spot is comfortably in long-gamma territory ($20 above the flip), Net GEX is a substantial positive number indicating real magnitude in the dealer book, and the wall range is asymmetric with the call wall closer than the put wall. The practical lean: dampened vol regime, mean-reversion-friendly tape, breakouts more likely to fade than extend, and pin behavior toward heavy gamma concentration on the table into the close. None of that is a trade signal — it is the structural backdrop against which every other tool you use should be calibrated.
 
-*[Image placeholder: ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted — drop file at /public/blog/zerogex-strike-profile-overview.png]*
+![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 
 Now imagine the same dashboard 90 minutes later: Net GEX has decayed to +$300M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where both regimes are partially active, behavior gets unstable, and the right discipline is usually to wait for a cleaner read before committing.
 

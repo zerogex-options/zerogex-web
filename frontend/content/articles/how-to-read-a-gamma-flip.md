@@ -77,7 +77,7 @@ The ZeroGEX dashboard surfaces the flip in two places:
 - **The Gamma Flip metric card** shows the current flip level alongside live dollar and percent distance from spot.
 - **The dealer gamma profile chart** plots the curve across strikes, with the zero crossing — the flip — visible directly.
 
-*[Image placeholder: ZeroGEX dashboard Gamma Flip card showing SPX spot above the flip with live distance — drop file at /public/blog/zerogex-gamma-flip-card.png]*
+![ZeroGEX dashboard Gamma Flip card showing SPX spot above the flip with live distance](/blog/zerogex-gamma-flip-card.png)
 
 A worked example. Suppose SPX is trading at 5,830 and the dashboard shows:
 
@@ -87,7 +87,7 @@ A worked example. Suppose SPX is trading at 5,830 and the dashboard shows:
 
 The read: spot is in long-gamma territory, comfortably above the flip. The headline Net GEX figure is consistent with the regime — positive, because it is the value of the same dealer gamma curve evaluated at spot, and that curve only turns positive once you have crossed above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
 
-*[Image placeholder: ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it — drop file at /public/blog/zerogex-strike-profile-flip.png]*
+![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 
 Now imagine the same dashboard 30 minutes later: SPX 5,810, gamma flip 5,818. Spot has crossed below, and the flip has actually drifted up toward where spot was. That is the structural inflection where intraday character changes — and a trader who was fading rallies above the flip should be much more cautious about fading the next selloff inside the new regime.
 

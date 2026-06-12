@@ -97,7 +97,7 @@ The dashboard surfaces walls in two places:
 - **Wall metric cards** show the current call wall and put wall strikes, with live percent distance from spot.
 - **The GEX walls chart** plots the strike-by-strike gamma profile with both walls highlighted.
 
-*[Image placeholder: ZeroGEX dashboard Call Wall and Put Wall cards with percent distance from spot — drop file at /public/blog/zerogex-walls-cards.png]*
+![ZeroGEX dashboard Call Wall and Put Wall cards with percent distance from spot](/blog/zerogex-walls-cards.png)
 
 A worked example. Suppose SPX is at 5,830. The dashboard shows:
 
@@ -108,7 +108,7 @@ A worked example. Suppose SPX is at 5,830. The dashboard shows:
 
 The structural read: spot is comfortably above the flip (long-gamma regime), the wall range is asymmetric — much closer to the call wall than the put wall — and Net GEX is healthy. Practical lean: drift toward the call wall is the higher-probability path, fades of rallies into it are the cleaner setup, and downside conviction would need either a flip-cross below 5,810 or a clear catalyst to override the structural pull from positive gamma above.
 
-*[Image placeholder: ZeroGEX GEX walls chart highlighting the call wall and put wall on the strike-by-strike gamma profile — drop file at /public/blog/zerogex-walls-chart.png]*
+![ZeroGEX GEX walls chart highlighting the call wall and put wall on the strike-by-strike gamma profile](/blog/zerogex-walls-chart.png)
 
 Now imagine the call wall migrates up to 5,855 as price probes 5,848. That migration is data — the wall is chasing price, the trap-fade is much weaker, and the breakout above 5,850 is more credible than it looked five minutes earlier. Reading the wall in motion is most of the edge.
 

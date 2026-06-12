@@ -161,7 +161,7 @@ The dashboard treats vanna and charm as overlays on the structural read, not sta
 - **Vanna and charm flow** are surfaced on dedicated panels that show the aggregate dealer hedging flow from each Greek across the chain.
 - **The strike-profile chart** lets you see where gamma, vanna, and charm exposure concentrate together, which is usually where the cleanest combined-flow reads happen.
 
-*[Image placeholder: ZeroGEX vanna and charm flow panels — drop file at /public/blog/zerogex-vanna-charm-flows.png]*
+![ZeroGEX vanna and charm flow panels](/blog/zerogex-vanna-charm-flows.png)
 
 A worked example. Suppose SPX is at 5,830 on a Friday afternoon, the dashboard shows:
 
@@ -174,7 +174,7 @@ A worked example. Suppose SPX is at 5,830 on a Friday afternoon, the dashboard s
 
 The composite read: long-gamma regime, structural magnet just below spot, charm decay pointing in the same direction, vanna grind consistent with the morning's vol bleed. Practical lean into the close: drift down toward 5,825 is the higher-probability path, with the gamma magnet absorbing the move and the charm decay confirming the direction. None of which is a trade signal — it is the composite regime context for the final-hour session.
 
-*[Image placeholder: ZeroGEX EOD Pressure score and charm-at-spot panels during the late-afternoon window — drop file at /public/blog/zerogex-eod-pressure-charm.png]*
+![ZeroGEX EOD Pressure score and charm-at-spot panels during the late-afternoon window](/blog/zerogex-eod-pressure-charm.png)
 
 ---
 

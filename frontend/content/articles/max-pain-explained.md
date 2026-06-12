@@ -142,7 +142,7 @@ The dashboard surfaces max pain alongside the dealer-gamma reads so they can be 
 - **The Call Wall and Put Wall cards** show where dealer gamma concentration actually sits.
 - **The strike-profile chart** shows the dealer gamma curve so the gamma magnet is visible directly.
 
-*[Image placeholder: ZeroGEX dashboard Max Pain card with live distance from spot — drop file at /public/blog/zerogex-max-pain-card.png]*
+![ZeroGEX dashboard Max Pain card with live distance from spot](/blog/zerogex-max-pain-card.png)
 
 A worked example. Suppose SPX is at 5,830 the morning of a monthly OPEX, and the dashboard shows:
 
@@ -153,7 +153,7 @@ A worked example. Suppose SPX is at 5,830 the morning of a monthly OPEX, and the
 
 Both the max pain and gamma-concentration reads agree at 5,820, the regime is solidly long-gamma, and it is monthly OPEX. The structural read: the pull-toward-5,820 thesis is as well-supported as it gets. Practical lean: drift toward 5,820, fading rallies above it, dip-buying down to it. Still a probabilistic lean — not a guarantee — but every structural condition that *would* produce pinning is on.
 
-*[Image placeholder: ZeroGEX strike-profile chart showing gamma magnet at the same strike as max pain — drop file at /public/blog/zerogex-max-pain-gamma-agreement.png]*
+![ZeroGEX strike-profile chart showing the gamma magnet at the same strike as max pain](/blog/zerogex-max-pain-gamma-agreement.png)
 
 Now imagine a different morning: SPX 5,830, max pain 5,810, but the heaviest gamma strike is 5,840 and Net GEX is −$400M. The reads disagree, the regime is short-gamma, and it is a regular non-expiry session. The structural read: max pain is *describing* a chain payoff geometry, not pointing at a level the dealer book will defend. The honest move is to ignore max pain in this state and lean on the regime read instead.
 

@@ -116,13 +116,13 @@ The dashboard surfaces 0DTE-specific reads in a few places:
 - **The strike-by-DTE GEX heatmap** breaks gamma down by expiry bucket so you can see how much of today's positioning is 0DTE-driven and where the heaviest same-day strikes sit.
 - **The wall and flip cards** show today's structural levels with live distance from spot.
 
-*[Image placeholder: ZeroGEX strike-by-DTE GEX heatmap with 0DTE bucket concentrated near spot — drop file at /public/blog/zerogex-strike-dte-heatmap.png]*
+![ZeroGEX strike-by-DTE GEX heatmap with the 0DTE bucket concentrated near spot](/blog/zerogex-strike-dte-heatmap.png)
 
 A worked example. Suppose SPX is at 5,825, Net GEX reads −$800M, the gamma flip sits at 5,840, and the heatmap shows a heavy 0DTE put strike at 5,820 that has been migrating down with price all morning. The structural read: dealers are short gamma, spot is below the flip, and the heaviest 0DTE strike is tracking the move rather than holding it.
 
 Practical lean: this is a short-gamma, continuation-friendly regime, with the migrating put strike confirming rather than resisting downside. A trader who came into the session with a mean-reversion bias should be much more cautious here, because the 0DTE structure is actively pointing the other way. None of that is a trade signal — it is regime context that should reshape which entries you take seriously.
 
-*[Image placeholder: ZeroGEX Net GEX and Gamma Flip cards showing a negative-gamma intraday read — drop file at /public/blog/zerogex-net-gex-flip-card.png]*
+![ZeroGEX Net GEX and Gamma Flip cards showing a negative-gamma intraday read](/blog/zerogex-net-gex-flip-card.png)
 
 ---
 
