@@ -121,6 +121,19 @@ function svgPath(points: Array<{ x: number; y: number }>) {
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 }
 
+// Picks a round-number strike-axis step ($1/$2/$5/$10/$25/$50/$100/…) such
+// that the visible range fits in roughly 10 labels. The OI bar chart's default
+// categorical ticks land on whatever strikes happened to be in the data,
+// which produces irregular labels like $584, $597, $612.
+function getNiceStrikeStep(range: number): number {
+  if (!Number.isFinite(range) || range <= 0) return 1;
+  const presets = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  for (const p of presets) {
+    if (range / p <= 10) return p;
+  }
+  return presets[presets.length - 1];
+}
+
 export default function MaxPainPage() {
   const { symbol, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
@@ -175,6 +188,13 @@ export default function MaxPainPage() {
     }))
     .filter((row) => row.strike > 0)
     .sort((a, b) => a.strike - b.strike);
+
+  const oiStrikeStep = (() => {
+    if (oiChart.length < 2) return 1;
+    const minStrike = oiChart[0].strike;
+    const maxStrike = oiChart[oiChart.length - 1].strike;
+    return getNiceStrikeStep(maxStrike - minStrike);
+  })();
 
   const underlyingStrikeMarker = oiChart.length
     ? oiChart.reduce((closest, row) =>
@@ -441,7 +461,26 @@ export default function MaxPainPage() {
           <ResponsiveContainer width="100%" height={380}>
             <BarChart data={oiChart} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
-              <XAxis dataKey="strike" stroke={textColor} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+              <XAxis
+                dataKey="strike"
+                stroke={textColor}
+                interval={0}
+                tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
+                  const x = Number(props?.x ?? 0);
+                  const y = Number(props?.y ?? 0);
+                  const val = Number(props?.payload?.value ?? 0);
+                  const r = val - Math.round(val / oiStrikeStep) * oiStrikeStep;
+                  if (Math.abs(r) > 1e-6) return <g transform={`translate(${x},${y})`} />;
+                  return (
+                    <g transform={`translate(${x},${y})`}>
+                      <line x1={0} y1={0} x2={0} y2={5} stroke={textColor} strokeWidth={1} opacity={0.6} />
+                      <text x={0} y={0} dy={16} textAnchor="middle" fontSize={11} fill={textColor}>
+                        {`$${val.toFixed(0)}`}
+                      </text>
+                    </g>
+                  );
+                }}
+              />
               <YAxis stroke={textColor} tickFormatter={(v) => `${Number(v).toFixed(1)}M`} domain={["auto", "auto"]} />
               <Tooltip
                 contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}

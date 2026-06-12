@@ -37,7 +37,14 @@ export default function GreeksGEXPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <LoadingCard />
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
@@ -58,9 +65,8 @@ export default function GreeksGEXPage() {
         </div>
       )}
 
-      {/* Market Overview */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
+      {/* Top row: 4 cards */}
+      <section className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricCard
             title={`${symbol} Price`}
@@ -93,10 +99,9 @@ export default function GreeksGEXPage() {
         </div>
       </section>
 
-      {/* GEX Metrics */}
+      {/* Bottom row: 5 cards */}
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Gamma Exposure</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
             title="Call GEX"
             value={gexData?.total_call_gex != null ? formatGexValue(gexData.total_call_gex) : '--'}
@@ -111,13 +116,6 @@ export default function GreeksGEXPage() {
             tooltip="Total gamma exposure from put options. Higher values create downside support as dealers hedge by buying into selloffs."
             theme={theme}
           />
-        </div>
-      </section>
-
-      {/* Options Sentiment */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Options Sentiment</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
             title="Put/Call Ratio"
             value={gexData?.put_call_ratio != null ? gexData.put_call_ratio.toFixed(2) : '--'}
@@ -125,13 +123,6 @@ export default function GreeksGEXPage() {
             tooltip="Ratio of put volume to call volume. >1 leans bearish; <1 leans bullish."
             theme={theme}
           />
-        </div>
-      </section>
-
-      {/* Support/Resistance Levels */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Key Levels</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MetricCard
             title="Call Wall (Resistance)"
             value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
@@ -159,9 +150,7 @@ export default function GreeksGEXPage() {
         </div>
       </section>
 
-      {/* Gamma Flip · Term Structure */}
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Gamma Flip &middot; Term Structure</h2>
         <div className="grid grid-cols-1 gap-4">
           <FlipTermStructureChart symbol={symbol} />
           <FlipSurfaceChart symbol={symbol} />
