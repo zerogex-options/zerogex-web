@@ -26,7 +26,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { omitClosedMarketTimes } from '@/core/utils';
+import { getMarketSession, omitClosedMarketTimes } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -108,6 +108,28 @@ function computeDte(expiryStr: string | null | undefined): number | null {
   if (!tm) return null;
   const todayUtcNoon = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 12);
   return Math.max(0, Math.round((expUtcNoon - todayUtcNoon) / 86400000));
+}
+
+// Lookback window for /api/gex/expirations.  During the regular cash session
+// (with a ~5-minute grace period after the open for the analytics engine to
+// flush a first write cycle) the most recent couple of hours of gex_by_strike
+// trivially covers every live expiration, so a tight 2h scan keeps the
+// backend cheap.  Outside session — pre-market, after-hours, overnight,
+// weekends, holidays — fall back to the endpoint's 168h maximum so today's
+// expirations survive the gap to the most recent session's data (without
+// this, a 24h default lookback on Sunday lands entirely on Saturday's empty
+// hours and the dropdown disables).
+function pickExpirationsLookbackHours(): number {
+  if (getMarketSession() !== 'open') return 168;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  return h * 60 + m >= 9 * 60 + 35 ? 2 : 168;
 }
 
 // SVG layout constants — sized to fit on a standard desktop without scrolling.
@@ -308,8 +330,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // latest snapshot.  The rewind feature still has data from earlier in the
   // day when those contracts were live, so today's date needs to stay in the
   // dropdown for the rest of the trading shift.
+  //
+  // lookback_hours is session-aware (see pickExpirationsLookbackHours): a
+  // tight 2h scan while the engine is actively writing, 168h otherwise so
+  // weekends/holidays don't strand the dropdown with an empty result.
+  const expirationsLookbackHours = pickExpirationsLookbackHours();
   const { data: gexExpirations } = useApiData<string[] | null>(
-    `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
+    `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&lookback_hours=${expirationsLookbackHours}`,
     { refreshInterval: expirationsInterval },
   );
 
