@@ -94,6 +94,17 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+// Today's date in the New York calendar as a YYYY-MM-DD string.  Used to
+// drop past-session expirations from the dropdown universe — the trailing
+// /api/gex/expirations window deliberately surfaces yesterday's date while
+// today's contracts settle in, but once we're past midnight ET those become
+// stale and shouldn't be selectable any more.  Lex compare against an
+// equally formatted expiry string yields the correct ordering because the
+// YYYY-MM-DD layout sorts identically as a string and as a calendar date.
+function etTodayDateKey(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+}
+
 // Compute days-to-expiry by comparing the contract's expiration date to today's
 // date in ET. Anchoring both at UTC noon avoids timezone-induced off-by-one
 // (parsing "2026-05-05" as UTC midnight would put it 5 hours behind any
@@ -424,13 +435,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // pass; this is the pattern React docs recommend for "adjust state when
   // a prop changes" and also keeps us clear of the set-state-in-effect
   // lint rule.
-  const [availableExpirations, setAvailableExpirations] = useState<string[]>([]);
+  const [latchedRawExpirations, setLatchedRawExpirations] = useState<string[]>([]);
   const [latchSymbol, setLatchSymbol] = useState(symbol);
   const [latchGex, setLatchGex] = useState(gexExpirations);
+  const todayKey = etTodayDateKey();
   if (latchSymbol !== symbol) {
     setLatchSymbol(symbol);
     setLatchGex(gexExpirations);
-    setAvailableExpirations([]);
+    setLatchedRawExpirations([]);
   } else if (latchGex !== gexExpirations) {
     setLatchGex(gexExpirations);
     if (Array.isArray(gexExpirations)) {
@@ -439,8 +451,31 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         const exp = String(raw ?? '').trim();
         if (exp) out.push(exp);
       }
-      if (out.length > 0) setAvailableExpirations(out);
+      if (out.length > 0) setLatchedRawExpirations(out);
     }
+  }
+
+  // Drop expirations whose ET calendar date is strictly before today's so
+  // the picker only ever surfaces live contracts.  The trailing-window
+  // scan deliberately keeps yesterday's expirations around for after-close
+  // continuity (the engine stops writing rows for them but the rewind
+  // still needs the data), but they're no longer interesting to filter by
+  // once we've crossed midnight ET.  Filtering at display time keeps the
+  // list current even while paused (no fresh fetches) and even after a
+  // page stays open across midnight — YYYY-MM-DD lex compare matches
+  // calendar ordering for the canonical zero-padded format the endpoint
+  // returns.
+  const availableExpirations = useMemo(
+    () => latchedRawExpirations.filter((exp) => exp >= todayKey),
+    [latchedRawExpirations, todayKey],
+  );
+
+  // If the user previously selected an expiration that's now past (page
+  // stayed open across midnight ET, or a refresh dropped its date), reset
+  // the selection so the chart stops filtering by an expired contract and
+  // the dropdown's "Expiry" chip matches the visible universe.
+  if (selectedExpiry !== 'all' && selectedExpiry < todayKey) {
+    setSelectedExpiry('all');
   }
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
