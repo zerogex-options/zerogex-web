@@ -28,7 +28,7 @@ function parseEnvFile(filePath) {
 }
 
 function parseArgs(argv) {
-  const args = { email: null, tier: null, all: null, dryRun: false };
+  const args = { email: null, tier: null, all: null, dryRun: false, foundingEligible: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--email' || arg === '-e') {
@@ -37,6 +37,8 @@ function parseArgs(argv) {
       args.tier = argv[++i];
     } else if (arg === '--all-from') {
       args.all = argv[++i];
+    } else if (arg === '--founding-eligible') {
+      args.foundingEligible = true;
     } else if (arg === '--dry-run') {
       args.dryRun = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -48,7 +50,7 @@ function parseArgs(argv) {
 
 function usage() {
   console.log(`Usage:
-  node scripts/update-user-tier.mjs --email <user@example.com> --tier <tier>
+  node scripts/update-user-tier.mjs --email <user@example.com> --tier <tier> [--founding-eligible]
   node scripts/update-user-tier.mjs --all-from <old-tier> --tier <new-tier>
 
 Options:
@@ -56,12 +58,18 @@ Options:
   -t, --tier <tier>         New tier (one of: ${VALID_TIERS.join(', ')}).
       --all-from <tier>     Migrate every user currently on <tier> to --tier.
                             Accepts legacy tier ids (e.g. "basic").
+      --founding-eligible   Also set founding_eligible=1 on the targeted user.
+                            Single-email only; bulk founding flagging is what
+                            scripts/seed-founders.mjs is for.
       --dry-run             Print what would change without writing.
   -h, --help                Show this help.
 
 Examples:
   # Promote a single user to pro
   node scripts/update-user-tier.mjs --email trader@example.com --tier pro
+
+  # Manual founding-member comp: tier=pro + founding_eligible=1 in one shot
+  node scripts/update-user-tier.mjs --email trader@example.com --tier pro --founding-eligible
 
   # Migrate every legacy "starter" user to "basic"
   node scripts/update-user-tier.mjs --all-from starter --tier basic
@@ -137,6 +145,11 @@ if (cliArgs.email && cliArgs.all) {
   process.exit(1);
 }
 
+if (cliArgs.foundingEligible && cliArgs.all) {
+  console.error('Error: --founding-eligible is single-email only. Use scripts/seed-founders.mjs for bulk.');
+  process.exit(1);
+}
+
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 const dbPath = process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
@@ -155,7 +168,7 @@ function updateSingle(rawEmail) {
   const email = rawEmail.trim().toLowerCase();
   const rows = querySqlite(
     dbPath,
-    `SELECT id, email, tier FROM users WHERE email = '${escapeSqlLiteral(email)}';`
+    `SELECT id, email, tier, founding_eligible FROM users WHERE email = '${escapeSqlLiteral(email)}';`
   );
 
   if (rows.length === 0) {
@@ -164,21 +177,35 @@ function updateSingle(rawEmail) {
   }
 
   const row = rows[0];
-  if (row.tier === nextTier) {
-    console.log(`No change: ${row.email} is already on tier "${nextTier}".`);
+  const tierChanges = row.tier !== nextTier;
+  const foundingChanges = cliArgs.foundingEligible && Number(row.founding_eligible) !== 1;
+
+  if (!tierChanges && !foundingChanges) {
+    const tail = cliArgs.foundingEligible ? ' and founding_eligible=1' : '';
+    console.log(`No change: ${row.email} is already on tier "${nextTier}"${tail}.`);
     return;
   }
 
+  const changeParts = [];
+  if (tierChanges) changeParts.push(`${row.tier} -> ${nextTier}`);
+  if (foundingChanges) changeParts.push(`founding_eligible 0 -> 1`);
+  const changeSummary = changeParts.join(', ');
+
   if (cliArgs.dryRun) {
-    console.log(`[dry-run] Would update ${row.email}: ${row.tier} -> ${nextTier}`);
+    console.log(`[dry-run] Would update ${row.email}: ${changeSummary}`);
     return;
   }
+
+  const setClauses = [];
+  if (tierChanges) setClauses.push(`tier = '${escapeSqlLiteral(nextTier)}'`);
+  if (foundingChanges) setClauses.push(`founding_eligible = 1`);
+  setClauses.push(`updated_at = '${escapeSqlLiteral(nowIso())}'`);
 
   execSqlite(
     dbPath,
-    `UPDATE users SET tier = '${escapeSqlLiteral(nextTier)}', updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(row.id)}';`
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = '${escapeSqlLiteral(row.id)}';`
   );
-  console.log(`Updated ${row.email}: ${row.tier} -> ${nextTier}`);
+  console.log(`Updated ${row.email}: ${changeSummary}`);
 }
 
 function updateAllFrom(fromTier) {
