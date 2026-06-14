@@ -981,6 +981,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ``preventDefault`` can suppress the page from scrolling underneath the
   // chart. Each wheel notch multiplies/divides ``zoomMul`` by ZOOM_STEP, the
   // same delta the toolbar's +/- buttons use.
+  //
+  // The dep tracks whether the SVG is actually in the DOM (the early return
+  // at the loading state below doesn't render it).  Without this, on a cold
+  // load the effect runs once with ``svgRef.current === null`` and never
+  // re-runs after the SVG mounts on a subsequent render — leaving the
+  // wheel-zoom non-functional until a hard refresh hits with a warm cache.
+  // Was the symptom on the Dashboard's compact tile but not on the Dealer
+  // Positioning page (the latter usually hits a warm strike-profile cache
+  // from prior navigation so yBounds is truthy on first render).
+  const wheelTargetReady = yBounds != null;
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -992,7 +1002,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [wheelTargetReady]);
 
   // Linear scans — cheap enough to compute on every render without useMemo, and
   // avoids tripping the manual-memoization lint rule on the inline closures.
