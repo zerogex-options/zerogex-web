@@ -406,20 +406,42 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return 0;
   }, [candleBuckets, gexByTs]);
 
-  // Expiry dropdown universe — straight pass-through of the dedicated
-  // /api/gex/expirations endpoint, which already ASC-sorts and deduplicates
-  // server-side.  Defensive normalisation (trim, drop empties) guards
-  // against an empty-string entry from a malformed cache row, but the
-  // endpoint should never return one.
-  const availableExpirations = useMemo<string[]>(() => {
-    if (!Array.isArray(gexExpirations)) return [];
-    const out: string[] = [];
-    for (const raw of gexExpirations) {
-      const exp = String(raw ?? '').trim();
-      if (exp) out.push(exp);
+  // Expiry dropdown universe — derived from the dedicated /api/gex/expirations
+  // endpoint (already ASC-sorted and server-side deduplicated; defensive
+  // trim + drop-empties below guards against a malformed cache row).
+  //
+  // The list is held in state and only overwritten on a NON-EMPTY refresh
+  // so the dropdown rides out the brief data-clear useApiData performs
+  // whenever the endpoint URL changes — which happens twice a day at 9:35
+  // / 16:00 ET as pickExpirationsLookbackHours() toggles between the 2h
+  // and 168h windows.  Without latching, the dropdown would disable for
+  // the few hundred ms it takes the post-swap fetch to resolve.  Reset on
+  // symbol change so a previous symbol's expirations never flash while the
+  // new symbol's fetch is in flight.
+  //
+  // The latch runs during render (rather than in a useEffect that calls
+  // setState) so React can fold the state update into the same render
+  // pass; this is the pattern React docs recommend for "adjust state when
+  // a prop changes" and also keeps us clear of the set-state-in-effect
+  // lint rule.
+  const [availableExpirations, setAvailableExpirations] = useState<string[]>([]);
+  const [latchSymbol, setLatchSymbol] = useState(symbol);
+  const [latchGex, setLatchGex] = useState(gexExpirations);
+  if (latchSymbol !== symbol) {
+    setLatchSymbol(symbol);
+    setLatchGex(gexExpirations);
+    setAvailableExpirations([]);
+  } else if (latchGex !== gexExpirations) {
+    setLatchGex(gexExpirations);
+    if (Array.isArray(gexExpirations)) {
+      const out: string[] = [];
+      for (const raw of gexExpirations) {
+        const exp = String(raw ?? '').trim();
+        if (exp) out.push(exp);
+      }
+      if (out.length > 0) setAvailableExpirations(out);
     }
-    return out;
-  }, [gexExpirations]);
+  }
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
   // shape the Gamma / Positions panels render.  ``call_gamma`` /
