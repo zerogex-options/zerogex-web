@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import ClientLayout from '@/components/ClientLayout';
+import TelemetryProvider from '@/components/TelemetryProvider';
 
 const dmSans = DM_Sans({ 
   subsets: ['latin'],
@@ -65,6 +66,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <TimeframeProvider>
+            <TelemetryProvider />
             <ClientLayout>
               {children}
             </ClientLayout>

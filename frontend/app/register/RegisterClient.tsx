@@ -4,6 +4,8 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -105,6 +107,14 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
         setError(payload.error ?? 'Registration failed');
         return;
       }
+
+      // Top of the funnel: account created. (Identity is attached on the next
+      // page load by ClientLayout once the session resolves; PostHog stitches
+      // this anonymous event to that identity automatically.)
+      capture(TelemetryEvent.Signup, {
+        tier: selectedTier,
+        referred: Boolean(refCode),
+      });
 
       // /api/auth/register now sets the session cookie itself; skip the
       // /login bounce and go straight to the next destination.

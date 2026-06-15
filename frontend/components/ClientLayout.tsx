@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import Header from './Header';
@@ -67,6 +68,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  // Tie analytics to the logged-in user (keyed by app user id so client and
+  // server/webhook events stitch to one person), and clear identity on logout.
+  // Runs on every route since it's declared before the standalone-route early
+  // return. No-op unless a PostHog key is configured.
+  useEffect(() => {
+    if (!authSession) return;
+    if (authSession.authenticated && authSession.user) {
+      telemetryIdentify(authSession.user.id, {
+        tier: authSession.user.tier,
+        has_active_subscription: authSession.user.hasActiveSubscription ?? false,
+        email_verified: authSession.user.emailVerified ?? false,
+      });
+    } else {
+      telemetryReset();
+    }
+  }, [authSession]);
 
   const shouldShowDisclaimer =
     !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
