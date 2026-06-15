@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, TrendingDown, TrendingUp } from "lucide-react";
-import { useMemo, useState, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   Bar,
   BarChart,

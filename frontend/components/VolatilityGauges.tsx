@@ -87,7 +87,6 @@ const GAP = 0.45;
 
 export interface SingleGaugeProps {
   value: number;
-  title: string;
   zoneLabel: string;
   vix?: number;
   theme: Theme;
@@ -98,7 +97,6 @@ export interface SingleGaugeProps {
 
 export function SingleGauge({
   value,
-  title,
   zoneLabel,
   vix,
   theme,
@@ -331,7 +329,6 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
     <div className="flex items-center gap-2">
       <SingleGauge
         value={data.level}
-        title=""
         zoneLabel={data.level_label}
         vix={data.vix}
         theme={theme}
@@ -341,7 +338,6 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
       <div style={{ width: "1px", height: compact ? "34px" : "44px", background: isDark ? "var(--border-default)" : "var(--border-default)", flexShrink: 0 }} />
       <SingleGauge
         value={data.momentum}
-        title=""
         zoneLabel={data.momentum_label}
         vix={data.vix}
         theme={theme}

@@ -16,18 +16,6 @@ import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelec
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
 
-interface PriceBar {
-  timestamp: string;
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  price?: number;
-  volume?: number;
-  up_volume?: number | null;
-  down_volume?: number | null;
-}
-
 interface CandleBar {
   timestamp: string;
   open: number;

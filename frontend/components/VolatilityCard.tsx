@@ -200,7 +200,6 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeC
       <div className="flex justify-center">
         <SingleGauge
           value={value}
-          title={isSpeed ? "SPEED" : "ACCEL"}
           zoneLabel={zoneLabel}
           theme={isDark ? "dark" : "light"}
           gaugeId={isSpeed ? "spd-card" : "tch-card"}
