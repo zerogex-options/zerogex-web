@@ -15,6 +15,8 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { redeemBankedReferralCredit, rewardReferrerForConvertedReferee } from '@/core/referrals';
+import { captureServer } from '@/core/analytics/posthog-server';
+import { AnalyticsEvent } from '@/core/analytics/events';
 
 export const runtime = 'nodejs';
 
@@ -27,6 +29,9 @@ type UserRow = {
   referral_credit_months: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  // Last-synced Stripe status, used to detect transitions (e.g. trialing →
+  // active) so the funnel events fire exactly once on the actual change.
+  subscription_status: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -82,7 +87,8 @@ function findUserByCustomerId(customerId: string): UserRow | null {
   const row = getDb()
     .prepare(
       `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
-              referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id
+              referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
+              subscription_status
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -170,6 +176,11 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     return;
   }
 
+  // Last-synced status, read before the UPDATE below overwrites it. Used to
+  // emit funnel events only on the actual transition (so trial_started and
+  // subscription_paid each fire once, not on every poll/redelivery).
+  const previousStatus = user.subscription_status;
+
   const item = subscription.items.data[0];
   const priceId = item?.price.id ?? null;
   const mappedTier = priceId ? priceIdToTier(priceId) : null;
@@ -228,6 +239,30 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  // Funnel analytics (server-side conversion truth). Keyed to transitions off
+  // the previous status so each event fires exactly once. Best-effort.
+  const founding = subMetadata.founding === '1';
+  if (previousStatus !== 'trialing' && subscription.status === 'trialing') {
+    const trialEndIso =
+      typeof subscription.trial_end === 'number'
+        ? new Date(subscription.trial_end * 1000).toISOString()
+        : null;
+    await captureServer(user.id, AnalyticsEvent.TrialStarted, {
+      tier: nextTier,
+      founding,
+      trial_end: trialEndIso,
+    });
+  }
+  if (previousStatus !== 'active' && subscription.status === 'active') {
+    // Fires on first paid activation, including a trial converting to paid.
+    await captureServer(user.id, AnalyticsEvent.SubscriptionPaid, {
+      tier: nextTier,
+      founding,
+      subscription_id: subscription.id,
+      period_end: periodEndIso,
+    });
+  }
 
   await maybeApplyFoundingLifetime(subscription.id, user);
 
@@ -399,7 +434,7 @@ async function maybeSendPaidWelcomeEmail(
   }
 }
 
-function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
+async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const user = findUserByCustomerId(customerId);
@@ -428,6 +463,12 @@ function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
     userId: user.id,
     email: user.email,
     message: `Subscription ${subscription.id} ended; tier reset to public`,
+  });
+
+  // Funnel: churn. Best-effort server-side event.
+  await captureServer(user.id, AnalyticsEvent.SubscriptionCancelled, {
+    subscription_id: subscription.id,
+    status: subscription.status,
   });
 }
 
@@ -512,7 +553,7 @@ export async function POST(request: NextRequest) {
         break;
       }
       case 'customer.subscription.deleted': {
-        clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
+        await clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
         break;
       }
       case 'invoice.payment_failed': {

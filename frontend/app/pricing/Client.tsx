@@ -8,6 +8,8 @@ import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { capture } from '@/core/analytics/posthog-client';
+import { AnalyticsEvent } from '@/core/analytics/events';
 import { ArrowRight, CheckCircle2, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
 
 const C = {
@@ -466,6 +468,8 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
         if (hasActiveSubscription) {
           await callBilling('/api/billing/portal');
         } else {
+          // Funnel: intent to subscribe, just before redirect to Stripe.
+          capture(AnalyticsEvent.CheckoutStarted, { tier, cadence });
           await callBilling('/api/billing/checkout', { tier, cadence });
         }
       } catch (err) {

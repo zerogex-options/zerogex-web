@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import {
   useGEXSummary,
@@ -12,6 +12,8 @@ import {
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
+import { capture } from '@/core/analytics/posthog-client';
+import { AnalyticsEvent } from '@/core/analytics/events';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
@@ -144,6 +146,18 @@ export default function GammaExposurePage() {
   // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
+
+  // "Aha" / first-value: the first time gamma-exposure data actually renders
+  // for this user in this session. Fired once via a ref guard (the data hook
+  // polls every 5s, so we must not re-emit on every refresh). No-op unless a
+  // PostHog key is configured.
+  const firstValueFired = useRef(false);
+  useEffect(() => {
+    if (!firstValueFired.current && gexData) {
+      firstValueFired.current = true;
+      capture(AnalyticsEvent.FirstValue, { feature: 'gamma_exposure', symbol });
+    }
+  }, [gexData, symbol]);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
   const { data: openInterestData } = useApiData<OpenInterestApiResponse | Record<string, unknown>[] | null>(
     `/api/market/open-interest?symbol=${symbol}&underlying=${symbol}`,
