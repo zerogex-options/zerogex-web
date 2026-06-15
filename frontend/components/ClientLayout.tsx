@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
-import { identify as analyticsIdentify, reset as analyticsReset } from '@/core/analytics/posthog-client';
+import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import Header from './Header';
@@ -76,13 +76,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!authSession) return;
     if (authSession.authenticated && authSession.user) {
-      analyticsIdentify(authSession.user.id, {
+      telemetryIdentify(authSession.user.id, {
         tier: authSession.user.tier,
         has_active_subscription: authSession.user.hasActiveSubscription ?? false,
         email_verified: authSession.user.emailVerified ?? false,
       });
     } else {
-      analyticsReset();
+      telemetryReset();
     }
   }, [authSession]);
 

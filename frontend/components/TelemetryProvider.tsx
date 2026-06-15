@@ -11,9 +11,9 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { initAnalytics, capturePageview } from '@/core/analytics/posthog-client';
+import { initAnalytics, capturePageview } from '@/core/telemetry/posthog-client';
 
-export default function AnalyticsProvider() {
+export default function TelemetryProvider() {
   const pathname = usePathname();
 
   useEffect(() => {

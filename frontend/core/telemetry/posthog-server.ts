@@ -15,7 +15,7 @@ import 'server-only';
 // captureServer flushes immediately rather than relying on background batching.
 
 import { PostHog } from 'posthog-node';
-import type { AnalyticsEventName } from './events';
+import type { TelemetryEventName } from './events';
 
 const KEY = process.env.POSTHOG_KEY ?? process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
@@ -39,7 +39,7 @@ function getClient(): PostHog | null {
  */
 export async function captureServer(
   distinctId: string,
-  event: AnalyticsEventName,
+  event: TelemetryEventName,
   properties?: Record<string, unknown>,
 ): Promise<void> {
   const c = getClient();

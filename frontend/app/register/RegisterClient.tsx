@@ -4,8 +4,8 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
-import { capture } from '@/core/analytics/posthog-client';
-import { AnalyticsEvent } from '@/core/analytics/events';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -111,7 +111,7 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
       // Top of the funnel: account created. (Identity is attached on the next
       // page load by ClientLayout once the session resolves; PostHog stitches
       // this anonymous event to that identity automatically.)
-      capture(AnalyticsEvent.Signup, {
+      capture(TelemetryEvent.Signup, {
         tier: selectedTier,
         referred: Boolean(refCode),
       });

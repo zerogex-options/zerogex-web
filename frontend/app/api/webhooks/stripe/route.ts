@@ -15,8 +15,8 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { redeemBankedReferralCredit, rewardReferrerForConvertedReferee } from '@/core/referrals';
-import { captureServer } from '@/core/analytics/posthog-server';
-import { AnalyticsEvent } from '@/core/analytics/events';
+import { captureServer } from '@/core/telemetry/posthog-server';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 export const runtime = 'nodejs';
 
@@ -248,7 +248,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       typeof subscription.trial_end === 'number'
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null;
-    await captureServer(user.id, AnalyticsEvent.TrialStarted, {
+    await captureServer(user.id, TelemetryEvent.TrialStarted, {
       tier: nextTier,
       founding,
       trial_end: trialEndIso,
@@ -256,7 +256,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   }
   if (previousStatus !== 'active' && subscription.status === 'active') {
     // Fires on first paid activation, including a trial converting to paid.
-    await captureServer(user.id, AnalyticsEvent.SubscriptionPaid, {
+    await captureServer(user.id, TelemetryEvent.SubscriptionPaid, {
       tier: nextTier,
       founding,
       subscription_id: subscription.id,
@@ -466,7 +466,7 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   });
 
   // Funnel: churn. Best-effort server-side event.
-  await captureServer(user.id, AnalyticsEvent.SubscriptionCancelled, {
+  await captureServer(user.id, TelemetryEvent.SubscriptionCancelled, {
     subscription_id: subscription.id,
     status: subscription.status,
   });

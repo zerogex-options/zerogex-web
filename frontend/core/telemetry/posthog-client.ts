@@ -11,7 +11,7 @@
 // screen recordings.
 
 import posthog from 'posthog-js';
-import type { AnalyticsEventName } from './events';
+import type { TelemetryEventName } from './events';
 
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
@@ -45,7 +45,7 @@ export function initAnalytics(): void {
 
 /** Fire a funnel event with optional properties. */
 export function capture(
-  event: AnalyticsEventName,
+  event: TelemetryEventName,
   properties?: Record<string, unknown>,
 ): void {
   if (!enabled()) return;

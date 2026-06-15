@@ -10,7 +10,7 @@
 // This module is environment-agnostic (no 'use client', no node imports) so it
 // can be imported from both browser components and server route handlers.
 
-export const AnalyticsEvent = {
+export const TelemetryEvent = {
   /** Account created (client, fired on successful /api/auth/register). */
   Signup: 'signup',
   /** First time a user sees core analytics — the "aha" (client, GEX load). */
@@ -25,4 +25,4 @@ export const AnalyticsEvent = {
   SubscriptionCancelled: 'subscription_cancelled',
 } as const;
 
-export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
+export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

@@ -12,8 +12,8 @@ import {
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
-import { capture } from '@/core/analytics/posthog-client';
-import { AnalyticsEvent } from '@/core/analytics/events';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
@@ -155,7 +155,7 @@ export default function GammaExposurePage() {
   useEffect(() => {
     if (!firstValueFired.current && gexData) {
       firstValueFired.current = true;
-      capture(AnalyticsEvent.FirstValue, { feature: 'gamma_exposure', symbol });
+      capture(TelemetryEvent.FirstValue, { feature: 'gamma_exposure', symbol });
     }
   }, [gexData, symbol]);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
