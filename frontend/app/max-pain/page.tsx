@@ -24,7 +24,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
-import { omitOutOfHoursForSymbol } from "@/core/utils";
+import { etTodayDateKey, omitOutOfHoursForSymbol } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -167,12 +167,26 @@ export default function MaxPainPage() {
 
   const currentMaxPain = safeNum(maxPainCurrent?.max_pain || gexSummary?.max_pain);
   const currentUnderlying = safeNum(maxPainCurrent?.underlying_price);
-  const expirationOptions = maxPainCurrent?.expirations || [];
+  // The snapshot endpoint can still carry yesterday's expirations for a
+  // window post-close (the daily job leaves them in place until the next
+  // session's row lands), but they're not useful to filter the chart by once
+  // we've crossed midnight ET. YYYY-MM-DD lex compare matches calendar order
+  // for the canonical zero-padded format the endpoint returns.
+  const todayKey = etTodayDateKey();
+  const expirationOptions = (maxPainCurrent?.expirations || []).filter(
+    (e) => e.expiration >= todayKey,
+  );
+  // Reset the user's selection if the previously selected expiration has
+  // since rolled into the past (page stayed open across midnight ET).
+  if (selectedExpiration && selectedExpiration < todayKey) {
+    setSelectedExpiration("");
+  }
   const selectedExpirationValue = selectedExpiration || expirationOptions[0]?.expiration || "";
   const activeExpiration =
     expirationOptions.find((e) => e.expiration === selectedExpirationValue) || expirationOptions[0];
 
   const activeExpirationValue = activeExpiration?.expiration || "";
+  const nearestExpirationMaxPain = safeNum(expirationOptions[0]?.max_pain);
 
   // Don't gate the whole page on the slowest endpoint — for SPX the
   // timeseries response often arrives well before /max-pain/current,
@@ -420,7 +434,7 @@ export default function MaxPainPage() {
               {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
             </div>
           </div>
-          <MetricCard title="Nearest-Expiration Max Pain" value={latest?.maxPain ? `$${latest.maxPain.toFixed(2)}` : "--"} tooltip="Nearest-expiration max pain: the latest point on the trend chart below, computed from only the nearest non-expired expiration (often a daily or weekly contract) and sampled through the day. Because it covers a single expiration — unlike the whole-chain Current Max Pain above — the two can sit a few points apart, and it stays roughly flat intraday since open interest only changes at settlement." theme={theme} />
+          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract) — the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
