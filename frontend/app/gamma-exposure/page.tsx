@@ -26,6 +26,7 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
+import { etTodayDateKey } from '@/core/utils';
 
 function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -192,6 +193,22 @@ export default function GammaExposurePage() {
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [vizTab, setVizTab] = useState<'heatmap' | 'mmx'>('heatmap');
+
+  // GEX Profile chart's expiration dropdown only surfaces current/future
+  // expirations.  The /api/gex/by-strike snapshot can still carry yesterday's
+  // expirations for a window post-close (the analytics engine keeps the rows
+  // around until the next session's data lands), but they're not interesting
+  // to filter the chart by once we've crossed midnight ET.  The strike-table
+  // section below keeps the unfiltered universe so the multi-select can still
+  // inspect those rows for diagnostic purposes.
+  const todayKey = etTodayDateKey();
+  const chartExpirationOptions = useMemo(
+    () => expirationOptions.filter((exp) => exp >= todayKey),
+    [expirationOptions, todayKey],
+  );
+  if (chartSelectedExpiration !== 'all' && chartSelectedExpiration < todayKey) {
+    setChartSelectedExpiration('all');
+  }
 
   // Aggregate by-strike data for the table (respects table's multi-select).
   const strikeData = useMemo(() => {
@@ -485,7 +502,7 @@ export default function GammaExposurePage() {
             gammaFlip={gexData?.gamma_flip}
             callWall={chartCallWall}
             putWall={chartPutWall}
-            expirationOptions={expirationOptions}
+            expirationOptions={chartExpirationOptions}
             selectedExpiration={chartSelectedExpiration}
             onSelectedExpirationChange={setChartSelectedExpiration}
           />

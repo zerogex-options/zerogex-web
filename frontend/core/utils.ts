@@ -37,6 +37,14 @@ export const formatTime = (timezone: string): string => {
   });
 };
 
+// Today's date in the New York calendar as a YYYY-MM-DD string.  Convenient
+// reference point for lex-comparing expiration date strings (the canonical
+// zero-padded YYYY-MM-DD layout sorts identically as a string and as a
+// calendar date) — anything strictly less than this is a past session.
+export const etTodayDateKey = (): string => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+};
+
 const etFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
   hour: '2-digit',

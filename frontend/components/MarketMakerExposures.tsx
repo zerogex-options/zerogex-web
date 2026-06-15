@@ -26,7 +26,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { getMarketSession, omitClosedMarketTimes } from '@/core/utils';
+import { etTodayDateKey, getMarketSession, omitClosedMarketTimes } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -92,17 +92,6 @@ function niceStep(range: number, targetCount = 10): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-// Today's date in the New York calendar as a YYYY-MM-DD string.  Used to
-// drop past-session expirations from the dropdown universe — the trailing
-// /api/gex/expirations window deliberately surfaces yesterday's date while
-// today's contracts settle in, but once we're past midnight ET those become
-// stale and shouldn't be selectable any more.  Lex compare against an
-// equally formatted expiry string yields the correct ordering because the
-// YYYY-MM-DD layout sorts identically as a string and as a calendar date.
-function etTodayDateKey(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 }
 
 // Compute days-to-expiry by comparing the contract's expiration date to today's
