@@ -277,7 +277,7 @@ export default function LandingPage() {
       { symbol: 'MAX PAIN', price: spyGex?.max_pain != null ? `$${formatPrice(spyGex.max_pain)}` : '--', change: '0DTE Target', pct: '', up: true },
       { symbol: 'PUT/CALL', price: pcr != null ? pcr.toFixed(2) : '--', change: 'Ratio', pct: pcrBias, up: pcrBias !== 'Bearish' },
     ];
-  }, [spyQuote, spxQuote, qqqQuote, spyGex]);
+  }, [spyQuote, spxQuote, qqqQuote, spyGex, spyNetGexAtSpot]);
 
   const previewMetrics = useMemo(() => {
     const putCallRatio = spyGex?.put_call_ratio ?? null;
@@ -289,7 +289,7 @@ export default function LandingPage() {
       { label: 'Put Wall', value: spyGex?.put_wall != null ? `$${formatPrice(spyGex.put_wall)}` : '--', color: C.red, up: false },
       { label: 'Put/Call', value: putCallRatio != null ? putCallRatio.toFixed(2) : '--', color: putCallRatio != null && putCallRatio > 1 ? C.red : C.amber, up: !(putCallRatio != null && putCallRatio > 1) },
     ];
-  }, [spyGex]);
+  }, [spyGex, spyNetGexAtSpot]);
 
 
   return (
