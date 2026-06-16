@@ -14,6 +14,7 @@ const border = 'var(--border-default)';
 
 const footerLinks = [
   { href: '/dashboard', label: 'Platform', external: false },
+  { href: '/spx-gamma-levels', label: 'Free SPX Levels', external: false },
   { href: '/about', label: 'About', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
   { href: '/education', label: 'Education', external: false },

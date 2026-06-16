@@ -34,6 +34,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/forgot-password',
   '/reset-password',
   '/unauthorized',
+  '/spx-gamma-levels',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [

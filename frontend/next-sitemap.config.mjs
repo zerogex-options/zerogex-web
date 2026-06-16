@@ -124,6 +124,12 @@ const config = {
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
     }
+    if (urlPath === '/spx-gamma-levels') {
+      // Lead-magnet page is the SEO landing for "SPX gamma levels" intent
+      // searches — refreshed every market day, so daily changefreq matches
+      // reality and the priority sits just below the homepage.
+      return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };
+    }
     if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.7, lastmod };
     }
