@@ -751,7 +751,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
   return (
     <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
       <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
-      <ResponsiveContainer width="100%" height="62%">
+      <ResponsiveContainer width="100%" height={360}>
         <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <XAxis
             dataKey="timestamp"
@@ -840,7 +840,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
         </ComposedChart>
       </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height="38%">
+      <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
           <XAxis
             dataKey="timestamp"
