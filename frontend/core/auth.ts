@@ -74,6 +74,11 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/option-contracts', minimumTier: 'basic' },
   // Account self-service — any logged-in tier (incl. public/unpaid) can manage their own account.
   { pattern: '/account', minimumTier: 'public' },
+  // Self-serve developer portal: any logged-in user can mint API keys for
+  // their own account and see their /api/usage rollup. Tier gating
+  // belongs upstream on the *keys*, not on the page that issues them.
+  { pattern: '/developers', minimumTier: 'public' },
+  { pattern: '/developers/*', minimumTier: 'public' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(

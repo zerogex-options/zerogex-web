@@ -71,6 +71,11 @@ export default function Navigation({ theme }: NavigationProps) {
         items: [
           { id: "/about", label: "About" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+          // Self-serve developer portal: API keys + usage. Authed-only —
+          // the page reads from /api/dev/* which requires a session for
+          // the end-user-token the BFF mints (otherwise the backend 400s
+          // for missing attribution).
+          ...(isAuthenticated ? [{ id: "/developers", label: "Developers" }] : []),
           ...(isAuthenticated ? [{ id: "/account", label: "Account" }] : []),
         ],
       },
