@@ -1,8 +1,9 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const PROJECT_ROOT = __dirname;
+const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 function gitLastCommitIso(absPath) {
   try {
@@ -50,7 +51,7 @@ function lastmodFor(urlPath) {
 }
 
 /** @type {import('next-sitemap').IConfig} */
-module.exports = {
+const config = {
   siteUrl: 'https://zerogex.io',
   generateRobotsTxt: false,
 
@@ -129,3 +130,5 @@ module.exports = {
     return { loc: urlPath, changefreq: 'monthly', priority: 0.6, lastmod };
   },
 };
+
+export default config;
