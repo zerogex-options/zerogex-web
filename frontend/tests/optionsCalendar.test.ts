@@ -8,8 +8,15 @@ import assert from "node:assert/strict";
 
 import {
   getUpcomingOptionsEvents,
+  parseNyseHolidays,
   urgencyForDaysUntil,
 } from "../core/optionsCalendar.ts";
+
+// Same list documented in .env.example — used to drive the holiday-aware
+// behavior tests below. Trimmed to the years we care about.
+const SAMPLE_HOLIDAYS_2026_2027 =
+  "2026-01-01,2026-01-19,2026-02-16,2026-04-03,2026-05-25,2026-06-19,2026-07-03,2026-09-07,2026-11-26,2026-12-25," +
+  "2027-01-01,2027-01-18,2027-02-15,2027-03-26,2027-05-31,2027-06-18,2027-07-05,2027-09-06,2027-11-25,2027-12-24";
 
 // "now" is anchored at noon ET to avoid DST-edge surprises.
 function noonET(year: number, month: number, day: number): Date {
@@ -114,4 +121,100 @@ test("events are sorted by daysUntil ascending", () => {
       `events out of order at ${i}: ${events[i - 1].daysUntil} → ${events[i].daysUntil}`,
     );
   }
+});
+
+test("parseNyseHolidays handles comma list, trims junk, infers names", () => {
+  const list = parseNyseHolidays(SAMPLE_HOLIDAYS_2026_2027);
+  const byDate = new Map(list.map((h) => [h.isoDate, h.name] as const));
+  assert.equal(byDate.get("2026-01-01"), "New Year's Day");
+  assert.equal(byDate.get("2026-01-19"), "MLK Day");
+  assert.equal(byDate.get("2026-02-16"), "Presidents Day");
+  assert.equal(byDate.get("2026-04-03"), "Good Friday");
+  assert.equal(byDate.get("2026-05-25"), "Memorial Day");
+  assert.equal(byDate.get("2026-06-19"), "Juneteenth");
+  assert.equal(byDate.get("2026-07-03"), "Independence Day");
+  assert.equal(byDate.get("2026-09-07"), "Labor Day");
+  assert.equal(byDate.get("2026-11-26"), "Thanksgiving");
+  assert.equal(byDate.get("2026-12-25"), "Christmas");
+  assert.equal(byDate.get("2027-05-31"), "Memorial Day");
+  assert.equal(byDate.get("2027-06-18"), "Juneteenth");
+});
+
+test("parseNyseHolidays returns [] for empty / malformed input", () => {
+  assert.deepEqual(parseNyseHolidays(undefined), []);
+  assert.deepEqual(parseNyseHolidays(""), []);
+  assert.deepEqual(
+    parseNyseHolidays("not-a-date, 2026-13-40, 2026-01-01").map((h) => h.isoDate),
+    ["2026-01-01"],
+  );
+});
+
+test("Juneteenth on the 3rd Friday shifts Quad Witching back to Thursday", () => {
+  // 2026-06-19 is both Juneteenth and the 3rd Friday → Quad Witching should
+  // land on Thursday 2026-06-18 instead of the closed Friday.
+  const events = getUpcomingOptionsEvents({
+    now: noonET(2026, 6, 1),
+    lookAheadDays: 45,
+    maxEvents: 32,
+    holidays: SAMPLE_HOLIDAYS_2026_2027.split(","),
+  });
+  const witching = events.find((e) => e.kind === "quad-witching");
+  assert.ok(witching, "expected Quad Witching in June 2026 window");
+  assert.equal(witching.isoDate, "2026-06-18");
+
+  // Same date collision in 2027 (Juneteenth observed on Friday June 18).
+  const events2027 = getUpcomingOptionsEvents({
+    now: noonET(2027, 6, 1),
+    lookAheadDays: 45,
+    maxEvents: 32,
+    holidays: SAMPLE_HOLIDAYS_2026_2027.split(","),
+  });
+  const witching2027 = events2027.find((e) => e.kind === "quad-witching");
+  assert.ok(witching2027, "expected Quad Witching in June 2027 window");
+  assert.equal(witching2027.isoDate, "2027-06-17");
+});
+
+test("Memorial Day landing on the last weekday of May shifts month-end back", () => {
+  // 2027-05-31 is both Memorial Day (last Monday of May) and the last
+  // weekday of May → Month End should fall on Friday 2027-05-28.
+  const events = getUpcomingOptionsEvents({
+    now: noonET(2027, 5, 1),
+    lookAheadDays: 45,
+    maxEvents: 32,
+    holidays: SAMPLE_HOLIDAYS_2026_2027.split(","),
+  });
+  const monthEnd = events.find((e) => e.kind === "month-end");
+  assert.ok(monthEnd, "expected Month End in May 2027 window");
+  assert.equal(monthEnd.isoDate, "2027-05-28");
+});
+
+test("upcoming NYSE holidays surface as their own calendar entries", () => {
+  // Two days before Juneteenth 2026, the holiday should appear in the
+  // upcoming list (and Quad Witching for the shifted Thursday too).
+  const events = getUpcomingOptionsEvents({
+    now: noonET(2026, 6, 17),
+    lookAheadDays: 10,
+    maxEvents: 16,
+    holidays: SAMPLE_HOLIDAYS_2026_2027.split(","),
+  });
+  const holiday = events.find(
+    (e) => e.kind === "nyse-holiday" && e.isoDate === "2026-06-19",
+  );
+  assert.ok(holiday, "expected Juneteenth as an nyse-holiday entry");
+  assert.match(holiday.label, /Juneteenth/);
+  assert.equal(holiday.daysUntil, 2);
+});
+
+test("disabling holiday awareness restores the legacy Friday witching date", () => {
+  // With holidays: [] override, the unaware behavior puts Quad Witching
+  // on the nominal 3rd Friday even though it's a market closure day.
+  const events = getUpcomingOptionsEvents({
+    now: noonET(2026, 6, 1),
+    lookAheadDays: 45,
+    maxEvents: 32,
+    holidays: [],
+  });
+  const witching = events.find((e) => e.kind === "quad-witching");
+  assert.ok(witching);
+  assert.equal(witching.isoDate, "2026-06-19");
 });

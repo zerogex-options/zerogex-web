@@ -11,7 +11,8 @@ export type OptionsEventKind =
   | "quarter-end"
   | "month-end"
   | "jpm-collar"
-  | "russell-rebalance";
+  | "russell-rebalance"
+  | "nyse-holiday";
 
 export interface OptionsEvent {
   kind: OptionsEventKind;
@@ -22,6 +23,117 @@ export interface OptionsEvent {
   description: string;
   daysUntil: number;
 }
+
+// NYSE holiday calendar, loaded from NEXT_PUBLIC_NYSE_HOLIDAYS
+// (comma-separated YYYY-MM-DD list). Used both to surface upcoming
+// market closures and to shift other events (OPEX, VIX expiry, etc.)
+// back to the previous business day when they land on a closed day —
+// the classic case is Juneteenth landing on the 3rd Friday of June.
+export interface NyseHoliday {
+  isoDate: string;
+  y: number;
+  m: number;
+  d: number;
+  name: string;
+}
+
+export interface NyseHolidayCalendar {
+  has(isoDate: string): boolean;
+  get(isoDate: string): NyseHoliday | undefined;
+  values(): NyseHoliday[];
+}
+
+export function parseNyseHolidays(raw: string | null | undefined): NyseHoliday[] {
+  if (!raw) return [];
+  const out: NyseHoliday[] = [];
+  for (const token of raw.split(",")) {
+    const s = token.trim();
+    if (!s) continue;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!match) continue;
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    if (m < 1 || m > 12 || d < 1 || d > 31) continue;
+    out.push({
+      isoDate: `${match[1]}-${match[2]}-${match[3]}`,
+      y,
+      m,
+      d,
+      name: nameForNyseHoliday(y, m, d),
+    });
+  }
+  return out;
+}
+
+export function buildNyseHolidayCalendar(list: NyseHoliday[]): NyseHolidayCalendar {
+  const map = new Map<string, NyseHoliday>();
+  for (const h of list) map.set(h.isoDate, h);
+  return {
+    has: (iso) => map.has(iso),
+    get: (iso) => map.get(iso),
+    values: () => Array.from(map.values()),
+  };
+}
+
+// Best-effort holiday-name inference from the date pattern. NYSE holidays
+// follow well-known recurrences (3rd Monday of Jan = MLK, etc.), so we
+// recognize them without needing a separate name list in env.
+function nameForNyseHoliday(year: number, month: number, day: number): string {
+  const wd = etWeekday(year, month, day);
+  if (month === 1 && day <= 3) return "New Year's Day";
+  if (month === 12 && day >= 23) return "Christmas";
+  if (month === 7 && day >= 3 && day <= 5) return "Independence Day";
+  if (month === 6 && day >= 18 && day <= 20) return "Juneteenth";
+  if (month === 1 && wd === 1 && day >= 15 && day <= 21) return "MLK Day";
+  if (month === 2 && wd === 1 && day >= 15 && day <= 21) return "Presidents Day";
+  if (month === 5 && wd === 1 && day >= 25) return "Memorial Day";
+  if (month === 9 && wd === 1 && day <= 7) return "Labor Day";
+  if (month === 11 && wd === 4 && day >= 22 && day <= 28) return "Thanksgiving";
+  if ((month === 3 || month === 4) && wd === 5) return "Good Friday";
+  return "NYSE Holiday";
+}
+
+function isoFromYmd(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Walk backwards from (y, m, d) until we land on a non-weekend, non-holiday
+// trading day. Bounded loop guards against pathological inputs.
+function previousBusinessDay(
+  y: number,
+  m: number,
+  d: number,
+  holidays: NyseHolidayCalendar,
+): { y: number; m: number; d: number } {
+  let cy = y;
+  let cm = m;
+  let cd = d;
+  for (let i = 0; i < 14; i++) {
+    const wd = etWeekday(cy, cm, cd);
+    const iso = isoFromYmd(cy, cm, cd);
+    if (wd >= 1 && wd <= 5 && !holidays.has(iso)) {
+      return { y: cy, m: cm, d: cd };
+    }
+    if (cd > 1) {
+      cd -= 1;
+    } else {
+      cm -= 1;
+      if (cm < 1) {
+        cm = 12;
+        cy -= 1;
+      }
+      cd = daysInMonth(cy, cm);
+    }
+  }
+  return { y: cy, m: cm, d: cd };
+}
+
+const DEFAULT_NYSE_HOLIDAYS: NyseHolidayCalendar = buildNyseHolidayCalendar(
+  parseNyseHolidays(
+    typeof process !== "undefined" ? process.env.NEXT_PUBLIC_NYSE_HOLIDAYS : undefined,
+  ),
+);
 
 // US weekday number for a given date in ET. 0 = Sunday, 6 = Saturday.
 function etWeekday(year: number, month: number, day: number): number {
@@ -121,9 +233,22 @@ interface EventSeed {
   d: number;
 }
 
+// Shift a seed back to the previous business day if it lands on a NYSE
+// holiday. Equity OPEX / VIX expiry / quarter-end rebalances all observe
+// the move-back-one-day convention when their nominal day is closed.
+function shiftSeedIfClosed(seed: EventSeed, holidays: NyseHolidayCalendar): EventSeed {
+  if (!holidays.has(isoFromYmd(seed.y, seed.m, seed.d))) return seed;
+  const shifted = previousBusinessDay(seed.y, seed.m, seed.d, holidays);
+  return { ...seed, y: shifted.y, m: shifted.m, d: shifted.d };
+}
+
 // Build the raw event list for a single month, deduplicating events that fall
 // on the same date (e.g. OPEX + Quad Witching in March/June/Sep/Dec).
-function eventsForMonth(year: number, month: number): EventSeed[] {
+function eventsForMonth(
+  year: number,
+  month: number,
+  holidays: NyseHolidayCalendar,
+): EventSeed[] {
   const seeds: EventSeed[] = [];
   const tf = thirdFriday(year, month);
   const isWitchingMonth = isQuarterEndMonth(month);
@@ -215,19 +340,55 @@ function eventsForMonth(year: number, month: number): EventSeed[] {
     });
   }
 
-  return seeds;
+  // Surface NYSE holidays in this month as their own calendar entries so
+  // traders can see upcoming market closures at a glance.
+  for (const h of holidays.values()) {
+    if (h.y !== year || h.m !== month) continue;
+    seeds.push({
+      kind: "nyse-holiday",
+      label: `Market Closed — ${h.name}`,
+      shortLabel: h.name,
+      description: `NYSE is closed for ${h.name}. No equity or options trading; positioning carries over from the prior session's close.`,
+      y: h.y,
+      m: h.m,
+      d: h.d,
+    });
+  }
+
+  return seeds.map((seed) =>
+    seed.kind === "nyse-holiday" ? seed : shiftSeedIfClosed(seed, holidays),
+  );
 }
 
 export interface UpcomingEventsOptions {
   now?: Date;
   lookAheadDays?: number;
   maxEvents?: number;
+  // Override the NYSE holiday calendar. Defaults to the list parsed from
+  // NEXT_PUBLIC_NYSE_HOLIDAYS at module load. Pass [] to disable holiday
+  // awareness entirely (useful in tests).
+  holidays?: NyseHolidayCalendar | NyseHoliday[] | string[];
+}
+
+function resolveHolidays(
+  override: UpcomingEventsOptions["holidays"],
+): NyseHolidayCalendar {
+  if (override === undefined) return DEFAULT_NYSE_HOLIDAYS;
+  if (Array.isArray(override)) {
+    if (override.length === 0) return buildNyseHolidayCalendar([]);
+    if (typeof override[0] === "string") {
+      return buildNyseHolidayCalendar(parseNyseHolidays((override as string[]).join(",")));
+    }
+    return buildNyseHolidayCalendar(override as NyseHoliday[]);
+  }
+  return override;
 }
 
 export function getUpcomingOptionsEvents(opts: UpcomingEventsOptions = {}): OptionsEvent[] {
   const now = opts.now ?? new Date();
   const lookAhead = opts.lookAheadDays ?? 45;
   const maxEvents = opts.maxEvents ?? 8;
+  const holidays = resolveHolidays(opts.holidays);
 
   const t = todayInET(now);
   // Scan current month + next 2 months to safely cover a 45-day window
@@ -236,7 +397,7 @@ export function getUpcomingOptionsEvents(opts: UpcomingEventsOptions = {}): Opti
   for (let offset = 0; offset <= 2; offset++) {
     const m = ((t.m - 1 + offset) % 12) + 1;
     const y = t.y + Math.floor((t.m - 1 + offset) / 12);
-    seeds.push(...eventsForMonth(y, m));
+    seeds.push(...eventsForMonth(y, m, holidays));
   }
 
   // Group by date so OPEX + VIX-expiration that happen to collide get merged
