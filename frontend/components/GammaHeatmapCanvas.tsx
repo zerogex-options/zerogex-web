@@ -853,7 +853,9 @@ export default function GammaHeatmapCanvas() {
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
   const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
   const dteValue = computeDte(dteSourceExpiry);
-  const dteLabel = dteValue != null ? `${dteValue}d` : '—';
+  // With all expirations selected there's no single DTE to show, so mirror the
+  // expiry chip and display "All" instead of the front-month's days-to-expiry.
+  const dteLabel = selectedExpiry === 'all' ? 'All' : dteValue != null ? `${dteValue}d` : '—';
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const latestTs = grid?.timestamps?.[grid.timestamps.length - 1];
   const updatedLabel = latestTs ? new Date(latestTs).toLocaleTimeString() : '—';
@@ -1023,7 +1025,7 @@ export default function GammaHeatmapCanvas() {
           )}
         </div>
 
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry (front month or selected)">
+        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
           <span>DTE {dteLabel}</span>
         </div>
 

@@ -749,11 +749,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
+    // Scale to the active gamma mode so Net bars fill the column the same way
+    // Split bars do — otherwise the Split-mode max (typically dominated by
+    // |callGex| or |putGex|) would dwarf the per-strike netGex magnitudes and
+    // leave the Net view's bars stranded in the middle of the panel.
+    if (gexMode === 'net') {
+      return Math.max(1, ...visibleStrikes.map((s) => Math.abs(s.netGex)));
+    }
     return Math.max(
       1,
-      ...visibleStrikes.map((s) => Math.max(Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex))),
+      ...visibleStrikes.map((s) => Math.max(Math.abs(s.callGex), Math.abs(s.putGex))),
     );
-  }, [visibleStrikes]);
+  }, [visibleStrikes, gexMode]);
 
   const positionsXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
