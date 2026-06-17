@@ -155,9 +155,12 @@ function DeltaBadge({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function ScoreRangeLegend({ activeKey }: { activeKey: string | null }) {
+function ScoreRangeLegend({ activeKey, orientation = 'horizontal' }: { activeKey: string | null; orientation?: 'horizontal' | 'vertical' }) {
+  const gridClass = orientation === 'vertical'
+    ? 'grid grid-cols-1 gap-1.5'
+    : 'grid grid-cols-2 lg:grid-cols-4 gap-1.5';
   return (
-    <ul className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+    <ul className={gridClass}>
       {[...REGIME_BANDS].reverse().map(({ regime }) => {
         const active = regime.key === activeKey;
         return (
@@ -291,12 +294,13 @@ export default function CompositeScorePage() {
 
       <SignalsGuide current="composite-score" />
 
-      {/* Hero gauge — gauge + regime info side by side, score-range strip below. */}
+      {/* Hero gauge — gauge / regime info / score-range cards in three columns. */}
       <section className="zg-feature-shell p-6">
         {loading && composite == null ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_240px] gap-6">
             <Skeleton height={300} label="Loading gauge…" />
             <Skeleton height={300} label="Loading regime…" />
+            <Skeleton height={300} label="Loading ranges…" />
           </div>
         ) : noData ? (
           <div
@@ -310,44 +314,46 @@ export default function CompositeScorePage() {
           </div>
         ) : (
           <div
+            className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)_240px] gap-6 items-center"
             style={{ opacity: connection === 'disconnected' ? 0.6 : 1, transition: 'opacity 200ms' }}
           >
-            <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-center">
-              <div className="flex justify-center lg:justify-start">
-                <CompositeGauge score={composite} size={320} />
+            <div className="flex justify-center lg:justify-start">
+              <CompositeGauge score={composite} size={320} />
+            </div>
+            <div className="min-w-0 flex flex-col gap-3">
+              <div
+                className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-semibold"
+                style={{
+                  borderColor: regime.color,
+                  background: regime.softColor,
+                  color: regime.color,
+                  transition: 'all 250ms ease-out',
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                <span aria-hidden>{regime.glyph}</span>
+                <span>{regime.label}</span>
+                <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
               </div>
-              <div className="min-w-0 flex flex-col gap-3">
-                <div
-                  className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-semibold"
-                  style={{
-                    borderColor: regime.color,
-                    background: regime.softColor,
-                    color: regime.color,
-                    transition: 'all 250ms ease-out',
-                  }}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span aria-hidden>{regime.glyph}</span>
-                  <span>{regime.label}</span>
-                  <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
-                </div>
-                <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
-                  {regime.copy}
-                </p>
-                <HeroDeltas history={history} composite={composite} />
-                <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-                  <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
-                  <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
-                  <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
-                </div>
+              <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
+                {regime.copy}
+              </p>
+              <HeroDeltas history={history} composite={composite} />
+              <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
+                <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
               </div>
             </div>
-            <div className="mt-5">
+            <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-1.5">
                 Score ranges
               </div>
-              <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
+              <ScoreRangeLegend
+                activeKey={composite != null ? regime.key : null}
+                orientation="vertical"
+              />
             </div>
           </div>
         )}
