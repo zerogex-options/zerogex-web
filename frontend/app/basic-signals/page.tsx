@@ -18,6 +18,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import AdvancedSignalCard, { type AdvancedSignalContextRow } from '@/components/AdvancedSignalCard';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
 import {
   useBasicSignalsBundle,
@@ -228,6 +229,8 @@ export default function BasicSignalsPage() {
       </div>
 
       {bundle.error && <ErrorMessage message={bundle.error} onRetry={bundle.refetch} />}
+
+      <SignalsGuide current="basic-signals" />
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_1fr] gap-6 items-center">

@@ -9,8 +9,8 @@ interface Props {
   composite: number | null;
 }
 
-const POSITIVE = '#16A34A';
-const NEGATIVE = '#DC2626';
+const POSITIVE = 'var(--color-bull)';
+const NEGATIVE = 'var(--color-bear)';
 
 function ContributionStackImpl({ components, composite }: Props) {
   // Order strictly matches the spec: net_gex → gamma_anchor → PCR → vol → flow → delta.

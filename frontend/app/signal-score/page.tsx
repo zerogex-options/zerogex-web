@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Activity, Info, LayoutGrid, LineChart as LineChartIcon, ShieldAlert } from 'lucide-react';
+import { Activity, Info, LayoutGrid, LineChart as LineChartIcon } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import SignalsGuide from '@/components/SignalsGuide';
 import CompositeGauge from './CompositeGauge';
 import ContributionStack from './ContributionStack';
 import ComponentCard from './ComponentCard';
@@ -156,39 +157,33 @@ function DeltaBadge({ label, value }: { label: string; value: number | null }) {
 
 function ScoreRangeLegend({ activeKey }: { activeKey: string | null }) {
   return (
-    <div className="rounded-xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">
-        Score ranges
-      </div>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {[...REGIME_BANDS].reverse().map(({ regime }) => {
-          const active = regime.key === activeKey;
-          return (
-            <li
-              key={regime.key}
-              className="rounded-lg border px-2.5 py-1.5 flex items-start gap-2"
-              style={{
-                borderColor: active ? regime.color : 'var(--color-border)',
-                background: active ? `${regime.color}12` : 'transparent',
-              }}
-            >
-              <span aria-hidden style={{ color: regime.color, fontSize: 14, lineHeight: '20px' }}>
+    <ul className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+      {[...REGIME_BANDS].reverse().map(({ regime }) => {
+        const active = regime.key === activeKey;
+        return (
+          <li
+            key={regime.key}
+            className="rounded-md border px-2 py-1.5"
+            style={{
+              borderColor: active ? regime.color : 'var(--color-border)',
+              background: active ? regime.softColor : 'transparent',
+              transition: 'background 200ms, border-color 200ms',
+            }}
+          >
+            <div className="flex items-baseline gap-1.5">
+              <span aria-hidden style={{ color: regime.color, fontSize: 11, lineHeight: '14px' }}>
                 {regime.glyph}
               </span>
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[12px] font-semibold" style={{ color: regime.color }}>{regime.label}</span>
-                  <span className="text-[11px] font-mono text-[var(--color-text-secondary)]" style={{ fontVariantNumeric: 'tabular-nums' }}>{regime.rangeLabel}</span>
-                </div>
-                <p className="text-[11px] leading-snug text-[var(--color-text-secondary)] mt-0.5">
-                  {regime.copy}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+              <span className="text-[11px] font-semibold leading-tight" style={{ color: regime.color }}>{regime.label}</span>
+              <span className="text-[10px] font-mono text-[var(--color-text-secondary)] ml-auto" style={{ fontVariantNumeric: 'tabular-nums' }}>{regime.rangeLabel}</span>
+            </div>
+            <p className="text-[10px] leading-snug text-[var(--color-text-secondary)] mt-0.5">
+              {regime.copy}
+            </p>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -223,19 +218,19 @@ function LiveIndicator({
 
   const ageSec = lastUpdatedAt != null ? Math.max(0, Math.floor((now - lastUpdatedAt) / 1000)) : null;
 
-  let dotColor = '#6B7280';
+  let dotColor = 'var(--color-text-secondary)';
   let statusText = 'Connecting…';
   let statusGlyph: '●' | '◐' | '○' = '○';
   if (connection === 'disconnected') {
-    dotColor = '#DC2626';
+    dotColor = 'var(--color-bear)';
     statusText = 'Disconnected — retrying';
     statusGlyph = '○';
   } else if (connection === 'stale') {
-    dotColor = '#D97706';
+    dotColor = 'var(--color-warning)';
     statusText = ageSec != null ? `Stale • ${ageSec}s ago` : 'Stale';
     statusGlyph = '◐';
   } else if (connection === 'live') {
-    dotColor = '#16A34A';
+    dotColor = 'var(--color-bull)';
     statusText = ageSec != null ? `LIVE • updated ${ageSec}s ago` : 'LIVE';
     statusGlyph = '●';
   }
@@ -294,33 +289,12 @@ export default function CompositeScorePage() {
         </div>
       )}
 
-      {/* Composite lens header — matches Basic/Advanced Signals dashboards. */}
+      <SignalsGuide current="composite-score" />
+
+      {/* Hero gauge — gauge + regime info side by side, score-range strip below. */}
       <section className="zg-feature-shell p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_1fr] gap-6 items-center">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldAlert size={16} className="text-[var(--color-warning)]" />
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Composite Lens</div>
-            </div>
-            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              The MSI reads the option-structure regime — not direction. Six weighted components blend into a single
-              0–100 score; high readings mean trends can run, low readings mean they probably won&apos;t.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-              <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
-              <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
-              <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
-            </div>
-          </div>
-
-          <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
-        </div>
-      </section>
-
-      {/* Hero gauge */}
-      <section className="zg-feature-shell mt-8 p-6">
         {loading && composite == null ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-6">
             <Skeleton height={300} label="Loading gauge…" />
             <Skeleton height={300} label="Loading regime…" />
           </div>
@@ -336,32 +310,44 @@ export default function CompositeScorePage() {
           </div>
         ) : (
           <div
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8 items-center"
             style={{ opacity: connection === 'disconnected' ? 0.6 : 1, transition: 'opacity 200ms' }}
           >
-            <div className="flex justify-center">
-              <CompositeGauge score={composite} size={320} />
-            </div>
-            <div className="min-w-0 flex flex-col gap-4">
-              <div
-                className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-semibold"
-                style={{
-                  borderColor: regime.color,
-                  background: `${regime.color}1A`,
-                  color: regime.color,
-                  transition: 'all 250ms ease-out',
-                }}
-                role="status"
-                aria-live="polite"
-              >
-                <span aria-hidden>{regime.glyph}</span>
-                <span>{regime.label}</span>
-                <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-center">
+              <div className="flex justify-center lg:justify-start">
+                <CompositeGauge score={composite} size={320} />
               </div>
-              <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
-                {regime.copy}
-              </p>
-              <HeroDeltas history={history} composite={composite} />
+              <div className="min-w-0 flex flex-col gap-3">
+                <div
+                  className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-sm font-semibold"
+                  style={{
+                    borderColor: regime.color,
+                    background: regime.softColor,
+                    color: regime.color,
+                    transition: 'all 250ms ease-out',
+                  }}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span aria-hidden>{regime.glyph}</span>
+                  <span>{regime.label}</span>
+                  <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
+                </div>
+                <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
+                  {regime.copy}
+                </p>
+                <HeroDeltas history={history} composite={composite} />
+                <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
+                  <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
+                  <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
+                  <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-1.5">
+                Score ranges
+              </div>
+              <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
             </div>
           </div>
         )}

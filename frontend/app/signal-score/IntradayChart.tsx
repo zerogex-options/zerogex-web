@@ -345,7 +345,7 @@ function ChartTooltip({
             return (
               <div key={c.key} className="flex items-center justify-between gap-3">
                 <span className="text-[var(--color-text-secondary)]">{label.title}</span>
-                <span style={{ color: val >= 0 ? '#16A34A' : '#DC2626' }}>
+                <span style={{ color: val >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {val >= 0 ? '+' : ''}{val.toFixed(2)}
                 </span>
               </div>

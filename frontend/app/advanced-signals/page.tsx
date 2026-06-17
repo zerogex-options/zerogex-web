@@ -19,6 +19,7 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import AdvancedSignalCard, { type AdvancedSignalContextRow } from '@/components/AdvancedSignalCard';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
+import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
 import {
   useVolExpansionSignal,
@@ -214,6 +215,8 @@ export default function AdvancedSignalsPage() {
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
+
+      <SignalsGuide current="advanced-signals" />
 
       <section className="zg-feature-shell p-6">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_1fr] gap-6 items-center">

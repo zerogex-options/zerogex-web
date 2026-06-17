@@ -205,10 +205,10 @@ function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history
   const entryPrice = getNumber(row.entry_price);
   const exitPrice = getNumber(row.current_price);
   const quantity = getNumber(row.quantity_initial ?? row.quantity_open ?? row.contracts);
-  const totalCost = entryPrice != null && quantity != null
+  const entryNotional = entryPrice != null && quantity != null
     ? entryPrice * quantity * CONTRACT_MULTIPLIER
     : null;
-  const totalProceeds = exitPrice != null && quantity != null
+  const exitNotional = exitPrice != null && quantity != null
     ? exitPrice * quantity * CONTRACT_MULTIPLIER
     : null;
 
@@ -216,6 +216,28 @@ function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history
   const unrealized = getNumber(row.unrealized_pnl);
   const total = getPnl(row);
   const pnlPct = getNumber(row.pnl_percent);
+
+  // Position side: backend exposes pricing_mode ("debit" = long, "credit" =
+  // short). When absent (older trades), infer from PnL sign vs the price
+  // move — if they disagree, it's a short.
+  const pricingMode = getString(row.pricing_mode).toLowerCase();
+  let isShort: boolean;
+  if (pricingMode === 'credit') isShort = true;
+  else if (pricingMode === 'debit') isShort = false;
+  else if (entryPrice != null && exitPrice != null && total !== 0) {
+    const priceUp = exitPrice > entryPrice;
+    const pnlUp = total > 0;
+    isShort = priceUp !== pnlUp;
+  } else isShort = false;
+
+  const sideLabel = isShort ? 'SHORT' : 'LONG';
+  const sideColor = isShort ? 'var(--color-bear)' : 'var(--color-bull)';
+  const sideBg = isShort ? 'var(--color-bear-soft)' : 'var(--color-bull-soft)';
+  // Direction-aware labels so cash flow framing matches the position.
+  const entryAmountLabel = isShort ? 'Credit received' : 'Total cost';
+  const exitAmountLabel = isLive
+    ? (isShort ? 'Cost to close (mark)' : 'Mark-to-market value')
+    : (isShort ? 'Buyback cost' : 'Total proceeds');
 
   const pnlColor = (v: number | null) =>
     v == null ? 'var(--color-text-primary)'
@@ -244,19 +266,35 @@ function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history
             {strike != null ? ` $${strike.toFixed(2)}` : ''} <span className="text-[var(--color-text-secondary)] font-normal">· exp {expiration}</span>
           </div>
         </div>
-        <span
-          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-          style={{
-            color: direction.includes('bull') ? 'var(--color-bull)'
-              : direction.includes('bear') ? 'var(--color-bear)'
-              : 'var(--color-text-secondary)',
-            background: direction.includes('bull') ? 'var(--color-bull-soft)'
-              : direction.includes('bear') ? 'var(--color-bear-soft)'
-              : 'transparent',
-          }}
-        >
-          {direction || '—'}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: sideColor, background: sideBg }}
+            title={isShort
+              ? 'Held short — entry was a premium received, exit was a buyback cost. PnL = received − buyback.'
+              : 'Held long — entry was a premium paid, exit was a sale. PnL = sale − cost.'}
+          >
+            {sideLabel}
+          </span>
+          {direction ? (
+            <span
+              className="rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+              style={{
+                color: direction.includes('bull') ? 'var(--color-bull)'
+                  : direction.includes('bear') ? 'var(--color-bear)'
+                  : 'var(--color-text-secondary)',
+                background: 'transparent',
+                border: `1px solid ${direction.includes('bull') ? 'var(--color-bull)'
+                  : direction.includes('bear') ? 'var(--color-bear)'
+                  : 'var(--color-border)'}`,
+                opacity: 0.85,
+              }}
+              title="Regime bias at entry (not the trade side)."
+            >
+              {direction} bias
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="px-4 py-3">
@@ -267,7 +305,7 @@ function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history
           <PopoverRow label="Time entered" value={formatExactEtTime(row.opened_at)} />
           <PopoverRow label="Price / contract" value={formatPerContract(entryPrice)} />
           <PopoverRow label="Contracts" value={quantity != null ? quantity.toLocaleString() : '—'} />
-          <PopoverRow label="Total cost" value={formatMoneyFull(totalCost)} />
+          <PopoverRow label={entryAmountLabel} value={formatMoneyFull(entryNotional)} />
         </div>
 
         <div className="border-t my-3" style={{ borderColor: 'var(--color-border)', opacity: 0.6 }} />
@@ -278,7 +316,7 @@ function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history
         <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5">
           <PopoverRow label={isLive ? 'Status' : 'Time closed'} value={isLive ? 'Open' : formatExactEtTime(row.closed_at ?? row.exit_at)} />
           <PopoverRow label={isLive ? 'Mark / contract' : 'Price / contract'} value={formatPerContract(exitPrice)} />
-          <PopoverRow label={isLive ? 'Mark-to-market value' : 'Total proceeds'} value={formatMoneyFull(totalProceeds)} />
+          <PopoverRow label={exitAmountLabel} value={formatMoneyFull(exitNotional)} />
         </div>
 
         <div className="border-t my-3" style={{ borderColor: 'var(--color-border)', opacity: 0.6 }} />

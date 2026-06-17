@@ -9,9 +9,9 @@ interface Props {
   entry: ComponentEntry;
 }
 
-const POSITIVE = '#16A34A';
-const NEGATIVE = '#DC2626';
-const NEUTRAL = '#6B7280';
+const POSITIVE = 'var(--color-bull)';
+const NEGATIVE = 'var(--color-bear)';
+const NEUTRAL = 'var(--color-text-secondary)';
 
 function colorFor(score: number | null): string {
   if (score == null || !Number.isFinite(score)) return NEUTRAL;

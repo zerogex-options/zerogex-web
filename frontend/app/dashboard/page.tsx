@@ -16,6 +16,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { useTheme } from '@/core/ThemeContext';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
+import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
@@ -221,6 +222,9 @@ export default function DashboardPage() {
         </div>
       </section>
 
+
+      {/* How-to-read explainer (collapsed by default) */}
+      <SignalsGuide current="trade-bias" />
 
       {/* Trade Bias Engine */}
       <TradeBiasSection />
