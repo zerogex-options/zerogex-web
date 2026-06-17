@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Activity, Info, LayoutGrid, LineChart as LineChartIcon } from 'lucide-react';
+import { Activity, Info, LayoutGrid, LineChart as LineChartIcon, ShieldAlert } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import CompositeGauge from './CompositeGauge';
 import ContributionStack from './ContributionStack';
@@ -294,8 +294,31 @@ export default function CompositeScorePage() {
         </div>
       )}
 
-      {/* Hero section */}
+      {/* Composite lens header — matches Basic/Advanced Signals dashboards. */}
       <section className="zg-feature-shell p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_1fr] gap-6 items-center">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldAlert size={16} className="text-[var(--color-warning)]" />
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Composite Lens</div>
+            </div>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              The MSI reads the option-structure regime — not direction. Six weighted components blend into a single
+              0–100 score; high readings mean trends can run, low readings mean they probably won&apos;t.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
+              <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
+              <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
+              <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
+            </div>
+          </div>
+
+          <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
+        </div>
+      </section>
+
+      {/* Hero gauge */}
+      <section className="zg-feature-shell mt-8 p-6">
         {loading && composite == null ? (
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8">
             <Skeleton height={300} label="Loading gauge…" />
@@ -313,7 +336,7 @@ export default function CompositeScorePage() {
           </div>
         ) : (
           <div
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8 items-start"
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] gap-8 items-center"
             style={{ opacity: connection === 'disconnected' ? 0.6 : 1, transition: 'opacity 200ms' }}
           >
             <div className="flex justify-center">
@@ -339,7 +362,6 @@ export default function CompositeScorePage() {
                 {regime.copy}
               </p>
               <HeroDeltas history={history} composite={composite} />
-              <ScoreRangeLegend activeKey={composite != null ? regime.key : null} />
             </div>
           </div>
         )}
@@ -362,7 +384,7 @@ export default function CompositeScorePage() {
       </section>
 
       {/* Component cards: all uniform height. */}
-      <section className="mt-8">
+      <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Activity size={20} />
           Components

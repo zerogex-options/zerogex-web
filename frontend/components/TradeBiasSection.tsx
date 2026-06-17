@@ -48,10 +48,9 @@ function BiasCard({
 }) {
   return (
     <div
-      className="rounded-2xl border p-5 flex flex-col gap-3 transition-colors"
+      className="zg-feature-shell p-5 flex flex-col gap-3 transition-colors"
       style={{
         borderColor: color,
-        background: 'var(--color-surface-subtle)',
       }}
     >
       <div className="flex items-start justify-between gap-2">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Brain, Info, ShieldCheck, TableProperties, TrendingUp, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useSignalAction, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
@@ -89,8 +90,40 @@ function formatOpenedAt(value: unknown): string {
     + ' ET';
 }
 
+function formatExactEtTime(value: unknown): string {
+  const parsed = typeof value === 'string' ? new Date(value) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return '—';
+  const date = parsed.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York',
+  });
+  const time = parsed.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/New_York',
+  });
+  return `${date} · ${time} ET`;
+}
+
+function formatPerContract(value: number | null): string {
+  if (value == null) return '—';
+  return `$${value.toFixed(2)}`;
+}
+
+function formatPnlFull(value: number | null): string {
+  if (value == null) return '—';
+  const formatted = value.toLocaleString('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
 function getTradeTimestamp(row: TradeRow): Date | null {
   const raw = row.closed_at ?? row.exit_at ?? row.opened_at ?? row.created_at ?? row.timestamp;
+  if (typeof raw !== 'string') return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getOpenedAtDate(row: TradeRow): Date | null {
+  const raw = row.opened_at ?? row.created_at ?? row.timestamp;
   if (typeof raw !== 'string') return null;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -132,6 +165,145 @@ function getPnl(row: TradeRow): number {
   return (realized ?? 0) + (unrealized ?? 0);
 }
 
+const CONTRACT_MULTIPLIER = 100;
+
+function PopoverRow({
+  label,
+  value,
+  mono = true,
+  accent,
+}: {
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+  accent?: string;
+}) {
+  return (
+    <>
+      <div className="text-[11px] text-[var(--color-text-secondary)]">{label}</div>
+      <div
+        className={`text-[12px] text-right ${mono ? 'font-mono' : ''}`}
+        style={{ color: accent ?? 'var(--color-text-primary)', fontVariantNumeric: 'tabular-nums' }}
+      >
+        {value}
+      </div>
+    </>
+  );
+}
+
+function TradeRowPopover({ row, kind }: { row: TradeRow; kind: 'live' | 'history' }) {
+  const isLive = kind === 'live';
+  const underlying = getString(row.underlying);
+  const optionType = getString(row.option_type);
+  const typeLabel = optionType === 'C' || optionType.toLowerCase() === 'call' ? 'Call'
+    : optionType === 'P' || optionType.toLowerCase() === 'put' ? 'Put'
+    : optionType;
+  const strike = getNumber(row.strike);
+  const expiration = getString(row.expiration);
+  const direction = getString(row.direction).toLowerCase();
+
+  const entryPrice = getNumber(row.entry_price);
+  const exitPrice = getNumber(row.current_price);
+  const quantity = getNumber(row.quantity_initial ?? row.quantity_open ?? row.contracts);
+  const totalCost = entryPrice != null && quantity != null
+    ? entryPrice * quantity * CONTRACT_MULTIPLIER
+    : null;
+  const totalProceeds = exitPrice != null && quantity != null
+    ? exitPrice * quantity * CONTRACT_MULTIPLIER
+    : null;
+
+  const realized = getNumber(row.realized_pnl);
+  const unrealized = getNumber(row.unrealized_pnl);
+  const total = getPnl(row);
+  const pnlPct = getNumber(row.pnl_percent);
+
+  const pnlColor = (v: number | null) =>
+    v == null ? 'var(--color-text-primary)'
+    : v >= 0 ? 'var(--color-bull)'
+    : 'var(--color-bear)';
+
+  return (
+    <div
+      className="rounded-xl border"
+      style={{
+        width: 360,
+        background: 'var(--color-chart-tooltip-bg)',
+        borderColor: 'var(--color-border)',
+        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08)',
+        color: 'var(--color-chart-tooltip-text)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5"
+        style={{ borderColor: 'var(--color-border)' }}>
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
+            {isLive ? 'Live Position' : 'Closed Trade'}
+          </div>
+          <div className="text-sm font-semibold mt-0.5">
+            {underlying} {typeLabel}
+            {strike != null ? ` $${strike.toFixed(2)}` : ''} <span className="text-[var(--color-text-secondary)] font-normal">· exp {expiration}</span>
+          </div>
+        </div>
+        <span
+          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          style={{
+            color: direction.includes('bull') ? 'var(--color-bull)'
+              : direction.includes('bear') ? 'var(--color-bear)'
+              : 'var(--color-text-secondary)',
+            background: direction.includes('bull') ? 'var(--color-bull-soft)'
+              : direction.includes('bear') ? 'var(--color-bear-soft)'
+              : 'transparent',
+          }}
+        >
+          {direction || '—'}
+        </span>
+      </div>
+
+      <div className="px-4 py-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+          Entry
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5">
+          <PopoverRow label="Time entered" value={formatExactEtTime(row.opened_at)} />
+          <PopoverRow label="Price / contract" value={formatPerContract(entryPrice)} />
+          <PopoverRow label="Contracts" value={quantity != null ? quantity.toLocaleString() : '—'} />
+          <PopoverRow label="Total cost" value={formatMoneyFull(totalCost)} />
+        </div>
+
+        <div className="border-t my-3" style={{ borderColor: 'var(--color-border)', opacity: 0.6 }} />
+
+        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+          {isLive ? 'Current Mark' : 'Exit'}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5">
+          <PopoverRow label={isLive ? 'Status' : 'Time closed'} value={isLive ? 'Open' : formatExactEtTime(row.closed_at ?? row.exit_at)} />
+          <PopoverRow label={isLive ? 'Mark / contract' : 'Price / contract'} value={formatPerContract(exitPrice)} />
+          <PopoverRow label={isLive ? 'Mark-to-market value' : 'Total proceeds'} value={formatMoneyFull(totalProceeds)} />
+        </div>
+
+        <div className="border-t my-3" style={{ borderColor: 'var(--color-border)', opacity: 0.6 }} />
+
+        <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5">
+          {realized != null ? (
+            <PopoverRow label="Realized PnL" value={formatPnlFull(realized)} accent={pnlColor(realized)} />
+          ) : null}
+          {unrealized != null ? (
+            <PopoverRow label="Unrealized PnL" value={formatPnlFull(unrealized)} accent={pnlColor(unrealized)} />
+          ) : null}
+          <div className="text-[11px] font-semibold text-[var(--color-text-primary)] pt-1">Total PnL</div>
+          <div
+            className="text-right pt-1 font-mono font-bold text-sm"
+            style={{ color: pnlColor(total), fontVariantNumeric: 'tabular-nums' }}
+          >
+            {formatPnlFull(total)}
+            {pnlPct != null ? <span className="text-[10px] font-normal text-[var(--color-text-secondary)] ml-1">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)</span> : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TradingSignalsPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
@@ -140,6 +312,7 @@ export default function TradingSignalsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const [hideLowConfidence, setHideLowConfidence] = useState(false);
+  const [rowHover, setRowHover] = useState<{ idx: number; x: number; y: number } | null>(null);
 
   const { data: liveData, loading, error, refetch } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
   const { data: historyData, error: historyError, refetch: refetchHistory } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
@@ -158,17 +331,27 @@ export default function TradingSignalsPage() {
     [historyRows, timeframeFilter],
   );
 
+  // Live trades opened within the selected window are the only ones whose
+  // unrealized P&L counts toward that window's total. The backend returns
+  // unrealized_pnl as cumulative position-lifetime mark, so a trade opened
+  // last week up $400K would otherwise inflate "today's" total by $400K.
+  const liveRowsInWindow = useMemo(
+    () => liveRows.filter((row) => inSelectedWindow(getOpenedAtDate(row), timeframeFilter)),
+    [liveRows, timeframeFilter],
+  );
+
   const metrics = useMemo(() => {
     const historicalTrades = filteredHistoryRows.length;
     const liveTrades = liveRows.length;
-    const totalTrades = historicalTrades + liveTrades;
+    const liveTradesInWindow = liveRowsInWindow.length;
+    const totalTrades = historicalTrades + liveTradesInWindow;
 
     const historicalPnl = filteredHistoryRows.reduce((sum, row) => sum + getPnl(row), 0);
-    const liveUnrealizedPnl = liveRows.reduce((sum, row) => sum + (getNumber(row.unrealized_pnl) ?? 0), 0);
+    const liveUnrealizedPnl = liveRowsInWindow.reduce((sum, row) => sum + (getNumber(row.unrealized_pnl) ?? 0), 0);
     const totalPnl = historicalPnl + liveUnrealizedPnl;
 
     const historicalWins = filteredHistoryRows.filter((row) => getPnl(row) > 0).length;
-    const liveWins = liveRows.filter((row) => getPnl(row) >= 0).length;
+    const liveWins = liveRowsInWindow.filter((row) => getPnl(row) >= 0).length;
     const wins = historicalWins + liveWins;
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : null;
 
@@ -181,7 +364,7 @@ export default function TradingSignalsPage() {
       pnlPct,
       winRate,
     };
-  }, [filteredHistoryRows, liveRows, portfolioSize]);
+  }, [filteredHistoryRows, liveRows, liveRowsInWindow, portfolioSize]);
 
   const combinedRows = useMemo(() => {
     const live = liveRows.map((row) => ({ kind: 'live' as const, row }));
@@ -292,21 +475,21 @@ export default function TradingSignalsPage() {
       <section className="mb-8">
         <h2 className="mb-3 flex items-center gap-2 text-xl font-semibold"><TrendingUp size={20} /> Performance Snapshot</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades that have not closed yet." theme="dark" />
-        <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Historical trades in selected timeframe plus all currently live trades." theme="dark" />
+        <MetricCard title="Live Trades" value={metrics.liveTrades} tooltip="Currently open trades that have not closed yet (across all timeframes)." theme="dark" />
+        <MetricCard title="Total Trades" value={metrics.totalTrades} tooltip="Trades opened or closed within the selected timeframe (closed in window + live opened in window)." theme="dark" />
         <MetricCard
           title="PnL $"
           value={formatPnl(metrics.totalPnl)}
           subtitle={metrics.pnlPct != null ? `${metrics.pnlPct >= 0 ? '+' : ''}${metrics.pnlPct.toFixed(2)}% of portfolio` : '—'}
           trend={metrics.totalPnl > 0 ? 'bullish' : metrics.totalPnl < 0 ? 'bearish' : 'neutral'}
-          tooltip={`Realized PnL from selected historical timeframe + unrealized PnL from all currently live trades. Portfolio size: ${formatMoneyFull(portfolioSize)}.`}
+          tooltip={`Realized PnL from trades closed in the selected timeframe + unrealized PnL from live trades opened in the selected timeframe. Live trades from prior windows are excluded so cumulative position drift doesn't inflate the number. Portfolio size: ${formatMoneyFull(portfolioSize)}.`}
           theme="dark"
         />
         <MetricCard
           title="Win Rate"
           value={metrics.winRate != null ? `${metrics.winRate.toFixed(1)}%` : '—'}
           trend={metrics.winRate != null ? (metrics.winRate >= 50 ? 'bullish' : 'bearish') : 'neutral'}
-          tooltip="Win rate across selected historical trades plus all live trades (live up/flat = win, live down = loss)."
+          tooltip="Win rate across closed trades in the selected timeframe plus live trades opened in that window (live up/flat = win, live down = loss)."
           theme="dark"
         />
         </div>
@@ -357,7 +540,13 @@ export default function TradingSignalsPage() {
                 : (totalPnl > 0 ? 'Win' : totalPnl < 0 ? 'Loss' : 'Flat');
 
               return (
-                <tr key={idx} className="border-b border-[var(--color-border)]/45">
+                <tr
+                  key={idx}
+                  className="border-b border-[var(--color-border)]/45 transition-colors hover:bg-[var(--color-surface-subtle)] cursor-help"
+                  onMouseEnter={(e) => setRowHover({ idx, x: e.clientX, y: e.clientY })}
+                  onMouseMove={(e) => setRowHover((prev) => prev && prev.idx === idx ? { idx, x: e.clientX, y: e.clientY } : prev)}
+                  onMouseLeave={() => setRowHover((prev) => prev?.idx === idx ? null : prev)}
+                >
                   <td className="py-2 pr-3 font-medium">{getString(row.underlying)}</td>
                   <td className="py-2 pr-3">{optionType === 'C' ? 'Call' : optionType === 'P' ? 'Put' : optionType}</td>
                   <td className="py-2 pr-3 whitespace-nowrap">{getString(row.expiration)}</td>
@@ -398,7 +587,35 @@ export default function TradingSignalsPage() {
             )}
           </tbody>
         </table>
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+          <Info size={11} /> Hover any row for the full entry/exit breakdown — exact times, $/contract, total cost, total proceeds, and PnL.
+        </div>
       </section>
+
+      {rowHover && sortedRows[rowHover.idx] && typeof document !== 'undefined' && createPortal(
+        (() => {
+          const { x, y } = rowHover;
+          const POPOVER_W = 360;
+          const POPOVER_H_ESTIMATE = 360;
+          const GAP = 16;
+          const vw = typeof window !== 'undefined' ? window.innerWidth : POPOVER_W + 64;
+          const vh = typeof window !== 'undefined' ? window.innerHeight : POPOVER_H_ESTIMATE + 64;
+          let left = x + GAP;
+          if (left + POPOVER_W + 16 > vw) left = Math.max(16, x - POPOVER_W - GAP);
+          let top = y + GAP;
+          if (top + POPOVER_H_ESTIMATE + 16 > vh) top = Math.max(16, y - POPOVER_H_ESTIMATE - GAP);
+          return (
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-[9999]"
+              style={{ left, top }}
+            >
+              <TradeRowPopover row={sortedRows[rowHover.idx].row} kind={sortedRows[rowHover.idx].kind} />
+            </div>
+          );
+        })(),
+        document.body,
+      )}
 
       <ActionCardSection
         data={actionData}

@@ -61,6 +61,13 @@ function getTradeTimestamp(row: Record<string, unknown>): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function getOpenedAt(row: Record<string, unknown>): Date | null {
+  const raw = row.opened_at ?? row.created_at ?? row.timestamp;
+  if (typeof raw !== 'string') return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function inTodayWindow(date: Date | null): boolean {
   if (!date) return false;
   const etDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -93,7 +100,11 @@ export default function DashboardPage() {
   const liveRows = toRows(tradesData);
   const historyRows = toRows(tradesHistoryData);
   const todayHistoryRows = historyRows.filter((row) => inTodayWindow(getTradeTimestamp(row)));
-  const signaledTradeRows = [...liveRows, ...todayHistoryRows];
+  // Only live trades opened today contribute to today's PnL — the backend
+  // returns unrealized_pnl as cumulative position-lifetime mark, so older
+  // open positions would otherwise inflate today's number.
+  const todayLiveRows = liveRows.filter((row) => inTodayWindow(getOpenedAt(row)));
+  const signaledTradeRows = [...todayLiveRows, ...todayHistoryRows];
 
   const cumulativePnl = signaledTradeRows.reduce((sum, row) => sum + getTradePnl(row), 0);
   const resolvedTradeOutcomes = signaledTradeRows
@@ -242,7 +253,7 @@ export default function DashboardPage() {
                   </span>
                 </span>
               )}
-              tooltip="Uses the same Trade Stream composition as Signaled Trades with Today selected: all live trades plus today's historical trades, showing cumulative PnL and win rate for today."
+              tooltip="Trades opened or closed today: live trades opened today plus historical trades closed today. PnL = realized PnL on today's closes + unrealized PnL on today's live opens (older live positions are excluded so their lifetime mark doesn't inflate today's number)."
               theme={theme}
               trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
             />
