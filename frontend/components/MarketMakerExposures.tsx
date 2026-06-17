@@ -846,7 +846,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const timeLabels = useMemo(() => {
     if (visibleCandles.length === 0) return [] as Array<{ t: number; label: string }>;
-    const out: Array<{ t: number; label: string }> = [];
+    const candidates: Array<{ t: number; idx: number; label: string }> = [];
 
     // Clock-aligned time ticks in ET. The step is a "normal" round interval
     // (15m, 30m, 1h, 2h…) chosen so the visible window fits ~7 evenly spaced
@@ -871,17 +871,36 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       const m = Number(parts.find((p) => p.type === 'minute')?.value ?? -1);
       return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : -1;
     };
-    visibleCandles.forEach((c) => {
+    visibleCandles.forEach((c, idx) => {
       const d = new Date(c.timestamp);
       const mod = minutesOfDayET(d);
       if (mod < 0 || mod % stepMin !== 0) return;
-      out.push({
+      candidates.push({
         t: d.getTime(),
+        idx,
         label: etFmt.format(d),
       });
     });
+
+    // Drop labels that would visually collide. At the day rollover the last
+    // candle of one session (e.g. 20:00 ET) sits adjacent to the first candle
+    // of the next session (e.g. 04:00 ET) — closed-market periods are omitted
+    // from the x-axis — so their labels overlap into an unreadable blob unless
+    // the closer of the two is dropped.
+    const usableW = LEFT_W - 24;
+    const xForIdx = (idx: number) =>
+      LEFT_X + 12 + (visibleCandles.length === 1 ? 0.5 : idx / (visibleCandles.length - 1)) * usableW;
+    const MIN_LABEL_GAP = 50;
+    let lastDrawnX = Number.NEGATIVE_INFINITY;
+    const out: Array<{ t: number; label: string }> = [];
+    candidates.forEach((c) => {
+      const x = xForIdx(c.idx);
+      if (x - lastDrawnX < MIN_LABEL_GAP) return;
+      out.push({ t: c.t, label: c.label });
+      lastDrawnX = x;
+    });
     return out;
-  }, [visibleCandles, tf]);
+  }, [visibleCandles, tf, LEFT_W]);
 
   // The spot line is anchored to the latest visible candle's close so it
   // always reads the same number as the rightmost candle paints.  Falls
