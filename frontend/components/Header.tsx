@@ -503,7 +503,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
             {!isCollapsed && (
               <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
-                <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+                <div style={{ marginRight: "24px" }}>
+                  <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+                </div>
                 <OptionsCalendarBadge theme={theme} />
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
