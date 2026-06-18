@@ -357,11 +357,11 @@ export default async function SpxGammaLevelsPage() {
               color: 'var(--color-text-secondary)',
             }}
           >
-            Data is briefly unavailable — refresh in a minute, or jump to the{' '}
-            <Link href="/dashboard" style={{ color: 'var(--color-brand-primary)' }}>
-              live dashboard
-            </Link>
-            .
+            Data is briefly unavailable — refresh in a minute, or{' '}
+            <Link href="/register" style={{ color: 'var(--color-brand-primary)' }}>
+              start a free trial
+            </Link>{' '}
+            for the live read.
           </div>
         )}
 
@@ -498,7 +498,7 @@ export default async function SpxGammaLevelsPage() {
           </div>
         </section>
 
-        <section style={{ marginBottom: 12 }}>
+        <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px 0', letterSpacing: '-0.3px' }}>
             Related reading
           </h2>
@@ -524,6 +524,65 @@ export default async function SpxGammaLevelsPage() {
               </Link>
             </li>
           </ul>
+        </section>
+
+        <section
+          style={{
+            border: '1px solid var(--color-brand-primary)44',
+            background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
+            borderRadius: 18,
+            padding: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            marginBottom: 32,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}>
+            Ready to trade the live read?
+          </h2>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
+            You&apos;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the
+            full GEX profile, the strike-by-DTE heatmap, options-flow classification, and the 13-signal
+            Market State Index — the context that turns these levels into a tradeable read. 7-day free
+            trial, no card to get started.
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
+            <Link
+              href="/register"
+              style={{
+                background: 'var(--color-brand-primary)',
+                color: '#ffffff',
+                padding: '12px 22px',
+                borderRadius: 999,
+                fontSize: 14,
+                fontWeight: 800,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              Start 7-day free trial <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/pricing"
+              style={{
+                border: '1px solid var(--border-default)',
+                color: 'var(--color-text-primary)',
+                padding: '12px 22px',
+                borderRadius: 999,
+                fontSize: 14,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              Compare plans
+            </Link>
+          </div>
         </section>
 
         <p
