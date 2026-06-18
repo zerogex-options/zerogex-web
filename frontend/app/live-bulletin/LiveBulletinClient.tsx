@@ -12,7 +12,7 @@ type Symbol = (typeof SYMBOLS)[number];
 
 type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
-export default function LiveBulletinClient() {
+export default function LiveBulletinClient({ watermark = true }: { watermark?: boolean } = {}) {
   const [symbol, setSymbol] = useState<Symbol>('SPX');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
   // the auto-generated prose tracks the freshly selected underlying until the
@@ -259,6 +259,7 @@ export default function LiveBulletinClient() {
               lead={lead}
               asOf={asOf}
               logoUrl={logoUrl}
+              watermark={watermark}
             />
           </div>
         </div>

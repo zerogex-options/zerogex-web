@@ -55,11 +55,13 @@ export interface GammaReportCardProps {
   asOf: string;
   /** Rasterized PNG data URL of the brand wordmark; falls back to text until ready. */
   logoUrl?: string | null;
+  /** Tiled brand watermark across the card body. Defaults on; off for the admin variant. */
+  watermark?: boolean;
   width?: number;
 }
 
 const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(function GammaReportCard(
-  { model, headline, lead, asOf, logoUrl, width = 640 },
+  { model, headline, lead, asOf, logoUrl, watermark = true, width = 640 },
   ref,
 ) {
   const accent = REGIME_ACCENT[model.regime];
@@ -148,7 +150,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
 
       {/* subtle tiled brand watermark — baked into the export so reposts stay
           attributed. Sits behind the content layer at low opacity. */}
-      <Watermark />
+      {watermark && <Watermark />}
 
       <div style={{ position: 'relative', padding: '30px 30px 22px' }}>
         {/* Brand row */}
