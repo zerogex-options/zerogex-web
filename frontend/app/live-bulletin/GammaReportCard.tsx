@@ -9,7 +9,7 @@ import {
   fmtSignedPts,
   regimeCopy,
   type ReportModel,
-} from './communiqueHelpers';
+} from './bulletinHelpers';
 
 // The card is a fully self-contained dark asset: every color is an explicit
 // hex/rgba (never a CSS theme variable) so the exported PNG looks identical
@@ -145,6 +145,10 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           pointerEvents: 'none',
         }}
       />
+
+      {/* subtle tiled brand watermark — baked into the export so reposts stay
+          attributed. Sits behind the content layer at low opacity. */}
+      <Watermark />
 
       <div style={{ position: 'relative', padding: '30px 30px 22px' }}>
         {/* Brand row */}
@@ -307,6 +311,52 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
     </div>
   );
 });
+
+// Faint diagonal "zerogex.io" tile across the whole card. Pure DOM text so it
+// rasterizes reliably into the PNG export; rotated and oversized (inset -30%)
+// so it fills the card edge-to-edge after rotation and can't be cleanly
+// cropped out of a repost.
+function Watermark() {
+  const rows = Array.from({ length: 16 });
+  const cols = Array.from({ length: 7 });
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: '-30%',
+        pointerEvents: 'none',
+        transform: 'rotate(-28deg)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: 40,
+        opacity: 0.05,
+      }}
+    >
+      {rows.map((_, r) => (
+        <div
+          key={r}
+          style={{ display: 'flex', gap: 54, justifyContent: 'center', whiteSpace: 'nowrap' }}
+        >
+          {cols.map((__, c) => (
+            <span
+              key={c}
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                letterSpacing: 1.5,
+                color: C.textPrimary,
+              }}
+            >
+              zerogex.io
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Renders the brand wordmark from a pre-rasterized PNG data URL (so it embeds
 // cleanly in the PNG export); falls back to a styled "ZEROGEX" text lockup

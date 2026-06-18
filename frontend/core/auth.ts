@@ -62,6 +62,8 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
   { pattern: '/gex-gradient', minimumTier: 'basic' },
   { pattern: '/positioning-trap', minimumTier: 'basic' },
+  // Shareable live dealer-gamma bulletin card — included with Basic.
+  { pattern: '/live-bulletin', minimumTier: 'basic' },
   // Metrics — included with Basic.
   { pattern: '/gamma-exposure', minimumTier: 'basic' },
   { pattern: '/greeks-gex', minimumTier: 'basic' },

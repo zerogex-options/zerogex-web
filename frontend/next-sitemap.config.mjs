@@ -93,6 +93,7 @@ const config = {
     '/dealer-delta-pressure',
     '/gex-gradient',
     '/positioning-trap',
+    '/live-bulletin',
     '/gamma-exposure',
     '/max-pain',
     '/greeks-gex',

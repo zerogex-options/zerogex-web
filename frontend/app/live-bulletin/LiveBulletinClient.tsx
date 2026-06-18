@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
 import { useGEXSummary, useMarketQuote, useSessionCloses } from '@/hooks/useApiData';
 import GammaReportCard from './GammaReportCard';
-import { buildReportModel, fmtDateET, fmtTimeET } from './communiqueHelpers';
+import { buildReportModel, fmtDateET, fmtTimeET } from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
@@ -12,7 +12,7 @@ type Symbol = (typeof SYMBOLS)[number];
 
 type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
-export default function CommuniqueClient() {
+export default function LiveBulletinClient() {
   const [symbol, setSymbol] = useState<Symbol>('SPX');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
   // the auto-generated prose tracks the freshly selected underlying until the
@@ -135,7 +135,7 @@ export default function CommuniqueClient() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          Gamma Communiqué
+          Live Bulletin
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           Pick an underlying — the dealer-gamma snapshot is pulled live from the backend. Tweak the
