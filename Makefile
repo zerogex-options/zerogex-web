@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders public-cohort backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
+	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<name> to filter)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make clean      - Remove build artifacts"
@@ -156,6 +157,14 @@ webhook-health:
 # and send a single sample copy to that address (no DB writes).
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Segment the tier='public' cohort into the four reactivation buckets used
+# by the campaign (unverified / founding-eligible / churned / verified-
+# never-paid). Default prints counts + a one-line copy hint per cohort.
+# Pass EMAILS=1 for a paste-ready recipient list, COHORT=<name> to filter
+# to one segment (e.g. COHORT=founding-eligible EMAILS=1).
+public-cohort:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-public-cohort.mjs $(if $(EMAILS),--emails,) $(if $(COHORT),--cohort $(COHORT),)'
 
 # Backup Admin->Monitoring data files (frontend/data/monitoring.json and
 # signups.json) into a timestamped tar.gz. Defaults to a dir OUTSIDE the
