@@ -111,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
+      { id: '/admin/social-report', label: 'Social Report', requiredTier: 'admin' },
     ],
   },
 ];
