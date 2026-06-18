@@ -8,6 +8,7 @@ import {
   fmtSignedPct,
   fmtSignedPts,
   regimeCopy,
+  type ExpectedRange,
   type ReportModel,
 } from './bulletinHelpers';
 
@@ -287,6 +288,11 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} />
         </div>
 
+        {/* Probability-bounded expected range */}
+        {model.expectedRange && (
+          <ExpectedRangePanel symbol={model.symbol} range={model.expectedRange} />
+        )}
+
         {/* Gamma map */}
         <GammaMap model={model} />
 
@@ -394,6 +400,53 @@ const CARD_LABEL: React.CSSProperties = {
   marginBottom: 5,
 };
 
+// The probability-bounded prediction: a 1σ implied expected-move band for the
+// chosen horizon, plus a sentence on how the dealer walls sit relative to it.
+function ExpectedRangePanel({ symbol, range }: { symbol: string; range: ExpectedRange }) {
+  const pct = (range.sigmaPct * 100).toFixed(1);
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        background: `linear-gradient(135deg, ${C.blue}1f, ${C.panel})`,
+        border: `1px solid ${C.blue}44`,
+        borderRadius: 14,
+        padding: '14px 16px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={CARD_LABEL}>Expected Range · {range.horizonLabel}</div>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue }}>
+          ~68% · 1σ
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
+        <span style={{ fontSize: 22, fontWeight: 800, color: C.bull, letterSpacing: -0.3 }}>
+          {fmtPrice(range.low)}
+        </span>
+        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>—</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: C.bear, letterSpacing: -0.3 }}>
+          {fmtPrice(range.high)}
+        </span>
+        <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600, marginLeft: 2 }}>
+          ±{fmtPrice(range.moveAbs)} (±{pct}%)
+        </span>
+      </div>
+      <p
+        style={{
+          margin: '8px 0 0',
+          fontSize: 11.5,
+          lineHeight: 1.5,
+          color: C.textSecondary,
+        }}
+      >
+        {symbol} ~68% likely to close between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
+        {range.horizonLabel.toLowerCase()} (implied 1σ). {range.context}
+      </p>
+    </div>
+  );
+}
+
 function Metric({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div
@@ -473,7 +526,11 @@ function GammaMap({ model }: { model: ReportModel }) {
 
   if (points.length < 2) return null;
 
+  // Fold the expected-move band edges into the axis domain so the shaded 1σ
+  // band always fits on the track, even when it extends past the walls.
+  const band = model.expectedRange;
   const values = points.map((p) => p.value);
+  if (band) values.push(band.low, band.high);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
@@ -481,6 +538,8 @@ function GammaMap({ model }: { model: ReportModel }) {
   const lo = min - pad;
   const hi = max + pad;
   const pos = (v: number) => ((v - lo) / (hi - lo)) * 100;
+  const bandLeft = band ? Math.max(0, pos(band.low)) : 0;
+  const bandRight = band ? Math.min(100, pos(band.high)) : 0;
 
   const above = points.filter((p) => p.side === 'above');
   const below = points.filter((p) => p.side === 'below');
@@ -518,6 +577,22 @@ function GammaMap({ model }: { model: ReportModel }) {
             background: `linear-gradient(90deg, ${C.bull}55, ${C.amber}55, ${C.bear}55)`,
           }}
         />
+        {/* shaded 1σ expected-move band */}
+        {band && (
+          <div
+            style={{
+              position: 'absolute',
+              top: trackY - 6,
+              left: `${bandLeft}%`,
+              width: `${Math.max(0, bandRight - bandLeft)}%`,
+              height: TRACK_H + 12,
+              borderRadius: 4,
+              background: `${C.blue}26`,
+              border: `1px solid ${C.blue}66`,
+              boxSizing: 'border-box',
+            }}
+          />
+        )}
         {/* ticks */}
         {points.map((p) => (
           <div

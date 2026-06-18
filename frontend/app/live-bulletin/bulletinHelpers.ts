@@ -5,6 +5,19 @@
 
 export type RegimeKey = 'positive' | 'negative' | 'neutral' | 'unresolved';
 
+// Calendar-free expected-move horizons, in trading days, so the band never
+// depends on an expiry feed. ~252 trading days a year underpins the √(t/252)
+// annualized-vol scaling.
+export type HorizonKey = 'today' | 'week' | 'month';
+
+export const HORIZONS: Record<HorizonKey, { label: string; days: number }> = {
+  today: { label: 'Today', days: 1 },
+  week: { label: 'This Week', days: 5 },
+  month: { label: 'This Month', days: 21 },
+};
+
+const TRADING_DAYS_PER_YEAR = 252;
+
 export interface GexSummaryInput {
   timestamp?: string;
   symbol?: string;
@@ -25,6 +38,22 @@ export interface ReportInputs {
   spot: number | null;
   priorClose: number | null;
   summary: GexSummaryInput | null;
+  /** Annualized index implied vol (VIX, in points e.g. 14.5). Drives the expected-move band. */
+  vix: number | null;
+  horizon: HorizonKey;
+}
+
+// The IV-derived expected-move band plus how the dealer-gamma walls sit
+// relative to it — the "probability-bounded prediction".
+export interface ExpectedRange {
+  horizonKey: HorizonKey;
+  horizonLabel: string;
+  days: number;
+  sigmaPct: number; // 1σ as a fraction of spot
+  moveAbs: number; // 1σ move in points
+  low: number;
+  high: number;
+  context: string; // where the call/put walls fall relative to the band
 }
 
 export interface ReportModel {
@@ -44,6 +73,8 @@ export interface ReportModel {
   lead: string;
   regimeBadge: string;
   regimeLabel: string;
+  /** Null when VIX or spot is unavailable, in which case the card hides the band. */
+  expectedRange: ExpectedRange | null;
 }
 
 // Spot within this fraction of the flip is genuinely "at the flip" — mirrors
@@ -178,6 +209,14 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const copy = REGIME_COPY[regime];
   const flipDistance = spot != null && gammaFlip != null ? spot - gammaFlip : null;
 
+  const expectedRange = buildExpectedRange({
+    spot,
+    vix: pickNumber(inputs.vix),
+    horizon: inputs.horizon,
+    callWall,
+    putWall,
+  });
+
   const headline = buildHeadline({ symbol, spot, changePct, copy });
   const lead = buildLead({
     symbol,
@@ -208,7 +247,65 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
     lead,
     regimeBadge: copy.badge,
     regimeLabel: copy.label,
+    expectedRange,
   };
+}
+
+// 1σ implied expected-move band: σ% = (VIX/100)·√(days/252); the ±1σ band
+// brackets roughly 68% of outcomes under the usual lognormal approximation.
+// `context` describes how the dealer call/put walls sit relative to that band —
+// the gamma-aware half of the prediction.
+function buildExpectedRange(args: {
+  spot: number | null;
+  vix: number | null;
+  horizon: HorizonKey;
+  callWall: number | null;
+  putWall: number | null;
+}): ExpectedRange | null {
+  const { spot, vix, horizon, callWall, putWall } = args;
+  if (spot == null || spot <= 0 || vix == null || vix <= 0) return null;
+
+  const { label, days } = HORIZONS[horizon];
+  const sigmaPct = (vix / 100) * Math.sqrt(days / TRADING_DAYS_PER_YEAR);
+  const moveAbs = spot * sigmaPct;
+  const low = spot - moveAbs;
+  const high = spot + moveAbs;
+
+  return {
+    horizonKey: horizon,
+    horizonLabel: label,
+    days,
+    sigmaPct,
+    moveAbs,
+    low,
+    high,
+    context: buildBandContext({ low, high, callWall, putWall }),
+  };
+}
+
+function buildBandContext(args: {
+  low: number;
+  high: number;
+  callWall: number | null;
+  putWall: number | null;
+}): string {
+  const { low, high, callWall, putWall } = args;
+  const callIn = callWall != null ? callWall <= high : null;
+  const putIn = putWall != null ? putWall >= low : null;
+
+  if (callIn === true && putIn === true) {
+    return 'Both dealer walls sit inside the 1σ range — a textbook pin setup, with the walls as the magnets price gravitates toward.';
+  }
+  if (callIn === false && putIn === false) {
+    return 'Both walls sit outside the 1σ range — reaching either would take a larger-than-implied move.';
+  }
+  if (callIn === false && putIn === true) {
+    return 'The put wall sits inside the 1σ range but the call wall is beyond it — upside needs a bigger-than-implied move to reach resistance.';
+  }
+  if (callIn === true && putIn === false) {
+    return 'The call wall sits inside the 1σ range but the put wall is beyond it — downside support is further than one implied move away.';
+  }
+  return 'Expected range derived from index implied volatility (1σ ≈ 68%).';
 }
 
 function buildHeadline(args: {

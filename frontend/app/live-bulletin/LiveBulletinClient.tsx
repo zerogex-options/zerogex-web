@@ -2,18 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
-import { useGEXSummary, useMarketQuote, useSessionCloses } from '@/hooks/useApiData';
+import {
+  useGEXSummary,
+  useMarketQuote,
+  useSessionCloses,
+  useVolatilityGauge,
+} from '@/hooks/useApiData';
 import GammaReportCard from './GammaReportCard';
-import { buildReportModel, fmtDateET, fmtTimeET } from './bulletinHelpers';
+import { buildReportModel, fmtDateET, fmtTimeET, HORIZONS, type HorizonKey } from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
+const HORIZON_KEYS = Object.keys(HORIZONS) as HorizonKey[];
+
 type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
 export default function LiveBulletinClient({ watermark = true }: { watermark?: boolean } = {}) {
   const [symbol, setSymbol] = useState<Symbol>('SPX');
+  const [horizon, setHorizon] = useState<HorizonKey>('today');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
   // the auto-generated prose tracks the freshly selected underlying until the
   // operator deliberately types over it.
@@ -41,12 +49,14 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   const { data: summary } = useGEXSummary(symbol, 10000);
   const { data: quote } = useMarketQuote(symbol, 5000);
   const { data: sessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null);
+  const { data: volGauge } = useVolatilityGauge();
 
   // During RTH the most recent *completed* close is the prior session, so spot
   // vs current_session_close yields today's intraday change; after the close it
   // naturally collapses to ~0 against today's own close.
   const priorClose = sessionCloses?.current_session_close ?? null;
   const spot = quote?.close ?? summary?.spot_price ?? null;
+  const vix = volGauge?.vix ?? null;
 
   const model = useMemo(
     () =>
@@ -55,8 +65,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         spot,
         priorClose,
         summary: summary ?? null,
+        vix,
+        horizon,
       }),
-    [symbol, spot, priorClose, summary],
+    [symbol, spot, priorClose, summary, vix, horizon],
   );
 
   const headline = edited.headline ?? model.headline;
@@ -173,6 +185,34 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Expected-range horizon</label>
+            <div className="flex gap-2">
+              {HORIZON_KEYS.map((h) => {
+                const active = h === horizon;
+                return (
+                  <button
+                    key={h}
+                    onClick={() => setHorizon(h)}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold transition-colors"
+                    style={{
+                      background: active ? 'var(--color-info-soft)' : 'transparent',
+                      border: `1px solid ${active ? 'var(--color-info)' : 'var(--color-border)'}`,
+                      color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {HORIZONS[h].label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              {vix != null
+                ? `1σ implied move from VIX ${vix.toFixed(1)} (~68% band).`
+                : 'Implied-vol data unavailable — the expected-range band is hidden.'}
+            </p>
           </div>
 
           <div>
