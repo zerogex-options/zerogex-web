@@ -46,10 +46,13 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
     };
   }, []);
 
+  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+
   const { data: summary } = useGEXSummary(symbol, 10000);
   const { data: quote } = useMarketQuote(symbol, 5000);
   const { data: sessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null);
-  const { data: volGauge } = useVolatilityGauge();
+  const { data: volGauge } = useVolatilityGauge(30000, volIndex);
 
   // During RTH the most recent *completed* close is the prior session, so spot
   // vs current_session_close yields today's intraday change; after the close it
@@ -66,9 +69,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         priorClose,
         summary: summary ?? null,
         vix,
+        volIndex,
         horizon,
       }),
-    [symbol, spot, priorClose, summary, vix, horizon],
+    [symbol, spot, priorClose, summary, vix, volIndex, horizon],
   );
 
   const headline = edited.headline ?? model.headline;
@@ -210,8 +214,8 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             </div>
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {vix != null
-                ? `1σ implied move from VIX ${vix.toFixed(1)} (~68% band).`
-                : 'Implied-vol data unavailable — the expected-range band is hidden.'}
+                ? `1σ implied move from ${volIndex} ${vix.toFixed(1)} (~68% band).`
+                : `${volIndex} implied-vol data unavailable — the expected-range band is hidden.`}
             </p>
           </div>
 

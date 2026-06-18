@@ -38,8 +38,10 @@ export interface ReportInputs {
   spot: number | null;
   priorClose: number | null;
   summary: GexSummaryInput | null;
-  /** Annualized index implied vol (VIX, in points e.g. 14.5). Drives the expected-move band. */
+  /** Annualized index implied vol in points (e.g. 14.5). Drives the expected-move band. */
   vix: number | null;
+  /** Which implied-vol index `vix` came from — VIX for SPX/SPY, VXN for QQQ. Label only. */
+  volIndex: 'VIX' | 'VXN';
   horizon: HorizonKey;
 }
 
@@ -49,6 +51,8 @@ export interface ExpectedRange {
   horizonKey: HorizonKey;
   horizonLabel: string;
   days: number;
+  volIndex: string; // 'VIX' | 'VXN' — the implied-vol input the band was built from
+  vix: number; // the index level used (points)
   sigmaPct: number; // 1σ as a fraction of spot
   moveAbs: number; // 1σ move in points
   low: number;
@@ -212,6 +216,7 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const expectedRange = buildExpectedRange({
     spot,
     vix: pickNumber(inputs.vix),
+    volIndex: inputs.volIndex,
     horizon: inputs.horizon,
     callWall,
     putWall,
@@ -258,11 +263,12 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
 function buildExpectedRange(args: {
   spot: number | null;
   vix: number | null;
+  volIndex: 'VIX' | 'VXN';
   horizon: HorizonKey;
   callWall: number | null;
   putWall: number | null;
 }): ExpectedRange | null {
-  const { spot, vix, horizon, callWall, putWall } = args;
+  const { spot, vix, volIndex, horizon, callWall, putWall } = args;
   if (spot == null || spot <= 0 || vix == null || vix <= 0) return null;
 
   const { label, days } = HORIZONS[horizon];
@@ -275,6 +281,8 @@ function buildExpectedRange(args: {
     horizonKey: horizon,
     horizonLabel: label,
     days,
+    volIndex,
+    vix,
     sigmaPct,
     moveAbs,
     low,

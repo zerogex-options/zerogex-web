@@ -417,7 +417,7 @@ function ExpectedRangePanel({ symbol, range }: { symbol: string; range: Expected
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <div style={CARD_LABEL}>Expected Range · {range.horizonLabel}</div>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue }}>
-          ~68% · 1σ
+          ~68% · 1σ · {range.volIndex} {range.vix.toFixed(1)}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
@@ -441,7 +441,7 @@ function ExpectedRangePanel({ symbol, range }: { symbol: string; range: Expected
         }}
       >
         {symbol} ~68% likely to close between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
-        {range.horizonLabel.toLowerCase()} (implied 1σ). {range.context}
+        {range.horizonLabel.toLowerCase()} (1σ implied by {range.volIndex}). {range.context}
       </p>
     </div>
   );
