@@ -5,12 +5,31 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  HIGH_SIGNAL_THRESHOLD,
   categorizeHeadline,
   dedupeHeadlines,
   formatRelativeTime,
+  isHighSignal,
+  normalizeTitleKey,
+  scoreImportance,
   type NewsHeadline,
 } from "../core/newsHeadlines.ts";
 import { parseRss } from "../core/rss.ts";
+
+function fixture(overrides: Partial<NewsHeadline>): NewsHeadline {
+  return {
+    id: "x",
+    title: "x",
+    url: "",
+    source: "Source",
+    sourceId: "source",
+    category: "markets",
+    publishedAtMs: 0,
+    importance: 0,
+    crossSourceCount: 1,
+    ...overrides,
+  };
+}
 
 test("categorizeHeadline routes Fed/ECB language into central-banks", () => {
   assert.equal(
@@ -65,15 +84,65 @@ test("categorizeHeadline falls back to source default when no keyword matches", 
 
 test("dedupeHeadlines drops repeats by id and by normalized title", () => {
   const items: NewsHeadline[] = [
-    { id: "a", title: "Fed holds rates steady", url: "u1", source: "Fed", category: "central-banks", publishedAtMs: 3 },
-    { id: "a", title: "Fed holds rates steady (duplicate id)", url: "u1b", source: "Fed", category: "central-banks", publishedAtMs: 2 },
-    { id: "b", title: "Fed holds   rates   steady", url: "u2", source: "Reuters", category: "central-banks", publishedAtMs: 1 },
-    { id: "c", title: "Russia escalates Ukraine offensive", url: "u3", source: "BBC", category: "geopolitics", publishedAtMs: 0 },
+    fixture({ id: "a", title: "Fed holds rates steady", url: "u1", source: "Fed", sourceId: "fed", category: "central-banks", publishedAtMs: 3 }),
+    fixture({ id: "a", title: "Fed holds rates steady (duplicate id)", url: "u1b", source: "Fed", sourceId: "fed", category: "central-banks", publishedAtMs: 2 }),
+    fixture({ id: "b", title: "Fed holds   rates   steady", url: "u2", source: "Reuters", sourceId: "reuters", category: "central-banks", publishedAtMs: 1 }),
+    fixture({ id: "c", title: "Russia escalates Ukraine offensive", url: "u3", source: "BBC", sourceId: "bbc-world", category: "geopolitics", publishedAtMs: 0 }),
   ];
   const out = dedupeHeadlines(items);
   assert.equal(out.length, 2);
   assert.equal(out[0].id, "a");
   assert.equal(out[1].id, "c");
+});
+
+test("scoreImportance: institutional press release alone passes threshold", () => {
+  const s = scoreImportance("Federal Reserve releases supervisory letter", "fed", 1);
+  assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `expected institutional to pass, got ${s}`);
+});
+
+test("scoreImportance: single keyword alone does NOT pass threshold", () => {
+  const s = scoreImportance("Analyst weighs in on possible CPI surprise", "cnbc-markets", 1);
+  // "cpi" + "surprise" actually trigger two patterns, so this is a 2-hit case.
+  // Use a true single-hit example instead.
+  const single = scoreImportance("Retail sales tracker for the week ahead", "cnbc-markets", 1);
+  assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `multi-keyword should pass, got ${s}`);
+  assert.ok(single < HIGH_SIGNAL_THRESHOLD, `single keyword should NOT pass, got ${single}`);
+});
+
+test("scoreImportance: cross-source ≥3 alone passes threshold", () => {
+  const s = scoreImportance("Tech company reports steady demand", "cnbc-markets", 3);
+  assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `cross-source >=3 should pass, got ${s}`);
+});
+
+test("scoreImportance: cross-source ≥2 alone does NOT pass threshold", () => {
+  const s = scoreImportance("Tech company reports steady demand", "cnbc-markets", 2);
+  assert.ok(s < HIGH_SIGNAL_THRESHOLD, `cross-source =2 alone should not pass, got ${s}`);
+});
+
+test("scoreImportance: keyword + cross-source ≥2 passes threshold", () => {
+  const s = scoreImportance("US CPI prints hotter than expected", "cnbc-markets", 2);
+  assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `keyword + cross-source should pass, got ${s}`);
+});
+
+test("isHighSignal mirrors threshold comparison", () => {
+  assert.equal(isHighSignal({ importance: HIGH_SIGNAL_THRESHOLD }), true);
+  assert.equal(isHighSignal({ importance: HIGH_SIGNAL_THRESHOLD - 1 }), false);
+  assert.equal(isHighSignal({ importance: 10 }), true);
+});
+
+test("normalizeTitleKey strips wire-service suffixes and collapses whitespace", () => {
+  assert.equal(
+    normalizeTitleKey("Fed holds rates steady - Reuters"),
+    "fed holds rates steady",
+  );
+  assert.equal(
+    normalizeTitleKey("Fed   holds  rates   steady"),
+    "fed holds rates steady",
+  );
+  assert.equal(
+    normalizeTitleKey("Fed holds rates steady | BBC News"),
+    "fed holds rates steady",
+  );
 });
 
 test("formatRelativeTime buckets at minute / hour / day / week boundaries", () => {

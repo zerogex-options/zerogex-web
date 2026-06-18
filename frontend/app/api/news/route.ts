@@ -3,6 +3,8 @@ import {
   NEWS_SOURCES,
   categorizeHeadline,
   dedupeHeadlines,
+  normalizeTitleKey,
+  scoreImportance,
   type NewsHeadline,
   type NewsSource,
 } from "@/core/newsHeadlines";
@@ -49,13 +51,18 @@ async function fetchOne(source: NewsSource): Promise<NewsHeadline[]> {
     for (const it of items.slice(0, MAX_ITEMS_PER_FEED)) {
       if (!it.title) continue;
       if (!Number.isFinite(it.pubDateMs)) continue;
+      // importance + crossSourceCount get filled in by refresh() once we
+      // can see the full corpus across feeds. Defaults here are safe.
       out.push({
         id: it.guid || it.link || `${source.id}:${it.title}`,
         title: it.title,
         url: it.link || "",
         source: source.name,
+        sourceId: source.id,
         category: categorizeHeadline(it.title, source.defaultCategory),
         publishedAtMs: it.pubDateMs,
+        importance: 0,
+        crossSourceCount: 1,
       });
     }
     return out;
@@ -69,9 +76,35 @@ async function fetchOne(source: NewsSource): Promise<NewsHeadline[]> {
 async function refresh(): Promise<CacheEntry> {
   const results = await Promise.all(NEWS_SOURCES.map(fetchOne));
   const merged = results.flat();
+
+  // Cross-source count must be computed BEFORE dedupe — once dedupe drops
+  // the duplicates, the survivor wouldn't know how many wires carried it.
+  const sourcesByTitle = new Map<string, Set<string>>();
+  for (const h of merged) {
+    const key = normalizeTitleKey(h.title);
+    if (!key) continue;
+    let set = sourcesByTitle.get(key);
+    if (!set) {
+      set = new Set();
+      sourcesByTitle.set(key, set);
+    }
+    set.add(h.sourceId);
+  }
+
   merged.sort((a, b) => b.publishedAtMs - a.publishedAtMs);
-  const headlines = dedupeHeadlines(merged).slice(0, MAX_TOTAL_ITEMS);
-  return { headlines, generatedAt: Date.now() };
+  const deduped = dedupeHeadlines(merged);
+
+  const enriched = deduped.map((h) => {
+    const key = normalizeTitleKey(h.title);
+    const crossSourceCount = sourcesByTitle.get(key)?.size ?? 1;
+    return {
+      ...h,
+      crossSourceCount,
+      importance: scoreImportance(h.title, h.sourceId, crossSourceCount),
+    };
+  });
+
+  return { headlines: enriched.slice(0, MAX_TOTAL_ITEMS), generatedAt: Date.now() };
 }
 
 export async function GET() {
