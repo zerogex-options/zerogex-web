@@ -10,6 +10,15 @@ import type {
   UnderlyingQuote,
   HealthStatus,
 } from '@/core/types';
+import type {
+  BacktestMeta,
+  BacktestRun,
+  BacktestRunCreated,
+  BacktestRunSummary,
+  BacktestSpec,
+  BacktestTradesPage,
+  BacktestEquityPoint,
+} from '@/app/backtesting/types';
 
 /**
  * GEX (Gamma Exposure) Endpoints
@@ -79,6 +88,59 @@ export const marketAPI = {
     if (endDate) params.append('end_date', endDate);
     
     return apiClient.get<UnderlyingQuote[]>(`/api/market/historical?${params}`);
+  },
+};
+
+/**
+ * Backtesting Endpoints (/api/backtest/*)
+ */
+export const backtestAPI = {
+  /**
+   * Get backtest metadata: available underlyings, patterns, data window,
+   * and default fill/sizing parameters.
+   */
+  getMeta: async (): Promise<BacktestMeta> => {
+    return apiClient.get<BacktestMeta>('/api/backtest/meta');
+  },
+
+  /**
+   * Queue a new backtest run. Returns the run id and "queued" status (202).
+   */
+  createRun: async (spec: BacktestSpec): Promise<BacktestRunCreated> => {
+    return apiClient.post<BacktestRunCreated>('/api/backtest/runs', spec);
+  },
+
+  /**
+   * List recent run summaries.
+   */
+  listRuns: async (): Promise<BacktestRunSummary[]> => {
+    return apiClient.get<BacktestRunSummary[]>('/api/backtest/runs');
+  },
+
+  /**
+   * Fetch a single run's full status / summary (used while polling).
+   */
+  getRun: async (runId: number): Promise<BacktestRun> => {
+    return apiClient.get<BacktestRun>(`/api/backtest/runs/${runId}`);
+  },
+
+  /**
+   * Fetch a paginated page of a run's trade blotter.
+   */
+  getTrades: async (
+    runId: number,
+    limit: number,
+    offset: number,
+  ): Promise<BacktestTradesPage> => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    return apiClient.get<BacktestTradesPage>(`/api/backtest/runs/${runId}/trades?${params}`);
+  },
+
+  /**
+   * Fetch a run's equity curve.
+   */
+  getEquity: async (runId: number): Promise<BacktestEquityPoint[]> => {
+    return apiClient.get<BacktestEquityPoint[]>(`/api/backtest/runs/${runId}/equity`);
   },
 };
 

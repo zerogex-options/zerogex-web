@@ -52,6 +52,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/range-break-imminence', minimumTier: 'pro' },
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/market-pressure', minimumTier: 'pro' },
+  { pattern: '/backtesting', minimumTier: 'pro' },
   // Basic dashboards & per-signal pages — included with Basic.
   // /dashboard is intentionally public so anonymous visitors can preview the
   // GEX/walls/flip cards (public APIs); paid panels (signals, trades, flow)

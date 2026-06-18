@@ -102,6 +102,7 @@ const config = {
     '/option-contracts',
     '/range-break-imminence',
     '/market-pressure',
+    '/backtesting',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',

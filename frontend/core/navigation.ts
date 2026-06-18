@@ -78,6 +78,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
+      { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro' },
     ],
   },
   {

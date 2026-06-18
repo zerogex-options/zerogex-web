@@ -1,0 +1,782 @@
+'use client';
+
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import {
+  AlertTriangle,
+  History,
+  LineChart as LineChartIcon,
+  ListOrdered,
+  Play,
+  SlidersHorizontal,
+} from 'lucide-react';
+import TooltipWrapper from '@/components/TooltipWrapper';
+import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
+import type { BacktestMeta, BacktestSpec, BacktestSummary } from './types';
+
+// Recharts is heavy; the equity curve sits below the config panel and only
+// appears once a run completes. Split it out so the form paints immediately.
+const EquityChart = dynamic(() => import('./EquityChart'), {
+  ssr: false,
+  loading: () => <Skeleton height={320} label="Loading chart…" />,
+});
+
+const TITLE_TOOLTIP =
+  'Backtest a basket of signal patterns against historical option data. ' +
+  'Configure the underlying, date range, patterns, fill model, and sizing, then run. ' +
+  'Results include an equity curve, per-pattern breakdown, and a full trade blotter.';
+
+// ---- Local form state ----------------------------------------------------
+
+interface FormState {
+  underlying: string;
+  start_date: string;
+  end_date: string;
+  patterns: string[];
+  capital: number;
+  risk_per_trade_pct: number;
+  slippage_pct: number;
+  commission_per_contract: number;
+  max_concurrent: number;
+  max_hold_minutes: string; // empty string => null (no cap)
+}
+
+function buildInitialForm(meta: BacktestMeta): FormState {
+  const d = meta.defaults;
+  return {
+    underlying: meta.underlyings[0] ?? '',
+    start_date: meta.data_window.earliest,
+    end_date: meta.data_window.latest,
+    patterns: [],
+    capital: d.capital,
+    risk_per_trade_pct: d.risk_per_trade_pct,
+    slippage_pct: d.slippage_pct,
+    commission_per_contract: d.commission_per_contract,
+    max_concurrent: d.max_concurrent,
+    max_hold_minutes: '',
+  };
+}
+
+function formToSpec(form: FormState): BacktestSpec {
+  const parsedHold = form.max_hold_minutes.trim() === '' ? null : Number(form.max_hold_minutes);
+  return {
+    underlying: form.underlying,
+    start_date: form.start_date,
+    end_date: form.end_date,
+    patterns: form.patterns,
+    fill_model: {
+      slippage_pct: form.slippage_pct,
+      commission_per_contract: form.commission_per_contract,
+    },
+    sizing: {
+      capital: form.capital,
+      risk_per_trade_pct: form.risk_per_trade_pct,
+      max_concurrent: form.max_concurrent,
+    },
+    exit: {
+      max_hold_minutes: parsedHold != null && Number.isFinite(parsedHold) ? parsedHold : null,
+    },
+  };
+}
+
+// ---- Formatting helpers --------------------------------------------------
+
+function fmtPct(value: number | null | undefined, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value >= 0 ? '' : ''}${value.toFixed(digits)}%`;
+}
+
+function fmtCurrency(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+}
+
+function fmtNumber(value: number | null | undefined, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toFixed(digits);
+}
+
+function pnlColor(value: number): string {
+  if (value > 0) return 'var(--color-bull)';
+  if (value < 0) return 'var(--color-bear)';
+  return 'var(--color-text-secondary)';
+}
+
+function formatDateTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return iso;
+  return new Date(ms).toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+// ---- Page ----------------------------------------------------------------
+
+export default function BacktestingPage() {
+  const bt = useBacktest();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <h1 className="text-3xl font-bold">Backtesting</h1>
+        <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
+          <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
+        </TooltipWrapper>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-8">
+        <div className="flex flex-col gap-6">
+          <ConfigPanel bt={bt} />
+          <RecentRuns bt={bt} />
+        </div>
+        <div className="min-w-0">
+          <Results bt={bt} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Config panel --------------------------------------------------------
+
+function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
+  const { meta, metaState, metaError, running, submit, submitError } = bt;
+  const [form, setForm] = useState<FormState | null>(null);
+
+  // Seed the form the first render after meta resolves. Adjusting state
+  // during render (guarded so it runs once) is React's recommended pattern
+  // for deriving initial state from an async prop — no effect needed.
+  if (meta && form == null) {
+    setForm(buildInitialForm(meta));
+  }
+
+  if (metaState === 'loading' || (metaState === 'ready' && form == null)) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <Skeleton height={420} label="Loading configuration…" />
+      </section>
+    );
+  }
+
+  if (metaState === 'error' || !meta || !form) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <ErrorBox title="Couldn't load backtest options" message={metaError ?? 'Please try again.'} />
+      </section>
+    );
+  }
+
+  const patternsByTier = new Map<string, BacktestMeta['patterns']>();
+  for (const p of meta.patterns) {
+    const list = patternsByTier.get(p.tier) ?? [];
+    list.push(p);
+    patternsByTier.set(p.tier, list);
+  }
+
+  const togglePattern = (id: string) => {
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            patterns: prev.patterns.includes(id)
+              ? prev.patterns.filter((x) => x !== id)
+              : [...prev.patterns, id],
+          }
+        : prev,
+    );
+  };
+
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+
+  const numField = (key: keyof FormState, value: string) =>
+    setForm((prev) => (prev ? { ...prev, [key]: value === '' ? 0 : Number(value) } : prev));
+
+  const canSubmit = form.patterns.length > 0 && form.underlying !== '' && !running;
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    void submit(formToSpec(form));
+  };
+
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <SlidersHorizontal size={20} />
+        Configuration
+      </h2>
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <Field label="Underlying">
+          <select
+            className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+            value={form.underlying}
+            onChange={(e) => setField('underlying', e.target.value)}
+          >
+            {meta.underlyings.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start date">
+            <input
+              type="date"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.start_date}
+              min={meta.data_window.earliest}
+              max={meta.data_window.latest}
+              onChange={(e) => setField('start_date', e.target.value)}
+            />
+          </Field>
+          <Field label="End date">
+            <input
+              type="date"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.end_date}
+              min={meta.data_window.earliest}
+              max={meta.data_window.latest}
+              onChange={(e) => setField('end_date', e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+            Patterns
+          </div>
+          <div className="flex flex-col gap-3">
+            {[...patternsByTier.entries()].map(([tier, list]) => (
+              <fieldset key={tier} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
+                  {tier}
+                </legend>
+                <div className="flex flex-col gap-2">
+                  {list.map((p) => (
+                    <label key={p.id} className="flex items-start gap-2 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={form.patterns.includes(p.id)}
+                        onChange={() => togglePattern(p.id)}
+                      />
+                      <span className="flex-1">
+                        <span className="font-medium">{p.name}</span>
+                        {p.description ? (
+                          <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">
+                            {p.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Capital ($)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.capital}
+              min={0}
+              step={1000}
+              onChange={(e) => numField('capital', e.target.value)}
+            />
+          </Field>
+          <Field label="Risk / trade (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.risk_per_trade_pct}
+              min={0}
+              step={0.1}
+              onChange={(e) => numField('risk_per_trade_pct', e.target.value)}
+            />
+          </Field>
+          <Field label="Slippage (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.slippage_pct}
+              min={0}
+              step={0.01}
+              onChange={(e) => numField('slippage_pct', e.target.value)}
+            />
+          </Field>
+          <Field label="Commission / contract ($)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.commission_per_contract}
+              min={0}
+              step={0.05}
+              onChange={(e) => numField('commission_per_contract', e.target.value)}
+            />
+          </Field>
+          <Field label="Max concurrent">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_concurrent}
+              min={1}
+              step={1}
+              onChange={(e) => numField('max_concurrent', e.target.value)}
+            />
+          </Field>
+          <Field label="Max hold (min)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_hold_minutes}
+              min={0}
+              step={1}
+              placeholder="None"
+              onChange={(e) => setField('max_hold_minutes', e.target.value)}
+            />
+          </Field>
+        </div>
+
+        {form.patterns.length === 0 ? (
+          <p className="text-[11px] text-[var(--color-text-secondary)]">
+            Select at least one pattern to run a backtest.
+          </p>
+        ) : null}
+
+        {submitError ? <ErrorBox title="Run failed to start" message={submitError} /> : null}
+
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-elevated)' }}
+        >
+          <Play size={16} />
+          {running ? 'Running…' : 'Run Backtest'}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+// ---- Recent runs ---------------------------------------------------------
+
+function RecentRuns({ bt }: { bt: ReturnType<typeof useBacktest> }) {
+  const { recentRuns, openRun, run } = bt;
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <History size={18} />
+        Recent Runs
+      </h2>
+      {recentRuns.length === 0 ? (
+        <p className="text-sm text-[var(--color-text-secondary)]">No runs yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {recentRuns.map((r) => {
+            const active = run?.run_id === r.run_id;
+            return (
+              <li key={r.run_id}>
+                <button
+                  type="button"
+                  onClick={() => openRun(r.run_id)}
+                  className="w-full text-left rounded-lg border px-3 py-2 text-xs transition-colors"
+                  style={{
+                    borderColor: active ? 'var(--color-accent, var(--color-text-primary))' : 'var(--color-border)',
+                    background: active ? 'var(--color-surface-elevated)' : 'transparent',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      #{r.run_id} · {r.underlying}
+                    </span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="mt-0.5 text-[var(--color-text-secondary)]">
+                    {r.start_date} → {r.end_date}
+                  </div>
+                  {r.summary ? (
+                    <div className="mt-1 flex items-center gap-3 font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ color: pnlColor(r.summary.net_pnl) }}>{fmtCurrency(r.summary.net_pnl)}</span>
+                      <span className="text-[var(--color-text-secondary)]">{r.summary.n_trades} trades</span>
+                    </div>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  let color = 'var(--color-text-secondary)';
+  if (status === 'completed') color = 'var(--color-bull)';
+  else if (status === 'failed') color = 'var(--color-bear)';
+  else if (status === 'running' || status === 'queued') color = 'var(--color-warning)';
+  return (
+    <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color }}>
+      {status}
+    </span>
+  );
+}
+
+// ---- Results -------------------------------------------------------------
+
+function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
+  const { run, running, equity, trades, tradesPage, tradesLoading, setTradesPage } = bt;
+
+  // Empty state: nothing run yet.
+  if (!run && !running) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <EmptyState />
+      </section>
+    );
+  }
+
+  // In-progress: show a progress bar driven by `progress`.
+  if (run && (run.status === 'queued' || run.status === 'running')) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <ProgressView status={run.status} progress={run.progress} runId={run.run_id} />
+      </section>
+    );
+  }
+
+  if (running && !run) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <ProgressView status="queued" progress={0} runId={null} />
+      </section>
+    );
+  }
+
+  if (run && run.status === 'failed') {
+    return (
+      <section className="zg-feature-shell p-6">
+        <ErrorBox
+          title={`Run #${run.run_id} failed`}
+          message={run.error ?? 'The backtest engine reported a failure with no detail.'}
+        />
+      </section>
+    );
+  }
+
+  // Completed.
+  if (run && run.status === 'completed') {
+    const summary = run.summary;
+    return (
+      <div className="flex flex-col gap-8">
+        {summary ? <StatsCards summary={summary} /> : null}
+
+        <section className="zg-feature-shell p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <LineChartIcon size={20} />
+            Equity Curve
+          </h2>
+          <EquityChart equity={equity} startingCapital={run.spec.sizing.capital} />
+        </section>
+
+        {summary && summary.by_pattern.length > 0 ? <ByPatternTable summary={summary} /> : null}
+
+        <section className="zg-feature-shell p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <ListOrdered size={20} />
+            Trade Blotter
+          </h2>
+          <TradesBlotter
+            page={trades}
+            pageIndex={tradesPage}
+            loading={tradesLoading}
+            onPage={setTradesPage}
+          />
+        </section>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function ProgressView({
+  status,
+  progress,
+  runId,
+}: {
+  status: string;
+  progress: number;
+  runId: number | null;
+}) {
+  const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+  return (
+    <div className="py-8">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold">
+          {runId != null ? `Running backtest #${runId}` : 'Starting backtest…'}
+        </span>
+        <StatusBadge status={status} />
+      </div>
+      <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--color-surface-subtle)' }}>
+        <div
+          className="h-full rounded-full transition-[width] duration-300"
+          style={{ width: `${pct}%`, background: 'var(--color-bull)' }}
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        />
+      </div>
+      <div className="mt-2 text-xs font-mono text-[var(--color-text-secondary)]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {pct}%
+      </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div
+      className="rounded-xl border p-12 text-center"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
+    >
+      <div className="text-lg font-semibold mb-1">No backtest run yet</div>
+      <div className="text-sm text-[var(--color-text-secondary)]">
+        Configure a run on the left and press <span className="font-semibold">Run Backtest</span>, or re-open a
+        recent run.
+      </div>
+    </div>
+  );
+}
+
+function StatsCards({ summary }: { summary: BacktestSummary }) {
+  const cards: { label: string; value: string; color?: string }[] = [
+    { label: 'Win rate', value: fmtPct(summary.win_rate) },
+    { label: 'Net P&L', value: fmtCurrency(summary.net_pnl), color: pnlColor(summary.net_pnl) },
+    {
+      label: 'Total return',
+      value: fmtPct(summary.total_return_pct),
+      color: pnlColor(summary.total_return_pct),
+    },
+    {
+      label: 'Max drawdown',
+      value: fmtPct(summary.max_drawdown_pct),
+      color: 'var(--color-bear)',
+    },
+    { label: 'Profit factor', value: fmtNumber(summary.profit_factor) },
+    { label: '# Trades', value: String(summary.n_trades) },
+    { label: 'Avg hold (min)', value: fmtNumber(summary.avg_hold_minutes, 0) },
+  ];
+  return (
+    <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          className="zg-feature-shell p-4"
+        >
+          <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+            {c.label}
+          </div>
+          <div
+            className="mt-1 text-xl font-bold font-mono"
+            style={{ color: c.color ?? 'var(--color-text-primary)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {c.value}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ByPatternTable({ summary }: { summary: BacktestSummary }) {
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-4">By Pattern</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[var(--color-text-secondary)] text-xs uppercase tracking-[0.12em]">
+              <th className="py-2 pr-4 font-semibold">Pattern</th>
+              <th className="py-2 pr-4 font-semibold text-right">Trades</th>
+              <th className="py-2 pr-4 font-semibold text-right">Win rate</th>
+              <th className="py-2 font-semibold text-right">Net P&L</th>
+            </tr>
+          </thead>
+          <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {summary.by_pattern.map((p) => (
+              <tr key={p.pattern} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-2 pr-4 font-medium">{p.pattern}</td>
+                <td className="py-2 pr-4 text-right font-mono">{p.n}</td>
+                <td className="py-2 pr-4 text-right font-mono">{fmtPct(p.win_rate)}</td>
+                <td className="py-2 text-right font-mono" style={{ color: pnlColor(p.net_pnl) }}>
+                  {fmtCurrency(p.net_pnl)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function TradesBlotter({
+  page,
+  pageIndex,
+  loading,
+  onPage,
+}: {
+  page: ReturnType<typeof useBacktest>['trades'];
+  pageIndex: number;
+  loading: boolean;
+  onPage: (page: number) => void;
+}) {
+  if (!page) {
+    return <Skeleton height={240} label="Loading trades…" />;
+  }
+  if (page.total === 0) {
+    return (
+      <div className="text-sm text-[var(--color-text-secondary)]">
+        This run produced no trades.
+      </div>
+    );
+  }
+
+  const start = pageIndex * TRADES_PAGE_SIZE;
+  const end = Math.min(start + page.trades.length, page.total);
+  const hasPrev = pageIndex > 0;
+  const hasNext = end < page.total;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="overflow-x-auto" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 150ms' }}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-left text-[var(--color-text-secondary)] uppercase tracking-[0.1em]">
+              <th className="py-2 pr-3 font-semibold">#</th>
+              <th className="py-2 pr-3 font-semibold">Pattern</th>
+              <th className="py-2 pr-3 font-semibold">Side</th>
+              <th className="py-2 pr-3 font-semibold">Contract</th>
+              <th className="py-2 pr-3 font-semibold">Entered</th>
+              <th className="py-2 pr-3 font-semibold">Exited</th>
+              <th className="py-2 pr-3 font-semibold text-right">Entry</th>
+              <th className="py-2 pr-3 font-semibold text-right">Exit</th>
+              <th className="py-2 pr-3 font-semibold text-right">Qty</th>
+              <th className="py-2 pr-3 font-semibold text-right">Net P&L</th>
+              <th className="py-2 pr-3 font-semibold text-right">Return</th>
+              <th className="py-2 font-semibold">Outcome</th>
+            </tr>
+          </thead>
+          <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {page.trades.map((t) => (
+              <tr key={t.seq} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 pr-3 font-mono">{t.seq}</td>
+                <td className="py-1.5 pr-3">{t.pattern}</td>
+                <td className="py-1.5 pr-3 capitalize">{t.direction}</td>
+                <td className="py-1.5 pr-3 font-mono">
+                  {t.strike}
+                  {t.option_type?.charAt(0).toUpperCase()}
+                </td>
+                <td className="py-1.5 pr-3">{formatDateTime(t.entered_at)}</td>
+                <td className="py-1.5 pr-3">{formatDateTime(t.exited_at)}</td>
+                <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.entry_premium)}</td>
+                <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.exit_premium)}</td>
+                <td className="py-1.5 pr-3 text-right font-mono">{t.contracts}</td>
+                <td className="py-1.5 pr-3 text-right font-mono" style={{ color: pnlColor(t.net_pnl) }}>
+                  {fmtCurrency(t.net_pnl)}
+                </td>
+                <td className="py-1.5 pr-3 text-right font-mono" style={{ color: pnlColor(t.return_pct) }}>
+                  {fmtPct(t.return_pct)}
+                </td>
+                <td className="py-1.5 capitalize">{t.outcome}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {start + 1}–{end} of {page.total}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!hasPrev || loading}
+            onClick={() => onPage(pageIndex - 1)}
+            className="rounded-md border px-2.5 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            disabled={!hasNext || loading}
+            onClick={() => onPage(pageIndex + 1)}
+            className="rounded-md border px-2.5 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Shared bits ---------------------------------------------------------
+
+function Skeleton({ height = 200, label }: { height?: number; label?: string }) {
+  return (
+    <div
+      className="rounded-xl border animate-pulse flex items-center justify-center text-xs text-[var(--color-text-secondary)]"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function ErrorBox({ title, message }: { title: string; message: string }) {
+  return (
+    <div
+      className="rounded-lg border px-4 py-3 text-sm flex items-start gap-2"
+      style={{ borderColor: 'var(--color-bear)', background: 'var(--color-bear-soft, transparent)' }}
+      role="alert"
+    >
+      <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-bear)' }} />
+      <div>
+        <div className="font-semibold">{title}</div>
+        <div className="text-[var(--color-text-secondary)] mt-0.5">{message}</div>
+      </div>
+    </div>
+  );
+}

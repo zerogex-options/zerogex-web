@@ -50,6 +50,7 @@ export default function robots(): MetadataRoute.Robots {
         '/options-calculator',
         '/option-contracts',
         '/range-break-imminence',
+        '/backtesting',
         // Internals
         '/api',
         '/_next',
