@@ -39,7 +39,10 @@ interface GexSummary {
   put_call_ratio?: number | null;
 }
 
-const PAGE_TITLE = 'SPX Gamma Levels Today — Call Wall, Put Wall & Gamma Flip';
+// URL stays /spx-gamma-levels because "SPX gamma levels" is the highest-volume
+// intent search in this category; the title/H1/content carry SPY and QQQ so
+// the page also picks up sibling searches without a slug rename.
+const PAGE_TITLE = 'SPX, SPY & QQQ Gamma Levels Today — Call Wall, Put Wall & Gamma Flip';
 const PAGE_DESCRIPTION =
   'Free daily SPX, SPY, and QQQ gamma levels — call wall, put wall, gamma flip, and net dealer GEX. Derived analytics, refreshed every 15 minutes. No signup required.';
 

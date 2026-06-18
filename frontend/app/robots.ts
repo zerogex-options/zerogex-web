@@ -12,11 +12,11 @@ export default function robots(): MetadataRoute.Robots {
         '/forgot-password',
         '/reset-password',
         '/unauthorized',
-        // User-scoped data routes. /dashboard itself is intentionally public
-        // (anonymous preview of GEX/walls/flip via public APIs) and stays
-        // crawlable; sub-paths under /dashboard/* are still off-limits via
-        // the sitemap exclude.
+        // User-scoped data routes. /dashboard is subscriber-only; the free,
+        // 15-min-delayed preview lives at /spx-gamma-levels, which carries
+        // the public-search intent and is the indexable target instead.
         '/account',
+        '/dashboard',
         // Admin
         '/admin',
         // Replaced by 308 redirect to /

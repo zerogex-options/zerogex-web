@@ -252,7 +252,7 @@ export default function RealTimeGexLandingClient() {
               Pricing
             </button>
           </Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+          <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
               style={{
                 background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
@@ -269,7 +269,7 @@ export default function RealTimeGexLandingClient() {
                 boxShadow: `0 4px 16px ${C.amber}50`,
               }}
             >
-              Free Dashboard <ArrowRight size={14} />
+              Free Gamma Levels <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -322,11 +322,11 @@ export default function RealTimeGexLandingClient() {
             ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today — live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
           </p>
           <p style={{ margin: '0 auto 32px', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-            No 15-minute-delayed feeds. No black-box scores. Open the dashboard and see what dealers have to hedge, right now.
+            No black-box scores. See the free, 15-minute-delayed gamma levels — or start a trial to read the live dealer book.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -343,7 +343,7 @@ export default function RealTimeGexLandingClient() {
                   boxShadow: `0 12px 36px ${C.amber}45`,
                 }}
               >
-                Launch the free dashboard <ArrowRight size={16} />
+                Open free gamma levels <ArrowRight size={16} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
@@ -369,7 +369,7 @@ export default function RealTimeGexLandingClient() {
 
           <div style={{ marginTop: 30, display: 'inline-flex', gap: 18, color: C.muted, fontSize: 13, flexWrap: 'wrap', justifyContent: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} color={C.amber} /> No card to read the free dashboard
+              <ShieldCheck size={14} color={C.amber} /> No card for the free preview
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Clock size={14} color={C.amber} /> Cancel anytime, no email required
@@ -476,13 +476,13 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Sparkles}
               title="Free read on the structural stack"
-              body="Net GEX, gamma flip, call wall, put wall, max pain, and the full dealer gamma profile — open to anyone, no signup required."
+              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, and QQQ — open to anyone, no signup required, refreshed every 15 minutes."
             />
           </div>
         </div>
       </section>
 
-      {/* Proof / free dashboard */}
+      {/* Proof / free gamma levels */}
       <section style={{ padding: '70px 24px', borderTop: `1px solid ${C.border}` }}>
         <div
           style={{
@@ -497,7 +497,7 @@ export default function RealTimeGexLandingClient() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center', textAlign: 'center' }}>
             <Pill>
-              <BarChart2 size={14} /> Free Public Dashboard
+              <BarChart2 size={14} /> Free Gamma Levels
             </Pill>
             <h2
               style={{
@@ -513,7 +513,7 @@ export default function RealTimeGexLandingClient() {
               See today&apos;s dealer book without paying for it.
             </h2>
             <p style={{ margin: 0, maxWidth: 680, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The ZeroGEX dashboard surfaces the structural reads in real time — Net GEX, gamma flip with live distance from spot, call and put walls, max pain, and the dealer gamma profile across strikes. Anonymous access, no signup, no card.
+              The free gamma-levels page surfaces the structural reads for SPX, SPY, and QQQ — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, width: '100%', marginTop: 8 }}>
@@ -547,7 +547,7 @@ export default function RealTimeGexLandingClient() {
               ))}
             </div>
 
-            <Link href="/dashboard" style={{ textDecoration: 'none', marginTop: 8 }}>
+            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none', marginTop: 8 }}>
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -564,7 +564,7 @@ export default function RealTimeGexLandingClient() {
                   boxShadow: `0 12px 36px ${C.amber}45`,
                 }}
               >
-                Open the free dashboard <ArrowRight size={16} />
+                Open free gamma levels <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -591,7 +591,7 @@ export default function RealTimeGexLandingClient() {
               Pricing built for the way 0DTE traders actually work.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Free dashboard for the structural reads. Paid plans add the signal layer, the Advanced Signals, and direct API access. Every plan starts with a {TRIAL_DAYS}-day free trial — cancel anytime.
+              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Every plan starts with a {TRIAL_DAYS}-day free trial — cancel anytime.
             </p>
           </div>
 
@@ -707,7 +707,7 @@ export default function RealTimeGexLandingClient() {
               fontWeight: 900,
             }}
           >
-            Open the dashboard. See the dealer book.{' '}
+            See the dealer book.{' '}
             <span
               style={{
                 background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
@@ -720,11 +720,11 @@ export default function RealTimeGexLandingClient() {
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 640, fontSize: 17, color: C.muted, lineHeight: 1.65 }}>
-            The free read is the same calculation paid users get. Try it on today&apos;s tape before you decide whether to upgrade.
+            The free read is the same calculation paid users get — just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -741,7 +741,7 @@ export default function RealTimeGexLandingClient() {
                   boxShadow: `0 14px 48px ${C.amber}50`,
                 }}
               >
-                Launch the free dashboard <ArrowRight size={18} />
+                Open free gamma levels <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
