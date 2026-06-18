@@ -23,6 +23,8 @@ export const TelemetryEvent = {
   SubscriptionPaid: 'subscription_paid',
   /** Subscription ended → tier reset to public; the churn event (server). */
   SubscriptionCancelled: 'subscription_cancelled',
+  /** AI copilot message sent (client, /copilot). Product-engagement signal. */
+  CopilotMessage: 'copilot_message',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

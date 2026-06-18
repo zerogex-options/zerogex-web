@@ -75,6 +75,10 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/option-contracts', minimumTier: 'basic' },
   // Account self-service — any logged-in tier (incl. public/unpaid) can manage their own account.
   { pattern: '/account', minimumTier: 'public' },
+  // AI copilot — any logged-in tier. Unpaid (public) users get a metered free
+  // allowance (enforced in the chat route); anonymous visitors are funneled to
+  // sign-up via the login redirect.
+  { pattern: '/copilot', minimumTier: 'public' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(

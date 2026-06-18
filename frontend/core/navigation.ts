@@ -23,6 +23,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Main',
     items: [
       { id: '/dashboard', label: 'Dashboard', requiredTier: 'basic' },
+      // No requiredTier: visible to every logged-in tier, including unpaid
+      // (public) users who get the metered free allowance — the funnel teaser.
+      { id: '/copilot', label: 'AI Copilot' },
     ],
   },
   {
