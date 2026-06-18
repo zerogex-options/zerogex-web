@@ -364,13 +364,60 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
 // shared price axis so the viewer can see at a glance where price sits relative
 // to the dealer magnets. Markers below the track = structural walls; above the
 // track = flip + live spot.
+type MapPoint = {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+  side: 'above' | 'below';
+  priority: number;
+};
+
+// Minimum horizontal separation (in % of track width) two labels need before
+// they're considered overlapping. Sized to the widest label/value lockup
+// ("Call Wall" / a 6-char price) against the ~580px inner card width.
+const LABEL_MIN_GAP_PCT = 12;
+const ROW_H = 24; // vertical space one stacked label row occupies
+const TRACK_GAP = 13; // gap between the nearest label row and the track
+const TRACK_H = 4;
+
+// Greedily assign each point to the lowest vertical level (0 = nearest the
+// track) that has no already-placed neighbour within LABEL_MIN_GAP_PCT. Points
+// are processed in priority order so the most important marker on a side
+// (e.g. live Spot) keeps the row closest to the track and lower-priority,
+// colliding markers (e.g. Flip, when price is sitting on the flip) stack above
+// or below it instead of printing on top of it.
+function assignLevels(points: MapPoint[], pos: (v: number) => number) {
+  const ordered = [...points].sort((a, b) => b.priority - a.priority);
+  const levels: number[][] = [];
+  const byKey = new Map<string, number>();
+  for (const p of ordered) {
+    const x = pos(p.value);
+    let level = 0;
+    for (;;) {
+      const occupied = levels[level] ?? (levels[level] = []);
+      if (occupied.every((other) => Math.abs(other - x) >= LABEL_MIN_GAP_PCT)) {
+        occupied.push(x);
+        byKey.set(p.key, level);
+        break;
+      }
+      level += 1;
+    }
+  }
+  const maxLevel = points.reduce((m, p) => Math.max(m, byKey.get(p.key) ?? 0), 0);
+  return {
+    levelOf: (key: string) => byKey.get(key) ?? 0,
+    levelCount: points.length ? maxLevel + 1 : 0,
+  };
+}
+
 function GammaMap({ model }: { model: ReportModel }) {
-  const points = [
-    { key: 'put', label: 'Put Wall', value: model.putWall, color: C.bull, side: 'below' as const },
-    { key: 'flip', label: 'Flip', value: model.gammaFlip, color: C.amber, side: 'above' as const },
-    { key: 'spot', label: 'Spot', value: model.spot, color: C.textPrimary, side: 'above' as const },
-    { key: 'call', label: 'Call Wall', value: model.callWall, color: C.bear, side: 'below' as const },
-  ].filter((p): p is typeof p & { value: number } => p.value != null && Number.isFinite(p.value));
+  const points: MapPoint[] = [
+    { key: 'put', label: 'Put Wall', value: model.putWall!, color: C.bull, side: 'below' as const, priority: 1 },
+    { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.amber, side: 'above' as const, priority: 2 },
+    { key: 'spot', label: 'Spot', value: model.spot!, color: C.textPrimary, side: 'above' as const, priority: 3 },
+    { key: 'call', label: 'Call Wall', value: model.callWall!, color: C.bear, side: 'below' as const, priority: 1 },
+  ].filter((p) => p.value != null && Number.isFinite(p.value));
 
   if (points.length < 2) return null;
 
@@ -385,23 +432,36 @@ function GammaMap({ model }: { model: ReportModel }) {
 
   const above = points.filter((p) => p.side === 'above');
   const below = points.filter((p) => p.side === 'below');
+  const aboveLayout = assignLevels(above, pos);
+  const belowLayout = assignLevels(below, pos);
+
+  // Geometry derived from how many stacked rows each side actually needs, so a
+  // collision-free map stays compact and a stacked one grows just enough.
+  const trackY = aboveLayout.levelCount * ROW_H + TRACK_GAP;
+  const height = trackY + TRACK_H + TRACK_GAP + belowLayout.levelCount * ROW_H;
+  const tickTop = trackY - 5;
+  const tickHeight = TRACK_H + 10;
 
   return (
     <div style={{ marginTop: 20 }}>
       <div style={CARD_LABEL}>Positioning Map</div>
-      <div style={{ position: 'relative', height: 78, marginTop: 6 }}>
-        {/* above-track labels */}
+      <div style={{ position: 'relative', height, marginTop: 6 }}>
         {above.map((p) => (
-          <Marker key={p.key} p={p} left={pos(p.value)} side="above" />
+          <Marker
+            key={p.key}
+            p={p}
+            left={pos(p.value)}
+            top={trackY - TRACK_GAP - (aboveLayout.levelOf(p.key) + 1) * ROW_H}
+          />
         ))}
         {/* track */}
         <div
           style={{
             position: 'absolute',
-            top: 38,
+            top: trackY,
             left: 0,
             right: 0,
-            height: 4,
+            height: TRACK_H,
             borderRadius: 2,
             background: `linear-gradient(90deg, ${C.bull}55, ${C.amber}55, ${C.bear}55)`,
           }}
@@ -412,19 +472,23 @@ function GammaMap({ model }: { model: ReportModel }) {
             key={`tick-${p.key}`}
             style={{
               position: 'absolute',
-              top: 32,
+              top: tickTop,
               left: `${pos(p.value)}%`,
               width: 2,
-              height: 16,
+              height: tickHeight,
               marginLeft: -1,
               background: p.color,
               borderRadius: 1,
             }}
           />
         ))}
-        {/* below-track labels */}
         {below.map((p) => (
-          <Marker key={p.key} p={p} left={pos(p.value)} side="below" />
+          <Marker
+            key={p.key}
+            p={p}
+            left={pos(p.value)}
+            top={trackY + TRACK_H + TRACK_GAP + belowLayout.levelOf(p.key) * ROW_H}
+          />
         ))}
       </div>
     </div>
@@ -434,11 +498,11 @@ function GammaMap({ model }: { model: ReportModel }) {
 function Marker({
   p,
   left,
-  side,
+  top,
 }: {
   p: { label: string; value: number; color: string };
   left: number;
-  side: 'above' | 'below';
+  top: number;
 }) {
   // Clamp the label box so edge markers don't overflow the card.
   const clamped = Math.min(92, Math.max(8, left));
@@ -446,11 +510,12 @@ function Marker({
     <div
       style={{
         position: 'absolute',
-        top: side === 'above' ? 0 : 52,
+        top,
         left: `${clamped}%`,
         transform: 'translateX(-50%)',
         textAlign: 'center',
         whiteSpace: 'nowrap',
+        lineHeight: 1.15,
       }}
     >
       <div
