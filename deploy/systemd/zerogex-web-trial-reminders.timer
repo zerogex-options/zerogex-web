@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroGEX web trial-reminder email timer (~every 6h)
+
+[Timer]
+# Every 6 hours, on the quarter so it doesn't collide with the hourly auth
+# backup at :00 or the 02:00/02:30 cron jobs. The script's default +/-3h
+# window matches this cadence so each trialing user lands in exactly one
+# run between subscription start and trial end.
+OnCalendar=00/6:15:00
+# Spread load across deploys / coalesce if many users hit the same minute.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

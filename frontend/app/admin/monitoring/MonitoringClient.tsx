@@ -22,6 +22,7 @@ type SignupPoint = {
   pro: number;
   public: number;
   paying: number;
+  trialing: number;
   disclaimer: number;
 };
 
@@ -223,7 +224,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic, Pro, and Public users, paying members, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic, Pro, and Public users, full subscribers, free-trial users, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <SignupChartCard
@@ -727,7 +728,11 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
   const basicColor = lighten(brandColor, 0.45);
   const publicColor = lighten(brandColor, 0.7);
   const payingColor = '#ff8531';
-  const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0, public: 0, paying: 0 };
+  const trialingColor = '#ffa600';
+  const latest =
+    data.length > 0
+      ? data[data.length - 1]
+      : { basic: 0, pro: 0, public: 0, paying: 0, trialing: 0 };
   const total = latest.basic + latest.pro + latest.public;
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -737,7 +742,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
           <span><span style={{ color: proColor }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
           <span><span style={{ color: basicColor }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
           <span><span style={{ color: publicColor }}>●</span> Public: {latest.public.toLocaleString()}</span>
-          <span><span style={{ color: payingColor }}>●</span> Paying: {latest.paying.toLocaleString()}</span>
+          <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
+          <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
           <span>Total: {total.toLocaleString()}</span>
         </div>
       </div>
@@ -773,6 +779,7 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                   const pro = Number(payload.find((p) => p.dataKey === 'pro')?.value ?? 0);
                   const pub = Number(payload.find((p) => p.dataKey === 'public')?.value ?? 0);
                   const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
+                  const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -782,7 +789,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                       <div>Pro: {pro.toLocaleString()}</div>
                       <div>Basic: {basic.toLocaleString()}</div>
                       <div>Public: {pub.toLocaleString()}</div>
-                      <div>Paying: {paying.toLocaleString()}</div>
+                      <div>Full Subscriber: {paying.toLocaleString()}</div>
+                      <div>Free Trial: {trialing.toLocaleString()}</div>
                       <div className="mt-1">Total: {(basic + pro + pub).toLocaleString()}</div>
                     </div>
                   );
@@ -821,9 +829,19 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
               <Line
                 type="monotone"
                 dataKey="paying"
-                name="Paying"
+                name="Full Subscriber"
                 stroke={payingColor}
                 strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="trialing"
+                name="Free Trial"
+                stroke={trialingColor}
+                strokeWidth={2}
+                strokeDasharray="4 3"
                 dot={false}
                 isAnimationActive={false}
               />
