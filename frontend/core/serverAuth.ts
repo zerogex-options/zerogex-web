@@ -797,6 +797,15 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
     .get(input.provider, input.providerId) as Record<string, unknown> | undefined;
   let user = identityRow ? rowToUser(identityRow) : null;
 
+  // True only when this callback is creating a brand-new account. Used
+  // below to discriminate "OAuth signup" (write `oauth_login` once for
+  // provider-tagged funnel analysis, no login_success) from "returning
+  // OAuth login" (write `login_success`, mirroring the local-password
+  // convention where /register skips the audit and /login owns it). The
+  // existing-local-user-adopting-OAuth branch (emailRow set) counts as
+  // a returning login, not a signup — the account predates this callback.
+  let isFreshSignup = false;
+
   if (!user) {
     db.exec('BEGIN');
     try {
@@ -814,6 +823,7 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
       if (emailRow) {
         user = rowToUser(emailRow);
       } else {
+        isFreshSignup = true;
         const oauthNow = nowIso();
         // Tier on fresh OAuth signup must mirror the local-password
         // registration default: selfSignupTier() (public unless an operator
@@ -864,7 +874,32 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   }
 
   const session = createSessionForUser(user);
-  appendAuditEvent({ type: 'oauth_login', userId: user.id, email: user.email, ip: getClientIp(request), message: `${input.provider} login successful` });
+  const ip = getClientIp(request);
+  if (isFreshSignup) {
+    // Signup-only audit. Kept as `oauth_login` for backward-compat with any
+    // operator alerting on the type; the meaning narrows from "any OAuth
+    // callback" to "OAuth signup" now that returning visits emit
+    // `login_success` instead.
+    appendAuditEvent({
+      type: 'oauth_login',
+      userId: user.id,
+      email: user.email,
+      ip,
+      message: `${input.provider} signup successful`,
+    });
+  } else {
+    // Returning login. Same `login_success` type the local-password /login
+    // path writes (line 452 above) so scripts/list-auth-users.mjs and
+    // scripts/list-public-cohort.mjs see OAuth returnees as active users
+    // instead of mis-bucketing them as never-logged-in.
+    appendAuditEvent({
+      type: 'login_success',
+      userId: user.id,
+      email: user.email,
+      ip,
+      message: `Login successful via ${input.provider}`,
+    });
+  }
   return session;
 }
 
