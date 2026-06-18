@@ -9,8 +9,18 @@ export interface NewsHeadline {
   title: string;
   url: string;
   source: string;
+  sourceId: string;
   category: NewsCategory;
   publishedAtMs: number;
+  // Heuristic 0..10ish score, computed server-side from keyword hits,
+  // source tier, and cross-source confirmation. See scoreImportance() and
+  // HIGH_SIGNAL_THRESHOLD for the rubric. Anything >= threshold passes
+  // the "High signal only" toggle in the UI.
+  importance: number;
+  // How many distinct feeds carried (a near-identical title of) this story
+  // before dedupe — a "≥2 sources" signal is a strong proxy for wire-level
+  // confirmation. 1 means only one feed had it.
+  crossSourceCount: number;
 }
 
 export interface NewsSource {
@@ -111,6 +121,76 @@ export function categorizeHeadline(title: string, fallback: NewsCategory): NewsC
     if (patterns.some((p) => p.test(title))) return category;
   }
   return fallback;
+}
+
+// Patterns that mark a headline as market-moving. Each matching pattern
+// adds to the importance score (capped so a single keyword-stuffed title
+// can't dominate). Curated for the things a trader actually wants pushed
+// to the top: scheduled releases (CPI/NFP/FOMC), policy actions (rate
+// cut/hike), crisis events (war/sanctions/default), and explicit urgency
+// markers from wire services ("breaking", "just in").
+const HIGH_SIGNAL_PATTERNS: readonly RegExp[] = [
+  // Central-bank action language
+  /\b(fomc|rate (?:cut|hike|decision|path|increase|decrease)|dot plot|qe|qt|federal funds|emergency rate|deposit facility|policy statement)\b/i,
+  // Scheduled macro releases — when these print, markets move
+  /\b(cpi|ppi|nfp|nonfarm payrolls?|jobless claims?|unemployment rate|gdp|pmi|ism|retail sales|housing starts|durable goods|consumer confidence)\b/i,
+  // Geopolitical / sovereign crisis
+  /\b(war|invasion|ceasefire|sanctions?|tariffs?|default|shutdown|missile strike|airstrike|hostage|evacuat|coup|summit|treaty|nuclear|attack)\b/i,
+  // Market dislocations
+  /\b(all[- ]time high|circuit breaker|trading halt|crash|plunge|surge|downgrade|upgrade|guidance cut|guidance raised|profit warning|bankruptcy|chapter 11)\b/i,
+  // Explicit urgency markers used by wires
+  /\b(breaking|exclusive|surprise|shock|emergency|just in|alert)\b/i,
+];
+
+// Source IDs whose press releases ARE the event — Fed/ECB/Treasury
+// don't issue many headlines, and when they do it's usually market-moving
+// (policy statements, supervisory actions, sanctions designations).
+const INSTITUTIONAL_SOURCE_IDS = new Set(["fed", "ecb", "treasury"]);
+
+// Anything at or above this passes the "High signal only" filter.
+// The rubric is tuned so:
+//   - Institutional press release alone (4) passes
+//   - Two or more keyword hits (4) pass
+//   - 1 keyword + cross-source ≥2 (4) passes
+//   - Cross-source ≥3 (4) passes
+//   - 1 keyword alone (2) doesn't pass
+//   - Cross-source ≥2 alone (2) doesn't pass
+export const HIGH_SIGNAL_THRESHOLD = 4;
+
+export function scoreImportance(
+  title: string,
+  sourceId: string,
+  crossSourceCount: number,
+): number {
+  let score = 0;
+  if (INSTITUTIONAL_SOURCE_IDS.has(sourceId)) score += 4;
+  let keywordHits = 0;
+  for (const pat of HIGH_SIGNAL_PATTERNS) {
+    if (pat.test(title)) keywordHits += 1;
+  }
+  // Cap at 2 hits — a single headline that namechecks five keywords
+  // shouldn't outweigh one that namechecks two but is wire-confirmed.
+  score += Math.min(keywordHits, 2) * 2;
+  if (crossSourceCount >= 3) score += 4;
+  else if (crossSourceCount >= 2) score += 2;
+  return score;
+}
+
+export function isHighSignal(h: { importance: number }): boolean {
+  return h.importance >= HIGH_SIGNAL_THRESHOLD;
+}
+
+// Normalize a title for cross-source matching: lowercase, collapse
+// whitespace, drop trailing source suffixes ("- Reuters"). Different
+// wires often phrase the same story slightly differently — this strips
+// most of that variation so cross-source counting works.
+export function normalizeTitleKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[‘’“”]/g, "'")
+    .replace(/\s*[-|–—]\s*[a-z .]+$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // Dedupe by id first, then by normalized title — different wires often carry

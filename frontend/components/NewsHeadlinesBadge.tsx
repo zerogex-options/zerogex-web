@@ -8,8 +8,23 @@ import { colors } from "@/core/colors";
 import {
   categoryPalette,
   formatRelativeTime,
+  isHighSignal,
   type NewsHeadline,
 } from "@/core/newsHeadlines";
+
+type FilterMode = "high" | "all";
+
+const FILTER_MODE_KEY = "zgx_news_filter_mode";
+
+function readSavedFilterMode(): FilterMode {
+  if (typeof window === "undefined") return "high";
+  try {
+    const stored = window.localStorage.getItem(FILTER_MODE_KEY);
+    return stored === "all" ? "all" : "high";
+  } catch {
+    return "high";
+  }
+}
 
 interface NewsHeadlinesBadgeProps {
   theme: Theme;
@@ -41,8 +56,18 @@ export default function NewsHeadlinesBadge({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
+  const [filterMode, setFilterMode] = useState<FilterMode>(readSavedFilterMode);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(FILTER_MODE_KEY, filterMode);
+    } catch {
+      // localStorage may be disabled in some browser modes; the toggle still
+      // works for the current session, it just won't persist.
+    }
+  }, [filterMode]);
 
   // Initial load + background refresh every 5 minutes.
   useEffect(() => {
@@ -98,8 +123,25 @@ export default function NewsHeadlinesBadge({
   }, [open]);
 
   const headlines = useMemo<NewsHeadline[]>(() => data?.headlines ?? [], [data]);
-  const newest = headlines[0];
-  const hasFresh = !!newest && now - newest.publishedAtMs < FRESH_THRESHOLD_MS;
+  const highSignalHeadlines = useMemo(
+    () => headlines.filter(isHighSignal),
+    [headlines],
+  );
+  // Empty-fallback: if the user toggled to High but nothing scores high
+  // yet, show all so the popup is never blank — they'll see the toggle
+  // is still set to High but the list is the full feed.
+  const visibleHeadlines = useMemo(() => {
+    if (filterMode === "all") return headlines;
+    return highSignalHeadlines.length > 0 ? highSignalHeadlines : headlines;
+  }, [filterMode, headlines, highSignalHeadlines]);
+  const isFallback = filterMode === "high" && highSignalHeadlines.length === 0 && headlines.length > 0;
+
+  // Fresh dot tracks high-signal freshness specifically — a fresh "tech
+  // CEO interview" headline shouldn't pulse the badge if the user is
+  // looking for market movers.
+  const newestHighSignal = highSignalHeadlines[0];
+  const newest = newestHighSignal ?? headlines[0];
+  const hasFresh = !!newestHighSignal && now - newestHighSignal.publishedAtMs < FRESH_THRESHOLD_MS;
 
   const border = "var(--color-border)";
   const cardBg = theme === "dark" ? `${colors.cardDark}f5` : `${colors.cardLight}f5`;
@@ -196,7 +238,7 @@ export default function NewsHeadlinesBadge({
       }}
     >
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
+        className="px-4 py-3 border-b"
         style={{
           borderColor: border,
           position: "sticky",
@@ -207,24 +249,74 @@ export default function NewsHeadlinesBadge({
           zIndex: 1,
         }}
       >
-        <div className="flex items-center gap-2">
-          <Newspaper size={16} style={{ color: colors.primary }} />
-          <span
-            className="text-xs font-bold uppercase tracking-wider"
-            style={{ color: theme === "dark" ? colors.light : colors.dark }}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Newspaper size={16} style={{ color: colors.primary }} />
+            <span
+              className="text-xs font-bold uppercase tracking-wider"
+              style={{ color: theme === "dark" ? colors.light : colors.dark }}
+            >
+              Top Headlines
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-md p-1"
+            style={{ color: colors.muted, background: "transparent", cursor: "pointer" }}
+            aria-label="Close"
           >
-            Top Headlines
+            <X size={14} />
+          </button>
+        </div>
+        <div className="mt-2.5 flex items-center justify-between gap-2">
+          <div
+            className="inline-flex rounded-md border overflow-hidden"
+            style={{ borderColor: border }}
+            role="tablist"
+            aria-label="Headline filter"
+          >
+            {(["high", "all"] as const).map((mode) => {
+              const active = filterMode === mode;
+              const label = mode === "high" ? "High signal" : "All";
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setFilterMode(mode)}
+                  className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  style={{
+                    background: active ? colors.primary : "transparent",
+                    color: active
+                      ? "#FFFFFF"
+                      : theme === "dark"
+                        ? colors.light
+                        : colors.dark,
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: colors.muted }}
+          >
+            {visibleHeadlines.length} shown
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-md p-1"
-          style={{ color: colors.muted, background: "transparent", cursor: "pointer" }}
-          aria-label="Close"
-        >
-          <X size={14} />
-        </button>
+        {isFallback && (
+          <div
+            className="mt-2 text-[10px]"
+            style={{ color: colors.muted }}
+          >
+            No high-signal headlines yet — showing all.
+          </div>
+        )}
       </div>
 
       {loading && !data ? (
@@ -235,13 +327,13 @@ export default function NewsHeadlinesBadge({
         <div className="px-4 py-6 text-xs" style={{ color: colors.muted, textAlign: "center" }}>
           Unable to load headlines.
         </div>
-      ) : headlines.length === 0 ? (
+      ) : visibleHeadlines.length === 0 ? (
         <div className="px-4 py-6 text-xs" style={{ color: colors.muted, textAlign: "center" }}>
           No headlines available.
         </div>
       ) : (
         <ul style={{ listStyle: "none", margin: 0, padding: "8px" }}>
-          {headlines.map((h, idx) => {
+          {visibleHeadlines.map((h, idx) => {
             const pal = categoryPalette(h.category, colors);
             const fresh = now - h.publishedAtMs < FRESH_THRESHOLD_MS;
             return (
@@ -310,7 +402,17 @@ export default function NewsHeadlinesBadge({
                   className="mt-1.5 flex items-center justify-between text-[11px] font-semibold"
                   style={{ color: colors.muted }}
                 >
-                  <span>{h.source}</span>
+                  <span>
+                    {h.source}
+                    {h.crossSourceCount >= 2 && (
+                      <span
+                        title={`Cross-confirmed by ${h.crossSourceCount} sources`}
+                        style={{ marginLeft: 6, color: colors.bullish, fontWeight: 700 }}
+                      >
+                        ×{h.crossSourceCount}
+                      </span>
+                    )}
+                  </span>
                   {h.url && <ExternalLink size={11} style={{ opacity: 0.7 }} />}
                 </div>
               </li>
