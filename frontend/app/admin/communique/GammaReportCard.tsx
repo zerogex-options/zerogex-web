@@ -150,7 +150,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
         {/* Brand row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <BrandMark logoUrl={logoUrl} height={26} />
+            <BrandMark logoUrl={logoUrl} height={52} />
             <span
               style={{
                 fontSize: 10,
