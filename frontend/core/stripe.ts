@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { TierId } from '@/core/auth';
+import type { TierId } from '@/core/auth';
 
 export type BillableTier = Extract<TierId, 'basic' | 'pro'>;
 export type BillingCadence = 'monthly' | 'annual';

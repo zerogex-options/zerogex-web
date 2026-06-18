@@ -253,6 +253,14 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       founding,
       trial_end: trialEndIso,
     });
+    // Re-arm the ~48h reminder for this new trial window. Without this,
+    // a user who cancels mid-trial and resubscribes never gets the nudge
+    // because the latch stays set from their first trial.
+    getDb()
+      .prepare(
+        'UPDATE users SET trial_reminder_email_sent_at = NULL, updated_at = ? WHERE id = ?',
+      )
+      .run(nowIso(), user.id);
   }
   if (previousStatus !== 'active' && subscription.status === 'active') {
     // Fires on first paid activation, including a trial converting to paid.

@@ -1,5 +1,12 @@
 import { Resend } from 'resend';
-import { getAppUrl } from '@/core/stripe';
+
+// Inlined rather than imported from core/stripe so this module stays
+// importable from standalone `node --experimental-strip-types` scripts —
+// the TS '@/' path alias is a Next.js compile-time thing, not a Node
+// runtime resolver, and core/stripe transitively re-exports through it.
+function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+}
 
 let cachedClient: Resend | null = null;
 
@@ -236,6 +243,66 @@ export async function sendFoundingWelcomeEmail(
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Nudge sent ~48h before a free trial converts to a paid charge. The intent
+// is courteous, not promotional — give the user a heads-up so they have time
+// to cancel cleanly if the service isn't a fit, which cuts the refund-request
+// load and the chargeback risk that follow surprise auto-conversions. Sent
+// at most once per trial window (latched by users.trial_reminder_email_sent_at,
+// which the webhook clears whenever a new 'trialing' state begins).
+export async function sendTrialReminderEmail(
+  to: string,
+  opts: { trialEndIso: string },
+) {
+  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const subject = 'Your ZeroGEX free trial ends in 2 days';
+
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`,
+    '',
+    "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
+    '',
+    `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
+    '',
+    "Either way, thanks for giving ZeroGEX a try — if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
+      <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
+      <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
+      </p>
+      <p>Either way, thanks for giving ZeroGEX a try &mdash; if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
