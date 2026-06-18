@@ -77,19 +77,34 @@ function parseEnvFile(filePath) {
 }
 
 function parseArgs(argv) {
-  const args = { emails: false, cohort: null, help: false };
+  const args = {
+    emails: false,
+    cohort: null,
+    showLastLogin: false,
+    warmDays: 30,
+    help: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--emails') args.emails = true;
     else if (arg === '--cohort') args.cohort = argv[++i] ?? null;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--show-last-login') args.showLastLogin = true;
+    else if (arg === '--warm-days') {
+      const value = Number(argv[++i] ?? '');
+      if (!Number.isFinite(value) || value <= 0) {
+        console.error(`Error: --warm-days expects a positive number, got "${argv[i]}".`);
+        process.exit(1);
+      }
+      args.warmDays = value;
+    } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
 
 function usage() {
   console.log(`Usage:
-  node --no-warnings scripts/list-public-cohort.mjs [--emails] [--cohort <name>]
+  node --no-warnings scripts/list-public-cohort.mjs \\
+    [--emails] [--cohort <name>] [--show-last-login] [--warm-days N]
 
 Prints every tier='public' user broken down by the cohort that drives the
 reactivation pitch. Classification is priority-ordered (unverified beats
@@ -103,6 +118,12 @@ Modes:
                         per line. Suitable for piping into Resend's UI.
   --cohort <name>       Restrict to one cohort. Names: ${COHORTS.map((c) => c.id).join(', ')}.
                         Combine with --emails for a paste-ready list.
+  --show-last-login     Split each cohort into warm / cold / never by latest
+                        audit_events login_success row. warm = within
+                        --warm-days; cold = older; never = no login_success
+                        row at all (registered, never came back, OR pre-
+                        audit signup that never logged in explicitly).
+  --warm-days N         Threshold (in days) for the warm bucket. Default 30.
 
 Reads AUTH_DB_PATH from env or .env.local (default frontend/data/auth.db).`);
 }
@@ -176,9 +197,51 @@ function classify(u) {
   return 'verified-never-paid';
 }
 
+// Latest explicit login per user. The /register endpoint auto-issues a
+// session WITHOUT writing a login_success audit row (see comment in
+// scripts/list-auth-users.mjs:99-102), so a NULL here = "registered once,
+// never came back" — the coldest possible lead.
+const lastLoginByUser = new Map();
+if (args.showLastLogin) {
+  const hasAudit = !!db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_events'")
+    .get();
+  if (!hasAudit) {
+    console.error('Auth DB has no audit_events table — --show-last-login is unavailable.');
+    process.exit(1);
+  }
+  const loginRows = db
+    .prepare(
+      `SELECT user_id, MAX(created_at) AS last_login_at
+       FROM audit_events
+       WHERE type = 'login_success' AND user_id IS NOT NULL
+       GROUP BY user_id`,
+    )
+    .all();
+  for (const r of loginRows) {
+    if (r.user_id && r.last_login_at) lastLoginByUser.set(r.user_id, r.last_login_at);
+  }
+}
+
+const TEMPERATURES = ['warm', 'cold', 'never'];
+const warmThresholdMs = args.warmDays * 86_400_000;
+function temperature(u) {
+  const lastLogin = lastLoginByUser.get(u.id);
+  if (!lastLogin) return 'never';
+  const parsed = Date.parse(lastLogin);
+  if (!Number.isFinite(parsed)) return 'never';
+  return Date.now() - parsed <= warmThresholdMs ? 'warm' : 'cold';
+}
+
 const buckets = new Map(COHORTS.map((c) => [c.id, []]));
 for (const row of rows) {
   buckets.get(classify(row)).push(row);
+}
+
+function splitByTemperature(bucket) {
+  const split = { warm: [], cold: [], never: [] };
+  for (const u of bucket) split[temperature(u)].push(u);
+  return split;
 }
 
 if (args.emails) {
@@ -192,7 +255,19 @@ if (args.emails) {
     // file into a single mailer and the segmenting is still visible in the
     // recipient list during review, instead of relying on a separate map.
     console.log(`# ${cohort.label} (${bucket.length})`);
-    for (const u of bucket) console.log(u.email);
+    if (args.showLastLogin) {
+      // ## sub-headers split each cohort by login-recency so the operator
+      // can tailor copy ("you've been away a while" for cold vs "your
+      // trial is one click away" for warm) without re-pasting.
+      const split = splitByTemperature(bucket);
+      for (const temp of TEMPERATURES) {
+        if (split[temp].length === 0) continue;
+        console.log(`## ${temp} (${split[temp].length})`);
+        for (const u of split[temp]) console.log(u.email);
+      }
+    } else {
+      for (const u of bucket) console.log(u.email);
+    }
     console.log('');
   }
   process.exit(0);
@@ -202,12 +277,24 @@ if (args.emails) {
 const total = rows.length;
 console.log(`Auth DB: ${dbPath}`);
 console.log(`Total Public users: ${total}`);
+if (args.showLastLogin) {
+  console.log(
+    `Warm threshold: last login within ${args.warmDays} day${args.warmDays === 1 ? '' : 's'}` +
+      ` (now = ${new Date().toISOString()})`,
+  );
+}
 console.log('');
 for (const cohort of COHORTS) {
   if (args.cohort && cohort.id !== args.cohort) continue;
   const bucket = buckets.get(cohort.id);
   const pct = total > 0 ? ((bucket.length / total) * 100).toFixed(0) : '0';
   console.log(`  ${cohort.label.padEnd(40)} ${String(bucket.length).padStart(4)}  (${pct}%)`);
+  if (args.showLastLogin && bucket.length > 0) {
+    const split = splitByTemperature(bucket);
+    console.log(
+      `      warm: ${split.warm.length}   cold: ${split.cold.length}   never: ${split.never.length}`,
+    );
+  }
   // Wrap the hint under each cohort heading at ~78 cols so a terminal user
   // can read it without horizontal scrolling.
   const words = cohort.hint.split(' ');
@@ -225,3 +312,6 @@ for (const cohort of COHORTS) {
 }
 console.log('Re-run with --emails to print recipient lists.');
 console.log('Re-run with --cohort <name> --emails for a single segment.');
+if (!args.showLastLogin) {
+  console.log('Re-run with --show-last-login to split each cohort into warm/cold/never.');
+}
