@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
 import { useGEXSummary, useMarketQuote, useSessionCloses } from '@/hooks/useApiData';
 import GammaReportCard from './GammaReportCard';
 import { buildReportModel, fmtDateET, fmtTimeET } from './communiqueHelpers';
-import { nodeToPngBlob, nodeToPngDataUrl } from './imageExport';
+import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -22,6 +22,21 @@ export default function CommuniqueClient() {
   const [copyState, setCopyState] = useState<ExportState>('idle');
 
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // Rasterize the brand wordmark (served from /public) into a PNG data URL once
+  // on mount so it both displays crisply and embeds into the exported image.
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    rasterizeSvg('/title.svg', 960)
+      .then((url) => {
+        if (!cancelled) setLogoUrl(url);
+      })
+      .catch((err) => console.error('Failed to rasterize brand logo', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { data: summary } = useGEXSummary(symbol, 10000);
   const { data: quote } = useMarketQuote(symbol, 5000);
@@ -237,7 +252,14 @@ export default function CommuniqueClient() {
             Live preview
           </span>
           <div className="w-full overflow-x-auto flex justify-center">
-            <GammaReportCard ref={cardRef} model={model} headline={headline} lead={lead} asOf={asOf} />
+            <GammaReportCard
+              ref={cardRef}
+              model={model}
+              headline={headline}
+              lead={lead}
+              asOf={asOf}
+              logoUrl={logoUrl}
+            />
           </div>
         </div>
       </div>

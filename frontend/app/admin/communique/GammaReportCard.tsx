@@ -28,7 +28,15 @@ const C = {
   bull: '#1BC47D',
   bear: '#FF5A66',
   blue: '#3B82F6',
+  // brand accents (pacificDesertSunset) used for the top swath + glow
+  coral: '#FF6361',
+  pink: '#E0527E',
+  peach: '#FFD380',
+  ocean: '#2563EB',
 } as const;
+
+// Sleek brand gradient used for the top ribbon + header wash.
+const BRAND_SWATH = `linear-gradient(90deg, ${C.peach} 0%, ${C.amber} 26%, ${C.coral} 52%, ${C.pink} 74%, ${C.ocean} 100%)`;
 
 const REGIME_ACCENT: Record<ReportModel['regime'], string> = {
   positive: C.bull,
@@ -45,11 +53,13 @@ export interface GammaReportCardProps {
   headline: string;
   lead: string;
   asOf: string;
+  /** Rasterized PNG data URL of the brand wordmark; falls back to text until ready. */
+  logoUrl?: string | null;
   width?: number;
 }
 
 const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(function GammaReportCard(
-  { model, headline, lead, asOf, width = 640 },
+  { model, headline, lead, asOf, logoUrl, width = 640 },
   ref,
 ) {
   const accent = REGIME_ACCENT[model.regime];
@@ -84,6 +94,19 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           backgroundSize: '32px 32px',
         }}
       />
+      {/* soft brand wash sweeping across the header for depth */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 200,
+          pointerEvents: 'none',
+          opacity: 0.16,
+          background: `radial-gradient(120% 100% at 100% 0%, ${C.coral} 0%, ${C.amber} 26%, transparent 60%)`,
+        }}
+      />
       <div
         style={{
           position: 'absolute',
@@ -97,21 +120,37 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
         }}
       />
 
-      <div style={{ position: 'relative', padding: '28px 30px 22px' }}>
+      {/* top gradient swath — the brand-accent ribbon flush to the card edge */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 6,
+          background: BRAND_SWATH,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 6,
+          left: 0,
+          right: 0,
+          height: 24,
+          background: BRAND_SWATH,
+          filter: 'blur(18px)',
+          opacity: 0.55,
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div style={{ position: 'relative', padding: '30px 30px 22px' }}>
         {/* Brand row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span
-              style={{
-                width: 9,
-                height: 9,
-                borderRadius: '50%',
-                background: C.amber,
-                boxShadow: `0 0 10px ${C.amber}`,
-                display: 'inline-block',
-              }}
-            />
-            <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: 2.5 }}>ZEROGEX</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <BrandMark logoUrl={logoUrl} height={26} />
             <span
               style={{
                 fontSize: 10,
@@ -121,7 +160,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
                 textTransform: 'uppercase',
               }}
             >
-              · Dealer Gamma Positioning
+              Dealer Gamma Positioning
             </span>
           </div>
           <div
@@ -258,9 +297,9 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             color: C.textFaint,
           }}
         >
-          <span style={{ fontWeight: 700, letterSpacing: 1, color: C.textSecondary }}>
-            ZEROGEX
-            <span style={{ color: C.textFaint, fontWeight: 500 }}> · zerogex.io · @zerogex</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <BrandMark logoUrl={logoUrl} height={16} />
+            <span style={{ color: C.textFaint, fontWeight: 500 }}>zerogex.io · @zerogex</span>
           </span>
           <span>Derived analytics · not financial advice</span>
         </div>
@@ -268,6 +307,31 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
     </div>
   );
 });
+
+// Renders the brand wordmark from a pre-rasterized PNG data URL (so it embeds
+// cleanly in the PNG export); falls back to a styled "ZEROGEX" text lockup
+// while the logo is still rasterizing or if it fails to load.
+function BrandMark({ logoUrl, height }: { logoUrl?: string | null; height: number }) {
+  if (logoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logoUrl} alt="ZeroGEX" style={{ height, width: 'auto', display: 'block' }} />;
+  }
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span
+        style={{
+          width: height * 0.34,
+          height: height * 0.34,
+          borderRadius: '50%',
+          background: C.coral,
+          boxShadow: `0 0 10px ${C.coral}`,
+          display: 'inline-block',
+        }}
+      />
+      <span style={{ fontSize: height * 0.62, fontWeight: 800, letterSpacing: 2.2 }}>ZEROGEX</span>
+    </span>
+  );
+}
 
 const CARD_LABEL: React.CSSProperties = {
   fontSize: 10,
