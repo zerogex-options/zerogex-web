@@ -9,7 +9,7 @@ import {
   fmtSignedPts,
   regimeCopy,
   type ReportModel,
-} from './socialReportHelpers';
+} from './communiqueHelpers';
 
 // The card is a fully self-contained dark asset: every color is an explicit
 // hex/rgba (never a CSS theme variable) so the exported PNG looks identical

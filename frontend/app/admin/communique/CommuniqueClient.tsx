@@ -1,18 +1,18 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { toBlob, toPng } from 'html-to-image';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
 import { useGEXSummary, useMarketQuote, useSessionCloses } from '@/hooks/useApiData';
 import GammaReportCard from './GammaReportCard';
-import { buildReportModel, fmtDateET, fmtTimeET } from './socialReportHelpers';
+import { buildReportModel, fmtDateET, fmtTimeET } from './communiqueHelpers';
+import { nodeToPngBlob, nodeToPngDataUrl } from './imageExport';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
-export default function SocialReportClient() {
+export default function CommuniqueClient() {
   const [symbol, setSymbol] = useState<Symbol>('SPX');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
   // the auto-generated prose tracks the freshly selected underlying until the
@@ -66,11 +66,7 @@ export default function SocialReportClient() {
     if (!cardRef.current) return;
     setDownloadState('working');
     try {
-      const dataUrl = await toPng(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: '#04141E',
-      });
+      const dataUrl = await nodeToPngDataUrl(cardRef.current);
       const link = document.createElement('a');
       link.download = fileName;
       link.href = dataUrl;
@@ -86,15 +82,10 @@ export default function SocialReportClient() {
     if (!cardRef.current) return;
     setCopyState('working');
     try {
-      const blob = await toBlob(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: '#04141E',
-      });
-      if (!blob) throw new Error('Empty image blob');
       if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
         throw new Error('Clipboard image write unsupported');
       }
+      const blob = await nodeToPngBlob(cardRef.current);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2000);
@@ -129,11 +120,11 @@ export default function SocialReportClient() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          Social Report Generator
+          Gamma Communiqué
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           Pick an underlying — the dealer-gamma snapshot is pulled live from the backend. Tweak the
-          copy if you like, then download or copy a share-ready PNG.
+          copy if you like, then download or copy a share-ready PNG for social.
         </p>
       </header>
 
