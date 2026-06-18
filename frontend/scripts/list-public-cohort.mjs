@@ -197,10 +197,19 @@ function classify(u) {
   return 'verified-never-paid';
 }
 
-// Latest explicit login per user. The /register endpoint auto-issues a
-// session WITHOUT writing a login_success audit row (see comment in
-// scripts/list-auth-users.mjs:99-102), so a NULL here = "registered once,
-// never came back" — the coldest possible lead.
+// Latest explicit login per user. Both the local-password /login flow
+// (serverAuth.ts:452) and the OAuth callback returning-visit branch
+// (serverAuth.ts createOrLoginOAuthUser) write `login_success`, so
+// either auth method counts the user as active.
+//
+// A NULL last_login here means either:
+//   - /register signup that auto-sessioned and never explicitly logged in
+//     again (the comment in scripts/list-auth-users.mjs:99-102), OR
+//   - OAuth signup that never returned (signup writes `oauth_login`, not
+//     `login_success`, so the first OAuth callback for a fresh account
+//     does NOT count as activity).
+// Both are the same lead-quality signal: the user touched the site once
+// at signup and has not been back since.
 const lastLoginByUser = new Map();
 if (args.showLastLogin) {
   const hasAudit = !!db
