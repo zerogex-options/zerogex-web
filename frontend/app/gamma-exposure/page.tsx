@@ -190,7 +190,9 @@ export default function GammaExposurePage() {
     const value = Number(openInterestPayload.spot_price);
     return Number.isFinite(value) ? value : null;
   }, [openInterestPayload]);
-  const { data: volGauge } = useVolatilityGauge(30000);
+  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval: 30000 },
@@ -490,7 +492,7 @@ export default function GammaExposurePage() {
             title="IV Rank"
             value={ivRankPct != null ? `${ivRankPct}%` : '--'}
             subtitle={volGauge?.level_label}
-            tooltip="Implied volatility rank derived from VIX level. 0% = historically calm, 100% = extreme fear. Maps VIX to a 0-100 percentile scale."
+            tooltip={`Implied volatility rank derived from ${volIndex} level. 0% = historically calm, 100% = extreme fear. Maps ${volIndex} to a 0-100 percentile scale.`}
           />
           <MetricCard
             title="Vanna Flow"
