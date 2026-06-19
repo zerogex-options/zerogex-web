@@ -21,7 +21,7 @@ type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
 export default function LiveBulletinClient({ watermark = true }: { watermark?: boolean } = {}) {
   const [symbol, setSymbol] = useState<Symbol>('SPX');
-  const [horizon, setHorizon] = useState<HorizonKey>('today');
+  const [horizon, setHorizon] = useState<HorizonKey>('daily');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
   // the auto-generated prose tracks the freshly selected underlying until the
   // operator deliberately types over it.
@@ -214,7 +214,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             </div>
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {vix != null
-                ? `1σ implied move from ${volIndex} ${vix.toFixed(1)} (~68% band).`
+                ? `1σ implied move ${HORIZONS[horizon].phrase} from ${volIndex} ${vix.toFixed(1)} (~68% band). Horizon is a ${HORIZONS[horizon].days}-trading-day span, not a calendar date.`
                 : `${volIndex} implied-vol data unavailable — the expected-range band is hidden.`}
             </p>
           </div>

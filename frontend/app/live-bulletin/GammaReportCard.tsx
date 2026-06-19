@@ -440,8 +440,8 @@ function ExpectedRangePanel({ symbol, range }: { symbol: string; range: Expected
           color: C.textSecondary,
         }}
       >
-        {symbol} ~68% likely to close between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
-        {range.horizonLabel.toLowerCase()} (1σ implied by {range.volIndex}). {range.context}
+        {symbol} ~68% likely to trade between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
+        {range.horizonPhrase} (1σ implied by {range.volIndex}). {range.context}
       </p>
     </div>
   );

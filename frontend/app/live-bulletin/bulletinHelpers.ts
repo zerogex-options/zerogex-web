@@ -5,15 +5,16 @@
 
 export type RegimeKey = 'positive' | 'negative' | 'neutral' | 'unresolved';
 
-// Calendar-free expected-move horizons, in trading days, so the band never
-// depends on an expiry feed. ~252 trading days a year underpins the √(t/252)
-// annualized-vol scaling.
-export type HorizonKey = 'today' | 'week' | 'month';
+// Calendar-free expected-move horizons, expressed as a span length (not a
+// specific date) so they read unambiguously whether or not the market is open —
+// "Daily" is one trading session of vol, never a promise about a calendar day.
+// ~252 trading days a year underpins the √(t/252) annualized-vol scaling.
+export type HorizonKey = 'daily' | 'weekly' | 'monthly';
 
-export const HORIZONS: Record<HorizonKey, { label: string; days: number }> = {
-  today: { label: 'Today', days: 1 },
-  week: { label: 'This Week', days: 5 },
-  month: { label: 'This Month', days: 21 },
+export const HORIZONS: Record<HorizonKey, { label: string; days: number; phrase: string }> = {
+  daily: { label: 'Daily', days: 1, phrase: 'over the next session' },
+  weekly: { label: 'Weekly', days: 5, phrase: 'over the next week' },
+  monthly: { label: 'Monthly', days: 21, phrase: 'over the next month' },
 };
 
 const TRADING_DAYS_PER_YEAR = 252;
@@ -50,6 +51,7 @@ export interface ReportInputs {
 export interface ExpectedRange {
   horizonKey: HorizonKey;
   horizonLabel: string;
+  horizonPhrase: string; // natural sentence fragment, e.g. "over the next session"
   days: number;
   volIndex: string; // 'VIX' | 'VXN' — the implied-vol input the band was built from
   vix: number; // the index level used (points)
@@ -130,6 +132,46 @@ const REGIME_COPY: Record<RegimeKey, { badge: string; label: string; short: stri
 
 export function regimeCopy(regime: RegimeKey) {
   return REGIME_COPY[regime];
+}
+
+// Alternate phrasings of each regime's mechanics so the closing line of the
+// auto-lead isn't word-for-word identical every time the same regime shows up.
+const MECHANICS_VARIANTS: Record<RegimeKey, string[]> = {
+  positive: [
+    REGIME_COPY.positive.explain,
+    'Expect rallies to get faded and dips to get bought as dealers hedge against direction — the net effect is range compression.',
+    'Dealer hedging works against momentum here: pushes stall, pullbacks recover, and the tape leans mean-reverting.',
+  ],
+  negative: [
+    REGIME_COPY.negative.explain,
+    'Dealer hedging runs with momentum here: breaks extend, dips can cascade, and intraday ranges widen out.',
+    'Expect moves to feed on themselves rather than fade — short-gamma hedging chases price and stretches the range.',
+  ],
+  neutral: [
+    REGIME_COPY.neutral.explain,
+    'With hedging flow indeterminate right at the flip, the first decisive break is likely to set the tone for the session.',
+  ],
+  unresolved: [REGIME_COPY.unresolved.explain],
+};
+
+// Small deterministic hash → the generated prose stays stable across refreshes
+// (same structural snapshot reads the same) yet varies with the underlying's
+// own levels, so each report feels written for its conditions rather than
+// stamped from one fixed template. Seeded off slow-moving structural values
+// (net GEX bucket, flip, walls) — never raw spot — so wording doesn't reshuffle
+// on every intraday tick.
+function hashSeed(...nums: Array<number | null | undefined>): number {
+  let h = 2166136261;
+  for (const n of nums) {
+    const v = n == null || !Number.isFinite(n) ? 0 : Math.round(n);
+    h = Math.imul(h ^ (v & 0xffff), 16777619);
+    h = Math.imul(h ^ ((v >>> 16) & 0xffff), 16777619);
+  }
+  return h >>> 0;
+}
+
+function pick<T>(arr: T[], seed: number): T {
+  return arr[seed % arr.length];
 }
 
 export function fmtPrice(value: number | null | undefined): string {
@@ -232,7 +274,6 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
     callWall,
     putWall,
     regime,
-    copy,
   });
 
   return {
@@ -271,7 +312,7 @@ function buildExpectedRange(args: {
   const { spot, vix, volIndex, horizon, callWall, putWall } = args;
   if (spot == null || spot <= 0 || vix == null || vix <= 0) return null;
 
-  const { label, days } = HORIZONS[horizon];
+  const { label, days, phrase } = HORIZONS[horizon];
   const sigmaPct = (vix / 100) * Math.sqrt(days / TRADING_DAYS_PER_YEAR);
   const moveAbs = spot * sigmaPct;
   const low = spot - moveAbs;
@@ -280,6 +321,7 @@ function buildExpectedRange(args: {
   return {
     horizonKey: horizon,
     horizonLabel: label,
+    horizonPhrase: phrase,
     days,
     volIndex,
     vix,
@@ -342,30 +384,157 @@ function buildLead(args: {
   callWall: number | null;
   putWall: number | null;
   regime: RegimeKey;
-  copy: { explain: string };
 }): string {
-  const sentences: string[] = [];
+  const { spot, netGex, flipDistance, gammaFlip, callWall, putWall, regime } = args;
+  // Seed from structural levels only (not raw spot) so the wording is stable
+  // intraday but distinct across symbols/conditions.
+  const seed = hashSeed(netGex == null ? 0 : Math.round(netGex / 1e8), gammaFlip, callWall, putWall);
 
-  if (args.netGex != null) {
-    const tone = args.netGex >= 0 ? 'net long' : 'net short';
-    sentences.push(`Dealers sit ${tone} gamma at ${fmtNetGex(args.netGex)}.`);
+  const sentences = [
+    describePosture(regime, netGex, seed),
+    describeFlipPosition({ spot, flipDistance, gammaFlip, regime, seed: seed + 7 }),
+    describeMagnets({ spot, callWall, putWall, seed: seed + 13 }),
+    pick(MECHANICS_VARIANTS[regime], seed + 23),
+  ];
+
+  return sentences.filter((s): s is string => Boolean(s)).join(' ');
+}
+
+// Dealer gamma posture: sign + a magnitude-aware adjective for the size of the
+// book, with a few interchangeable phrasings chosen by the seed.
+function describePosture(regime: RegimeKey, netGex: number | null, seed: number): string {
+  if (netGex == null) {
+    return pick(
+      [
+        'Net dealer gamma did not resolve cleanly this snapshot, so the positioning below is provisional.',
+        'Net GEX is unresolved in this snapshot — read the levels below as provisional.',
+      ],
+      seed,
+    );
   }
+  const amt = fmtNetGex(netGex);
+  const abs = Math.abs(netGex);
+  const mag = abs >= 2e9 ? 'heavy' : abs >= 5e8 ? 'moderate' : 'light';
+  if (netGex >= 0) {
+    const adj = pick(
+      mag === 'heavy'
+        ? ['a hefty', 'a deep', 'an outsized']
+        : mag === 'moderate'
+          ? ['a solid', 'a healthy', 'a firm']
+          : ['a thin', 'a light', 'a slim'],
+      seed,
+    );
+    return pick(
+      [
+        `Dealers are carrying ${adj} ${amt} of long gamma, positioning that leans against direction and damps intraday swings.`,
+        `With ${adj} ${amt} long-gamma book, dealers are paid to fade pushes and buy dips.`,
+        `Dealer gamma is long at ${amt} — ${adj} cushion that tends to compress the range.`,
+      ],
+      seed,
+    );
+  }
+  const adj = pick(
+    mag === 'heavy'
+      ? ['a heavy', 'a deep', 'an outsized']
+      : mag === 'moderate'
+        ? ['a meaningful', 'a sizable', 'a notable']
+        : ['a modest', 'a light', 'a small'],
+    seed,
+  );
+  return pick(
+    [
+      `Dealers are short ${amt} of gamma — ${adj} short book that amplifies moves instead of muting them.`,
+      `With ${adj} ${amt} short-gamma position, dealer hedging adds fuel to whichever way price breaks.`,
+      `Dealer gamma is short at ${amt}; ${adj} imbalance that lets moves feed on themselves.`,
+    ],
+    seed,
+  );
+}
 
-  if (args.gammaFlip != null && args.flipDistance != null) {
-    const dir = args.flipDistance >= 0 ? 'above' : 'below';
-    sentences.push(
-      `Spot is ${Math.abs(args.flipDistance).toFixed(0)} pts ${dir} the ${fmtPrice(args.gammaFlip)} flip.`,
+// Where spot sits relative to the flip, with the distance described in words
+// that scale to how far away (in % of spot) it actually is.
+function describeFlipPosition(args: {
+  spot: number | null;
+  flipDistance: number | null;
+  gammaFlip: number | null;
+  regime: RegimeKey;
+  seed: number;
+}): string | null {
+  const { spot, flipDistance, gammaFlip, regime, seed } = args;
+  if (gammaFlip == null || flipDistance == null || spot == null || spot <= 0) return null;
+  const flipP = fmtPrice(gammaFlip);
+  const pts = Math.abs(flipDistance);
+  const ptsStr = pts.toFixed(0);
+  const pctAway = pts / spot;
+
+  if (regime === 'neutral' || pctAway <= 0.0025) {
+    return pick(
+      [
+        `Price is pinned right on the ${flipP} flip, where the sign of dealer hedging is a coin toss.`,
+        `Spot is sitting essentially on the ${flipP} gamma flip — the knife's edge between regimes.`,
+        `We're balanced on the ${flipP} flip; a small push tips dealers into the next regime.`,
+      ],
+      seed,
     );
   }
 
-  const walls: string[] = [];
-  if (args.callWall != null) walls.push(`call wall ${fmtPrice(args.callWall)}`);
-  if (args.putWall != null) walls.push(`put wall ${fmtPrice(args.putWall)}`);
-  if (walls.length) sentences.push(`Key magnets: ${walls.join(', ')}.`);
+  const near = pctAway < 0.006;
+  const mid = pctAway < 0.015;
+  if (flipDistance >= 0) {
+    const adj = pick(
+      near ? ['just', 'barely', 'only'] : mid ? ['a comfortable', 'a solid'] : ['a wide', 'a stretched', 'an extended'],
+      seed,
+    );
+    return pick(
+      [
+        `Spot sits ${adj} ${ptsStr} pts above the ${flipP} flip, keeping dealers in long-gamma territory.`,
+        `At ${adj} ${ptsStr} pts over the ${flipP} flip, the positive-gamma regime has room to breathe.`,
+        `Price is ${adj} ${ptsStr} pts clear of the ${flipP} flip on the long-gamma side.`,
+      ],
+      seed,
+    );
+  }
+  const adj = pick(
+    near ? ['just', 'barely', 'only'] : mid ? ['a clear', 'a solid'] : ['a deep', 'a wide', 'an extended'],
+    seed,
+  );
+  return pick(
+    [
+      `Spot is ${adj} ${ptsStr} pts below the ${flipP} flip, holding dealers in short-gamma territory.`,
+      `At ${adj} ${ptsStr} pts under the ${flipP} flip, the negative-gamma regime is firmly in control.`,
+      `Price sits ${adj} ${ptsStr} pts beneath the ${flipP} flip on the short-gamma side.`,
+    ],
+    seed,
+  );
+}
 
-  sentences.push(args.copy.explain);
-
-  return sentences.join(' ');
+// The wall structure: the corridor the walls bracket and which one price leans
+// toward, or the single dominant magnet when only one wall is present.
+function describeMagnets(args: {
+  spot: number | null;
+  callWall: number | null;
+  putWall: number | null;
+  seed: number;
+}): string | null {
+  const { spot, callWall, putWall, seed } = args;
+  if (callWall != null && putWall != null && spot != null) {
+    const corridor = Math.abs(callWall - putWall).toFixed(0);
+    const nearerCall = Math.abs(callWall - spot) <= Math.abs(spot - putWall);
+    const nearName = nearerCall ? 'call wall' : 'put wall';
+    const nearPrice = fmtPrice(nearerCall ? callWall : putWall);
+    const nearDist = Math.round(Math.abs((nearerCall ? callWall : putWall) - spot));
+    return pick(
+      [
+        `The ${fmtPrice(putWall)} put wall and ${fmtPrice(callWall)} call wall bracket a ${corridor}-pt corridor, with the ${nearName} the nearer magnet ${nearDist} pts off.`,
+        `Resistance maps to the ${fmtPrice(callWall)} call wall and support to the ${fmtPrice(putWall)} put wall — a ${corridor}-pt band, and the ${nearName} (${nearPrice}) is closest.`,
+        `Walls frame a ${corridor}-pt range from the ${fmtPrice(putWall)} put wall up to the ${fmtPrice(callWall)} call wall; price leans toward the ${nearName}, ${nearDist} pts away.`,
+      ],
+      seed,
+    );
+  }
+  if (callWall != null) return `The dominant magnet overhead is the ${fmtPrice(callWall)} call wall.`;
+  if (putWall != null) return `The dominant magnet below is the ${fmtPrice(putWall)} put wall.`;
+  return null;
 }
 
 function pickNumber(...candidates: Array<number | null | undefined>): number | null {
