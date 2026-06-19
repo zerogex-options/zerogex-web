@@ -230,7 +230,7 @@ export default function VolatilityCard() {
         value={data.level}
         zoneLabel={data.level_label}
         isDark={isDark}
-        vix={data.vix}
+        vix={data.index}
         vixTimestamp={fetchedAt}
       />
       <GaugeCard
