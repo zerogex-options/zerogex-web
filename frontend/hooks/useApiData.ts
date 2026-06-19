@@ -845,7 +845,7 @@ export function useSignalAccuracy(symbol = 'SPY', lookbackDays = 30, refreshInte
 
 export interface VolatilityGaugeData {
   timestamp: string;
-  vix: number;
+  index: number; // latest VIX/VXN quote (points)
   level: number;
   level_label: string;
   momentum: number;
@@ -859,11 +859,11 @@ export type VolatilityIndex = 'VIX' | 'VXN';
 // Volatility gauge. Defaults to VIX (S&P 500 implied vol); pass `index: 'VXN'`
 // for the Nasdaq-100 gauge that's the correct implied-vol input for QQQ. The
 // `index` arg is second so existing `useVolatilityGauge(refreshInterval)` calls
-// keep working. Both `index` and `symbol` param names are sent so the call is
-// robust to whichever the backend expects.
+// keep working.
 export function useVolatilityGauge(refreshInterval = 30000, index: VolatilityIndex = 'VIX') {
-  const query = index === 'VIX' ? '' : `?index=${index}&symbol=${index}`;
-  return useApiData<VolatilityGaugeData>(`/api/market/vix${query}`, { refreshInterval });
+  return useApiData<VolatilityGaugeData>(`/api/market/volatility?ticker=${index}`, {
+    refreshInterval,
+  });
 }
 
 

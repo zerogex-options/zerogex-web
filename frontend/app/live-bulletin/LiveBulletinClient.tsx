@@ -59,7 +59,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   // naturally collapses to ~0 against today's own close.
   const priorClose = sessionCloses?.current_session_close ?? null;
   const spot = quote?.close ?? summary?.spot_price ?? null;
-  const vix = volGauge?.vix ?? null;
+  const vix = volGauge?.index ?? null;
 
   const model = useMemo(
     () =>
