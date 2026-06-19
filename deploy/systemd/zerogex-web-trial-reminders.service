@@ -12,9 +12,11 @@ WorkingDirectory=/home/ubuntu/zerogex-web
 
 # `make trial-reminders` shells through nvm to get the correct Node 22
 # binary (the script is a .mts that needs --experimental-strip-types). The
-# nvm bash hook needs HOME to find ~/.nvm.
+# Makefile target sources $HOME/.nvm/nvm.sh internally, so all we need
+# here is HOME pointing at the user's home — the system PATH suffices for
+# /usr/bin/make + /usr/bin/bash; node lands on PATH via nvm.sh at runtime.
 Environment="HOME=/home/ubuntu"
-Environment="PATH=/home/ubuntu/.nvm/versions/node/v22/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
 ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web trial-reminders YES=1
 
