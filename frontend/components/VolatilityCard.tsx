@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Info, X } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
+import { useTimeframe } from "@/core/TimeframeContext";
 import { colors } from "@/core/colors";
 import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
 
@@ -113,6 +114,7 @@ interface GaugeCardProps {
   isDark: boolean;
   vix?: number;
   vixTimestamp?: string;
+  indexLabel?: string;
 }
 
 function formatEtTimestamp(ts: string): string {
@@ -129,7 +131,7 @@ function formatEtTimestamp(ts: string): string {
   }
 }
 
-function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeCardProps) {
+function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLabel = "VIX" }: GaugeCardProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const isSpeed = type === "speedometer";
   const valueColor = interpolateGaugeColor(value);
@@ -162,7 +164,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeC
           className="text-xs font-semibold tracking-wider uppercase"
           style={{ color: colors.muted }}
         >
-          {isSpeed ? "Level / VIX" : "Momentum"}
+          {isSpeed ? `Level / ${indexLabel}` : "Momentum"}
         </h3>
         <button
           onClick={() => setPanelOpen((v) => !v)}
@@ -189,7 +191,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeC
               {vix!.toFixed(2)}
             </div>
             <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-              VIX
+              {indexLabel}
               {vixTimestamp ? ` · ${formatEtTimestamp(vixTimestamp)}` : ""}
             </div>
           </div>
@@ -217,7 +219,10 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp }: GaugeC
 
 export default function VolatilityCard() {
   const { theme } = useTheme();
-  const { data } = useVolatilityGauge(30000);
+  const { symbol } = useTimeframe();
+  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: "VIX" | "VXN" = symbol === "QQQ" ? "VXN" : "VIX";
+  const { data } = useVolatilityGauge(30000, volIndex);
   const isDark = theme === "dark";
   const fetchedAt = useMemo(() => data?.timestamp ?? "", [data]);
 
@@ -230,14 +235,16 @@ export default function VolatilityCard() {
         value={data.level}
         zoneLabel={data.level_label}
         isDark={isDark}
-        vix={data.vix}
+        vix={data.index}
         vixTimestamp={fetchedAt}
+        indexLabel={volIndex}
       />
       <GaugeCard
         type="tachometer"
         value={data.momentum}
         zoneLabel={data.momentum_label}
         isDark={isDark}
+        indexLabel={volIndex}
       />
     </div>
   );

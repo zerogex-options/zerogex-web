@@ -71,6 +71,13 @@ export async function proxy(request: NextRequest) {
 
   const session = await getSessionFromRequest(request);
   if (!session) {
+    // Anonymous /dashboard visitors get the free public preview instead of
+    // a /login wall — the 15-min-delayed gamma-levels page is the SEO-target
+    // teaser that replaces the previously-open /dashboard preview. Subscribers
+    // still land on the full live dashboard because they bypass this branch.
+    if (pathname === '/dashboard') {
+      return NextResponse.redirect(new URL('/spx-gamma-levels', request.url));
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);

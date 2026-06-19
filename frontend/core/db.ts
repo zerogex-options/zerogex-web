@@ -221,6 +221,13 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
+  // Idempotency latch for the ~48h-before-trial-end reminder nudge sent by
+  // scripts/send-trial-reminders.mts. NULL = eligible, set to the ISO
+  // timestamp of the send once delivered. Cleared back to NULL the next
+  // time the user enters a fresh 'trialing' window (i.e. signs up for a
+  // second trial after a cancellation) so the nudge fires once per trial.
+  ensureColumn('users', 'trial_reminder_email_sent_at', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when

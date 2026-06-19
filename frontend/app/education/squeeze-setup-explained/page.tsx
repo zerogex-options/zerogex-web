@@ -31,7 +31,7 @@ export default function SqueezeSetupExplainedPage() {
       <div className="zg-feature-shell mt-8 p-6 md:p-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <BarChart2 size={14} />
-          Free Dashboard
+          Free Gamma Levels
         </div>
         <h3 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">
           See today&apos;s Squeeze Setup read live
@@ -40,10 +40,10 @@ export default function SqueezeSetupExplainedPage() {
           The ZeroGEX dashboard surfaces the live Squeeze Setup score alongside the gamma flip, the walls, and the rest of the Advanced and Basic signal stack — the full structural context in one view.
         </p>
         <Link
-          href="/dashboard"
+          href="/spx-gamma-levels"
           className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
         >
-          Launch the free dashboard
+          Open free gamma levels
           <ArrowRight size={16} />
         </Link>
       </div>

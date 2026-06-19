@@ -29,6 +29,7 @@ import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
+import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -400,6 +401,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   </div>
                 )}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
+                {isCollapsed && <NewsHeadlinesBadge theme={theme} compact />}
                 {isCollapsed && (
                   <div style={{ position: "relative", width: "76px", height: "32px", flexShrink: 0 }}>
                     <select
@@ -507,6 +509,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <WorldClocks theme={theme} session={session} compact={isCollapsed} />
                 </div>
                 <OptionsCalendarBadge theme={theme} />
+                <NewsHeadlinesBadge theme={theme} />
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -621,6 +624,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
               <OptionsCalendarBadge theme={theme} compact mobile />
+              <NewsHeadlinesBadge theme={theme} compact mobile />
               <button
                 onClick={onToggleTheme}
                 className="rounded-full border transition-colors"

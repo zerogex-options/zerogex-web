@@ -23,6 +23,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Main',
     items: [
       { id: '/dashboard', label: 'Dashboard', requiredTier: 'basic' },
+      { id: '/live-bulletin', label: 'Live Bulletin', requiredTier: 'basic' },
     ],
   },
   {
@@ -112,6 +113,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
+      { id: '/admin/live-bulletin', label: 'Live Bulletin (no watermark)', requiredTier: 'admin' },
     ],
   },
 ];

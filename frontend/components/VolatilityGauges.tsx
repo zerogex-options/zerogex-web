@@ -6,7 +6,7 @@ import { Theme } from "@/core/types";
 
 interface VolatilityGaugeData {
   timestamp: string;
-  vix: number;
+  index: number;
   level: number;
   level_label: string;
   momentum: number;
@@ -316,7 +316,7 @@ interface VolatilityGaugesProps {
 }
 
 export default function VolatilityGauges({ theme, compact }: VolatilityGaugesProps) {
-  const { data } = useApiData<VolatilityGaugeData>("/api/market/vix", {
+  const { data } = useApiData<VolatilityGaugeData>("/api/market/volatility?ticker=VIX", {
     refreshInterval: 30000,
   });
 
@@ -330,7 +330,7 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
       <SingleGauge
         value={data.level}
         zoneLabel={data.level_label}
-        vix={data.vix}
+        vix={data.index}
         theme={theme}
         gaugeId="spd"
         sizePx={sizePx}
@@ -339,7 +339,7 @@ export default function VolatilityGauges({ theme, compact }: VolatilityGaugesPro
       <SingleGauge
         value={data.momentum}
         zoneLabel={data.momentum_label}
-        vix={data.vix}
+        vix={data.index}
         theme={theme}
         gaugeId="tch"
         sizePx={sizePx}

@@ -40,7 +40,12 @@ export type SignupPoint = {
   basic: number;
   pro: number;
   public: number;
+  // Full subscribers — Stripe subscription_status='active'. Mirrors what
+  // `make users PAID=yes` lists.
   paying: number;
+  // Free-trial users — subscription_status='trialing'. Card on file but
+  // not yet charged. Mirrors `make users TRIAL=yes`.
+  trialing: number;
   disclaimer: number;
 };
 
@@ -311,7 +316,14 @@ function aggregateTopUsers(
   return top.map((t) => ({ userId: t.userId, email: emails.get(t.userId) ?? null, count: t.count }));
 }
 
-type SignupDay = { basic: number; pro: number; public: number; paying: number; disclaimer: number };
+type SignupDay = {
+  basic: number;
+  pro: number;
+  public: number;
+  paying: number;
+  trialing: number;
+  disclaimer: number;
+};
 
 type SignupStoreShape = {
   version: 1;
@@ -325,11 +337,17 @@ function readSignupStore(): SignupStoreShape {
     if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
       const days: Record<string, SignupDay> = {};
       for (const [k, v] of Object.entries(parsed.days)) {
+        // Pre-split samples only stored a single `paying` covering both
+        // active + trialing. Trial signups only existed for a brief window
+        // before this split landed, so attributing legacy `paying` entirely
+        // to the Full Subscriber bucket is a small, bounded distortion and
+        // keeps the historical area continuous.
         days[k] = {
           basic: Number(v?.basic) || 0,
           pro: Number(v?.pro) || 0,
           public: Number(v?.public) || 0,
           paying: Number(v?.paying) || 0,
+          trialing: Number(v?.trialing) || 0,
           disclaimer: Number(v?.disclaimer) || 0,
         };
       }
@@ -373,23 +391,33 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
   return counts;
 }
 
-// Users currently entitled to paid features via Stripe — mirrors the
-// webhook's ACTIVE_STATUSES set ('active' + 'trialing'). Trial users are
-// intentionally counted here: they have full access and the slot is taken.
-// If they cancel before the trial ends, the subscription.deleted webhook
-// flips their subscription_status off this list and they drop out of the
-// count immediately. past_due users are excluded — the webhook downgrades
-// them to public, so counting them as paying would overstate the bucket.
-function currentPayingCount(): number {
+// Headcount split by Stripe subscription state:
+//   active   — fully paying subscribers (matches `make users PAID=yes`).
+//   trialing — card on file, free-trial window still running (matches
+//              `make users TRIAL=yes`). Promoted to 'active' on first
+//              charge, demoted to 'public' if the user cancels mid-trial.
+// past_due is intentionally excluded — the webhook downgrades those users
+// to the public tier, so counting them as paying would overstate the bucket.
+function currentPayingCounts(): { active: number; trialing: number } {
   try {
-    const row = getDb()
+    const rows = getDb()
       .prepare(
-        "SELECT COUNT(*) AS c FROM users WHERE subscription_status IN ('active', 'trialing')",
+        `SELECT subscription_status, COUNT(*) AS c
+         FROM users
+         WHERE subscription_status IN ('active', 'trialing')
+         GROUP BY subscription_status`,
       )
-      .get() as { c?: number } | undefined;
-    return Number(row?.c) || 0;
+      .all() as Array<{ subscription_status: string; c: number }>;
+    let active = 0;
+    let trialing = 0;
+    for (const row of rows) {
+      const c = Number(row.c) || 0;
+      if (row.subscription_status === 'active') active = c;
+      else if (row.subscription_status === 'trialing') trialing = c;
+    }
+    return { active, trialing };
   } catch {
-    return 0;
+    return { active: 0, trialing: 0 };
   }
 }
 
@@ -421,12 +449,13 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   const store = readSignupStore();
   const counts = currentTierCounts();
   const disclaimer = currentDisclaimerCount();
-  const paying = currentPayingCount();
+  const paying = currentPayingCounts();
   const sample: SignupDay = {
     basic: counts.basic,
     pro: counts.pro,
     public: counts.public,
-    paying,
+    paying: paying.active,
+    trialing: paying.trialing,
     disclaimer,
   };
   const existing = store.days[today];
@@ -436,6 +465,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     existing.pro !== sample.pro ||
     existing.public !== sample.public ||
     existing.paying !== sample.paying ||
+    existing.trialing !== sample.trialing ||
     existing.disclaimer !== sample.disclaimer
   ) {
     store.days[today] = sample;
@@ -444,7 +474,14 @@ function buildSignupSeries(now: Date): SignupPoint[] {
 
   const dailyKeys = generateDailyKeys(now);
   const series: SignupPoint[] = [];
-  let last: SignupDay = { basic: 0, pro: 0, public: 0, paying: 0, disclaimer: 0 };
+  let last: SignupDay = {
+    basic: 0,
+    pro: 0,
+    public: 0,
+    paying: 0,
+    trialing: 0,
+    disclaimer: 0,
+  };
   for (const day of dailyKeys) {
     if (store.days[day]) last = store.days[day];
     series.push({
@@ -453,6 +490,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
       pro: last.pro,
       public: last.public,
       paying: last.paying,
+      trialing: last.trialing,
       disclaimer: last.disclaimer,
     });
   }

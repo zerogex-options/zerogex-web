@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# ==============================================
+# Step 085: Trial Reminder Timer (systemd)
+# ==============================================
+#
+# Installs and enables the ~48h-before-trial-end reminder timer (see
+# deploy/systemd/zerogex-web-trial-reminders.{service,timer}). The timer
+# fires every 6h and triggers `make trial-reminders YES=1`, which sends
+# the courtesy nudge to every user whose free trial converts to a paid
+# charge in the next ~48h (idempotent via users.trial_reminder_email_sent_at).
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config file is written (the script reads RESEND_API_KEY,
+# RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from frontend/.env.local, which
+# step 030 / 036 already manage).
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to
+# rotate units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Trial Reminder Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo
+# (deploy.sh re-points HOME to the SUDO_USER but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-trial-reminders"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target
+# sources $HOME/.nvm/nvm.sh at runtime, so presence here is enough — we
+# don't need node on PATH for this step itself.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The script needs Resend creds to actually send mail; warn (don't fail)
+# if they're empty, because step 036 seeds the keys with empty placeholders
+# and the operator may not have filled them in yet. The timer still
+# installs — if the keys land later, the next scheduled tick just works.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every 6h, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real
+# YES=1 send path. A dry-run smoke test would need a different ExecStart
+# (or operator-invoked `make trial-reminders DRY_RUN=1`), so we let the
+# first scheduled tick be the validation. journalctl shows the result.
+
+log ""
+log "Trial reminder timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (every 6h on 00/6:15, Persistent=true catches missed runs)"
+log "  ✓ Eligibility windowed +/-3h around now+48h so no trial converts unnudged"
+log "  ✓ Idempotent: users.trial_reminder_email_sent_at latches per trial; webhook re-arms on new trialing transitions"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                              - next/last run"
+log "  • cd $APP_DIR && make trial-reminders DRY_RUN=1                    - preview eligible users (no send)"
+log "  • sudo systemctl start ${UNIT}.service                             - fire the send loop now"
+log "  • journalctl -u ${UNIT} -n 50                                       - recent send logs"
+log "  • cd $APP_DIR && make trial-reminders PREVIEW_TO=you@example.com   - render + send one sample email"

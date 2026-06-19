@@ -18,7 +18,6 @@ export type RouteAccessRule = {
 const PUBLIC_ROUTE_PATTERNS = [
   '/',
   '/about',
-  '/dashboard',
   '/education',
   '/education/*',
   '/articles',
@@ -53,10 +52,10 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/market-pressure', minimumTier: 'pro' },
   { pattern: '/backtesting', minimumTier: 'pro' },
-  // Basic dashboards & per-signal pages — included with Basic.
-  // /dashboard is intentionally public so anonymous visitors can preview the
-  // GEX/walls/flip cards (public APIs); paid panels (signals, trades, flow)
-  // surface their own "no data" state without breaking the page.
+  // Basic dashboards & per-signal pages — included with Basic. Anonymous
+  // visitors to /dashboard are redirected by proxy.ts to the free, 15-min
+  // delayed /spx-gamma-levels preview instead of bouncing to /login.
+  { pattern: '/dashboard', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
@@ -64,6 +63,8 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/dealer-delta-pressure', minimumTier: 'basic' },
   { pattern: '/gex-gradient', minimumTier: 'basic' },
   { pattern: '/positioning-trap', minimumTier: 'basic' },
+  // Shareable live dealer-gamma bulletin card — included with Basic.
+  { pattern: '/live-bulletin', minimumTier: 'basic' },
   // Metrics — included with Basic.
   { pattern: '/gamma-exposure', minimumTier: 'basic' },
   { pattern: '/greeks-gex', minimumTier: 'basic' },
