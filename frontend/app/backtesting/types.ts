@@ -58,6 +58,21 @@ export interface BacktestPatternBreakdown {
   net_pnl: number;
 }
 
+/**
+ * Funnel diagnostics emitted by the engine so a low/zero-trade run is
+ * explainable: how many cards were loaded, survived the pattern filter and
+ * cooldown, got priced, and where the rest were dropped.
+ */
+export interface BacktestDiagnostics {
+  cards_total: number;
+  cards_in_scope: number;
+  cards_after_cooldown: number;
+  priced_candidates: number;
+  drops: Record<string, number>;
+  concurrency_skipped: number;
+  sized_out: number;
+}
+
 export interface BacktestSummary {
   n_trades: number;
   win_rate: number;
@@ -69,6 +84,7 @@ export interface BacktestSummary {
   avg_loss_pct: number;
   avg_hold_minutes: number;
   by_pattern: BacktestPatternBreakdown[];
+  diagnostics?: BacktestDiagnostics;
 }
 
 export interface BacktestRun {

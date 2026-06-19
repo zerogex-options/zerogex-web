@@ -8,6 +8,7 @@ import {
   LineChart as LineChartIcon,
   ListOrdered,
   Play,
+  Search,
   SlidersHorizontal,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -497,6 +498,10 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
       <div className="flex flex-col gap-8">
         {summary ? <StatsCards summary={summary} /> : null}
 
+        {summary?.diagnostics ? (
+          <DiagnosticsPanel diagnostics={summary.diagnostics} nTrades={summary.n_trades} />
+        ) : null}
+
         <section className="zg-feature-shell p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <LineChartIcon size={20} />
@@ -612,6 +617,117 @@ function StatsCards({ summary }: { summary: BacktestSummary }) {
           </div>
         </div>
       ))}
+    </section>
+  );
+}
+
+// Human-readable labels for the engine's drop-reason codes.
+const DROP_LABELS: Record<string, string> = {
+  'outcome:no_fill': 'Entry trigger never reached',
+  'outcome:no_data': 'No underlying quotes in hold window',
+  'outcome:unresolved': 'Non-price exit (premium / event structure)',
+  'outcome:no_exit_ts': 'No exit timestamp resolved',
+  no_leg: 'No option leg could be selected',
+  no_entry_quote: 'No option quote at entry',
+  no_exit_quote: 'No option quote at exit',
+  bad_premium: 'Invalid entry premium',
+  error: 'Pricing error (skipped)',
+};
+
+function dropLabel(code: string): string {
+  return DROP_LABELS[code] ?? code;
+}
+
+/**
+ * "Why N trades?" — the funnel from cards loaded → priced → traded, plus the
+ * drop breakdown. Makes a low/zero-trade run self-explanatory instead of a
+ * silent blank.
+ */
+function DiagnosticsPanel({
+  diagnostics,
+  nTrades,
+}: {
+  diagnostics: NonNullable<BacktestSummary['diagnostics']>;
+  nTrades: number;
+}) {
+  const steps = [
+    { label: 'Cards loaded', value: diagnostics.cards_total },
+    { label: 'In selected patterns', value: diagnostics.cards_in_scope },
+    { label: 'After cooldown', value: diagnostics.cards_after_cooldown },
+    { label: 'Priced', value: diagnostics.priced_candidates },
+    { label: 'Traded', value: nTrades },
+  ];
+  const drops = Object.entries(diagnostics.drops ?? {}).sort((a, b) => b[1] - a[1]);
+  const hint =
+    diagnostics.cards_in_scope === 0
+      ? 'None of the selected patterns fired in this window — try other patterns or a wider date range.'
+      : diagnostics.priced_candidates === 0 && diagnostics.cards_after_cooldown > 0
+        ? 'Cards fired but none could be priced — see the drop reasons below.'
+        : nTrades === 0 && diagnostics.priced_candidates > 0
+          ? 'Trades were priced but none opened — likely the concurrency cap or sizing.'
+          : null;
+
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Search size={20} />
+        Why {nTrades} {nTrades === 1 ? 'trade' : 'trades'}?
+      </h2>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {steps.map((s, i) => (
+          <div key={s.label} className="flex items-center gap-2">
+            <div className="zg-feature-shell px-3 py-2 text-center min-w-[92px]">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
+                {s.label}
+              </div>
+              <div
+                className="mt-0.5 text-lg font-bold font-mono"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              >
+                {s.value}
+              </div>
+            </div>
+            {i < steps.length - 1 ? (
+              <span className="text-[var(--color-text-secondary)]">→</span>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      {hint ? (
+        <p className="mt-4 text-sm text-[var(--color-text-secondary)]">{hint}</p>
+      ) : null}
+
+      {(drops.length > 0 || diagnostics.concurrency_skipped > 0 || diagnostics.sized_out > 0) ? (
+        <div className="mt-4 grid gap-1 text-sm">
+          <div className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-secondary)] mb-1">
+            Where cards dropped
+          </div>
+          {drops.map(([code, count]) => (
+            <div key={code} className="flex justify-between gap-4">
+              <span>{dropLabel(code)}</span>
+              <span className="font-mono text-[var(--color-text-secondary)]">{count}</span>
+            </div>
+          ))}
+          {diagnostics.concurrency_skipped > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span>Skipped — max concurrent positions reached</span>
+              <span className="font-mono text-[var(--color-text-secondary)]">
+                {diagnostics.concurrency_skipped}
+              </span>
+            </div>
+          ) : null}
+          {diagnostics.sized_out > 0 ? (
+            <div className="flex justify-between gap-4">
+              <span>Skipped — capital couldn&apos;t afford one contract</span>
+              <span className="font-mono text-[var(--color-text-secondary)]">
+                {diagnostics.sized_out}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
