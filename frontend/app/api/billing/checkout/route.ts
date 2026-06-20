@@ -134,12 +134,15 @@ export async function POST(request: NextRequest) {
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
   // one. Absolute trial_end (not a day count) so every founding member
   // converges on the same first-charge date regardless of when they
-  // activate. Falls back to the 7-day trial if the deadline is <48h out or
-  // already passed (Stripe would reject the near/past trial_end).
+  // activate. Intentionally NOT gated by hasPriorPaidSubscription: the
+  // deferral is a fixed-deadline founder offer (no recurring-trial-farming
+  // risk) and the founding cohort is small and vetted, so a returning
+  // founder gets the deferral too. Falls back to trialDays above if the
+  // deadline is <48h out or already passed (Stripe would reject the
+  // near/past trial_end).
   const foundingDeadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
   const foundingTrialEndUnix =
     discountResult.foundingApplied &&
-    !hasPriorPaidSubscription &&
     Number.isFinite(foundingDeadlineMs) &&
     foundingDeadlineMs - Date.now() >= MIN_TRIAL_END_BUFFER_MS
       ? Math.floor(foundingDeadlineMs / 1000)
