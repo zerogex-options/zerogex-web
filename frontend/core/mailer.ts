@@ -364,6 +364,64 @@ export async function sendWelcomeBackEmail(to: string) {
   }
 }
 
+// Sent on the first failed renewal attempt for an invoice (gated by
+// invoice.attempt_count === 1 in the webhook so it does not re-fire on each
+// Stripe Smart Retry). Points the customer at the billing portal — logging
+// in is the access path, since the portal session is created server-side
+// against their authenticated account.
+export async function sendPaymentFailedEmail(
+  to: string,
+  opts?: { amountFormatted?: string | null },
+) {
+  const subject = "We couldn't process your ZeroGEX payment";
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+  const amountSentence = opts?.amountFormatted
+    ? `Your renewal payment of ${opts.amountFormatted} was declined by your card issuer.`
+    : 'Your renewal payment was declined by your card issuer.';
+
+  const text = [
+    'Hello,',
+    '',
+    `${amountSentence} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.`,
+    '',
+    "If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your account page:",
+    accountUrl,
+    '',
+    "If you have any questions, just reply to this email — I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(amountSentence)} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.</p>
+      <p>If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update payment method</a>
+      </p>
+      <p>If you have any questions, just reply to this email &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';
