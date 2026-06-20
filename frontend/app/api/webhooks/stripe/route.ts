@@ -6,6 +6,7 @@ import { TierId } from '@/core/auth';
 import {
   sendFoundingWelcomeEmail,
   sendPaidWelcomeEmail,
+  sendPaymentFailedEmail,
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
@@ -81,6 +82,19 @@ function extractSubscriptionId(event: Stripe.Event): string | null {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function formatInvoiceAmount(invoice: Stripe.Invoice): string | null {
+  if (typeof invoice.amount_due !== 'number') return null;
+  if (typeof invoice.currency !== 'string') return null;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: invoice.currency.toUpperCase(),
+    }).format(invoice.amount_due / 100);
+  } catch {
+    return null;
+  }
 }
 
 function findUserByCustomerId(customerId: string): UserRow | null {
@@ -579,9 +593,37 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             email: user.email,
             message: invoiceSub
-              ? `Invoice ${invoice.id} payment failed for sub ${invoiceSub}`
-              : `Invoice ${invoice.id} payment failed`,
+              ? `Invoice ${invoice.id} payment failed for sub ${invoiceSub} (attempt ${invoice.attempt_count})`
+              : `Invoice ${invoice.id} payment failed (attempt ${invoice.attempt_count})`,
           });
+
+          // Only email on the first failure for this invoice. Smart Retries
+          // emit additional invoice.payment_failed events with attempt_count
+          // 2, 3, ... — re-sending on each would spam the customer.
+          if (invoice.attempt_count === 1) {
+            const amountFormatted = formatInvoiceAmount(invoice);
+            try {
+              await sendPaymentFailedEmail(user.email, { amountFormatted });
+              logAudit({
+                type: 'payment_failed_email_sent',
+                userId: user.id,
+                email: user.email,
+                message: `Sent payment-failed email for invoice ${invoice.id}`,
+              });
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'payment-failed email send failed';
+              logAudit({
+                type: 'payment_failed_email_error',
+                userId: user.id,
+                email: user.email,
+                message: `Payment-failed email send failed for invoice ${invoice.id}: ${message}`,
+              });
+              // Swallow — the audit row above records the underlying failure;
+              // the email is a courtesy nudge on top of Stripe's own dunning
+              // emails, so a transient Resend error must not 500 the webhook
+              // (which would make Stripe retry and double-log).
+            }
+          }
         }
         break;
       }
