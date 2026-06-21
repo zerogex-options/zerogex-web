@@ -33,6 +33,11 @@ function sourceFileForRoute(urlPath) {
     return path.join(PROJECT_ROOT, 'content', 'guides', `${guidesMatch[1]}.md`);
   }
 
+  const helpPlatformMatch = /^help\/platform\/([^/]+)$/.exec(trimmed);
+  if (helpPlatformMatch) {
+    return path.join(PROJECT_ROOT, 'content', 'help', 'platform', `${helpPlatformMatch[1]}.md`);
+  }
+
   return path.join(PROJECT_ROOT, 'app', trimmed, 'page.tsx');
 }
 
@@ -134,6 +139,9 @@ const config = {
       return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };
     }
     if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {
+      return { loc: urlPath, changefreq: 'monthly', priority: 0.7, lastmod };
+    }
+    if (urlPath.startsWith('/help')) {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.7, lastmod };
     }
     return { loc: urlPath, changefreq: 'monthly', priority: 0.6, lastmod };
