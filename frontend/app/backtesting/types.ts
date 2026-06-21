@@ -19,6 +19,7 @@ export interface BacktestDefaults {
   slippage_pct: number;
   commission_per_contract: number;
   max_concurrent: number;
+  width?: number;
 }
 
 /**
@@ -35,9 +36,15 @@ export interface BacktestStrategyField {
   values?: string[];
 }
 
+export interface BacktestStrategyStructure {
+  id: 'single' | 'vertical';
+  label: string;
+}
+
 export interface BacktestMeta {
   underlyings: string[];
   patterns: BacktestPattern[];
+  strategy_structures?: BacktestStrategyStructure[];
   data_window: {
     earliest: string;
     latest: string;
@@ -86,6 +93,8 @@ export interface BacktestSpec {
     direction: 'bullish' | 'bearish';
     conditions: BacktestCondition[];
     entry: { dte: number };
+    structure?: 'single' | 'vertical';
+    width?: number;
     target_offset_pct: number | null;
     stop_offset_pct: number | null;
   };
@@ -166,6 +175,15 @@ export interface BacktestTrade {
   return_pct: number;
   outcome: string;
   hold_minutes: number;
+  structure?: string;
+  legs?: {
+    option_symbol: string;
+    right: string;
+    side: string;
+    strike: number | null;
+    expiration: string | null;
+    qty: number;
+  }[];
 }
 
 export interface BacktestTradesPage {
