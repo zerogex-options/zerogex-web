@@ -4,6 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getDb } from '@/core/db';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
+import { priceIdToSku } from '@/core/stripe';
+import {
+  computeMrr,
+  parseAmountTable,
+  type MrrConfig,
+  type MrrSnapshot,
+  type SubscriberBucket,
+  type SubscriptionState,
+} from '@/core/pricing';
 import {
   MAX_DAILY,
   MAX_HOURLY,
@@ -92,6 +101,7 @@ export type WebhookHealth = {
 };
 
 export type MonitoringSnapshot = {
+  mrr: MrrSnapshot;
   signups: SignupPoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
@@ -421,6 +431,80 @@ function currentPayingCounts(): { active: number; trialing: number } {
   }
 }
 
+// Build the income-replacement MRR snapshot from live subscriber rows.
+// Estimates MRR locally (no live Stripe call, matching the rest of this
+// page) by mapping each active/trialing subscriber's stripe_price_id to a
+// (tier, cadence) SKU and pricing it at the founding rate when the user is a
+// current founding member, otherwise list. Subscribers whose price id can't
+// be mapped are counted as `unpriced` and contribute $0 so the estimate
+// never silently inflates. Promo-rate subscribers fall back to list (the
+// per-user promo can't be reconstructed post-checkout), making this a small,
+// documented over-estimate — calibrate via MRR_PRICE_TABLE_JSON if needed.
+function mrrConfigFromEnv(): MrrConfig {
+  const grossRaw = Number(process.env.MRR_TARGET_GROSS_INCOME);
+  const marginRaw = Number(process.env.MRR_TARGET_MARGIN);
+  const overrideRaw = Number(process.env.MRR_TARGET);
+  return {
+    amounts: parseAmountTable(process.env.MRR_PRICE_TABLE_JSON),
+    targetGrossIncome: Number.isFinite(grossRaw) && grossRaw > 0 ? grossRaw : 175_000,
+    margin: Number.isFinite(marginRaw) && marginRaw > 0 && marginRaw <= 1 ? marginRaw : 0.75,
+    targetMrrOverride: Number.isFinite(overrideRaw) && overrideRaw > 0 ? overrideRaw : null,
+  };
+}
+
+function buildMrr(): MrrSnapshot {
+  const config = mrrConfigFromEnv();
+  const buckets: SubscriberBucket[] = [];
+  let unpricedActive = 0;
+  let unpricedTrialing = 0;
+  try {
+    // founding = current founding member still on the intro rate (started,
+    // lifetime 25%-off not yet applied). Post-lifetime founders fold into
+    // `list` here; the lifetime coupon doesn't fire until ~12 months after
+    // the first redemption, so this matches reality during the intro window.
+    const rows = getDb()
+      .prepare(
+        `SELECT stripe_price_id AS priceId,
+                subscription_status AS status,
+                CASE WHEN founding_member_started_at IS NOT NULL
+                       AND founding_lifetime_applied_at IS NULL
+                     THEN 1 ELSE 0 END AS founding,
+                COUNT(*) AS c
+           FROM users
+          WHERE subscription_status IN ('active', 'trialing')
+          GROUP BY priceId, status, founding`,
+      )
+      .all() as Array<{
+        priceId: string | null;
+        status: string;
+        founding: number;
+        c: number;
+      }>;
+    for (const row of rows) {
+      const count = Number(row.c) || 0;
+      if (count <= 0) continue;
+      const state: SubscriptionState = row.status === 'active' ? 'active' : 'trialing';
+      const sku = row.priceId ? priceIdToSku(row.priceId) : null;
+      if (!sku) {
+        if (state === 'active') unpricedActive += count;
+        else unpricedTrialing += count;
+        continue;
+      }
+      buckets.push({
+        tier: sku.tier,
+        cadence: sku.cadence,
+        rate: row.founding ? 'founding' : 'list',
+        state,
+        count,
+      });
+    }
+  } catch {
+    // On any query failure, fall through with empty buckets so the snapshot
+    // still renders (estMrr 0) rather than 500-ing the admin page.
+  }
+  return computeMrr({ buckets, unpricedActive, unpricedTrialing, config });
+}
+
 // Total users who have acknowledged the CURRENT disclaimer version. Mirrors
 // the "Disclaimer" column in `make users`: stale acks against an older
 // version don't count once the wording has been materially updated.
@@ -635,6 +719,7 @@ export function getSnapshot(): MonitoringSnapshot {
   const hourlyKeys = generateHourlyKeys(now);
   const dailyKeys = generateDailyKeys(now);
   return {
+    mrr: buildMrr(),
     signups: buildSignupSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
