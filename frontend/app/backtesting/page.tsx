@@ -51,6 +51,8 @@ interface FormState {
   // Custom-strategy mode
   direction: 'bullish' | 'bearish';
   conditions: FormCondition[];
+  structure: 'single' | 'vertical';
+  width: string;
   dte: string;
   target_offset_pct: string; // percent, empty => off (underlying-price offset)
   stop_offset_pct: string; // percent, empty => off (underlying-price offset)
@@ -84,6 +86,8 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     patterns: [],
     direction: 'bullish',
     conditions: [blankCondition(meta)],
+    structure: 'single',
+    width: String(meta.defaults.width ?? 5),
     dte: '0',
     target_offset_pct: '',
     stop_offset_pct: '',
@@ -152,6 +156,8 @@ function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
         .filter(isConditionComplete)
         .map((c) => conditionToSpec(c, meta)),
       entry: { dte: Number(form.dte) },
+      structure: form.structure,
+      width: form.structure === 'vertical' ? Number(form.width) || 5 : undefined,
       target_offset_pct: pctToFraction(form.target_offset_pct),
       stop_offset_pct: pctToFraction(form.stop_offset_pct),
     };
@@ -561,6 +567,41 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               >
                 + Add condition
               </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Structure">
+                <select
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                  value={form.structure}
+                  onChange={(e) =>
+                    setField('structure', e.target.value as FormState['structure'])
+                  }
+                >
+                  {(meta.strategy_structures ?? [
+                    { id: 'single', label: 'Single option (ATM)' },
+                    { id: 'vertical', label: 'Vertical spread (defined risk)' },
+                  ]).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {form.structure === 'vertical' ? (
+                <Field label="Spread width (pts)">
+                  <input
+                    type="number"
+                    className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                    value={form.width}
+                    min={1}
+                    step={1}
+                    onChange={(e) => setField('width', e.target.value)}
+                  />
+                </Field>
+              ) : (
+                <div />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1162,6 +1203,11 @@ function TradesBlotter({
                 <td className="py-1.5 pr-3 font-mono">
                   {t.strike}
                   {t.option_type?.charAt(0).toUpperCase()}
+                  {t.structure && t.structure !== 'single' ? (
+                    <span className="ml-1 text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+                      {t.structure}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="py-1.5 pr-3">{formatDateTime(t.entered_at)}</td>
                 <td className="py-1.5 pr-3">{formatDateTime(t.exited_at)}</td>
