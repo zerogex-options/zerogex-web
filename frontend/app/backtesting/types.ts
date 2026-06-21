@@ -48,6 +48,9 @@ export interface BacktestSpec {
   };
   exit: {
     max_hold_minutes: number | null;
+    // Phase-2 option-premium exit overlay; null ⇒ off.
+    profit_target_pct?: number | null;
+    stop_loss_pct?: number | null;
   };
 }
 

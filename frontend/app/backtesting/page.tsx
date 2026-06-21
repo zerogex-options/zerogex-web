@@ -40,6 +40,8 @@ interface FormState {
   commission_per_contract: number;
   max_concurrent: number;
   max_hold_minutes: string; // empty string => null (no cap)
+  profit_target_pct: string; // percent, empty => off (e.g. "50" = +50%)
+  stop_loss_pct: string; // percent, empty => off (e.g. "50" = −50%)
 }
 
 function buildInitialForm(meta: BacktestMeta): FormState {
@@ -55,7 +57,17 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     commission_per_contract: d.commission_per_contract,
     max_concurrent: d.max_concurrent,
     max_hold_minutes: '',
+    profit_target_pct: '',
+    stop_loss_pct: '',
   };
+}
+
+/** Percent string → fraction (e.g. "50" → 0.5); blank/invalid → null (off). */
+function pctToFraction(value: string): number | null {
+  const t = value.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n / 100 : null;
 }
 
 function formToSpec(form: FormState): BacktestSpec {
@@ -76,6 +88,8 @@ function formToSpec(form: FormState): BacktestSpec {
     },
     exit: {
       max_hold_minutes: parsedHold != null && Number.isFinite(parsedHold) ? parsedHold : null,
+      profit_target_pct: pctToFraction(form.profit_target_pct),
+      stop_loss_pct: pctToFraction(form.stop_loss_pct),
     },
   };
 }
@@ -350,6 +364,29 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               step={1}
               placeholder="None"
               onChange={(e) => setField('max_hold_minutes', e.target.value)}
+            />
+          </Field>
+          <Field label="Take profit (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.profit_target_pct}
+              min={0}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('profit_target_pct', e.target.value)}
+            />
+          </Field>
+          <Field label="Stop loss (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.stop_loss_pct}
+              min={0}
+              max={100}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('stop_loss_pct', e.target.value)}
             />
           </Field>
         </div>
