@@ -21,6 +21,20 @@ export interface BacktestDefaults {
   max_concurrent: number;
 }
 
+/**
+ * A condition-builder field surfaced by the backend for the custom-strategy
+ * mode. `numeric` fields take a number value and may carry a `unit` ('%', '$',
+ * or ''); `categorical` fields take one of `values`.
+ */
+export interface BacktestStrategyField {
+  field: string;
+  label: string;
+  type: 'numeric' | 'categorical';
+  ops: string[];
+  unit?: string;
+  values?: string[];
+}
+
 export interface BacktestMeta {
   underlyings: string[];
   patterns: BacktestPattern[];
@@ -30,13 +44,25 @@ export interface BacktestMeta {
     retention_days: number;
   };
   defaults: BacktestDefaults;
+  strategy_fields: BacktestStrategyField[];
+}
+
+/**
+ * A single custom-strategy condition. `value` is a number for numeric fields
+ * and a string for categorical fields, matching the field's declared type.
+ */
+export interface BacktestCondition {
+  field: string;
+  op: string;
+  value: number | string;
 }
 
 export interface BacktestSpec {
   underlying: string;
   start_date: string;
   end_date: string;
-  patterns: string[];
+  // Omitted when a `strategy` block is supplied (strategy replaces patterns).
+  patterns?: string[];
   fill_model: {
     slippage_pct: number;
     commission_per_contract: number;
@@ -48,6 +74,20 @@ export interface BacktestSpec {
   };
   exit: {
     max_hold_minutes: number | null;
+    // Phase-2 option-premium exit overlay; null ⇒ off.
+    profit_target_pct?: number | null;
+    stop_loss_pct?: number | null;
+  };
+  /**
+   * Custom-strategy block. When present it REPLACES `patterns`. Level offsets
+   * are FRACTIONS of the entry underlying price (0.003 = 0.3%); null ⇒ off.
+   */
+  strategy?: {
+    direction: 'bullish' | 'bearish';
+    conditions: BacktestCondition[];
+    entry: { dte: number };
+    target_offset_pct: number | null;
+    stop_offset_pct: number | null;
   };
 }
 

@@ -13,7 +13,13 @@ import {
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
-import type { BacktestMeta, BacktestSpec, BacktestSummary } from './types';
+import type {
+  BacktestCondition,
+  BacktestMeta,
+  BacktestSpec,
+  BacktestStrategyField,
+  BacktestSummary,
+} from './types';
 
 // Recharts is heavy; the equity curve sits below the config panel and only
 // appears once a run completes. Split it out so the form paints immediately.
@@ -29,42 +35,99 @@ const TITLE_TOOLTIP =
 
 // ---- Local form state ----------------------------------------------------
 
+/** A condition row as edited in the form — all fields are strings until submit. */
+interface FormCondition {
+  field: string;
+  op: string;
+  value: string;
+}
+
 interface FormState {
+  mode: 'patterns' | 'strategy';
   underlying: string;
   start_date: string;
   end_date: string;
   patterns: string[];
+  // Custom-strategy mode
+  direction: 'bullish' | 'bearish';
+  conditions: FormCondition[];
+  dte: string;
+  target_offset_pct: string; // percent, empty => off (underlying-price offset)
+  stop_offset_pct: string; // percent, empty => off (underlying-price offset)
   capital: number;
   risk_per_trade_pct: number;
   slippage_pct: number;
   commission_per_contract: number;
   max_concurrent: number;
   max_hold_minutes: string; // empty string => null (no cap)
+  profit_target_pct: string; // percent, empty => off (e.g. "50" = +50%)
+  stop_loss_pct: string; // percent, empty => off (e.g. "50" = −50%)
+}
+
+/** A blank condition row seeded from the first available strategy field. */
+function blankCondition(meta: BacktestMeta): FormCondition {
+  const first = meta.strategy_fields[0];
+  return {
+    field: first?.field ?? '',
+    op: first?.ops[0] ?? '',
+    value: '',
+  };
 }
 
 function buildInitialForm(meta: BacktestMeta): FormState {
   const d = meta.defaults;
   return {
+    mode: 'patterns',
     underlying: meta.underlyings[0] ?? '',
     start_date: meta.data_window.earliest,
     end_date: meta.data_window.latest,
     patterns: [],
+    direction: 'bullish',
+    conditions: [blankCondition(meta)],
+    dte: '0',
+    target_offset_pct: '',
+    stop_offset_pct: '',
     capital: d.capital,
     risk_per_trade_pct: d.risk_per_trade_pct,
     slippage_pct: d.slippage_pct,
     commission_per_contract: d.commission_per_contract,
     max_concurrent: d.max_concurrent,
     max_hold_minutes: '',
+    profit_target_pct: '',
+    stop_loss_pct: '',
   };
 }
 
-function formToSpec(form: FormState): BacktestSpec {
+/** Percent string → fraction (e.g. "50" → 0.5); blank/invalid → null (off). */
+function pctToFraction(value: string): number | null {
+  const t = value.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n / 100 : null;
+}
+
+/** A condition row is "complete" once it has a field, an op, and a value. */
+function isConditionComplete(c: FormCondition): boolean {
+  return c.field !== '' && c.op !== '' && c.value.trim() !== '';
+}
+
+/**
+ * Coerce a form condition's value to the type its field declares: number for
+ * numeric fields, the raw string for categorical fields.
+ */
+function conditionToSpec(c: FormCondition, meta: BacktestMeta): BacktestCondition {
+  const def = meta.strategy_fields.find((f) => f.field === c.field);
+  const value: number | string =
+    def?.type === 'numeric' ? Number(c.value) : c.value;
+  return { field: c.field, op: c.op, value };
+}
+
+function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
   const parsedHold = form.max_hold_minutes.trim() === '' ? null : Number(form.max_hold_minutes);
-  return {
+  const spec: BacktestSpec = {
     underlying: form.underlying,
     start_date: form.start_date,
     end_date: form.end_date,
-    patterns: form.patterns,
     fill_model: {
       slippage_pct: form.slippage_pct,
       commission_per_contract: form.commission_per_contract,
@@ -76,8 +139,27 @@ function formToSpec(form: FormState): BacktestSpec {
     },
     exit: {
       max_hold_minutes: parsedHold != null && Number.isFinite(parsedHold) ? parsedHold : null,
+      profit_target_pct: pctToFraction(form.profit_target_pct),
+      stop_loss_pct: pctToFraction(form.stop_loss_pct),
     },
   };
+
+  if (form.mode === 'strategy') {
+    // Strategy REPLACES patterns — include `strategy`, omit `patterns`.
+    spec.strategy = {
+      direction: form.direction,
+      conditions: form.conditions
+        .filter(isConditionComplete)
+        .map((c) => conditionToSpec(c, meta)),
+      entry: { dte: Number(form.dte) },
+      target_offset_pct: pctToFraction(form.target_offset_pct),
+      stop_offset_pct: pctToFraction(form.stop_offset_pct),
+    };
+  } else {
+    spec.patterns = form.patterns;
+  }
+
+  return spec;
 }
 
 // ---- Formatting helpers --------------------------------------------------
@@ -202,12 +284,57 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const numField = (key: keyof FormState, value: string) =>
     setForm((prev) => (prev ? { ...prev, [key]: value === '' ? 0 : Number(value) } : prev));
 
-  const canSubmit = form.patterns.length > 0 && form.underlying !== '' && !running;
+  // ---- Custom-strategy condition helpers --------------------------------
+  const fieldDef = (id: string): BacktestStrategyField | undefined =>
+    meta.strategy_fields.find((f) => f.field === id);
+
+  const addCondition = () =>
+    setForm((prev) =>
+      prev ? { ...prev, conditions: [...prev.conditions, blankCondition(meta)] } : prev,
+    );
+
+  const removeCondition = (idx: number) =>
+    setForm((prev) =>
+      prev ? { ...prev, conditions: prev.conditions.filter((_, i) => i !== idx) } : prev,
+    );
+
+  const updateCondition = (idx: number, patch: Partial<FormCondition>) =>
+    setForm((prev) => {
+      if (!prev) return prev;
+      const conditions = prev.conditions.map((c, i) => (i === idx ? { ...c, ...patch } : c));
+      return { ...prev, conditions };
+    });
+
+  // Changing the field resets the op (to the new field's first op) and value,
+  // since both are field-specific.
+  const changeConditionField = (idx: number, field: string) => {
+    const def = fieldDef(field);
+    updateCondition(idx, { field, op: def?.ops[0] ?? '', value: '' });
+  };
+
+  // ---- Submit gating ----------------------------------------------------
+  const hasPremiumExit =
+    pctToFraction(form.profit_target_pct) != null || pctToFraction(form.stop_loss_pct) != null;
+  const hasLevelExit =
+    pctToFraction(form.target_offset_pct) != null || pctToFraction(form.stop_offset_pct) != null;
+  const validConditions = form.conditions.filter(isConditionComplete);
+
+  const strategyMissing =
+    validConditions.length === 0
+      ? 'Add at least one condition to run a custom strategy.'
+      : !hasLevelExit && !hasPremiumExit
+        ? 'Set an exit: a target/stop offset, or a premium take-profit/stop-loss.'
+        : null;
+
+  const canSubmit =
+    form.underlying !== '' &&
+    !running &&
+    (form.mode === 'patterns' ? form.patterns.length > 0 : strategyMissing == null);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    void submit(formToSpec(form));
+    void submit(formToSpec(form, meta));
   };
 
   return (
@@ -257,38 +384,226 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-            Patterns
+            Signal source
           </div>
-          <div className="flex flex-col gap-3">
-            {[...patternsByTier.entries()].map(([tier, list]) => (
-              <fieldset key={tier} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
-                <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                  {tier}
-                </legend>
-                <div className="flex flex-col gap-2">
-                  {list.map((p) => (
-                    <label key={p.id} className="flex items-start gap-2 cursor-pointer text-sm">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={form.patterns.includes(p.id)}
-                        onChange={() => togglePattern(p.id)}
-                      />
-                      <span className="flex-1">
-                        <span className="font-medium">{p.name}</span>
-                        {p.description ? (
-                          <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">
-                            {p.description}
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
+          <div
+            className="grid grid-cols-2 gap-1 rounded-lg border p-1"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
+            role="tablist"
+          >
+            {(
+              [
+                ['patterns', 'Playbook patterns'],
+                ['strategy', 'Custom strategy'],
+              ] as const
+            ).map(([value, label]) => {
+              const active = form.mode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setField('mode', value)}
+                  className="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                  style={{
+                    background: active ? 'var(--color-surface-elevated)' : 'transparent',
+                    color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    border: active ? '1px solid var(--color-border)' : '1px solid transparent',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {form.mode === 'patterns' ? (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+              Patterns
+            </div>
+            <div className="flex flex-col gap-3">
+              {[...patternsByTier.entries()].map(([tier, list]) => (
+                <fieldset key={tier} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
+                  <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
+                    {tier}
+                  </legend>
+                  <div className="flex flex-col gap-2">
+                    {list.map((p) => (
+                      <label key={p.id} className="flex items-start gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={form.patterns.includes(p.id)}
+                          onChange={() => togglePattern(p.id)}
+                        />
+                        <span className="flex-1">
+                          <span className="font-medium">{p.name}</span>
+                          {p.description ? (
+                            <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">
+                              {p.description}
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <Field label="Direction">
+              <select
+                className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                value={form.direction}
+                onChange={(e) => setField('direction', e.target.value as 'bullish' | 'bearish')}
+              >
+                <option value="bullish">Bullish</option>
+                <option value="bearish">Bearish</option>
+              </select>
+            </Field>
+
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+                Conditions
+              </div>
+              <div className="flex flex-col gap-2">
+                {form.conditions.map((c, idx) => {
+                  const def = fieldDef(c.field);
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-lg border p-2.5 flex flex-col gap-2"
+                      style={{ borderColor: 'var(--color-border)' }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Field"
+                          className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
+                          value={c.field}
+                          onChange={(e) => changeConditionField(idx, e.target.value)}
+                        >
+                          {meta.strategy_fields.map((f) => (
+                            <option key={f.field} value={f.field}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          aria-label="Remove condition"
+                          onClick={() => removeCondition(idx)}
+                          disabled={form.conditions.length === 1}
+                          className="shrink-0 rounded-md border px-2 py-1.5 text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ borderColor: 'var(--color-border)' }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Operator"
+                          className="shrink-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm font-mono"
+                          value={c.op}
+                          onChange={(e) => updateCondition(idx, { op: e.target.value })}
+                        >
+                          {(def?.ops ?? []).map((op) => (
+                            <option key={op} value={op}>
+                              {op}
+                            </option>
+                          ))}
+                        </select>
+                        {def?.type === 'categorical' ? (
+                          <select
+                            aria-label="Value"
+                            className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
+                            value={c.value}
+                            onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                          >
+                            <option value="">Select…</option>
+                            {(def.values ?? []).map((v) => (
+                              <option key={v} value={v}>
+                                {v}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="relative flex-1 min-w-0">
+                            <input
+                              aria-label="Value"
+                              type="number"
+                              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm pr-7"
+                              value={c.value}
+                              placeholder="Value"
+                              onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                            />
+                            {def?.unit ? (
+                              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-secondary)]">
+                                {def.unit}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={addCondition}
+                className="mt-2 rounded-md border px-2.5 py-1 text-xs font-semibold"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                + Add condition
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="DTE">
+                <input
+                  type="number"
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                  value={form.dte}
+                  min={0}
+                  step={1}
+                  onChange={(e) => setField('dte', e.target.value)}
+                />
+              </Field>
+              <Field label="Target offset (%)">
+                <input
+                  type="number"
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                  value={form.target_offset_pct}
+                  min={0}
+                  step={0.1}
+                  placeholder="Off"
+                  onChange={(e) => setField('target_offset_pct', e.target.value)}
+                />
+              </Field>
+              <Field label="Stop offset (%)">
+                <input
+                  type="number"
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                  value={form.stop_offset_pct}
+                  min={0}
+                  step={0.1}
+                  placeholder="Off"
+                  onChange={(e) => setField('stop_offset_pct', e.target.value)}
+                />
+              </Field>
+            </div>
+            <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug">
+              Target/stop offsets are moves in the <span className="font-medium">underlying price</span> from entry
+              (favorable / adverse). The premium <span className="font-medium">Take profit</span> /{' '}
+              <span className="font-medium">Stop loss</span> inputs below also apply to the option.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Capital ($)">
@@ -352,12 +667,39 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('max_hold_minutes', e.target.value)}
             />
           </Field>
+          <Field label="Take profit (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.profit_target_pct}
+              min={0}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('profit_target_pct', e.target.value)}
+            />
+          </Field>
+          <Field label="Stop loss (%)">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.stop_loss_pct}
+              min={0}
+              max={100}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('stop_loss_pct', e.target.value)}
+            />
+          </Field>
         </div>
 
-        {form.patterns.length === 0 ? (
+        {form.mode === 'patterns' && form.patterns.length === 0 ? (
           <p className="text-[11px] text-[var(--color-text-secondary)]">
             Select at least one pattern to run a backtest.
           </p>
+        ) : null}
+
+        {form.mode === 'strategy' && strategyMissing ? (
+          <p className="text-[11px] text-[var(--color-text-secondary)]">{strategyMissing}</p>
         ) : null}
 
         {submitError ? <ErrorBox title="Run failed to start" message={submitError} /> : null}
