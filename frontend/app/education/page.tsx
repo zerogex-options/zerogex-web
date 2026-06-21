@@ -29,9 +29,9 @@ const sections = [
     href: '/help',
     title: 'Help',
     description:
-      'Product help, FAQs, and how-to walkthroughs for getting the most out of the ZeroGEX platform.',
+      'Platform Guide, FAQs, and Quick Start walkthroughs for getting the most out of the ZeroGEX platform.',
     icon: LifeBuoy,
-    available: false,
+    available: true,
   },
 ];
 

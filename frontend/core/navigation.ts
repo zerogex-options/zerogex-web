@@ -86,7 +86,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Education',
     items: [
       { id: '/education', label: 'Hub' },
-      { id: '/help', label: 'Help' },
     ],
     subgroups: [
       {
@@ -105,6 +104,15 @@ export const NAV_GROUPS: NavGroup[] = [
           { id: '/education/net-volume-vs-directional-flow', label: 'Options Flow Explained' },
           { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
           { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },
+        ],
+      },
+      {
+        id: '/help',
+        label: 'Help',
+        items: [
+          { id: '/help/platform', label: 'Platform Guide' },
+          { id: '/help/faqs', label: 'FAQs' },
+          { id: '/help/quickstarts', label: 'Quick Starts' },
         ],
       },
     ],
