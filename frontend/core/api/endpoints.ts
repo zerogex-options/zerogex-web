@@ -21,6 +21,9 @@ import type {
   BacktestConfig,
   BacktestConfigSummary,
   BacktestSharedConfig,
+  BacktestSweep,
+  BacktestSweepAxis,
+  BacktestSweepCreated,
 } from '@/app/backtesting/types';
 
 /**
@@ -171,6 +174,21 @@ export const backtestAPI = {
   /** Public read-only fetch of a shared config by token (clone into the form). */
   getSharedConfig: async (token: string): Promise<BacktestSharedConfig> => {
     return apiClient.get<BacktestSharedConfig>(`/api/backtest/configs/shared/${token}`);
+  },
+
+  // ---- Parameter sweeps (Phase 6) ---------------------------------------
+
+  /** Queue a parameter sweep: a base spec run across a grid of axes. */
+  createSweep: async (
+    spec: BacktestSpec,
+    axes: BacktestSweepAxis[],
+  ): Promise<BacktestSweepCreated> => {
+    return apiClient.post<BacktestSweepCreated>('/api/backtest/sweeps', { spec, axes });
+  },
+
+  /** Fetch a sweep's header + per-cell status/metrics (used while polling). */
+  getSweep: async (sweepId: number): Promise<BacktestSweep> => {
+    return apiClient.get<BacktestSweep>(`/api/backtest/sweeps/${sweepId}`);
   },
 };
 

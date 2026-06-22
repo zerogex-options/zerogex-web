@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Download,
   History,
+  LayoutGrid,
   LineChart as LineChartIcon,
   ListOrdered,
   Play,
@@ -25,8 +26,14 @@ import type {
   BacktestSpec,
   BacktestStrategyField,
   BacktestSummary,
+  BacktestSweep,
+  BacktestSweepAxis,
+  BacktestSweepParam,
   StrategyStructureId,
 } from './types';
+
+// Sweep grid bound mirrored from the backend (src/backtesting/sweeps.py).
+const SWEEP_MAX_CELLS = 24;
 
 // Structures that are non-directional (exit on the premium overlay only).
 const NEUTRAL_STRUCTURES: StrategyStructureId[] = ['straddle', 'strangle', 'condor'];
@@ -261,6 +268,49 @@ function specToForm(spec: BacktestSpec, meta: BacktestMeta): FormState {
   return form;
 }
 
+// ---- Parameter sweep helpers ---------------------------------------------
+
+/** An axis as edited in the form: a param + a free-text list of values. */
+interface SweepAxisForm {
+  param: string;
+  valuesText: string;
+}
+
+/** Parse "10, 20 30" → [10, 20, 30], dropping anything non-numeric. */
+function parseAxisValues(text: string): number[] {
+  return text
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+    .map(Number)
+    .filter((n) => Number.isFinite(n));
+}
+
+/**
+ * Compile the form axes into the API payload. `as_fraction` params accept a
+ * percent in the form and are divided by 100 (matching the single-run form),
+ * and each axis's values are de-duplicated preserving order.
+ */
+function buildSweepAxes(axes: SweepAxisForm[], meta: BacktestMeta): BacktestSweepAxis[] {
+  const params = meta.sweep_params ?? [];
+  const out: BacktestSweepAxis[] = [];
+  for (const a of axes) {
+    if (!a.param) continue;
+    const def = params.find((p) => p.param === a.param);
+    let values = parseAxisValues(a.valuesText);
+    if (def?.as_fraction) values = values.map((v) => v / 100);
+    const uniq = values.filter((v, i) => values.indexOf(v) === i);
+    if (uniq.length > 0) out.push({ param: a.param, values: uniq });
+  }
+  return out;
+}
+
+/** Total grid cells the axes would produce (0 when none are complete). */
+function sweepCellCount(axes: BacktestSweepAxis[]): number {
+  if (axes.length === 0) return 0;
+  return axes.reduce((acc, a) => acc * a.values.length, 1);
+}
+
 // ---- Formatting helpers --------------------------------------------------
 
 function fmtPct(value: number | null | undefined, digits = 2): string {
@@ -331,8 +381,9 @@ export default function BacktestingPage() {
 // ---- Config panel --------------------------------------------------------
 
 function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
-  const { meta, metaState, metaError, running, submit, submitError } = bt;
+  const { meta, metaState, metaError, running, submit, submitError, submitSweep, sweepRunning } = bt;
   const [form, setForm] = useState<FormState | null>(null);
+  const [sweepAxes, setSweepAxes] = useState<SweepAxisForm[]>([]);
 
   // ---- Saved & shareable configs (Phase 6) ------------------------------
   const [savedConfigs, setSavedConfigs] = useState<BacktestConfigSummary[]>([]);
@@ -532,6 +583,26 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     } catch {
       setConfigNotice(link);
     }
+  };
+
+  // ---- Parameter-sweep gating + actions ---------------------------------
+  // Strategy-scoped params only apply to a custom-strategy base spec.
+  const sweepParamsForMode = (meta.sweep_params ?? []).filter(
+    (p) => p.scope === 'any' || form.mode === 'strategy',
+  );
+  const builtAxes = buildSweepAxes(sweepAxes, meta);
+  const sweepCells = sweepCellCount(builtAxes);
+  const canSweep =
+    configValid &&
+    builtAxes.length > 0 &&
+    sweepCells > 0 &&
+    sweepCells <= SWEEP_MAX_CELLS &&
+    !running &&
+    !sweepRunning;
+
+  const onRunSweep = () => {
+    if (!canSweep) return;
+    void submitSweep(formToSpec(form, meta), builtAxes);
   };
 
   return (
@@ -1006,6 +1077,16 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           <Play size={16} />
           {running ? 'Running…' : 'Run Backtest'}
         </button>
+
+        <SweepEditor
+          params={sweepParamsForMode}
+          axes={sweepAxes}
+          onAxesChange={setSweepAxes}
+          cells={sweepCells}
+          canSweep={canSweep}
+          busy={sweepRunning}
+          onRunSweep={onRunSweep}
+        />
       </form>
 
       <SavedConfigs
@@ -1138,6 +1219,144 @@ function SavedConfigs({
   );
 }
 
+// ---- Parameter sweep editor ----------------------------------------------
+
+function SweepEditor({
+  params,
+  axes,
+  onAxesChange,
+  cells,
+  canSweep,
+  busy,
+  onRunSweep,
+}: {
+  params: BacktestSweepParam[];
+  axes: SweepAxisForm[];
+  onAxesChange: (axes: SweepAxisForm[]) => void;
+  cells: number;
+  canSweep: boolean;
+  busy: boolean;
+  onRunSweep: () => void;
+}) {
+  if (params.length === 0) return null;
+
+  const usedParams = new Set(axes.map((a) => a.param));
+  const firstFree = params.find((p) => !usedParams.has(p.param))?.param ?? params[0].param;
+
+  const addAxis = () => onAxesChange([...axes, { param: firstFree, valuesText: '' }]);
+  const removeAxis = (idx: number) => onAxesChange(axes.filter((_, i) => i !== idx));
+  const updateAxis = (idx: number, patch: Partial<SweepAxisForm>) =>
+    onAxesChange(axes.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
+
+  const overLimit = cells > SWEEP_MAX_CELLS;
+
+  return (
+    <div className="mt-2 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+          Parameter sweep
+        </span>
+        {axes.length < 2 ? (
+          <button
+            type="button"
+            onClick={addAxis}
+            className="rounded-md border px-2 py-1 text-[11px] font-semibold"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            + Add axis
+          </button>
+        ) : null}
+      </div>
+
+      {axes.length === 0 ? (
+        <p className="text-[11px] text-[var(--color-text-secondary)]">
+          Optional — vary one or two parameters across a grid and compare the results.
+          Add an axis to begin.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {axes.map((a, idx) => {
+            const def = params.find((p) => p.param === a.param);
+            const count = parseAxisValues(a.valuesText).filter(
+              (v, i, arr) => arr.indexOf(v) === i,
+            ).length;
+            return (
+              <div
+                key={idx}
+                className="rounded-lg border p-2.5 flex flex-col gap-2"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Sweep parameter"
+                    className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
+                    value={a.param}
+                    onChange={(e) => updateAxis(idx, { param: e.target.value })}
+                  >
+                    {params.map((p) => (
+                      <option
+                        key={p.param}
+                        value={p.param}
+                        disabled={usedParams.has(p.param) && p.param !== a.param}
+                      >
+                        {p.label}
+                        {p.unit ? ` (${p.unit})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Remove axis"
+                    onClick={() => removeAxis(idx)}
+                    className="shrink-0 rounded-md border px-2 py-1.5 text-sm leading-none"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    ×
+                  </button>
+                </div>
+                <input
+                  aria-label="Axis values"
+                  type="text"
+                  value={a.valuesText}
+                  placeholder={def?.unit === '%' ? 'e.g. 25, 50, 75' : 'e.g. 1, 2, 3'}
+                  onChange={(e) => updateAxis(idx, { valuesText: e.target.value })}
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                />
+                <span className="text-[10px] text-[var(--color-text-secondary)]">
+                  Comma-separated values{def?.unit ? ` in ${def.unit === '%' ? 'percent' : def.unit}` : ''}.
+                  {count > 0 ? ` ${count} value${count === 1 ? '' : 's'}.` : ''}
+                </span>
+              </div>
+            );
+          })}
+
+          <p
+            className="text-[11px]"
+            style={{ color: overLimit ? 'var(--color-bear)' : 'var(--color-text-secondary)' }}
+          >
+            {cells > 0
+              ? overLimit
+                ? `${cells} cells exceeds the ${SWEEP_MAX_CELLS}-cell limit — trim a value list.`
+                : `${cells} cell${cells === 1 ? '' : 's'} — ${cells} full backtest${cells === 1 ? '' : 's'} will run.`
+              : 'Enter values for each axis to build the grid.'}
+          </p>
+
+          <button
+            type="button"
+            onClick={onRunSweep}
+            disabled={!canSweep}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-elevated)' }}
+          >
+            <LayoutGrid size={16} />
+            {busy ? 'Sweeping…' : 'Run Sweep'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
@@ -1215,6 +1434,11 @@ function StatusBadge({ status }: { status: string }) {
 
 function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const { run, running, equity, trades, tradesPage, tradesLoading, setTradesPage } = bt;
+
+  // Parameter-sweep view takes over the results pane while active.
+  if (bt.view === 'sweep') {
+    return <SweepResults sweep={bt.sweep} running={bt.sweepRunning} meta={bt.meta} />;
+  }
 
   // Empty state: nothing run yet.
   if (!run && !running) {
@@ -1303,6 +1527,323 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   }
 
   return null;
+}
+
+// ---- Sweep results -------------------------------------------------------
+
+type SweepMetricKey = 'net_pnl' | 'win_rate' | 'total_return_pct' | 'profit_factor';
+
+const SWEEP_METRICS: { key: SweepMetricKey; label: string; fmt: (v: number) => string }[] = [
+  { key: 'net_pnl', label: 'Net P&L', fmt: (v) => fmtCurrency(v) },
+  { key: 'win_rate', label: 'Win rate', fmt: (v) => fmtPct(v) },
+  { key: 'total_return_pct', label: 'Return', fmt: (v) => fmtPct(v) },
+  { key: 'profit_factor', label: 'Profit factor', fmt: (v) => fmtNumber(v) },
+];
+
+/** Display an axis value in the units the user entered (percent for fractions). */
+function fmtAxisValue(param: string, value: number, meta: BacktestMeta | null): string {
+  const def = (meta?.sweep_params ?? []).find((p) => p.param === param);
+  if (def?.as_fraction) return `${Number((value * 100).toFixed(6))}%`;
+  if (def?.unit === '%') return `${value}%`;
+  if (def?.unit && def.unit !== '') return `${value}`;
+  return String(value);
+}
+
+function axisLabel(param: string, meta: BacktestMeta | null): string {
+  return (meta?.sweep_params ?? []).find((p) => p.param === param)?.label ?? param;
+}
+
+/** Blend red→amber→green for t in [0,1]; higher is always "better" here. */
+function heatColor(t: number): string {
+  const clamped = Math.max(0, Math.min(1, t));
+  // red (220,38,38) → amber (217,164,6) → green (22,163,74)
+  const stops =
+    clamped < 0.5
+      ? mix([220, 38, 38], [217, 164, 6], clamped / 0.5)
+      : mix([217, 164, 6], [22, 163, 74], (clamped - 0.5) / 0.5);
+  return `rgba(${stops[0]}, ${stops[1]}, ${stops[2]}, 0.28)`;
+}
+
+function mix(a: number[], b: number[], t: number): number[] {
+  return a.map((av, i) => Math.round(av + (b[i] - av) * t));
+}
+
+function SweepResults({
+  sweep,
+  running,
+  meta,
+}: {
+  sweep: BacktestSweep | null;
+  running: boolean;
+  meta: BacktestMeta | null;
+}) {
+  const [metric, setMetric] = useState<SweepMetricKey>('net_pnl');
+
+  if (!sweep) {
+    return (
+      <section className="zg-feature-shell p-6">
+        <ProgressView status="queued" progress={0} runId={null} />
+      </section>
+    );
+  }
+
+  const metricDef = SWEEP_METRICS.find((m) => m.key === metric)!;
+  const axis0 = sweep.axes[0];
+  const axis1 = sweep.axes[1];
+
+  // Cell lookup keyed by the axis values each grid cell carries.
+  const cellAt = (v0: number, v1?: number) =>
+    sweep.cells.find((c) => {
+      if (c.cell[axis0.param] !== v0) return false;
+      if (axis1) return c.cell[axis1.param] === v1;
+      return true;
+    });
+
+  const metricValue = (cell: ReturnType<typeof cellAt>): number | null => {
+    const m = cell?.metrics;
+    if (!m) return null;
+    const v = m[metric];
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  };
+
+  // Min/max of the selected metric across completed cells, for the heat scale.
+  const completedValues = sweep.cells
+    .map((c) => (c.metrics ? c.metrics[metric] : null))
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  const lo = completedValues.length ? Math.min(...completedValues) : 0;
+  const hi = completedValues.length ? Math.max(...completedValues) : 0;
+  const norm = (v: number) => (hi > lo ? (v - lo) / (hi - lo) : 0.5);
+
+  const pct = sweep.n_cells > 0 ? Math.round((sweep.completed / sweep.n_cells) * 100) : 0;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="zg-feature-shell p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <LayoutGrid size={20} />
+            Parameter Sweep #{sweep.sweep_id}
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+              Metric
+            </span>
+            <select
+              value={metric}
+              onChange={(e) => setMetric(e.target.value as SweepMetricKey)}
+              className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+            >
+              {SWEEP_METRICS.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-2 text-xs">
+          <span className="text-[var(--color-text-secondary)]">
+            {sweep.underlying} · {sweep.completed}/{sweep.n_cells} cells complete
+          </span>
+          <StatusBadge status={running ? 'running' : 'completed'} />
+        </div>
+        <div className="h-2 w-full rounded-full overflow-hidden mb-5" style={{ background: 'var(--color-surface-subtle)' }}>
+          <div
+            className="h-full rounded-full transition-[width] duration-300"
+            style={{ width: `${pct}%`, background: 'var(--color-bull)' }}
+          />
+        </div>
+
+        {axis1 ? (
+          <SweepMatrix
+            axis0={axis0}
+            axis1={axis1}
+            meta={meta}
+            cellAt={cellAt}
+            metricValue={metricValue}
+            fmt={metricDef.fmt}
+            norm={norm}
+          />
+        ) : (
+          <SweepTable
+            axis0={axis0}
+            meta={meta}
+            cellAt={cellAt}
+            metricKey={metric}
+            metricValue={metricValue}
+            norm={norm}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+type CellAt = (v0: number, v1?: number) => BacktestSweep['cells'][number] | undefined;
+
+function SweepMatrix({
+  axis0,
+  axis1,
+  meta,
+  cellAt,
+  metricValue,
+  fmt,
+  norm,
+}: {
+  axis0: BacktestSweepAxis;
+  axis1: BacktestSweepAxis;
+  meta: BacktestMeta | null;
+  cellAt: CellAt;
+  metricValue: (cell: ReturnType<CellAt>) => number | null;
+  fmt: (v: number) => string;
+  norm: (v: number) => number;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <div className="text-[11px] text-[var(--color-text-secondary)] mb-2">
+        Rows: <span className="font-medium">{axisLabel(axis0.param, meta)}</span> · Columns:{' '}
+        <span className="font-medium">{axisLabel(axis1.param, meta)}</span>
+      </div>
+      <table className="text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="p-2" />
+            {axis1.values.map((v1) => (
+              <th key={v1} className="p-2 font-semibold text-center whitespace-nowrap">
+                {fmtAxisValue(axis1.param, v1, meta)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {axis0.values.map((v0) => (
+            <tr key={v0}>
+              <th className="p-2 font-semibold text-right whitespace-nowrap">
+                {fmtAxisValue(axis0.param, v0, meta)}
+              </th>
+              {axis1.values.map((v1) => {
+                const cell = cellAt(v0, v1);
+                const val = metricValue(cell);
+                const pending = !cell || cell.status !== 'completed';
+                return (
+                  <td
+                    key={v1}
+                    className="p-2 text-center font-mono"
+                    title={
+                      cell?.metrics
+                        ? `${cell.metrics.n_trades} trades · win ${fmtPct(cell.metrics.win_rate)} · ${fmtCurrency(cell.metrics.net_pnl)}`
+                        : cell?.status ?? 'pending'
+                    }
+                    style={{
+                      background: val != null ? heatColor(norm(val)) : 'var(--color-surface-subtle)',
+                      minWidth: 74,
+                    }}
+                  >
+                    {pending ? (
+                      <span className="text-[var(--color-text-secondary)]">
+                        {cell?.status === 'failed' ? '×' : '…'}
+                      </span>
+                    ) : val != null ? (
+                      fmt(val)
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SweepTable({
+  axis0,
+  meta,
+  cellAt,
+  metricKey,
+  metricValue,
+  norm,
+}: {
+  axis0: BacktestSweepAxis;
+  meta: BacktestMeta | null;
+  cellAt: CellAt;
+  metricKey: SweepMetricKey;
+  metricValue: (cell: ReturnType<CellAt>) => number | null;
+  norm: (v: number) => number;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <div className="text-[11px] text-[var(--color-text-secondary)] mb-2">
+        Axis: <span className="font-medium">{axisLabel(axis0.param, meta)}</span>
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-[var(--color-text-secondary)] uppercase tracking-[0.1em]">
+            <th className="py-2 pr-3 font-semibold">Value</th>
+            <th className="py-2 pr-3 font-semibold text-right">Trades</th>
+            <th className="py-2 pr-3 font-semibold text-right">Win rate</th>
+            <th className="py-2 pr-3 font-semibold text-right">Net P&L</th>
+            <th className="py-2 pr-3 font-semibold text-right">Return</th>
+            <th className="py-2 pr-3 font-semibold text-right">Max DD</th>
+            <th className="py-2 font-semibold text-right">Profit factor</th>
+          </tr>
+        </thead>
+        <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {axis0.values.map((v0) => {
+            const cell = cellAt(v0);
+            const m = cell?.metrics;
+            const sel = metricValue(cell);
+            return (
+              <tr key={v0} className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <th className="py-1.5 pr-3 text-left font-mono font-semibold whitespace-nowrap">
+                  {fmtAxisValue(axis0.param, v0, meta)}
+                </th>
+                {!cell || cell.status !== 'completed' ? (
+                  <td colSpan={6} className="py-1.5 text-[var(--color-text-secondary)]">
+                    {cell?.status === 'failed' ? 'failed' : 'running…'}
+                  </td>
+                ) : (
+                  <>
+                    <td className="py-1.5 pr-3 text-right font-mono">{m?.n_trades ?? '—'}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono">{fmtPct(m?.win_rate)}</td>
+                    <td
+                      className="py-1.5 pr-3 text-right font-mono"
+                      style={{
+                        background:
+                          metricKey === 'net_pnl' && sel != null ? heatColor(norm(sel)) : undefined,
+                        color: m ? pnlColor(m.net_pnl) : undefined,
+                      }}
+                    >
+                      {fmtCurrency(m?.net_pnl)}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono" style={{ color: m ? pnlColor(m.total_return_pct) : undefined }}>
+                      {fmtPct(m?.total_return_pct)}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono" style={{ color: 'var(--color-bear)' }}>
+                      {fmtPct(m?.max_drawdown_pct)}
+                    </td>
+                    <td
+                      className="py-1.5 text-right font-mono"
+                      style={{
+                        background:
+                          metricKey === 'profit_factor' && sel != null ? heatColor(norm(sel)) : undefined,
+                      }}
+                    >
+                      {fmtNumber(m?.profit_factor)}
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function ProgressView({

@@ -45,10 +45,24 @@ export interface BacktestStrategyStructure {
   kind?: 'directional' | 'neutral';
 }
 
+/**
+ * A parameter the sweep can vary (Phase 6). `scope` 'strategy' means it only
+ * applies to a custom-strategy base spec. `as_fraction` marks axes whose spec
+ * value is a fraction (0.5) — the UI accepts a percent and divides by 100.
+ */
+export interface BacktestSweepParam {
+  param: string;
+  label: string;
+  unit: string;
+  scope: 'any' | 'strategy';
+  as_fraction?: boolean;
+}
+
 export interface BacktestMeta {
   underlyings: string[];
   patterns: BacktestPattern[];
   strategy_structures?: BacktestStrategyStructure[];
+  sweep_params?: BacktestSweepParam[];
   data_window: {
     earliest: string;
     latest: string;
@@ -234,4 +248,47 @@ export interface BacktestSharedConfig {
   name: string;
   underlying: string;
   spec: BacktestSpec;
+}
+
+// ---- Parameter sweeps (Phase 6) ------------------------------------------
+
+/** One swept axis: a parameter and the list of values to try. */
+export interface BacktestSweepAxis {
+  param: string;
+  values: number[];
+}
+
+/** The metrics surfaced per grid cell (a slim view of a run summary). */
+export interface BacktestSweepCellMetrics {
+  n_trades: number;
+  win_rate: number;
+  net_pnl: number;
+  total_return_pct: number;
+  max_drawdown_pct: number;
+  profit_factor: number;
+}
+
+export interface BacktestSweepCell {
+  run_id: number;
+  cell: Record<string, number>;
+  status: RunStatus;
+  metrics: BacktestSweepCellMetrics | null;
+  progress: number;
+}
+
+export interface BacktestSweep {
+  sweep_id: number;
+  underlying: string;
+  axes: BacktestSweepAxis[];
+  n_cells: number;
+  created_at: string | null;
+  cells: BacktestSweepCell[];
+  completed: number;
+  status: 'running' | 'completed';
+}
+
+export interface BacktestSweepCreated {
+  sweep_id: number;
+  n_cells: number;
+  run_ids: number[];
 }
