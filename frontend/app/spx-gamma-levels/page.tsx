@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, Clock, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
-import Footer from '@/components/Footer';
+import Footer from './Footer';
 import Header from './Header';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
@@ -604,7 +604,7 @@ export default async function SpxGammaLevelsPage() {
         </p>
       </main>
 
-      <Footer theme="dark" />
+      <Footer />
     </div>
   );
 }
