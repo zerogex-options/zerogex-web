@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
@@ -54,6 +54,21 @@ type Mrr = {
   breakdown: MrrBreakdownRow[];
 };
 
+type MrrPoint = {
+  day: string;
+  estMrr: number;
+  committedMrr: number;
+};
+
+type MrrTrend = {
+  windowDays: number;
+  startMrr: number;
+  endMrr: number;
+  changeMrr: number;
+  monthlyGrowthRate: number | null;
+  monthsToTarget: number | null;
+};
+
 type WebhookHealth = {
   errors24h: number;
   errors7d: number;
@@ -90,6 +105,8 @@ const STALE_NOISE_DELTA_SECONDS = 5;
 type Snapshot = {
   ok: boolean;
   mrr: Mrr;
+  mrrSeries: MrrPoint[];
+  mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -256,14 +273,26 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
           <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
         </div>
-        <IncomeReplacementCard
-          mrr={data.mrr}
-          cardBg={cardBg}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-          brandColor={ROW_COLORS.mrr}
-        />
+        <div className="grid grid-cols-1 gap-4">
+          <IncomeReplacementCard
+            mrr={data.mrr}
+            cardBg={cardBg}
+            borderColor={borderColor}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+          <MrrTrendCard
+            series={data.mrrSeries}
+            trend={data.mrrTrend}
+            targetMrr={data.mrr.targetMrr}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+        </div>
       </section>
 
       <section className="mb-8">
@@ -555,6 +584,174 @@ function IncomeReplacementCard({
         <div className="text-sm py-6 text-center" style={{ color: mutedText }}>
           No active or trialing subscribers to price yet.
         </div>
+      )}
+    </div>
+  );
+}
+
+function formatMonths(months: number | null): string {
+  if (months === null) return '—';
+  if (months <= 0) return 'reached';
+  if (months < 1) return '< 1 mo';
+  if (months < 12) return `~${Math.round(months)} mo`;
+  const years = months / 12;
+  return `~${months >= 24 ? Math.round(years) : years.toFixed(1)} yr`;
+}
+
+function formatGrowthPct(rate: number | null): string {
+  if (rate === null) return '—';
+  const pct = rate * 100;
+  const sign = pct > 0 ? '+' : '';
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+function MrrTrendCard({
+  series,
+  trend,
+  targetMrr,
+  cardBg,
+  axisStroke,
+  mutedText,
+  textColor,
+  brandColor,
+}: {
+  series: MrrPoint[];
+  trend: MrrTrend | null;
+  targetMrr: number;
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  textColor: string;
+  brandColor: string;
+}) {
+  const committedColor = lighten(brandColor, 0.45);
+  const targetColor = lighten(brandColor, 0.2);
+
+  const dataMax = useMemo(
+    () => series.reduce((m, p) => Math.max(m, p.committedMrr, p.estMrr), 0),
+    [series],
+  );
+  const hasData = dataMax > 0;
+  // The replacement target is ~40x current MRR early on; forcing it onto the
+  // axis would flatten the growth curve to an invisible sliver. Only draw the
+  // target line once MRR is within ~2x of it — until then the progress bar
+  // above carries the target context and this chart stays zoomed to the data.
+  const showTarget = hasData && targetMrr <= dataMax * 2;
+  const yBasis = showTarget ? Math.max(dataMax, targetMrr) : dataMax;
+  const yScale = useMemo(() => niceYScale(Math.max(1, yBasis)), [yBasis]);
+
+  const growthSub =
+    trend && trend.windowDays > 0
+      ? `over ${trend.windowDays}d · ${formatGrowthPct(trend.monthlyGrowthRate)}/mo`
+      : 'building history';
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>MRR Trend</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: brandColor }}>●</span> Est. MRR</span>
+          <span><span style={{ color: committedColor }}>●</span> Committed</span>
+          {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: mutedText }}>
+        <span>
+          Growth:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {trend ? formatGrowthPct(trend.monthlyGrowthRate) : '—'}/mo
+          </span>{' '}
+          <span style={{ color: mutedText }}>({growthSub})</span>
+        </span>
+        <span>
+          At this rate, target in:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {trend ? formatMonths(trend.monthsToTarget) : '—'}
+          </span>
+        </span>
+      </div>
+
+      {!hasData ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>
+          No MRR history captured yet — the line fills in as daily samples accrue.
+        </div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                tickFormatter={(v) => {
+                  const n = Number(v);
+                  if (!Number.isFinite(n)) return '--';
+                  if (n >= 1_000) return `$${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+                  return `$${n}`;
+                }}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const est = Number(payload.find((p) => p.dataKey === 'estMrr')?.value ?? 0);
+                  const committed = Number(payload.find((p) => p.dataKey === 'committedMrr')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div>Est. MRR: {formatUsd(est)}</div>
+                      <div>Committed: {formatUsd(committed)}</div>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="estMrr"
+                name="Est. MRR"
+                stroke={brandColor}
+                fill={brandColor}
+                fillOpacity={0.4}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="committedMrr"
+                name="Committed"
+                stroke={committedColor}
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                dot={false}
+                isAnimationActive={false}
+              />
+              {showTarget && (
+                <ReferenceLine
+                  y={targetMrr}
+                  stroke={targetColor}
+                  strokeDasharray="6 4"
+                  label={{ value: 'Target', position: 'insideTopRight', fill: mutedText, fontSize: 10 }}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
       )}
     </div>
   );

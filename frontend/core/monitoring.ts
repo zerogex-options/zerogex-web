@@ -7,9 +7,12 @@ import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import { priceIdToSku } from '@/core/stripe';
 import {
   computeMrr,
+  computeMrrTrend,
   parseAmountTable,
   type MrrConfig,
+  type MrrPoint,
   type MrrSnapshot,
+  type MrrTrend,
   type SubscriberBucket,
   type SubscriptionState,
 } from '@/core/pricing';
@@ -23,6 +26,7 @@ import {
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
+const MRR_STORE_PATH = process.env.MRR_STORE_PATH ?? path.join(process.cwd(), 'data', 'mrr.json');
 const FLUSH_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60_000;
 const TOKEN_CACHE_TTL_MS = 60_000;
@@ -102,6 +106,8 @@ export type WebhookHealth = {
 
 export type MonitoringSnapshot = {
   mrr: MrrSnapshot;
+  mrrSeries: MrrPoint[];
+  mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
@@ -505,6 +511,93 @@ function buildMrr(): MrrSnapshot {
   return computeMrr({ buckets, unpricedActive, unpricedTrialing, config });
 }
 
+type MrrDaySample = {
+  estMrr: number;
+  committedMrr: number;
+  activeSubscribers: number;
+  trialingSubscribers: number;
+};
+
+type MrrStoreShape = {
+  version: 1;
+  days: Record<string, MrrDaySample>;
+};
+
+function readMrrStore(): MrrStoreShape {
+  try {
+    const raw = fs.readFileSync(MRR_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as Partial<MrrStoreShape>;
+    if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
+      const days: Record<string, MrrDaySample> = {};
+      for (const [k, v] of Object.entries(parsed.days)) {
+        days[k] = {
+          estMrr: Number(v?.estMrr) || 0,
+          committedMrr: Number(v?.committedMrr) || 0,
+          activeSubscribers: Number(v?.activeSubscribers) || 0,
+          trialingSubscribers: Number(v?.trialingSubscribers) || 0,
+        };
+      }
+      return { version: 1, days };
+    }
+  } catch {
+    // No file or parse failed: start fresh.
+  }
+  return { version: 1, days: {} };
+}
+
+function writeMrrStore(s: MrrStoreShape) {
+  try {
+    const dir = path.dirname(MRR_STORE_PATH);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${MRR_STORE_PATH}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(s), 'utf8');
+    fs.renameSync(tmp, MRR_STORE_PATH);
+  } catch {
+    // Persist failures should not crash the request path.
+  }
+}
+
+// One MRR plot point per ET day, mirroring buildSignupSeries: re-sampling the
+// same day overwrites that day's point with the latest estimate; a new point
+// is only created once the day rolls over. Days with no sample carry the prior
+// day forward so the line stays continuous, and the x-axis spans MAX_DAILY
+// days back to align with the signup and traffic charts.
+function buildMrrSeries(now: Date, current: MrrSnapshot): MrrPoint[] {
+  const today = etBucketKeys(now).day;
+  const store = readMrrStore();
+  const sample: MrrDaySample = {
+    estMrr: current.estMrr,
+    committedMrr: current.committedMrr,
+    activeSubscribers: current.activeSubscribers,
+    trialingSubscribers: current.trialingSubscribers,
+  };
+  const existing = store.days[today];
+  if (
+    !existing ||
+    existing.estMrr !== sample.estMrr ||
+    existing.committedMrr !== sample.committedMrr ||
+    existing.activeSubscribers !== sample.activeSubscribers ||
+    existing.trialingSubscribers !== sample.trialingSubscribers
+  ) {
+    store.days[today] = sample;
+    writeMrrStore(store);
+  }
+
+  const dailyKeys = generateDailyKeys(now);
+  const series: MrrPoint[] = [];
+  let last: MrrDaySample = {
+    estMrr: 0,
+    committedMrr: 0,
+    activeSubscribers: 0,
+    trialingSubscribers: 0,
+  };
+  for (const day of dailyKeys) {
+    if (store.days[day]) last = store.days[day];
+    series.push({ day, estMrr: last.estMrr, committedMrr: last.committedMrr });
+  }
+  return series;
+}
+
 // Total users who have acknowledged the CURRENT disclaimer version. Mirrors
 // the "Disclaimer" column in `make users`: stale acks against an older
 // version don't count once the wording has been materially updated.
@@ -718,8 +811,12 @@ export function getSnapshot(): MonitoringSnapshot {
   const now = new Date();
   const hourlyKeys = generateHourlyKeys(now);
   const dailyKeys = generateDailyKeys(now);
+  const mrr = buildMrr();
+  const mrrSeries = buildMrrSeries(now, mrr);
   return {
-    mrr: buildMrr(),
+    mrr,
+    mrrSeries,
+    mrrTrend: computeMrrTrend(mrrSeries, mrr.targetMrr),
     signups: buildSignupSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),

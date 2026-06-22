@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeMrr,
+  computeMrrTrend,
   deriveTargetMrr,
   parseAmountTable,
   DEFAULT_AMOUNTS,
@@ -110,4 +111,42 @@ test('parseAmountTable falls back to defaults on bad input and deep-merges valid
   assert.equal(merged.pro.monthly.founding, 25); // overridden
   assert.equal(merged.pro.monthly.list, 59); // untouched default
   assert.equal(merged.basic.monthly.founding, 12); // untouched default
+});
+
+test('trend is null without real data or with a single data day', () => {
+  assert.equal(computeMrrTrend([], 20_000), null);
+  assert.equal(computeMrrTrend([{ estMrr: 0 }, { estMrr: 0 }], 20_000), null);
+  // First real sample is the last point -> windowDays 0 -> null.
+  assert.equal(computeMrrTrend([{ estMrr: 0 }, { estMrr: 0 }, { estMrr: 100 }], 20_000), null);
+});
+
+test('trend skips leading carry-forward zeros and compounds month-over-month', () => {
+  // 30-day window doubling: 1000 -> 2000 over exactly 30 days = +100%/mo.
+  const clean: Array<{ estMrr: number }> = [];
+  for (let d = 0; d <= 30; d++) {
+    clean.push({ estMrr: 1000 * Math.pow(2, d / 30) });
+  }
+  // Prepend a couple of zero (pre-launch) days that must be ignored.
+  const withZeros = [{ estMrr: 0 }, { estMrr: 0 }, ...clean];
+  const trend = computeMrrTrend(withZeros, 20_000)!;
+  assert.equal(trend.windowDays, 30);
+  assert.equal(trend.startMrr, 1000);
+  assert.ok(Math.abs(trend.endMrr - 2000) < 1e-6);
+  assert.ok(trend.monthlyGrowthRate !== null && Math.abs(trend.monthlyGrowthRate - 1) < 1e-6);
+  // From 2000 at +100%/mo to 20000 = log2(10) ≈ 3.32 months.
+  assert.ok(trend.monthsToTarget !== null && Math.abs(trend.monthsToTarget - Math.log2(10)) < 1e-6);
+});
+
+test('trend reports reached (0 months) once MRR is at/over target', () => {
+  const trend = computeMrrTrend([{ estMrr: 5000 }, { estMrr: 25_000 }], 20_000)!;
+  assert.equal(trend.monthsToTarget, 0);
+});
+
+test('flat or declining MRR yields no ETA to target', () => {
+  const flat = computeMrrTrend([{ estMrr: 1000 }, { estMrr: 1000 }], 20_000)!;
+  assert.equal(flat.monthlyGrowthRate, 0);
+  assert.equal(flat.monthsToTarget, null);
+  const declining = computeMrrTrend([{ estMrr: 2000 }, { estMrr: 1000 }], 20_000)!;
+  assert.ok(declining.monthlyGrowthRate !== null && declining.monthlyGrowthRate < 0);
+  assert.equal(declining.monthsToTarget, null);
 });

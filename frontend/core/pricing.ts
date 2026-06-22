@@ -227,3 +227,61 @@ export function parseAmountTable(raw: string | undefined): AmountTable {
   }
   return out;
 }
+
+// One persisted/plotted point on the historical MRR line. `day` is an ET
+// YYYY-MM-DD key (same axis as the signup series).
+export type MrrPoint = {
+  day: string;
+  estMrr: number;
+  committedMrr: number;
+};
+
+export type MrrTrend = {
+  // Days between the first day that had real (estMrr > 0) data and the
+  // latest day — the basis for the growth estimate.
+  windowDays: number;
+  startMrr: number;
+  endMrr: number;
+  changeMrr: number;
+  // Compounded monthly growth rate over the window, as a fraction
+  // (0.20 = +20%/mo). null when there isn't enough signal to compute it.
+  monthlyGrowthRate: number | null;
+  // Naive months to reach the target if the current monthly growth rate
+  // holds: 0 when already at/over target, null when growth is flat/negative
+  // (so it would never arrive) or can't be computed.
+  monthsToTarget: number | null;
+};
+
+// Estimate MRR growth from the historical series. Leading carry-forward
+// zeros (days before the first real sample) are skipped so a long empty
+// runway doesn't dilute the rate. Compounded month-over-month so the
+// extrapolation matches how SaaS actually grows. Returns null when the
+// series has no real data or only a single day of it.
+export function computeMrrTrend(
+  points: ReadonlyArray<{ estMrr: number }>,
+  targetMrr: number,
+): MrrTrend | null {
+  const firstIdx = points.findIndex((p) => p.estMrr > 0);
+  if (firstIdx < 0) return null;
+  const lastIdx = points.length - 1;
+  const windowDays = lastIdx - firstIdx;
+  if (windowDays <= 0) return null;
+
+  const startMrr = points[firstIdx].estMrr;
+  const endMrr = points[lastIdx].estMrr;
+  const changeMrr = endMrr - startMrr;
+
+  let monthlyGrowthRate: number | null = null;
+  let monthsToTarget: number | null = null;
+  if (startMrr > 0 && endMrr > 0) {
+    const dailyGrowth = Math.pow(endMrr / startMrr, 1 / windowDays);
+    monthlyGrowthRate = Math.pow(dailyGrowth, 30) - 1;
+    if (endMrr >= targetMrr) {
+      monthsToTarget = 0;
+    } else if (monthlyGrowthRate > 0) {
+      monthsToTarget = Math.log(targetMrr / endMrr) / Math.log(1 + monthlyGrowthRate);
+    }
+  }
+
+  return { windowDays, startMrr, endMrr, changeMrr, monthlyGrowthRate, monthsToTarget };
+}
