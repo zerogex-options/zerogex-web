@@ -5,6 +5,7 @@ import { Info } from 'lucide-react';
 import {
   useGEXSummary,
   useGEXByStrike,
+  useGEXHistoricalContext,
   useMarketQuote,
   useVolatilityGauge,
   useApiData,
@@ -12,6 +13,7 @@ import {
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
+import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -160,6 +162,7 @@ export default function GammaExposurePage() {
     }
   }, [gexData, symbol]);
   const { data: gexByStrike, error: byStrikeError } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: historicalContext } = useGEXHistoricalContext(symbol, 15000);
   const { data: openInterestData } = useApiData<OpenInterestApiResponse | Record<string, unknown>[] | null>(
     `/api/market/open-interest?symbol=${symbol}&underlying=${symbol}`,
     { refreshInterval: 30000 },
@@ -487,6 +490,12 @@ export default function GammaExposurePage() {
             value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
             tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
+            contextBadge={
+              <HistoricalContextBadge
+                metric={historicalContext?.metrics?.net_gex_at_spot}
+                window="30d"
+              />
+            }
           />
           <MetricCard
             title="IV Rank"

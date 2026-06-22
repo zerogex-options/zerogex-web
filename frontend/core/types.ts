@@ -26,6 +26,11 @@ export interface MetricCardProps {
   tooltip: string;
   icon?: React.ReactNode;
   theme?: Theme;
+  /**
+   * Optional "vs historical" badge rendered under the headline value.
+   * Powered by /api/gex/historical-context — see HistoricalContextBadge.
+   */
+  contextBadge?: React.ReactNode;
 }
 
 export interface GEXStrikeData {
@@ -55,6 +60,56 @@ export interface GEXByStrike {
   put_gex: number;
   total_oi: number;
   gex_level?: string;
+}
+
+/**
+ * Regime labels emitted by /api/gex/historical-context.
+ *
+ * Z-score based against the rolling-30-day / all-time distribution, with
+ * record_high / record_low overrides when the live value exceeds the
+ * stored min / max (so a fresh record is flagged before tonight's
+ * refresh). ``unknown`` covers the cold-start case where the stats row
+ * is missing or degenerate.
+ */
+export type GEXHistoricalRegime =
+  | 'record_high'
+  | 'extreme_high'
+  | 'elevated'
+  | 'normal'
+  | 'low'
+  | 'extreme_low'
+  | 'record_low'
+  | 'unknown';
+
+export interface GEXHistoricalWindow {
+  p05: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p95: number | null;
+  mean: number | null;
+  std: number | null;
+  min: number | null;
+  max: number | null;
+  sample_size: number;
+  percentile: number | null;
+  z_score: number | null;
+  regime: GEXHistoricalRegime;
+  /** -1 = flat (no TOD bucketing) fallback; 0..77 = 5-min RTH bucket; null = no row */
+  tod_bucket_used: number | null;
+}
+
+export interface GEXHistoricalMetric {
+  current: number | null;
+  windows: Partial<Record<'30d' | 'all_time', GEXHistoricalWindow | null>>;
+}
+
+export interface GEXHistoricalContext {
+  symbol: string;
+  timestamp: string;
+  tod_bucket: number | null;
+  in_rth: boolean;
+  metrics: Partial<Record<'net_gex_at_spot' | 'total_net_gex', GEXHistoricalMetric>>;
 }
 
 export interface OptionFlow {
