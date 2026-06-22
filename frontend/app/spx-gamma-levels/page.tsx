@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { ArrowRight, Clock, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
 import Footer from '@/components/Footer';
+import Header from './Header';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
 // publish on X every morning. Pure server component: ISR-cached at 900s so the
@@ -298,7 +299,9 @@ export default async function SpxGammaLevelsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '56px 24px 80px', width: '100%' }}>
+      <Header />
+
+      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
         <header style={{ marginBottom: 36 }}>
           <div
             style={{
