@@ -26,6 +26,11 @@ export interface MetricCardProps {
   tooltip: string;
   icon?: React.ReactNode;
   theme?: Theme;
+  /**
+   * Optional "vs historical" badge rendered under the headline value.
+   * Powered by /api/gex/historical-context — see HistoricalContextBadge.
+   */
+  contextBadge?: React.ReactNode;
 }
 
 export interface GEXStrikeData {
@@ -55,6 +60,65 @@ export interface GEXByStrike {
   put_gex: number;
   total_oi: number;
   gex_level?: string;
+}
+
+/**
+ * Regime labels emitted by /api/gex/historical-context.
+ *
+ * Z-score based against the rolling-30-day / all-time distribution.
+ * ``unknown`` covers the cold-start case where the stats row is missing
+ * or degenerate.  Records are NOT a separate regime — they're carried as
+ * boolean ``is_record_high`` / ``is_record_low`` flags on each window, so
+ * the badge label keeps the regime word and the frontend stamps a trophy
+ * icon on top.  A record-setting value is always promoted to the
+ * matching extreme regime by the backend so the badge color and the
+ * trophy stay visually consistent.
+ */
+export type GEXHistoricalRegime =
+  | 'extreme_high'
+  | 'elevated'
+  | 'normal'
+  | 'low'
+  | 'extreme_low'
+  | 'unknown';
+
+export interface GEXHistoricalWindow {
+  p05: number | null;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p95: number | null;
+  mean: number | null;
+  std: number | null;
+  min: number | null;
+  max: number | null;
+  sample_size: number;
+  percentile: number | null;
+  z_score: number | null;
+  regime: GEXHistoricalRegime;
+  /** True when the current value exceeds the stored max for this window. */
+  is_record_high: boolean;
+  /** True when the current value is below the stored min for this window. */
+  is_record_low: boolean;
+  /** -1 = flat (no TOD bucketing) fallback; 0..77 = 5-min RTH bucket; null = no row */
+  tod_bucket_used: number | null;
+}
+
+export interface GEXHistoricalMetric {
+  current: number | null;
+  windows: Partial<Record<'30d' | 'all_time', GEXHistoricalWindow | null>>;
+}
+
+export interface GEXHistoricalContext {
+  symbol: string;
+  timestamp: string;
+  tod_bucket: number | null;
+  in_rth: boolean;
+  /** ISO timestamp of the earliest gex_summary row for the symbol — the
+   * "since YYYY-MM-DD" date cited by the all-time-record trophy tooltip.
+   * Null when the symbol has no history yet. */
+  tracking_started_at: string | null;
+  metrics: Partial<Record<'net_gex_at_spot' | 'total_net_gex', GEXHistoricalMetric>>;
 }
 
 export interface OptionFlow {

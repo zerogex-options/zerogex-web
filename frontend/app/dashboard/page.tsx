@@ -5,10 +5,11 @@
 
 'use client';
 
-import { useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
+import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
+import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -89,6 +90,7 @@ export default function DashboardPage() {
   
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
+  const { data: historicalContext } = useGEXHistoricalContext(symbol, 15000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
@@ -194,6 +196,13 @@ export default function DashboardPage() {
               trend={(gexData?.net_gex_at_spot ?? gexData?.net_gex ?? 0) > 0 ? 'bullish' : 'bearish'}
               tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
               theme={theme}
+              contextBadge={
+                <HistoricalContextBadge
+                  metric={historicalContext?.metrics?.net_gex_at_spot}
+                  window="30d"
+                  trackingStartedAt={historicalContext?.tracking_started_at}
+                />
+              }
             />
             <PriceDistanceMetricCard
               title="Gamma Flip"

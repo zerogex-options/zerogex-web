@@ -16,6 +16,7 @@ export default function MetricCard({
   tooltip,
   icon,
   theme,
+  contextBadge,
 }: MetricCardProps) {
   const { theme: activeTheme } = useTheme();
   const resolvedTheme = activeTheme || theme;
@@ -69,6 +70,7 @@ export default function MetricCard({
       >
         {value}
       </div>
+      {contextBadge && <div className="mb-2">{contextBadge}</div>}
       {subtitle && (
         <div
           className="text-sm font-semibold break-words"

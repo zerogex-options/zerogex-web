@@ -6,6 +6,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { GEXHistoricalContext } from '@/core/types';
+export type {
+  GEXHistoricalContext,
+  GEXHistoricalMetric,
+  GEXHistoricalWindow,
+  GEXHistoricalRegime,
+} from '@/core/types';
 
 interface OptionFlowRow {
   time_window_start: string;
@@ -513,6 +520,18 @@ export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
 
 export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval });
+}
+
+// Historical-context endpoint is read-cached server-side (10s TTL) and the
+// distributions are pre-aggregated nightly into gex_historical_stats, so a
+// slower poll cadence on the client side is fine — the current value
+// inside the response still tracks the live gex_summary row via the
+// "RECORD" override, and the badge doesn't need to flicker every second.
+export function useGEXHistoricalContext(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<GEXHistoricalContext>(
+    `/api/gex/historical-context?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
 }
 
 export interface FlipTermStructureCurvePoint {
