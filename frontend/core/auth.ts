@@ -68,7 +68,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // Metrics — included with Basic.
   { pattern: '/gamma-exposure', minimumTier: 'basic' },
   { pattern: '/greeks-gex', minimumTier: 'basic' },
-  { pattern: '/gamma-pulse', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },

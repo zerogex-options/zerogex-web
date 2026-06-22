@@ -11,6 +11,7 @@ import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
 import FlipSurfaceChart from '@/components/FlipSurfaceChart';
+import GammaPulsePanel from '@/components/GammaPulsePanel';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 
@@ -155,6 +156,10 @@ export default function GreeksGEXPage() {
           <FlipTermStructureChart symbol={symbol} />
           <FlipSurfaceChart symbol={symbol} />
         </div>
+      </section>
+
+      <section className="mb-8">
+        <GammaPulsePanel symbol={symbol} />
       </section>
 
       {/* Data Freshness */}

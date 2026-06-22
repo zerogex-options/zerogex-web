@@ -1,8 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Activity, Trophy } from 'lucide-react';
-import { useTimeframe } from '@/core/TimeframeContext';
+import { Trophy } from 'lucide-react';
 import { useGEXHistoricalContext } from '@/hooks/useApiData';
 import type {
   GEXHistoricalMetric,
@@ -10,38 +8,37 @@ import type {
   GEXHistoricalWindow,
 } from '@/core/types';
 import { colors } from '@/core/colors';
-import { useTheme } from '@/core/ThemeContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import SignalPageTitle from '@/components/SignalPageTitle';
 
 /**
- * Gamma Pulse — historical-context dashboard for the headline dealer-gamma
- * metrics.  For each of ``net_gex_at_spot`` and ``total_net_gex`` the page
- * shows:
+ * Gamma Pulse panel — historical-context view for the headline
+ * dealer-gamma metrics.  Drops into any page that wants to surface
+ * "is current dealer gamma irregular?" inline.
  *
- *   * the live current value and its regime label (EXTREME HIGH /
- *     ELEVATED / NORMAL / LOW / EXTREME LOW), against both a
- *     rolling-30-day window and the all-time distribution
+ * For each of ``net_gex_at_spot`` and ``total_net_gex`` the panel shows:
+ *   * live current value and regime label (EXTREME HIGH / ELEVATED /
+ *     NORMAL / LOW / EXTREME LOW), against both rolling-30-day and
+ *     all-time distributions
  *   * a trophy icon when the value sets a record for that window, with
- *     a footer line citing "30-day record" or "All-time record (since
- *     YYYY-MM-DD)" — the date being the symbol's tracking-start
+ *     a legend line citing "30-day record" or "All-time record (since
+ *     YYYY-MM-DD)"
  *   * a horizontal band visualization with the current marker placed
  *     between p05 and p95
- *   * mean ± 1σ / 2σ bands and the all-time min/max as orientation
  *
- * Data comes from /api/gex/historical-context, which reads pre-aggregated
- * distributions out of ``gex_historical_stats`` (refreshed nightly) and
- * compares them against the latest ``gex_summary`` row.  The endpoint
- * already supplies percentile, z-score, and regime labels, so this page
- * is purely presentational.
+ * Data comes from /api/gex/historical-context (pre-aggregated distributions
+ * refreshed nightly out of ``gex_historical_stats``).  The endpoint
+ * supplies percentile, z-score, regime label, and record flags directly
+ * so this component is purely presentational.
  */
 
-const METRIC_DEFINITIONS: Array<{
+interface MetricDefinition {
   key: 'net_gex_at_spot' | 'total_net_gex';
   title: string;
   description: string;
-}> = [
+}
+
+const METRIC_DEFINITIONS: MetricDefinition[] = [
   {
     key: 'net_gex_at_spot',
     title: 'Net GEX at Spot',
@@ -306,7 +303,7 @@ function MetricSection({ title, description, metric, trackingStartedAt }: Metric
     <section className="zg-feature-shell p-6 space-y-4">
       <div className="flex items-start gap-4 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <h2 className="text-xl font-semibold mb-1">{title}</h2>
+          <h3 className="text-xl font-semibold mb-1">{title}</h3>
           <p className="text-sm italic" style={{ color: colors.muted }}>{description}</p>
         </div>
         <div className="text-right">
@@ -335,47 +332,36 @@ function MetricSection({ title, description, metric, trackingStartedAt }: Metric
   );
 }
 
-export default function GammaPulsePage() {
-  const { symbol } = useTimeframe();
-  // Suppress the unused-warning if theme is not directly referenced.
-  useTheme();
-  const { data, loading, error, refetch } = useGEXHistoricalContext(symbol, 15000);
+interface GammaPulsePanelProps {
+  symbol: string;
+  refreshInterval?: number;
+}
 
-  const dataTimestamp = data?.timestamp;
-  const tsLabel = useMemo(() => {
-    if (!dataTimestamp) return null;
-    try {
-      return new Date(dataTimestamp).toLocaleString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        month: 'short',
-        day: 'numeric',
-        timeZoneName: 'short',
-      });
-    } catch {
-      return dataTimestamp;
-    }
-  }, [dataTimestamp]);
+export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: GammaPulsePanelProps) {
+  const { data, loading, error, refetch } = useGEXHistoricalContext(symbol, refreshInterval);
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <SignalPageTitle
-        title="Gamma Pulse"
-        subtitle={'"Is current dealer gamma irregular?"'}
-        icon={Activity}
-        tooltip="Compares live Net GEX figures against historical distributions (rolling-30-day and all-time) so you can tell at a glance whether the current dealer-positioning reading is a record, an extreme, elevated, or normal for this point in the session. Time-of-day-aware so the structural end-of-day pin doesn't get mis-flagged."
-        rightSlot={
-          <div className="text-xs font-mono text-right" style={{ color: colors.muted }}>
-            <div>{symbol}</div>
-            {tsLabel && <div>{tsLabel}</div>}
-            {data && !data.in_rth && (
-              <div className="italic">outside RTH — flat distribution</div>
-            )}
-          </div>
-        }
-      />
+    <div className="space-y-4">
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-2xl font-semibold">Gamma Pulse</h2>
+        <span className="text-sm italic" style={{ color: colors.muted }}>
+          &ldquo;Is current dealer gamma irregular?&rdquo;
+        </span>
+        {data && !data.in_rth && (
+          <span className="text-xs italic" style={{ color: colors.muted }}>
+            · outside RTH — flat distribution
+          </span>
+        )}
+      </div>
+      <p className="text-sm" style={{ color: colors.muted }}>
+        Compares the live headline GEX figures against historical distributions
+        (rolling-30-day and all-time) so you can tell at a glance whether the
+        current dealer-positioning reading is a record, an extreme, elevated,
+        or normal for this point in the session. Time-of-day-aware so the
+        structural end-of-day pin doesn&apos;t get mis-flagged.
+      </p>
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
