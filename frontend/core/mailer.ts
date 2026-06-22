@@ -377,8 +377,8 @@ export async function sendPaymentFailedEmail(
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
   const amountSentence = opts?.amountFormatted
-    ? `Your renewal payment of ${opts.amountFormatted} was declined by your card issuer.`
-    : 'Your renewal payment was declined by your card issuer.';
+    ? `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
+    : 'Your subscription payment was declined by your card issuer.';
 
   const text = [
     'Hello,',
