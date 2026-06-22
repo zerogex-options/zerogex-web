@@ -4,6 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   AlertTriangle,
+  Download,
   History,
   LineChart as LineChartIcon,
   ListOrdered,
@@ -988,10 +989,22 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         {summary && summary.by_pattern.length > 0 ? <ByPatternTable summary={summary} /> : null}
 
         <section className="zg-feature-shell p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <ListOrdered size={20} />
-            Trade Blotter
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <ListOrdered size={20} />
+              Trade Blotter
+            </h2>
+            {summary && summary.n_trades > 0 ? (
+              <a
+                href={`/api/backtest/runs/${run.run_id}/trades.csv`}
+                download
+                className="inline-flex items-center gap-1.5 text-sm rounded-md border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-surface-subtle)]"
+              >
+                <Download size={15} />
+                Export CSV
+              </a>
+            ) : null}
+          </div>
           <TradesBlotter
             page={trades}
             pageIndex={tradesPage}
