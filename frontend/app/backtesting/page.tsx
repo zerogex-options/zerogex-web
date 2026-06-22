@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   AlertTriangle,
@@ -9,13 +9,18 @@ import {
   LineChart as LineChartIcon,
   ListOrdered,
   Play,
+  Save,
   Search,
+  Share2,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { backtestAPI } from '@/core/api/endpoints';
 import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
 import type {
   BacktestCondition,
+  BacktestConfigSummary,
   BacktestMeta,
   BacktestSpec,
   BacktestStrategyField,
@@ -197,6 +202,65 @@ function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
   return spec;
 }
 
+/** Fraction (0.5) → percent string ("50"); null/undefined → "" (off). */
+function fractionToPctStr(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '';
+  return String(Number((value * 100).toFixed(6)));
+}
+
+/** Number → string; null/undefined → "" (off). */
+function numOrBlankStr(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value) ? '' : String(value);
+}
+
+/**
+ * Inverse of {@link formToSpec}: hydrate the form from a saved/shared spec.
+ * Starts from the meta-derived defaults so any field the spec omits keeps a
+ * sane value, then overlays everything the spec carries.
+ */
+function specToForm(spec: BacktestSpec, meta: BacktestMeta): FormState {
+  const base = buildInitialForm(meta);
+  const form: FormState = {
+    ...base,
+    underlying: meta.underlyings.includes(spec.underlying) ? spec.underlying : base.underlying,
+    start_date: spec.start_date || base.start_date,
+    end_date: spec.end_date || base.end_date,
+    capital: spec.sizing.capital,
+    risk_per_trade_pct: spec.sizing.risk_per_trade_pct,
+    max_concurrent: spec.sizing.max_concurrent,
+    slippage_pct: spec.fill_model.slippage_pct,
+    commission_per_contract: spec.fill_model.commission_per_contract,
+    max_net_delta: numOrBlankStr(spec.sizing.max_net_delta),
+    max_net_vega: numOrBlankStr(spec.sizing.max_net_vega),
+    max_hold_minutes: numOrBlankStr(spec.exit.max_hold_minutes),
+    profit_target_pct: fractionToPctStr(spec.exit.profit_target_pct),
+    stop_loss_pct: fractionToPctStr(spec.exit.stop_loss_pct),
+  };
+
+  if (spec.strategy) {
+    const s = spec.strategy;
+    form.mode = 'strategy';
+    // The form's `direction` is bullish/bearish only; neutral structures keep a
+    // harmless default since the direction control is hidden for them.
+    form.direction = s.direction === 'bearish' ? 'bearish' : 'bullish';
+    form.structure = s.structure ?? 'single';
+    form.width = s.width != null ? String(s.width) : base.width;
+    form.wing = s.wing != null ? String(s.wing) : base.wing;
+    form.dte = String(s.entry?.dte ?? 0);
+    form.target_offset_pct = fractionToPctStr(s.target_offset_pct);
+    form.stop_offset_pct = fractionToPctStr(s.stop_offset_pct);
+    form.conditions =
+      s.conditions.length > 0
+        ? s.conditions.map((c) => ({ field: c.field, op: c.op, value: String(c.value) }))
+        : [blankCondition(meta)];
+  } else {
+    form.mode = 'patterns';
+    form.patterns = spec.patterns ?? [];
+  }
+
+  return form;
+}
+
 // ---- Formatting helpers --------------------------------------------------
 
 function fmtPct(value: number | null | undefined, digits = 2): string {
@@ -269,6 +333,47 @@ export default function BacktestingPage() {
 function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const { meta, metaState, metaError, running, submit, submitError } = bt;
   const [form, setForm] = useState<FormState | null>(null);
+
+  // ---- Saved & shareable configs (Phase 6) ------------------------------
+  const [savedConfigs, setSavedConfigs] = useState<BacktestConfigSummary[]>([]);
+  const [saveName, setSaveName] = useState('');
+  const [savingBusy, setSavingBusy] = useState(false);
+  const [configNotice, setConfigNotice] = useState<string | null>(null);
+  const sharedLoadedRef = useRef(false);
+
+  const refreshConfigs = useCallback(() => {
+    backtestAPI
+      .listConfigs()
+      .then(setSavedConfigs)
+      .catch(() => {
+        // Saved configs are best-effort; a fetch failure shouldn't surface.
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshConfigs();
+  }, [refreshConfigs]);
+
+  // Load a `?config=<token>` shared link once, after meta is ready (specToForm
+  // needs the catalog). Strips the param afterward so a refresh is clean.
+  useEffect(() => {
+    if (sharedLoadedRef.current || !meta) return;
+    sharedLoadedRef.current = true;
+    const token = new URLSearchParams(window.location.search).get('config');
+    if (!token) return;
+    backtestAPI
+      .getSharedConfig(token)
+      .then((cfg) => {
+        setForm(specToForm(cfg.spec, meta));
+        setConfigNotice(`Loaded shared config “${cfg.name}”.`);
+      })
+      .catch(() => setConfigNotice('Could not load that shared configuration.'))
+      .finally(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('config');
+        window.history.replaceState({}, '', url.toString());
+      });
+  }, [meta]);
 
   // Seed the form the first render after meta resolves. Adjusting state
   // during render (guarded so it runs once) is React's recommended pattern
@@ -373,6 +478,60 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     e.preventDefault();
     if (!canSubmit) return;
     void submit(formToSpec(form, meta));
+  };
+
+  // ---- Saved-config actions ---------------------------------------------
+  // A config is savable when it would produce a valid, runnable spec.
+  const configValid =
+    form.underlying !== '' &&
+    (form.mode === 'patterns' ? form.patterns.length > 0 : strategyMissing == null);
+
+  const onSaveConfig = async () => {
+    const name = saveName.trim();
+    if (!name || !configValid || savingBusy) return;
+    setSavingBusy(true);
+    setConfigNotice(null);
+    try {
+      await backtestAPI.saveConfig(name, formToSpec(form, meta));
+      setSaveName('');
+      setConfigNotice(`Saved “${name}”.`);
+      refreshConfigs();
+    } catch (err) {
+      setConfigNotice(err instanceof Error ? err.message : 'Could not save configuration.');
+    } finally {
+      setSavingBusy(false);
+    }
+  };
+
+  const onLoadConfig = async (id: number) => {
+    setConfigNotice(null);
+    try {
+      const cfg = await backtestAPI.getConfig(id);
+      setForm(specToForm(cfg.spec, meta));
+      setConfigNotice(`Loaded “${cfg.name}”.`);
+    } catch {
+      setConfigNotice('Could not load that configuration.');
+    }
+  };
+
+  const onDeleteConfig = async (id: number) => {
+    try {
+      await backtestAPI.deleteConfig(id);
+      refreshConfigs();
+    } catch {
+      setConfigNotice('Could not delete that configuration.');
+    }
+  };
+
+  const onShareConfig = async (cfg: BacktestConfigSummary) => {
+    if (!cfg.share_token) return;
+    const link = `${window.location.origin}/backtesting?config=${cfg.share_token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setConfigNotice('Share link copied to clipboard.');
+    } catch {
+      setConfigNotice(link);
+    }
   };
 
   return (
@@ -848,7 +1007,134 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           {running ? 'Running…' : 'Run Backtest'}
         </button>
       </form>
+
+      <SavedConfigs
+        configs={savedConfigs}
+        saveName={saveName}
+        onSaveNameChange={setSaveName}
+        onSave={onSaveConfig}
+        onLoad={onLoadConfig}
+        onDelete={onDeleteConfig}
+        onShare={onShareConfig}
+        canSave={configValid && saveName.trim() !== '' && !savingBusy}
+        busy={savingBusy}
+        notice={configNotice}
+      />
     </section>
+  );
+}
+
+// ---- Saved configs -------------------------------------------------------
+
+function SavedConfigs({
+  configs,
+  saveName,
+  onSaveNameChange,
+  onSave,
+  onLoad,
+  onDelete,
+  onShare,
+  canSave,
+  busy,
+  notice,
+}: {
+  configs: BacktestConfigSummary[];
+  saveName: string;
+  onSaveNameChange: (v: string) => void;
+  onSave: () => void;
+  onLoad: (id: number) => void;
+  onDelete: (id: number) => void;
+  onShare: (cfg: BacktestConfigSummary) => void;
+  canSave: boolean;
+  busy: boolean;
+  notice: string | null;
+}) {
+  return (
+    <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+        Saved configurations
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={saveName}
+          placeholder="Name this configuration…"
+          maxLength={120}
+          onChange={(e) => onSaveNameChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (canSave) onSave();
+            }
+          }}
+          className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+        />
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!canSave}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <Save size={15} />
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {notice ? (
+        <p className="mt-2 text-[11px] text-[var(--color-text-secondary)] break-words">{notice}</p>
+      ) : null}
+
+      {configs.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {configs.map((c) => (
+            <li
+              key={c.id}
+              className="flex items-center gap-2 rounded-lg border px-3 py-2"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <button
+                type="button"
+                onClick={() => onLoad(c.id)}
+                className="flex-1 min-w-0 text-left"
+                title="Load this configuration"
+              >
+                <span className="block truncate text-sm font-medium">{c.name}</span>
+                <span className="block text-[11px] text-[var(--color-text-secondary)]">
+                  {c.underlying}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onShare(c)}
+                disabled={!c.share_token}
+                aria-label={`Copy share link for ${c.name}`}
+                title="Copy share link"
+                className="shrink-0 rounded-md border p-1.5 disabled:opacity-40"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <Share2 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(c.id)}
+                aria-label={`Delete ${c.name}`}
+                title="Delete"
+                className="shrink-0 rounded-md border p-1.5"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-[11px] text-[var(--color-text-secondary)]">
+          No saved configurations yet. Name the current setup and press Save.
+        </p>
+      )}
+    </div>
   );
 }
 
