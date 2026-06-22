@@ -19,7 +19,14 @@ import type {
   BacktestSpec,
   BacktestStrategyField,
   BacktestSummary,
+  StrategyStructureId,
 } from './types';
+
+// Structures that are non-directional (exit on the premium overlay only).
+const NEUTRAL_STRUCTURES: StrategyStructureId[] = ['straddle', 'strangle', 'condor'];
+function isNeutral(id: StrategyStructureId): boolean {
+  return NEUTRAL_STRUCTURES.includes(id);
+}
 
 // Recharts is heavy; the equity curve sits below the config panel and only
 // appears once a run completes. Split it out so the form paints immediately.
@@ -51,8 +58,9 @@ interface FormState {
   // Custom-strategy mode
   direction: 'bullish' | 'bearish';
   conditions: FormCondition[];
-  structure: 'single' | 'vertical';
+  structure: StrategyStructureId;
   width: string;
+  wing: string;
   dte: string;
   target_offset_pct: string; // percent, empty => off (underlying-price offset)
   stop_offset_pct: string; // percent, empty => off (underlying-price offset)
@@ -61,6 +69,8 @@ interface FormState {
   slippage_pct: number;
   commission_per_contract: number;
   max_concurrent: number;
+  max_net_delta: string; // empty => off
+  max_net_vega: string; // empty => off
   max_hold_minutes: string; // empty string => null (no cap)
   profit_target_pct: string; // percent, empty => off (e.g. "50" = +50%)
   stop_loss_pct: string; // percent, empty => off (e.g. "50" = −50%)
@@ -88,6 +98,7 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     conditions: [blankCondition(meta)],
     structure: 'single',
     width: String(meta.defaults.width ?? 5),
+    wing: String(meta.defaults.wing ?? 5),
     dte: '0',
     target_offset_pct: '',
     stop_offset_pct: '',
@@ -96,10 +107,20 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     slippage_pct: d.slippage_pct,
     commission_per_contract: d.commission_per_contract,
     max_concurrent: d.max_concurrent,
+    max_net_delta: '',
+    max_net_vega: '',
     max_hold_minutes: '',
     profit_target_pct: '',
     stop_loss_pct: '',
   };
+}
+
+/** Positive number string → number; blank/invalid/≤0 → null (off). */
+function posOrNull(value: string): number | null {
+  const t = value.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** Percent string → fraction (e.g. "50" → 0.5); blank/invalid → null (off). */
@@ -140,6 +161,8 @@ function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
       capital: form.capital,
       risk_per_trade_pct: form.risk_per_trade_pct,
       max_concurrent: form.max_concurrent,
+      max_net_delta: posOrNull(form.max_net_delta),
+      max_net_vega: posOrNull(form.max_net_vega),
     },
     exit: {
       max_hold_minutes: parsedHold != null && Number.isFinite(parsedHold) ? parsedHold : null,
@@ -150,16 +173,21 @@ function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
 
   if (form.mode === 'strategy') {
     // Strategy REPLACES patterns — include `strategy`, omit `patterns`.
+    const neutral = isNeutral(form.structure);
+    const usesWidth = form.structure !== 'single';
     spec.strategy = {
-      direction: form.direction,
+      direction: neutral ? 'neutral' : form.direction,
       conditions: form.conditions
         .filter(isConditionComplete)
         .map((c) => conditionToSpec(c, meta)),
       entry: { dte: Number(form.dte) },
       structure: form.structure,
-      width: form.structure === 'vertical' ? Number(form.width) || 5 : undefined,
-      target_offset_pct: pctToFraction(form.target_offset_pct),
-      stop_offset_pct: pctToFraction(form.stop_offset_pct),
+      width: usesWidth ? Number(form.width) || 5 : undefined,
+      wing: form.structure === 'condor' ? Number(form.wing) || 5 : undefined,
+      // Level offsets are directional only; neutral structures exit on the
+      // premium overlay (set below in `exit`).
+      target_offset_pct: neutral ? null : pctToFraction(form.target_offset_pct),
+      stop_offset_pct: neutral ? null : pctToFraction(form.stop_offset_pct),
     };
   } else {
     spec.patterns = form.patterns;
@@ -324,13 +352,16 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const hasLevelExit =
     pctToFraction(form.target_offset_pct) != null || pctToFraction(form.stop_offset_pct) != null;
   const validConditions = form.conditions.filter(isConditionComplete);
+  const neutralStructure = isNeutral(form.structure);
 
   const strategyMissing =
     validConditions.length === 0
       ? 'Add at least one condition to run a custom strategy.'
-      : !hasLevelExit && !hasPremiumExit
-        ? 'Set an exit: a target/stop offset, or a premium take-profit/stop-loss.'
-        : null;
+      : neutralStructure && !hasPremiumExit
+        ? 'This structure is non-directional — set a premium take-profit or stop-loss.'
+        : !neutralStructure && !hasLevelExit && !hasPremiumExit
+          ? 'Set an exit: a target/stop offset, or a premium take-profit/stop-loss.'
+          : null;
 
   const canSubmit =
     form.underlying !== '' &&
@@ -462,16 +493,22 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <Field label="Direction">
-              <select
-                className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
-                value={form.direction}
-                onChange={(e) => setField('direction', e.target.value as 'bullish' | 'bearish')}
-              >
-                <option value="bullish">Bullish</option>
-                <option value="bearish">Bearish</option>
-              </select>
-            </Field>
+            {neutralStructure ? (
+              <p className="text-[11px] text-[var(--color-text-secondary)]">
+                Non-directional structure — exits use the premium take-profit / stop-loss below.
+              </p>
+            ) : (
+              <Field label="Direction">
+                <select
+                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                  value={form.direction}
+                  onChange={(e) => setField('direction', e.target.value as 'bullish' | 'bearish')}
+                >
+                  <option value="bullish">Bullish</option>
+                  <option value="bearish">Bearish</option>
+                </select>
+              </Field>
+            )}
 
             <div>
               <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
@@ -588,8 +625,14 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                   ))}
                 </select>
               </Field>
-              {form.structure === 'vertical' ? (
-                <Field label="Spread width (pts)">
+              {form.structure !== 'single' ? (
+                <Field
+                  label={
+                    form.structure === 'strangle' || form.structure === 'condor'
+                      ? 'Strike offset (pts)'
+                      : 'Spread width (pts)'
+                  }
+                >
                   <input
                     type="number"
                     className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -602,6 +645,18 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               ) : (
                 <div />
               )}
+              {form.structure === 'condor' ? (
+                <Field label="Wing width (pts)">
+                  <input
+                    type="number"
+                    className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                    value={form.wing}
+                    min={1}
+                    step={1}
+                    onChange={(e) => setField('wing', e.target.value)}
+                  />
+                </Field>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -615,33 +670,48 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                   onChange={(e) => setField('dte', e.target.value)}
                 />
               </Field>
-              <Field label="Target offset (%)">
-                <input
-                  type="number"
-                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
-                  value={form.target_offset_pct}
-                  min={0}
-                  step={0.1}
-                  placeholder="Off"
-                  onChange={(e) => setField('target_offset_pct', e.target.value)}
-                />
-              </Field>
-              <Field label="Stop offset (%)">
-                <input
-                  type="number"
-                  className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
-                  value={form.stop_offset_pct}
-                  min={0}
-                  step={0.1}
-                  placeholder="Off"
-                  onChange={(e) => setField('stop_offset_pct', e.target.value)}
-                />
-              </Field>
+              {!neutralStructure ? (
+                <>
+                  <Field label="Target offset (%)">
+                    <input
+                      type="number"
+                      className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                      value={form.target_offset_pct}
+                      min={0}
+                      step={0.1}
+                      placeholder="Off"
+                      onChange={(e) => setField('target_offset_pct', e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Stop offset (%)">
+                    <input
+                      type="number"
+                      className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+                      value={form.stop_offset_pct}
+                      min={0}
+                      step={0.1}
+                      placeholder="Off"
+                      onChange={(e) => setField('stop_offset_pct', e.target.value)}
+                    />
+                  </Field>
+                </>
+              ) : null}
             </div>
             <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug">
-              Target/stop offsets are moves in the <span className="font-medium">underlying price</span> from entry
-              (favorable / adverse). The premium <span className="font-medium">Take profit</span> /{' '}
-              <span className="font-medium">Stop loss</span> inputs below also apply to the option.
+              {neutralStructure ? (
+                <>
+                  This structure exits on the premium <span className="font-medium">Take profit</span> /{' '}
+                  <span className="font-medium">Stop loss</span> inputs below (and the time stop).
+                </>
+              ) : (
+                <>
+                  Target/stop offsets are moves in the{' '}
+                  <span className="font-medium">underlying price</span> from entry (favorable /
+                  adverse). The premium <span className="font-medium">Take profit</span> /{' '}
+                  <span className="font-medium">Stop loss</span> inputs below also apply to the
+                  option.
+                </>
+              )}
             </p>
           </div>
         )}
@@ -695,6 +765,28 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               min={1}
               step={1}
               onChange={(e) => numField('max_concurrent', e.target.value)}
+            />
+          </Field>
+          <Field label="Max net Δ">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_net_delta}
+              min={0}
+              step={10}
+              placeholder="Off"
+              onChange={(e) => setField('max_net_delta', e.target.value)}
+            />
+          </Field>
+          <Field label="Max net vega">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_net_vega}
+              min={0}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('max_net_vega', e.target.value)}
             />
           </Field>
           <Field label="Max hold (min)">
@@ -1189,6 +1281,7 @@ function TradesBlotter({
               <th className="py-2 pr-3 font-semibold text-right">Entry</th>
               <th className="py-2 pr-3 font-semibold text-right">Exit</th>
               <th className="py-2 pr-3 font-semibold text-right">Qty</th>
+              <th className="py-2 pr-3 font-semibold text-right">Δ / V</th>
               <th className="py-2 pr-3 font-semibold text-right">Net P&L</th>
               <th className="py-2 pr-3 font-semibold text-right">Return</th>
               <th className="py-2 font-semibold">Outcome</th>
@@ -1214,6 +1307,9 @@ function TradesBlotter({
                 <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.entry_premium)}</td>
                 <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.exit_premium)}</td>
                 <td className="py-1.5 pr-3 text-right font-mono">{t.contracts}</td>
+                <td className="py-1.5 pr-3 text-right font-mono text-[var(--color-text-secondary)]">
+                  {fmtNumber(t.net_delta, 0)} / {fmtNumber(t.net_vega, 0)}
+                </td>
                 <td className="py-1.5 pr-3 text-right font-mono" style={{ color: pnlColor(t.net_pnl) }}>
                   {fmtCurrency(t.net_pnl)}
                 </td>

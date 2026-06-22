@@ -20,6 +20,7 @@ export interface BacktestDefaults {
   commission_per_contract: number;
   max_concurrent: number;
   width?: number;
+  wing?: number;
 }
 
 /**
@@ -36,9 +37,12 @@ export interface BacktestStrategyField {
   values?: string[];
 }
 
+export type StrategyStructureId = 'single' | 'vertical' | 'straddle' | 'strangle' | 'condor';
+
 export interface BacktestStrategyStructure {
-  id: 'single' | 'vertical';
+  id: StrategyStructureId;
   label: string;
+  kind?: 'directional' | 'neutral';
 }
 
 export interface BacktestMeta {
@@ -78,6 +82,9 @@ export interface BacktestSpec {
     capital: number;
     risk_per_trade_pct: number;
     max_concurrent: number;
+    // Greeks-aware caps (Phase 5b); null ⇒ off.
+    max_net_delta?: number | null;
+    max_net_vega?: number | null;
   };
   exit: {
     max_hold_minutes: number | null;
@@ -90,11 +97,12 @@ export interface BacktestSpec {
    * are FRACTIONS of the entry underlying price (0.003 = 0.3%); null ⇒ off.
    */
   strategy?: {
-    direction: 'bullish' | 'bearish';
+    direction: 'bullish' | 'bearish' | 'neutral';
     conditions: BacktestCondition[];
     entry: { dte: number };
-    structure?: 'single' | 'vertical';
+    structure?: StrategyStructureId;
     width?: number;
+    wing?: number;
     target_offset_pct: number | null;
     stop_offset_pct: number | null;
   };
@@ -175,6 +183,8 @@ export interface BacktestTrade {
   return_pct: number;
   outcome: string;
   hold_minutes: number;
+  net_delta?: number;
+  net_vega?: number;
   structure?: string;
   legs?: {
     option_symbol: string;
