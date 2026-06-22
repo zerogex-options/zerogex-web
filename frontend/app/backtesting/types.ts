@@ -211,3 +211,27 @@ export interface BacktestRunCreated {
   run_id: number;
   status: 'queued';
 }
+
+/**
+ * Saved & shareable configuration (Phase 6). A named, validated `BacktestSpec`
+ * the user can reload into the form or hand to someone else via `share_token`.
+ */
+export interface BacktestConfigSummary {
+  id: number;
+  name: string;
+  underlying: string;
+  share_token: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface BacktestConfig extends BacktestConfigSummary {
+  spec: BacktestSpec;
+}
+
+/** Public, read-only view returned when loading a shared config by token. */
+export interface BacktestSharedConfig {
+  name: string;
+  underlying: string;
+  spec: BacktestSpec;
+}

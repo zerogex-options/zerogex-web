@@ -18,6 +18,9 @@ import type {
   BacktestSpec,
   BacktestTradesPage,
   BacktestEquityPoint,
+  BacktestConfig,
+  BacktestConfigSummary,
+  BacktestSharedConfig,
 } from '@/app/backtesting/types';
 
 /**
@@ -141,6 +144,33 @@ export const backtestAPI = {
    */
   getEquity: async (runId: number): Promise<BacktestEquityPoint[]> => {
     return apiClient.get<BacktestEquityPoint[]>(`/api/backtest/runs/${runId}/equity`);
+  },
+
+  // ---- Saved & shareable configs (Phase 6) ------------------------------
+
+  /** Save the current spec under a name; returns its summary + share token. */
+  saveConfig: async (name: string, spec: BacktestSpec): Promise<BacktestConfigSummary> => {
+    return apiClient.post<BacktestConfigSummary>('/api/backtest/configs', { name, spec });
+  },
+
+  /** List the caller's saved configs. */
+  listConfigs: async (): Promise<BacktestConfigSummary[]> => {
+    return apiClient.get<BacktestConfigSummary[]>('/api/backtest/configs');
+  },
+
+  /** Fetch one saved config (incl. spec), scoped to its owner. */
+  getConfig: async (configId: number): Promise<BacktestConfig> => {
+    return apiClient.get<BacktestConfig>(`/api/backtest/configs/${configId}`);
+  },
+
+  /** Delete a saved config (owner only). */
+  deleteConfig: async (configId: number): Promise<{ deleted: boolean }> => {
+    return apiClient.delete<{ deleted: boolean }>(`/api/backtest/configs/${configId}`);
+  },
+
+  /** Public read-only fetch of a shared config by token (clone into the form). */
+  getSharedConfig: async (token: string): Promise<BacktestSharedConfig> => {
+    return apiClient.get<BacktestSharedConfig>(`/api/backtest/configs/shared/${token}`);
   },
 };
 
