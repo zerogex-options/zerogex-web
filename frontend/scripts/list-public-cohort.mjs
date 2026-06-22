@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Run from the frontend/ directory:
 //   node --no-warnings scripts/list-public-cohort.mjs \
-//     [--emails] [--cohort <name>]
+//     [--emails] [--cohort <name>] [--since <date>]
 //
 // Breaks down every user currently on tier='public' into the four sub-
 // cohorts that drive a reactivation campaign:
@@ -82,6 +82,8 @@ function parseArgs(argv) {
     cohort: null,
     showLastLogin: false,
     warmDays: 30,
+    since: null,
+    viaMake: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -96,7 +98,9 @@ function parseArgs(argv) {
         process.exit(1);
       }
       args.warmDays = value;
-    } else if (arg === '--help' || arg === '-h') args.help = true;
+    } else if (arg === '--since') args.since = argv[++i] ?? null;
+    else if (arg === '--via-make') args.viaMake = true;
+    else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
@@ -104,7 +108,8 @@ function parseArgs(argv) {
 function usage() {
   console.log(`Usage:
   node --no-warnings scripts/list-public-cohort.mjs \\
-    [--emails] [--cohort <name>] [--show-last-login] [--warm-days N]
+    [--emails] [--cohort <name>] [--show-last-login] [--warm-days N] \\
+    [--since <date>]
 
 Prints every tier='public' user broken down by the cohort that drives the
 reactivation pitch. Classification is priority-ordered (unverified beats
@@ -124,6 +129,10 @@ Modes:
                         row at all (registered, never came back, OR pre-
                         audit signup that never logged in explicitly).
   --warm-days N         Threshold (in days) for the warm bucket. Default 30.
+  --since <date>        Restrict to users whose users.created_at is on or
+                        after the cutoff (signup date). Accepts YYYY-MM-DD
+                        or any ISO 8601 timestamp. The whole counts/percent
+                        breakdown reflects the filtered cohort.
 
 Reads AUTH_DB_PATH from env or .env.local (default frontend/data/auth.db).`);
 }
@@ -138,6 +147,22 @@ if (args.cohort && !COHORT_IDS.has(args.cohort)) {
     `Error: --cohort "${args.cohort}" is not one of ${[...COHORT_IDS].join(', ')}.`,
   );
   process.exit(1);
+}
+
+let sinceMs = null;
+if (args.since) {
+  // Accept either YYYY-MM-DD (the natural Make-side input via SINCE=) or a
+  // full ISO 8601 timestamp. created_at is written as new Date().toISOString()
+  // (see core/serverAuth.ts nowIso), so a numeric compare on Date.parse
+  // round-trips cleanly.
+  const parsed = Date.parse(args.since);
+  if (!Number.isFinite(parsed)) {
+    console.error(
+      `Error: --since "${args.since}" is not a parseable date (try YYYY-MM-DD).`,
+    );
+    process.exit(1);
+  }
+  sinceMs = parsed;
 }
 
 const cwd = process.cwd();
@@ -172,7 +197,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const rows = db
+const allRows = db
   .prepare(
     `SELECT id, email, email_verified_at, stripe_customer_id,
             subscription_lapsed, founding_eligible, founding_member_started_at,
@@ -182,6 +207,16 @@ const rows = db
      ORDER BY created_at ASC`,
   )
   .all();
+
+const rows = sinceMs == null
+  ? allRows
+  : allRows.filter((r) => {
+      const parsed = Date.parse(r.created_at);
+      // Unparseable created_at => exclude from a since-filtered run rather
+      // than silently passing the user through; the filter is meant to be
+      // a strict cutoff.
+      return Number.isFinite(parsed) && parsed >= sinceMs;
+    });
 
 function classify(u) {
   if (!u.email_verified_at) return 'unverified';
@@ -285,7 +320,7 @@ if (args.emails) {
 // Summary mode.
 const total = rows.length;
 console.log(`Auth DB: ${dbPath}`);
-console.log(`Total Public users: ${total}`);
+console.log(`Total Public users: ${total}${sinceMs == null ? '' : ` (since ${args.since})`}`);
 if (args.showLastLogin) {
   console.log(
     `Warm threshold: last login within ${args.warmDays} day${args.warmDays === 1 ? '' : 's'}` +
@@ -293,11 +328,19 @@ if (args.showLastLogin) {
   );
 }
 console.log('');
+// First column is the cohort id, printed alongside the human label so the
+// operator can copy it straight into the next invocation as COHORT=<key>
+// (or --cohort <key> when run directly).
+const keyColWidth = Math.max(...COHORTS.map((c) => c.id.length)) + 2;
+console.log(`  Cohorts (first column = COHORT=<key>):`);
+console.log('');
 for (const cohort of COHORTS) {
   if (args.cohort && cohort.id !== args.cohort) continue;
   const bucket = buckets.get(cohort.id);
   const pct = total > 0 ? ((bucket.length / total) * 100).toFixed(0) : '0';
-  console.log(`  ${cohort.label.padEnd(40)} ${String(bucket.length).padStart(4)}  (${pct}%)`);
+  console.log(
+    `  ${cohort.id.padEnd(keyColWidth)}${cohort.label.padEnd(40)} ${String(bucket.length).padStart(4)}  (${pct}%)`,
+  );
   if (args.showLastLogin && bucket.length > 0) {
     const split = splitByTemperature(bucket);
     console.log(
@@ -319,8 +362,24 @@ for (const cohort of COHORTS) {
   if (line.trim().length > 0) console.log(line);
   console.log('');
 }
-console.log('Re-run with --emails to print recipient lists.');
-console.log('Re-run with --cohort <name> --emails for a single segment.');
-if (!args.showLastLogin) {
-  console.log('Re-run with --show-last-login to split each cohort into warm/cold/never.');
+// Hints are printed in the same syntax the caller used (Make vs raw CLI) so
+// a copy-paste of any line below works without translation.
+if (args.viaMake) {
+  console.log('Re-run with EMAILS=1 to print recipient lists.');
+  console.log('Re-run with COHORT=<key> EMAILS=1 for a single segment.');
+  if (!args.showLastLogin) {
+    console.log('Re-run with SHOW_LAST_LOGIN=1 to split each cohort into warm/cold/never.');
+  }
+  if (sinceMs == null) {
+    console.log('Re-run with SINCE=<YYYY-MM-DD> to filter to users who signed up on/after that date.');
+  }
+} else {
+  console.log('Re-run with --emails to print recipient lists.');
+  console.log('Re-run with --cohort <name> --emails for a single segment.');
+  if (!args.showLastLogin) {
+    console.log('Re-run with --show-last-login to split each cohort into warm/cold/never.');
+  }
+  if (sinceMs == null) {
+    console.log('Re-run with --since <YYYY-MM-DD> to filter to users who signed up on/after that date.');
+  }
 }
