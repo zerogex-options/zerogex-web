@@ -200,6 +200,7 @@ export default function DashboardPage() {
                 <HistoricalContextBadge
                   metric={historicalContext?.metrics?.net_gex_at_spot}
                   window="30d"
+                  trackingStartedAt={historicalContext?.tracking_started_at}
                 />
               }
             />

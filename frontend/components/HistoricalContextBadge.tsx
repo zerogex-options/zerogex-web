@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Trophy } from 'lucide-react';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import type { GEXHistoricalMetric, GEXHistoricalRegime } from '@/core/types';
@@ -10,13 +11,17 @@ import type { GEXHistoricalMetric, GEXHistoricalRegime } from '@/core/types';
  * MetricCards.  Reads a single (metric × window) block out of the
  * /api/gex/historical-context response and renders:
  *
- *   * a regime label (RECORD, EXTREME, ELEVATED, NORMAL, LOW, ...)
- *   * the interpolated percentile against the requested window
- *   * a hover tooltip with mean/min/max, z-score, and the TOD bucket used
+ *   * the regime label (EXTREME HIGH / ELEVATED / NORMAL / LOW / EXTREME LOW)
+ *   * a trophy icon when the value is a record for this window
+ *   * the interpolated percentile against the window
+ *   * a hover tooltip with mean / range / z-score / sample count / TOD
+ *     bucket and a footer line explaining what the trophy means (record
+ *     for the 30-day period or since the all-time tracking-start date).
  *
  * Defaults to the rolling-30-day window because that's what the user
  * cares about for "is this irregularly high right now"; pass
- * ``window="all_time"`` for the "is this a record" view.
+ * ``window="all_time"`` for the "is this a record since we started
+ * tracking" view.
  *
  * Renders nothing while the data is loading, the window has no stats
  * row, or the regime is unknown — the parent MetricCard stays visually
@@ -26,33 +31,30 @@ interface Props {
   metric: GEXHistoricalMetric | undefined | null;
   window?: '30d' | 'all_time';
   label?: string;
+  /** Tracking-start date (ISO) carried at the top level of the response.
+   * Used only for the all-time trophy tooltip's "since YYYY-MM-DD" copy. */
+  trackingStartedAt?: string | null;
 }
 
 const REGIME_LABELS: Record<GEXHistoricalRegime, string> = {
-  record_high: 'RECORD HIGH',
   extreme_high: 'EXTREME HIGH',
   elevated: 'ELEVATED',
   normal: 'NORMAL',
   low: 'LOW',
   extreme_low: 'EXTREME LOW',
-  record_low: 'RECORD LOW',
   unknown: '',
 };
 
 function regimeColor(regime: GEXHistoricalRegime): { bg: string; fg: string } {
   switch (regime) {
-    case 'record_high':
-      return { bg: 'rgba(27, 196, 125, 0.22)', fg: colors.bullish };
     case 'extreme_high':
-      return { bg: 'rgba(27, 196, 125, 0.16)', fg: colors.bullish };
+      return { bg: 'rgba(27, 196, 125, 0.18)', fg: colors.bullish };
     case 'elevated':
       return { bg: 'rgba(245, 158, 11, 0.18)', fg: colors.neutral };
     case 'low':
       return { bg: 'rgba(245, 158, 11, 0.18)', fg: colors.neutral };
     case 'extreme_low':
-      return { bg: 'rgba(255, 77, 90, 0.16)', fg: colors.bearish };
-    case 'record_low':
-      return { bg: 'rgba(255, 77, 90, 0.22)', fg: colors.bearish };
+      return { bg: 'rgba(255, 77, 90, 0.18)', fg: colors.bearish };
     case 'normal':
       return { bg: 'rgba(255, 211, 128, 0.10)', fg: colors.muted };
     default:
@@ -70,10 +72,25 @@ function formatGexCompact(value: number | null | undefined): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
+function formatTrackingDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function HistoricalContextBadge({
   metric,
   window: windowLabel = '30d',
   label,
+  trackingStartedAt,
 }: Props) {
   const stats = metric?.windows?.[windowLabel] ?? null;
 
@@ -86,12 +103,33 @@ export default function HistoricalContextBadge({
     return { labelText, pctText, windowText };
   }, [stats, label, windowLabel]);
 
-  if (!content) return null;
-  if (!stats) return null;
+  if (!content || !stats) return null;
+
+  const isRecord = stats.is_record_high || stats.is_record_low;
+  const recordDirection: 'high' | 'low' | null =
+    stats.is_record_high ? 'high' : stats.is_record_low ? 'low' : null;
 
   const { bg, fg } = regimeColor(stats.regime);
 
+  // Trophy-legend line is the lead of the tooltip when it's there — it's
+  // the thing the user needs explained.  For 30d records we say "30-day
+  // record"; for all-time records we cite the tracking-start date when
+  // we have one ("Record since Mar 15, 2026").
+  const trophyLegend: string | null = isRecord
+    ? (() => {
+        const dir = recordDirection === 'high' ? 'high' : 'low';
+        if (windowLabel === 'all_time') {
+          const since = formatTrackingDate(trackingStartedAt);
+          return since
+            ? `🏆 All-time record ${dir} (since ${since})`
+            : `🏆 All-time record ${dir}`;
+        }
+        return `🏆 30-day record ${dir}`;
+      })()
+    : null;
+
   const tooltipLines: string[] = [];
+  if (trophyLegend) tooltipLines.push(trophyLegend);
   tooltipLines.push(`${content.labelText} vs ${content.windowText}`);
   if (stats.percentile != null) {
     tooltipLines.push(`Percentile: ${stats.percentile.toFixed(1)}`);
@@ -125,6 +163,13 @@ export default function HistoricalContextBadge({
         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase whitespace-nowrap"
         style={{ backgroundColor: bg, color: fg }}
       >
+        {isRecord && (
+          <Trophy
+            size={11}
+            strokeWidth={2.5}
+            aria-label={`Record ${recordDirection} for the ${content.windowText} window`}
+          />
+        )}
         <span>{content.labelText}</span>
         {content.pctText && (
           <span style={{ opacity: 0.8 }}>· {content.pctText}</span>

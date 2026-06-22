@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Trophy } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useGEXHistoricalContext } from '@/hooks/useApiData';
 import type {
@@ -20,9 +20,12 @@ import SignalPageTitle from '@/components/SignalPageTitle';
  * metrics.  For each of ``net_gex_at_spot`` and ``total_net_gex`` the page
  * shows:
  *
- *   * the live current value and its regime label (RECORD / EXTREME /
- *     ELEVATED / NORMAL / LOW), against both a rolling-30-day window
- *     and the all-time distribution
+ *   * the live current value and its regime label (EXTREME HIGH /
+ *     ELEVATED / NORMAL / LOW / EXTREME LOW), against both a
+ *     rolling-30-day window and the all-time distribution
+ *   * a trophy icon when the value sets a record for that window, with
+ *     a footer line citing "30-day record" or "All-time record (since
+ *     YYYY-MM-DD)" — the date being the symbol's tracking-start
  *   * a horizontal band visualization with the current marker placed
  *     between p05 and p95
  *   * mean ± 1σ / 2σ bands and the all-time min/max as orientation
@@ -54,29 +57,39 @@ const METRIC_DEFINITIONS: Array<{
 ];
 
 const REGIME_LABELS: Record<GEXHistoricalRegime, string> = {
-  record_high: 'RECORD HIGH',
   extreme_high: 'EXTREME HIGH',
   elevated: 'ELEVATED',
   normal: 'NORMAL',
   low: 'LOW',
   extreme_low: 'EXTREME LOW',
-  record_low: 'RECORD LOW',
   unknown: 'NO DATA',
 };
 
 function regimeAccent(regime: GEXHistoricalRegime): string {
   switch (regime) {
-    case 'record_high':
     case 'extreme_high':
       return colors.bullish;
     case 'elevated':
     case 'low':
       return colors.neutral;
     case 'extreme_low':
-    case 'record_low':
       return colors.bearish;
     default:
       return colors.muted;
+  }
+}
+
+function formatTrackingDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
   }
 }
 
@@ -166,9 +179,10 @@ interface WindowCardProps {
   metric: GEXHistoricalMetric;
   windowLabel: '30d' | 'all_time';
   windowDisplay: string;
+  trackingStartedAt: string | null;
 }
 
-function WindowCard({ metric, windowLabel, windowDisplay }: WindowCardProps) {
+function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: WindowCardProps) {
   const stats = metric.windows?.[windowLabel] ?? null;
   if (!stats) {
     return (
@@ -187,20 +201,44 @@ function WindowCard({ metric, windowLabel, windowDisplay }: WindowCardProps) {
   const accent = regimeAccent(stats.regime);
   const percentile = stats.percentile;
   const zScore = stats.z_score;
+  const isRecord = stats.is_record_high || stats.is_record_low;
+  const recordDirection: 'high' | 'low' | null =
+    stats.is_record_high ? 'high' : stats.is_record_low ? 'low' : null;
+  const trackingSince = formatTrackingDate(trackingStartedAt);
+  const trophyLegend = isRecord
+    ? windowLabel === 'all_time'
+      ? trackingSince
+        ? `All-time record ${recordDirection} since ${trackingSince}`
+        : `All-time record ${recordDirection}`
+      : `30-day record ${recordDirection}`
+    : null;
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
           {windowDisplay}
         </div>
         <span
-          className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase"
           style={{ backgroundColor: `${accent}22`, color: accent }}
         >
+          {isRecord && (
+            <Trophy size={11} strokeWidth={2.5} aria-label={trophyLegend ?? 'record'} />
+          )}
           {REGIME_LABELS[stats.regime]}
         </span>
       </div>
+
+      {trophyLegend && (
+        <div
+          className="flex items-center gap-1.5 text-[11px] font-semibold"
+          style={{ color: accent }}
+        >
+          <Trophy size={12} strokeWidth={2.5} />
+          <span>{trophyLegend}</span>
+        </div>
+      )}
 
       <BandVisualization stats={stats} current={metric.current} />
 
@@ -255,9 +293,10 @@ interface MetricSectionProps {
   title: string;
   description: string;
   metric: GEXHistoricalMetric | undefined;
+  trackingStartedAt: string | null;
 }
 
-function MetricSection({ title, description, metric }: MetricSectionProps) {
+function MetricSection({ title, description, metric, trackingStartedAt }: MetricSectionProps) {
   if (!metric) return null;
   const currentLabel = formatGexCompact(metric.current);
   const trend30d = metric.windows?.['30d']?.regime ?? 'unknown';
@@ -279,8 +318,18 @@ function MetricSection({ title, description, metric }: MetricSectionProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <WindowCard metric={metric} windowLabel="30d" windowDisplay="vs Rolling 30 Days" />
-        <WindowCard metric={metric} windowLabel="all_time" windowDisplay="vs All-Time" />
+        <WindowCard
+          metric={metric}
+          windowLabel="30d"
+          windowDisplay="vs Rolling 30 Days"
+          trackingStartedAt={trackingStartedAt}
+        />
+        <WindowCard
+          metric={metric}
+          windowLabel="all_time"
+          windowDisplay="vs All-Time"
+          trackingStartedAt={trackingStartedAt}
+        />
       </div>
     </section>
   );
@@ -336,6 +385,7 @@ export default function GammaPulsePage() {
           title={def.title}
           description={def.description}
           metric={data.metrics?.[def.key]}
+          trackingStartedAt={data.tracking_started_at}
         />
       ))}
 
