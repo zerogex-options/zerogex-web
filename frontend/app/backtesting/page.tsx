@@ -69,6 +69,8 @@ interface FormState {
   slippage_pct: number;
   commission_per_contract: number;
   max_concurrent: number;
+  max_net_delta: string; // empty => off
+  max_net_vega: string; // empty => off
   max_hold_minutes: string; // empty string => null (no cap)
   profit_target_pct: string; // percent, empty => off (e.g. "50" = +50%)
   stop_loss_pct: string; // percent, empty => off (e.g. "50" = −50%)
@@ -105,10 +107,20 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     slippage_pct: d.slippage_pct,
     commission_per_contract: d.commission_per_contract,
     max_concurrent: d.max_concurrent,
+    max_net_delta: '',
+    max_net_vega: '',
     max_hold_minutes: '',
     profit_target_pct: '',
     stop_loss_pct: '',
   };
+}
+
+/** Positive number string → number; blank/invalid/≤0 → null (off). */
+function posOrNull(value: string): number | null {
+  const t = value.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** Percent string → fraction (e.g. "50" → 0.5); blank/invalid → null (off). */
@@ -149,6 +161,8 @@ function formToSpec(form: FormState, meta: BacktestMeta): BacktestSpec {
       capital: form.capital,
       risk_per_trade_pct: form.risk_per_trade_pct,
       max_concurrent: form.max_concurrent,
+      max_net_delta: posOrNull(form.max_net_delta),
+      max_net_vega: posOrNull(form.max_net_vega),
     },
     exit: {
       max_hold_minutes: parsedHold != null && Number.isFinite(parsedHold) ? parsedHold : null,
@@ -753,6 +767,28 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('max_concurrent', e.target.value)}
             />
           </Field>
+          <Field label="Max net Δ">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_net_delta}
+              min={0}
+              step={10}
+              placeholder="Off"
+              onChange={(e) => setField('max_net_delta', e.target.value)}
+            />
+          </Field>
+          <Field label="Max net vega">
+            <input
+              type="number"
+              className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+              value={form.max_net_vega}
+              min={0}
+              step={5}
+              placeholder="Off"
+              onChange={(e) => setField('max_net_vega', e.target.value)}
+            />
+          </Field>
           <Field label="Max hold (min)">
             <input
               type="number"
@@ -1245,6 +1281,7 @@ function TradesBlotter({
               <th className="py-2 pr-3 font-semibold text-right">Entry</th>
               <th className="py-2 pr-3 font-semibold text-right">Exit</th>
               <th className="py-2 pr-3 font-semibold text-right">Qty</th>
+              <th className="py-2 pr-3 font-semibold text-right">Δ / V</th>
               <th className="py-2 pr-3 font-semibold text-right">Net P&L</th>
               <th className="py-2 pr-3 font-semibold text-right">Return</th>
               <th className="py-2 font-semibold">Outcome</th>
@@ -1270,6 +1307,9 @@ function TradesBlotter({
                 <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.entry_premium)}</td>
                 <td className="py-1.5 pr-3 text-right font-mono">{fmtNumber(t.exit_premium)}</td>
                 <td className="py-1.5 pr-3 text-right font-mono">{t.contracts}</td>
+                <td className="py-1.5 pr-3 text-right font-mono text-[var(--color-text-secondary)]">
+                  {fmtNumber(t.net_delta, 0)} / {fmtNumber(t.net_vega, 0)}
+                </td>
                 <td className="py-1.5 pr-3 text-right font-mono" style={{ color: pnlColor(t.net_pnl) }}>
                   {fmtCurrency(t.net_pnl)}
                 </td>

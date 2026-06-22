@@ -82,6 +82,9 @@ export interface BacktestSpec {
     capital: number;
     risk_per_trade_pct: number;
     max_concurrent: number;
+    // Greeks-aware caps (Phase 5b); null ⇒ off.
+    max_net_delta?: number | null;
+    max_net_vega?: number | null;
   };
   exit: {
     max_hold_minutes: number | null;
@@ -180,6 +183,8 @@ export interface BacktestTrade {
   return_pct: number;
   outcome: string;
   hold_minutes: number;
+  net_delta?: number;
+  net_vega?: number;
   structure?: string;
   legs?: {
     option_symbol: string;
