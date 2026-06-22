@@ -8,6 +8,8 @@ import type {
   BacktestRun,
   BacktestRunSummary,
   BacktestSpec,
+  BacktestSweep,
+  BacktestSweepAxis,
   BacktestTradesPage,
 } from './types';
 
@@ -19,6 +21,9 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 function isTerminal(status: BacktestRun['status']): boolean {
   return status === 'completed' || status === 'failed';
 }
+
+/** Whether the results pane is showing a single run or a parameter sweep. */
+export type ResultView = 'run' | 'sweep';
 
 export interface UseBacktestResult {
   // Meta
@@ -41,8 +46,14 @@ export interface UseBacktestResult {
   tradesPage: number;
   tradesLoading: boolean;
 
+  // Parameter sweep
+  view: ResultView;
+  sweep: BacktestSweep | null;
+  sweepRunning: boolean;
+
   // Actions
   submit: (spec: BacktestSpec) => Promise<void>;
+  submitSweep: (spec: BacktestSpec, axes: BacktestSweepAxis[]) => Promise<void>;
   openRun: (runId: number) => void;
   setTradesPage: (page: number) => void;
 }
@@ -63,15 +74,28 @@ export function useBacktest(): UseBacktestResult {
   const [tradesPage, setTradesPageState] = useState(0);
   const [tradesLoading, setTradesLoading] = useState(false);
 
+  const [view, setView] = useState<ResultView>('run');
+  const [sweep, setSweep] = useState<BacktestSweep | null>(null);
+  const [sweepRunning, setSweepRunning] = useState(false);
+
   // Tracks the run id we're actively polling so stale timers (from a prior
   // run the user navigated away from) don't clobber fresh state.
   const activeRunRef = useRef<number | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const activeSweepRef = useRef<number | null>(null);
+  const sweepTimerRef = useRef<number | null>(null);
 
   const clearPoll = useCallback(() => {
     if (pollTimerRef.current != null) {
       window.clearTimeout(pollTimerRef.current);
       pollTimerRef.current = null;
+    }
+  }, []);
+
+  const clearSweepPoll = useCallback(() => {
+    if (sweepTimerRef.current != null) {
+      window.clearTimeout(sweepTimerRef.current);
+      sweepTimerRef.current = null;
     }
   }, []);
 
@@ -159,6 +183,12 @@ export function useBacktest(): UseBacktestResult {
   const beginRun = useCallback(
     (runId: number) => {
       clearPoll();
+      // A single run takes over the results pane from any active sweep.
+      clearSweepPoll();
+      activeSweepRef.current = null;
+      setSweepRunning(false);
+      setSweep(null);
+      setView('run');
       activeRunRef.current = runId;
       setRunning(true);
       setEquity([]);
@@ -166,7 +196,61 @@ export function useBacktest(): UseBacktestResult {
       setTradesPageState(0);
       void pollOnce(runId);
     },
-    [clearPoll, pollOnce],
+    [clearPoll, clearSweepPoll, pollOnce],
+  );
+
+  // ---- Sweep polling ------------------------------------------------------
+  const pollSweepOnce = useCallback(
+    async (sweepId: number) => {
+      let next: BacktestSweep;
+      try {
+        next = await backtestAPI.getSweep(sweepId);
+      } catch {
+        if (activeSweepRef.current === sweepId) {
+          sweepTimerRef.current = window.setTimeout(
+            () => void pollSweepOnce(sweepId),
+            POLL_INTERVAL_MS,
+          );
+        }
+        return;
+      }
+      if (activeSweepRef.current !== sweepId) return;
+      setSweep(next);
+      if (next.status === 'completed') {
+        setSweepRunning(false);
+        clearSweepPoll();
+        return;
+      }
+      sweepTimerRef.current = window.setTimeout(
+        () => void pollSweepOnce(sweepId),
+        POLL_INTERVAL_MS,
+      );
+    },
+    [clearSweepPoll],
+  );
+
+  const submitSweep = useCallback(
+    async (spec: BacktestSpec, axes: BacktestSweepAxis[]) => {
+      setSubmitError(null);
+      // A sweep takes over the results pane from any active single run.
+      clearPoll();
+      activeRunRef.current = null;
+      setRunning(false);
+      setRun(null);
+      setSweep(null);
+      setView('sweep');
+      try {
+        const created = await backtestAPI.createSweep(spec, axes);
+        clearSweepPoll();
+        activeSweepRef.current = created.sweep_id;
+        setSweepRunning(true);
+        void pollSweepOnce(created.sweep_id);
+      } catch (err: unknown) {
+        setSubmitError(err instanceof Error ? err.message : 'Failed to start sweep');
+        setSweepRunning(false);
+      }
+    },
+    [clearPoll, clearSweepPoll, pollSweepOnce],
   );
 
   const submit = useCallback(
@@ -213,6 +297,7 @@ export function useBacktest(): UseBacktestResult {
   }, []);
 
   useEffect(() => clearPoll, [clearPoll]);
+  useEffect(() => clearSweepPoll, [clearSweepPoll]);
 
   return {
     meta,
@@ -227,7 +312,11 @@ export function useBacktest(): UseBacktestResult {
     trades,
     tradesPage,
     tradesLoading,
+    view,
+    sweep,
+    sweepRunning,
     submit,
+    submitSweep,
     openRun,
     setTradesPage,
   };
