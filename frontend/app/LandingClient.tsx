@@ -458,21 +458,21 @@ export default function LandingPage() {
                 animation: 'pulse 2s infinite',
               }}
             />
-            Real-Time Options Analytics Platform
+            For SPY · SPX · QQQ day traders
           </div>
 
-          {/* Headline */}
+          {/* Headline — pain-first hook */}
           <h1
             style={{
               fontSize: 'clamp(30px, 9vw, 82px)',
               fontWeight: 900,
               lineHeight: 1.05,
               letterSpacing: 'clamp(-1px, -0.4vw, -2px)',
-              margin: '0 0 24px',
+              margin: '0 0 18px',
               color: text,
             }}
           >
-            Know the{' '}
+            Stop trading{' '}
             <span
               style={{
                 background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 50%, var(--color-warning) 100%)`,
@@ -481,24 +481,36 @@ export default function LandingPage() {
                 backgroundClip: 'text',
               }}
             >
-              levels that matter
+              SPY blind.
             </span>
-            <br />
-            before SPY/SPX/QQQ get there.
           </h1>
 
-          {/* Sub-headline */}
+          {/* Supporting tagline — the through-line for the brand */}
           <p
             style={{
-              fontSize: 'clamp(14px, 4vw, 21px)',
+              fontSize: 'clamp(16px, 4.2vw, 26px)',
+              fontWeight: 700,
+              color: text,
+              lineHeight: 1.35,
+              margin: '0 auto 18px',
+              maxWidth: 760,
+              letterSpacing: '-0.3px',
+            }}
+          >
+            Know the levels that matter — before SPY/SPX/QQQ get there.
+          </p>
+
+          {/* Sub-headline body */}
+          <p
+            style={{
+              fontSize: 'clamp(14px, 4vw, 19px)',
               color: subtext,
               lineHeight: 1.55,
               maxWidth: 680,
               margin: '0 auto 40px',
             }}
           >
-            ZeroGEX gives SPY/SPX/QQQ traders a live map of where options positioning may
-            create support, resistance, acceleration, pinning, or squeeze risk.
+            ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
           </p>
 
           {/* CTAs */}
@@ -646,6 +658,150 @@ export default function LandingPage() {
           ))}
         </div>
       </div>
+
+      {/* ── What traders use ZeroGEX for ─────────────────────────────────────── */}
+      {/* Conversion-focused use-case grid. Sits right after the ticker so a
+          trader who lands on the page understands what the product DOES for
+          them within the first scroll — before any "features" framing. */}
+      <section
+        style={{
+          padding: '80px 32px',
+          maxWidth: 1200,
+          margin: '0 auto',
+        }}
+      >
+        <SectionHeading
+          eyebrow="What traders use ZeroGEX for"
+          title="Plan trades around live positioning, not guesswork."
+          sub="The dealer book sets the structural pressure that drives where price reacts. ZeroGEX surfaces it in six ways you can act on."
+        />
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {[
+            {
+              icon: Target,
+              title: 'Identify likely support and resistance',
+              body: 'Use put walls and call walls as structural zones — not psychological levels — so you know where flow concentration is most likely to absorb or reject price.',
+              color: C.amber,
+            },
+            {
+              icon: BarChart2,
+              title: 'Spot pinning and compression',
+              body: 'See when price is being magneted toward a heavy gamma strike and the range is structurally compressed. Fade extremes, skip the middle.',
+              color: C.green,
+            },
+            {
+              icon: Activity,
+              title: 'Track gamma flip regime changes',
+              body: 'The flip is the line between dealer-dampening and dealer-amplifying regimes. Watch live distance from spot — when spot crosses it, the playbook flips with it.',
+              color: C.amber,
+            },
+            {
+              icon: Shield,
+              title: 'Avoid chasing into major walls',
+              body: 'When price runs toward a heavy call wall in a long-gamma regime, the dealer reflex is to fade. Knowing the wall is there keeps you from buying the top.',
+              color: C.red,
+            },
+            {
+              icon: Layers,
+              title: 'Know when dips get absorbed vs. extended',
+              body: 'Above the flip, dealer hedging tends to absorb weakness. Below the flip, the same weakness gets amplified. Same dip, opposite outcome depending on regime.',
+              color: C.green,
+            },
+            {
+              icon: Zap,
+              title: 'Plan around real-time positioning',
+              body: 'Levels migrate intraday as positioning rebalances. ZeroGEX shows the current structural map, not yesterday’s — so your plan stays calibrated to today’s book.',
+              color: C.amber,
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                background: isDark
+                  ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
+                  : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
+                border: `1px solid ${C.border}`,
+                borderRadius: 16,
+                padding: '24px 22px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: `${item.color}20`,
+                  border: `1px solid ${item.color}40`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 4,
+                }}
+              >
+                <item.icon size={18} style={{ color: item.color }} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: text, lineHeight: 1.3, letterSpacing: '-0.2px' }}>
+                {item.title}
+              </div>
+              <div style={{ fontSize: 14, color: subtext, lineHeight: 1.6 }}>
+                {item.body}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36, gap: 12, flexWrap: 'wrap' }}>
+          <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
+                border: 'none',
+                borderRadius: 14,
+                padding: '13px 24px',
+                fontSize: 15,
+                fontWeight: 800,
+                color: 'var(--text-inverse)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: `0 8px 32px ${C.amber}55`,
+              }}
+            >
+              See today&apos;s free gamma levels <ArrowRight size={16} />
+            </button>
+          </Link>
+          <Link href="/trading-mistakes" style={{ textDecoration: 'none' }}>
+            <button
+              style={{
+                background: 'transparent',
+                border: `1px solid ${C.border}`,
+                borderRadius: 14,
+                padding: '13px 24px',
+                fontSize: 15,
+                fontWeight: 700,
+                color: text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              5 mistakes ZeroGEX helps you avoid <ArrowRight size={16} />
+            </button>
+          </Link>
+        </div>
+      </section>
 
       {/* ── Stats bar ────────────────────────────────────────────────────────── */}
       <section
