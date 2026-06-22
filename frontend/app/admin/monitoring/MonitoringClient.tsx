@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
@@ -24,6 +24,49 @@ type SignupPoint = {
   paying: number;
   trialing: number;
   disclaimer: number;
+};
+
+// Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
+// is a client component and can't import the server-only monitoring types).
+type MrrBreakdownRow = {
+  tier: 'basic' | 'pro';
+  cadence: 'monthly' | 'annual';
+  rate: 'list' | 'founding';
+  state: 'active' | 'trialing';
+  count: number;
+  monthlyEach: number;
+  monthlyTotal: number;
+};
+
+type Mrr = {
+  estMrr: number;
+  committedMrr: number;
+  activeSubscribers: number;
+  trialingSubscribers: number;
+  unpricedSubscribers: number;
+  arpu: number;
+  targetMrr: number;
+  targetGrossIncome: number;
+  margin: number;
+  progressPct: number;
+  gapMrr: number;
+  subscribersToTarget: number | null;
+  breakdown: MrrBreakdownRow[];
+};
+
+type MrrPoint = {
+  day: string;
+  estMrr: number;
+  committedMrr: number;
+};
+
+type MrrTrend = {
+  windowDays: number;
+  startMrr: number;
+  endMrr: number;
+  changeMrr: number;
+  monthlyGrowthRate: number | null;
+  monthsToTarget: number | null;
 };
 
 type WebhookHealth = {
@@ -61,6 +104,9 @@ const STALE_NOISE_DELTA_SECONDS = 5;
 
 type Snapshot = {
   ok: boolean;
+  mrr: Mrr;
+  mrrSeries: MrrPoint[];
+  mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -83,6 +129,7 @@ type MetricKey = 'apiCalls' | 'pageAccesses' | 'uniqueUsers' | 'uniqueIps';
 // 7. Top Users
 // 8. Stripe Webhook Health
 const ROW_COLORS = {
+  mrr: '#2c8c6a',
   signups: '#2c4875',
   uniqueUsers: '#ff6361',
   pageAccesses: '#bc5090',
@@ -222,6 +269,33 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   return (
     <div>
       <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
+          <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <IncomeReplacementCard
+            mrr={data.mrr}
+            cardBg={cardBg}
+            borderColor={borderColor}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+          <MrrTrendCard
+            series={data.mrrSeries}
+            trend={data.mrrTrend}
+            targetMrr={data.mrr.targetMrr}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+        </div>
+      </section>
+
+      <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
           <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic, Pro, and Public users, full subscribers, free-trial users, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
@@ -329,6 +403,356 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           axisStroke={axisStroke}
         />
       </section>
+    </div>
+  );
+}
+
+function formatUsd(n: number, opts?: { cents?: boolean }): string {
+  if (!Number.isFinite(n)) return '$0';
+  return `$${n.toLocaleString('en-US', {
+    minimumFractionDigits: opts?.cents ? 2 : 0,
+    maximumFractionDigits: opts?.cents ? 2 : 0,
+  })}`;
+}
+
+const TIER_LABEL = { basic: 'Basic', pro: 'Pro' } as const;
+const CADENCE_LABEL = { monthly: 'Monthly', annual: 'Annual' } as const;
+const RATE_LABEL = { list: 'List', founding: 'Founding' } as const;
+const STATE_LABEL = { active: 'Active', trialing: 'Trial' } as const;
+
+function StatTile({
+  label,
+  value,
+  sub,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  return (
+    <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+      <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mutedText }}>{label}</div>
+      <div className="text-xl font-semibold tabular-nums" style={{ color: textColor }}>{value}</div>
+      {sub && <div className="text-xs mt-0.5" style={{ color: mutedText }}>{sub}</div>}
+    </div>
+  );
+}
+
+function IncomeReplacementCard({
+  mrr,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+  brandColor,
+}: {
+  mrr: Mrr;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+  brandColor: string;
+}) {
+  const estArr = mrr.estMrr * 12;
+  const subsLabel =
+    mrr.subscribersToTarget === null
+      ? '—'
+      : `+${mrr.subscribersToTarget.toLocaleString()}`;
+  const marginPct = Math.round(mrr.margin * 100);
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Estimated MRR</div>
+          <div className="text-3xl font-bold tabular-nums" style={{ color: brandColor }}>
+            {formatUsd(mrr.estMrr)}
+            <span className="text-sm font-normal ml-2" style={{ color: mutedText }}>/mo</span>
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: mutedText }}>
+            ≈ {formatUsd(estArr)} ARR · {formatUsd(mrr.committedMrr)}/mo committed (incl. trials)
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Target MRR</div>
+          <div className="text-2xl font-semibold tabular-nums" style={{ color: textColor }}>
+            {formatUsd(mrr.targetMrr)}<span className="text-sm font-normal" style={{ color: mutedText }}>/mo</span>
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: mutedText }}>
+            {formatUsd(mrr.targetGrossIncome)}/yr owner earnings @ {marginPct}% margin
+          </div>
+        </div>
+      </div>
+
+      {/* Progress toward replacement target */}
+      <div className="mb-1 flex items-baseline justify-between text-xs" style={{ color: mutedText }}>
+        <span>Progress to income replacement</span>
+        <span className="tabular-nums font-semibold" style={{ color: textColor }}>
+          {mrr.progressPct.toFixed(1)}%
+        </span>
+      </div>
+      <div
+        className="h-3 rounded-full overflow-hidden mb-1"
+        style={{ backgroundColor: `${borderColor}55` }}
+        role="progressbar"
+        aria-valuenow={Math.round(mrr.progressPct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className="h-full rounded-full" style={{ width: `${mrr.progressPct}%`, backgroundColor: brandColor }} />
+      </div>
+      <div className="text-xs mb-4" style={{ color: mutedText }}>
+        {formatUsd(mrr.gapMrr)}/mo to go · {subsLabel} subscribers at current ARPU
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <StatTile
+          label="ARPU"
+          value={formatUsd(mrr.arpu, { cents: true })}
+          sub="per active subscriber / mo"
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatTile
+          label="Active subs"
+          value={mrr.activeSubscribers.toLocaleString()}
+          sub={mrr.unpricedSubscribers > 0 ? `${mrr.unpricedSubscribers} unpriced` : 'all priced'}
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatTile
+          label="Trials"
+          value={mrr.trialingSubscribers.toLocaleString()}
+          sub="card on file, not yet charged"
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+        <StatTile
+          label="Subs to target"
+          value={subsLabel}
+          sub="at current ARPU"
+          borderColor={borderColor}
+          mutedText={mutedText}
+          textColor={textColor}
+        />
+      </div>
+
+      {/* Per-plan breakdown so the estimate is auditable */}
+      {mrr.breakdown.length > 0 ? (
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${borderColor}55` }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ color: mutedText }} className="text-xs uppercase tracking-wide">
+                <th className="text-left font-medium px-3 py-2">Plan</th>
+                <th className="text-right font-medium px-3 py-2">Subs</th>
+                <th className="text-right font-medium px-3 py-2">Each/mo</th>
+                <th className="text-right font-medium px-3 py-2">MRR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mrr.breakdown.map((row) => (
+                <tr
+                  key={`${row.tier}-${row.cadence}-${row.rate}-${row.state}`}
+                  style={{ borderTop: `1px solid ${borderColor}33`, color: textColor, opacity: row.state === 'trialing' ? 0.7 : 1 }}
+                >
+                  <td className="px-3 py-1.5">
+                    {TIER_LABEL[row.tier]} · {CADENCE_LABEL[row.cadence]} · {RATE_LABEL[row.rate]}
+                    {row.state === 'trialing' && (
+                      <span className="ml-2 text-xs" style={{ color: mutedText }}>({STATE_LABEL[row.state]})</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{row.count.toLocaleString()}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{formatUsd(row.monthlyEach, { cents: true })}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
+                    {row.state === 'active' ? formatUsd(row.monthlyTotal) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-sm py-6 text-center" style={{ color: mutedText }}>
+          No active or trialing subscribers to price yet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatMonths(months: number | null): string {
+  if (months === null) return '—';
+  if (months <= 0) return 'reached';
+  if (months < 1) return '< 1 mo';
+  if (months < 12) return `~${Math.round(months)} mo`;
+  const years = months / 12;
+  return `~${months >= 24 ? Math.round(years) : years.toFixed(1)} yr`;
+}
+
+function formatGrowthPct(rate: number | null): string {
+  if (rate === null) return '—';
+  const pct = rate * 100;
+  const sign = pct > 0 ? '+' : '';
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+function MrrTrendCard({
+  series,
+  trend,
+  targetMrr,
+  cardBg,
+  axisStroke,
+  mutedText,
+  textColor,
+  brandColor,
+}: {
+  series: MrrPoint[];
+  trend: MrrTrend | null;
+  targetMrr: number;
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  textColor: string;
+  brandColor: string;
+}) {
+  const committedColor = lighten(brandColor, 0.45);
+  const targetColor = lighten(brandColor, 0.2);
+
+  const dataMax = useMemo(
+    () => series.reduce((m, p) => Math.max(m, p.committedMrr, p.estMrr), 0),
+    [series],
+  );
+  const hasData = dataMax > 0;
+  // The replacement target is ~40x current MRR early on; forcing it onto the
+  // axis would flatten the growth curve to an invisible sliver. Only draw the
+  // target line once MRR is within ~2x of it — until then the progress bar
+  // above carries the target context and this chart stays zoomed to the data.
+  const showTarget = hasData && targetMrr <= dataMax * 2;
+  const yBasis = showTarget ? Math.max(dataMax, targetMrr) : dataMax;
+  const yScale = useMemo(() => niceYScale(Math.max(1, yBasis)), [yBasis]);
+
+  const growthSub =
+    trend && trend.windowDays > 0
+      ? `over ${trend.windowDays}d · ${formatGrowthPct(trend.monthlyGrowthRate)}/mo`
+      : 'building history';
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>MRR Trend</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: brandColor }}>●</span> Est. MRR</span>
+          <span><span style={{ color: committedColor }}>●</span> Committed</span>
+          {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: mutedText }}>
+        <span>
+          Growth:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {trend ? formatGrowthPct(trend.monthlyGrowthRate) : '—'}/mo
+          </span>{' '}
+          <span style={{ color: mutedText }}>({growthSub})</span>
+        </span>
+        <span>
+          At this rate, target in:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {trend ? formatMonths(trend.monthsToTarget) : '—'}
+          </span>
+        </span>
+      </div>
+
+      {!hasData ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>
+          No MRR history captured yet — the line fills in as daily samples accrue.
+        </div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                tickFormatter={(v) => {
+                  const n = Number(v);
+                  if (!Number.isFinite(n)) return '--';
+                  if (n >= 1_000) return `$${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+                  return `$${n}`;
+                }}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const est = Number(payload.find((p) => p.dataKey === 'estMrr')?.value ?? 0);
+                  const committed = Number(payload.find((p) => p.dataKey === 'committedMrr')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div>Est. MRR: {formatUsd(est)}</div>
+                      <div>Committed: {formatUsd(committed)}</div>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="estMrr"
+                name="Est. MRR"
+                stroke={brandColor}
+                fill={brandColor}
+                fillOpacity={0.4}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="committedMrr"
+                name="Committed"
+                stroke={committedColor}
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                dot={false}
+                isAnimationActive={false}
+              />
+              {showTarget && (
+                <ReferenceLine
+                  y={targetMrr}
+                  stroke={targetColor}
+                  strokeDasharray="6 4"
+                  label={{ value: 'Target', position: 'insideTopRight', fill: mutedText, fontSize: 10 }}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
     </div>
   );
 }
