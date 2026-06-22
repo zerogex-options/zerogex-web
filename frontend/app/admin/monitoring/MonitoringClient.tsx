@@ -269,33 +269,6 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   return (
     <div>
       <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <IncomeReplacementCard
-            mrr={data.mrr}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-          <MrrTrendCard
-            series={data.mrrSeries}
-            trend={data.mrrTrend}
-            targetMrr={data.mrr.targetMrr}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-        </div>
-      </section>
-
-      <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
           <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic, Pro, and Public users, full subscribers, free-trial users, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
@@ -402,6 +375,33 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           textColor={textColor}
           axisStroke={axisStroke}
         />
+      </section>
+
+      <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
+          <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <IncomeReplacementCard
+            mrr={data.mrr}
+            cardBg={cardBg}
+            borderColor={borderColor}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+          <MrrTrendCard
+            series={data.mrrSeries}
+            trend={data.mrrTrend}
+            targetMrr={data.mrr.targetMrr}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.mrr}
+          />
+        </div>
       </section>
     </div>
   );
