@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive } from '@/hooks/useApiData';
+import { useMemo } from 'react';
+import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolatilityGauge } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
@@ -18,9 +19,11 @@ import { useTheme } from '@/core/ThemeContext';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
 import SignalsGuide from '@/components/SignalsGuide';
+import TodaysReadCard from '@/components/TodaysReadCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 
 function toRows(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data as Record<string, unknown>[];
@@ -127,6 +130,33 @@ export default function DashboardPage() {
   const compositeScore = scoreData?.composite_score ?? scoreData?.score;
   const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
 
+  // "Today's Read" — auto-generated regime headline + lead paragraph reusing
+  // the live-bulletin model so the dashboard's at-a-glance summary stays in
+  // sync with the operator-facing bulletin and any downstream surfaces.
+  // QQQ's correct implied-vol input is VXN; SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  const { data: volGauge } = useVolatilityGauge(30000, volIndex);
+  const todaysReadModel = useMemo(
+    () =>
+      buildReportModel({
+        symbol,
+        spot: quoteData?.close ?? gexData?.spot_price ?? null,
+        priorClose: sessionClosesData?.current_session_close ?? null,
+        summary: gexData ?? null,
+        vix: volGauge?.index ?? null,
+        volIndex,
+        horizon: 'daily',
+      }),
+    [
+      symbol,
+      quoteData?.close,
+      gexData,
+      sessionClosesData?.current_session_close,
+      volGauge?.index,
+      volIndex,
+    ],
+  );
+
   const underlyingPrice = getPrimaryPriceChangeSummary({
     quoteClose: quoteData?.close,
     quoteSession: quoteData?.session,
@@ -152,7 +182,16 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+
+      {/* Today's Read — at-a-glance regime summary above everything else, so a
+          visitor lands on the dashboard and gets the structural read before
+          the raw metric cards. Composed from the same buildReportModel used
+          by /live-bulletin so the prose stays in lockstep with the operator
+          surface. */}
+      <div className="mb-8">
+        <TodaysReadCard model={todaysReadModel} bulletinLink />
+      </div>
 
       {/* Error Messages */}
       {gexError && (

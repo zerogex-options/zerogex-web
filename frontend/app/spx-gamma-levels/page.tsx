@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, Clock, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { buildReportModel } from '../live-bulletin/bulletinHelpers';
+import TodaysReadCard from '@/components/TodaysReadCard';
 import Footer from './Footer';
 import Header from './Header';
 
@@ -365,6 +367,28 @@ export default async function SpxGammaLevelsPage() {
               start a free trial
             </Link>{' '}
             for the live read.
+          </div>
+        )}
+
+        {/* Today's Read — page-level summary for SPX (the primary symbol the
+            URL ranks for). Sentence-level regime read above the per-symbol
+            cards so a visitor lands on the page and gets the prose first.
+            Server-side buildReportModel works fine here — no VIX available
+            in the ISR snapshot path, so the expected-range field stays null
+            and the card cleanly omits it. */}
+        {snapshots.SPX && (
+          <div style={{ marginBottom: 24 }}>
+            <TodaysReadCard
+              model={buildReportModel({
+                symbol: 'SPX',
+                spot: snapshots.SPX.spot_price ?? null,
+                priorClose: null,
+                summary: snapshots.SPX,
+                vix: null,
+                volIndex: 'VIX',
+                horizon: 'daily',
+              })}
+            />
           </div>
         )}
 
