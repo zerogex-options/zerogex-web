@@ -209,6 +209,102 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 11,
     kind: 'tier2',
   },
+  'why-do-breakouts-fail': {
+    slug: 'why-do-breakouts-fail',
+    href: '/education/why-do-breakouts-fail',
+    title: 'Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts',
+    blurb:
+      'Failed breakouts aren\'t random. They\'re driven by dealer hedging at concentrated strikes, regime conditions, and three structural variables that predict the fail before you chase.',
+    description:
+      'Why do breakouts fail in SPY and SPX? The structural reason behind failed breakouts — dealer hedging, gamma regime, and the three conditions that predict the trap.',
+    datePublished: '2026-06-15',
+    readMinutes: 10,
+    kind: 'tier1',
+  },
+  'why-spy-reverses-at-levels': {
+    slug: 'why-spy-reverses-at-levels',
+    href: '/education/why-spy-reverses-at-levels',
+    title: 'Why Does SPY Reverse at Certain Levels?',
+    blurb:
+      'SPY reversals that look random on the chart are tied to options positioning. Here\'s the four kinds of options-based levels SPY actually reverses at, and how to read them in real time.',
+    description:
+      'Why does SPY reverse at certain levels? The hidden options-positioning map — call walls, put walls, gamma magnet, and the gamma flip — that drives most "random" reversals.',
+    datePublished: '2026-06-15',
+    readMinutes: 10,
+    kind: 'tier1',
+  },
+  'options-support-and-resistance': {
+    slug: 'options-support-and-resistance',
+    href: '/education/options-support-and-resistance',
+    title: 'How to Identify Support and Resistance from Options Positioning',
+    blurb:
+      'Options-based support and resistance is mechanics, not psychology. The four kinds of options-based levels, why they\'re sturdier than chart-based S/R, and how to identify them in real time.',
+    description:
+      'How to identify support and resistance from options positioning — call walls, put walls, gamma magnet, gamma flip. The structural map most chart S/R misses.',
+    datePublished: '2026-06-15',
+    readMinutes: 11,
+    kind: 'tier1',
+  },
+  'how-to-avoid-chasing-0dte': {
+    slug: 'how-to-avoid-chasing-0dte',
+    href: '/education/how-to-avoid-chasing-0dte',
+    title: 'How to Avoid Chasing 0DTE Moves',
+    blurb:
+      'The 0DTE chase is the most expensive bad habit in retail trading. Three signs you\'re about to make the mistake, the structural read that overrides the instinct, and the conditions when the momentum is actually real.',
+    description:
+      'How to avoid chasing 0DTE moves — why same-day chases are structurally dangerous, three signs you\'re about to chase, and the regime read that tells you when to stand down.',
+    datePublished: '2026-06-15',
+    readMinutes: 11,
+    kind: 'tier1',
+  },
+  'how-to-know-if-spy-is-pinned': {
+    slug: 'how-to-know-if-spy-is-pinned',
+    href: '/education/how-to-know-if-spy-is-pinned',
+    title: 'How to Know If SPY Is Pinned: The Five Signs',
+    blurb:
+      'Pin recognition is the cleanest day-trade filter. The five structural signs SPY is pinned today, the playbook that works in a pinned tape (fade extremes, skip middle), and when the pin breaks.',
+    description:
+      'How to know if SPY is pinned today — the five structural signs, the fade-extremes playbook that works in a pinned tape, and the conditions that break the pin.',
+    datePublished: '2026-06-15',
+    readMinutes: 10,
+    kind: 'tier1',
+  },
+  'what-is-negative-gamma': {
+    slug: 'what-is-negative-gamma',
+    href: '/education/what-is-negative-gamma',
+    title: 'What Does Negative Gamma Mean? A Plain-English Explainer',
+    blurb:
+      'Negative gamma means dealer hedging amplifies moves instead of dampening them. What the term actually refers to, how to spot a negative-gamma regime in real time, and what changes in your trading.',
+    description:
+      'What does negative gamma mean? Plain-English explainer — dealers amplify moves, volatility expands, breakouts extend. How to spot a negative-gamma regime in real time.',
+    datePublished: '2026-06-15',
+    readMinutes: 10,
+    kind: 'tier1',
+  },
+  'why-spy-pins-near-strikes': {
+    slug: 'why-spy-pins-near-strikes',
+    href: '/education/why-spy-pins-near-strikes',
+    title: 'Why Does SPY Pin Near a Strike? Options Pinning Explained',
+    blurb:
+      'Options pinning isn\'t superstition — it\'s dealer hedging at heavy gamma strikes mechanically pulling price toward the strike. The mechanism, why it intensifies near expiry, and when the pin holds vs. breaks.',
+    description:
+      'Why does SPY pin near a strike? Options pinning explained — the dealer-hedging mechanism, why it\'s strongest on OPEX and end-of-day, and when the pin holds vs. breaks.',
+    datePublished: '2026-06-15',
+    readMinutes: 11,
+    kind: 'tier1',
+  },
+  'how-to-trade-around-gamma-flip': {
+    slug: 'how-to-trade-around-gamma-flip',
+    href: '/education/how-to-trade-around-gamma-flip',
+    title: 'How to Trade Around Gamma Flip Levels',
+    blurb:
+      'The gamma flip is a playbook switch, not a price level. Three setups each regime supports, the workflow for using the flip as a playbook signal, and what to do when spot crosses.',
+    description:
+      'How to trade around gamma flip levels — what changes when spot crosses, the three setup types each regime supports, and the workflow for using the flip as a playbook switch.',
+    datePublished: '2026-06-15',
+    readMinutes: 10,
+    kind: 'tier1',
+  },
 };
 
 /**
@@ -287,6 +383,46 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'vanna-and-charm-explained',
     'squeeze-setup-explained',
     'eod-pressure-and-trap-detection',
+  ],
+  'why-do-breakouts-fail': [
+    'gamma-walls-explained',
+    'how-to-read-a-gamma-flip',
+    'eod-pressure-and-trap-detection',
+  ],
+  'why-spy-reverses-at-levels': [
+    'gamma-walls-explained',
+    'options-support-and-resistance',
+    'how-to-read-a-gamma-flip',
+  ],
+  'options-support-and-resistance': [
+    'gamma-walls-explained',
+    'why-spy-reverses-at-levels',
+    'gamma-exposure-explained',
+  ],
+  'how-to-avoid-chasing-0dte': [
+    '0dte-dealer-positioning-explained',
+    'how-to-trade-around-gamma-flip',
+    'eod-pressure-explained',
+  ],
+  'how-to-know-if-spy-is-pinned': [
+    'why-spy-pins-near-strikes',
+    'max-pain-explained',
+    'eod-pressure-explained',
+  ],
+  'what-is-negative-gamma': [
+    'gamma-exposure-explained',
+    'how-to-read-a-gamma-flip',
+    'how-to-trade-around-gamma-flip',
+  ],
+  'why-spy-pins-near-strikes': [
+    'how-to-know-if-spy-is-pinned',
+    'max-pain-explained',
+    'eod-pressure-explained',
+  ],
+  'how-to-trade-around-gamma-flip': [
+    'how-to-read-a-gamma-flip',
+    'what-is-negative-gamma',
+    'gamma-exposure-explained',
   ],
 };
 

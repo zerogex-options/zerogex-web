@@ -24,6 +24,142 @@ export default function ArticlesPage() {
       </div>
 
       <div className="zg-feature-shell p-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Failed breakouts aren&apos;t random — they&apos;re driven by dealer hedging at concentrated strikes. The three structural conditions (long-gamma regime, strengthening Net GEX, static wall) that predict the fail before you chase, and how to read them on the live tape.
+        </p>
+        <Link
+          href="/education/why-do-breakouts-fail"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Why Does SPY Reverse at Certain Levels?
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          SPY reversals that look random on the chart are tied to options positioning. The four kinds of options-based levels SPY actually reverses at — call wall, put wall, gamma magnet, gamma flip — and how the regime decides whether the level holds or breaks.
+        </p>
+        <Link
+          href="/education/why-spy-reverses-at-levels"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          How to Identify Support and Resistance from Options Positioning
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Standard S/R is psychology; options-based S/R is mechanics. The four kinds of options-based levels, why they&apos;re sturdier than chart-based S/R, the workflow for identifying them in real time, and the conditions that make them hold versus break.
+        </p>
+        <Link
+          href="/education/options-support-and-resistance"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          How to Avoid Chasing 0DTE Moves
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The 0DTE chase is the most expensive bad habit in retail trading. Three signs you&apos;re about to chase, the five-point structural read that overrides the instinct, and the conditions when 0DTE momentum is actually real and the chase isn&apos;t the trap.
+        </p>
+        <Link
+          href="/education/how-to-avoid-chasing-0dte"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          How to Know If SPY Is Pinned: The Five Signs
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Pin recognition is the cleanest day-trade filter. The five structural signs SPY is pinned today, the playbook that works in a pinned tape (fade extremes, skip middle, small size), and the conditions that break the pin.
+        </p>
+        <Link
+          href="/education/how-to-know-if-spy-is-pinned"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          What Does Negative Gamma Mean? A Plain-English Explainer
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Negative gamma means dealer hedging amplifies moves instead of dampening them — wider ranges, extending breakouts, broken pins. What the term refers to, how to spot a negative-gamma regime in real time, and what changes in your trading when you&apos;re in one.
+        </p>
+        <Link
+          href="/education/what-is-negative-gamma"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Why Does SPY Pin Near a Strike? Options Pinning Explained
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Pinning isn&apos;t superstition — it&apos;s dealer hedging at heavy gamma strikes mechanically pulling price toward the strike. The mechanism, why it intensifies near expiry, the two pin types most traders confuse, and the conditions that make today a pin day.
+        </p>
+        <Link
+          href="/education/why-spy-pins-near-strikes"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          How to Trade Around Gamma Flip Levels
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          The flip isn&apos;t a price level — it&apos;s a playbook switch. The three setup types each regime supports, the workflow for changing playbooks when spot crosses the flip, and what to do in the contested zone where neither playbook works cleanly.
+        </p>
+        <Link
+          href="/education/how-to-trade-around-gamma-flip"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read article
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 12, 2026 • 18:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           EOD Pressure Signal Explained: Reading the Close
