@@ -17,6 +17,20 @@ const nextConfig: NextConfig = {
         destination: '/education/gamma-exposure-explained',
         permanent: true,
       },
+      {
+        // Two URLs GSC reported under "Not found (404)" because old external
+        // links keep pointing at routes the app no longer ships. Redirect to
+        // the public gamma-levels landing rather than 404ing so any link
+        // equity still flows somewhere useful.
+        source: '/charts',
+        destination: '/spx-gamma-levels',
+        permanent: true,
+      },
+      {
+        source: '/position-optimizer',
+        destination: '/spx-gamma-levels',
+        permanent: true,
+      },
     ];
   },
 };

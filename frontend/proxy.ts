@@ -76,11 +76,22 @@ export async function proxy(request: NextRequest) {
     // teaser that replaces the previously-open /dashboard preview. Subscribers
     // still land on the full live dashboard because they bypass this branch.
     if (pathname === '/dashboard') {
-      return NextResponse.redirect(new URL('/spx-gamma-levels', request.url));
+      const response = NextResponse.redirect(new URL('/spx-gamma-levels', request.url));
+      response.headers.set('X-Robots-Tag', 'noindex, follow');
+      return response;
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
+    // X-Robots-Tag attaches to the redirect itself, so Googlebot reads
+    // "the source URL is noindex" before following. Without this, gated
+    // routes that ended up linked externally (the seven in GSC's
+    // "Indexed, though blocked by robots.txt" bucket) stayed in the index
+    // because robots.txt prevented Google from ever seeing a directive.
+    // robots.ts now allows crawling for these routes precisely so this
+    // header is visible.
+    const response = NextResponse.redirect(loginUrl);
+    response.headers.set('X-Robots-Tag', 'noindex, follow');
+    return response;
   }
 
   if (!hasTierAccess(session.user.tier, requiredTier)) {
@@ -88,7 +99,9 @@ export async function proxy(request: NextRequest) {
     unauthorizedUrl.searchParams.set('required', requiredTier ?? 'basic');
     unauthorizedUrl.searchParams.set('current', session.user.tier);
     unauthorizedUrl.searchParams.set('path', pathname);
-    return NextResponse.redirect(unauthorizedUrl);
+    const response = NextResponse.redirect(unauthorizedUrl);
+    response.headers.set('X-Robots-Tag', 'noindex, follow');
+    return response;
   }
 
   const response = NextResponse.next();

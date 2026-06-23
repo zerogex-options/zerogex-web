@@ -15,45 +15,25 @@ export default function robots(): MetadataRoute.Robots {
         '/forgot-password',
         '/reset-password',
         '/unauthorized',
-        // User-scoped data routes. /dashboard is subscriber-only; the free,
-        // 15-min-delayed preview lives at /spx-gamma-levels, which carries
-        // the public-search intent and is the indexable target instead.
+        // User-scoped data routes that exist only behind auth.
         '/account',
-        '/dashboard',
-        // Admin
+        // Admin — belt-and-suspenders even though middleware 307s anonymous
+        // traffic with an X-Robots-Tag header.
         '/admin',
         // Replaced by 308 redirect to /
         '/landing',
-        // Tier-gated tools (middleware 307s anonymous traffic to /login).
-        // Disallowing them keeps Googlebot from filing them under
-        // "Page with redirect" in Search Console.
-        '/signal-score',
-        '/trading-signals',
-        '/advanced-signals',
-        '/eod-pressure',
-        '/squeeze-setup',
-        '/trap-detection',
-        '/0dte-position-imbalance',
-        '/gamma-vwap-confluence',
-        '/volatility-expansion',
-        '/market-pressure',
-        '/basic-signals',
-        '/tape-flow-bias',
-        '/skew-delta',
-        '/vanna-charm-flow',
-        '/dealer-delta-pressure',
-        '/gex-gradient',
-        '/positioning-trap',
-        '/gamma-exposure',
-        '/max-pain',
-        '/greeks-gex',
-        '/flow-analysis',
-        '/smart-money',
-        '/intraday-tools',
-        '/options-calculator',
-        '/option-contracts',
-        '/range-break-imminence',
-        '/backtesting',
+        // NOTE on tier-gated tools (/dashboard, /gamma-exposure, /max-pain,
+        // /signal-score, /trading-signals, /intraday-tools, /options-calculator,
+        // and the rest of the basic/pro routes): these used to live here as
+        // robots.txt disallows. The seven URLs GSC was reporting under
+        // "Indexed, though blocked by robots.txt" proved that approach doesn't
+        // work — external links got the URLs into the index, and the
+        // robots.txt block then prevented Googlebot from ever seeing a noindex
+        // directive. Middleware (proxy.ts) now attaches X-Robots-Tag:
+        // "noindex, follow" to the 307 it returns for anonymous traffic on
+        // each of those routes, which is the only mechanism that reliably
+        // pulls them out of the index. Keeping them crawlable is required so
+        // the header is visible.
         // Internals. /_next/data is the only branch we want hidden — the
         // /_next/static tree carries the CSS, JS, and font bundles Google
         // needs to render and rank pages, so blocking the whole /_next prefix
