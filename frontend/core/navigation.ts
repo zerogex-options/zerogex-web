@@ -100,7 +100,7 @@ export const NAV_GROUPS: NavGroup[] = [
         id: '/articles',
         label: 'Articles',
         items: [
-          { id: '/education/decoding-gamma-exposure', label: 'Gamma Exposure Explained' },
+          { id: '/education/gamma-exposure-explained', label: 'Gamma Exposure Explained' },
           { id: '/education/net-volume-vs-directional-flow', label: 'Options Flow Explained' },
           { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
           { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },

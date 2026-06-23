@@ -80,6 +80,10 @@ const config = {
     '/founding',
     // /landing is served by a 308 redirect to / (see next.config.ts)
     '/landing',
+    // 301 redirect to /education/gamma-exposure-explained — keep the source
+    // URL out of the sitemap so Google stops finding it via discovery and
+    // funnels signals into the pillar instead.
+    '/education/decoding-gamma-exposure',
     // Auth-gated tools — middleware 307s anonymous Googlebot to /login,
     // which Google Search Console reports as "Page with redirect".
     '/signal-score',
