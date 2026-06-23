@@ -6,8 +6,10 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       disallow: [
-        // Auth & user chrome
-        '/login',
+        // Auth & user chrome. /login is intentionally crawlable: it carries a
+        // page-level noindex,follow tag so Google can see the directive and
+        // drop the /login?next=... duplicates GSC was flagging. Blocking it
+        // here would hide the meta tag and let Google index the URL anyway.
         '/register',
         '/forgot-password',
         '/reset-password',
