@@ -6,11 +6,12 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       disallow: [
-        // Auth & user chrome. /login is intentionally crawlable: it carries a
-        // page-level noindex,follow tag so Google can see the directive and
-        // drop the /login?next=... duplicates GSC was flagging. Blocking it
-        // here would hide the meta tag and let Google index the URL anyway.
-        '/register',
+        // Auth & user chrome. /login and /register are intentionally
+        // crawlable: each carries a page-level noindex,follow tag so Google
+        // can see the directive and drop the URL from the index (the
+        // /login?next=... duplicates GSC was flagging, plus any externally-
+        // linked /register entry). Blocking either here would hide the meta
+        // tag and let Google index the URL anyway.
         '/forgot-password',
         '/reset-password',
         '/unauthorized',
@@ -53,9 +54,12 @@ export default function robots(): MetadataRoute.Robots {
         '/option-contracts',
         '/range-break-imminence',
         '/backtesting',
-        // Internals
+        // Internals. /_next/data is the only branch we want hidden — the
+        // /_next/static tree carries the CSS, JS, and font bundles Google
+        // needs to render and rank pages, so blocking the whole /_next prefix
+        // (which previously hid e.g. .woff2 fonts in GSC) hurts indexing.
         '/api',
-        '/_next',
+        '/_next/data',
         '/checkout',
       ],
     },

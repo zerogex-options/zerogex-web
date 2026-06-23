@@ -29,18 +29,6 @@ export const SITE_NAME = 'ZeroGEX';
 export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
-  'decoding-gamma-exposure': {
-    slug: 'decoding-gamma-exposure',
-    href: '/education/decoding-gamma-exposure',
-    title: 'Decoding Gamma Exposure — The Hidden Force Driving Markets',
-    blurb:
-      'How dealer hedging flows can stabilize or destabilize price action, why the gamma flip matters, and how to adapt strategy across volatility regimes.',
-    description:
-      'Learn how dealer hedging flows can stabilize or destabilize price action, why the gamma flip matters, and how to adapt strategy selection across volatility regimes.',
-    datePublished: '2026-03-26',
-    readMinutes: 15,
-    kind: 'article',
-  },
   'net-volume-vs-directional-flow': {
     slug: 'net-volume-vs-directional-flow',
     href: '/education/net-volume-vs-directional-flow',
@@ -348,11 +336,6 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     '0dte-dealer-positioning-explained',
     'how-to-read-a-gamma-flip',
-  ],
-  'decoding-gamma-exposure': [
-    'gamma-exposure-explained',
-    'how-to-read-a-gamma-flip',
-    'gamma-walls-explained',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
