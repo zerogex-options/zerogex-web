@@ -607,7 +607,7 @@ export default function AboutPage() {
           <SectionHeading
             eyebrow="API Access"
             title="Build on ZeroGEX"
-            sub="Full programmatic access to every data endpoint powering the platform. OpenAPI-compliant with interactive documentation."
+            sub="Forty-plus endpoints across GEX, options flow, signals, technicals, max pain, market data, and backtesting. OpenAPI 3.1 compliant with interactive documentation."
             color={C.green}
           />
 
@@ -624,8 +624,8 @@ export default function AboutPage() {
             />
             <APILink isDark={isDark}
               href="https://api.zerogex.io/openapi.json"
-              label="OpenAPI JSON Schema"
-              desc="Machine-readable OpenAPI 3.0 specification for code generation, SDK building, or integration testing"
+              label="OpenAPI 3.1 Schema"
+              desc="Machine-readable OpenAPI specification for code generation, SDK building, or integration testing"
             />
           </div>
 
@@ -642,20 +642,26 @@ export default function AboutPage() {
                 <Code2 size={20} style={{ color: C.green }} />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.light }}>Available Endpoints</div>
-                <div style={{ fontSize: 13, color: C.muted }}>Core data endpoints available via the ZeroGEX API</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.light }}>Sample of available endpoints</div>
+                <div style={{ fontSize: 13, color: C.muted }}>A selection of the most-used endpoints — full catalog at the docs links above. All endpoints require a Bearer API key.</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
               {[
-                { method: 'GET', path: '/gex/summary', desc: 'Net GEX, gamma flip, max pain, key levels' },
-                { method: 'GET', path: '/gex/by-strike', desc: 'Full strike-by-strike GEX breakdown' },
-                { method: 'GET', path: '/quote/{symbol}', desc: 'Real-time market quote with OHLCV' },
-                { method: 'GET', path: '/flow/unusual', desc: 'Unusual options activity feed' },
-                { method: 'GET', path: '/signals', desc: 'Current trading signal ratings' },
-                { method: 'GET', path: '/greeks/{symbol}', desc: 'Full Greeks surface by strike' },
-                { method: 'GET', path: '/max-pain/{expiry}', desc: 'Max pain by expiration date' },
-                { method: 'GET', path: '/intraday/levels', desc: 'VWAP, ORB, and intraday levels' },
+                { method: 'GET', path: '/api/gex/summary', desc: 'Net GEX at spot, gamma flip, call/put walls, max pain' },
+                { method: 'GET', path: '/api/gex/by-strike', desc: 'Per-strike GEX with vanna/charm exposures' },
+                { method: 'GET', path: '/api/gex/profile', desc: 'Spot-shift dealer gamma curve across strikes' },
+                { method: 'GET', path: '/api/gex/historical-context', desc: 'Live GEX vs 30d / all-time distributions' },
+                { method: 'GET', path: '/api/market/quote', desc: 'Real-time underlying OHLC with session context' },
+                { method: 'GET', path: '/api/market/volatility', desc: 'VIX/VXN level and momentum (0–10 scale)' },
+                { method: 'GET', path: '/api/flow/smart-money', desc: 'Unusual options activity feed (1-min granularity)' },
+                { method: 'GET', path: '/api/flow/series', desc: '5-min aggregated call/put premium and volume' },
+                { method: 'GET', path: '/api/max-pain/current', desc: 'Current max pain with per-expiration payoff curves' },
+                { method: 'GET', path: '/api/signals/score', desc: 'Composite MSI gauge (0–100) with components' },
+                { method: 'GET', path: '/api/signals/basic', desc: 'Bundle of all six Basic Signal scores' },
+                { method: 'GET', path: '/api/signals/advanced/squeeze-setup', desc: 'Squeeze Setup signal (one of eight Advanced)' },
+                { method: 'GET', path: '/api/technicals/dealer-hedging', desc: 'Current dealer hedge-pressure snapshot' },
+                { method: 'GET', path: '/api/tools/option-calculator', desc: 'Intrinsic-value P&L fan across underlying moves' },
               ].map((ep) => (
                 <div key={ep.path} style={{
                   background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
@@ -710,7 +716,7 @@ export default function AboutPage() {
           />
           <FAQItem isDark={isDark}
             q="Can I access ZeroGEX data programmatically via API?"
-            a="Yes. The full ZeroGEX data API is publicly accessible and documented at api.zerogex.io/docs. The API is OpenAPI 3.0 compliant, supports JSON responses, and exposes all the same data powering the web platform — including GEX summaries, strike-by-strike breakdowns, real-time quotes, flow data, trading signals, and more. Both Swagger UI and ReDoc documentation are available."
+            a="Yes. The full ZeroGEX data API is documented at api.zerogex.io/docs (Swagger UI) and api.zerogex.io/redoc (ReDoc), with an OpenAPI 3.1 schema published at api.zerogex.io/openapi.json. Every endpoint exposes the same data powering the web platform — GEX summaries, per-strike breakdowns, the spot-shift dealer-gamma profile, options flow, the composite MSI score and the eight Advanced + six Basic signals, max pain, technicals, and the backtesting engine. All endpoints require a Bearer API key; direct API access ships with the Pro plan."
           />
           <FAQItem isDark={isDark}
             q="Is ZeroGEX suitable for 0DTE trading?"
