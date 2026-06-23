@@ -6,15 +6,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useSignalScore, useTradesHistory, useTradesLive, useVolatilityGauge } from '@/hooks/useApiData';
+import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useVolatilityGauge } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
-import { getRegimeLabel } from '@/core/signalConstants';
 import MetricCard from '@/components/MetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
 import { useTheme } from '@/core/ThemeContext';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
@@ -24,29 +24,6 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
-
-function toRows(data: unknown): Record<string, unknown>[] {
-  if (Array.isArray(data)) return data as Record<string, unknown>[];
-  if (data && typeof data === 'object') {
-    const values = Object.values(data as Record<string, unknown>);
-    const firstArray = values.find((value) => Array.isArray(value));
-    if (Array.isArray(firstArray)) return firstArray as Record<string, unknown>[];
-  }
-  return [];
-}
-
-function getNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const n = Number(value);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -59,34 +36,6 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function getTradeTimestamp(row: Record<string, unknown>): Date | null {
-  const raw = row.closed_at ?? row.exit_at ?? row.opened_at ?? row.created_at ?? row.timestamp;
-  if (typeof raw !== 'string') return null;
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function getOpenedAt(row: Record<string, unknown>): Date | null {
-  const raw = row.opened_at ?? row.created_at ?? row.timestamp;
-  if (typeof raw !== 'string') return null;
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function inTodayWindow(date: Date | null): boolean {
-  if (!date) return false;
-  const etDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  return etDate(date) === etDate(new Date());
-}
-
-function getTradePnl(row: Record<string, unknown>): number {
-  const total = getNumber(row.total_pnl ?? row.pnl ?? row.net_pnl);
-  if (total != null) return total;
-  const realized = getNumber(row.realized_pnl) ?? 0;
-  const unrealized = getNumber(row.unrealized_pnl) ?? 0;
-  return realized + unrealized;
-}
-
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
@@ -96,39 +45,9 @@ export default function DashboardPage() {
   const { data: historicalContext } = useGEXHistoricalContext(symbol, 15000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
-  const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
-  const { data: tradesData } = useTradesLive(symbol, PROPRIETARY_SIGNALS_REFRESH.liveTradesMs);
-  const { data: tradesHistoryData } = useTradesHistory(symbol, PROPRIETARY_SIGNALS_REFRESH.tradeHistoryMs);
   const { rows: flowSeriesRows } = useFlowSeries(symbol, 'current', {
     incrementalMs: PROPRIETARY_SIGNALS_REFRESH.flowByTypeMs,
   });
-
-  const liveRows = toRows(tradesData);
-  const historyRows = toRows(tradesHistoryData);
-  const todayHistoryRows = historyRows.filter((row) => inTodayWindow(getTradeTimestamp(row)));
-  // Only live trades opened today contribute to today's PnL — the backend
-  // returns unrealized_pnl as cumulative position-lifetime mark, so older
-  // open positions would otherwise inflate today's number.
-  const todayLiveRows = liveRows.filter((row) => inTodayWindow(getOpenedAt(row)));
-  const signaledTradeRows = [...todayLiveRows, ...todayHistoryRows];
-
-  const cumulativePnl = signaledTradeRows.reduce((sum, row) => sum + getTradePnl(row), 0);
-  const resolvedTradeOutcomes = signaledTradeRows
-    .map((row) => getTradePnl(row))
-    .filter((pnl) => Math.abs(pnl) > 1e-9);
-  const winRate = resolvedTradeOutcomes.length > 0
-    ? (resolvedTradeOutcomes.filter((pnl) => pnl > 0).length / resolvedTradeOutcomes.length) * 100
-    : null;
-  const winRateColor = winRate == null
-    ? 'var(--color-text-secondary)'
-    : winRate > 50
-      ? 'var(--color-bull)'
-      : winRate < 50
-        ? 'var(--color-bear)'
-        : 'var(--color-text-secondary)';
-
-  const compositeScore = scoreData?.composite_score ?? scoreData?.score;
-  const compositeRegimeLabel = typeof compositeScore === 'number' ? getRegimeLabel(compositeScore) : 'Awaiting signal data';
 
   // "Today's Read" — auto-generated regime headline + lead paragraph reusing
   // the live-bulletin model so the dashboard's at-a-glance summary stays in
@@ -277,44 +196,23 @@ export default function DashboardPage() {
       {/* Trade Bias Engine */}
       <TradeBiasSection />
 
-      {/* Proprietary Signals + Volatility Monitor side-by-side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <section>
+      {/* Proprietary Signals + Volatility Monitor side-by-side. The sections
+          use flex columns so the inner card grids stretch to fill the taller
+          row, keeping the synthesis cards visually flush with the Volatility
+          gauges next door. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 items-stretch">
+        <section className="flex flex-col">
           <h2 className="text-2xl font-semibold mb-4">Proprietary Signals</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MetricCard
-              title="Composite Score"
-              value={typeof compositeScore === 'number' ? compositeScore.toFixed(2) : '--'}
-              subtitle={compositeRegimeLabel}
-              tooltip="UnifiedSignalEngine composite signal score and current actionable regime label."
-              theme={theme}
-              trend={typeof compositeScore !== 'number' ? 'neutral' : compositeScore > 0 ? 'bullish' : compositeScore < 0 ? 'bearish' : 'neutral'}
-            />
-            <MetricCard
-              title="Signaled Trades Today"
-              value={signaledTradeRows.length}
-              subtitle={(
-                <span>
-                  PnL{' '}
-                  <span style={{ color: cumulativePnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                    {cumulativePnl >= 0 ? '+' : '-'}{formatUsd(Math.abs(cumulativePnl))}
-                  </span>
-                  {' · Win Rate '}
-                  <span style={{ color: winRateColor }}>
-                    {winRate != null ? `${winRate.toFixed(0)}%` : '—'}
-                  </span>
-                </span>
-              )}
-              tooltip="Trades opened or closed today: live trades opened today plus historical trades closed today. PnL = realized PnL on today's closes + unrealized PnL on today's live opens (older live positions are excluded so their lifetime mark doesn't inflate today's number)."
-              theme={theme}
-              trend={cumulativePnl > 0 ? 'bullish' : cumulativePnl < 0 ? 'bearish' : 'neutral'}
-            />
+          <div className="flex-1">
+            <ProprietarySignalsSynthesis />
           </div>
         </section>
 
-        <section>
+        <section className="flex flex-col">
           <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
-          <VolatilityCard />
+          <div className="flex-1">
+            <VolatilityCard />
+          </div>
         </section>
       </div>
 
