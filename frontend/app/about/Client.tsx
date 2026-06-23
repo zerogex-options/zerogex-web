@@ -348,7 +348,12 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── Founder Intro ────────────────────────────────────────────────────── */}
+      {/* ── Founder Intro ──────────────────────────────────────────────────────
+          Personal founder narrative — first-person, designed to build trust by
+          contrast with the rest of the product-centric copy on this page.
+          The {{NAME}} placeholder on the signature line is the only handle
+          intentionally left for the founder to fill in; the body text can be
+          edited freely without breaking layout. */}
       <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto' }}>
         <div
           style={{
@@ -375,17 +380,68 @@ export default function AboutPage() {
               letterSpacing: '0.18em', textTransform: 'uppercase',
               color: C.amber, background: `${C.amber}18`,
               border: `1px solid ${C.amber}40`, borderRadius: 100,
-              padding: '4px 14px', marginBottom: 18,
+              padding: '4px 14px', marginBottom: 22,
             }}
           >
-            About ZeroGEX
+            From the founder
           </div>
-          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
-            ZeroGEX was built for traders who want more than lagging indicators and hand-drawn levels.
-            It provides a live map of SPY/SPX/QQQ options positioning — including gamma exposure,
-            call/put walls, gamma flip, dealer positioning, and flow pressure — so traders can better
-            understand where support, resistance, acceleration, pinning, or squeeze risk may develop.
+
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: '0 0 18px' }}>
+            I built ZeroGEX because I was tired of watching SPY reverse at levels that looked
+            completely random on a chart. The setups looked clean, the entries felt right, and
+            price would stop dead at some level nothing on my screen had warned me about. After
+            the same kind of reversal hit me one too many times, I started looking for what those
+            levels actually were.
           </p>
+
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: '0 0 18px' }}>
+            They weren&apos;t random. The reversals were almost always tied to options positioning —
+            specific strikes where dealer hedging was structurally set up to absorb or amplify
+            the move. The same call walls and put walls institutional desks watch every day. The
+            same gamma flip that decides whether dealers fade rallies or chase them. I&apos;d been
+            trading without that map. Most retail traders still are.
+          </p>
+
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: '0 0 18px' }}>
+            The institutional tools that surface this data are expensive, opaque, and built for
+            trading desks — not for someone running a screen at home. The free options around it
+            are either delayed, calculated with methodology shortcuts that break in exactly the
+            moments that matter most, or so dumbed-down that they don&apos;t actually tell you what
+            dealer hedging is doing right now.
+          </p>
+
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: '0 0 18px' }}>
+            ZeroGEX is my attempt to put that institutional map in front of retail traders — in
+            real time, methodologically honest, and structured so you can actually use it inside
+            a trading session. The free gamma-levels page surfaces the same handful of numbers I
+            check every morning. The paid plans add the signals and the deeper reads I built for
+            my own trading. None of it is a magic system. All of it is the structural read I
+            wish I&apos;d had when I started.
+          </p>
+
+          <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: '0 0 28px' }}>
+            If any of this resonates — if you&apos;ve had your own version of getting reversed at a
+            level nobody warned you about — the dashboard is open. Try the structural read for a
+            session and see if the levels stop looking random.
+          </p>
+
+          {/* Signature — replace {{NAME}} with your name before launch. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              paddingTop: 18,
+              borderTop: `1px solid ${C.border}`,
+              fontSize: 15,
+              fontWeight: 700,
+              color: text,
+              letterSpacing: '-0.2px',
+            }}
+          >
+            <span style={{ color: C.amber }}>—</span>
+            <span>{`{{NAME}}`}, Founder · ZeroGEX</span>
+          </div>
         </div>
       </section>
 
