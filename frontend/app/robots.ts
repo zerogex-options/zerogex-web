@@ -53,9 +53,12 @@ export default function robots(): MetadataRoute.Robots {
         '/option-contracts',
         '/range-break-imminence',
         '/backtesting',
-        // Internals
+        // Internals. /_next/data is the only branch we want hidden — the
+        // /_next/static tree carries the CSS, JS, and font bundles Google
+        // needs to render and rank pages, so blocking the whole /_next prefix
+        // (which previously hid e.g. .woff2 fonts in GSC) hurts indexing.
         '/api',
-        '/_next',
+        '/_next/data',
         '/checkout',
       ],
     },

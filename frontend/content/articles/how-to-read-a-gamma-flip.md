@@ -115,4 +115,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip read in real time, the free ZeroGEX dashboard surfaces it alongside Net GEX, the call and put walls, and the dealer gamma profile chart.
+If you want to see today's [gamma flip read in real time](/real-time-gex-0dte), [the free ZeroGEX dashboard](/spx-gamma-levels) surfaces it alongside Net GEX, the call and put walls, and the dealer gamma profile chart. For a comparison of how different platforms compute and present this read, see [the best GEX tools guide](/education/best-gex-tools).
