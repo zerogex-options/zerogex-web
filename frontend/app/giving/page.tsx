@@ -1,4 +1,5 @@
 import GivingClient from './Client';
+import { getGivingTotals } from '@/core/giving';
 
 export const metadata = {
   title: 'Giving Back — ZeroGEX Supports Folds of Honor',
@@ -8,5 +9,6 @@ export const metadata = {
 };
 
 export default function GivingPage() {
-  return <GivingClient />;
+  const totals = getGivingTotals();
+  return <GivingClient totals={totals} />;
 }

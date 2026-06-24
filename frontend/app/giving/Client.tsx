@@ -5,11 +5,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
+import type { GivingTotals } from '@/core/giving';
 import {
   ArrowRight,
   Heart,
   Shield,
-  GraduationCap,
   HandHeart,
   Receipt,
   CalendarCheck,
@@ -35,6 +35,25 @@ const C = {
 
 const DONATION_PCT = 3;
 const FOH_URL = 'https://foldsofhonor.org';
+
+function formatUsd(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatShortDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 // ── Section heading ───────────────────────────────────────────────────────────
 function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
@@ -125,9 +144,10 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function GivingPage() {
+export default function GivingPage({ totals }: { totals: GivingTotals }) {
   const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
+  const hasDonations = totals.totalDonatedUsd > 0 && totals.lastDonation !== null;
   const bg = 'transparent';
   const text = 'var(--color-text-primary)';
   const subtext = 'var(--color-text-secondary)';
@@ -431,28 +451,65 @@ export default function GivingPage() {
             background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
             borderRadius: 20, padding: 28, backdropFilter: 'blur(12px)',
           }}>
-            {[
-              { icon: GraduationCap, label: 'Scholarships funded', desc: 'Over 60,000 awarded since 2007 — to spouses, children, and dependents of fallen or disabled service members.', color: C.amber },
-              { icon: HandHeart,    label: '$260M+ distributed',   desc: 'Total scholarship dollars deployed by Folds of Honor since founding, with all 50 states represented.', color: C.green },
-              { icon: Shield,       label: '4-star Charity Navigator', desc: 'Highest accountability and transparency rating, with the vast majority of donations flowing directly to program services.', color: C.amber },
-            ].map((item) => (
-              <div key={item.label} style={{
-                display: 'flex', gap: 14, alignItems: 'flex-start',
-                padding: '16px 0', borderBottom: `1px solid ${C.border}`,
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: C.green, marginBottom: 6,
+            }}>
+              ZeroGEX → Folds of Honor
+            </div>
+            <div style={{ fontSize: 13, color: subtext, marginBottom: 18 }}>
+              Updated each quarter after the donation clears.
+            </div>
+
+            <div style={{ padding: '20px 0', borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Total donated to date
+              </div>
+              <div style={{ fontSize: 'clamp(32px, 5vw, 44px)', fontWeight: 900, color: C.amber, letterSpacing: '-1px', lineHeight: 1.1 }}>
+                {formatUsd(totals.totalDonatedUsd)}
+              </div>
+              <div style={{ fontSize: 13, color: subtext, marginTop: 6 }}>
+                Across {totals.donationsCount} {totals.donationsCount === 1 ? 'quarterly donation' : 'quarterly donations'} from ZeroGEX subscribers.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '18px 0', borderBottom: `1px solid ${C.border}` }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: `${C.green}20`, border: `1px solid ${C.green}40`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  background: `${item.color}20`, border: `1px solid ${item.color}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <item.icon size={17} style={{ color: item.color }} />
+                <HandHeart size={17} style={{ color: C.green }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
+                  {hasDonations ? 'Last donation' : 'First donation pending'}
                 </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>{item.desc}</div>
+                <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
+                  {hasDonations
+                    ? `${formatUsd(totals.lastDonation!.amountUsd)} sent on ${formatDate(totals.lastDonation!.donatedAtIso)} (${totals.lastDonation!.quarter}).`
+                    : 'No donations have cleared yet — we publish the first quarterly receipt here as soon as it ships.'}
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '18px 0 4px' }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: `${C.amber}20`, border: `1px solid ${C.amber}40`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <CalendarCheck size={17} style={{ color: C.amber }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
+                  Next donation
+                </div>
+                <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
+                  Scheduled for {formatShortDate(totals.nextDonationAtIso)} — covering the current calendar quarter.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
