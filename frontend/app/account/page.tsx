@@ -1,10 +1,20 @@
 'use client';
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Copy, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+
+type DonationPayload = {
+  pledgePct: number;
+  partner: string;
+  baseAmountUsd: number;
+  donationUsd: number;
+  interval: string;
+  currency: string;
+};
 
 type IdentitiesPayload = {
   hasPassword: boolean;
@@ -68,6 +78,7 @@ function AccountPageContent() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralPayload | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [donation, setDonation] = useState<DonationPayload | null>(null);
 
   const refreshIdentities = async () => {
     setIdentitiesLoading(true);
@@ -128,6 +139,31 @@ function AccountPageContent() {
       setFeedback({ type: 'error', message: reason ? decodeURIComponent(reason) : 'Could not link provider.' });
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!authSession?.authenticated) return;
+    if (searchParams?.get('checkout') !== 'success') return;
+    const sessionId = searchParams?.get('session_id');
+    if (!sessionId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/billing/checkout/donation?session_id=${encodeURIComponent(sessionId)}`,
+          { credentials: 'include' },
+        );
+        if (!response.ok) return;
+        const data = (await response.json()) as DonationPayload;
+        if (!cancelled) setDonation(data);
+      } catch {
+        /* donation banner is non-critical; silently skip on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSession?.authenticated, searchParams]);
 
   const handleSetPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -294,6 +330,49 @@ function AccountPageContent() {
             Manage your profile, subscription tier, and membership.
           </p>
         </header>
+
+        {donation && (
+          <div
+            role="status"
+            style={{
+              marginBottom: 20,
+              borderRadius: 14,
+              padding: '16px 18px',
+              border: `1px solid ${C.amber}55`,
+              background: `linear-gradient(135deg, ${C.amber}1a 0%, ${C.amber}08 100%)`,
+              color: C.light,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: `${C.amber}26`, border: `1px solid ${C.amber}55`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >
+              <Heart size={16} style={{ color: C.amber }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>
+                Welcome aboard — and thank you.
+              </div>
+              <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
+                Your subscription just contributed{' '}
+                <strong style={{ color: C.amber }}>
+                  ${donation.donationUsd.toFixed(2)}
+                </strong>{' '}
+                to <strong style={{ color: C.light }}>{donation.partner}</strong> — {donation.pledgePct}% of
+                every {donation.interval === 'year' ? 'annual' : 'monthly'} billing cycle.{' '}
+                <Link href="/giving" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
+                  See our giving page →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {feedback && (
           <div
