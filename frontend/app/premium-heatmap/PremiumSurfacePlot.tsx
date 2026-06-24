@@ -63,7 +63,10 @@ export default function PremiumSurfacePlot({
         y: dtes,
         z,
         customdata,
-        connectgaps: false,
+        // Rows are interpolated across strikes upstream; connectgaps bridges
+        // any remaining edge/row gaps so a sparse (mixed-increment) chain still
+        // renders a continuous surface rather than axes with no mesh.
+        connectgaps: true,
         colorscale: 'Viridis',
         colorbar: {
           title: { text: 'Extrinsic ($)', font: { color: fontColor } },

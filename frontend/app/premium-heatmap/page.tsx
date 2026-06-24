@@ -30,6 +30,30 @@ const TITLE_TOOLTIP =
 const DTE_OPTIONS = [7, 14, 30, 60, 90, 180];
 const STRIKE_OPTIONS = [15, 21, 31, 51, 71];
 
+/**
+ * Linearly interpolate a single expiration row across the strike axis to fill
+ * interior null gaps (strikes that exist for other expirations but not this
+ * one). Leading/trailing nulls are left as-is — extrapolating beyond the
+ * observed strikes would invent values — and Plotly's connectgaps bridges
+ * those edges. Returns a copy; the input is untouched.
+ */
+function interpolateRowGaps(row: (number | null)[]): (number | null)[] {
+  const out = row.slice();
+  let prev = -1;
+  for (let k = 0; k < out.length; k++) {
+    if (out[k] == null) continue;
+    if (prev >= 0 && k - prev > 1) {
+      const v0 = out[prev] as number;
+      const v1 = out[k] as number;
+      for (let j = prev + 1; j < k; j++) {
+        out[j] = v0 + (v1 - v0) * ((j - prev) / (k - prev));
+      }
+    }
+    prev = k;
+  }
+  return out;
+}
+
 export default function PremiumHeatmapPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
@@ -44,8 +68,12 @@ export default function PremiumHeatmapPage() {
   });
 
   // Reshape the response into the (dte × strike) matrix Plotly's surface wants.
-  // The response's top-level `strikes` is the union axis; each expiration slice
-  // may be sparse, so missing cells become null (rendered as gaps).
+  // The response's top-level `strikes` is the union of every expiration's
+  // strikes. Index options mix strike increments across expirations (weeklies
+  // at $1, monthlies at $5), so any single expiration row is sparse on that
+  // union axis. A surface face needs four non-null corners, so a sparse grid
+  // renders as axes-with-no-mesh — we fill each row's interior gaps by linear
+  // interpolation across strikes and let Plotly's connectgaps bridge the edges.
   const plot = useMemo(() => {
     if (!data || !data.surface?.length || !data.strikes?.length) return null;
 
@@ -56,18 +84,25 @@ export default function PremiumHeatmapPage() {
     const dtes = slices.map((s) => s.dte);
     const expirationLabels = slices.map((s) => s.expiration);
 
+    let filledCells = 0;
     const z: (number | null)[][] = slices.map((slice) => {
       const row: (number | null)[] = new Array(strikes.length).fill(null);
       for (const sp of slice.strikes) {
         const idx = strikeIndex.get(sp.strike);
-        if (idx !== undefined) row[idx] = sp.extrinsic;
+        if (idx !== undefined && sp.extrinsic != null) {
+          row[idx] = sp.extrinsic;
+          filledCells++;
+        }
       }
-      return row;
+      return interpolateRowGaps(row);
     });
 
     // A surface needs at least a 2×2 grid to render meaningfully.
     const hasGrid = strikes.length >= 2 && dtes.length >= 2;
-    return { strikes, dtes, expirationLabels, z, hasGrid };
+    // Distinguishes "render problem" from "API returned rows but no usable
+    // premiums" (e.g. a snapshot with empty quotes) so the UI can say which.
+    const hasData = filledCells > 0;
+    return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
   }, [data]);
 
   const muted = theme === 'dark' ? colors.muted : colors.dark;
@@ -182,6 +217,16 @@ export default function PremiumHeatmapPage() {
             style={{ height: 560, color: muted }}
           >
             Not enough strikes/expirations to render a surface — try widening Max DTE or strike count.
+          </div>
+        ) : !plot.hasData ? (
+          <div
+            className="flex items-center justify-center text-sm text-center px-6"
+            style={{ height: 560, color: muted }}
+          >
+            The snapshot returned strikes and expirations for {symbol}{' '}
+            {optionType === 'C' ? 'calls' : 'puts'}, but no usable premium quotes
+            (bid/ask/mid/last) — so there are no time-value points to plot. This usually
+            means the latest option-chain snapshot has empty quotes.
           </div>
         ) : (
           <PremiumSurfacePlot
