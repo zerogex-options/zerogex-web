@@ -11,14 +11,23 @@ export function isCreatorPartnerProgramEnabled(): boolean {
 export type CreatorPartnerRow = {
   id: string;
   email: string;
+  referral_code: string | null;
   partner_tier: string | null;
   partner_commission_bps: number;
   partner_commission_window_months: number;
   partner_audience_coupon_id: string | null;
+  partner_audience_promo_code: string | null;
   partner_disclosure_url: string | null;
   partner_activated_at: string | null;
   partner_pro_grant_expires_at: string | null;
 };
+
+const PARTNER_SELECT_COLUMNS = `
+  id, email, referral_code, partner_tier, partner_commission_bps,
+  partner_commission_window_months, partner_audience_coupon_id,
+  partner_audience_promo_code, partner_disclosure_url, partner_activated_at,
+  partner_pro_grant_expires_at
+`;
 
 // True only when the user's partner_tier was set by the grant script AND the
 // program is enabled. Returning false when disabled is intentional: it makes
@@ -32,19 +41,43 @@ export function isCreatorPartner(row: { partner_tier: string | null } | null | u
 // at checkout to decide whether to apply the partner audience coupon vs. the
 // standard referee coupon. Returns null for unknown codes, codes owned by
 // standard (non-creator) users, or when the program is disabled.
+//
+// Matches against BOTH the 8-char auto-minted `referral_code` and the
+// human-readable `partner_audience_promo_code`, so the same code works in
+// `?ref=` whether the creator shared their link or just told their audience
+// "use code SPYLEVELS25". The two columns are independently unique and
+// belong to disjoint sets of users (only partners have the promo column
+// populated), so a single OR query is unambiguous.
 export function findCreatorByReferralCode(code: string): CreatorPartnerRow | null {
   if (!isCreatorPartnerProgramEnabled()) return null;
   const normalized = code.trim().toUpperCase();
   if (!normalized) return null;
   const row = getDb()
     .prepare(
-      `SELECT id, email, partner_tier, partner_commission_bps,
-              partner_commission_window_months, partner_audience_coupon_id,
-              partner_disclosure_url, partner_activated_at, partner_pro_grant_expires_at
+      `SELECT ${PARTNER_SELECT_COLUMNS}
        FROM users
-       WHERE referral_code = ? AND partner_tier = 'creator'`,
+       WHERE partner_tier = 'creator'
+         AND (referral_code = ? OR partner_audience_promo_code = ?)`,
     )
-    .get(normalized) as CreatorPartnerRow | undefined;
+    .get(normalized, normalized) as CreatorPartnerRow | undefined;
+  return row ?? null;
+}
+
+// Resolve a Stripe promotion_code's metadata.partner_user_id back to the
+// partner record. Used by the webhook back-attribution path so an audience
+// member who skipped the `?ref=` link and typed the code at Stripe's
+// checkout still gets attributed to the right partner. Defensive: returns
+// null if the id isn't a real partner (e.g. a stale promotion code that
+// outlived its partner's account).
+export function findCreatorByUserId(userId: string): CreatorPartnerRow | null {
+  if (!isCreatorPartnerProgramEnabled()) return null;
+  const row = getDb()
+    .prepare(
+      `SELECT ${PARTNER_SELECT_COLUMNS}
+       FROM users
+       WHERE id = ? AND partner_tier = 'creator'`,
+    )
+    .get(userId) as CreatorPartnerRow | undefined;
   return row ?? null;
 }
 

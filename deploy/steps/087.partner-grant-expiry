@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# ==============================================
+# Step 087: Creator Partner Grant Expiry Timer
+# ==============================================
+#
+# Installs and enables the daily Creator Partner grant-expiry timer (see
+# deploy/systemd/zerogex-web-partner-grant-expiry.{service,timer}). The
+# timer fires at 03:30 server-local and triggers
+# `make partner-grant-expiry YES=1`, which downgrades any partner whose
+# 90-day Pro grant has lapsed AND who hasn't started paying for Pro
+# themselves. partner_tier='creator' is intentionally LEFT SET on
+# downgrade so commission attribution on existing referees keeps working.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config is written — the script reads AUTH_DB_PATH from
+# frontend/.env.local, which step 030 / 036 already manage.
+
+set -e
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Creator Partner Grant Expiry Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo.
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-partner-grant-expiry"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The timer keeps installing even when the program is disabled (it's a
+# pure DB sweep and trivially a no-op when no creator partners exist).
+# But warn if the master switch isn't on, since a disabled program means
+# grants aren't being created in the first place and the sweep finds
+# nothing forever.
+warn_program_off() {
+    local value
+    value=$(grep -E "^CREATOR_PARTNER_PROGRAM_ENABLED=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ "$value" != "1" ]; then
+        log "  ⚠ CREATOR_PARTNER_PROGRAM_ENABLED is not 1 in $ENV_FILE — timer will"
+        log "    install but find nothing to expire until the program is turned on"
+        log "    AND scripts/grant-partner-pro.mts creates at least one grant."
+    else
+        log "  ✓ CREATOR_PARTNER_PROGRAM_ENABLED=1"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_program_off
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily 03:30, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run on enable: the service's ExecStart is the real
+# YES=1 sweep. A first-time install with no candidates is a clean exit; a
+# first-time install with stale candidates downgrades them (which is what
+# you want anyway). Use `make partner-grant-expiry DRY_RUN=1` to preview.
+
+log ""
+log "Creator partner grant expiry timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 03:30, Persistent=true catches missed runs)"
+log "  ✓ Downgrades tier 'pro' -> 'public' only when no active paying sub exists"
+log "  ✓ partner_tier='creator' STAYS SET so existing referee commissions keep accruing"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                            - next/last run"
+log "  • cd $APP_DIR && make partner-grant-expiry DRY_RUN=1             - preview candidates"
+log "  • sudo systemctl start ${UNIT}.service                           - fire the sweep now"
+log "  • journalctl -u ${UNIT} -n 50                                    - recent sweep logs"

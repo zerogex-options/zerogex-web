@@ -237,6 +237,16 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'partner_commission_bps', 'INTEGER NOT NULL DEFAULT 3000');
   ensureColumn('users', 'partner_commission_window_months', 'INTEGER NOT NULL DEFAULT 12');
   ensureColumn('users', 'partner_audience_coupon_id', 'TEXT');
+  // Human-readable audience promo code (e.g. SPYLEVELS25). Distinct from the
+  // 8-char auto-minted `referral_code` and from the underlying Stripe coupon
+  // id. Same string is registered with Stripe as a `promotion_code` attached
+  // to `partner_audience_coupon_id` (or the global env coupon) so the
+  // audience can ALSO type it in Stripe's checkout promo field. Either
+  // entry path attributes back to the partner — `?ref=` matches via
+  // referral_code OR this column (recordReferralSignup falls through), and
+  // the webhook back-attributes promo-code-only checkouts by reading
+  // promotion_code.metadata.partner_user_id.
+  ensureColumn('users', 'partner_audience_promo_code', 'TEXT');
   ensureColumn('users', 'partner_disclosure_url', 'TEXT');
   ensureColumn('users', 'partner_activated_at', 'TEXT');
   ensureColumn('users', 'partner_pro_grant_expires_at', 'TEXT');
@@ -265,6 +275,12 @@ function initDb(): DatabaseSync {
   `);
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_partner_commissions_partner ON partner_commissions(partner_user_id, status);'
+  );
+  // Unique index on the customer-facing promo code so two partners can't
+  // claim the same string. Partial index (WHERE NOT NULL) keeps it cheap
+  // for the dominant cohort of standard users without a code.
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_partner_audience_promo_code ON users(partner_audience_promo_code) WHERE partner_audience_promo_code IS NOT NULL'
   );
 
   // One-time stamp marking that the "first paid subscription" welcome email
