@@ -22,7 +22,7 @@ const footerLinks = [
   { href: '/terms', label: 'Terms', external: false },
 ];
 
-const TWITTER_HANDLE = 'zero_gex70930';
+const TWITTER_HANDLE = '@ZeroGEXOptions';
 const TWITTER_URL = `https://x.com/${TWITTER_HANDLE}`;
 const CONTACT_EMAIL = 'support@zerogex.io';
 
