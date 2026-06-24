@@ -283,6 +283,7 @@ logo:
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.
+	cp assets/branding/folds-of-honor-logo.svg frontend/public/folds-of-honor-logo.svg
 	@echo "Logos copied successfully!"
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory

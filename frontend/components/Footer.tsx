@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail } from 'lucide-react';
+import { Mail, Heart } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 
@@ -16,11 +16,14 @@ const footerLinks = [
   { href: '/dashboard', label: 'Platform', external: false },
   { href: '/spx-gamma-levels', label: 'Free SPX Levels', external: false },
   { href: '/about', label: 'About', external: false },
+  { href: '/giving', label: 'Giving Back', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
   { href: '/education', label: 'Education', external: false },
   { href: '/privacy', label: 'Privacy', external: false },
   { href: '/terms', label: 'Terms', external: false },
 ];
+
+const VETERANS_BADGE_TEXT = '3% of every subscription supports U.S. military families via Folds of Honor.';
 
 const TWITTER_HANDLE = '@ZeroGEXOptions';
 const TWITTER_URL = `https://x.com/${TWITTER_HANDLE}`;
@@ -172,6 +175,21 @@ export default function Footer({ theme }: FooterProps) {
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <SocialLinks align="end" />
+            <Link
+              href="/giving"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 999,
+                background: `${colors.primary}18`,
+                border: `1px solid ${colors.primary}40`,
+                color: colors.primary, fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.04em', textDecoration: 'none',
+                marginTop: 4,
+              }}
+              title={VETERANS_BADGE_TEXT}
+            >
+              <Heart size={11} /> 3% supports veterans
+            </Link>
             <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, All rights reserved.
             </p>
@@ -206,6 +224,21 @@ export default function Footer({ theme }: FooterProps) {
             <div style={{ marginTop: 10 }}>
               <SocialLinks size={34} iconSize={16} />
             </div>
+            <Link
+              href="/giving"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '5px 10px', borderRadius: 999,
+                background: `${colors.primary}18`,
+                border: `1px solid ${colors.primary}40`,
+                color: colors.primary, fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.04em', textDecoration: 'none',
+                width: 'fit-content', marginTop: 4,
+              }}
+              title={VETERANS_BADGE_TEXT}
+            >
+              <Heart size={11} /> 3% supports veterans
+            </Link>
             <p style={{ fontSize: 12, color: subtext, margin: '10px 0 0 0', lineHeight: 1.6 }}>
               ZeroGEX provides options-market analytics and educational content for informational
               purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
