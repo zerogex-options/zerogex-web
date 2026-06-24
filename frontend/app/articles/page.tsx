@@ -24,6 +24,23 @@ export default function ArticlesPage() {
       </div>
 
       <div className="zg-feature-shell p-6">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 24, 2026 • Announcement</div>
+        <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
+          Announcing Our 3% Pledge to Folds of Honor
+        </h2>
+        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+          Starting today, ZeroGEX donates 3% of every subscription to Folds of Honor — funding educational scholarships for the spouses and children of fallen and disabled U.S. service members. The mechanics, the math, and the partner choice.
+        </p>
+        <Link
+          href="/education/announcing-folds-of-honor-pledge"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
+        >
+          Read announcement
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+
+      <div className="zg-feature-shell p-6 mt-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Published • June 15, 2026 • 14:00 UTC</div>
         <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
           Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts

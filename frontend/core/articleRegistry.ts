@@ -29,6 +29,18 @@ export const SITE_NAME = 'ZeroGEX';
 export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
+  'announcing-folds-of-honor-pledge': {
+    slug: 'announcing-folds-of-honor-pledge',
+    href: '/education/announcing-folds-of-honor-pledge',
+    title: 'Announcing Our 3% Pledge to Folds of Honor',
+    blurb:
+      'Starting today, ZeroGEX donates 3% of every subscription to Folds of Honor — funding educational scholarships for the families of fallen and disabled U.S. service members. The mechanics, the math, and why.',
+    description:
+      'ZeroGEX is donating 3% of every subscription to Folds of Honor — quarterly donations, gross-revenue basis, full transparency. Mechanics, math, and the why behind the partner choice.',
+    datePublished: '2026-06-24',
+    readMinutes: 4,
+    kind: 'article',
+  },
   'net-volume-vs-directional-flow': {
     slug: 'net-volume-vs-directional-flow',
     href: '/education/net-volume-vs-directional-flow',
