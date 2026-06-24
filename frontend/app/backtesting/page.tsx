@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import BetaBadge from '@/components/BetaBadge';
 import { backtestAPI } from '@/core/api/endpoints';
 import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
 import type {
@@ -360,6 +361,7 @@ export default function BacktestingPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Backtesting</h1>
+        <BetaBadge size="md" />
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>

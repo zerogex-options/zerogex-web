@@ -20,6 +20,7 @@ import {
   User,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import BetaBadge from "./BetaBadge";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -664,14 +665,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           href={targetHref}
                           target={targetHref.startsWith("http") ? "_blank" : undefined}
                           rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                          className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                           style={{
                             background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                             borderColor: border,
                             color: theme === 'dark' ? colors.light : colors.dark,
                           }}
                         >
-                          {page.label}
+                          <span>{page.label}</span>
+                          {page.beta && <BetaBadge />}
                         </a>
                       );
                     }
@@ -683,14 +685,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           router.push(resolveNavTarget(page.id));
                           setMobileMenuOpen(false);
                         }}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold text-left"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                         style={{
                           background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                           borderColor: active ? `${colors.primary}60` : border,
                           color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
                         }}
                       >
-                        {page.label}
+                        <span>{page.label}</span>
+                        {page.beta && <BetaBadge />}
                       </button>
                     );
                   };

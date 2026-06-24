@@ -13,6 +13,7 @@ import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
 import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
+import BetaBadge from "./BetaBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
@@ -250,10 +251,11 @@ export default function Navigation({ theme }: NavigationProps) {
                       rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                       onMouseEnter={() => setHoveredPage(page.id)}
                       onMouseLeave={() => setHoveredPage(null)}
-                      className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
                       style={commonStyle}
                     >
-                      {page.label}
+                      <span>{page.label}</span>
+                      {page.beta && <BetaBadge />}
                     </Link>
                   );
                 }
@@ -264,11 +266,12 @@ export default function Navigation({ theme }: NavigationProps) {
                     onClick={() => router.push(resolveNavTarget(page.id))}
                     onMouseEnter={() => setHoveredPage(page.id)}
                     onMouseLeave={() => setHoveredPage(null)}
-                    className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
                     style={commonStyle}
                     type="button"
                   >
-                    {page.label}
+                    <span>{page.label}</span>
+                    {page.beta && <BetaBadge />}
                   </button>
                 );
               };

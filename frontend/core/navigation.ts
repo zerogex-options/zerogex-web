@@ -3,6 +3,8 @@ export type NavItem = {
   label: string;
   requiredTier?: 'basic' | 'pro' | 'admin';
   external?: boolean;
+  /** Flags an in-development feature; renders a "Beta" pill next to the label. */
+  beta?: boolean;
 };
 
 export type NavSubgroup = {
@@ -79,7 +81,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
-      { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro' },
+      { id: '/premium-heatmap', label: 'Premium Heat Map', requiredTier: 'basic', beta: true },
+      { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
     ],
   },
   {
