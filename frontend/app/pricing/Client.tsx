@@ -11,7 +11,7 @@ import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
-import { ArrowRight, CheckCircle2, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Heart, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
 
 const C = {
   card: 'var(--color-surface)',
@@ -264,6 +264,19 @@ function TierCard({
       <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
         {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&rsquo;t be charged.
       </p>
+
+      <Link
+        href="/giving"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          margin: '12px 0 0', padding: '4px 10px', borderRadius: 999,
+          background: `${accent}14`, border: `1px solid ${accent}33`,
+          color: accent, fontSize: 11, fontWeight: 700,
+          letterSpacing: '0.04em', textDecoration: 'none', alignSelf: 'flex-start',
+        }}
+      >
+        <Heart size={11} /> Includes 3% donation to Folds of Honor
+      </Link>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
         {features.map((feature) => (
