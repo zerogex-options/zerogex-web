@@ -92,6 +92,10 @@ export default function PremiumSurfacePlot({
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
       font: { color: fontColor },
+      // Constant uirevision: when Plotly.react re-runs (data/control change),
+      // the user's current camera/zoom/pan is kept instead of snapping back to
+      // the initial `camera.eye` below. The eye only applies on first render.
+      uirevision: 'premium-surface',
       scene: {
         xaxis: {
           title: { text: 'Strike' },

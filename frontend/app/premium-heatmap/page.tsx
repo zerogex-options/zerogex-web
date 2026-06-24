@@ -101,6 +101,10 @@ export default function PremiumHeatmapPage() {
   const { data, loading, error } = usePremiumSurface(symbol, optionType, {
     dteMax,
     strikeCount,
+    // No background polling: a periodic refetch swaps the data underneath the
+    // chart and resets the user's zoom/pan/rotation. The surface updates on
+    // mount, on a control change, and on a page refresh — not on a timer.
+    refreshInterval: 0,
   });
 
   // When a response reports the chain's real maxima, adopt them and snap the
