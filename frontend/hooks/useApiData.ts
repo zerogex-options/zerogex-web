@@ -627,6 +627,53 @@ export function useFlipSurface(
   );
 }
 
+// ── Options premium (extrinsic-value) surface — Beta ──
+// x = strike, y = expiration (DTE), z = extrinsic (premium − intrinsic,
+// clamped ≥ 0). Backed by /api/gex/premium_surface.
+export interface PremiumSurfaceStrike {
+  strike: number;
+  premium: number | null;
+  intrinsic: number | null;
+  extrinsic: number | null;
+}
+
+export interface PremiumSurfaceSlice {
+  expiration: string;
+  dte: number;
+  strikes: PremiumSurfaceStrike[];
+}
+
+export interface PremiumSurfaceResponse {
+  symbol: string;
+  option_type: 'C' | 'P';
+  spot_price: number;
+  timestamp: string;
+  expirations: string[];
+  strikes: number[];
+  surface: PremiumSurfaceSlice[];
+}
+
+export function usePremiumSurface(
+  symbol = 'SPY',
+  optionType: 'C' | 'P' = 'C',
+  options: {
+    dteMax?: number;
+    strikeCount?: number;
+    refreshInterval?: number;
+    enabled?: boolean;
+  } = {},
+) {
+  const { dteMax = 60, strikeCount = 30, refreshInterval = 30000, enabled = true } = options;
+  return useApiData<PremiumSurfaceResponse>(
+    `/api/gex/premium_surface?${symbolQuery(symbol, {
+      option_type: optionType,
+      dte_max: dteMax,
+      strike_count: strikeCount,
+    })}`,
+    { refreshInterval, enabled },
+  );
+}
+
 // ── Shared /api/market/quote cache ──
 // Header, dashboard Price card, Strike Profile spot line / tip-close
 // merge, GEX Heatmap, and every other chart consumer all read the live

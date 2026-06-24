@@ -21,6 +21,7 @@
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "next-sitemap": "^4.2.3",
+    "plotly.js-dist-min": "^3.0.1",
     "posthog-js": "^1.386.8",
     "posthog-node": "^5.37.1",
     "react": "19.2.3",
