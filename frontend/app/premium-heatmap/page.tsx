@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePremiumSurface } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -27,8 +27,36 @@ const TITLE_TOOLTIP =
   'mid quote, floored at $0). Use the symbol selector in the header to change ' +
   'the underlying.';
 
-const DTE_OPTIONS = [7, 14, 30, 60, 90, 180];
-const STRIKE_OPTIONS = [15, 21, 31, 51, 71];
+// Sensible "Max DTE" rungs; the live list is whatever subset of these sits
+// below the chain's furthest expiration, capped by that max so the selector
+// always tops out at what's actually available.
+const DTE_LADDER = [7, 14, 30, 45, 60, 90, 120, 180, 270, 365];
+
+// Fallback bounds used only on first paint, before the first response reports
+// the chain's real maxima.
+const DEFAULT_MAX_DTE = 180;
+const DEFAULT_MAX_STRIKES = 60;
+
+function buildDteOptions(maxDte: number): number[] {
+  if (maxDte <= 0) return [DEFAULT_MAX_DTE];
+  const opts = DTE_LADDER.filter((d) => d < maxDte);
+  opts.push(maxDte); // always include the real max as the top option
+  return opts;
+}
+
+function buildStrikeOptions(maxStrikes: number): number[] {
+  const cap = Math.min(maxStrikes || 0, 100);
+  if (cap < 10) return [Math.max(5, cap || 5)];
+  const opts: number[] = [];
+  for (let s = 10; s <= cap; s += 10) opts.push(s);
+  if (opts[opts.length - 1] !== cap) opts.push(cap); // include the real max
+  return opts;
+}
+
+/** Closest value in `opts` to `v` (opts is non-empty). */
+function nearestOption(opts: number[], v: number): number {
+  return opts.reduce((best, o) => (Math.abs(o - v) < Math.abs(best - v) ? o : best), opts[0]);
+}
 
 /**
  * Linearly interpolate a single expiration row across the strike axis to fill
@@ -60,12 +88,43 @@ export default function PremiumHeatmapPage() {
 
   const [optionType, setOptionType] = useState<'C' | 'P'>('C');
   const [dteMax, setDteMax] = useState(60);
-  const [strikeCount, setStrikeCount] = useState(31);
+  const [strikeCount, setStrikeCount] = useState(30);
+
+  // Available bounds reported by the latest response, persisted so the
+  // dropdowns keep their sizes during a refetch (when `data` briefly nulls)
+  // and across symbol switches until fresh bounds arrive.
+  const [bounds, setBounds] = useState({
+    maxDte: DEFAULT_MAX_DTE,
+    maxStrikes: DEFAULT_MAX_STRIKES,
+  });
 
   const { data, loading, error } = usePremiumSurface(symbol, optionType, {
     dteMax,
     strikeCount,
   });
+
+  // When a response reports the chain's real maxima, adopt them and snap the
+  // current selections onto the rebuilt option ladders so neither dropdown
+  // ever shows a value that isn't one of its options (e.g. after switching to
+  // a symbol with a different expiration ladder).
+  useEffect(() => {
+    if (!data) return;
+    const maxDte = data.available_max_dte || DEFAULT_MAX_DTE;
+    const maxStrikes = data.available_strike_count || DEFAULT_MAX_STRIKES;
+    setBounds({ maxDte, maxStrikes });
+    const dOpts = buildDteOptions(maxDte);
+    const sOpts = buildStrikeOptions(maxStrikes);
+    setDteMax((d) => (dOpts.includes(d) ? d : nearestOption(dOpts, Math.min(d, maxDte))));
+    setStrikeCount((s) =>
+      sOpts.includes(s) ? s : nearestOption(sOpts, Math.min(s, maxStrikes)),
+    );
+  }, [data]);
+
+  const dteOptions = useMemo(() => buildDteOptions(bounds.maxDte), [bounds.maxDte]);
+  const strikeOptions = useMemo(
+    () => buildStrikeOptions(bounds.maxStrikes),
+    [bounds.maxStrikes],
+  );
 
   // Reshape the response into the (dte × strike) matrix Plotly's surface wants.
   // The response's top-level `strikes` is the union of every expiration's
@@ -163,8 +222,10 @@ export default function PremiumHeatmapPage() {
             style={selectStyle}
             aria-label="Maximum days to expiration"
           >
-            {DTE_OPTIONS.map((d) => (
-              <option key={d} value={d}>{d} days</option>
+            {dteOptions.map((d, i) => (
+              <option key={d} value={d}>
+                {d} days{i === dteOptions.length - 1 ? ' (max)' : ''}
+              </option>
             ))}
           </select>
         </div>
@@ -177,8 +238,10 @@ export default function PremiumHeatmapPage() {
             style={selectStyle}
             aria-label="Number of strikes around spot"
           >
-            {STRIKE_OPTIONS.map((s) => (
-              <option key={s} value={s}>{s} strikes</option>
+            {strikeOptions.map((s, i) => (
+              <option key={s} value={s}>
+                {s} strikes{i === strikeOptions.length - 1 ? ' (max)' : ''}
+              </option>
             ))}
           </select>
         </div>

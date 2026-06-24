@@ -651,6 +651,11 @@ export interface PremiumSurfaceResponse {
   expirations: string[];
   strikes: number[];
   surface: PremiumSurfaceSlice[];
+  // Available bounds at the snapshot (unfiltered by the dte_max/strike_count
+  // request) so dropdowns can size to the real chain. Clamped server-side to
+  // the endpoint ceilings (DTE <= 365, strikes <= 100).
+  available_max_dte: number;
+  available_strike_count: number;
 }
 
 export function usePremiumSurface(
