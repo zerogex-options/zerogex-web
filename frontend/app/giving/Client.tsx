@@ -345,8 +345,8 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               src="/folds-of-honor-logo.svg"
               alt="Folds of Honor"
               width={200}
-              height={120}
-              style={{ width: '100%', height: 'auto', maxHeight: 140, objectFit: 'contain' }}
+              height={200}
+              style={{ width: '100%', height: 'auto', maxHeight: 200, objectFit: 'contain' }}
             />
           </div>
 
