@@ -23,9 +23,11 @@ const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
 
 const TITLE_TOOLTIP =
   'A 3D surface of option time value. X = strike, Y = days to expiration, ' +
-  'Z = premium minus intrinsic value (the extrinsic / time component of the ' +
-  'mid quote, floored at $0). Use the symbol selector in the header to change ' +
-  'the underlying.';
+  'Z = either extrinsic dollars (premium − intrinsic, floored at $0) or the ' +
+  '% move from current spot to break even at expiry — toggle via the Z ' +
+  'dropdown. Use the symbol selector in the header to change the underlying.';
+
+type Metric = 'extrinsic' | 'breakeven_pct';
 
 // Sensible "Max DTE" rungs; the live list is whatever subset of these sits
 // below the chain's furthest expiration, capped by that max so the selector
@@ -89,6 +91,7 @@ export default function PremiumHeatmapPage() {
   const [optionType, setOptionType] = useState<'C' | 'P'>('C');
   const [dteMax, setDteMax] = useState(60);
   const [strikeCount, setStrikeCount] = useState(30);
+  const [metric, setMetric] = useState<Metric>('extrinsic');
 
   // Available bounds reported by the latest response, persisted so the
   // dropdowns keep their sizes during a refetch (when `data` briefly nulls)
@@ -160,13 +163,27 @@ export default function PremiumHeatmapPage() {
       return interpolateRowGaps(row);
     });
 
+    // Breakeven price = strike ± premium, so |breakeven − spot| = extrinsic
+    // for both calls and puts. The % move from spot to breakeven at expiry is
+    // therefore extrinsic / spot × 100 — a linear rescale, applied after the
+    // strike-axis interpolation (commutes either way).
+    if (metric === 'breakeven_pct' && data.spot_price > 0) {
+      const scale = 100 / data.spot_price;
+      for (let i = 0; i < z.length; i++) {
+        for (let j = 0; j < z[i].length; j++) {
+          const v = z[i][j];
+          if (v != null) z[i][j] = v * scale;
+        }
+      }
+    }
+
     // A surface needs at least a 2×2 grid to render meaningfully.
     const hasGrid = strikes.length >= 2 && dtes.length >= 2;
     // Distinguishes "render problem" from "API returned rows but no usable
     // premiums" (e.g. a snapshot with empty quotes) so the UI can say which.
     const hasData = filledCells > 0;
     return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
-  }, [data]);
+  }, [data, metric]);
 
   const muted = theme === 'dark' ? colors.muted : colors.dark;
   const inputBorder = theme === 'dark' ? colors.borderDark : colors.borderLight;
@@ -197,10 +214,13 @@ export default function PremiumHeatmapPage() {
         </TooltipWrapper>
       </div>
       <p className="text-sm mb-6" style={{ color: muted }}>
-        Extrinsic (time) value surface for{' '}
+        {metric === 'extrinsic' ? 'Extrinsic (time) value surface' : '% move from spot to breakeven at expiry'}{' '}
+        for{' '}
         <span style={{ color: inputColor, fontWeight: 600 }}>{symbol}</span> {' '}
-        {optionType === 'C' ? 'calls' : 'puts'} — premium minus intrinsic value across
-        strikes and expirations.
+        {optionType === 'C' ? 'calls' : 'puts'} —{' '}
+        {metric === 'extrinsic'
+          ? 'premium minus intrinsic value across strikes and expirations.'
+          : 'how far spot must move (in %) for each contract to break even at expiry.'}
       </p>
 
       {/* ── Controls ────────────────────────────────────────────────── */}
@@ -247,6 +267,19 @@ export default function PremiumHeatmapPage() {
                 {s} strikes{i === strikeOptions.length - 1 ? ' (max)' : ''}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: muted }}>Z</span>
+          <select
+            value={metric}
+            onChange={(e) => setMetric(e.target.value as Metric)}
+            style={selectStyle}
+            aria-label="Z-axis metric"
+          >
+            <option value="extrinsic">Extrinsic $</option>
+            <option value="breakeven_pct">% to Breakeven</option>
           </select>
         </div>
 
@@ -303,6 +336,7 @@ export default function PremiumHeatmapPage() {
             expirationLabels={plot.expirationLabels}
             optionType={optionType}
             spot={data!.spot_price}
+            metric={metric}
             theme={theme}
             height={560}
           />

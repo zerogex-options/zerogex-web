@@ -8,12 +8,17 @@ interface PremiumSurfacePlotProps {
   strikes: number[];
   /** Days-to-expiration axis (y), one per expiration row of `z`. */
   dtes: number[];
-  /** z[i][j] = extrinsic value at (dtes[i], strikes[j]); null = gap. */
+  /**
+   * z[i][j] at (dtes[i], strikes[j]); null = gap. Unit depends on `metric`:
+   * 'extrinsic' = dollars; 'breakeven_pct' = percent move from spot.
+   */
   z: (number | null)[][];
   /** Human-readable expiration date per y row (for hover). */
   expirationLabels: string[];
   optionType: 'C' | 'P';
   spot: number;
+  /** Which quantity z encodes — drives colorbar/axis/hover labels. */
+  metric: 'extrinsic' | 'breakeven_pct';
   theme: 'dark' | 'light';
   height?: number;
 }
@@ -31,6 +36,7 @@ export default function PremiumSurfacePlot({
   expirationLabels,
   optionType,
   spot,
+  metric,
   theme,
   height = 560,
 }: PremiumSurfacePlotProps) {
@@ -56,6 +62,10 @@ export default function PremiumSurfacePlot({
       }
     }
 
+    const isPct = metric === 'breakeven_pct';
+    const colorbarTitle = isPct ? '% to Breakeven' : 'Extrinsic ($)';
+    const zHover = isPct ? 'Move to BE: %{z:.2f}%' : 'Extrinsic: $%{z:.2f}';
+
     const data = [
       {
         type: 'surface',
@@ -69,7 +79,7 @@ export default function PremiumSurfacePlot({
         connectgaps: true,
         colorscale: 'Viridis',
         colorbar: {
-          title: { text: 'Extrinsic ($)', font: { color: fontColor } },
+          title: { text: colorbarTitle, font: { color: fontColor } },
           tickfont: { color: fontColor },
           outlinewidth: 0,
           thickness: 14,
@@ -81,7 +91,7 @@ export default function PremiumSurfacePlot({
         hovertemplate:
           'Strike: %{x}<br>' +
           'Exp: %{customdata} (%{y} DTE)<br>' +
-          'Extrinsic: $%{z:.2f}<extra></extra>',
+          zHover + '<extra></extra>',
       },
     ];
 
@@ -110,7 +120,7 @@ export default function PremiumSurfacePlot({
           color: fontColor,
         },
         zaxis: {
-          title: { text: 'Premium − Intrinsic ($)' },
+          title: { text: isPct ? '% Move to Breakeven' : 'Premium − Intrinsic ($)' },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
@@ -147,7 +157,7 @@ export default function PremiumSurfacePlot({
       if (resizeObserver) resizeObserver.disconnect();
       if (plotly && el) plotly.purge(el);
     };
-  }, [strikes, dtes, z, expirationLabels, optionType, spot, theme, height]);
+  }, [strikes, dtes, z, expirationLabels, optionType, spot, metric, theme, height]);
 
   return <div ref={elRef} style={{ width: '100%', height }} />;
 }
