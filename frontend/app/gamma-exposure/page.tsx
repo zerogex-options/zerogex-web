@@ -18,12 +18,10 @@ import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GexWallsChart from '@/components/GexWallsChart';
-import MarketMakerExposures from '@/components/MarketMakerExposures';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -211,7 +209,6 @@ export default function GammaExposurePage() {
   const [chartSelectedExpiration, setChartSelectedExpiration] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [vizTab, setVizTab] = useState<'heatmap' | 'mmx'>('heatmap');
 
   // GEX Profile chart's expiration dropdown only surfaces current/future
   // expirations.  The /api/gex/by-strike snapshot can still carry yesterday's
@@ -688,35 +685,6 @@ export default function GammaExposurePage() {
             )}
           </div>
         </ExpandableCard>
-      </section>
-
-      {/* Section 8: Tabbed visualizations */}
-      <section className="mb-8">
-        <div className="flex items-center gap-1 mb-4 border-b" style={{ borderColor: borderColor }}>
-          {(
-            [
-              { id: 'heatmap' as const, label: 'GEX Heatmap Timeseries' },
-              { id: 'mmx' as const, label: 'Strike Profile' },
-            ]
-          ).map((tab) => {
-            const active = vizTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setVizTab(tab.id)}
-                className="px-4 py-2 text-sm font-semibold -mb-px transition-colors"
-                style={{
-                  color: active ? 'var(--color-text-primary)' : mutedText,
-                  borderBottom: active ? '2px solid var(--color-info)' : '2px solid transparent',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-        {vizTab === 'heatmap' ? <GammaHeatmapCanvas /> : <MarketMakerExposures />}
       </section>
     </div>
   );
