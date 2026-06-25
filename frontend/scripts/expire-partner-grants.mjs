@@ -119,6 +119,23 @@ if (!fs.existsSync(dbPath)) {
 
 ensureSqlite3Cli();
 
+// Pre-flight: the partner_* columns are added by the App's lazy migration
+// (frontend/core/db.ts initDb), which only runs on first DB touch from the
+// PM2 process. If the timer ran before that migration landed (e.g. after a
+// --start-from <step> deploy that skipped the rebuild), surface a clear
+// remediation instead of the raw "no such column" SQL error.
+const userCols = new Set(
+  querySqlite(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
+);
+if (!userCols.has('partner_pro_grant_expires_at')) {
+  console.error('Error: the partner_* columns are not present on the users table yet.');
+  console.error('The auth DB schema migration has not run against this database file.');
+  console.error('Fix: cd ~/zerogex-web && make migrate   (forces the lazy migration to run)');
+  console.error('     or run a full deploy (`make rebuild` or `./deploy/deploy.sh`) and then');
+  console.error('     hit any /api/* endpoint to trigger the migration via the app process.');
+  process.exit(4);
+}
+
 const nowIso = new Date().toISOString();
 
 // Eligible to downgrade: partner with an expired grant, currently on tier=pro,
