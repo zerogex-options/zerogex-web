@@ -1,0 +1,37 @@
+[Unit]
+Description=ZeroGEX web Creator Partner grant expiry sweep
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make partner-grant-expiry` shells through nvm to get Node 22 on PATH for
+# the .mjs script. Same approach as the trial-reminders unit.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web partner-grant-expiry YES=1
+
+# No outbound network legs (this is a pure SQLite sweep), so a short timeout
+# is fine. Capped low so a hung sqlite3 process can't pile up.
+TimeoutStartSec=120
+
+# Security hardening (mirrors zerogex-web-trial-reminders.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The script writes UPDATE users SET tier and
+# INSERT INTO audit_events on the same SQLite file as the live PM2 writer.
+# Update this if AUTH_DB_PATH in frontend/.env.local moves.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-partner-grant-expiry)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-partner-grant-expiry

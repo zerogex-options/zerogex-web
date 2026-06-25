@@ -1,0 +1,18 @@
+[Unit]
+Description=ZeroGEX web Creator Partner grant-expiry timer (daily 03:30)
+
+[Timer]
+# Daily at 03:30 server-local. Picked to fall well outside the hourly auth
+# backup (~:00), the 02:00 / 02:30 ad-hoc cron window, and the 6h trial
+# reminder ticks (00/6:15). The grant expiry is measured in days, so a
+# single-pass-per-day cadence is sufficient — the longest a partner could
+# stay on comped Pro past their declared expiry is <24h, which is well
+# inside the noise floor of "90-day grant."
+OnCalendar=03:30:00
+# Spread load across deploys / coalesce simultaneous timers.
+RandomizedDelaySec=10m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

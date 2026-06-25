@@ -15,7 +15,12 @@ import {
   getStripe,
   priceIdToTier,
 } from '@/core/stripe';
-import { redeemBankedReferralCredit, rewardReferrerForConvertedReferee } from '@/core/referrals';
+import {
+  backAttributeReferral,
+  redeemBankedReferralCredit,
+  rewardReferrerForConvertedReferee,
+} from '@/core/referrals';
+import { findCreatorByUserId, isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
 
@@ -494,6 +499,73 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   });
 }
 
+// Best-effort back-attribution for an audience member who skipped the
+// `?ref=` link entirely and typed the partner's promo code at Stripe's
+// checkout form. The session itself carries the applied promo code; we
+// resolve it to the partner via `promotion_code.metadata.partner_user_id`
+// (stamped by scripts/grant-partner-pro.mts when the code was created) and
+// stamp `referred_by_code` on the referee row.
+//
+// CAS-guarded in core/referrals so re-runs can't overwrite a referee who
+// already attributed via the link path. Errors are swallowed: a transient
+// Stripe lookup failure must not 500 the webhook (which would re-trigger
+// retries and double-fire the welcome path that runs after this).
+async function maybeBackAttributeFromCheckoutSession(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  if (!isCreatorPartnerProgramEnabled()) return;
+  const refereeUserId = session.client_reference_id;
+  if (!refereeUserId) return;
+
+  // session.discounts is not expanded by default on webhook payloads. Re-fetch
+  // when the field is empty so we don't miss a promotion_code that's actually
+  // present — but only if there's a session id to fetch by.
+  let discounts: Stripe.Checkout.Session.Discount[] = session.discounts ?? [];
+  if (discounts.length === 0 && session.id) {
+    try {
+      const full = await getStripe().checkout.sessions.retrieve(session.id, {
+        expand: ['discounts'],
+      });
+      discounts = full.discounts ?? [];
+    } catch {
+      return;
+    }
+  }
+
+  for (const d of discounts) {
+    const promoCodeId =
+      typeof d.promotion_code === 'string' ? d.promotion_code : d.promotion_code?.id ?? null;
+    if (!promoCodeId) continue;
+    try {
+      const promo = await getStripe().promotionCodes.retrieve(promoCodeId);
+      const partnerUserId = promo.metadata?.partner_user_id;
+      if (!partnerUserId) continue;
+      const partner = findCreatorByUserId(partnerUserId);
+      if (!partner || !partner.referral_code) continue;
+
+      const attributed = backAttributeReferral(
+        refereeUserId,
+        partner.id,
+        partner.referral_code,
+      );
+      if (attributed) {
+        logAudit({
+          type: 'partner_back_attributed',
+          userId: refereeUserId,
+          message: `Back-attributed to partner ${partner.id} via promo code ${promoCodeId} on session ${session.id}`,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'promo code lookup failed';
+      logAudit({
+        type: 'partner_back_attribute_error',
+        userId: refereeUserId,
+        message: `Promo code ${promoCodeId} on session ${session.id}: ${message}`,
+      });
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
@@ -556,6 +628,11 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        // Stamp partner attribution from a typed-in promo code BEFORE the
+        // subscription sync runs — syncSubscriptionToUser snapshots the user
+        // row once at its top, so the referred_by_code we set here is what
+        // its referral-processing branch reads.
+        await maybeBackAttributeFromCheckoutSession(session);
         const subscriptionId =
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {

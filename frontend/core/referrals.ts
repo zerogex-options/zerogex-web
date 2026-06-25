@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { getAppUrl, getStripe } from '@/core/stripe';
 import type { BillingCadence } from '@/core/stripe';
+import { isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
 import { sendReferralRewardEmail } from '@/core/mailer';
 
 // Master switch. The whole program is inert (no codes minted, no discounts, no
@@ -82,11 +83,29 @@ export function buildReferralLink(code: string): string {
   return `${getAppUrl()}/register?ref=${encodeURIComponent(code)}`;
 }
 
-function findUserIdByReferralCode(code: string): string | null {
-  const row = getDb()
-    .prepare('SELECT id FROM users WHERE referral_code = ?')
-    .get(code) as { id: string } | undefined;
-  return row?.id ?? null;
+type ReferrerLookup = { id: string; referral_code: string | null };
+
+// Resolve a typed-in code to the referrer it identifies. Tries the 8-char
+// auto-minted `referral_code` first, then — only when the Creator Partner
+// Program is enabled — falls back to `partner_audience_promo_code` so a
+// human-readable creator code (e.g. SPYLEVELS25) typed into the same field
+// resolves the same way as a link click. Returns the referrer's id PLUS
+// their canonical `referral_code` so callers always store the stable
+// 8-char string in `referred_by_code` regardless of which path was used.
+function findReferrerByCode(code: string): ReferrerLookup | null {
+  const db = getDb();
+  const direct = db
+    .prepare('SELECT id, referral_code FROM users WHERE referral_code = ?')
+    .get(code) as ReferrerLookup | undefined;
+  if (direct) return direct;
+  if (!isCreatorPartnerProgramEnabled()) return null;
+  const viaPromo = db
+    .prepare(
+      `SELECT id, referral_code FROM users
+       WHERE partner_audience_promo_code = ? AND partner_tier = 'creator'`,
+    )
+    .get(code) as ReferrerLookup | undefined;
+  return viaPromo ?? null;
 }
 
 // Record that `refereeUserId` signed up under `code`. Validates the code maps
@@ -94,24 +113,72 @@ function findUserIdByReferralCode(code: string): string | null {
 // referee_user_id constraint means a user is only ever attributed once, and a
 // repeated call is a silent no-op. Never throws on bad input — a bogus or
 // expired code just means the signup is treated as organic.
+//
+// Accepts both auto-minted referral codes and partner-audience promo codes
+// (via findReferrerByCode); whichever path resolves, the stable 8-char
+// `referral_code` is what gets stamped on the user row and the referrals
+// ledger so Phase 3 commission accrual has one stable join key.
 export function recordReferralSignup(refereeUserId: string, code: string): void {
   if (!isReferralProgramEnabled()) return;
   const normalized = code.trim().toUpperCase();
   if (!normalized) return;
 
-  const referrerId = findUserIdByReferralCode(normalized);
-  if (!referrerId || referrerId === refereeUserId) return;
+  const referrer = findReferrerByCode(normalized);
+  if (!referrer || referrer.id === refereeUserId) return;
+  const canonicalCode = referrer.referral_code ?? normalized;
 
   const db = getDb();
   db.prepare('UPDATE users SET referred_by_code = ?, updated_at = ? WHERE id = ?').run(
-    normalized,
+    canonicalCode,
     nowIso(),
     refereeUserId,
   );
   db.prepare(
     `INSERT OR IGNORE INTO referrals (id, referrer_user_id, referee_user_id, code, status, created_at)
      VALUES (?, ?, ?, ?, 'pending', ?)`,
-  ).run(`ref_${randomBytes(12).toString('hex')}`, referrerId, refereeUserId, normalized, nowIso());
+  ).run(
+    `ref_${randomBytes(12).toString('hex')}`,
+    referrer.id,
+    refereeUserId,
+    canonicalCode,
+    nowIso(),
+  );
+}
+
+// Webhook back-attribution: stamp `referred_by_code` on a referee whose
+// signup was originally organic. Caller has already resolved the referrer
+// to a creator partner (via promotion_code metadata in the Stripe webhook),
+// so we trust the input and ONLY no-op when the referee already has a code
+// recorded (link click wins over Stripe-typed promo). Returns true when the
+// row was newly attributed, false when it was already set.
+export function backAttributeReferral(
+  refereeUserId: string,
+  referrerUserId: string,
+  canonicalCode: string,
+): boolean {
+  if (!isReferralProgramEnabled()) return false;
+  if (refereeUserId === referrerUserId) return false;
+
+  const db = getDb();
+  const claimed = db
+    .prepare(
+      `UPDATE users SET referred_by_code = ?, updated_at = ?
+       WHERE id = ? AND referred_by_code IS NULL`,
+    )
+    .run(canonicalCode, nowIso(), refereeUserId) as { changes: number | bigint };
+  if (Number(claimed.changes) === 0) return false;
+
+  db.prepare(
+    `INSERT OR IGNORE INTO referrals (id, referrer_user_id, referee_user_id, code, status, created_at)
+     VALUES (?, ?, ?, ?, 'pending', ?)`,
+  ).run(
+    `ref_${randomBytes(12).toString('hex')}`,
+    referrerUserId,
+    refereeUserId,
+    canonicalCode,
+    nowIso(),
+  );
+  return true;
 }
 
 type RewardableUser = {

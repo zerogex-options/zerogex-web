@@ -215,6 +215,74 @@ function initDb(): DatabaseSync {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code) WHERE referral_code IS NOT NULL'
   );
 
+  // Creator Partner Program. Layered ON TOP of the referral plumbing above —
+  // every partner is still a user with a `referral_code`, and a referee whose
+  // `referred_by_code` resolves to a creator gets the partner-audience coupon
+  // (higher-value, repeating) instead of the standard one-shot referee coupon.
+  // The differences from a standard referrer:
+  //   - `partner_tier='creator'` flips the routing in resolveDiscount() and
+  //     gates partner-only behaviors (commissions, dashboard, etc.).
+  //   - Commissions are CASH payouts (% of the referee's invoices for the
+  //     first 12 months), not Stripe account credits — accrued by the webhook
+  //     into the partner_commissions ledger below.
+  //   - The partner themselves gets a comped Pro grant: tier='pro' with no
+  //     subscription, expiring at `partner_pro_grant_expires_at`. The expiry
+  //     cron downgrades them back to 'public' if they haven't subscribed.
+  //   - Optional `partner_audience_coupon_id` overrides the global
+  //     STRIPE_COUPON_PARTNER_AUDIENCE for this partner specifically (e.g.
+  //     a custom higher-value coupon negotiated with a top creator).
+  //   - `partner_disclosure_url` records where they post the FTC affiliate
+  //     disclosure (audit trail only; not enforced at checkout).
+  ensureColumn('users', 'partner_tier', 'TEXT');
+  ensureColumn('users', 'partner_commission_bps', 'INTEGER NOT NULL DEFAULT 3000');
+  ensureColumn('users', 'partner_commission_window_months', 'INTEGER NOT NULL DEFAULT 12');
+  ensureColumn('users', 'partner_audience_coupon_id', 'TEXT');
+  // Human-readable audience promo code (e.g. SPYLEVELS25). Distinct from the
+  // 8-char auto-minted `referral_code` and from the underlying Stripe coupon
+  // id. Same string is registered with Stripe as a `promotion_code` attached
+  // to `partner_audience_coupon_id` (or the global env coupon) so the
+  // audience can ALSO type it in Stripe's checkout promo field. Either
+  // entry path attributes back to the partner — `?ref=` matches via
+  // referral_code OR this column (recordReferralSignup falls through), and
+  // the webhook back-attributes promo-code-only checkouts by reading
+  // promotion_code.metadata.partner_user_id.
+  ensureColumn('users', 'partner_audience_promo_code', 'TEXT');
+  ensureColumn('users', 'partner_disclosure_url', 'TEXT');
+  ensureColumn('users', 'partner_activated_at', 'TEXT');
+  ensureColumn('users', 'partner_pro_grant_expires_at', 'TEXT');
+
+  // Partner commission ledger: one row per (creator, referee_invoice) where
+  // the creator earns cash. UNIQUE(stripe_invoice_id) makes the webhook
+  // accrual idempotent against redeliveries. Status walks
+  // accrued -> paid (operator marks after out-of-band payout) or
+  // accrued -> reversed (e.g. invoice refunded/disputed).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partner_commissions (
+      id TEXT PRIMARY KEY,
+      partner_user_id TEXT NOT NULL,
+      referee_user_id TEXT NOT NULL,
+      stripe_invoice_id TEXT NOT NULL UNIQUE,
+      billed_amount INTEGER NOT NULL,
+      commission_amount INTEGER NOT NULL,
+      currency TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'accrued',
+      created_at TEXT NOT NULL,
+      paid_at TEXT,
+      payout_reference TEXT,
+      FOREIGN KEY(partner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(referee_user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_partner_commissions_partner ON partner_commissions(partner_user_id, status);'
+  );
+  // Unique index on the customer-facing promo code so two partners can't
+  // claim the same string. Partial index (WHERE NOT NULL) keeps it cheap
+  // for the dominant cohort of standard users without a code.
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_partner_audience_promo_code ON users(partner_audience_promo_code) WHERE partner_audience_promo_code IS NOT NULL'
+  );
+
   // One-time stamp marking that the "first paid subscription" welcome email
   // was delivered. After it is set, subsequent paid checkouts (re-subscribes
   // after a cancel) trigger a "welcome back" email instead, and pure upgrades

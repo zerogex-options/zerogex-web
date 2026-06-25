@@ -17,6 +17,11 @@ import {
   type BillingCadence,
 } from '@/core/stripe';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
+import {
+  findCreatorByReferralCode,
+  getPartnerAudienceCouponId,
+  isCreatorPartnerProgramEnabled,
+} from '@/core/creatorPartners';
 
 // Card is collected at checkout (Stripe subscription mode defaults
 // payment_method_collection to 'always'); tier is granted immediately
@@ -217,6 +222,7 @@ export async function POST(request: NextRequest) {
         tier,
         cadence,
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
+        ...(discountResult.partnerApplied ? { partner_referred: '1' } : {}),
       },
       // Stripe accepts only one of trial_end / trial_period_days. Founding
       // members get the absolute July-1 trial_end; everyone else (first-time
@@ -252,14 +258,20 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
 }
 
 type DiscountResolution =
-  | { ok: true; couponId: string | null; foundingApplied: boolean; referralApplied: boolean }
+  | {
+      ok: true;
+      couponId: string | null;
+      foundingApplied: boolean;
+      referralApplied: boolean;
+      partnerApplied: boolean;
+    }
   | { ok: false; status: number; error: string };
 
 function resolveDiscount(input: {
@@ -293,32 +305,88 @@ function resolveDiscount(input: {
         error: `Founding-member discount is not configured for this plan (${input.tier}/${input.cadence}).`,
       };
     }
-    return { ok: true, couponId, foundingApplied: true, referralApplied: false };
+    return {
+      ok: true,
+      couponId,
+      foundingApplied: true,
+      referralApplied: false,
+      partnerApplied: false,
+    };
   }
 
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
   if (promoCouponId) {
-    return { ok: true, couponId: promoCouponId, foundingApplied: false, referralApplied: false };
+    return {
+      ok: true,
+      couponId: promoCouponId,
+      foundingApplied: false,
+      referralApplied: false,
+      partnerApplied: false,
+    };
   }
 
-  // Referee discount: a referred user gets first-month-free (monthly) or
-  // 10%-off-first-year (annual). Lowest priority — founding and the time-boxed
-  // promo above intentionally win so discounts never stack.
-  if (input.referredByCode && isReferralProgramEnabled()) {
-    const refereeCoupon = getRefereeCouponId(input.cadence);
-    if (refereeCoupon) {
-      // Defense-in-depth: the monthly referee coupon is 100%-off (first month
-      // free). On an annual line item that same coupon would make the entire
-      // first YEAR free. The coupon is already keyed to cadence, but guard the
-      // env-misconfig case where the annual var was pointed at the monthly
-      // coupon — drop the discount rather than give away a free year.
-      const monthlyCoupon = getRefereeCouponId('monthly');
-      if (input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon) {
-        return { ok: true, couponId: null, foundingApplied: false, referralApplied: false };
+  // Referral-derived discounts. The code can resolve to either:
+  //   - a creator partner -> partner audience coupon (richer, monthly only)
+  //   - a standard user   -> standard referee coupon (one-shot)
+  // Partner wins when both apply because the partner offer is the curated
+  // deal we negotiated with the creator and is what their audience was
+  // promised. Standard referee is the fallback for everyone else.
+  if (input.referredByCode) {
+    if (isCreatorPartnerProgramEnabled()) {
+      const partner = findCreatorByReferralCode(input.referredByCode);
+      if (partner) {
+        const partnerCoupon = getPartnerAudienceCouponId(partner, input.cadence);
+        if (partnerCoupon) {
+          return {
+            ok: true,
+            couponId: partnerCoupon,
+            foundingApplied: false,
+            referralApplied: false,
+            partnerApplied: true,
+          };
+        }
+        // Partner resolved but no monthly coupon configured / annual cadence.
+        // Fall through to the standard referee path so the referee still gets
+        // SOMETHING (and the partner still gets attribution + commission via
+        // the referred_by_code that's already recorded on the user row).
       }
-      return { ok: true, couponId: refereeCoupon, foundingApplied: false, referralApplied: true };
+    }
+
+    if (isReferralProgramEnabled()) {
+      const refereeCoupon = getRefereeCouponId(input.cadence);
+      if (refereeCoupon) {
+        // Defense-in-depth: the monthly referee coupon is 100%-off (first
+        // month free). On an annual line item that same coupon would make the
+        // entire first YEAR free. The coupon is already keyed to cadence, but
+        // guard the env-misconfig case where the annual var was pointed at
+        // the monthly coupon — drop the discount rather than give away a
+        // free year.
+        const monthlyCoupon = getRefereeCouponId('monthly');
+        if (input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon) {
+          return {
+            ok: true,
+            couponId: null,
+            foundingApplied: false,
+            referralApplied: false,
+            partnerApplied: false,
+          };
+        }
+        return {
+          ok: true,
+          couponId: refereeCoupon,
+          foundingApplied: false,
+          referralApplied: true,
+          partnerApplied: false,
+        };
+      }
     }
   }
 
-  return { ok: true, couponId: null, foundingApplied: false, referralApplied: false };
+  return {
+    ok: true,
+    couponId: null,
+    foundingApplied: false,
+    referralApplied: false,
+    partnerApplied: false,
+  };
 }
