@@ -528,9 +528,13 @@ export default function ProprietarySignalsSynthesis() {
   }, [volExpansion.data, rangeBreak.data, marketPressure.data]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+    // MSI sits on top at its natural height; the Breadth + Regime Triggers
+    // pair shares the remaining height of the column (1fr). h-full lets the
+    // grid stretch when the dashboard pairs this section with the Volatility
+    // Monitor next door, so the two sections settle at matching heights.
+    <div className="grid h-full grid-rows-[auto_1fr] gap-4">
       <CompositeMsiCard score={compositeScore} />
-      <div className="grid grid-rows-[1fr_auto] gap-4 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
         <SignalBreadthCard basicSignals={basicSignals} advancedSignals={advancedSignals} />
         <RegimeTriggersCard triggers={regimeTriggers} />
       </div>
