@@ -149,7 +149,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
 
   return (
     <div
-      className="p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+      className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
       style={{
         backgroundColor: cardBg,
         border: `1px solid ${colors.muted}`,
@@ -198,8 +198,9 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
         )}
       </div>
 
-      {/* Gauge icon */}
-      <div className="flex justify-center">
+      {/* Gauge icon — flex-1 centers it vertically so the card can stretch
+          to match a taller sibling without leaving the gauge stuck at the top. */}
+      <div className="flex flex-1 items-center justify-center">
         <SingleGauge
           value={value}
           zoneLabel={zoneLabel}
@@ -236,7 +237,13 @@ export default function VolatilityCard({ stacked = false }: VolatilityCardProps 
   if (!data) return null;
 
   return (
-    <div className={stacked ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+    <div
+      className={
+        stacked
+          ? "grid h-full grid-rows-[1fr_1fr] gap-4"
+          : "grid grid-cols-1 md:grid-cols-2 gap-4"
+      }
+    >
       <GaugeCard
         type="speedometer"
         value={data.level}
