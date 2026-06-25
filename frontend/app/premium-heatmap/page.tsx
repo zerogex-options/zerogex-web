@@ -150,32 +150,40 @@ export default function PremiumHeatmapPage() {
     const dtes = slices.map((s) => s.dte);
     const expirationLabels = slices.map((s) => s.expiration);
 
+    // Per-cell value depends on the selected metric:
+    //   extrinsic      → premium − intrinsic (already computed server-side).
+    //   breakeven_pct  → % spot must move for the contract to break even at
+    //                    expiry. Breakeven = strike + premium (call) or
+    //                    strike − premium (put), so:
+    //                      call move = strike + premium − spot
+    //                      put  move = spot − strike + premium
+    //                    For ITM strikes this collapses to extrinsic, but for
+    //                    OTM strikes the move is |strike − spot| larger — the
+    //                    contract needs spot to travel to strike *and* pay
+    //                    the premium. Clamped at 0 to ignore crossed/stale
+    //                    quotes that would imply a free trade.
+    const spot = data.spot_price;
     let filledCells = 0;
     const z: (number | null)[][] = slices.map((slice) => {
       const row: (number | null)[] = new Array(strikes.length).fill(null);
       for (const sp of slice.strikes) {
         const idx = strikeIndex.get(sp.strike);
-        if (idx !== undefined && sp.extrinsic != null) {
-          row[idx] = sp.extrinsic;
+        if (idx === undefined) continue;
+        if (metric === 'extrinsic') {
+          if (sp.extrinsic != null) {
+            row[idx] = sp.extrinsic;
+            filledCells++;
+          }
+        } else if (sp.premium != null && spot > 0) {
+          const moveDollars = optionType === 'C'
+            ? sp.strike + sp.premium - spot
+            : spot - sp.strike + sp.premium;
+          row[idx] = (Math.max(0, moveDollars) / spot) * 100;
           filledCells++;
         }
       }
       return interpolateRowGaps(row);
     });
-
-    // Breakeven price = strike ± premium, so |breakeven − spot| = extrinsic
-    // for both calls and puts. The % move from spot to breakeven at expiry is
-    // therefore extrinsic / spot × 100 — a linear rescale, applied after the
-    // strike-axis interpolation (commutes either way).
-    if (metric === 'breakeven_pct' && data.spot_price > 0) {
-      const scale = 100 / data.spot_price;
-      for (let i = 0; i < z.length; i++) {
-        for (let j = 0; j < z[i].length; j++) {
-          const v = z[i][j];
-          if (v != null) z[i][j] = v * scale;
-        }
-      }
-    }
 
     // A surface needs at least a 2×2 grid to render meaningfully.
     const hasGrid = strikes.length >= 2 && dtes.length >= 2;
@@ -183,7 +191,7 @@ export default function PremiumHeatmapPage() {
     // premiums" (e.g. a snapshot with empty quotes) so the UI can say which.
     const hasData = filledCells > 0;
     return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
-  }, [data, metric]);
+  }, [data, metric, optionType]);
 
   const muted = theme === 'dark' ? colors.muted : colors.dark;
   const inputBorder = theme === 'dark' ? colors.borderDark : colors.borderLight;
