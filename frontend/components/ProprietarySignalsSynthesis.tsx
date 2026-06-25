@@ -250,8 +250,8 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
 
   return (
     <CardShell
-      title="Signal Breadth · Basic + Advanced"
-      tooltip="Unweighted directional vote across all 6 Basic and 8 Advanced signals — each on a −100…+100 scale where sign IS bullish vs bearish. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, otherwise neutral. Net = bullish − bearish. This card answers 'which way?'; the Composite MSI to its left answers 'what regime?' — they're orthogonal."
+      title="Signal Breadth · Directional Vote"
+      tooltip="Unweighted directional vote across the 11 signals whose sign IS bullish vs bearish: all 6 Basic, plus EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, and Gamma/VWAP Confluence. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, else neutral. Net = bullish − bearish. The other 3 advanced signals (Vol Expansion, Range Break Imminence, Market Pressure) are regime-readiness reads — their magnitude IS the signal, sign is incidental — so they live in the Regime Triggers panel below, not in this tally."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="text-2xl sm:text-3xl md:text-4xl font-bold break-words" style={{ color }}>
@@ -340,6 +340,106 @@ const BASIC_SIGNAL_LABELS: Record<BasicSignalName, string> = {
   positioning_trap: 'Positioning Trap',
 };
 
+interface RegimeTrigger {
+  key: string;
+  label: string;
+  // 0–100 readiness / imminence / loading; null when data is missing.
+  magnitude: number | null;
+  // Backend-provided playbook state label (e.g. "Break Watch", "Loaded").
+  state: string | null;
+  // Optional directional tag the backend attaches to the trigger; shown as
+  // context only — these signals are not directional votes.
+  direction: 'bullish' | 'bearish' | 'neutral' | null;
+}
+
+function extractDirection(raw: unknown): 'bullish' | 'bearish' | 'neutral' | null {
+  if (typeof raw === 'string') {
+    const v = raw.toLowerCase();
+    if (v === 'bullish' || v === 'bearish' || v === 'neutral') return v;
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    if (raw > 0) return 'bullish';
+    if (raw < 0) return 'bearish';
+    return 'neutral';
+  }
+  return null;
+}
+
+// vol_expansion has no backend-provided label; derive a state band from
+// the `expansion` readiness (already 0–100). Thresholds match the
+// `triggered` cutoff (|score| ≥ 0.25 with readiness floor 0.15 ⇒ ~25 as
+// the lower band; full readiness saturates at 100).
+function deriveVolExpansionState(expansion: number | null): string | null {
+  if (expansion == null) return null;
+  if (expansion >= 70) return 'Loaded';
+  if (expansion >= 40) return 'Building';
+  return 'Quiet';
+}
+
+function regimeStateColor(magnitude: number | null): string {
+  if (magnitude == null) return 'var(--color-text-secondary)';
+  if (magnitude >= 70) return 'var(--color-bull)';
+  if (magnitude >= 40) return 'var(--color-warning)';
+  return 'var(--color-text-secondary)';
+}
+
+interface RegimeTriggersCardProps {
+  triggers: RegimeTrigger[];
+}
+
+function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
+  return (
+    <CardShell
+      title="Regime Triggers · Readiness"
+      tooltip="Three advanced signals whose magnitude — NOT sign — is the read. Each scores 0–100 readiness for a regime shift: Volatility Expansion measures whether the gamma backdrop is loaded for a directional move, Range Break Imminence measures how close chop is to resolving, Market Pressure measures coiled-spring loading. Use these to flip your playbook (e.g. Range Fade → Breakout Mode), not as bullish / bearish votes. A direction tag is shown for context where the backend supplies one — it's secondary to the magnitude."
+    >
+      <div className="space-y-3">
+        {triggers.map((trigger) => {
+          const pct = trigger.magnitude != null
+            ? Math.max(0, Math.min(100, trigger.magnitude))
+            : 0;
+          const color = regimeStateColor(trigger.magnitude);
+          return (
+            <div key={trigger.key} className="space-y-1">
+              <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {trigger.label}
+                </span>
+                <span className="flex items-baseline gap-1.5">
+                  {trigger.direction === 'bullish' && (
+                    <TrendingUp size={11} style={{ color: 'var(--color-bull)' }} aria-label="bullish lean" />
+                  )}
+                  {trigger.direction === 'bearish' && (
+                    <TrendingDown size={11} style={{ color: 'var(--color-bear)' }} aria-label="bearish lean" />
+                  )}
+                  <span
+                    className="font-bold tabular-nums"
+                    style={{ color, fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {trigger.magnitude != null ? trigger.magnitude.toFixed(0) : '—'}
+                  </span>
+                  <span className="text-[10px]" style={{ color: colors.muted }}>/100</span>
+                </span>
+              </div>
+              <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${pct}%`, background: color }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span style={{ color: colors.muted }}>
+                  {trigger.state ?? (trigger.magnitude == null ? 'awaiting data' : '—')}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </CardShell>
+  );
+}
+
 export default function ProprietarySignalsSynthesis() {
   const { symbol } = useTimeframe();
 
@@ -371,36 +471,69 @@ export default function ProprietarySignalsSynthesis() {
     });
   }, [basicBundleData]);
 
+  // Only the directional / directional-structural advanced signals belong
+  // in the breadth tally — their sign is a genuine bullish-vs-bearish vote.
+  // The three regime-readiness advanced signals (vol_expansion,
+  // range_break_imminence, market_pressure) are surfaced separately by
+  // <RegimeTriggersCard> below because their magnitude is the signal and
+  // the sign is incidental (e.g. vol_expansion = readiness × momentum).
   const advancedSignals = useMemo<SignalLite[]>(() => {
     const pick = (data: unknown): number | null => {
       const payload = asObject(data);
       return payload ? getNumber(payload.score) : null;
     };
     return [
-      { key: 'vol_expansion', label: 'Volatility Expansion', score: pick(volExpansion.data) },
       { key: 'eod_pressure', label: 'EOD Pressure', score: pick(eodPressure.data) },
       { key: 'squeeze_setup', label: 'Squeeze Setup', score: pick(squeeze.data) },
       { key: 'trap_detection', label: 'Trap Detection', score: pick(trapDetection.data) },
       { key: 'zero_dte_position_imbalance', label: '0DTE Position Imbalance', score: pick(zeroDte.data) },
       { key: 'gamma_vwap_confluence', label: 'Gamma/VWAP Confluence', score: pick(gammaVwap.data) },
-      { key: 'range_break_imminence', label: 'Range Break Imminence', score: pick(rangeBreak.data) },
-      { key: 'market_pressure', label: 'Market Pressure', score: pick(marketPressure.data) },
     ];
   }, [
-    volExpansion.data,
     eodPressure.data,
     squeeze.data,
     trapDetection.data,
     zeroDte.data,
     gammaVwap.data,
-    rangeBreak.data,
-    marketPressure.data,
   ]);
+
+  const regimeTriggers = useMemo<RegimeTrigger[]>(() => {
+    const volCtx = asObject(volExpansion.data);
+    const rbCtx = asObject(asObject(rangeBreak.data)?.context_values);
+    const mpCtx = asObject(asObject(marketPressure.data)?.context_values);
+    return [
+      {
+        key: 'vol_expansion',
+        label: 'Volatility Expansion',
+        // Top-level `expansion` field (see VolExpansionSignalResponse).
+        magnitude: volCtx ? getNumber(volCtx.expansion) : null,
+        state: deriveVolExpansionState(volCtx ? getNumber(volCtx.expansion) : null),
+        direction: extractDirection(asObject(volExpansion.data)?.direction),
+      },
+      {
+        key: 'range_break_imminence',
+        label: 'Range Break Imminence',
+        magnitude: rbCtx ? getNumber(rbCtx.imminence) : null,
+        state: typeof rbCtx?.label === 'string' ? rbCtx.label : null,
+        direction: extractDirection(rbCtx?.direction),
+      },
+      {
+        key: 'market_pressure',
+        label: 'Market Pressure',
+        magnitude: mpCtx ? getNumber(mpCtx.loading) : null,
+        state: typeof mpCtx?.label === 'string' ? mpCtx.label : null,
+        direction: extractDirection(mpCtx?.direction_sign),
+      },
+    ];
+  }, [volExpansion.data, rangeBreak.data, marketPressure.data]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
       <CompositeMsiCard score={compositeScore} />
-      <SignalBreadthCard basicSignals={basicSignals} advancedSignals={advancedSignals} />
+      <div className="grid grid-rows-[1fr_auto] gap-4 min-h-0">
+        <SignalBreadthCard basicSignals={basicSignals} advancedSignals={advancedSignals} />
+        <RegimeTriggersCard triggers={regimeTriggers} />
+      </div>
     </div>
   );
 }
