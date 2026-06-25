@@ -296,6 +296,14 @@ function initDb(): DatabaseSync {
   // second trial after a cancellation) so the nudge fires once per trial.
   ensureColumn('users', 'trial_reminder_email_sent_at', 'TEXT');
 
+  // One-shot latch for the abandoned-checkout recovery email sent by
+  // scripts/send-checkout-recovery.mts. NULL = eligible, set to the ISO
+  // timestamp of the send once delivered. Deliberately never cleared: a
+  // user who bails a second time after declining the first nudge does not
+  // get nagged again. The recovery cron's eligibility query treats this
+  // column as a permanent dedupe key for the lifetime of the account.
+  ensureColumn('users', 'checkout_recovery_email_sent_at', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when

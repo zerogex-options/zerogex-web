@@ -321,6 +321,88 @@ export async function sendTrialReminderEmail(
   }
 }
 
+// One-shot nudge sent ~24h after a user starts checkout but doesn't finish
+// (no stripe_subscription_id stamped). foundingDeadlineLabel is set when the
+// user is founding_eligible AND the lock-in deadline is still in the future
+// — both branches link to /pricing so the user re-enters the existing
+// checkout flow (which will reuse their cached stripe_customer_id rather
+// than minting another orphan). Latched per-account by
+// users.checkout_recovery_email_sent_at; deliberately never re-fires.
+export async function sendCheckoutRecoveryEmail(
+  to: string,
+  opts: { foundingDeadlineLabel: string | null },
+) {
+  const founding = opts.foundingDeadlineLabel;
+  const subject = founding
+    ? `Your ZeroGEX founding rate is still available — only until ${founding}`
+    : 'Pick up where you left off at ZeroGEX';
+
+  const pricingUrl = `${getAppUrl()}/pricing`;
+  const safePricingUrl = escapeHtml(pricingUrl);
+
+  const text = founding
+    ? [
+        'Hello,',
+        '',
+        `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but as a founding member you're still eligible for the locked-in founding rate, and that offer closes ${founding}.`,
+        '',
+        `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
+        '',
+        `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it.`,
+        '',
+        'Best,',
+        'Michael',
+        'Founder, ZeroGEX',
+      ].join('\n')
+    : [
+        'Hello,',
+        '',
+        "I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — sometimes a tab just gets closed.",
+        '',
+        `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
+        '',
+        `If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it. And if anything stopped you from finishing (a pricing question, a missing feature, a confusing step), feel free to reply to this email. I read every message.`,
+        '',
+        'Best,',
+        'Michael',
+        'Founder, ZeroGEX',
+      ].join('\n');
+
+  const ctaLabel = founding ? 'Lock in the founding rate' : 'Resume checkout';
+  const intro = founding
+    ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
+    : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
+  const closer = founding
+    ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
+    : `If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it. And if anything stopped you from finishing, feel free to reply to this email. I read every message.`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${intro}</p>
+      <p>If you'd like to pick it back up, the same plan is one click away:</p>
+      <p style="margin: 24px 0;">
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
+      </p>
+      <p>${closer}</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendWelcomeBackEmail(to: string) {
   const subject = 'Welcome back to ZeroGEX!';
   const text = [

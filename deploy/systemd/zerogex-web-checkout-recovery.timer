@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroGEX web abandoned-checkout recovery email timer (~every 6h)
+
+[Timer]
+# Every 6 hours, on :45 so it doesn't collide with the hourly auth backup at
+# :00, the trial-reminder timer at :15, or the 02:00/02:30 cron jobs. The
+# script's 24h lag means we never email someone who's still actively in
+# checkout, so the exact minute of the run is not load-bearing.
+OnCalendar=00/6:45:00
+# Spread load across deploys / coalesce if many users hit the same minute.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
