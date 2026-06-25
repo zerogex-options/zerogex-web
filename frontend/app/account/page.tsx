@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Copy, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 
 type DonationPayload = {
   pledgePct: number;
@@ -391,6 +392,10 @@ function AccountPageContent() {
           >
             {feedback.message}
           </div>
+        )}
+
+        {authSession.user?.emailVerified === false && authSession.user?.email && (
+          <VerifyEmailBanner email={authSession.user.email} />
         )}
 
         <section

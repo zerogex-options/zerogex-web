@@ -117,7 +117,10 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
         body: JSON.stringify({ email, password, tier: selectedTier, ref: refCode ?? undefined }),
       });
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as {
+        error?: string;
+        emailVerificationSent?: boolean;
+      };
       if (!response.ok) {
         setError(payload.error ?? 'Registration failed');
         return;
@@ -131,9 +134,19 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
         referred: Boolean(refCode),
       });
 
+      // If the verification mail couldn't be dispatched on signup, append a
+      // hint to the destination so /pricing (or whatever next= points at)
+      // can show a "couldn't send the link — use Resend" banner. The account
+      // is otherwise fine; the user is auto-logged-in and just needs to hit
+      // the Resend button.
+      const target =
+        payload.emailVerificationSent === false
+          ? successHref + (successHref.includes('?') ? '&' : '?') + 'email_send_failed=1'
+          : successHref;
+
       // /api/auth/register now sets the session cookie itself; skip the
       // /login bounce and go straight to the next destination.
-      router.replace(successHref);
+      router.replace(target);
     } finally {
       setLoading(false);
     }

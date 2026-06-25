@@ -426,14 +426,20 @@ export async function registerAndStartSession(
 
   // Fire the verification email but don't let a mailer failure unwind the
   // signup — the account already exists and the session below auto-logs them
-  // in. The pricing-page banner has a Resend button for retrying.
+  // in. The pricing-page banner has a Resend button for retrying. We DO
+  // surface the failure to the caller (POST /api/auth/register) so the
+  // register client can warn the user instead of silently leaving them
+  // wondering why no email arrived.
+  let emailVerificationSent = true;
   try {
     await issueEmailVerification(request, fullUser.id, fullUser.email);
   } catch (err) {
     console.error('[register] failed to issue verification email:', err);
+    emailVerificationSent = false;
   }
 
-  return createSessionForUser(fullUser);
+  const session = createSessionForUser(fullUser);
+  return { ...session, emailVerificationSent };
 }
 
 export async function createSessionForUserCredentials(request: NextRequest, email: string, password: string) {

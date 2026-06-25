@@ -402,6 +402,16 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
         message: 'That verification link is no longer valid. Use Resend below to get a new one.',
       };
     }
+    // Signaled by /register when Resend errored during signup — the account is
+    // fine, the user just needs to click Resend below to actually receive the
+    // verification link.
+    if (searchParams.get('email_send_failed') === '1') {
+      return {
+        kind: 'error',
+        message:
+          'Your account is ready, but we couldn’t send the verification email. Use Resend below to try again.',
+      };
+    }
     return null;
   }, [searchParams]);
 
