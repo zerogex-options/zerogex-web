@@ -216,77 +216,79 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {/* GEX Metrics */}
+      {/* Positioning & Flow — gamma structure on the first row, intraday flow
+          on the second. Merged from the prior 'Gamma Exposure' (4 cards) and
+          'Options Sentiment' (3 cards) sections so the related dealer/flow
+          metrics live under one header. The second row's 3-col grid lets the
+          flow cards fill the width cleanly instead of leaving a hole at the
+          end of a 4-col row. */}
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Gamma Exposure</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Call GEX"
-            value={formatCompactUsd(gexData?.total_call_gex)}
-            trend="neutral"
-            tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
-            theme={theme}
-          />
-          <MetricCard
-            title="Put GEX"
-            value={formatCompactUsd(gexData?.total_put_gex)}
-            trend="neutral"
-            tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
-            theme={theme}
-          />
-          <MetricCard
-            title="Call Wall (Resistance)"
-            value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.call_wall && quoteData?.close
-                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy call open interest'
-            }
-            tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
-            theme={theme}
-            trend="bearish"
-          />
-          <MetricCard
-            title="Put Wall (Support)"
-            value={gexData?.put_wall != null ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
-            subtitle={
-              gexData?.put_wall && quoteData?.close
-                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy put open interest'
-            }
-            tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
-            theme={theme}
-            trend="bullish"
-          />
-        </div>
-      </section>
-
-      {/* Options Sentiment */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Options Sentiment</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard
-            title="Net Flow"
-            value={Number(latestFlowSnapshot?.netFlow ?? 0).toLocaleString()}
-            subtitle="contracts"
-            trend={Number(latestFlowSnapshot?.netFlow ?? 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call volume minus put volume for the current session."
-            theme={theme}
-          />
-          <MetricCard
-            title="Net Premium"
-            value={`${Number(latestFlowSnapshot?.netPremium ?? 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestFlowSnapshot?.netPremium ?? 0)) / 1_000_000).toFixed(2)}M`}
-            trend={Number(latestFlowSnapshot?.netPremium ?? 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call premium minus put premium for the current session."
-            theme={theme}
-          />
-          <MetricCard
-            title="Put/Call Ratio"
-            value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
-            trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
-            tooltip="Cumulative put volume divided by cumulative call volume for the current session."
-            theme={theme}
-          />
+        <h2 className="text-2xl font-semibold mb-4">Positioning &amp; Flow</h2>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Call GEX"
+              value={formatCompactUsd(gexData?.total_call_gex)}
+              trend="neutral"
+              tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
+              theme={theme}
+            />
+            <MetricCard
+              title="Put GEX"
+              value={formatCompactUsd(gexData?.total_put_gex)}
+              trend="neutral"
+              tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
+              theme={theme}
+            />
+            <MetricCard
+              title="Call Wall (Resistance)"
+              value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
+              subtitle={
+                gexData?.call_wall && quoteData?.close
+                  ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                  : 'Heavy call open interest'
+              }
+              tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+              theme={theme}
+              trend="bearish"
+            />
+            <MetricCard
+              title="Put Wall (Support)"
+              value={gexData?.put_wall != null ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
+              subtitle={
+                gexData?.put_wall && quoteData?.close
+                  ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
+                  : 'Heavy put open interest'
+              }
+              tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+              theme={theme}
+              trend="bullish"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <MetricCard
+              title="Net Flow"
+              value={Number(latestFlowSnapshot?.netFlow ?? 0).toLocaleString()}
+              subtitle="contracts"
+              trend={Number(latestFlowSnapshot?.netFlow ?? 0) > 0 ? "bullish" : "bearish"}
+              tooltip="Cumulative call volume minus put volume for the current session."
+              theme={theme}
+            />
+            <MetricCard
+              title="Net Premium"
+              value={`${Number(latestFlowSnapshot?.netPremium ?? 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestFlowSnapshot?.netPremium ?? 0)) / 1_000_000).toFixed(2)}M`}
+              trend={Number(latestFlowSnapshot?.netPremium ?? 0) > 0 ? "bullish" : "bearish"}
+              tooltip="Cumulative call premium minus put premium for the current session."
+              theme={theme}
+            />
+            <MetricCard
+              title="Put/Call Ratio"
+              value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
+              trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
+              tooltip="Cumulative put volume divided by cumulative call volume for the current session."
+              theme={theme}
+            />
+          </div>
         </div>
       </section>
 
