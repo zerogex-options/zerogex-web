@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { CompositeHistoryRow, getComponentLabel } from './data';
-import { REGIME_BANDS, classifyRegime } from './regime';
+import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 
 interface Props {
   history: CompositeHistoryRow[];

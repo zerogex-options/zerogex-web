@@ -9,7 +9,7 @@ import CompositeGauge from './CompositeGauge';
 import ContributionStack from './ContributionStack';
 import ComponentCard from './ComponentCard';
 import { useCompositeData } from './useCompositeData';
-import { REGIME_BANDS, classifyRegime } from './regime';
+import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';

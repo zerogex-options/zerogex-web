@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { REGIME_BANDS, classifyRegime } from './regime';
+import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 
 interface CompositeGaugeProps {
   score: number | null;

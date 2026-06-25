@@ -18,7 +18,7 @@ import {
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { getRegimeLabel } from '@/core/signalConstants';
+import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { asObject, getNumber } from '@/core/signalHelpers';
 import { colors } from '@/core/colors';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
@@ -69,13 +69,6 @@ function CardShell({ title, tooltip, children }: CardShellProps) {
   );
 }
 
-function tilt(score: number | null): 'bullish' | 'bearish' | 'neutral' {
-  if (score == null) return 'neutral';
-  if (score > 0) return 'bullish';
-  if (score < 0) return 'bearish';
-  return 'neutral';
-}
-
 function tiltColor(t: 'bullish' | 'bearish' | 'neutral'): string {
   if (t === 'bullish') return 'var(--color-bull)';
   if (t === 'bearish') return 'var(--color-bear)';
@@ -90,58 +83,70 @@ function renderTiltIcon(t: 'bullish' | 'bearish' | 'neutral', color: string) {
 
 interface CompositeMsiCardProps {
   score: number | null;
-  triggerThreshold: number;
 }
 
-function CompositeMsiCard({ score, triggerThreshold }: CompositeMsiCardProps) {
-  const t = tilt(score);
-  const color = tiltColor(t);
-  const regime = score != null ? getRegimeLabel(score) : 'Awaiting signal data';
-  const direction = score == null ? 'Awaiting' : score > 0 ? 'Bullish' : score < 0 ? 'Bearish' : 'Neutral';
-  // Spectrum position (0–100) — maps the −100/+100 score to a percentage along
-  // the gradient bar so the marker sits proportionally between extremes.
-  const pct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
-  const triggerPct = Math.max(1, Math.min(99, ((triggerThreshold + 100) / 200) * 100));
+// Band edges that match the backend's regime classifier
+// (src/signals/scoring_engine.py:_regime_label). Kept here so the axis
+// labels under the spectrum bar render in the same positions as the
+// gauge on /signal-score.
+const MSI_AXIS_TICKS = [0, 20, 40, 70, 100] as const;
+
+function CompositeMsiCard({ score }: CompositeMsiCardProps) {
+  const regime = classifyRegime(score);
+  const color = regime.color;
+  // Score is a 0–100 regime gauge with a 50 baseline (see
+  // src/signals/scoring_engine.py). Spectrum position is a direct
+  // pass-through of the score; the regime bands already shade the bar
+  // so no centering math is needed.
+  const safeScore = score != null && Number.isFinite(score)
+    ? Math.max(0, Math.min(100, score))
+    : null;
+  const pct = safeScore ?? 50;
 
   return (
     <CardShell
       title="Composite MSI · Weighted Synthesis"
-      tooltip="UnifiedSignalEngine composite score on a −100 to +100 scale — the weighted synthesis of every Basic and Advanced signal feeding the engine. Sign is direction (positive = bullish); magnitude is conviction. The horizontal spectrum maps to the same action bands the engine uses to gate trades."
+      tooltip="Market State Index: a single 0–100 regime gauge built from six option-structure components (net GEX sign, gamma anchor, P/C ratio, vol regime, smart-money flow, dealer delta pressure). 50 is neutral. ≥70 trend / expansion, 40–70 controlled trend, 20–40 chop / range, <20 high-risk reversal. A high MSI does NOT mean bullish — it means trends can run. Read direction from the Bias panel or individual signal scores."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
-        <div className="text-2xl sm:text-3xl md:text-4xl font-bold break-words" style={{ color }}>
-          {score != null ? `${score >= 0 ? '+' : ''}${score.toFixed(1)}` : '—'}
+        <div
+          className="text-2xl sm:text-3xl md:text-4xl font-bold break-words"
+          style={{ color, fontVariantNumeric: 'tabular-nums' }}
+        >
+          {safeScore != null ? safeScore.toFixed(1) : '—'}
         </div>
         <div className="flex flex-col items-end">
-          <div className="flex items-center gap-1.5">
-            {renderTiltIcon(t, color)}
-            <div className="text-base sm:text-lg font-bold" style={{ color }}>
-              {direction.toUpperCase()}
+          <div className="flex items-center gap-1.5" style={{ color }}>
+            <span aria-hidden className="text-base sm:text-lg leading-none">{regime.glyph}</span>
+            <div className="text-base sm:text-lg font-bold">
+              {regime.label}
             </div>
           </div>
           <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
-            Score · −100 to +100
+            Score · 0 to 100 · regime gauge
           </div>
         </div>
       </div>
 
       <div className="mt-1">
         <div className="relative">
-          <div
-            className="h-3 rounded-full"
-            style={{
-              background:
-                'linear-gradient(90deg, var(--color-bear) 0%, #d98572 21%, var(--color-warning) 50%, #75cfa1 79%, var(--color-bull) 100%)',
-            }}
-          />
-          {/* Trigger threshold ticks */}
+          <div className="flex h-3 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
+            {REGIME_BANDS.map((band) => (
+              <div
+                key={band.regime.key}
+                style={{
+                  width: `${band.to - band.from}%`,
+                  background: band.regime.color,
+                  opacity: 0.85,
+                }}
+              />
+            ))}
+          </div>
+          {/* Neutral baseline at 50 */}
           <div
             className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-40"
-            style={{ left: `${triggerPct}%` }}
-          />
-          <div
-            className="absolute top-0 h-3 w-px bg-[var(--color-text-primary)] opacity-40"
-            style={{ left: `${100 - triggerPct}%` }}
+            style={{ left: '50%' }}
+            aria-hidden
           />
           {/* Current marker */}
           <div
@@ -150,43 +155,45 @@ function CompositeMsiCard({ score, triggerThreshold }: CompositeMsiCardProps) {
               left: spectrumIndicatorLeft(pct, 12, 2),
               transform: 'translateX(-50%)',
             }}
-            aria-label={`Composite MSI ${score != null ? score.toFixed(1) : 'unavailable'}`}
+            aria-label={`Composite MSI ${safeScore != null ? safeScore.toFixed(1) : 'unavailable'}`}
           />
         </div>
-        <div className="mt-2 grid grid-cols-5 text-[10px] text-[var(--color-text-secondary)]">
-          <span className="text-left">−100</span>
-          <span className="text-center">−{triggerThreshold}</span>
-          <span className="text-center">0</span>
-          <span className="text-center">+{triggerThreshold}</span>
-          <span className="text-right">+100</span>
+        <div className="mt-2 relative h-3 text-[10px] text-[var(--color-text-secondary)]">
+          {MSI_AXIS_TICKS.map((tick) => (
+            <span
+              key={tick}
+              className="absolute"
+              style={{
+                left: `${tick}%`,
+                transform:
+                  tick === 0 ? 'translateX(0)' : tick === 100 ? 'translateX(-100%)' : 'translateX(-50%)',
+              }}
+            >
+              {tick}
+            </span>
+          ))}
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-5 gap-1 text-[10px] text-center">
-        <div className="rounded border border-[var(--color-border)] py-1 px-0.5">
-          <div className="font-semibold" style={{ color: 'var(--color-bear)' }}>Full</div>
-          <div className="text-[var(--color-text-secondary)]">Puts</div>
-        </div>
-        <div className="rounded border border-[var(--color-border)] py-1 px-0.5">
-          <div className="font-semibold" style={{ color: 'var(--color-bear)', opacity: 0.7 }}>Scalp</div>
-          <div className="text-[var(--color-text-secondary)]">Puts</div>
-        </div>
-        <div className="rounded border border-[var(--color-border)] py-1 px-0.5">
-          <div className="font-semibold" style={{ color: 'var(--color-warning)' }}>No</div>
-          <div className="text-[var(--color-text-secondary)]">Edge</div>
-        </div>
-        <div className="rounded border border-[var(--color-border)] py-1 px-0.5">
-          <div className="font-semibold" style={{ color: 'var(--color-bull)', opacity: 0.7 }}>Scalp</div>
-          <div className="text-[var(--color-text-secondary)]">Calls</div>
-        </div>
-        <div className="rounded border border-[var(--color-border)] py-1 px-0.5">
-          <div className="font-semibold" style={{ color: 'var(--color-bull)' }}>Full</div>
-          <div className="text-[var(--color-text-secondary)]">Calls</div>
-        </div>
+      <div className="mt-3 grid grid-cols-4 gap-1 text-[10px] text-center">
+        {REGIME_BANDS.map((band) => (
+          <div
+            key={band.regime.key}
+            className="rounded border border-[var(--color-border)] py-1 px-0.5"
+            style={{
+              background: regime.key === band.regime.key ? band.regime.softColor : 'transparent',
+            }}
+          >
+            <div className="font-semibold leading-tight" style={{ color: band.regime.color }}>
+              {band.regime.label}
+            </div>
+            <div className="text-[var(--color-text-secondary)]">{band.regime.rangeLabel}</div>
+          </div>
+        ))}
       </div>
 
       <div className="mt-auto pt-3 text-sm font-semibold" style={{ color }}>
-        {regime}
+        {regime.copy}
       </div>
     </CardShell>
   );
@@ -244,7 +251,7 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
   return (
     <CardShell
       title="Signal Breadth · Basic + Advanced"
-      tooltip="Unweighted directional vote across all 6 Basic and 8 Advanced signals. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, otherwise neutral. Net = bullish − bearish. Read alongside the Composite MSI: high MSI with broad breadth = consensus; high MSI with narrow breadth = the engine is leaning on a few loud signals."
+      tooltip="Unweighted directional vote across all 6 Basic and 8 Advanced signals — each on a −100…+100 scale where sign IS bullish vs bearish. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, otherwise neutral. Net = bullish − bearish. This card answers 'which way?'; the Composite MSI to its left answers 'what regime?' — they're orthogonal."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="text-2xl sm:text-3xl md:text-4xl font-bold break-words" style={{ color }}>
@@ -351,10 +358,6 @@ export default function ProprietarySignalsSynthesis() {
     const raw = scoreData?.composite_score ?? scoreData?.score;
     return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
   }, [scoreData]);
-  const triggerThreshold = useMemo(() => {
-    const t = scoreData?.trigger_threshold;
-    return typeof t === 'number' && Number.isFinite(t) ? Math.round(t) : 58;
-  }, [scoreData]);
 
   const basicSignals = useMemo<SignalLite[]>(() => {
     const signals = asObject(asObject(basicBundleData)?.signals) ?? {};
@@ -396,7 +399,7 @@ export default function ProprietarySignalsSynthesis() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
-      <CompositeMsiCard score={compositeScore} triggerThreshold={triggerThreshold} />
+      <CompositeMsiCard score={compositeScore} />
       <SignalBreadthCard basicSignals={basicSignals} advancedSignals={advancedSignals} />
     </div>
   );
