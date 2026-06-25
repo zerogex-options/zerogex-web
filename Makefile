@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders public-cohort diagnose-user grant-partner-pro partner-grant-expiry backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders public-cohort diagnose-user grant-partner-pro partner-grant-expiry backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, PAID=yes, TRIAL=yes, EMAIL_ONLY=yes)"
 	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
+	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -103,6 +104,15 @@ users:
 # banked free-month totals.
 referrals:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-referrals.mjs'
+
+# Force the auth DB's lazy migration to run now. Used after a deploy that
+# adds new columns but skipped the app rebuild + PM2 restart (most often
+# `./deploy.sh --start-from <step>` flows): without this nudge the new
+# columns don't land until the first user request hits the live app, and
+# any operator script that touches them in the meantime fails with a
+# cryptic "no such column" SQL error.
+migrate:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/migrate.mts'
 
 # Promote every non-admin user to the pro tier. Walks each known non-admin
 # source tier (basic, public, and the legacy starter/elite ids) so any user
