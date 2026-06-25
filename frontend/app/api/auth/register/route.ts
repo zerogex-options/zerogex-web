@@ -69,6 +69,10 @@ export async function POST(request: NextRequest) {
       ok: true,
       user: session.user,
       expiresAt: session.expiresAt,
+      // false when Resend errored; the register client surfaces this so the
+      // user knows to use the Resend button on /pricing or /account instead of
+      // staring at a missing inbox.
+      emailVerificationSent: session.emailVerificationSent,
     });
     response.headers.set('Cache-Control', 'no-store, private');
     attachSessionCookie(response, session.token);
