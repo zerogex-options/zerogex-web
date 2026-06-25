@@ -86,6 +86,44 @@ fi
 log "  → Installing ${UNIT}.{service,timer}..."
 sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
 sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed
+# but the SQLite UPDATE actually lands wherever the operator points the
+# DB. Without this, ProtectSystem=strict silently blocks the latch write
+# whenever AUTH_DB_PATH lives outside the repo (e.g. /var/lib/zerogex):
+# the Resend HTTPS call succeeds, the UPDATE errors as readonly, and the
+# next tick re-sends. Drop-in (vs. editing the version-controlled
+# .service file) keeps the repo defaults clean and lets each environment
+# carry its own ReadWritePaths addition.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    # Stale drop-in removal: if a past deploy wrote one and the operator
+    # later cleared AUTH_DB_PATH (or pointed it to a relative path), don't
+    # leave a now-misleading whitelist behind.
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
 sudo systemctl daemon-reload
 
 log "  → Enabling ${UNIT}.timer (every 6h on :45, Persistent=true)..."
