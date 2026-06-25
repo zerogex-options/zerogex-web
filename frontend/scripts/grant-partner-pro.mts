@@ -280,6 +280,29 @@ if (!fs.existsSync(dbPath)) {
 
 ensureSqlite3Cli();
 
+// Pre-flight: the partner_* columns land via the App's lazy migration
+// (frontend/core/db.ts initDb), which only runs on first DB touch from the
+// PM2 process. A grant attempted before that migration has landed would
+// fail mid-script with a confusing "no such column" SQL error AFTER the
+// preview is printed. Detect it up front and point at the fix.
+const userCols = new Set(
+  querySqlite<{ name: string }>(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
+);
+const requiredCols = [
+  'partner_tier',
+  'partner_audience_promo_code',
+  'partner_pro_grant_expires_at',
+];
+const missingCols = requiredCols.filter((c) => !userCols.has(c));
+if (missingCols.length > 0) {
+  console.error(`Error: required users columns are missing: ${missingCols.join(', ')}`);
+  console.error('The auth DB schema migration has not run against this database file.');
+  console.error('Fix: cd ~/zerogex-web && make migrate   (forces the lazy migration to run)');
+  console.error('     or run a full deploy (`make rebuild` or `./deploy/deploy.sh`) and then');
+  console.error('     hit any /api/* endpoint to trigger the migration via the app process.');
+  process.exit(4);
+}
+
 const STRIPE_SECRET_KEY = envOrLocal('STRIPE_SECRET_KEY');
 if (!STRIPE_SECRET_KEY) {
   console.error('Error: STRIPE_SECRET_KEY is not set (env or frontend/.env.local).');

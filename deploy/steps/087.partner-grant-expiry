@@ -79,6 +79,25 @@ else
     log "  ⚠ $ENV_FILE not found — step 030 should have created it"
 fi
 
+# --- Force the lazy DB migration ----------------------------------------
+# The partner_* columns are added by the App's lazy migration in
+# frontend/core/db.ts (initDb), which normally fires on the first DB touch
+# from the live PM2 process AFTER a rebuild + restart. When this step runs
+# in isolation (`./deploy.sh --start-from 087`), step 030 (rebuild) and
+# step 040 (PM2 restart) are skipped — so PM2 is still on the previous
+# deploy's code and the new columns wouldn't land until someone hit /api/.
+# Running `make migrate` opens a SEPARATE Node process that imports the
+# fresh core/db.ts directly, runs ensureColumn(), and lands the ALTERs in
+# the SQLite file. The PM2 process picks them up automatically on its next
+# getDb() (or already has them after a restart).
+log "  → Forcing the auth DB lazy migration to land the partner_* schema..."
+if sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make migrate" >/dev/null 2>&1; then
+    log "     ✓ schema migration applied"
+else
+    log "     ⚠ make migrate failed — partner_* columns may be missing"
+    log "       Re-run manually: cd $APP_DIR && make migrate"
+fi
+
 # --- Install + enable the units --------------------------------------
 log "  → Installing ${UNIT}.{service,timer}..."
 sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
