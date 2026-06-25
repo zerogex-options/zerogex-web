@@ -5,6 +5,37 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
 
+// Friendly copy for the ?error=... codes the OAuth callbacks redirect with on
+// failure (google/callback/route.ts, apple/callback/route.ts). Without this
+// the user lands back on /login and sees a blank form — "Continue with Google"
+// looks broken. Anything unrecognized falls through to a generic provider
+// message so a new error code can be added on the server first and still
+// surface something useful.
+function describeOAuthError(code: string): string {
+  switch (code) {
+    case 'oauth_state_mismatch':
+    case 'apple_state_mismatch':
+      return 'Sign-in was interrupted. Please try again.';
+    case 'oauth_rate_limited':
+    case 'apple_rate_limited':
+      return 'Too many sign-in attempts from your network. Please wait a few minutes and try again.';
+    case 'oauth_token_exchange_failed':
+    case 'apple_token_exchange_failed':
+      return 'We couldn’t complete sign-in with the provider. Please try again.';
+    case 'oauth_missing_id_token':
+    case 'apple_missing_id_token':
+    case 'oauth_profile_invalid':
+    case 'apple_profile_invalid':
+      return 'We couldn’t verify your account with the provider. Please try again or use email and password.';
+    case 'oauth_link_unauthenticated':
+      return 'You need to be signed in before linking an account.';
+    default:
+      if (code.startsWith('apple_')) return 'Apple sign-in failed. Please try again or use email and password.';
+      if (code.startsWith('oauth_')) return 'Google sign-in failed. Please try again or use email and password.';
+      return 'Sign-in failed. Please try again.';
+  }
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={<main className="min-h-screen bg-[var(--color-bg)]" />}>
@@ -19,7 +50,14 @@ function LoginPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Seed from the URL once at mount so a failed OAuth round-trip
+  // (?error=oauth_*) doesn't land on a silent form. Re-render later on
+  // local-login failure simply overwrites this with the credential error.
+  const oauthError = useMemo(() => {
+    const code = searchParams.get('error');
+    return code ? describeOAuthError(code) : null;
+  }, [searchParams]);
+  const [error, setError] = useState<string | null>(oauthError);
   const [loading, setLoading] = useState(false);
 
   const nextPath = useMemo(() => {

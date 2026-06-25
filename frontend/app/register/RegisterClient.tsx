@@ -73,9 +73,17 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
 
   useEffect(() => {
     const loadCsrf = async () => {
-      const response = await fetch('/api/auth/csrf');
-      const payload = (await response.json()) as { csrfToken: string };
-      setCsrfToken(payload.csrfToken);
+      try {
+        const response = await fetch('/api/auth/csrf', { credentials: 'include' });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { csrfToken?: string };
+        if (payload.csrfToken) setCsrfToken(payload.csrfToken);
+      } catch {
+        // Swallow — submit-time getCsrfToken() retries and reports its own
+        // error to the user. Keeping the button enabled means a transient
+        // /api/auth/csrf failure doesn't leave them staring at a permanently
+        // greyed-out Create Account button with no explanation.
+      }
     };
 
     void loadCsrf();
@@ -93,6 +101,13 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
       // an intermittent "Invalid CSRF token". The cookie is what the server
       // validates against.
       const token = (await getCsrfToken()) || csrfToken;
+      if (!token) {
+        setError(
+          'Couldn’t initialize secure signup. Please refresh and try again. ' +
+            'If you’ve blocked cookies for this site, allow them first.',
+        );
+        return;
+      }
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -168,7 +183,7 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
-            disabled={loading || !csrfToken}
+            disabled={loading}
             className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black disabled:opacity-60"
             type="submit"
           >

@@ -784,6 +784,32 @@ export async function consumeEmailVerification(
   return { status: 'ok', userId: row.user_id, email: row.email };
 }
 
+/**
+ * True when the OAuth callback is about to log a returning user back in, not
+ * mint a fresh account. Used by the callback routes to skip the signup rate
+ * limit on returning logins — that bucket is per-IP, so a shared NAT / VPN
+ * exit / mobile carrier could otherwise lock out everyone behind it after
+ * five Google or Apple sign-ins in an hour. A user is "returning" if either
+ * the (provider, providerId) identity already exists, OR a local user with
+ * this email exists (createOrLoginOAuthUser will adopt that account on first
+ * OAuth sign-in — also a returning login, not a new signup).
+ */
+export function isOAuthReturningUser(
+  provider: 'google' | 'apple',
+  providerId: string,
+  email: string,
+): boolean {
+  const db = getDb();
+  const identityRow = db
+    .prepare(`SELECT 1 FROM user_identities WHERE provider = ? AND provider_id = ?`)
+    .get(provider, providerId);
+  if (identityRow) return true;
+  const emailRow = db
+    .prepare('SELECT 1 FROM users WHERE email = ?')
+    .get(email.trim().toLowerCase());
+  return !!emailRow;
+}
+
 export async function createOrLoginOAuthUser(request: NextRequest, input: { provider: 'google' | 'apple'; providerId: string; email: string; }) {
   const db = getDb();
   const normalizedEmail = input.email.trim().toLowerCase();
