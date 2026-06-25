@@ -217,7 +217,14 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
 
 // ── Public export — combined level/VIX + momentum ─────────────────────────────
 
-export default function VolatilityCard() {
+interface VolatilityCardProps {
+  // When true, render the two gauges in a single column (stacked) instead
+  // of side-by-side. Used by layouts that place this card in a narrow
+  // sidebar where the default md:grid-cols-2 would cram the gauges.
+  stacked?: boolean;
+}
+
+export default function VolatilityCard({ stacked = false }: VolatilityCardProps = {}) {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
   // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
@@ -229,7 +236,7 @@ export default function VolatilityCard() {
   if (!data) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className={stacked ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
       <GaugeCard
         type="speedometer"
         value={data.level}
