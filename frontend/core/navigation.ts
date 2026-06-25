@@ -69,21 +69,13 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Metrics',
     items: [
       { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
+      { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
+      { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
+      { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
       { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
-    ],
-    subgroups: [
-      {
-        id: '/greeks-gex',
-        label: 'GEX Summary',
-        requiredTier: 'basic',
-        items: [
-          { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
-          { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
-        ],
-      },
     ],
   },
   {
