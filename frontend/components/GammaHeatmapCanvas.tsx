@@ -18,6 +18,7 @@ import { useApiData, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
+import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
@@ -131,6 +132,7 @@ const PAD_B = 48;
 export default function GammaHeatmapCanvas() {
   const { theme } = useTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
+  const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
   const textPrimary = isDark ? colors.light : colors.dark;
   const cardBg = isDark ? colors.cardDark : colors.cardLight;
@@ -224,6 +226,15 @@ export default function GammaHeatmapCanvas() {
     const tip = sliced[sliced.length - 1];
     return [...sliced.slice(0, -1), { ...tip, close: liveClose }];
   }, [priceRowsAll, fetchUnits, quote]);
+  // Surface (net_gex) is stored "per 1% move". The unit toggle reinterprets
+  // the DISPLAYED labels (color-scale legend + tooltip) as per-1-point;
+  // colors are scale-invariant (renormalized to maxAbs) so the matrix
+  // itself is left untouched. The legend is one global scale, so it uses a
+  // representative spot (latest close); intraday spot drift (~1-2%) is
+  // immaterial to the rounded ±B/M labels. The tooltip converts per-cell
+  // below using that row's own close.
+  const gexSpotRef = quote?.close ?? priceData[priceData.length - 1]?.close ?? null;
+  const legendGexFactor = gexScaleFactor(gexUnit, gexSpotRef);
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
     { refreshInterval: historicalInterval },
@@ -802,9 +813,11 @@ export default function GammaHeatmapCanvas() {
     ctx.fillStyle = axisColor;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`+${fmt(grid.clip)}`, legendX + legendW + 4, legendY + 4);
+    // Scale the legend endpoints into the active unit (per-1% × factor).
+    const legendClip = grid.clip * legendGexFactor;
+    ctx.fillText(`+${fmt(legendClip)}`, legendX + legendW + 4, legendY + 4);
     ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
-    ctx.fillText(`-${fmt(grid.clip)}`, legendX + legendW + 4, legendY + legendH - 4);
+    ctx.fillText(`-${fmt(legendClip)}`, legendX + legendW + 4, legendY + legendH - 4);
 
     // Crosshair
     if (hover) {
@@ -823,7 +836,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
@@ -1198,8 +1211,8 @@ export default function GammaHeatmapCanvas() {
                 <div className="font-semibold">{new Date(tooltip.ts).toLocaleString()}</div>
                 <div>Strike: ${tooltip.strike}</div>
                 <div>
-                  Net GEX: {Number.isFinite(tooltip.value)
-                    ? `${(tooltip.value / 1_000_000).toFixed(2)}M`
+                  Net GEX ({GEX_UNIT_LABEL[gexUnit]}): {Number.isFinite(tooltip.value)
+                    ? `${((tooltip.value * gexScaleFactor(gexUnit, tooltip.priceRow?.close ?? gexSpotRef)) / 1_000_000).toFixed(2)}M`
                     : '—'}
                 </div>
                 {tooltip.priceRow && (

@@ -3,6 +3,7 @@
 import { Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTheme } from '@/core/ThemeContext';
+import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
@@ -16,6 +17,10 @@ interface ByStrikeRow {
 
 interface GexStrikeDteHeatmapProps {
   byStrikeData: ByStrikeRow[] | null | undefined;
+  // Current spot, used only to reinterpret the displayed cell labels when
+  // the GEX unit toggle is set to per-1-point. Colors are scale-invariant
+  // (normalized to maxAbs) so the surface is unaffected.
+  spotPrice?: number | null;
 }
 
 function getDte(expiration: string): number {
@@ -61,10 +66,13 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   };
 }
 
-export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatmapProps) {
+export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStrikeDteHeatmapProps) {
   const { theme } = useTheme();
+  const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
+  // Per-1% (stored) → active unit. Applied only to displayed labels.
+  const gexFactor = gexScaleFactor(gexUnit, spotPrice);
 
   const { strikes, grid, maxAbs, dteColumns } = useMemo(() => {
     const rows = byStrikeData || [];
@@ -134,9 +142,15 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
         >
           GEX HEATMAP (STRIKE &times; DTE)
         </h3>
-        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX.">
+        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
         </TooltipWrapper>
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+          style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
+        >
+          {GEX_UNIT_LABEL[gexUnit]}
+        </span>
       </div>
 
       <div className="overflow-x-auto">
@@ -167,7 +181,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData }: GexStrikeDteHeatma
                           className="rounded px-2 py-1 text-xs font-semibold inline-block min-w-[48px]"
                           style={cellStyle}
                         >
-                          {formatGex(value)}
+                          {formatGex(value * gexFactor)}
                         </div>
                       ) : (
                         <div className="min-w-[48px]" />

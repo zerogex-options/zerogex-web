@@ -18,6 +18,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useGEXProfile } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
@@ -326,6 +327,7 @@ export default function GexProfileChart({
   onSelectedExpirationChange,
 }: GexProfileChartProps) {
   const { theme } = useTheme();
+  const { gexUnit } = useGexUnit();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = isDark ? colors.light : colors.dark;
@@ -338,10 +340,23 @@ export default function GexProfileChart({
   // often than the per-bar quote feed.
   const { data: profileData, loading, error } = useGEXProfile(symbol, 10000);
 
+  // Stored GEX is "per 1% move"; the unit toggle scales every dollar value
+  // (bars + spot-shift profile) by one factor (×100/spot for per-point).
+  // Applying it here, at the single data source the axes/bars/tooltip all
+  // read from, keeps the y-axis ticks, bar heights and tooltip consistent.
+  const gexFactor = gexScaleFactor(gexUnit, spotPrice);
   const merged = useMemo<MergedRow[]>(() => {
     const profile = profileData?.profile ?? [];
-    return mergeProfileWithStrikes(strikeData, profile);
-  }, [strikeData, profileData?.profile]);
+    const rows = mergeProfileWithStrikes(strikeData, profile);
+    if (gexFactor === 1) return rows;
+    return rows.map((r) => ({
+      ...r,
+      callGex: r.callGex != null ? r.callGex * gexFactor : r.callGex,
+      putGex: r.putGex != null ? r.putGex * gexFactor : r.putGex,
+      netGex: r.netGex != null ? r.netGex * gexFactor : r.netGex,
+      profileGex: r.profileGex != null ? r.profileGex * gexFactor : r.profileGex,
+    }));
+  }, [strikeData, profileData?.profile, gexFactor]);
 
   // The full strike range available in the data — the boundary of how far
   // out the user can pan / zoom out. Recomputed from merged so it stays in
@@ -489,6 +504,13 @@ export default function GexProfileChart({
             <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the OPEN INTEREST & EXPOSURE BY STRIKE chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
+              title="Dollar GEX unit — change it with the GEX unit toggle"
+            >
+              {GEX_UNIT_LABEL[gexUnit]}
+            </span>
             <div
               className="ml-1 inline-flex rounded border"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
@@ -649,7 +671,7 @@ export default function GexProfileChart({
                   tick={{ fontSize: 11, fill: axisStroke }}
                   tickFormatter={(v) => formatTick(Number(v), denom)}
                   label={{
-                    value: 'GEX Profile (per 1% move)',
+                    value: `GEX Profile (${GEX_UNIT_LABEL[gexUnit]})`,
                     angle: -90,
                     position: 'insideRight',
                     offset: 12,

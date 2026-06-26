@@ -21,6 +21,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
+import GexUnitToggle from '@/components/GexUnitToggle';
 import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
@@ -467,6 +468,9 @@ export default function GammaExposurePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Dealer Positioning Analysis</h1>
+      <div className="mb-4">
+        <GexUnitToggle />
+      </div>
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
       {/* Section 1: Regime Header */}
       <GexRegimeHeader
@@ -543,7 +547,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3 h-full">
-            <GexStrikeDteHeatmap byStrikeData={gexByStrike} />
+            <GexStrikeDteHeatmap byStrikeData={gexByStrike} spotPrice={quoteData?.close} />
           </div>
           <div className="lg:col-span-2 h-full">
             <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />

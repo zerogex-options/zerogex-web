@@ -5,7 +5,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -13,8 +12,10 @@ import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
 import FlipSurfaceChart from '@/components/FlipSurfaceChart';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
+import GexUnitToggle from '@/components/GexUnitToggle';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -25,27 +26,13 @@ function formatGexValue(value: number): string {
   return `${sign}$${value.toFixed(0)}`;
 }
 
-// Dollar GEX is computed and stored in the "per 1% move" convention
-// (γ × OI × 100 × S² × 0.01). The "per 1 point" convention some
-// dashboards publish is the same exposure divided by (spot × 0.01),
-// i.e. value × 100 / spot. This is purely a display reinterpretation —
-// the stored value is unchanged.
-type GexUnit = 'percent' | 'point';
-
-function toPerPoint(perPercent: number, spot: number): number {
-  if (!(spot > 0)) return perPercent;
-  return (perPercent * 100) / spot;
-}
-
+// Dollar GEX is stored in the "per 1% move" convention; the unit toggle
+// (GexUnitContext) reinterprets it via gexScaleFactor. Display-only — the
+// stored value is unchanged.
 function formatGexInUnit(value: number | null | undefined, unit: GexUnit, spot: number): string {
   if (value == null) return '--';
-  return formatGexValue(unit === 'point' ? toPerPoint(value, spot) : value);
+  return formatGexValue(value * gexScaleFactor(unit, spot));
 }
-
-const GEX_UNIT_LABEL: Record<GexUnit, string> = {
-  percent: 'per 1% move',
-  point: 'per 1pt move',
-};
 
 export default function GreeksGEXPage() {
   const { theme } = useTheme();
@@ -56,10 +43,11 @@ export default function GreeksGEXPage() {
   const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
   const netGexPositive = (netGexAtSpot ?? 0) >= 0;
 
-  // Net/Call/Put GEX unit toggle. Stored values are "per 1% move"; the
-  // toggle reinterprets them as "per 1 point move" (value × 100 / spot)
-  // so the headline magnitude lines up with point-convention dashboards.
-  const [gexUnit, setGexUnit] = useState<GexUnit>('percent');
+  // Net/Call/Put GEX unit toggle (shared across all GEX views via
+  // GexUnitContext). Stored values are "per 1% move"; the toggle
+  // reinterprets them as "per 1 point move" so the headline magnitude
+  // lines up with point-convention dashboards.
+  const { gexUnit } = useGexUnit();
   const gexSpot = quoteData?.close ?? gexData?.spot_price ?? 0;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
 
@@ -97,28 +85,8 @@ export default function GreeksGEXPage() {
       )}
 
       {/* GEX unit toggle: per 1% move (stored convention) vs per 1 point */}
-      <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm text-[var(--text-muted)]">GEX unit:</span>
-        <div className="inline-flex rounded-lg border border-[var(--border-subtle)] overflow-hidden">
-          {(['percent', 'point'] as GexUnit[]).map((unit) => (
-            <button
-              key={unit}
-              type="button"
-              onClick={() => setGexUnit(unit)}
-              aria-pressed={gexUnit === unit}
-              className={`px-3 py-1.5 text-sm font-semibold transition-colors ${
-                gexUnit === unit
-                  ? 'bg-[var(--color-info-soft)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {GEX_UNIT_LABEL[unit]}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-[var(--text-muted)]">
-          Per-point = per-1% ÷ (spot × 0.01). Same exposure, different unit.
-        </span>
+      <div className="mb-4">
+        <GexUnitToggle />
       </div>
 
       {/* Top row: 4 cards */}

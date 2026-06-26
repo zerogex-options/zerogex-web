@@ -3,6 +3,7 @@ import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { TimeframeProvider } from '@/core/TimeframeContext';
+import { GexUnitProvider } from '@/core/GexUnitContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 
@@ -66,10 +67,12 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <TimeframeProvider>
-            <TelemetryProvider />
-            <ClientLayout>
-              {children}
-            </ClientLayout>
+            <GexUnitProvider>
+              <TelemetryProvider />
+              <ClientLayout>
+                {children}
+              </ClientLayout>
+            </GexUnitProvider>
           </TimeframeProvider>
         </ThemeProvider>
       </body>
