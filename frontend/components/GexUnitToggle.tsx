@@ -1,38 +1,56 @@
 'use client';
 
-import { GexUnit, GEX_UNIT_LABEL, useGexUnit } from '@/core/GexUnitContext';
+import { Info } from 'lucide-react';
+import { GexUnit, useGexUnit } from '@/core/GexUnitContext';
+import TooltipWrapper from './TooltipWrapper';
+
+const OPTIONS: { value: GexUnit; label: string }[] = [
+  { value: 'percent', label: '1%' },
+  { value: 'point', label: '1pt' },
+];
 
 /**
- * Shared control for the per-1%-move ⇄ per-1-point GEX unit preference.
- * Backed by GexUnitContext so flipping it here updates every GEX view
- * (summary cards, profile chart, heatmaps) at once.
+ * Sleek segmented pill for the per-1%-move ⇄ per-1-point GEX unit
+ * preference (backed by GexUnitContext, so it updates every GEX view at
+ * once). The full explanation lives in the info tooltip rather than inline.
  */
 export default function GexUnitToggle({ showHint = true }: { showHint?: boolean }) {
   const { gexUnit, setGexUnit } = useGexUnit();
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm text-[var(--text-muted)]">GEX unit:</span>
-      <div className="inline-flex rounded-lg border border-[var(--border-subtle)] overflow-hidden">
-        {(['percent', 'point'] as GexUnit[]).map((unit) => (
-          <button
-            key={unit}
-            type="button"
-            onClick={() => setGexUnit(unit)}
-            aria-pressed={gexUnit === unit}
-            className={`px-3 py-1.5 text-sm font-semibold transition-colors ${
-              gexUnit === unit
-                ? 'bg-[var(--color-info-soft)] text-[var(--text-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {GEX_UNIT_LABEL[unit]}
-          </button>
-        ))}
+    <div className="inline-flex items-center gap-1.5">
+      <div
+        role="group"
+        aria-label="GEX unit"
+        className="inline-flex items-center rounded-full p-0.5 border"
+        style={{
+          borderColor: 'var(--border-subtle)',
+          backgroundColor: 'var(--color-surface-subtle)',
+        }}
+      >
+        {OPTIONS.map(({ value, label }) => {
+          const active = gexUnit === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setGexUnit(value)}
+              aria-pressed={active}
+              className="px-3 py-1 text-xs font-semibold rounded-full transition-colors"
+              style={
+                active
+                  ? { backgroundColor: 'var(--color-info)', color: 'var(--color-surface)' }
+                  : { background: 'transparent', color: 'var(--text-muted)' }
+              }
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
       {showHint && (
-        <span className="text-xs text-[var(--text-muted)]">
-          Per-point = per-1% ÷ (spot × 0.01). Same exposure, different unit.
-        </span>
+        <TooltipWrapper text="Dollar GEX unit. 1% = $ gamma per 1% spot move (γ·OI·100·S²·0.01); 1pt = per 1 point (÷ spot × 0.01). Same exposure, different unit.">
+          <Info size={13} style={{ color: 'var(--text-muted)' }} />
+        </TooltipWrapper>
       )}
     </div>
   );
