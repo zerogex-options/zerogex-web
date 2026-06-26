@@ -115,7 +115,7 @@ export default function GreeksGEXPage() {
                 ? `Raw nearest: $${gexData.gamma_flip_raw.toFixed(2)}`
                 : 'Dealer positioning'
             }
-            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, resolved away from near-spot noise crossings. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest raw zero-crossing to spot (no structural gating) — the figure some dashboards publish; it can oscillate intraday on a lumpy book."
+            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile — the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
             theme={theme}
           />
           <MetricCard

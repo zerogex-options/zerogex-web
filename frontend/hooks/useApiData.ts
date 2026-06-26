@@ -38,10 +38,12 @@ interface GEXSummaryRow {
   net_gex: number;
   net_gex_at_spot?: number | null;
   gamma_flip?: number | null;
-  // Raw nearest zero-crossing of the dealer gamma profile, without the
-  // structural-interior gating `gamma_flip` applies. Secondary reference
-  // matching the "nearest crossing to spot" convention some competitor
-  // dashboards publish; null when the profile is one-signed / degraded.
+  // Raw nearest zero-crossing on the UN-DTE-weighted gamma profile — the
+  // "nearest crossing to spot" convention competitor dashboards publish.
+  // `gamma_flip` applies a horizon-occupancy ramp (down-weighting near-dated
+  // 0DTE walls); this drops it, so near-dated walls can pull the crossing
+  // toward spot and it can sit much closer to spot than the structural flip.
+  // Null when the profile is one-signed / degraded.
   gamma_flip_raw?: number | null;
   // Fraction of spot the resolver's grid spanned to land the flip.
   // ~0.20 = default rung (stable regime level).  Larger means the
