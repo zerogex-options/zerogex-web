@@ -38,6 +38,11 @@ interface GEXSummaryRow {
   net_gex: number;
   net_gex_at_spot?: number | null;
   gamma_flip?: number | null;
+  // Raw nearest zero-crossing of the dealer gamma profile, without the
+  // structural-interior gating `gamma_flip` applies. Secondary reference
+  // matching the "nearest crossing to spot" convention some competitor
+  // dashboards publish; null when the profile is one-signed / degraded.
+  gamma_flip_raw?: number | null;
   // Fraction of spot the resolver's grid spanned to land the flip.
   // ~0.20 = default rung (stable regime level).  Larger means the
   // default rung had no qualifying interior crossing and the ladder
