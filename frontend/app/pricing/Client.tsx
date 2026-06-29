@@ -227,8 +227,9 @@ function PriceDisplay({
           <span
             style={{
               fontSize: 22,
-              color: C.muted,
+              color: 'var(--color-bear)',
               textDecoration: 'line-through',
+              textDecorationColor: 'var(--color-bear)',
               fontWeight: 700,
             }}
           >
@@ -688,12 +689,13 @@ function PricingClientInner({
     [authLoading, currentTier, hasActiveSubscription, isAuthed],
   );
 
+  // "Limited Time" pill omitted from the per-card highlights when the global
+  // banner is already shown above — the banner carries that callout once
+  // instead of repeating it twice per card.
   const basicHighlights: string[] = [];
-  if (promoActive) basicHighlights.push('Limited Time');
   if (cadence === 'annual') basicHighlights.push('Save 57%');
 
   const proHighlights: string[] = ['Most Popular'];
-  if (promoActive) proHighlights.push('Limited Time');
   if (cadence === 'annual') proHighlights.push('Save 58%');
 
   return (
@@ -900,6 +902,7 @@ function PricingClientInner({
               features={[
                 'Everything included in Basic.',
                 'Access to Advanced Signals.',
+                'Access to Backtesting (Beta).',
                 'Direct access to ZeroGEX APIs.',
               ]}
               action={actionFor('pro')}
