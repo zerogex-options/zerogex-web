@@ -27,6 +27,8 @@ export const TelemetryEvent = {
   CardShareClicked: 'card_share_clicked',
   /** Daily Scorecard permalink share button clicked (client, /scorecard/[date]). */
   ScorecardShareClicked: 'scorecard_share_clicked',
+  /** Gamma Forecast Card permalink share button clicked (client, /forecast/[date]). */
+  ForecastShareClicked: 'forecast_share_clicked',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

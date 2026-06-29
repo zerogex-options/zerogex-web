@@ -44,6 +44,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   // 4:15 PM ET auto-tweet links here, and the same anonymous-access logic
   // applies (crawlers + non-members must both reach the receipt).
   '/scorecard/*',
+  // Daily Gamma Forecast permalinks (/forecast/{date}, /forecast/today) —
+  // the 7:00 AM ET morning card and 4:01 PM ET receipt overlay. Public for
+  // the same reason: every commitment AND its receipt must be readable by
+  // anyone with the URL, including OG crawlers.
+  '/forecast/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
