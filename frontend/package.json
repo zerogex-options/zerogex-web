@@ -14,7 +14,8 @@
     "test:smart-money": "node --experimental-strip-types --test tests/smartMoneyFilters.test.ts",
     "test:options-calendar": "node --experimental-strip-types --test tests/optionsCalendar.test.ts",
     "test:news-headlines": "node --experimental-strip-types --test tests/newsHeadlines.test.ts",
-    "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts"
+    "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts",
+    "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
