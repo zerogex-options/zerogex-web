@@ -85,6 +85,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Heat Map', requiredTier: 'basic', beta: true },
       { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
+      { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
     ],
   },
   {

@@ -446,8 +446,11 @@ export default function BacktestingPage() {
         </TooltipWrapper>
         <Link
           href="/backtesting/insights"
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium hover:text-[var(--color-text)] text-[var(--color-text-secondary)]"
-          style={{ borderColor: 'var(--color-border)' }}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--color-accent)]/15"
+          style={{
+            borderColor: 'var(--color-accent)',
+            color: 'var(--color-accent)',
+          }}
         >
           <TrendingUp size={14} />
           Pattern Insights
