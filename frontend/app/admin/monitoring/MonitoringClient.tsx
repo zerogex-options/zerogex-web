@@ -1157,7 +1157,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
     data.length > 0
       ? data[data.length - 1]
       : { basic: 0, pro: 0, public: 0, paying: 0, trialing: 0 };
-  const total = latest.basic + latest.pro + latest.public;
+  const totalUsers = latest.basic + latest.pro + latest.public;
+  const totalSubscribers = latest.paying + latest.trialing;
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -1168,7 +1169,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
           <span><span style={{ color: publicColor }}>●</span> Public: {latest.public.toLocaleString()}</span>
           <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
           <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
-          <span>Total: {total.toLocaleString()}</span>
+          <span>Total Users: {totalUsers.toLocaleString()}</span>
+          <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
         </div>
       </div>
       {data.length === 0 ? (
@@ -1215,7 +1217,8 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                       <div>Public: {pub.toLocaleString()}</div>
                       <div>Full Subscriber: {paying.toLocaleString()}</div>
                       <div>Free Trial: {trialing.toLocaleString()}</div>
-                      <div className="mt-1">Total: {(basic + pro + pub).toLocaleString()}</div>
+                      <div className="mt-1">Total Users: {(basic + pro + pub).toLocaleString()}</div>
+                      <div>Total Subscribers: {(paying + trialing).toLocaleString()}</div>
                     </div>
                   );
                 }}
@@ -1250,23 +1253,24 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="paying"
                 name="Full Subscriber"
+                stackId="subscribers"
                 stroke={payingColor}
-                strokeWidth={2}
-                dot={false}
+                fill={payingColor}
+                fillOpacity={0.5}
                 isAnimationActive={false}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="trialing"
                 name="Free Trial"
+                stackId="subscribers"
                 stroke={trialingColor}
-                strokeWidth={2}
-                strokeDasharray="4 3"
-                dot={false}
+                fill={trialingColor}
+                fillOpacity={0.5}
                 isAnimationActive={false}
               />
             </ComposedChart>
