@@ -23,6 +23,8 @@ export const TelemetryEvent = {
   SubscriptionPaid: 'subscription_paid',
   /** Subscription ended → tier reset to public; the churn event (server). */
   SubscriptionCancelled: 'subscription_cancelled',
+  /** Action Card permalink share button clicked (client, /cards/[id]). */
+  CardShareClicked: 'card_share_clicked',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

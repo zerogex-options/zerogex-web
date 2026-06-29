@@ -35,6 +35,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/unauthorized',
   '/spx-gamma-levels',
   '/trading-mistakes',
+  // Action Card permalinks (/cards/{id}) are the public viral artifact for
+  // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
+  // Discord crawlers can render the colocated OG preview and so a non-member
+  // who clicks a shared link gets the receipt, not a /login wall.
+  '/cards/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
