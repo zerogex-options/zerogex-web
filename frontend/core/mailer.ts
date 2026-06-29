@@ -143,9 +143,18 @@ export async function sendReferralRewardEmail(
 
 export async function sendPaidWelcomeEmail(
   to: string,
-  opts?: { trialEndIso?: string | null },
+  opts?: {
+    trialEndIso?: string | null;
+    // When the subscription was checked out under the limited-time public
+    // promo, the webhook passes a short descriptor like "first 6 months" or
+    // "first year" so the welcome email mentions the intro window and what
+    // the renewal rate will look like. Detection happens in the webhook by
+    // checking subscription.discounts against getActivePromoCouponIds().
+    promoIntroLabel?: string | null;
+  },
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const promoLabel = opts?.promoIntroLabel ?? null;
   const subject = trialEndDate
     ? 'Welcome to ZeroGEX — your free trial has started'
     : 'Thank you for subscribing to ZeroGEX!';
@@ -158,11 +167,18 @@ export async function sendPaidWelcomeEmail(
   const trialLineHtml = trialEndDate
     ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed a cent.`
     : null;
+  const promoLineText = promoLabel
+    ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
+    : null;
+  const promoLineHtml = promoLabel
+    ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)} &mdash; it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
+    : null;
 
   const text = [
     'Hello,',
     '',
     ...(trialLineText ? [trialLineText, ''] : []),
+    ...(promoLineText ? [promoLineText, ''] : []),
     'I just wanted to personally thank you for subscribing to ZeroGEX.',
     '',
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
@@ -180,6 +196,7 @@ export async function sendPaidWelcomeEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
+      ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
@@ -269,19 +286,34 @@ export async function sendFoundingWelcomeEmail(
 // which the webhook clears whenever a new 'trialing' state begins).
 export async function sendTrialReminderEmail(
   to: string,
-  opts: { trialEndIso: string },
+  opts: {
+    trialEndIso: string;
+    // When the underlying subscription is on the limited-time public promo,
+    // the cron job passes a short label like "first 6 months" so the reminder
+    // mentions the introductory rate that will kick in after the trial ends.
+    promoIntroLabel?: string | null;
+  },
 ) {
   const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const promoLabel = opts.promoIntroLabel ?? null;
   const subject = 'Your ZeroGEX free trial ends in 2 days';
 
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
+
+  const promoLineText = promoLabel
+    ? `Good news on the price: you locked in our limited-time introductory rate for the ${promoLabel}, so that's what your card will be charged after the trial — not the standard rate.`
+    : null;
+  const promoLineHtml = promoLabel
+    ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial &mdash; not the standard rate.`
+    : null;
 
   const text = [
     'Hello,',
     '',
     `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`,
     '',
+    ...(promoLineText ? [promoLineText, ''] : []),
     "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
     '',
     `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
@@ -297,6 +329,7 @@ export async function sendTrialReminderEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
+      ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
       <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
       <p style="margin: 24px 0;">
@@ -330,12 +363,27 @@ export async function sendTrialReminderEmail(
 // users.checkout_recovery_email_sent_at; deliberately never re-fires.
 export async function sendCheckoutRecoveryEmail(
   to: string,
-  opts: { foundingDeadlineLabel: string | null },
+  opts: {
+    foundingDeadlineLabel: string | null;
+    // When the public limited-time promo is still open and the user isn't
+    // already on the (richer) founding offer, the cron job passes this so the
+    // nudge mentions the promo deadline rather than the generic copy. Founding
+    // always wins precedence — eligible users get the founding-deadline
+    // variant even if the promo is also live.
+    promoDeadlineLabel?: string | null;
+  },
 ) {
   const founding = opts.foundingDeadlineLabel;
+  // Promo only surfaces when founding isn't already in play for this user;
+  // the two offers are mutually exclusive at checkout (founding wins) so the
+  // email should match what they'd actually get back to.
+  const promo = !founding ? opts.promoDeadlineLabel ?? null : null;
+
   const subject = founding
     ? `Your ZeroGEX founding rate is still available — only until ${founding}`
-    : 'Pick up where you left off at ZeroGEX';
+    : promo
+      ? `Your ZeroGEX limited-time offer is still open — only until ${promo}`
+      : 'Pick up where you left off at ZeroGEX';
 
   const pricingUrl = `${getAppUrl()}/pricing`;
   const safePricingUrl = escapeHtml(pricingUrl);
@@ -354,27 +402,49 @@ export async function sendCheckoutRecoveryEmail(
         'Michael',
         'Founder, ZeroGEX',
       ].join('\n')
-    : [
-        'Hello,',
-        '',
-        "I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — sometimes a tab just gets closed.",
-        '',
-        `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
-        '',
-        `If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it. And if anything stopped you from finishing (a pricing question, a missing feature, a confusing step), feel free to reply to this email. I read every message.`,
-        '',
-        'Best,',
-        'Michael',
-        'Founder, ZeroGEX',
-      ].join('\n');
+    : promo
+      ? [
+          'Hello,',
+          '',
+          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}. Basic starts at $19/mo and Pro at $29/mo, with discounted annual plans too.`,
+          '',
+          `If you'd like to pick it back up at the intro rate, the same plan is one click away here: ${pricingUrl}`,
+          '',
+          `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it.`,
+          '',
+          'Best,',
+          'Michael',
+          'Founder, ZeroGEX',
+        ].join('\n')
+      : [
+          'Hello,',
+          '',
+          "I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — sometimes a tab just gets closed.",
+          '',
+          `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
+          '',
+          `If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it. And if anything stopped you from finishing (a pricing question, a missing feature, a confusing step), feel free to reply to this email. I read every message.`,
+          '',
+          'Best,',
+          'Michael',
+          'Founder, ZeroGEX',
+        ].join('\n');
 
-  const ctaLabel = founding ? 'Lock in the founding rate' : 'Resume checkout';
+  const ctaLabel = founding
+    ? 'Lock in the founding rate'
+    : promo
+      ? 'Claim the intro rate'
+      : 'Resume checkout';
   const intro = founding
     ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
-    : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
+    : promo
+      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>. Basic starts at <strong>$19/mo</strong> and Pro at <strong>$29/mo</strong>, with discounted annual plans too.`
+      : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
   const closer = founding
     ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
-    : `If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it. And if anything stopped you from finishing, feel free to reply to this email. I read every message.`;
+    : promo
+      ? `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
+      : `If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it. And if anything stopped you from finishing, feel free to reply to this email. I read every message.`;
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
