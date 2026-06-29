@@ -25,6 +25,8 @@ export const TelemetryEvent = {
   SubscriptionCancelled: 'subscription_cancelled',
   /** Action Card permalink share button clicked (client, /cards/[id]). */
   CardShareClicked: 'card_share_clicked',
+  /** Daily Scorecard permalink share button clicked (client, /scorecard/[date]). */
+  ScorecardShareClicked: 'scorecard_share_clicked',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

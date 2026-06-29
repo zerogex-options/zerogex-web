@@ -40,6 +40,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   // Discord crawlers can render the colocated OG preview and so a non-member
   // who clicks a shared link gets the receipt, not a /login wall.
   '/cards/*',
+  // Daily Scorecard permalinks (/scorecard/{date}, /scorecard/today) — the
+  // 4:15 PM ET auto-tweet links here, and the same anonymous-access logic
+  // applies (crawlers + non-members must both reach the receipt).
+  '/scorecard/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
