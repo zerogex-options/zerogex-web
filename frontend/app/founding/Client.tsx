@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
+import PlanComparison from '@/components/PlanComparison';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
@@ -628,6 +629,8 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             </Link>{' '}
             instead.
           </p>
+
+          <PlanComparison />
 
           <section
             style={{

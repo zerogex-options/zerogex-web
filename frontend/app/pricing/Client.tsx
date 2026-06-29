@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
+import PlanComparison from '@/components/PlanComparison';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
@@ -751,6 +752,8 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
               onPortal={handlePortal}
             />
           </div>
+
+          <PlanComparison />
 
           <section
             style={{
