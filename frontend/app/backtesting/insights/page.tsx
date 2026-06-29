@@ -16,10 +16,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowDown, ArrowUp, Info, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Info, RefreshCw } from 'lucide-react';
 import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { backtestAPI } from '@/core/api/endpoints';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import type { InsightsSource, PatternInsight } from '../types';
 import {
   applyInsightsView,
@@ -31,7 +32,15 @@ import {
 
 const TRUSTWORTHY_MIN_N = 40;
 
-const SOURCE_OPTIONS: { value: InsightsSource; label: string; tooltip: string }[] = [
+interface SourceOption {
+  value: InsightsSource;
+  label: string;
+  tooltip: string;
+  /** Admin-only sources are hidden from non-admin tiers. */
+  adminOnly?: boolean;
+}
+
+const ALL_SOURCE_OPTIONS: SourceOption[] = [
   {
     value: 'option_pnl',
     label: 'Realized P&L',
@@ -41,11 +50,11 @@ const SOURCE_OPTIONS: { value: InsightsSource; label: string; tooltip: string }[
   },
   {
     value: 'underlying_touch',
-    label: 'Underlying touch',
+    label: 'Touch proxy (debug)',
     tooltip:
-      "The conservative proxy: did the underlying reach the target/stop? " +
-      "Ignores premium decay and bid/ask. Useful as a sanity check; not " +
-      "ground truth.",
+      "Debug view: did the underlying reach the target/stop? Ignores premium " +
+      "decay and bid/ask. NOT a measure of P&L — useful only as a sanity check.",
+    adminOnly: true,
   },
 ];
 
@@ -63,13 +72,18 @@ const HEADERS: HeaderSpec[] = [
     key: 'n_resolved',
     label: 'N',
     align: 'right',
-    tooltip: 'Resolved trades in this calibration window.',
+    tooltip:
+      'Resolved trades in the 60-day calibration window after the per-pattern cooldown. ' +
+      'Pairs with N < 40 are considered too small to trust.',
   },
   {
     key: 'hit_rate',
     label: 'Win %',
     align: 'right',
-    tooltip: 'Realized win rate (net_pnl > 0).',
+    tooltip:
+      'Share of trades whose net P&L was > 0 after slippage and commission. Not a ' +
+      'coin-flip baseline: a pattern can have a low win rate and still be profitable ' +
+      'overall if its winners are much larger than its losers (check PF and Avg / trade).',
   },
   {
     key: 'profit_factor',
@@ -94,16 +108,34 @@ const HEADERS: HeaderSpec[] = [
     key: 'avg_win_pnl',
     label: 'Avg win',
     align: 'right',
+    tooltip: 'Average dollar size of a winning trade (gross_win_pnl ÷ n_wins).',
   },
   {
     key: 'avg_loss_pnl',
     label: 'Avg loss',
     align: 'right',
+    tooltip: 'Average dollar size of a losing trade (-gross_loss_pnl ÷ n_losses).',
   },
 ];
 
 export default function InsightsPage() {
-  const [source, setSource] = useState<InsightsSource>('option_pnl');
+  // Auth — the touch-proxy source is admin-only. Until the session has loaded
+  // we assume non-admin so the touch tab can't flicker into view.
+  const { data: session } = useAuthSession();
+  const isAdmin = session?.user?.tier === 'admin';
+  const sourceOptions = useMemo(
+    () => ALL_SOURCE_OPTIONS.filter((opt) => !opt.adminOnly || isAdmin),
+    [isAdmin],
+  );
+
+  const [rawSource, setSource] = useState<InsightsSource>('option_pnl');
+  // Defense in depth: if the stored source isn't in the visible options (e.g.
+  // a non-admin's state somehow has 'underlying_touch'), present + fetch the
+  // safe default. Computed at render so we don't need a useEffect that would
+  // cascade an extra render.
+  const source: InsightsSource = sourceOptions.some((opt) => opt.value === rawSource)
+    ? rawSource
+    : 'option_pnl';
   const [underlying, setUnderlying] = useState<string>('');   // '' = all
   const [trustworthyOnly, setTrustworthyOnly] = useState(true);
   const [sortKey, setSortKey] = useState<InsightsSortKey>('net_pnl');
@@ -189,23 +221,25 @@ export default function InsightsPage() {
       </p>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="inline-flex rounded-md border" style={{ borderColor: 'var(--color-border)' }}>
-          {SOURCE_OPTIONS.map((opt) => (
-            <TooltipWrapper key={opt.value} text={opt.tooltip} placement="bottom">
-              <button
-                type="button"
-                onClick={() => setSource(opt.value)}
-                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  source === opt.value
-                    ? 'bg-[var(--color-accent)]/10 text-[var(--color-text)]'
-                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
-                }`}
-              >
-                {opt.label}
-              </button>
-            </TooltipWrapper>
-          ))}
-        </div>
+        {sourceOptions.length > 1 ? (
+          <div className="inline-flex rounded-md border" style={{ borderColor: 'var(--color-border)' }}>
+            {sourceOptions.map((opt) => (
+              <TooltipWrapper key={opt.value} text={opt.tooltip} placement="bottom">
+                <button
+                  type="button"
+                  onClick={() => setSource(opt.value)}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    source === opt.value
+                      ? 'bg-[var(--color-accent)]/10 text-[var(--color-text)]'
+                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              </TooltipWrapper>
+            ))}
+          </div>
+        ) : null}
 
         <select
           value={underlying}
@@ -271,6 +305,28 @@ export default function InsightsPage() {
       {error ? (
         <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm">
           {error}
+        </div>
+      ) : null}
+
+      {source === 'underlying_touch' ? (
+        <div
+          className="mb-4 flex items-start gap-2 rounded-md border px-3 py-2.5 text-xs"
+          style={{
+            borderColor: 'rgba(234, 179, 8, 0.4)',
+            backgroundColor: 'rgba(234, 179, 8, 0.08)',
+          }}
+        >
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#eab308' }} />
+          <div className="leading-snug">
+            <strong>Debug view.</strong>{' '}
+            The Win % column here counts whether the underlying&apos;s price reached
+            the card&apos;s target before its stop &mdash;{' '}
+            <em>not</em> whether the trade made money. Touch and realized option P&L
+            can disagree wildly (e.g. <code>overnight_trap_continuation</code>:
+            ~95% touch rate, ~85% loss rate on options). Use{' '}
+            <span className="font-semibold">Realized P&amp;L</span> for any
+            trading decisions; this view exists only as an engine sanity check.
+          </div>
         </div>
       ) : null}
 
@@ -359,9 +415,7 @@ export default function InsightsPage() {
         Standardized spec: single-leg ATM entries at each card&apos;s own
         target/stop, with a +75% premium take-profit and −50% premium stop
         overlaid. Net of 1% slippage and $0.65 / contract commission. Rows
-        refresh nightly from the calibration backtest; toggle to{' '}
-        <span className="font-semibold">Underlying touch</span> to see the
-        unrealistic &ldquo;did price reach target?&rdquo; proxy for comparison.{' '}
+        refresh nightly from the calibration backtest.{' '}
         <Link href="/backtesting" className="underline">
           Run your own backtest →
         </Link>
