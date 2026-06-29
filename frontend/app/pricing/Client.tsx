@@ -30,21 +30,45 @@ type BillableTier = 'basic' | 'pro';
 const TRIAL_DAYS = 7;
 
 // Display-only pricing. Source of truth for what Stripe actually charges is
-// the price IDs configured in env; if those drift from these numbers the UI
-// will show stale prices until this constant is updated.
+// the price IDs + coupons configured in env; if those drift from these numbers
+// the UI will show stale prices until this constant is updated.
+//
+// Promo durations:
+//   monthly -> first 6 invoices at the promo rate (Stripe coupon duration =
+//              repeating, duration_in_months = 6), then renews at rack.
+//   annual  -> first annual invoice at the promo rate (Stripe coupon duration
+//              = once), then renews at rack.
 const DISPLAY = {
   basic: {
-    monthly: { rack: 39, promo: 24, founding: 12 },
-    annual: { rack: 199, perMonth: 16.58, savingsPct: 57 },
+    monthly: { rack: 39, promo: 19, founding: 12 },
+    annual: {
+      rack: 199,
+      promo: 150,
+      perMonth: 16.58,
+      promoPerMonth: 12.5,
+      savingsPct: 57,
+    },
   },
   pro: {
-    monthly: { rack: 59, promo: 39, founding: 19 },
-    annual: { rack: 299, perMonth: 24.92, savingsPct: 58 },
+    monthly: { rack: 59, promo: 29, founding: 19 },
+    annual: {
+      rack: 299,
+      promo: 229,
+      perMonth: 24.92,
+      promoPerMonth: 19.08,
+      savingsPct: 58,
+    },
   },
 } as const;
 
 type Props = {
-  promoActive: boolean;
+  // Time-boxed promo eligibility per cadence. Server resolves PROMO_END_AT +
+  // coupon configuration; client just AND-gates with the selected cadence.
+  promoMonthlyActive: boolean;
+  promoAnnualActive: boolean;
+  // Formatted promo deadline ("August 15, 2026"), or null when no promo is
+  // active. Used in the banner copy and as a soft urgency cue.
+  promoDeadlineLabel: string | null;
   referralEnabled: boolean;
 };
 
@@ -145,7 +169,41 @@ function PriceDisplay({
   promoActive: boolean;
 }) {
   if (cadence === 'annual') {
-    const { rack, perMonth } = DISPLAY[tier].annual;
+    const { rack, perMonth, promo, promoPerMonth } = DISPLAY[tier].annual;
+    if (promoActive) {
+      return (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: 22,
+                color: C.muted,
+                textDecoration: 'line-through',
+                fontWeight: 700,
+              }}
+            >
+              {formatMoney(rack)}
+            </span>
+            <span
+              style={{
+                fontSize: 52,
+                fontWeight: 900,
+                letterSpacing: '-1.5px',
+                lineHeight: 1,
+                color: 'var(--color-brand-primary)',
+                textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
+              }}
+            >
+              {formatMoney(promo)}
+            </span>
+            <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>/year</span>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
+            ≈ {formatMoney(promoPerMonth)}/mo first year, then {formatMoney(rack)}/yr.
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -164,17 +222,33 @@ function PriceDisplay({
   if (promoActive) {
     return (
       <div style={{ marginTop: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: 22,
+              color: C.muted,
+              textDecoration: 'line-through',
+              fontWeight: 700,
+            }}
+          >
             {formatMoney(rack)}
           </span>
-          <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+          <span
+            style={{
+              fontSize: 52,
+              fontWeight: 900,
+              letterSpacing: '-1.5px',
+              lineHeight: 1,
+              color: 'var(--color-brand-primary)',
+              textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
+            }}
+          >
             {formatMoney(promo)}
           </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+          <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>/mo</span>
         </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>
-          First 3 months at this rate, then {formatMoney(rack)}/mo.
+        <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
+          First 6 months at this rate, then {formatMoney(rack)}/mo.
         </div>
       </div>
     );
@@ -292,6 +366,62 @@ function TierCard({
   );
 }
 
+// Eye-catching banner shown at the top of the pricing section whenever ANY
+// cadence has an active limited-time offer. The shimmer + pulse are
+// CSS-animated (no JS), so they animate even before hydration. Keep the copy
+// short — the cards below carry the per-tier specifics.
+function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) {
+  return (
+    <div
+      role="status"
+      aria-label="Limited time offer"
+      style={{
+        position: 'relative',
+        maxWidth: 820,
+        margin: '0 auto 28px',
+        padding: '18px 22px',
+        borderRadius: 16,
+        overflow: 'hidden',
+        background:
+          'linear-gradient(120deg, #f5b400 0%, #ff7a18 35%, #ff2e63 70%, #ff7a18 100%)',
+        backgroundSize: '220% 100%',
+        animation: 'zgxPromoShine 4s linear infinite, zgxPromoPulse 2.4s ease-in-out infinite',
+        boxShadow:
+          '0 0 0 1px rgba(255,255,255,0.18) inset, 0 14px 50px rgba(255, 122, 24, 0.45)',
+        color: '#0b0b0b',
+        textAlign: 'center',
+        fontWeight: 900,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          letterSpacing: '0.32em',
+          textTransform: 'uppercase',
+          opacity: 0.92,
+        }}
+      >
+        ★ Limited Time Offer ★
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 'clamp(20px, 2.6vw, 26px)',
+          letterSpacing: '-0.3px',
+          lineHeight: 1.2,
+        }}
+      >
+        Save up to 51% — Basic from <span style={{ textDecoration: 'underline' }}>$19/mo</span>,
+        Pro from <span style={{ textDecoration: 'underline' }}>$29/mo</span>.
+      </div>
+      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, opacity: 0.9 }}>
+        First 6 months on monthly · First year on annual ·{' '}
+        {deadlineLabel ? `Offer ends ${deadlineLabel}` : 'For a limited time'}
+      </div>
+    </div>
+  );
+}
+
 function CadenceToggle({
   cadence,
   setCadence,
@@ -362,7 +492,12 @@ export default function PricingClient(props: Props) {
   );
 }
 
-function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }: Props) {
+function PricingClientInner({
+  promoMonthlyActive,
+  promoAnnualActive,
+  promoDeadlineLabel,
+  referralEnabled,
+}: Props) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -438,9 +573,13 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
   // flash it for everyone on every pricing-page visit.
   const showVerifyBanner = isAuthed && authSession?.user?.emailVerified === false;
 
-  // Server already gated PROMO_END_AT + coupon configuration; just AND with
-  // the currently selected cadence (annual is never eligible per spec).
-  const promoActive = serverPromoActive && cadence === 'monthly';
+  // Server already gated PROMO_END_AT + coupon configuration per cadence;
+  // just pick the flag matching the user's current cadence selection.
+  const promoActive =
+    cadence === 'monthly' ? promoMonthlyActive : promoAnnualActive;
+  // For the global banner, true whenever *any* cadence has a live offer —
+  // independent of the current toggle so it doesn't flicker on cadence change.
+  const anyPromoActive = promoMonthlyActive || promoAnnualActive;
 
   const registerHref = '/register?next=/pricing';
 
@@ -558,6 +697,21 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
+      <style>{`
+        @keyframes zgxPromoShine {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 220% 50%; }
+        }
+        @keyframes zgxPromoPulse {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset, 0 14px 50px rgba(255, 122, 24, 0.45); }
+          50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.28) inset, 0 18px 70px rgba(255, 46, 99, 0.6); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [aria-label="Limited time offer"] {
+            animation: none !important;
+          }
+        }
+      `}</style>
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
@@ -649,6 +803,8 @@ function PricingClientInner({ promoActive: serverPromoActive, referralEnabled }:
               Cancel anytime — no email or support request required.
             </p>
           </div>
+
+          {anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />}
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
             <CadenceToggle cadence={cadence} setCadence={setCadence} />

@@ -42,6 +42,24 @@ import {
   FOUNDING_LOCKIN_DEADLINE_LABEL,
 } from '../core/foundingLockin.ts';
 
+// Public limited-time promo deadline. Resolved at script-load from
+// PROMO_END_AT — kept local to this script so it doesn't import the
+// Next.js-tied @/core/stripe path (which is server-only). Returns a
+// human label like "August 15, 2026" when the promo window is still open,
+// otherwise null. ET-bound to match how we describe deadlines elsewhere.
+function getActivePromoDeadlineLabelLocal(): string | null {
+  const endAt = process.env.PROMO_END_AT;
+  if (!endAt) return null;
+  const endTs = Date.parse(endAt);
+  if (!Number.isFinite(endTs) || endTs <= Date.now()) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(endTs));
+}
+
 // 24h lag: the user just bailed; give them time to come back on their own.
 // 7d lookback: enough to cover a multi-day timer outage without flooding old
 // sessions, and >> the 6h cron cadence so nobody slips through a tick.
@@ -220,6 +238,11 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+// PROMO_END_AT is read directly by getActivePromoDeadlineLabelLocal() — pull
+// it out of .env.local so cron runs (which only have the shell env) still see it.
+if (envLocal.PROMO_END_AT && !process.env.PROMO_END_AT) {
+  process.env.PROMO_END_AT = envLocal.PROMO_END_AT;
+}
 
 // Founding deadline is a hard cutoff: after it passes we never use the
 // founding-deadline copy regardless of the user's founding_eligible flag,
@@ -228,13 +251,23 @@ const foundingDeadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
 const foundingStillOpen =
   Number.isFinite(foundingDeadlineMs) && foundingDeadlineMs > Date.now();
 
+// Public limited-time promo. When live AND the user isn't founding-eligible,
+// the email uses the promo-deadline copy instead of the generic nudge.
+const promoDeadlineLabel = getActivePromoDeadlineLabelLocal();
+
 if (cliArgs.previewTo) {
   const useFounding = cliArgs.previewFounding && foundingStillOpen;
+  const variantLabel = useFounding
+    ? 'founding-deadline'
+    : promoDeadlineLabel
+      ? 'promo-deadline'
+      : 'generic';
   console.log(
-    `Sending preview to ${cliArgs.previewTo} (variant: ${useFounding ? 'founding-deadline' : 'generic'})...`,
+    `Sending preview to ${cliArgs.previewTo} (variant: ${variantLabel})...`,
   );
   await sendCheckoutRecoveryEmail(cliArgs.previewTo, {
     foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
+    promoDeadlineLabel: useFounding ? null : promoDeadlineLabel,
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -288,6 +321,7 @@ const eligible = querySqlite<UserRow>(
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Window:           ${lowIso}  →  ${highIso}`);
 console.log(`Founding offer:   ${foundingStillOpen ? `open until ${FOUNDING_LOCKIN_DEADLINE_LABEL}` : 'closed'}`);
+console.log(`Promo offer:      ${promoDeadlineLabel ? `open until ${promoDeadlineLabel}` : 'closed'}`);
 console.log(`Eligible users:   ${eligible.length}`);
 
 if (eligible.length === 0) {
@@ -297,7 +331,8 @@ if (eligible.length === 0) {
 
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
-  const variant = u.founding_eligible === 1 && foundingStillOpen ? 'founding' : 'generic';
+  const useFounding = u.founding_eligible === 1 && foundingStillOpen;
+  const variant = useFounding ? 'founding' : promoDeadlineLabel ? 'promo' : 'generic';
   console.log(`  - ${u.email}: started ${u.last_started_at} (variant: ${variant})`);
 }
 if (eligible.length > sample.length) {
@@ -321,9 +356,13 @@ let failCount = 0;
 
 for (const user of eligible) {
   const useFounding = user.founding_eligible === 1 && foundingStillOpen;
+  // Founding always wins precedence — eligible users get the (richer)
+  // founding-deadline copy even if the public promo is also live.
+  const usePromo = !useFounding && !!promoDeadlineLabel;
   try {
     await sendCheckoutRecoveryEmail(user.email, {
       foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
+      promoDeadlineLabel: usePromo ? promoDeadlineLabel : null,
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
@@ -338,7 +377,7 @@ for (const user of eligible) {
     );
 
     const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    const variant = useFounding ? 'founding' : 'generic';
+    const variant = useFounding ? 'founding' : usePromo ? 'promo' : 'generic';
     execSqlite(
       dbPath,
       `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)

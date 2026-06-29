@@ -71,18 +71,61 @@ export function isBillingCadence(value: unknown): value is BillingCadence {
   return typeof value === 'string' && (BILLING_CADENCES as readonly string[]).includes(value);
 }
 
-// Time-boxed public promo: auto-applies to monthly checkouts while
-// PROMO_END_AT is in the future. Returns the coupon ID to attach, or null.
-// Annual is intentionally not eligible (per spec: promo is monthly-only).
+// Time-boxed public promo: auto-applies while PROMO_END_AT is in the future.
+// Returns the coupon ID to attach, or null. One coupon per (tier, cadence)
+// so monthly and annual carry independent Stripe coupons:
+//   monthly: repeating, duration_in_months=6 (intro rate for first 6 invoices)
+//   annual:  once (intro rate for the first annual invoice)
+// If the matching coupon env isn't set, the cadence is treated as ineligible
+// even with PROMO_END_AT live.
 export function getActivePromoCouponId(sku: Sku): string | null {
-  if (sku.cadence !== 'monthly') return null;
   const endAt = process.env.PROMO_END_AT;
   if (!endAt) return null;
   const endTs = Date.parse(endAt);
   if (!Number.isFinite(endTs) || endTs <= Date.now()) return null;
-  const envKey =
-    sku.tier === 'basic' ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY' : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
+  const envKey = (() => {
+    if (sku.cadence === 'monthly') {
+      return sku.tier === 'basic'
+        ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY'
+        : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
+    }
+    return sku.tier === 'basic'
+      ? 'STRIPE_COUPON_PROMO_BASIC_ANNUAL'
+      : 'STRIPE_COUPON_PROMO_PRO_ANNUAL';
+  })();
   return process.env[envKey] ?? null;
+}
+
+// Convenience: returns the list of Stripe coupon IDs currently configured for
+// the time-boxed promo (across all tier/cadence pairs). Empty array when
+// PROMO_END_AT is unset, in the past, or no matching coupon env is set.
+// Used by the webhook + email layer to detect whether a given subscription
+// is on the promo by inspecting its applied discounts.
+export function getActivePromoCouponIds(): string[] {
+  const out: string[] = [];
+  for (const tier of BILLABLE_TIERS) {
+    for (const cadence of BILLING_CADENCES) {
+      const id = getActivePromoCouponId({ tier, cadence });
+      if (id) out.push(id);
+    }
+  }
+  return out;
+}
+
+// Display label for the active promo deadline (e.g., "August 15, 2026"), or
+// null when the promo is not active. ET-bound so it matches how we describe
+// deadlines elsewhere (founding lock-in uses 09:30 ET).
+export function getActivePromoDeadlineLabel(): string | null {
+  const endAt = process.env.PROMO_END_AT;
+  if (!endAt) return null;
+  const endTs = Date.parse(endAt);
+  if (!Number.isFinite(endTs) || endTs <= Date.now()) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(endTs));
 }
 
 // Founding intro coupon for the locked rate during the first 12 months.

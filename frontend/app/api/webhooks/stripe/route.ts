@@ -10,6 +10,7 @@ import {
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
+  getActivePromoCouponIds,
   getCurrentPeriodEndUnix,
   getFoundingLifetimeCouponId,
   getStripe,
@@ -87,6 +88,45 @@ function extractSubscriptionId(event: Stripe.Event): string | null {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+// Returns a short label like "first 6 months" or "first year" when the
+// subscription carries one of the active limited-time promo coupons,
+// otherwise null. The webhook hands this to the welcome email so the copy
+// can mention the intro window without hardcoding tier/cadence specifics.
+function describePromoIfPresent(subscription: Stripe.Subscription): string | null {
+  const activePromoIds = new Set(getActivePromoCouponIds());
+  if (activePromoIds.size === 0) return null;
+
+  // Subscription discounts can be expanded objects or just IDs depending on
+  // the source — the webhook payload often gives us coupon objects directly.
+  type SubDiscount = {
+    coupon?: { id?: string; duration?: string; duration_in_months?: number | null } | string | null;
+  };
+  // Cast through unknown so we don't pin to a moving Stripe.Subscription.Discount shape.
+  const rawDiscounts = ((subscription as unknown as { discounts?: SubDiscount[] }).discounts ?? []) as SubDiscount[];
+
+  let matchedCoupon: { id?: string; duration?: string; duration_in_months?: number | null } | null = null;
+  for (const d of rawDiscounts) {
+    const coupon = d?.coupon;
+    if (!coupon) continue;
+    const couponId = typeof coupon === 'string' ? coupon : coupon.id;
+    if (!couponId || !activePromoIds.has(couponId)) continue;
+    matchedCoupon = typeof coupon === 'string' ? { id: couponId } : coupon;
+    break;
+  }
+  if (!matchedCoupon) return null;
+
+  // Prefer a derived "first N months" / "first year" label from the coupon
+  // shape (which is the source of truth for how long the discount lasts).
+  // Falls back to a generic label if duration isn't expanded on the object.
+  if (matchedCoupon.duration === 'repeating' && matchedCoupon.duration_in_months) {
+    return `first ${matchedCoupon.duration_in_months} months`;
+  }
+  if (matchedCoupon.duration === 'once') {
+    return 'first year';
+  }
+  return 'introductory period';
 }
 
 function formatInvoiceAmount(invoice: Stripe.Invoice): string | null {
@@ -405,11 +445,14 @@ async function maybeSendPaidWelcomeEmail(
       subscription.status === 'trialing' && typeof subscription.trial_end === 'number'
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null;
+    // Promo only meaningful on the non-founding path — founding has its own
+    // (richer) intro discount and that email already speaks to it.
+    const promoIntroLabel = isFounding ? null : describePromoIfPresent(subscription);
     try {
       if (isFounding) {
         await sendFoundingWelcomeEmail(user.email, { trialEndIso });
       } else {
-        await sendPaidWelcomeEmail(user.email, { trialEndIso });
+        await sendPaidWelcomeEmail(user.email, { trialEndIso, promoIntroLabel });
       }
       logAudit({
         type: 'paid_welcome_email_sent',
