@@ -49,6 +49,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   // the same reason: every commitment AND its receipt must be readable by
   // anyone with the URL, including OG crawlers.
   '/forecast/*',
+  // GEX Replay (/replay/{date}) — scrubbable historical session viewer
+  // with shareable per-moment snapshot OG cards. Anonymous-accessible
+  // for the same crawler + non-member reasons.
+  '/replay/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
