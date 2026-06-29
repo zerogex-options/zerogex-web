@@ -265,7 +265,14 @@ function FoundingCard({
       {cadence === 'monthly' ? (
         <>
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+            <span
+              style={{
+                fontSize: 20,
+                color: 'var(--color-bear)',
+                textDecoration: 'line-through',
+                textDecorationColor: 'var(--color-bear)',
+              }}
+            >
               {formatMoney(monthlyPlan.rack)}
             </span>
             <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
@@ -282,7 +289,14 @@ function FoundingCard({
       ) : (
         <>
           <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ fontSize: 20, color: C.muted, textDecoration: 'line-through' }}>
+            <span
+              style={{
+                fontSize: 20,
+                color: 'var(--color-bear)',
+                textDecoration: 'line-through',
+                textDecorationColor: 'var(--color-bear)',
+              }}
+            >
               {formatMoney(annualPlan.rack)}
             </span>
             <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
