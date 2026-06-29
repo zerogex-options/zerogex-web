@@ -269,9 +269,10 @@ function FoundingCard({
             <span
               style={{
                 fontSize: 20,
-                color: 'var(--color-bear)',
+                color: C.muted,
                 textDecoration: 'line-through',
                 textDecorationColor: 'var(--color-bear)',
+                textDecorationThickness: 3,
               }}
             >
               {formatMoney(monthlyPlan.rack)}
@@ -293,9 +294,10 @@ function FoundingCard({
             <span
               style={{
                 fontSize: 20,
-                color: 'var(--color-bear)',
+                color: C.muted,
                 textDecoration: 'line-through',
                 textDecorationColor: 'var(--color-bear)',
+                textDecorationThickness: 3,
               }}
             >
               {formatMoney(annualPlan.rack)}

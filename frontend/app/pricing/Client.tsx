@@ -227,9 +227,10 @@ function PriceDisplay({
           <span
             style={{
               fontSize: 22,
-              color: 'var(--color-bear)',
+              color: C.muted,
               textDecoration: 'line-through',
               textDecorationColor: 'var(--color-bear)',
+              textDecorationThickness: 3,
               fontWeight: 700,
             }}
           >
