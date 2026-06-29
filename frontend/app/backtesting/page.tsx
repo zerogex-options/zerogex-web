@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   AlertTriangle,
   Download,
@@ -14,6 +15,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  TrendingUp,
   Trash2,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -442,6 +444,14 @@ export default function BacktestingPage() {
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
+        <Link
+          href="/backtesting/insights"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium hover:text-[var(--color-text)] text-[var(--color-text-secondary)]"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <TrendingUp size={14} />
+          Pattern Insights
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-8">
