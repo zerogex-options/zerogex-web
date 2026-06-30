@@ -368,29 +368,35 @@ export async function sendFoundingFinalCallEmail(
     foundingHref: string;
   },
 ) {
-  const subject = `Final call: your ZeroGEX founding rate expires ${opts.deadlineLabel}`;
+  const subject = `Final reminder: ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}`;
   const safeFoundingUrl = escapeHtml(opts.foundingHref);
   const safeDeadline = escapeHtml(opts.deadlineLabel);
 
   const text = [
     'Hello,',
     '',
-    `This is the last email I'm going to send you about the ZeroGEX founding rate. It closes ${opts.deadlineLabel} — and once it's gone, it's gone.`,
+    `Just a final reminder that the ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}.`,
     '',
-    "Here's where things stand:",
+    'I wanted to send one last note because you were part of the early ZeroGEX cohort, and I do not want anyone who intended to lock in the founding rate to miss the deadline.',
     '',
-    '  • $12/mo Basic (normally $39) or $19/mo Pro (normally $59) — locked in for life as long as your subscription stays active.',
-    '  • After the lifetime intro period, your rate is 25% off standard. Forever. On every renewal.',
-    '  • No charge today. Your card isn\'t billed until July 1.',
+    "Here's the offer:",
     '',
-    `If you don't activate before ${opts.deadlineLabel}, your founding access ends and the only way back in is at standard pricing — that's roughly 3× what you'd lock in right now. We will never run this offer again. There is no extension, no waitlist, no "I'll catch the next one."`,
+    '  • Basic: $12/mo for the first year, normally $39/mo',
+    '  • Pro: $19/mo for the first year, normally $59/mo',
+    '  • After the first year, you keep 25% off standard pricing for as long as your subscription stays active',
+    '  • No charge today. Your card will not be billed until July 1.',
     '',
-    "I'm not trying to twist your arm. You either think the realtime gamma exposure, dealer positioning, signal score, and the rest of the platform make you a sharper trader, or you don't. If you do, $12 a month is a rounding error against a single bad trade you avoid — and it's frozen at $12/mo for as long as you stay subscribed.",
+    `After ${opts.deadlineLabel}, founding access ends and future access will be at standard pricing.`,
     '',
-    'Lock it in here while you still can:',
+    'If ZeroGEX has been useful to you, this is the best pricing I expect to offer, and it is my way of saying thank you to the people who were here early.',
+    '',
+    'You can lock it in here:',
+    '',
     opts.foundingHref,
     '',
-    `If ZeroGEX isn't for you, ignore this — you won't hear from me about it again. But after ${opts.deadlineLabel}, that's the price reset, not a position you can rebuild.`,
+    "If ZeroGEX is not for you right now, no worries at all. You can ignore this email and you won't hear from me again about the founding offer.",
+    '',
+    'Thanks again for being part of the early ZeroGEX group. I genuinely appreciate the support, feedback, and encouragement many of you have shared.',
     '',
     'Best,',
     'Michael',
@@ -399,28 +405,32 @@ export async function sendFoundingFinalCallEmail(
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
-      <p style="margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #c84a00;">Final Call — Founding Rate</p>
-      <h1 style="font-size: 22px; margin: 0 0 18px; line-height: 1.25;">Closes ${safeDeadline}. Then it&rsquo;s gone.</h1>
-
       <p>Hello,</p>
-      <p>This is the last email I&rsquo;m going to send you about the ZeroGEX founding rate. It closes <strong>${safeDeadline}</strong> &mdash; and once it&rsquo;s gone, it&rsquo;s gone.</p>
+      <p>Just a final reminder that the ZeroGEX founding rate closes tomorrow, <strong>${safeDeadline}</strong>.</p>
 
-      <p style="margin: 20px 0 8px; font-weight: 700;">Here&rsquo;s where things stand:</p>
+      <p>I wanted to send one last note because you were part of the early ZeroGEX cohort, and I do not want anyone who intended to lock in the founding rate to miss the deadline.</p>
+
+      <p style="margin: 20px 0 8px;">Here&rsquo;s the offer:</p>
       <ul style="padding-left: 22px; margin: 0 0 18px;">
-        <li><strong>$12/mo Basic</strong> (normally $39) or <strong>$19/mo Pro</strong> (normally $59) &mdash; locked in for life as long as your subscription stays active.</li>
-        <li>After the lifetime intro period, your rate is <strong>25% off standard. Forever.</strong> On every renewal.</li>
-        <li><strong>No charge today.</strong> Your card isn&rsquo;t billed until July 1.</li>
+        <li><strong>Basic:</strong> $12/mo for the first year, normally $39/mo</li>
+        <li><strong>Pro:</strong> $19/mo for the first year, normally $59/mo</li>
+        <li>After the first year, you keep <strong>25% off standard pricing</strong> for as long as your subscription stays active</li>
+        <li><strong>No charge today.</strong> Your card will not be billed until July 1.</li>
       </ul>
 
-      <p>If you don&rsquo;t activate before <strong>${safeDeadline}</strong>, your founding access ends and the only way back in is at standard pricing &mdash; roughly <strong>3&times;</strong> what you&rsquo;d lock in right now. We will never run this offer again. There is no extension, no waitlist, no &ldquo;I&rsquo;ll catch the next one.&rdquo;</p>
+      <p>After <strong>${safeDeadline}</strong>, founding access ends and future access will be at standard pricing.</p>
 
-      <p>I&rsquo;m not trying to twist your arm. You either think the realtime gamma exposure, dealer positioning, signal score, and the rest of the platform make you a sharper trader, or you don&rsquo;t. If you do, $12 a month is a rounding error against a single bad trade you avoid &mdash; and it&rsquo;s frozen at $12/mo for as long as you stay subscribed.</p>
+      <p>If ZeroGEX has been useful to you, this is the best pricing I expect to offer, and it is my way of saying thank you to the people who were here early.</p>
 
-      <p style="margin: 28px 0;">
+      <p>You can lock it in here:</p>
+
+      <p style="margin: 24px 0;">
         <a href="${safeFoundingUrl}" style="display: inline-block; padding: 14px 24px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px; font-size: 15px;">Lock in my founding rate</a>
       </p>
 
-      <p style="font-size: 13px; color: #555;">If ZeroGEX isn&rsquo;t for you, ignore this &mdash; you won&rsquo;t hear from me about it again. But after ${safeDeadline}, that&rsquo;s the price reset, not a position you can rebuild.</p>
+      <p>If ZeroGEX is not for you right now, no worries at all. You can ignore this email and you won&rsquo;t hear from me again about the founding offer.</p>
+
+      <p>Thanks again for being part of the early ZeroGEX group. I genuinely appreciate the support, feedback, and encouragement many of you have shared.</p>
 
       <p style="margin-top: 22px;">Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>

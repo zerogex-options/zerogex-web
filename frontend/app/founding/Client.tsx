@@ -617,6 +617,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               features={[
                 'Everything included in Basic.',
                 'Access to Advanced Signals.',
+                'Access to Backtesting (beta).',
                 'Direct access to ZeroGEX APIs.',
               ]}
               action={actionFor('pro')}
@@ -673,11 +674,12 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             </h2>
             <div style={{ marginTop: 12, color: C.muted, fontSize: 15, lineHeight: 1.75 }}>
               <p style={{ margin: 0 }}>
-                Activating your founding rate does not charge your card today — your first payment isn&rsquo;t
-                taken until <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>. From
-                that date, your founding rate is billed in advance on a recurring basis through Stripe. You can
-                cancel your subscription at any time — including before the first charge — from the
-                Stripe-hosted billing portal, accessible from your{' '}
+                Founding activations get a deferred trial that ends on{' '}
+                <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>, not the standard
+                seven-day trial — your card is on file but is not charged today. From that date, your founding
+                rate is billed in advance on a recurring basis through Stripe. You can cancel your subscription
+                at any time — including before the first charge — from the Stripe-hosted billing portal,
+                accessible from your{' '}
                 <Link href="/account" style={{ color: C.amber }}>
                   account
                 </Link>{' '}

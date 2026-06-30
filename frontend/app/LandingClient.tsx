@@ -819,7 +819,7 @@ export default function LandingPage() {
         >
           <StatCard isDark={isDark} label="Analytics Modules" value={<AnimatedNumber target={8} suffix="+" />} sub="Gamma, Flow, Signals & more" />
           <StatCard isDark={isDark} label="Data Refresh Rate" value={<AnimatedNumber target={1} suffix="s" />} sub="Real-time market updates" />
-          <StatCard isDark={isDark} label="Options Greeks" value={<AnimatedNumber target={5} />} sub="Delta, Gamma, Theta, Vega, Charm" />
+          <StatCard isDark={isDark} label="Options Greeks" value={<AnimatedNumber target={4} />} sub="Delta, Gamma, Theta, Vega per contract" />
           <StatCard isDark={isDark} label="Supported Symbols" value={<AnimatedNumber target={3} suffix="+" />} sub="SPY, SPX, QQQ" />
         </div>
       </section>
@@ -986,7 +986,7 @@ export default function LandingPage() {
             <FeatureCard isDark={isDark}
               icon={Calculator}
               title="Options Calculator"
-              description="Price any option in seconds. Calculate theoretical value, all five Greeks, and break-even zones with our built-in Black-Scholes and implied volatility engine."
+              description="Model any options position in seconds. Project intrinsic P&L across a fan of underlying moves, with live entry pricing from the chain and exact break-even output."
               color={C.muted}
             />
           </div>
@@ -1089,7 +1089,7 @@ export default function LandingPage() {
             <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label="Dealer Positioning — GEX Heatmap"    color={C.green} />
             <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
             <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
-            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — Greeks Engine"  color={C.amber} />
+            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — P&L & Break-Even"  color={C.amber} />
             <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="GEX Summary — Headline Levels"       color={C.green} />
           </div>
         </div>

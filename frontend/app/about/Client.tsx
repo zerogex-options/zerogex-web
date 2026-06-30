@@ -509,8 +509,8 @@ export default function AboutPage() {
             />
             <InfoCard isDark={isDark}
               icon={BarChart2}
-              title="Greeks Engine"
-              body="Our built-in Black-Scholes engine calculates theoretical option prices and all five Greeks — Delta, Gamma, Theta, Vega, and Charm — using live implied volatility surfaces. The Options Calculator lets you model any scenario in real time."
+              title="Greeks Pipeline"
+              body="Per-contract Greeks — Delta, Gamma, Theta, Vega — are calculated on every chain ingest using a Black-Scholes pipeline against our live implied-volatility surfaces, then aggregated into dealer-level vanna and charm exposures for the signals engine."
               color={C.green}
             />
           </div>
@@ -553,7 +553,7 @@ export default function AboutPage() {
             },
             {
               icon: Calculator, href: '/options-calculator', label: 'Options Calculator', color: C.amber,
-              desc: 'Price options in real time using Black-Scholes with live IV surfaces. Model P&L at expiry, calculate break-even prices, and analyze all five Greeks for any strike or expiration.',
+              desc: 'Pull a live entry price from the chain, then project intrinsic P&L across a configurable fan of underlying moves. Returns position cost, break-even, and per-step P&L for any strike or expiration.',
             },
             {
               icon: Layers, href: '/greeks-gex', label: 'GEX Summary', color: C.green,
@@ -724,7 +724,7 @@ export default function AboutPage() {
           />
           <FAQItem isDark={isDark}
             q="How does the Options Calculator work?"
-            a="The Options Calculator uses the Black-Scholes pricing model with live implied volatility surfaces fetched from our data pipeline. Enter any symbol, strike, expiration, and option type, and we calculate the theoretical price, Delta, Gamma, Theta, Vega, and Charm in real time. You can also model P&L scenarios at different price levels and time horizons to see how your position performs under various market conditions."
+            a="The Options Calculator pulls the live entry price from the chain (mid → last → bid/ask midpoint fallback) and then walks a configurable fan of underlying-price moves — up for calls, down for puts — at the step size you choose. For each step it returns the position's intrinsic value at expiration, the P&L net of your brokerage fees, and the exact break-even price. Use the per-contract Greeks shown on each option contract for Δ, Γ, Θ, V at the chosen strike."
           />
         </div>
       </section>
