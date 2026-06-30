@@ -173,6 +173,11 @@ function initDb(): DatabaseSync {
   // login. Cleared implicitly by hasActiveSubscription becoming true (the
   // reminder is gated on the user not yet paying).
   ensureColumn('users', 'founding_lockin_dismissed_at', 'TEXT');
+  // Idempotency latch for the final-call email (scripts/send-founding-final-
+  // call.mts), which fires once per founding-eligible non-redeemer in the
+  // last ~36h window before FOUNDING_LOCKIN_DEADLINE_ISO. NULL = never sent.
+  // Deliberately a permanent one-shot — the deadline only crosses once.
+  ensureColumn('users', 'founding_final_call_email_sent_at', 'TEXT');
 
   // Double-sided referral program.
   //   `referral_code`         - this user's own shareable code (lazily minted

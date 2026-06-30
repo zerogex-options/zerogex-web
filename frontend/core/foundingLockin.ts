@@ -10,3 +10,12 @@ export const FOUNDING_LOCKIN_DEADLINE_LABEL = 'July 1, 9:30 AM ET';
 // Matches the calendar date the checkout API sets as trial_end (derived from
 // FOUNDING_LOCKIN_DEADLINE_ISO above, rendered in America/New_York).
 export const FOUNDING_BILLING_START_LABEL = 'July 1, 2026';
+
+// One central gate for "is the founding lock-in offer still open?" — used by
+// every surface that mentions the founding rate (modal, /founding page,
+// checkout API, recovery-email cron) so they all flip together at the deadline
+// instead of needing per-call-site `Date.now()` comparisons.
+export function isFoundingLockinOpen(now: number = Date.now()): boolean {
+  const deadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
+  return Number.isFinite(deadlineMs) && now < deadlineMs;
+}
