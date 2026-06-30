@@ -257,10 +257,20 @@ if (!cliArgs.yes) {
   process.exit(1);
 }
 
+// Resend's per-second limit on the Pro tier is 10 req/sec. Pace below the
+// ceiling so we don't trip 429s on borderline iterations — 120ms ≈ 8.3
+// req/sec leaves a margin without materially slowing a 282-user blast (an
+// extra ~34s wall-clock for the full cohort). Sleep AFTER each iteration,
+// not before — that way the first send isn't delayed, and a 429 doesn't
+// immediately retry the next call inside the same rolling-second window.
+const SEND_INTERVAL_MS = 120;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 let successCount = 0;
 let failCount = 0;
 
-for (const user of eligible) {
+for (let i = 0; i < eligible.length; i++) {
+  const user = eligible[i];
   try {
     await sendFoundingFinalCallEmail(user.email, {
       deadlineLabel: FOUNDING_LOCKIN_DEADLINE_LABEL,
@@ -298,6 +308,10 @@ for (const user of eligible) {
     failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
     console.error(`  FAIL ${user.email}: ${message}`);
+  }
+  // Throttle every iteration except the last (no point sleeping before exit).
+  if (i < eligible.length - 1) {
+    await sleep(SEND_INTERVAL_MS);
   }
 }
 
