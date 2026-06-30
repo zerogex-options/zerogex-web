@@ -174,6 +174,15 @@ export default function InsightsPage() {
     return Object.fromEntries(meta.patterns.map((p) => [p.id, p.name]));
   }, [meta]);
 
+  const patternDescriptions = useMemo<Record<string, string>>(() => {
+    if (!meta) return {};
+    return Object.fromEntries(
+      meta.patterns
+        .filter((p) => p.description && p.description.trim() !== '')
+        .map((p) => [p.id, p.description]),
+    );
+  }, [meta]);
+
   useEffect(() => {
     let cancelled = false;
     backtestAPI
@@ -409,7 +418,10 @@ export default function InsightsPage() {
                   style={{ borderColor: 'var(--color-border)' }}
                 >
                   <td className="px-3 py-2">
-                    <TooltipWrapper text={r.pattern} placement="top">
+                    <TooltipWrapper
+                      text={patternDescriptions[r.pattern] || `pattern_id: ${r.pattern}`}
+                      placement="top"
+                    >
                       <span className="font-medium cursor-help">
                         {formatPatternLabel(r.pattern, patternCatalog)}
                       </span>
