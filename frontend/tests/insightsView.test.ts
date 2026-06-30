@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyInsightsView,
+  formatPatternLabel,
   formatPercent,
   formatPnl,
   formatProfitFactor,
@@ -168,4 +169,32 @@ test('formatProfitFactor shows two decimals', () => {
 test('formatProfitFactor em-dashes null (PF undefined when no losses)', () => {
   assert.equal(formatProfitFactor(null), '—');
   assert.equal(formatProfitFactor(Infinity), '—');
+});
+
+// ── formatPatternLabel ─────────────────────────────────────────────────────
+
+test('formatPatternLabel uses the catalog name when available', () => {
+  const catalog = {
+    eod_pressure_drift: 'EOD Pressure Drift',
+    gex_gradient_trend: 'GEX Gradient Trend',
+  };
+  assert.equal(formatPatternLabel('eod_pressure_drift', catalog), 'EOD Pressure Drift');
+  assert.equal(formatPatternLabel('gex_gradient_trend', catalog), 'GEX Gradient Trend');
+});
+
+test('formatPatternLabel falls back to a Title-Case transform with acronym upper-case', () => {
+  // No catalog entry → derive a label from the slug. Known acronyms (EOD,
+  // GEX, etc.) stay upper-case so we don't end up with "Gex Gradient Trend."
+  assert.equal(formatPatternLabel('eod_pressure_drift', {}), 'EOD Pressure Drift');
+  assert.equal(formatPatternLabel('gex_gradient_trend', {}), 'GEX Gradient Trend');
+  assert.equal(formatPatternLabel('call_wall_fade', {}), 'Call Wall Fade');
+  assert.equal(formatPatternLabel('overnight_trap_continuation', {}),
+    'Overnight Trap Continuation');
+});
+
+test('formatPatternLabel treats blank catalog entries as missing', () => {
+  // Empty/whitespace catalog values shouldn't be used — fall through to the
+  // slug transform so a misconfigured catalog doesn't silently render blank.
+  assert.equal(formatPatternLabel('call_wall_fade', { call_wall_fade: '' }), 'Call Wall Fade');
+  assert.equal(formatPatternLabel('call_wall_fade', { call_wall_fade: '   ' }), 'Call Wall Fade');
 });

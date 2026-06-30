@@ -21,9 +21,10 @@ import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { backtestAPI } from '@/core/api/endpoints';
 import { useAuthSession } from '@/hooks/useAuthSession';
-import type { InsightsSource, PatternInsight } from '../types';
+import type { BacktestMeta, InsightsSource, PatternInsight } from '../types';
 import {
   applyInsightsView,
+  formatPatternLabel,
   formatPnl,
   formatPercent,
   formatProfitFactor,
@@ -148,6 +149,30 @@ export default function InsightsPage() {
   const [rows, setRows] = useState<PatternInsight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const loading = rows === null && error === null;
+
+  // Meta is fetched once and reused to humanize pattern slugs in the Pattern
+  // column. Best-effort: failures silently fall back to the in-table slug
+  // formatter, so the page still renders if meta is down.
+  const [meta, setMeta] = useState<BacktestMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    backtestAPI.getMeta().then(
+      (m) => {
+        if (!cancelled) setMeta(m);
+      },
+      () => {
+        /* meta is decorative here — slug fallback covers it */
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const patternCatalog = useMemo<Record<string, string>>(() => {
+    if (!meta) return {};
+    return Object.fromEntries(meta.patterns.map((p) => [p.id, p.name]));
+  }, [meta]);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,7 +408,13 @@ export default function InsightsPage() {
                   className="border-t"
                   style={{ borderColor: 'var(--color-border)' }}
                 >
-                  <td className="px-3 py-2 font-mono text-xs">{r.pattern}</td>
+                  <td className="px-3 py-2">
+                    <TooltipWrapper text={r.pattern} placement="top">
+                      <span className="font-medium cursor-help">
+                        {formatPatternLabel(r.pattern, patternCatalog)}
+                      </span>
+                    </TooltipWrapper>
+                  </td>
                   <td className="px-3 py-2 font-semibold">{r.underlying}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.n_resolved}</td>
                   <td className="px-3 py-2 text-right tabular-nums">

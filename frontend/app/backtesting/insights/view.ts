@@ -99,3 +99,29 @@ export function formatProfitFactor(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return value.toFixed(2);
 }
+
+/**
+ * Convert a pattern slug to a human-readable label using the catalog map
+ * from /api/backtest/meta. Falls back to a Title-Case transform of the slug
+ * if the map hasn't loaded yet — so the table never shows a raw
+ * "eod_pressure_drift" id even on the first paint.
+ *
+ * The catalog map should be id → name (e.g. {"eod_pressure_drift": "EOD
+ * Pressure Drift"}). Pass an empty map to force the fallback (used in
+ * tests).
+ */
+export function formatPatternLabel(id: string, catalog: Record<string, string>): string {
+  const fromCatalog = catalog[id];
+  if (fromCatalog && fromCatalog.trim() !== '') return fromCatalog;
+  // Slug fallback: split on underscores, upper-case known acronyms, Title
+  // Case everything else.
+  const ACRONYMS = new Set(['eod', 'gex', 'pnl', 'iv', 'mfe', 'mae', 'atm', 'oi']);
+  return id
+    .split('_')
+    .map((part) =>
+      ACRONYMS.has(part.toLowerCase())
+        ? part.toUpperCase()
+        : part.charAt(0).toUpperCase() + part.slice(1),
+    )
+    .join(' ');
+}
