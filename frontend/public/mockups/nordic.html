@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Nordic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter+Tight:wght@200;300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EEE9DC;
+    --paper-2: #E5DFCE;
+    --stone: #C7C1AF;
+    --sage: #8E9B7E;
+    --sage-2: #6E7C60;
+    --terra: #C08464;
+    --terra-2: #A66849;
+    --walnut: #6F4E36;
+    --ink: #2A2721;
+    --ink-soft: #4D4941;
+    --muted: #7C7669;
+    --line: rgba(42,39,33,0.10);
+    --line-2: rgba(42,39,33,0.22);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif; font-weight: 300; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .cap { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  em.italic { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; }
+
+  /* Nav */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 24px; letter-spacing: -0.01em;
+  }
+  .brand em { font-style: italic; font-weight: 500; color: var(--terra); }
+  .brand .mark {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--terra); flex: none;
+  }
+  .nav .links {
+    display: flex; gap: 34px;
+    font-family: 'Inter Tight', sans-serif; font-weight: 400;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .nav .links a:hover { color: var(--terra); }
+  @media (max-width: 800px) { .nav .links { display: none; } }
+  .nav .right { display: flex; align-items: center; gap: 20px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Inter Tight', sans-serif; font-weight: 500; font-size: 13px;
+    letter-spacing: 0.02em;
+    padding: 12px 22px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 999px;
+    transition: all 200ms;
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.terra { background: var(--terra); color: var(--paper); border-color: var(--terra); }
+  .btn.terra:hover { background: var(--terra-2); border-color: var(--terra-2); }
+  .btn.big { padding: 16px 28px; font-size: 14px; }
+
+  /* Hero */
+  .hero { padding: 120px 0 100px; display: grid; grid-template-columns: 7fr 5fr; gap: 80px; align-items: center; }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 40px; } }
+
+  .kicker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--terra); margin-bottom: 32px; }
+
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(60px, 7.5vw, 108px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin: 0 0 40px;
+  }
+  h1 em { font-style: italic; color: var(--terra); font-weight: 500; }
+  h1 .thin { color: var(--muted); font-weight: 400; }
+
+  .deck {
+    font-size: 20px; line-height: 1.6;
+    max-width: 520px;
+    color: var(--ink-soft);
+    font-weight: 300;
+    margin: 0 0 40px;
+  }
+  .deck em { font-family: 'Cormorant Garamond', serif; font-style: italic; color: var(--ink); font-weight: 500; }
+
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+
+  .hero-meta { display: flex; gap: 48px; padding-top: 32px; border-top: 1px solid var(--line); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); flex-wrap: wrap; }
+  .hero-meta div b {
+    display: block; font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-weight: 500; font-size: 22px; color: var(--ink);
+    text-transform: none; letter-spacing: -0.01em; margin-top: 4px;
+  }
+
+  /* Vessel — a still-life card */
+  .vessel {
+    background: var(--paper-2);
+    border-radius: 4px;
+    padding: 40px 32px;
+    display: flex; flex-direction: column; gap: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .vessel::before {
+    content: '';
+    position: absolute; top: -60px; right: -60px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, var(--sage) 0%, var(--sage-2) 100%);
+    opacity: 0.5;
+  }
+  .vessel::after {
+    content: '';
+    position: absolute; bottom: -40px; left: -20px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: var(--terra);
+    opacity: 0.35;
+  }
+  .vessel .head { display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2; }
+  .vessel .head .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .vessel .head .live { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--terra); }
+  .vessel .head .live::before { content: '● '; }
+  .vessel .measures { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; }
+  .vessel .measures .m { padding: 14px 0; border-top: 1px solid var(--line); }
+  .vessel .measures .m .k { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .vessel .measures .m .v { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 32px; letter-spacing: -0.02em; margin-top: 2px; }
+  .vessel .measures .m .v em { font-style: italic; }
+  .vessel .measures .m .v.t { color: var(--terra); }
+  .vessel .measures .m .v.s { color: var(--sage-2); }
+
+  /* Sections */
+  section { padding: 140px 0; border-top: 1px solid var(--line); }
+  .sect-head {
+    display: grid; grid-template-columns: 2fr 6fr 4fr;
+    gap: 40px; margin-bottom: 60px; align-items: baseline;
+    padding-bottom: 20px; border-bottom: 1px solid var(--line);
+  }
+  @media (max-width: 800px) { .sect-head { grid-template-columns: 1fr; gap: 12px; } }
+  .sect-head .num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--terra); }
+  h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(44px, 5.5vw, 76px);
+    line-height: 1.02; letter-spacing: -0.02em;
+    max-width: 700px;
+  }
+  h2 em { font-style: italic; color: var(--terra); font-weight: 500; }
+  h2 .thin { color: var(--muted); font-weight: 400; }
+  .sect-head .meta { font-size: 16px; line-height: 1.6; color: var(--muted); text-align: right; font-family: 'Inter Tight', sans-serif; font-weight: 300; }
+  @media (max-width: 800px) { .sect-head .meta { text-align: left; } }
+
+  /* Instruments — soft list with sage/terra accents */
+  .instr .row {
+    display: grid; grid-template-columns: 80px 3fr 4fr auto;
+    gap: 32px; padding: 32px 0;
+    border-top: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .instr .row:last-child { border-bottom: 1px solid var(--line); }
+  @media (max-width: 800px) { .instr .row { grid-template-columns: 60px 1fr; gap: 12px; } .instr .row .desc { grid-column: 2 / -1; } .instr .row .val { grid-column: 2 / -1; text-align: left; } }
+  .instr .idx { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; font-size: 20px; color: var(--terra); }
+  .instr .name {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 26px; letter-spacing: -0.01em;
+  }
+  .instr .name em { font-style: italic; color: var(--terra); }
+  .instr .desc { font-size: 16px; line-height: 1.55; color: var(--ink-soft); max-width: 480px; font-weight: 300; }
+  .instr .val {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 30px; letter-spacing: -0.02em; text-align: right;
+  }
+  .instr .val.t { color: var(--terra); }
+  .instr .val.s { color: var(--sage-2); }
+
+  /* Feature */
+  .feature { display: grid; grid-template-columns: 5fr 7fr; gap: 80px; align-items: center; }
+  @media (max-width: 900px) { .feature { grid-template-columns: 1fr; gap: 40px; } }
+  .feature h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(36px, 4vw, 56px); line-height: 1.02; letter-spacing: -0.02em;
+    margin: 0 0 24px;
+  }
+  .feature h3 em { font-style: italic; color: var(--terra); font-weight: 500; }
+  .feature h3 .thin { color: var(--muted); }
+  .feature p { font-size: 17px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 14px; max-width: 460px; font-weight: 300; }
+  .feature p em { font-family: 'Cormorant Garamond', serif; font-style: italic; color: var(--ink); font-weight: 500; }
+  .feature .marg {
+    border-left: 2px solid var(--sage);
+    padding-left: 16px;
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px;
+    color: var(--ink); margin: 24px 0;
+  }
+
+  .chart-quiet {
+    background: var(--paper-2);
+    border-radius: 4px;
+    padding: 48px 40px 40px;
+    position: relative;
+  }
+  .chart-quiet svg { display: block; width: 100%; height: auto; }
+  .chart-quiet .cap { position: absolute; top: 20px; left: 40px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+
+  /* Quote */
+  .quiet-quote { padding: 160px 0; text-align: center; border-top: 1px solid var(--line); }
+  .quiet-quote .idx { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--terra); margin-bottom: 40px; }
+  .quiet-quote .q {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400;
+    font-size: clamp(34px, 4vw, 60px); line-height: 1.25; letter-spacing: -0.01em;
+    max-width: 900px; margin: 0 auto 40px;
+    color: var(--ink);
+  }
+  .quiet-quote .q em { color: var(--terra); font-weight: 500; }
+  .quiet-quote .attr { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+
+  /* CTA */
+  .cta { padding: 160px 0; text-align: center; border-top: 1px solid var(--line); }
+  .cta .idx { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--terra); margin-bottom: 24px; }
+  .cta h2 { margin: 0 auto 24px; max-width: 800px; }
+  .cta p { font-size: 18px; color: var(--ink-soft); max-width: 480px; margin: 0 auto 40px; line-height: 1.65; font-weight: 300; }
+
+  footer { padding: 40px 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line); }
+  footer .fbrand { font-family: 'Cormorant Garamond', serif; font-style: italic; text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--ink); }
+  footer a:hover { color: var(--terra); }
+
+  .back { position: fixed; top: 16px; right: 16px; z-index: 200; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; background: var(--paper); border: 1px solid var(--terra); padding: 6px 12px; color: var(--terra); border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All mockups</a>
+
+<div class="page">
+  <nav class="nav">
+    <div class="brand"><span class="mark"></span> zerogex</div>
+    <div class="links">
+      <a href="#">Signals</a>
+      <a href="#">Study</a>
+      <a href="#">Pricing</a>
+      <a href="#">Notes</a>
+    </div>
+    <div class="right">
+      <a href="#" style="font-family: 'Inter Tight', sans-serif; font-size: 14px; color: var(--ink-soft);">Sign in</a>
+      <a href="#" class="btn terra">Open a desk</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" style="border-top: 0;">
+    <div>
+      <div class="kicker">— Live · dealer positioning · SPX / SPY</div>
+      <h1>
+        A quieter way<br/>
+        to read the <em>tape.</em>
+      </h1>
+      <p class="deck">
+        ZeroGEX is a small, considered set of live-computed instruments — <em>the flip, the walls, the traps</em> — arranged with the space they need to be understood. Refreshed every 250 milliseconds. Read at your pace.
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn terra big">Open a desk</a>
+        <a href="#" class="btn big">Read today's note</a>
+      </div>
+      <div class="hero-meta">
+        <div>Instruments<b><em class="italic">eighteen</em></b></div>
+        <div>Refresh<b><em class="italic">250 ms</em></b></div>
+        <div>On the desk<b><em class="italic">12,400</em></b></div>
+      </div>
+    </div>
+
+    <div class="vessel">
+      <div class="head">
+        <span class="lbl">The desk — 14:32 ET</span>
+        <span class="live">Live</span>
+      </div>
+      <div class="measures">
+        <div class="m"><div class="k">γ Flip</div><div class="v t"><em class="italic">6,398</em></div></div>
+        <div class="m"><div class="k">Net GEX</div><div class="v"><em class="italic">−1.82B</em></div></div>
+        <div class="m"><div class="k">Call wall</div><div class="v"><em class="italic">6,450</em></div></div>
+        <div class="m"><div class="k">Put wall</div><div class="v"><em class="italic">6,350</em></div></div>
+        <div class="m"><div class="k">Trap</div><div class="v s"><em class="italic">+82</em></div></div>
+        <div class="m"><div class="k">Regime</div><div class="v"><em class="italic">amplify</em></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Instruments -->
+  <section>
+    <div class="sect-head">
+      <div class="num">§ 01 — Instruments</div>
+      <h2>Six <em>readings.</em><br/><span class="thin">Each with its own place.</span></h2>
+      <div class="meta">Every instrument is computed live from the full SPX and SPY option chain, refreshed at 250 ms.</div>
+    </div>
+
+    <div class="instr">
+      <div class="row">
+        <div class="idx">i.</div>
+        <div class="name">The <em>gamma flip.</em></div>
+        <div class="desc">The single price at which dealer positioning changes sign. Above · stabilising. Below · amplifying.</div>
+        <div class="val t">6,398</div>
+      </div>
+      <div class="row">
+        <div class="idx">ii.</div>
+        <div class="name">Net dealer <em>GEX.</em></div>
+        <div class="desc">The signed sum of dealer γ across the chain. Signs the regime; sizes the conviction.</div>
+        <div class="val">−1.82B</div>
+      </div>
+      <div class="row">
+        <div class="idx">iii.</div>
+        <div class="name">The <em>call wall.</em></div>
+        <div class="desc">The strike carrying the largest short-call dealer γ. Historically a ceiling on advances.</div>
+        <div class="val">6,450</div>
+      </div>
+      <div class="row">
+        <div class="idx">iv.</div>
+        <div class="name">The <em>put wall.</em></div>
+        <div class="desc">The strike carrying the largest short-put dealer γ. Historically a floor into declines.</div>
+        <div class="val">6,350</div>
+      </div>
+      <div class="row">
+        <div class="idx">v.</div>
+        <div class="name">The <em>trap.</em></div>
+        <div class="desc">Retail one way, dealers the other. Historically the highest-conviction reversal setups on the tape.</div>
+        <div class="val s">+82</div>
+      </div>
+      <div class="row">
+        <div class="idx">vi.</div>
+        <div class="name">The <em>squeeze.</em></div>
+        <div class="desc">A composite of γ, skew, and vanna. Flags regimes of compounding directional risk.</div>
+        <div class="val">high</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature -->
+  <section>
+    <div class="sect-head">
+      <div class="num">§ 02 — The chart</div>
+      <h2>One line, <em>drawn</em><br/><span class="thin">from today.</span></h2>
+      <div class="meta">Fig. I · dealer γ profile · SPX · 14:32 ET. Positive above the axis, negative below.</div>
+    </div>
+
+    <div class="feature">
+      <div class="prose">
+        <h3><span class="thin">Positive</span> above.<br/><em>Negative</em> below.</h3>
+        <p>The gamma flip is the pivot around which every intraday session organises itself. Above · dealer books absorb volatility. Below · they chase it.</p>
+        <div class="marg">"Above the flip, hedge slower. Below, hedge sooner. There is no third instruction."</div>
+        <p>ZeroGEX draws it every fifteen seconds from the option chain <em>currently printing</em>.</p>
+      </div>
+      <div class="chart-quiet">
+        <div class="cap">Fig. I · SPX γ · 14:32 ET</div>
+        <svg viewBox="0 0 620 340" preserveAspectRatio="xMidYMid meet">
+          <line x1="40" y1="30" x2="40" y2="290" stroke="#2A2721" stroke-width="0.6"/>
+          <line x1="40" y1="290" x2="600" y2="290" stroke="#2A2721" stroke-width="0.6"/>
+          <line x1="40" y1="170" x2="600" y2="170" stroke="#7C7669" stroke-width="0.5" stroke-dasharray="2 5"/>
+          <text x="34" y="174" font-family="IBM Plex Mono" font-size="9" text-anchor="end" fill="#7C7669">γ=0</text>
+
+          <!-- positive gamma — sage -->
+          <g fill="#8E9B7E">
+            <rect x="60"  y="140" width="30" height="30"/>
+            <rect x="96"  y="112" width="30" height="58"/>
+            <rect x="132" y="78"  width="30" height="92"/>
+            <rect x="168" y="42"  width="30" height="128" fill="#6F4E36"/>
+            <rect x="204" y="72"  width="30" height="98"/>
+            <rect x="240" y="106" width="30" height="64"/>
+            <rect x="276" y="140" width="30" height="30"/>
+          </g>
+
+          <!-- negative gamma — terra -->
+          <g fill="#C08464">
+            <rect x="312" y="170" width="30" height="50"/>
+            <rect x="348" y="170" width="30" height="92"/>
+            <rect x="384" y="170" width="30" height="72"/>
+            <rect x="420" y="170" width="30" height="46"/>
+            <rect x="456" y="170" width="30" height="26"/>
+            <rect x="492" y="170" width="30" height="14"/>
+            <rect x="528" y="170" width="30" height="6"/>
+          </g>
+
+          <line x1="306" y1="20" x2="306" y2="290" stroke="#C08464" stroke-width="0.8" stroke-dasharray="4 4"/>
+          <text x="312" y="34" font-family="Cormorant Garamond" font-size="14" font-style="italic" fill="#A66849">flip — 6,398</text>
+
+          <g font-family="IBM Plex Mono" font-size="9" fill="#7C7669">
+            <text x="60" y="308">6,300</text>
+            <text x="180" y="308">6,400</text>
+            <text x="310" y="308">6,450</text>
+            <text x="440" y="308">6,500</text>
+            <text x="560" y="308">6,540</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quote -->
+  <div class="quiet-quote">
+    <div class="idx">— from the preface, vol. II</div>
+    <div class="q">"Above the flip, hedge <em>slower</em>.<br/>Below, hedge <em>sooner</em>.<br/>There is no third instruction."</div>
+    <div class="attr">§ 0.2</div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="idx">— Free tier · no card · runs in a tab</div>
+    <h2>A quieter desk. <em>Take a seat.</em></h2>
+    <p>Free tier includes the γ flip, the walls, and net GEX on SPX and SPY, refreshed every 250 ms. Signal alerts and full instrument set when you're ready.</p>
+    <a href="#" class="btn terra big">Open a desk</a>
+  </div>
+
+  <footer>
+    <div class="fbrand">Zero<em style="color: var(--terra);">gex</em> — MMXXVI</div>
+    <div><a href="#">Status</a> · <a href="#">Docs</a> · <a href="#">Terms</a> · <a href="#">Privacy</a></div>
+  </footer>
+</div>
+
+</body>
+</html>
