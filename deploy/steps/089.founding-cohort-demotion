@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# ==============================================
+# Step 089: Founding-Cohort Demotion Timer
+# ==============================================
+#
+# Installs and enables the one-shot founding-cohort demotion timer (see
+# deploy/systemd/zerogex-web-founding-cohort-demotion.{service,timer}).
+# The timer fires at 09:30 America/New_York on 2026-07-01 — the
+# FOUNDING_LOCKIN_DEADLINE from frontend/core/foundingLockin.ts — and
+# triggers `make founding-demote YES=1`, which flips tier pro/basic ->
+# public for any founding-eligible user who never redeemed the founding
+# rate AND has no active/trialing Stripe subscription.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config is written — the script reads AUTH_DB_PATH from
+# frontend/.env.local, which step 030 / 036 already manage.
+#
+# After the deadline passes, the timer is dormant (single OnCalendar
+# date). Persistent=true means a boot inside the deadline window still
+# fires the sweep. Users already demoted no longer match the WHERE
+# clause, so a stray re-fire is a clean no-op.
+
+set -e
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Founding-Cohort Demotion Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo.
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-founding-cohort-demotion"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target
+# sources $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Force the lazy DB migration ----------------------------------------
+# The founding_* columns are added by the App's lazy migration in
+# frontend/core/db.ts (initDb), which normally fires on the first DB
+# touch from the live PM2 process AFTER a rebuild + restart. When this
+# step runs in isolation (`./deploy.sh --start-from 089`), step 030
+# (rebuild) and step 040 (PM2 restart) are skipped — so PM2 is still on
+# the previous deploy's code and the new columns wouldn't land until
+# someone hit /api/. `make migrate` opens a separate Node process that
+# imports the fresh core/db.ts directly and lands the ALTERs in the
+# SQLite file.
+log "  → Forcing the auth DB lazy migration to land the founding_* schema..."
+if sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make migrate" >/dev/null 2>&1; then
+    log "     ✓ schema migration applied"
+else
+    log "     ⚠ make migrate failed — founding_* columns may be missing"
+    log "       Re-run manually: cd $APP_DIR && make migrate"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed
+# but the SQLite UPDATE actually lands wherever the operator points the
+# DB. Without this, ProtectSystem=strict silently blocks the demotion
+# UPDATE whenever AUTH_DB_PATH lives outside the repo (e.g.
+# /var/lib/zerogex): the script's read succeeds, the WRITE errors as
+# readonly, and comped founding users stay on tier='pro'/'basic'
+# forever. Drop-in (vs. editing the version-controlled .service file)
+# keeps the repo defaults clean and lets each environment carry its own
+# ReadWritePaths.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (2026-07-01 09:30 America/New_York, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+log ""
+log "Founding-cohort demotion timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (fires 2026-07-01 09:30 ET, Persistent=true catches missed runs)"
+log "  ✓ Downgrades tier 'pro'/'basic' -> 'public' only when founding_member_started_at IS NULL"
+log "    AND no active/trialing Stripe subscription exists"
+log "  ✓ founding_eligible=1 STAYS SET — nothing on the user's account tries to un-grant it"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                             - next/last run"
+log "  • cd $APP_DIR && make founding-demote DRY_RUN=1                   - preview candidates"
+log "  • sudo systemctl start ${UNIT}.service                            - fire the sweep now"
+log "  • journalctl -u ${UNIT} -n 50                                     - recent sweep logs"

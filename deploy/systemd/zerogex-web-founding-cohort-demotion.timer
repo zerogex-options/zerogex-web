@@ -1,0 +1,19 @@
+[Unit]
+Description=ZeroGEX web founding-cohort demotion timer (one-shot at 2026-07-01 09:30 ET)
+
+[Timer]
+# Fires once at the FOUNDING_LOCKIN_DEADLINE (see
+# frontend/core/foundingLockin.ts): 09:30 America/New_York on July 1,
+# 2026 — the market open, when founding-cohort users on comped Pro/Basic
+# lose access if they haven't redeemed the founding rate. Explicit
+# timezone in OnCalendar so a server clock in UTC (or anywhere else)
+# still fires at 09:30 ET, not 09:30 local.
+OnCalendar=2026-07-01 09:30:00 America/New_York
+# If the box was down at the scheduled time, run as soon as it is back
+# up — the demotion should still happen even after a maintenance window.
+Persistent=true
+# Spread load across deploys.
+RandomizedDelaySec=1m
+
+[Install]
+WantedBy=timers.target
