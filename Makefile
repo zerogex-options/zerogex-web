@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders checkout-recovery public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry founding-demote backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -25,11 +25,10 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
-	@echo "  make checkout-recovery - Send one-shot recovery emails to users who started Stripe checkout but didn't subscribe (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> [PREVIEW_FOUNDING=1] for a sample, LAG_HOURS=<n>/LOOKBACK_HOURS=<n> to tune the window)"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
-	@echo "  make founding-demote - Downgrade founding-cohort users on pro/basic who never redeemed the founding rate and have no active sub (DRY_RUN=1 to preview, YES=1 to apply). Driven by the systemd timer at the FOUNDING_LOCKIN_DEADLINE."
+	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
@@ -174,17 +173,6 @@ webhook-health:
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
-# Send the one-shot abandoned-checkout recovery email to every user who has
-# a `billing_checkout_started` audit row but no stripe_subscription_id (and
-# isn't already latched by checkout_recovery_email_sent_at). Founding-eligible
-# users get founding-deadline copy while the lock-in window is still open;
-# everyone else gets the generic "pick up where you left off" nudge. The
-# default window catches starts that are 24h-7d old; tune with LAG_HOURS /
-# LOOKBACK_HOURS. Pass DRY_RUN=1 to preview, YES=1 to actually send, or
-# PREVIEW_TO=<email> [PREVIEW_FOUNDING=1] to render a sample.
-checkout-recovery:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-checkout-recovery.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_FOUNDING),--preview-founding,)'
-
 # Read-only deep dump of one user — DB row, last 20 audit events, live Stripe
 # customer/subscription/invoice state, and a short interpretation that flags
 # why the July-1 founding deferral might or might not have applied. Use when
@@ -233,15 +221,12 @@ revoke-partner:
 partner-grant-expiry:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
-# Downgrade founding-cohort users (founding_eligible=1) comped onto tier=
-# pro/basic at cutover who never redeemed the founding rate AND have no
-# active/trialing Stripe subscription. Driven by
-# zerogex-web-founding-cohort-demotion.timer (deploy step 089), which
-# fires once at the FOUNDING_LOCKIN_DEADLINE (2026-07-01 09:30 ET).
-# Idempotent: re-runs after the deadline no-op because downgraded users
-# no longer match the WHERE clause.
-founding-demote:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+# Print the Creator Partner commission ledger. Read-only. Use at month-end
+# to see what you owe each partner; drill into one partner with EMAIL=,
+# see the whole row-by-row ledger with FULL=1, or filter to a status
+# (accrued / paid / reversed) with STATUS=.
+partner-commissions:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-partner-commissions.mjs $(if $(EMAIL),--email $(EMAIL),) $(if $(FULL),--full,) $(if $(STATUS),--status $(STATUS),)'
 
 # Segment the tier='public' cohort into the four reactivation buckets used
 # by the campaign (unverified / founding-eligible / churned / verified-
@@ -358,7 +343,6 @@ logo:
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.
-	cp assets/branding/folds-of-honor-logo.svg frontend/public/folds-of-honor-logo.svg
 	@echo "Logos copied successfully!"
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory
