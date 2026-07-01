@@ -344,7 +344,7 @@ function LineChartCard({
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>
           {title}
         </h3>
         <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: mutedText }}>
@@ -477,7 +477,7 @@ function StackedBarCard({
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>
           {title}
         </h3>
         <div className="flex items-center gap-3 text-xs" style={{ color: mutedText }}>

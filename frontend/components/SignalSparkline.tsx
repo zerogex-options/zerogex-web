@@ -46,7 +46,7 @@ export default function SignalSparkline({
   min = -100,
   max = 100,
   strokeColor = 'var(--color-warning)',
-  fillColor = 'rgba(255, 166, 0, 0.12)',
+  fillColor = 'var(--color-warning-soft)',
 }: SignalSparklineProps) {
   const expanded = useExpandedCard();
 

@@ -182,7 +182,7 @@ export default function Navigation({ theme }: NavigationProps) {
             width: `${SIDEBAR_WIDTH}px`,
             top: "var(--zgx-header-height, 0px)",
             bottom: 0,
-            backgroundColor: theme === "dark" ? `${colors.bgDark}f2` : `${colors.bgLight}f2`,
+            backgroundColor: "color-mix(in srgb, var(--bg-main) 95%, transparent)",
             borderColor: border,
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
@@ -190,7 +190,7 @@ export default function Navigation({ theme }: NavigationProps) {
         >
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
-              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
+              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
                 <Link href="/" className="flex w-full items-center overflow-hidden">
                   <Image
                     src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
@@ -205,7 +205,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     <div className="flex flex-col gap-1">
                       <span className="font-bold text-lg">${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -224,19 +224,17 @@ export default function Navigation({ theme }: NavigationProps) {
                 const isHovered = hoveredPage === page.id;
                 const commonStyle = {
                   color: isActive || isHovered
-                    ? (theme === "light" ? colors.coral : colors.primary)
-                    : theme === "dark"
-                      ? colors.light
-                      : colors.dark,
+                    ? (theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)')
+                    : "var(--text-primary)",
                   opacity: isActive || isHovered ? 1 : 0.72,
                   background: isHovered && !isActive
-                    ? `${theme === "light" ? colors.coral : colors.primary}18`
+                    ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}18`
                     : isActive
-                      ? `${theme === "light" ? colors.coral : colors.primary}14`
+                      ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}14`
                       : "transparent",
                   border: `1px solid ${
                     isActive || isHovered
-                      ? `${theme === "light" ? colors.coral : colors.primary}40`
+                      ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}40`
                       : "transparent"
                   }`,
                 };
@@ -283,8 +281,8 @@ export default function Navigation({ theme }: NavigationProps) {
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
                     className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
                     style={{
-                      color: theme === "light" ? colors.coral : colors.primary,
-                      background: `${theme === "light" ? colors.coral : colors.primary}0f`,
+                      color: theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)',
+                      background: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}0f`,
                     }}
                   >
                     {group.label}
@@ -305,30 +303,28 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subgroupStyle = subgroupId != null
                           ? {
                               color: subgroupActive || subgroupHovered
-                                ? (theme === "light" ? colors.coral : colors.primary)
-                                : theme === "dark"
-                                  ? colors.light
-                                  : colors.dark,
+                                ? (theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)')
+                                : "var(--text-primary)",
                               opacity: subgroupActive || subgroupHovered ? 1 : 0.72,
                               background: subgroupHovered && !subgroupActive
-                                ? `${theme === "light" ? colors.coral : colors.primary}18`
+                                ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}18`
                                 : subgroupActive
-                                  ? `${theme === "light" ? colors.coral : colors.primary}14`
+                                  ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}14`
                                   : "transparent",
                               border: `1px solid ${
                                 subgroupActive || subgroupHovered
-                                  ? `${theme === "light" ? colors.coral : colors.primary}40`
+                                  ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}40`
                                   : "transparent"
                               }`,
                             }
                           : {
-                              color: theme === "dark" ? colors.light : colors.dark,
+                              color: 'var(--text-primary)',
                               opacity: 0.72,
                               background: "transparent",
                               border: "1px solid transparent",
                             };
                         return (
-                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? colors.coral : colors.primary}33` }}>
+                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}33` }}>
                             <div
                               className="mb-1 flex w-full items-center rounded-xl text-sm font-semibold transition-all duration-200"
                               style={subgroupStyle}
@@ -387,9 +383,9 @@ export default function Navigation({ theme }: NavigationProps) {
             onClick={toggleSidebar}
             className="absolute -right-9 top-4 flex h-14 w-9 items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
             style={{
-              backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+              backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
               borderColor: border,
-              color: colors.muted,
+              color: 'var(--text-secondary)',
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
             }}
@@ -407,9 +403,9 @@ export default function Navigation({ theme }: NavigationProps) {
             left: 0,
             top: "calc(var(--zgx-header-height, 0px) + 18px)",
             height: "56px",
-            backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+            backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
             borderColor: border,
-            color: colors.muted,
+            color: 'var(--text-secondary)',
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
           }}

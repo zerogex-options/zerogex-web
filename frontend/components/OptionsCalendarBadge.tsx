@@ -63,7 +63,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
   const palette = urgencyPalette(nextUrgency, colors);
 
   const border = "var(--color-border)";
-  const cardBg = theme === "dark" ? `${colors.cardDark}f5` : `${colors.cardLight}f5`;
+  const cardBg = "color-mix(in srgb, var(--bg-card) 96%, transparent)";
 
   const iconSize = compact ? 18 : 20;
 
@@ -78,18 +78,18 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
       className="relative rounded-full border transition-colors"
       style={{
         borderColor: border,
-        color: colors.muted,
+        color: 'var(--text-secondary)',
         backgroundColor: "transparent",
         padding: compact ? "6px" : "9px",
         cursor: "pointer",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = `${colors.accent}26`;
-        e.currentTarget.style.color = colors.accent;
+        e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`;
+        e.currentTarget.style.color = 'var(--color-brand-accent)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent";
-        e.currentTarget.style.color = colors.muted;
+        e.currentTarget.style.color = 'var(--text-secondary)';
       }}
       aria-label="Options calendar"
       title={
@@ -119,7 +119,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
             justifyContent: "center",
             lineHeight: 1,
             border: `1px solid ${palette.border}`,
-            boxShadow: nextUrgency === "today" ? `0 0 10px ${colors.coral}80` : undefined,
+            boxShadow: nextUrgency === "today" ? `0 0 10px ${'var(--color-brand-coral)'}80` : undefined,
           }}
         >
           {nextUrgency === "today"
@@ -186,10 +186,10 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
             style={{ borderColor: border }}
           >
             <div className="flex items-center gap-2">
-              <CalendarDays size={16} style={{ color: colors.primary }} />
+              <CalendarDays size={16} style={{ color: 'var(--color-brand-primary)' }} />
               <span
                 className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                style={{ color: 'var(--text-primary)' }}
               >
                 Options Calendar
               </span>
@@ -198,7 +198,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
               type="button"
               onClick={() => setOpen(false)}
               className="rounded-md p-1"
-              style={{ color: colors.muted, background: "transparent", cursor: "pointer" }}
+              style={{ color: 'var(--text-secondary)', background: "transparent", cursor: "pointer" }}
               aria-label="Close"
             >
               <X size={14} />
@@ -208,7 +208,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
           {events.length === 0 ? (
             <div
               className="px-4 py-6 text-xs"
-              style={{ color: colors.muted, textAlign: "center" }}
+              style={{ color: 'var(--text-secondary)', textAlign: "center" }}
             >
               No special options days in the next 45 days.
             </div>
@@ -248,14 +248,14 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
                     </div>
                     <div
                       className="mt-1 text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: colors.muted }}
+                      style={{ color: 'var(--text-secondary)' }}
                     >
                       {formatEventDate(event.date)}
                     </div>
                     <div
                       className="mt-2 text-xs leading-snug"
                       style={{
-                        color: theme === "dark" ? colors.light : colors.dark,
+                        color: 'var(--text-primary)',
                         opacity: 0.85,
                       }}
                     >
@@ -271,7 +271,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
             className="border-t px-4 py-2.5 text-[10px]"
             style={{
               borderColor: border,
-              color: colors.muted,
+              color: 'var(--text-secondary)',
               textAlign: "center",
             }}
           >

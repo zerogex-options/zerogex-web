@@ -25,23 +25,23 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
     <div className="flex flex-col items-center gap-1">
       <svg width="70" height="70" viewBox="0 0 100 100">
         <title>{`${label}: ${digital}`}</title>
-        <circle cx="50" cy="50" r="48" fill="none" stroke={colors.muted} strokeWidth="3" />
+        <circle cx="50" cy="50" r="48" fill="none" stroke={'var(--text-secondary)'} strokeWidth="3" />
         {[...Array(12)].map((_, i) => {
           const angle = (i * 30 - 90) * (Math.PI / 180);
           const x1 = 50 + 38 * Math.cos(angle);
           const y1 = 50 + 38 * Math.sin(angle);
           const x2 = 50 + 44 * Math.cos(angle);
           const y2 = 50 + 44 * Math.sin(angle);
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.muted} strokeWidth="3" />;
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={'var(--text-secondary)'} strokeWidth="3" />;
         })}
 
-        <line x1="50" y1="50" x2={50 + 25 * Math.sin((hourAngle * Math.PI) / 180)} y2={50 - 25 * Math.cos((hourAngle * Math.PI) / 180)} stroke={theme === 'dark' ? colors.light : colors.dark} strokeWidth="4" strokeLinecap="round" />
-        <line x1="50" y1="50" x2={50 + 35 * Math.sin((minuteAngle * Math.PI) / 180)} y2={50 - 35 * Math.cos((minuteAngle * Math.PI) / 180)} stroke={theme === 'dark' ? colors.light : colors.dark} strokeWidth="3" strokeLinecap="round" />
-        <line x1="50" y1="50" x2={50 + 38 * Math.sin((secondAngle * Math.PI) / 180)} y2={50 - 38 * Math.cos((secondAngle * Math.PI) / 180)} stroke={colors.bearish} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="50" cy="50" r="4" fill={colors.bearish} />
+        <line x1="50" y1="50" x2={50 + 25 * Math.sin((hourAngle * Math.PI) / 180)} y2={50 - 25 * Math.cos((hourAngle * Math.PI) / 180)} stroke={'var(--text-primary)'} strokeWidth="4" strokeLinecap="round" />
+        <line x1="50" y1="50" x2={50 + 35 * Math.sin((minuteAngle * Math.PI) / 180)} y2={50 - 35 * Math.cos((minuteAngle * Math.PI) / 180)} stroke={'var(--text-primary)'} strokeWidth="3" strokeLinecap="round" />
+        <line x1="50" y1="50" x2={50 + 38 * Math.sin((secondAngle * Math.PI) / 180)} y2={50 - 38 * Math.cos((secondAngle * Math.PI) / 180)} stroke={'var(--color-bear)'} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="50" cy="50" r="4" fill={'var(--color-bear)'} />
       </svg>
 
-      <div className="text-xs font-bold" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>{label}</div>
+      <div className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{label}</div>
     </div>
   );
 }
@@ -49,10 +49,10 @@ function AnalogClock({ time, label, theme }: { time: Date; label: string; theme:
 function CompactTime({ time, label, theme }: { time: Date; label: string; theme: Theme }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="text-sm font-bold" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums', color: theme === 'dark' ? colors.light : colors.dark }}>
+      <div className="text-sm font-bold" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)' }}>
         {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
       </div>
-      <div className="text-xs opacity-60" style={{ color: theme === 'dark' ? colors.light : colors.dark }}>{label}</div>
+      <div className="text-xs opacity-60" style={{ color: 'var(--text-primary)' }}>{label}</div>
     </div>
   );
 }

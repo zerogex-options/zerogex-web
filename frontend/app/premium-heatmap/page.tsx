@@ -193,10 +193,10 @@ export default function PremiumHeatmapPage() {
     return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
   }, [data, metric, optionType]);
 
-  const muted = theme === 'dark' ? colors.muted : colors.dark;
-  const inputBorder = theme === 'dark' ? colors.borderDark : colors.borderLight;
-  const inputBg = theme === 'dark' ? colors.cardDark : colors.cardLight;
-  const inputColor = theme === 'dark' ? colors.light : colors.dark;
+  const muted = theme === 'dark' ? 'var(--text-secondary)' : "var(--text-primary)";
+  const inputBorder = 'var(--border-default)';
+  const inputBg = 'var(--bg-card)';
+  const inputColor = 'var(--text-primary)';
 
   const selectStyle: React.CSSProperties = {
     padding: '6px 10px',

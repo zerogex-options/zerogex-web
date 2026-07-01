@@ -12,7 +12,7 @@ interface LivePriceWidgetProps {
 export default function LivePriceWidget({ data, theme }: LivePriceWidgetProps) {
   const isPositive = data.change >= 0;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
-  const trendColor = isPositive ? colors.bullish : colors.bearish;
+  const trendColor = isPositive ? 'var(--color-bull)' : 'var(--color-bear)';
 
   return (
     <div className="flex items-center gap-4">

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Terminal Walnut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ---- Palette: Walnut (warm ambered dark & warm cream light) ---- */
+  [data-theme="dark"] {
+    --bg: #1D1A16;
+    --bg-2: #24211B;
+    --panel: #26221C;
+    --panel-2: #2D2921;
+    --line: rgba(240,232,213,0.09);
+    --line-2: rgba(240,232,213,0.16);
+    --line-3: rgba(240,232,213,0.28);
+    --text: #F0E8D5;
+    --text-dim: rgba(240,232,213,0.65);
+    --text-fade: rgba(240,232,213,0.40);
+    --accent: #C48739;
+    --accent-hot: #E0A24D;
+    --accent-soft: rgba(196,135,57,0.18);
+    --pos: #8CA275;
+    --neg: #D77B62;
+    --brand-text: #F0E8D5;
+  }
+  [data-theme="light"] {
+    --bg: #F1EAD3;
+    --bg-2: #E8E0C6;
+    --panel: #ECE4CA;
+    --panel-2: #E2D9BB;
+    --line: rgba(32,26,20,0.09);
+    --line-2: rgba(32,26,20,0.20);
+    --line-3: rgba(32,26,20,0.36);
+    --text: #201A14;
+    --text-dim: rgba(32,26,20,0.68);
+    --text-fade: rgba(32,26,20,0.40);
+    --accent: #7B4E2C;
+    --accent-hot: #9C6837;
+    --accent-soft: rgba(123,78,44,0.14);
+    --pos: #556C42;
+    --neg: #B85838;
+    --brand-text: #201A14;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', ui-monospace, monospace; -webkit-font-smoothing: antialiased; transition: background-color 200ms ease, color 200ms ease; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+  /* Command bar */
+  .cmdbar { border-bottom: 1px solid var(--line-2); padding: 12px 0; display: flex; gap: 26px; align-items: center; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+  .cmdbar .lbl { color: var(--text-fade); }
+  .cmdbar .val { color: var(--text); }
+  .cmdbar .amb { color: var(--accent-hot); }
+  .cmdbar .cursor { display: inline-block; width: 7px; height: 13px; background: var(--accent-hot); vertical-align: -2px; animation: blink 1.2s steps(2) infinite; margin-left: 6px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Nav */
+  .nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 40px; padding: 22px 0; border-bottom: 1px solid var(--line-2); }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 20px; letter-spacing: -0.02em; color: var(--brand-text); }
+  .brand .mark { width: 12px; height: 12px; background: var(--accent-hot); border-radius: 2px; box-shadow: 0 0 10px var(--accent-soft); }
+  .brand em { color: var(--accent-hot); font-style: normal; font-weight: 500; }
+  .navlinks { display: flex; justify-content: center; gap: 26px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+  .navlinks a:hover { color: var(--accent-hot); }
+  @media (max-width: 800px) { .navlinks { display: none; } }
+  .nav-right { display: flex; gap: 10px; align-items: center; }
+
+  /* Theme toggle */
+  .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-2); background: transparent; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 150ms; }
+  .theme-toggle:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
+  .theme-toggle svg { width: 14px; height: 14px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; padding: 10px 18px; border: 1px solid var(--line-2); background: transparent; color: var(--text); cursor: pointer; }
+  .btn:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
+  .btn.solid { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn.solid:hover { background: var(--accent-hot); border-color: var(--accent-hot); color: var(--bg); box-shadow: 0 0 24px var(--accent-soft); }
+  .btn.big { padding: 16px 26px; font-size: 13px; }
+
+  /* Ticker */
+  .ticker { border-bottom: 1px solid var(--line-2); overflow: hidden; padding: 10px 0; }
+  .ticker-track { display: flex; gap: 40px; white-space: nowrap; animation: tick 42s linear infinite; font-size: 12px; }
+  .ticker-track span { color: var(--text-dim); }
+  .ticker-track .sym { color: var(--text); font-weight: 500; }
+  .ticker-track .up { color: var(--pos); }
+  .ticker-track .down { color: var(--neg); }
+  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* Hero */
+  .hero { padding: 100px 0 60px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: center; }
+  @media (max-width: 960px) { .hero { grid-template-columns: 1fr; padding: 60px 0; } }
+  .kicker { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent-hot); margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+  .kicker::before { content: ''; width: 28px; height: 1px; background: var(--accent-hot); }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: clamp(60px, 8vw, 116px); line-height: 0.96; letter-spacing: -0.04em; margin: 0 0 32px; color: var(--text); }
+  h1 span.amb { color: var(--accent-hot); font-weight: 500; }
+  h1 span.thin { color: var(--text-dim); font-weight: 400; }
+  h1 span.strike { position: relative; }
+  h1 span.strike::after { content: ''; position: absolute; left: -2%; right: -2%; top: 55%; height: 3px; background: var(--neg); }
+  .deck { font-family: 'JetBrains Mono', monospace; font-size: 15px; line-height: 1.65; color: var(--text-dim); max-width: 520px; margin: 0 0 36px; }
+  .deck em { font-style: normal; color: var(--accent-hot); font-weight: 500; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding-top: 24px; border-top: 1px solid var(--line-2); }
+  .stat .k { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-fade); margin-bottom: 6px; }
+  .stat .v { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 30px; letter-spacing: -0.02em; color: var(--text); }
+  .stat .v.amber { color: var(--accent-hot); }
+  .stat .v.pos { color: var(--pos); }
+
+  /* Panel (chart card) */
+  .panel { background: var(--panel); border: 1px solid var(--line-2); overflow: hidden; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.35); }
+  [data-theme="light"] .panel { box-shadow: 0 30px 60px -30px rgba(32,26,20,0.15); }
+  .panel .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-2); background: var(--panel-2); font-size: 11px; color: var(--text-fade); letter-spacing: 0.16em; text-transform: uppercase; }
+  .panel .head .live { color: var(--accent-hot); display: flex; align-items: center; gap: 8px; }
+  .panel .head .live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-hot); box-shadow: 0 0 8px var(--accent-hot); animation: blink 1.5s infinite; }
+  .panel .body { padding: 24px; }
+
+  .spx-panel .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; font-size: 12px; color: var(--text-dim); }
+  .spx-panel .price { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 44px; letter-spacing: -0.03em; color: var(--text); }
+  .spx-panel .price .chg { font-size: 15px; color: var(--neg); margin-left: 12px; font-family: 'JetBrains Mono', monospace; }
+  .spx-panel svg { display: block; width: 100%; height: 220px; }
+
+  .miniquotes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 20px; font-size: 12px; }
+  .miniquotes div { display: flex; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--line-2); background: var(--panel-2); }
+  .miniquotes .down { color: var(--neg); }
+  .miniquotes .up { color: var(--pos); }
+  .miniquotes .amb { color: var(--accent-hot); }
+
+  /* Sections */
+  section { padding: 120px 0; border-top: 1px solid var(--line-2); }
+  .sect-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; gap: 20px; flex-wrap: wrap; padding-bottom: 24px; border-bottom: 1px solid var(--line-2); }
+  .sect-head h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: clamp(36px, 4vw, 56px); letter-spacing: -0.03em; margin: 12px 0 0; line-height: 1; color: var(--text); }
+  .sect-head h2 .amb { color: var(--accent-hot); }
+  .sect-head h2 .thin { color: var(--text-dim); font-weight: 400; }
+  .sect-head p { font-size: 13px; color: var(--text-dim); max-width: 400px; margin: 0; line-height: 1.6; }
+  .id { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-hot); }
+
+  /* Signal grid */
+  .sig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .sig-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .sig-grid { grid-template-columns: 1fr; } }
+  .sig { border: 1px solid var(--line-2); background: var(--panel); padding: 24px; position: relative; overflow: hidden; }
+  .sig::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-hot); opacity: 0; transition: opacity 200ms; }
+  .sig:hover::before { opacity: 1; }
+  .sig .id-row { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); margin-bottom: 20px; }
+  .sig .id-row .live { color: var(--accent-hot); }
+  .sig .id-row .live::before { content: '● '; }
+  .sig h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 10px; color: var(--text); }
+  .sig p { font-size: 13px; line-height: 1.55; color: var(--text-dim); margin: 0 0 20px; }
+  .sig .val { display: flex; justify-content: space-between; align-items: baseline; padding-top: 16px; border-top: 1px solid var(--line-2); }
+  .sig .val .now { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 26px; letter-spacing: -0.02em; color: var(--accent-hot); }
+  .sig .val .lbl { font-size: 11px; color: var(--text-fade); letter-spacing: 0.16em; text-transform: uppercase; }
+
+  /* Playbook table */
+  .book { border: 1px solid var(--line-2); overflow: hidden; }
+  .book table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .book th, .book td { text-align: left; padding: 16px 20px; border-bottom: 1px solid var(--line-2); color: var(--text); }
+  .book th { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); background: var(--panel); font-weight: 500; }
+  .book tr:last-child td { border-bottom: 0; }
+  .book td.state { font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .book td.amber { color: var(--accent-hot); }
+  .book td.pos { color: var(--pos); }
+  .book td.neg { color: var(--neg); }
+  .book tr:hover td { background: var(--panel-2); }
+
+  /* CTA */
+  .cta-block { border: 1px solid var(--accent-hot); background: linear-gradient(135deg, var(--accent-soft), transparent 60%); padding: 72px 40px; text-align: center; margin-top: 40px; margin-bottom: 40px; position: relative; overflow: hidden; }
+  .cta-block::before, .cta-block::after { content: ''; position: absolute; width: 24px; height: 24px; border: 2px solid var(--accent-hot); }
+  .cta-block::before { top: 12px; left: 12px; border-right: 0; border-bottom: 0; }
+  .cta-block::after { bottom: 12px; right: 12px; border-left: 0; border-top: 0; }
+  .cta-block h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: clamp(40px, 5.5vw, 68px); letter-spacing: -0.03em; margin: 14px 0 24px; line-height: 1; color: var(--text); }
+  .cta-block h2 span { color: var(--accent-hot); }
+  .cta-block h2 .thin { color: var(--text-dim); font-weight: 400; }
+  .cta-block p { font-size: 14px; color: var(--text-dim); max-width: 520px; margin: 0 auto 32px; line-height: 1.65; }
+
+  footer { padding: 40px 0 60px; font-size: 11px; color: var(--text-fade); letter-spacing: 0.14em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line-2); }
+  .back { position: fixed; top: 12px; left: 12px; z-index: 200; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--panel); border: 1px solid var(--accent-hot); padding: 6px 12px; color: var(--accent-hot); }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All Mockups</a>
+
+<div class="page">
+
+  <div class="cmdbar">
+    <span><span class="lbl">SESSION</span> <span class="val">MARKETS · OPEN</span></span>
+    <span><span class="lbl">FEED</span> <span class="amb">CBOE · IEX · SIP</span></span>
+    <span><span class="lbl">CLOCK</span> <span class="val">14:32:07 ET</span></span>
+    <span><span class="lbl">MODE</span> <span class="val">0DTE / SPX</span></span>
+    <span><span class="lbl">CMD</span> <span class="val">gex &lt;SPX&gt; --flip</span><span class="cursor"></span></span>
+  </div>
+
+  <nav class="nav">
+    <div class="brand"><span class="mark"></span> zero<em>gex</em></div>
+    <div class="navlinks">
+      <a href="#">Signals</a>
+      <a href="#">Heatmap</a>
+      <a href="#">Playbook</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <span id="themeLabel">Light</span>
+      </button>
+      <a href="#" class="btn">Sign in</a>
+      <a href="#" class="btn solid">Open a desk →</a>
+    </div>
+  </nav>
+
+  <div class="ticker">
+    <div class="ticker-track">
+      <span><span class="sym">SPX</span> 6,412.30 <span class="down">−0.42%</span></span>
+      <span><span class="sym">SPY</span> 640.11 <span class="down">−0.38%</span></span>
+      <span><span class="sym">QQQ</span> 578.24 <span class="up">+0.11%</span></span>
+      <span><span class="sym">VIX</span> 13.82 <span class="up">+2.4%</span></span>
+      <span><span class="sym">/ES</span> 6,414.75 <span class="down">−0.40%</span></span>
+      <span><span class="sym">GEX·SPX</span> −1.82B <span class="down">flipped</span></span>
+      <span><span class="sym">SPX</span> 6,412.30 <span class="down">−0.42%</span></span>
+      <span><span class="sym">SPY</span> 640.11 <span class="down">−0.38%</span></span>
+      <span><span class="sym">QQQ</span> 578.24 <span class="up">+0.11%</span></span>
+      <span><span class="sym">VIX</span> 13.82 <span class="up">+2.4%</span></span>
+      <span><span class="sym">/ES</span> 6,414.75 <span class="down">−0.40%</span></span>
+      <span><span class="sym">GEX·SPX</span> −1.82B <span class="down">flipped</span></span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero" style="border: 0;">
+    <div>
+      <div class="kicker">The dealer positioning terminal</div>
+      <h1>0DTE, <span class="amb">decoded.</span><br/>The <span class="thin">dealer desk,</span><br/>in a browser tab.</h1>
+      <p class="deck">A trading terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason. Built for people who trade the tape, not the news.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn solid big">Open a desk →</a>
+        <a href="#" class="btn big">See live signals</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Latency</div><div class="v amber">250ms</div></div>
+        <div class="stat"><div class="k">Signals · live</div><div class="v">18</div></div>
+        <div class="stat"><div class="k">Uptime · 30d</div><div class="v pos">99.98%</div></div>
+      </div>
+    </div>
+
+    <div class="panel spx-panel">
+      <div class="head">
+        <div>SPX · dealer γ profile · live</div>
+        <div class="live">247ms</div>
+      </div>
+      <div class="body">
+        <div class="row">
+          <div>
+            <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade);">SPX Index</div>
+            <div class="price">6,412.30 <span class="chg">−27.14 (−0.42%)</span></div>
+          </div>
+          <div style="text-align:right; font-size: 11px; color: var(--text-dim);">
+            <div>OPEN 6,439.44</div>
+            <div>HIGH 6,441.02</div>
+            <div>LOW 6,401.90</div>
+          </div>
+        </div>
+
+        <svg id="heroChart" viewBox="0 0 520 220" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="glow" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="glow2" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+              <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.28"/>
+            </linearGradient>
+          </defs>
+          <g stroke="var(--line)" stroke-width="0.4">
+            <line x1="0" y1="55" x2="520" y2="55"/>
+            <line x1="0" y1="110" x2="520" y2="110"/>
+            <line x1="0" y1="165" x2="520" y2="165"/>
+          </g>
+          <line x1="0" y1="110" x2="520" y2="110" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+          <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110 L520,220 L0,220 Z" fill="url(#glow2)"/>
+          <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110 L520,0 L0,0 Z" fill="url(#glow)" transform="scale(1,-1) translate(0,-220)"/>
+          <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110" fill="none" stroke="var(--accent-hot)" stroke-width="1.4"/>
+          <line x1="270" y1="0" x2="270" y2="220" stroke="var(--neg)" stroke-dasharray="4 4" stroke-width="1"/>
+          <text x="276" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--neg)">FLIP · 6,398</text>
+          <line x1="140" y1="0" x2="140" y2="220" stroke="var(--pos)" stroke-dasharray="2 3" stroke-width="0.8"/>
+          <text x="80" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--pos)">CALL WALL 6,450</text>
+          <line x1="400" y1="0" x2="400" y2="220" stroke="var(--text-fade)" stroke-dasharray="2 3" stroke-width="0.8"/>
+          <text x="332" y="212" font-family="JetBrains Mono" font-size="10" fill="var(--text-dim)">PUT WALL 6,350</text>
+        </svg>
+
+        <div class="miniquotes">
+          <div><span>γ FLIP</span><span class="amb">6,398</span></div>
+          <div><span>NET GEX</span><span class="down">−1.82B</span></div>
+          <div><span>CALL WALL</span><span class="up">6,450</span></div>
+          <div><span>PUT WALL</span><span>6,350</span></div>
+          <div><span>TRAP SCORE</span><span class="up">+82</span></div>
+          <div><span>SQUEEZE</span><span class="up">HIGH</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Signal grid -->
+  <section>
+    <div class="sect-head">
+      <div>
+        <div class="id">§ 01 · Live signals</div>
+        <h2>Eighteen instruments,<br/><span class="thin">one desk.</span></h2>
+      </div>
+      <p>Every signal in the terminal runs off the same live option chain. Watch them together, and the market stops being a story.</p>
+    </div>
+
+    <div class="sig-grid">
+      <div class="sig">
+        <div class="id-row"><span>SIG · 001</span><span class="live">LIVE</span></div>
+        <h3>Gamma Flip</h3>
+        <p>The pivot at which dealer positioning changes signs. Above · stabilizing. Below · amplifying.</p>
+        <div class="val"><span class="lbl">Now</span><span class="now">6,398</span></div>
+      </div>
+      <div class="sig">
+        <div class="id-row"><span>SIG · 002</span><span class="live">LIVE</span></div>
+        <h3>Net GEX</h3>
+        <p>Total dealer gamma across the SPX/SPY chain. Sign, size, and slope of the regime.</p>
+        <div class="val"><span class="lbl">Now</span><span class="now" style="color: var(--neg);">−1.82B</span></div>
+      </div>
+      <div class="sig">
+        <div class="id-row"><span>SIG · 003</span><span class="live">LIVE</span></div>
+        <h3>Call Wall</h3>
+        <p>Concentration of dealer short-call gamma. Historically acts as a ceiling on advances.</p>
+        <div class="val"><span class="lbl">Level</span><span class="now">6,450</span></div>
+      </div>
+      <div class="sig">
+        <div class="id-row"><span>SIG · 004</span><span class="live">LIVE</span></div>
+        <h3>Put Wall</h3>
+        <p>Concentration of dealer short-put gamma. Historically acts as a floor into declines.</p>
+        <div class="val"><span class="lbl">Level</span><span class="now">6,350</span></div>
+      </div>
+      <div class="sig">
+        <div class="id-row"><span>SIG · 005</span><span class="live">LIVE</span></div>
+        <h3>Trap Score</h3>
+        <p>Asymmetry between retail positioning and dealer hedge. High = expect fade.</p>
+        <div class="val"><span class="lbl">Score</span><span class="now" style="color: var(--pos);">+82</span></div>
+      </div>
+      <div class="sig">
+        <div class="id-row"><span>SIG · 006</span><span class="live">LIVE</span></div>
+        <h3>Squeeze Setup</h3>
+        <p>Composite of γ, skew, and vanna. Flags regimes with compounding directional risk.</p>
+        <div class="val"><span class="lbl">Regime</span><span class="now">HIGH</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Playbook -->
+  <section>
+    <div class="sect-head">
+      <div>
+        <div class="id">§ 02 · The playbook</div>
+        <h2>Every regime,<br/><span class="thin">a known move.</span></h2>
+      </div>
+      <p>The terminal doesn't just report the state — it prescribes the trade the state has historically rewarded.</p>
+    </div>
+
+    <div class="book">
+      <table>
+        <thead>
+          <tr><th>Regime</th><th>State</th><th>Historical bias</th><th>Preferred vehicle</th><th>Conf.</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Positive γ · above flip</td><td class="state pos">STABLE</td><td>Mean reversion, range compression</td><td>Iron condor, short strangles</td><td class="pos">HIGH</td></tr>
+          <tr><td>Positive γ · near call wall</td><td class="state amber">FADE</td><td>Fade advance into wall</td><td>Short call spreads</td><td class="amber">MEDIUM</td></tr>
+          <tr><td>Negative γ · below flip</td><td class="state neg">AMPLIFY</td><td>Trend continuation, ranges expand</td><td>Long directional, debit spreads</td><td class="pos">HIGH</td></tr>
+          <tr><td>Negative γ · at put wall</td><td class="state amber">BOUNCE</td><td>Reflexive rebound off dealer hedge</td><td>Long call spreads, short-dated</td><td class="amber">MEDIUM</td></tr>
+          <tr><td>Trap · retail long, dealer short</td><td class="state neg">FADE-RALLY</td><td>Fade euphoric strength</td><td>Bear call spreads</td><td class="pos">HIGH</td></tr>
+          <tr><td>End-of-day negative γ</td><td class="state amber">RE-HEDGE</td><td>Directional pin into close</td><td>Directional 0DTE</td><td class="amber">MEDIUM</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section style="padding-bottom: 40px;">
+    <div class="cta-block">
+      <div class="id" style="justify-content: center; display: inline-flex;">The desk is ready</div>
+      <h2>Open the <span>desk.</span><br/><span class="thin">Trade the tape.</span></h2>
+      <p>Free tier with live SPX γ flip, walls, and net GEX. No card. No install. Runs in a tab.</p>
+      <a href="#" class="btn solid big">Open a desk →</a>
+    </div>
+  </section>
+
+  <footer>
+    <div>© ZeroGEX / 2026 / all figures illustrative</div>
+    <div>STATUS · DOCS · TERMS · PRIVACY</div>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    const html = document.documentElement;
+    const btn = document.getElementById('themeToggle');
+    const lbl = document.getElementById('themeLabel');
+    const KEY = 'zg-terminal-walnut-theme';
+    const stored = localStorage.getItem(KEY);
+    if (stored) html.setAttribute('data-theme', stored);
+    const updateLbl = () => lbl.textContent = html.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
+    updateLbl();
+    btn.addEventListener('click', () => {
+      const cur = html.getAttribute('data-theme');
+      const next = cur === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem(KEY, next);
+      updateLbl();
+    });
+  })();
+</script>
+
+</body>
+</html>

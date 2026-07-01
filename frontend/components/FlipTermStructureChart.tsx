@@ -91,8 +91,8 @@ function renderTodayFlipDot(props: {
   const fill = sign == null
     ? FLIP_LINE_COLOR
     : sign >= 0
-      ? colors.accent
-      : colors.bearish;
+      ? 'var(--color-brand-accent)'
+      : 'var(--color-bear)';
   return (
     <g>
       <circle cx={cx} cy={cy} r={5} fill={fill} stroke="var(--color-surface)" strokeWidth={1.25} />
@@ -121,7 +121,7 @@ function renderUnresolvedDot(props: { cx?: number; cy?: number }) {
   if (cx == null || cy == null) return <g />;
   const s = 5;
   return (
-    <g stroke={colors.bearish} strokeWidth={2} strokeLinecap="round">
+    <g stroke={'var(--color-bear)'} strokeWidth={2} strokeLinecap="round">
       <line x1={cx - s} y1={cy - s} x2={cx + s} y2={cy + s} />
       <line x1={cx - s} y1={cy + s} x2={cx + s} y2={cy - s} />
     </g>
@@ -180,8 +180,8 @@ function FlipTooltip({
               row.netGexAtSpot == null
                 ? undefined
                 : row.netGexAtSpot >= 0
-                  ? colors.accent
-                  : colors.bearish,
+                  ? 'var(--color-brand-accent)'
+                  : 'var(--color-bear)',
           }}
         >
           {formatGex(row.netGexAtSpot)}
@@ -211,10 +211,10 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
   const gridStroke = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
+  const mutedText = isDark ? 'var(--text-secondary)' : 'var(--color-text-secondary)';
 
   const [selectedHorizons, setSelectedHorizons] = useState<number[]>(DEFAULT_HORIZONS);
 
@@ -285,12 +285,12 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
       <div
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
+          backgroundColor: 'var(--bg-card)',
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
+          <h3 className="zg-h3" style={{ color: textColor }}>
             GAMMA FLIP · TERM STRUCTURE
           </h3>
           <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago — read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
@@ -375,7 +375,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             transitions between loading / error / data states. */}
         <div className="flex-1" style={{ minHeight: isMobile ? 520 : 520 }}>
           {error ? (
-            <div className="flex items-center justify-center h-full text-sm" style={{ color: colors.bearish }}>
+            <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--color-bear)' }}>
               {error === 'No data available yet'
                 ? `No usable option snapshot for ${symbol} — check ingestion.`
                 : `Backend error: ${error}`}
@@ -517,7 +517,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                               {formatHorizon(row.horizon)}
                             </td>
                             <td className="text-right py-1.5 px-2 font-mono">
-                              {row.resolved ? formatUsd(row.todayFlip) : <span style={{ color: colors.bearish }}>unresolved</span>}
+                              {row.resolved ? formatUsd(row.todayFlip) : <span style={{ color: 'var(--color-bear)' }}>unresolved</span>}
                             </td>
                             <td className="text-right py-1.5 px-2 font-mono">{formatSpan(row.spanUsed)}</td>
                             <td className="text-right py-1.5 px-2 font-mono font-semibold" style={{ color: gexColor }}>
@@ -563,11 +563,11 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                       <span>Today&apos;s flip</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: colors.accent }} />
+                      <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: 'var(--color-brand-accent)' }} />
                       <span>Long γ (positive net GEX at spot)</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: colors.bearish }} />
+                      <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: 'var(--color-bear)' }} />
                       <span>Short γ (negative net GEX at spot)</span>
                     </li>
                     <li className="flex items-center gap-2">
@@ -583,7 +583,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                     <li className="flex items-center gap-2">
                       <span
                         className="inline-block w-3 shrink-0 text-center"
-                        style={{ color: colors.bearish, fontWeight: 700, fontSize: 14, lineHeight: 1 }}
+                        style={{ color: 'var(--color-bear)', fontWeight: 700, fontSize: 14, lineHeight: 1 }}
                       >
                         ×
                       </span>

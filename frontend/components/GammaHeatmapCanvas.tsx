@@ -134,10 +134,10 @@ export default function GammaHeatmapCanvas() {
   const { getMaxDataPoints, symbol } = useTimeframe();
   const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
-  const textPrimary = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
-  const border = colors.muted;
-  const subtle = colors.muted;
+  const textPrimary = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
+  const border = 'var(--text-secondary)';
+  const subtle = 'var(--text-secondary)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
   // ── User-controlled view state ──
@@ -477,7 +477,7 @@ export default function GammaHeatmapCanvas() {
     const plotW = Math.max(10, cssW - PAD_L - PAD_R);
     const plotH = Math.max(10, cssH - PAD_T - PAD_B);
 
-    ctx.fillStyle = isDark ? colors.cardDark : colors.cardLight;
+    ctx.fillStyle = 'var(--bg-card)';
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
     const T = grid.timestamps.length;
@@ -676,8 +676,8 @@ export default function GammaHeatmapCanvas() {
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
-      const bullEdge = darken(colors.bullish, 0.6);
-      const bearEdge = darken(colors.bearish, 0.6);
+      const bullEdge = darken('var(--color-bull)', 0.6);
+      const bearEdge = darken('var(--color-bear)', 0.6);
       grid.slotsMs.forEach((ms, i) => {
         const row = priceByMs.get(ms);
         if (!row) return;
@@ -693,7 +693,7 @@ export default function GammaHeatmapCanvas() {
         const yHigh = yForStrike(high);
         const yLow = yForStrike(low);
         const up = close >= open;
-        const fill = up ? colors.bullish : colors.bearish;
+        const fill = up ? 'var(--color-bull)' : 'var(--color-bear)';
         const edge = up ? bullEdge : bearEdge;
         const bodyTop = Math.min(yOpen, yClose);
         const bodyBottom = Math.max(yOpen, yClose);
@@ -732,7 +732,7 @@ export default function GammaHeatmapCanvas() {
           const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim();
           if (v) return v;
         }
-        return colors.accent;
+        return 'var(--color-brand-accent)';
       })();
       const drawFlipPath = (expandedFilter: boolean) => {
         ctx.beginPath();
@@ -1159,7 +1159,7 @@ export default function GammaHeatmapCanvas() {
           {paused && (
             <span
               className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+              style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
             >
               Paused
             </span>
@@ -1168,7 +1168,7 @@ export default function GammaHeatmapCanvas() {
             <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls — TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup — the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
               <span
                 className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
-                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+                style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
               >
                 Candles {candleLagMinutes}m behind
               </span>

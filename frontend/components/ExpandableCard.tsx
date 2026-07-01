@@ -39,9 +39,9 @@ export default function ExpandableCard({
             onClick={() => setExpanded(true)}
             className="absolute right-3 top-3 z-20 p-2 rounded-md border"
             style={{
-              color: theme === 'dark' ? colors.light : colors.dark,
-              backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight,
-              borderColor: colors.muted,
+              color: 'var(--text-primary)',
+              backgroundColor: 'var(--bg-card)',
+              borderColor: 'var(--text-secondary)',
             }}
           >
             <Expand size={16} />
@@ -58,7 +58,7 @@ export default function ExpandableCard({
         >
           <div
             className={`relative h-full w-full rounded-xl shadow-2xl ${expandClassName}`}
-            style={{ backgroundColor: theme === 'dark' ? colors.bgDark : colors.bgLight }}
+            style={{ backgroundColor: 'var(--bg-main)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -66,7 +66,7 @@ export default function ExpandableCard({
               aria-label="Close expanded card"
               onClick={() => setExpanded(false)}
               className="absolute right-3 top-3 z-30 p-2 rounded-md"
-              style={{ color: theme === 'dark' ? colors.light : colors.dark, backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}
+              style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-card)' }}
             >
               <X size={18} />
             </button>
