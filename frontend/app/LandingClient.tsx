@@ -90,11 +90,14 @@ function StatCard({ label, value, sub, isDark = true }: { label: string; value: 
         backdropFilter: 'blur(12px)',
       }}
     >
-      <div style={{ fontSize: 36, fontWeight: 800, color: C.amber, letterSpacing: '-1px', lineHeight: 1 }}>
+      <div
+        className="zg-h2"
+        style={{ color: 'var(--color-accent-hot)', letterSpacing: '-0.02em', lineHeight: 1 }}
+      >
         {value}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: C.light, marginTop: 8 }}>{label}</div>
-      {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{sub}</div>}
+      <div className="zg-body" style={{ fontWeight: 600, marginTop: 8 }}>{label}</div>
+      {sub && <div className="zg-caption" style={{ marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -136,8 +139,8 @@ function FeatureCard({
       >
         <Icon size={22} style={{ color }} />
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: C.light, marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{description}</div>
+      <div className="zg-h4" style={{ marginBottom: 8 }}>{title}</div>
+      <div className="zg-small" style={{ lineHeight: 1.6 }}>{description}</div>
     </div>
   );
 }
@@ -164,7 +167,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
         }}
       >
         <Icon size={16} style={{ color: hovered ? color : C.muted }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: hovered ? C.light : C.muted }}>{label}</span>
+        <span className="zg-small" style={{ fontWeight: 600, color: hovered ? C.light : C.muted }}>{label}</span>
         <ArrowRight size={12} style={{ color: hovered ? color : 'transparent', marginLeft: 'auto', transition: 'all 0.2s' }} />
       </div>
     </Link>
@@ -175,37 +178,31 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
 function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <div
+      <span
+        className="zg-label"
         style={{
           display: 'inline-block',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: C.amber,
-          background: `${C.amber}18`,
-          border: `1px solid ${C.amber}40`,
+          color: 'var(--color-accent-hot)',
+          background: 'var(--color-accent-soft)',
+          border: '1px solid var(--color-accent-soft)',
           borderRadius: 100,
           padding: '4px 14px',
           marginBottom: 16,
         }}
       >
         {eyebrow}
-      </div>
+      </span>
       <h2
-        style={{
-          fontSize: 'clamp(28px, 4vw, 44px)',
-          fontWeight: 800,
-          color: C.light,
-          margin: 0,
-          lineHeight: 1.15,
-          letterSpacing: '-0.5px',
-        }}
+        className="zg-h1"
+        style={{ margin: 0, color: 'var(--text-primary)' }}
       >
         {title}
       </h2>
       {sub && (
-        <p style={{ fontSize: 17, color: C.muted, marginTop: 14, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
+        <p
+          className="zg-lead"
+          style={{ marginTop: 14, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}
+        >
           {sub}
         </p>
       )}
@@ -442,11 +439,12 @@ export default function LandingPage() {
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 900, width: '100%' }}>
           {/* Badge */}
           <div
+            className="zg-label"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              fontSize: 'clamp(10px, 2.8vw, 12px)', fontWeight: 700, letterSpacing: '0.12em',
-              textTransform: 'uppercase', color: C.amber,
-              background: `${C.amber}18`, border: `1px solid ${C.amber}40`,
+              color: 'var(--color-accent-hot)',
+              background: 'var(--color-accent-soft)',
+              border: '1px solid var(--color-accent-soft)',
               borderRadius: 100, padding: '5px 16px',
               marginBottom: 28,
               maxWidth: '100%',
@@ -466,14 +464,8 @@ export default function LandingPage() {
 
           {/* Headline — pain-first hook */}
           <h1
-            style={{
-              fontSize: 'clamp(30px, 9vw, 82px)',
-              fontWeight: 900,
-              lineHeight: 1.05,
-              letterSpacing: 'clamp(-1px, -0.4vw, -2px)',
-              margin: '0 0 18px',
-              color: text,
-            }}
+            className="zg-display"
+            style={{ margin: '0 0 18px', color: text }}
           >
             Stop trading{' '}
             <span
@@ -490,14 +482,13 @@ export default function LandingPage() {
 
           {/* Supporting tagline — the through-line for the brand */}
           <p
+            className="zg-h3"
             style={{
-              fontSize: 'clamp(16px, 4.2vw, 26px)',
-              fontWeight: 700,
               color: text,
-              lineHeight: 1.35,
               margin: '0 auto 18px',
               maxWidth: 760,
-              letterSpacing: '-0.3px',
+              fontWeight: 600,
+              fontSize: 'clamp(18px, 3vw, 24px)',
             }}
           >
             Know the levels that matter — before SPY/SPX/QQQ get there.
@@ -505,13 +496,8 @@ export default function LandingPage() {
 
           {/* Sub-headline body */}
           <p
-            style={{
-              fontSize: 'clamp(14px, 4vw, 19px)',
-              color: subtext,
-              lineHeight: 1.55,
-              maxWidth: 680,
-              margin: '0 auto 40px',
-            }}
+            className="zg-lead"
+            style={{ color: subtext, maxWidth: 680, margin: '0 auto 40px' }}
           >
             ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
           </p>
