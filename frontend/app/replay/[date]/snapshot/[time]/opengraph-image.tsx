@@ -1,5 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { captureServer } from '@/core/telemetry/posthog-server';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 export const runtime = 'nodejs';
 export const alt = 'ZeroGEX Replay snapshot — historical dealer gamma surface';
@@ -76,6 +78,14 @@ export default async function Image({ params }: { params: { date: string; time: 
     ? `${params.time.slice(0, 2)}:${params.time.slice(2, 4)} ET`
     : '—';
   const summary = payload?.summary;
+
+  await captureServer(`og:replay:${params.date}:${params.time}`, TelemetryEvent.OgPreviewed, {
+    surface: 'replay_snapshot',
+    date: params.date,
+    time_hhmm: params.time,
+    symbol,
+    resolved: Boolean(payload),
+  });
 
   return new ImageResponse(
     (

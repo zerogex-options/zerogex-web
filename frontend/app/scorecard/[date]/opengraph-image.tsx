@@ -1,5 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { captureServer } from '@/core/telemetry/posthog-server';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 export const runtime = 'nodejs';
 export const alt = "ZeroGEX Daily Scorecard — yesterday's Playbook calls + per-signal P&L";
@@ -78,6 +80,16 @@ export default async function Image({ params }: { params: { date: string } }) {
   const cards = payload?.cards.total ?? 0;
   const best = payload?.signals?.best ?? null;
   const worst = payload?.signals?.worst ?? null;
+
+  await captureServer(`og:scorecard:${date}`, TelemetryEvent.OgPreviewed, {
+    surface: 'scorecard',
+    date,
+    symbol,
+    regime: regimeLabel,
+    cards,
+    resolved: Boolean(payload),
+    is_empty: isEmpty,
+  });
 
   return new ImageResponse(
     (
