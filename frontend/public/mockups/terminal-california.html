@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-palette="california" data-mode="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,52 +8,139 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* ---- Palette: California Sunset ---- */
-  [data-theme="dark"] {
-    --bg: #1F1728;                 /* deep plum-navy dusk */
-    --bg-2: #261C31;
-    --panel: #291E35;
-    --panel-2: #33253F;
-    --line: rgba(245,231,214,0.09);
-    --line-2: rgba(245,231,214,0.16);
-    --line-3: rgba(245,231,214,0.28);
-    --text: #F5E7D6;                /* warm sand */
-    --text-dim: rgba(245,231,214,0.65);
-    --text-fade: rgba(245,231,214,0.40);
-    --accent: #E76F51;              /* sunset coral */
-    --accent-hot: #F4A261;          /* sunset gold */
-    --accent-soft: rgba(244,162,97,0.18);
-    --gold: #F4D35E;                /* bright canary gold */
-    --gold-soft: rgba(244,211,94,0.16);
-    --maroon: #B44957;              /* desert maroon */
-    --navy: #6B9EC7;                /* Palm Springs pool blue */
-    --pos: #B4C68A;                 /* dusty sage */
-    --neg: #E56B78;                 /* dusty rose */
-    --brand-text: #F5E7D6;
-    --ink-on-bright: #1F1728;
+  /* ============================================================
+     THEME SYSTEM — 5 palettes × 2 modes.
+     Attributes on <html>: data-palette="..." data-mode="light|dark"
+     ============================================================ */
+
+  /* ---- Terminal Deluxe ---- */
+  [data-palette="deluxe"][data-mode="dark"] {
+    --bg: #0A0E13; --bg-2: #10151D; --panel: #12171F; --panel-2: #161C25;
+    --line: rgba(233,237,243,0.09); --line-2: rgba(233,237,243,0.16); --line-3: rgba(233,237,243,0.28);
+    --text: #E9EDF3; --text-dim: rgba(233,237,243,0.65); --text-fade: rgba(233,237,243,0.40);
+    --accent: #FFB020; --accent-hot: #FFB020; --accent-soft: rgba(255,176,32,0.18);
+    --gold: #FFD84D; --gold-soft: rgba(255,216,77,0.14);
+    --maroon: #C94A4A; --navy: #4FA3E8;
+    --emerald: #4FE8A8; --emerald-soft: rgba(79,232,168,0.14);
+    --hazy: #7EB6D9; --hazy-soft: rgba(126,182,217,0.14);
+    --pos: #4FE8A8; --neg: #FF6E6E;
+    --brand-text: #E9EDF3;
   }
-  [data-theme="light"] {
-    --bg: #F5E4D6;                  /* blush cream sky */
-    --bg-2: #EED9C6;
-    --panel: #F0DBC7;
-    --panel-2: #E6CFB6;
-    --line: rgba(70,42,72,0.08);
-    --line-2: rgba(70,42,72,0.20);
-    --line-3: rgba(70,42,72,0.36);
-    --text: #3E2740;                /* deep plum ink */
-    --text-dim: rgba(62,39,64,0.68);
-    --text-fade: rgba(62,39,64,0.40);
-    --accent: #C55643;
-    --accent-hot: #D97F3A;
-    --accent-soft: rgba(197,86,67,0.14);
-    --gold: #B58817;                /* deep marigold */
-    --gold-soft: rgba(181,136,23,0.14);
-    --maroon: #8E2E35;              /* deep desert maroon */
-    --navy: #2E5C8A;                /* navy pool */
-    --pos: #6B7E48;
-    --neg: #B8474F;
+  [data-palette="deluxe"][data-mode="light"] {
+    --bg: #F5EFDD; --bg-2: #EBE5D0; --panel: #EFE9D6; --panel-2: #E4DDC4;
+    --line: rgba(10,14,19,0.08); --line-2: rgba(10,14,19,0.20); --line-3: rgba(10,14,19,0.36);
+    --text: #0F131A; --text-dim: rgba(15,19,26,0.68); --text-fade: rgba(15,19,26,0.40);
+    --accent: #A66A00; --accent-hot: #C08424; --accent-soft: rgba(192,132,36,0.16);
+    --gold: #957507; --gold-soft: rgba(149,117,7,0.14);
+    --maroon: #8B2723; --navy: #1F5A87;
+    --emerald: #227550; --emerald-soft: rgba(34,117,80,0.14);
+    --hazy: #34617F; --hazy-soft: rgba(52,97,127,0.14);
+    --pos: #2F7F5B; --neg: #B03434;
+    --brand-text: #0F131A;
+  }
+
+  /* ---- Terminal Walnut ---- */
+  [data-palette="walnut"][data-mode="dark"] {
+    --bg: #1D1A16; --bg-2: #24211B; --panel: #26221C; --panel-2: #2D2921;
+    --line: rgba(240,232,213,0.09); --line-2: rgba(240,232,213,0.16); --line-3: rgba(240,232,213,0.28);
+    --text: #F0E8D5; --text-dim: rgba(240,232,213,0.65); --text-fade: rgba(240,232,213,0.40);
+    --accent: #C48739; --accent-hot: #E0A24D; --accent-soft: rgba(196,135,57,0.18);
+    --gold: #E6C264; --gold-soft: rgba(230,194,100,0.14);
+    --maroon: #A6533F; --navy: #6E8BAA;
+    --emerald: #8CA275; --emerald-soft: rgba(140,162,117,0.14);
+    --hazy: #7B95AE; --hazy-soft: rgba(123,149,174,0.14);
+    --pos: #8CA275; --neg: #D77B62;
+    --brand-text: #F0E8D5;
+  }
+  [data-palette="walnut"][data-mode="light"] {
+    --bg: #F1EAD3; --bg-2: #E8E0C6; --panel: #ECE4CA; --panel-2: #E2D9BB;
+    --line: rgba(32,26,20,0.09); --line-2: rgba(32,26,20,0.20); --line-3: rgba(32,26,20,0.36);
+    --text: #201A14; --text-dim: rgba(32,26,20,0.68); --text-fade: rgba(32,26,20,0.40);
+    --accent: #7B4E2C; --accent-hot: #9C6837; --accent-soft: rgba(123,78,44,0.14);
+    --gold: #957A1C; --gold-soft: rgba(149,122,28,0.14);
+    --maroon: #7A3020; --navy: #345B7A;
+    --emerald: #556C42; --emerald-soft: rgba(85,108,66,0.14);
+    --hazy: #405D75; --hazy-soft: rgba(64,93,117,0.14);
+    --pos: #556C42; --neg: #B85838;
+    --brand-text: #201A14;
+  }
+
+  /* ---- Terminal California Sunset ---- */
+  [data-palette="california"][data-mode="dark"] {
+    --bg: #1F1728; --bg-2: #261C31; --panel: #291E35; --panel-2: #33253F;
+    --line: rgba(245,231,214,0.09); --line-2: rgba(245,231,214,0.16); --line-3: rgba(245,231,214,0.28);
+    --text: #F5E7D6; --text-dim: rgba(245,231,214,0.65); --text-fade: rgba(245,231,214,0.40);
+    --accent: #E76F51; --accent-hot: #F4A261; --accent-soft: rgba(244,162,97,0.18);
+    --gold: #F4D35E; --gold-soft: rgba(244,211,94,0.16);
+    --maroon: #B44957; --navy: #6B9EC7;
+    --emerald: #B4C68A; --emerald-soft: rgba(180,198,138,0.14);
+    --hazy: #6B9EC7; --hazy-soft: rgba(107,158,199,0.14);
+    --pos: #B4C68A; --neg: #E56B78;
+    --brand-text: #F5E7D6;
+  }
+  [data-palette="california"][data-mode="light"] {
+    --bg: #F5E4D6; --bg-2: #EED9C6; --panel: #F0DBC7; --panel-2: #E6CFB6;
+    --line: rgba(70,42,72,0.08); --line-2: rgba(70,42,72,0.20); --line-3: rgba(70,42,72,0.36);
+    --text: #3E2740; --text-dim: rgba(62,39,64,0.68); --text-fade: rgba(62,39,64,0.40);
+    --accent: #C55643; --accent-hot: #D97F3A; --accent-soft: rgba(197,86,67,0.14);
+    --gold: #B58817; --gold-soft: rgba(181,136,23,0.14);
+    --maroon: #8E2E35; --navy: #2E5C8A;
+    --emerald: #6B7E48; --emerald-soft: rgba(107,126,72,0.14);
+    --hazy: #2E5C8A; --hazy-soft: rgba(46,92,138,0.14);
+    --pos: #6B7E48; --neg: #B8474F;
     --brand-text: #3E2740;
-    --ink-on-bright: #3E2740;
+  }
+
+  /* ---- Terminal Pacific Northwest ---- */
+  [data-palette="pacific"][data-mode="dark"] {
+    --bg: #0F1815; --bg-2: #131F1B; --panel: #16221E; --panel-2: #1B2A25;
+    --line: rgba(228,232,220,0.09); --line-2: rgba(228,232,220,0.16); --line-3: rgba(228,232,220,0.28);
+    --text: #E4E8DC; --text-dim: rgba(228,232,220,0.65); --text-fade: rgba(228,232,220,0.40);
+    --accent: #8B5A3D; --accent-hot: #B87B4B; --accent-soft: rgba(184,123,75,0.18);
+    --gold: #D1A94A; --gold-soft: rgba(209,169,74,0.14);
+    --maroon: #A24E3F; --navy: #6690AB;
+    --emerald: #3ACD86; --emerald-soft: rgba(58,205,134,0.14);
+    --hazy: #6690AB; --hazy-soft: rgba(102,144,171,0.14);
+    --pos: #3ACD86; --neg: #C97556;
+    --brand-text: #E4E8DC;
+  }
+  [data-palette="pacific"][data-mode="light"] {
+    --bg: #E9E4D2; --bg-2: #DED8C1; --panel: #E1DAC3; --panel-2: #D3CCB2;
+    --line: rgba(26,40,34,0.08); --line-2: rgba(26,40,34,0.20); --line-3: rgba(26,40,34,0.36);
+    --text: #1F2E28; --text-dim: rgba(31,46,40,0.68); --text-fade: rgba(31,46,40,0.40);
+    --accent: #6E4529; --accent-hot: #8B5A3D; --accent-soft: rgba(110,69,41,0.14);
+    --gold: #7C6212; --gold-soft: rgba(124,98,18,0.14);
+    --maroon: #7A2E1F; --navy: #405D75;
+    --emerald: #1E8552; --emerald-soft: rgba(30,133,82,0.14);
+    --hazy: #405D75; --hazy-soft: rgba(64,93,117,0.14);
+    --pos: #1E8552; --neg: #B0553A;
+    --brand-text: #1F2E28;
+  }
+
+  /* ---- Terminal Bourbon ---- */
+  [data-palette="bourbon"][data-mode="dark"] {
+    --bg: #1A120C; --bg-2: #1F170F; --panel: #221912; --panel-2: #2B2018;
+    --line: rgba(241,232,208,0.09); --line-2: rgba(241,232,208,0.16); --line-3: rgba(241,232,208,0.28);
+    --text: #F1E8D0; --text-dim: rgba(241,232,208,0.65); --text-fade: rgba(241,232,208,0.40);
+    --accent: #B8934C; --accent-hot: #D4AD5E; --accent-soft: rgba(184,147,76,0.18);
+    --gold: #E0C46B; --gold-soft: rgba(224,196,107,0.14);
+    --maroon: #A64236; --navy: #5C7A98;
+    --emerald: #9C9756; --emerald-soft: rgba(156,151,86,0.14);
+    --hazy: #5C7A98; --hazy-soft: rgba(92,122,152,0.14);
+    --pos: #9C9756; --neg: #A64236;
+    --brand-text: #F1E8D0;
+  }
+  [data-palette="bourbon"][data-mode="light"] {
+    --bg: #EFE4C6; --bg-2: #E5D9B6; --panel: #E9DDBA; --panel-2: #DBCEA5;
+    --line: rgba(26,18,12,0.08); --line-2: rgba(26,18,12,0.20); --line-3: rgba(26,18,12,0.36);
+    --text: #1F160E; --text-dim: rgba(31,22,14,0.68); --text-fade: rgba(31,22,14,0.40);
+    --accent: #7C5A20; --accent-hot: #9C7530; --accent-soft: rgba(124,90,32,0.14);
+    --gold: #957507; --gold-soft: rgba(149,117,7,0.14);
+    --maroon: #7C1F19; --navy: #34526B;
+    --emerald: #6A6633; --emerald-soft: rgba(106,102,51,0.14);
+    --hazy: #34526B; --hazy-soft: rgba(52,82,107,0.14);
+    --pos: #6A6633; --neg: #8B2E27;
+    --brand-text: #1F160E;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,6 +167,22 @@
   .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-2); background: transparent; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 150ms; }
   .theme-toggle:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
   .theme-toggle svg { width: 14px; height: 14px; }
+
+  /* Theme dropdown */
+  .palette-picker { position: relative; }
+  .palette-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line-2); background: transparent; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 150ms; }
+  .palette-btn:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
+  .palette-btn .swatch-dot { width: 10px; height: 10px; background: var(--accent-hot); border-radius: 2px; }
+  .palette-btn .caret { transition: transform 150ms; }
+  .palette-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  .palette-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 240px; padding: 8px; background: var(--panel); border: 1px solid var(--line-2); z-index: 100; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4); display: none; }
+  [data-mode="light"] .palette-menu { box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15); }
+  .palette-menu[data-open="true"] { display: block; }
+  .palette-menu button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; background: transparent; border: 0; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; text-align: left; cursor: pointer; }
+  .palette-menu button:hover { background: var(--panel-2); }
+  .palette-menu button[aria-current="true"] { background: var(--accent-soft); color: var(--accent-hot); }
+  .palette-menu button .sw { display: inline-flex; flex: none; width: 32px; height: 14px; }
+  .palette-menu button .sw span { flex: 1; }
 
   .btn { display: inline-flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; padding: 10px 18px; border: 1px solid var(--line-2); background: transparent; color: var(--text); cursor: pointer; }
   .btn:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
@@ -114,7 +217,7 @@
   .stat .v.pos { color: var(--pos); }
 
   .panel { background: var(--panel); border: 1px solid var(--line-2); overflow: hidden; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.35); }
-  [data-theme="light"] .panel { box-shadow: 0 30px 60px -30px rgba(62,39,64,0.15); }
+  [data-mode="light"] .panel { box-shadow: 0 30px 60px -30px rgba(62,39,64,0.15); }
   .panel .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-2); background: var(--panel-2); font-size: 11px; color: var(--text-fade); letter-spacing: 0.16em; text-transform: uppercase; }
   .panel .head .live { color: var(--accent-hot); display: flex; align-items: center; gap: 8px; }
   .panel .head .live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-hot); box-shadow: 0 0 8px var(--accent-hot); animation: blink 1.5s infinite; }
@@ -167,22 +270,20 @@
   .book th, .book td { text-align: left; padding: 16px 20px; border-bottom: 1px solid var(--line-2); color: var(--text); }
   .book th { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); background: var(--panel); font-weight: 500; }
   .book tr:last-child td { border-bottom: 0; }
+  /* State tags — solid-color pill on softened tint. Both use palette vars so they auto-adapt. */
   .book td.state { font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
   .book td.state span { display: inline-block; padding: 3px 8px; }
   .book td.amber { color: var(--accent-hot); }
   .book td.amber span { background: var(--accent-soft); color: var(--accent-hot); }
   .book td.gold  span { background: var(--gold-soft);  color: var(--gold); }
-  .book td.maroon span { background: rgba(180,73,87,0.16); color: var(--maroon); }
-  .book td.navy   span { background: rgba(107,158,199,0.14); color: var(--navy); }
+  .book td.maroon span { background: color-mix(in oklab, var(--maroon) 14%, transparent); color: var(--maroon); }
+  .book td.navy span { background: color-mix(in oklab, var(--navy) 14%, transparent); color: var(--navy); }
+  .book td.emerald span { background: var(--emerald-soft); color: var(--emerald); }
+  .book td.hazy span { background: var(--hazy-soft); color: var(--hazy); }
   .book td.pos { color: var(--pos); }
-  .book td.pos span { background: rgba(180,198,138,0.14); color: var(--pos); }
+  .book td.pos span { background: color-mix(in oklab, var(--pos) 14%, transparent); color: var(--pos); }
   .book td.neg { color: var(--neg); }
-  .book td.neg span { background: rgba(229,107,120,0.14); color: var(--neg); }
-  [data-theme="light"] .book td.pos span { background: rgba(107,126,72,0.14); }
-  [data-theme="light"] .book td.neg span { background: rgba(184,71,79,0.14); }
-  [data-theme="light"] .book td.gold span { background: rgba(181,136,23,0.14); }
-  [data-theme="light"] .book td.maroon span { background: rgba(142,46,53,0.14); }
-  [data-theme="light"] .book td.navy span { background: rgba(46,92,138,0.14); }
+  .book td.neg span { background: color-mix(in oklab, var(--neg) 14%, transparent); color: var(--neg); }
   .book tr:hover td { background: var(--panel-2); }
 
   .cta-block { border: 1px solid var(--accent-hot); background: linear-gradient(135deg, var(--accent-soft), transparent 60%); padding: 72px 40px; text-align: center; margin-top: 40px; margin-bottom: 40px; position: relative; overflow: hidden; }
@@ -222,7 +323,36 @@
       <a href="#">Docs</a>
     </div>
     <div class="nav-right">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <div class="palette-picker">
+        <button class="palette-btn" id="paletteBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="swatch-dot"></span>
+          <span id="paletteLabel">California</span>
+          <svg class="caret" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4 L6 8 L10 4"/></svg>
+        </button>
+        <div class="palette-menu" id="paletteMenu">
+          <button data-palette="deluxe">
+            <span class="sw"><span style="background:#0A0E13"></span><span style="background:#FFB020"></span><span style="background:#4FE8A8"></span><span style="background:#FF6E6E"></span></span>
+            Terminal Deluxe
+          </button>
+          <button data-palette="walnut">
+            <span class="sw"><span style="background:#1D1A16"></span><span style="background:#C48739"></span><span style="background:#8CA275"></span><span style="background:#D77B62"></span></span>
+            Terminal Walnut
+          </button>
+          <button data-palette="california">
+            <span class="sw"><span style="background:#1F1728"></span><span style="background:#E76F51"></span><span style="background:#F4D35E"></span><span style="background:#6B9EC7"></span></span>
+            California Sunset
+          </button>
+          <button data-palette="pacific">
+            <span class="sw"><span style="background:#0F1815"></span><span style="background:#B87B4B"></span><span style="background:#3ACD86"></span><span style="background:#6690AB"></span></span>
+            Pacific Northwest
+          </button>
+          <button data-palette="bourbon">
+            <span class="sw"><span style="background:#1A120C"></span><span style="background:#B8934C"></span><span style="background:#9C9756"></span><span style="background:#A64236"></span></span>
+            Bourbon
+          </button>
+        </div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle mode">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
         <span id="themeLabel">Light</span>
       </button>
@@ -415,19 +545,67 @@
 <script>
   (function () {
     const html = document.documentElement;
-    const btn = document.getElementById('themeToggle');
-    const lbl = document.getElementById('themeLabel');
-    const KEY = 'zg-terminal-california-theme';
-    const stored = localStorage.getItem(KEY);
-    if (stored) html.setAttribute('data-theme', stored);
-    const updateLbl = () => lbl.textContent = html.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
-    updateLbl();
-    btn.addEventListener('click', () => {
-      const cur = html.getAttribute('data-theme');
+    const MODE_KEY = 'zg-theme-mode';
+    const PAL_KEY = 'zg-theme-palette';
+
+    // Restore from localStorage
+    const storedMode = localStorage.getItem(MODE_KEY);
+    const storedPal = localStorage.getItem(PAL_KEY);
+    if (storedMode) html.setAttribute('data-mode', storedMode);
+    if (storedPal) html.setAttribute('data-palette', storedPal);
+
+    const PAL_NAMES = {
+      deluxe: 'Terminal Deluxe',
+      walnut: 'Terminal Walnut',
+      california: 'California Sunset',
+      pacific: 'Pacific Northwest',
+      bourbon: 'Bourbon'
+    };
+
+    // --- Mode toggle (Light/Dark) ---
+    const modeBtn = document.getElementById('themeToggle');
+    const modeLbl = document.getElementById('themeLabel');
+    const updateMode = () => modeLbl.textContent = html.getAttribute('data-mode') === 'dark' ? 'Light' : 'Dark';
+    updateMode();
+    modeBtn.addEventListener('click', () => {
+      const cur = html.getAttribute('data-mode');
       const next = cur === 'dark' ? 'light' : 'dark';
-      html.setAttribute('data-theme', next);
-      localStorage.setItem(KEY, next);
-      updateLbl();
+      html.setAttribute('data-mode', next);
+      localStorage.setItem(MODE_KEY, next);
+      updateMode();
+    });
+
+    // --- Palette dropdown ---
+    const palBtn = document.getElementById('paletteBtn');
+    const palMenu = document.getElementById('paletteMenu');
+    const palLbl = document.getElementById('paletteLabel');
+    const updatePalLbl = () => {
+      const cur = html.getAttribute('data-palette');
+      palLbl.textContent = PAL_NAMES[cur] || 'Theme';
+      palMenu.querySelectorAll('button').forEach(b => {
+        b.setAttribute('aria-current', b.dataset.palette === cur ? 'true' : 'false');
+      });
+    };
+    updatePalLbl();
+
+    const closeMenu = () => { palMenu.dataset.open = 'false'; palBtn.setAttribute('aria-expanded', 'false'); };
+    const openMenu = () => { palMenu.dataset.open = 'true'; palBtn.setAttribute('aria-expanded', 'true'); };
+
+    palBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      palMenu.dataset.open === 'true' ? closeMenu() : openMenu();
+    });
+    palMenu.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        const p = b.dataset.palette;
+        html.setAttribute('data-palette', p);
+        localStorage.setItem(PAL_KEY, p);
+        updatePalLbl();
+        closeMenu();
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!palMenu.contains(e.target) && !palBtn.contains(e.target)) closeMenu();
     });
   })();
 </script>
