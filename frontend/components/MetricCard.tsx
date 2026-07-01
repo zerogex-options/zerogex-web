@@ -52,7 +52,7 @@ export default function MetricCard({
         <div className="flex items-center gap-2">
           {icon && <div style={{ color: 'var(--text-secondary)' }}>{icon}</div>}
           <h3 
-            className="text-xs font-semibold tracking-wider uppercase"
+            className="zg-label"
             style={{ color: 'var(--text-secondary)' }}
           >
             {title}

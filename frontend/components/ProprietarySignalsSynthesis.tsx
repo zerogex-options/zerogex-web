@@ -57,7 +57,7 @@ function CardShell({ title, tooltip, children }: CardShellProps) {
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
     >
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-xs font-semibold tracking-wider uppercase" style={{ color: 'var(--text-secondary)' }}>
+        <h3 className="zg-label" style={{ color: 'var(--text-secondary)' }}>
           {title}
         </h3>
         <TooltipWrapper text={tooltip}>

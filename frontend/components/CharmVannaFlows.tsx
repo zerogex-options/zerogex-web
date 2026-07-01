@@ -137,7 +137,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
       >
       <div className="flex items-center gap-2 mb-5">
         <h3
-          className="text-sm font-bold tracking-wider uppercase"
+          className="zg-h3"
           style={{ color: textColor }}
         >
           CHARM &amp; VANNA FLOWS

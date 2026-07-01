@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { DM_Sans } from 'next/font/google';
+import { DM_Sans, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { TimeframeProvider } from '@/core/TimeframeContext';
@@ -7,9 +7,27 @@ import { GexUnitProvider } from '@/core/GexUnitContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 
-const dmSans = DM_Sans({ 
+// Body font — kept for backwards compat during the transition. New components
+// should use the type-scale classes (.zg-*) which resolve to Space Grotesk.
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '700']
+  weight: ['400', '500', '700'],
+  variable: '--font-dm-sans',
+});
+
+// Display / UI sans — Neue Haas Grotesk-adjacent. Handles nav, buttons,
+// section headers, hero titles, all body copy going forward.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-space-grotesk',
+});
+
+// Mono — data, labels, code, ticker rows, tabular numerals.
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-jetbrains-mono',
 });
 
 // Shared site-wide description, sized for both Google SERP snippets and
@@ -54,13 +72,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${dmSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body 
-        className={dmSans.className}
-        style={{ 
+      <body
+        className={spaceGrotesk.className}
+        style={{
           margin: 0,
           padding: 0
         }}

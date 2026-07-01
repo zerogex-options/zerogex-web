@@ -307,8 +307,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
         }}
       >
       <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-          VOL SURFACE
+        <h3 className="zg-h3" style={{ color: textColor }}>
+          Volatility surface
         </h3>
         <TooltipWrapper text="Implied volatility curves across tenor buckets, showing how IV changes by strike/moneyness for near-term versus longer-dated expirations.">
           <Info size={14} />

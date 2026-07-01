@@ -161,7 +161,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
       {/* Title row */}
       <div className="flex justify-between items-start mb-3">
         <h3
-          className="text-xs font-semibold tracking-wider uppercase"
+          className="zg-label"
           style={{ color: 'var(--text-secondary)' }}
         >
           {isSpeed ? `Level / ${indexLabel}` : "Momentum"}

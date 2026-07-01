@@ -648,7 +648,7 @@ function MrrTrendCard({
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>MRR Trend</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>MRR Trend</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: brandColor }}>●</span> Est. MRR</span>
           <span><span style={{ color: committedColor }}>●</span> Committed</span>
@@ -1084,7 +1084,7 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>{title}</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>{title}</h3>
         <div className="text-xs" style={{ color: mutedText }}>
           Total: {total.toLocaleString()} · Peak: {peak.toLocaleString()}
         </div>
@@ -1162,7 +1162,7 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>Daily Total</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Daily Total</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: proColor }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
           <span><span style={{ color: basicColor }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
@@ -1295,7 +1295,7 @@ function DisclaimerChartCard({ data, cardBg, axisStroke, mutedText, brandColor, 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: axisStroke }}>Disclaimer Acceptance</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Disclaimer Acceptance</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: brandColor }}>●</span> Accepted: {latest.disclaimer.toLocaleString()}</span>
         </div>

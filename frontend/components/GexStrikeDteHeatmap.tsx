@@ -137,7 +137,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       >
       <div className="flex items-center gap-2 mb-4">
         <h3
-          className="text-sm font-bold tracking-wider uppercase"
+          className="zg-h3"
           style={{ color: textColor }}
         >
           GEX HEATMAP (STRIKE &times; DTE)
