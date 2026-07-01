@@ -132,6 +132,14 @@
 
 /* ---- Palette: Walnut (default) ---------- */
 :root.palette-walnut {
+  --heat-low: #C08464;
+  --heat-mid: #9C6837;
+  --heat-high: #7B4E2C;
+  --chart-1: #556C42;
+  --chart-2: #B85838;
+  --chart-3: #9C6837;
+  --chart-4: #345B7A;
+  --chart-5: #957A1C;
   --bg-main: #F1EAD3;
   --bg-subtle: #E8E0C6;
   --bg-card: #ECE4CA;
@@ -179,6 +187,14 @@
   --foreground: var(--text-primary);
 }
 :root.palette-walnut.dark {
+  --heat-low: #E6C264;
+  --heat-mid: #E0A24D;
+  --heat-high: #C48739;
+  --chart-1: #8CA275;
+  --chart-2: #D77B62;
+  --chart-3: #E0A24D;
+  --chart-4: #6E8BAA;
+  --chart-5: #E6C264;
   --bg-main: #1D1A16;
   --bg-subtle: #24211B;
   --bg-card: #26221C;
@@ -226,6 +242,14 @@
 
 /* ---- Palette: California Sunset ---------- */
 :root.palette-california {
+  --heat-low: #F1B08B;
+  --heat-mid: #D97F3A;
+  --heat-high: #C55643;
+  --chart-1: #6B7E48;
+  --chart-2: #B8474F;
+  --chart-3: #D97F3A;
+  --chart-4: #2E5C8A;
+  --chart-5: #B58817;
   --bg-main: #F5E4D6;
   --bg-subtle: #EED9C6;
   --bg-card: #F0DBC7;
@@ -273,6 +297,14 @@
   --foreground: var(--text-primary);
 }
 :root.palette-california.dark {
+  --heat-low: #F4D35E;
+  --heat-mid: #F4A261;
+  --heat-high: #E76F51;
+  --chart-1: #B4C68A;
+  --chart-2: #E56B78;
+  --chart-3: #F4A261;
+  --chart-4: #6B9EC7;
+  --chart-5: #F4D35E;
   --bg-main: #1F1728;
   --bg-subtle: #261C31;
   --bg-card: #291E35;
@@ -320,6 +352,14 @@
 
 /* ---- Palette: Pacific Northwest ---------- */
 :root.palette-pacific {
+  --heat-low: #C89B78;
+  --heat-mid: #8B5A3D;
+  --heat-high: #6E4529;
+  --chart-1: #1E8552;
+  --chart-2: #B0553A;
+  --chart-3: #8B5A3D;
+  --chart-4: #405D75;
+  --chart-5: #7C6212;
   --bg-main: #E9E4D2;
   --bg-subtle: #DED8C1;
   --bg-card: #E1DAC3;
@@ -367,6 +407,14 @@
   --foreground: var(--text-primary);
 }
 :root.palette-pacific.dark {
+  --heat-low: #D1A94A;
+  --heat-mid: #B87B4B;
+  --heat-high: #8B5A3D;
+  --chart-1: #3ACD86;
+  --chart-2: #C97556;
+  --chart-3: #B87B4B;
+  --chart-4: #6690AB;
+  --chart-5: #D1A94A;
   --bg-main: #0F1815;
   --bg-subtle: #131F1B;
   --bg-card: #16221E;
@@ -414,6 +462,14 @@
 
 /* ---- Palette: Terminal Deluxe (pro/power user) ---------- */
 :root.palette-deluxe {
+  --heat-low: #D9B968;
+  --heat-mid: #C08424;
+  --heat-high: #A66A00;
+  --chart-1: #2F7F5B;
+  --chart-2: #B03434;
+  --chart-3: #C08424;
+  --chart-4: #1F5A87;
+  --chart-5: #957507;
   --bg-main: #F5EFDD;
   --bg-subtle: #EBE5D0;
   --bg-card: #EFE9D6;
@@ -461,6 +517,14 @@
   --foreground: var(--text-primary);
 }
 :root.palette-deluxe.dark {
+  --heat-low: #FFD84D;
+  --heat-mid: #FFB020;
+  --heat-high: #B37700;
+  --chart-1: #4FE8A8;
+  --chart-2: #FF6E6E;
+  --chart-3: #FFB020;
+  --chart-4: #4FA3E8;
+  --chart-5: #FFD84D;
   --bg-main: #0A0E13;
   --bg-subtle: #10151D;
   --bg-card: #12171F;

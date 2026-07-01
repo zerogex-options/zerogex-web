@@ -56,9 +56,10 @@ interface MergedRow {
   profileGex?: number;
 }
 
-const PROFILE_LINE_COLOR = '#C9A36A';
-const PROFILE_FILL_COLOR = 'rgba(201, 163, 106, 0.18)';
-const NET_LINE_COLOR = '#94A3B8';
+// Palette-aware — resolved from CSS variables per the active theme.
+const PROFILE_LINE_COLOR = 'var(--color-gold)';
+const PROFILE_FILL_COLOR = 'var(--color-gold-soft)';
+const NET_LINE_COLOR = 'var(--text-muted)';
 
 // Match the bar width used by GexWallsChart (OPEN INTEREST & EXPOSURE BY
 // STRIKE) so the two stacked charts read as a cohesive pair.
@@ -733,7 +734,7 @@ export default function GexProfileChart({
                   <ReferenceLine
                     yAxisId="strike"
                     x={spotPrice}
-                    stroke="#06B6D4"
+                    stroke="var(--color-hazy)"
                     strokeDasharray="4 4"
                     label={{
                       value: `Spot: ${formatStrikePrecise(spotPrice)}`,
