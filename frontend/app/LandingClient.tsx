@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
+import ThemeDropdown from '@/components/ThemeDropdown';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
@@ -332,6 +333,8 @@ export default function LandingPage() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
+
+          <div className="hidden sm:block"><ThemeDropdown /></div>
 
           <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button

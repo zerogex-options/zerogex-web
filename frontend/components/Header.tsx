@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import BetaBadge from "./BetaBadge";
+import ThemeDropdown from "./ThemeDropdown";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -326,6 +327,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 >
                   {theme === "dark" ? <Moon size={isCollapsed ? 18 : 20} /> : <Sun size={isCollapsed ? 18 : 20} />}
                 </button>
+                <ThemeDropdown />
                 {isCollapsed && (
                   <div ref={profileMenuRef} style={{ position: "relative" }}>
                     <button
@@ -636,6 +638,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               >
                 {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
               </button>
+              <ThemeDropdown />
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-0 mr-1">
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
