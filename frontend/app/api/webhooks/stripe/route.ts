@@ -20,7 +20,13 @@ import {
   redeemBankedReferralCredit,
   rewardReferrerForConvertedReferee,
 } from '@/core/referrals';
-import { findCreatorByUserId, isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
+import {
+  accrueMissedInvoicesForReferee,
+  findCreatorByUserId,
+  isCreatorPartnerProgramEnabled,
+  maybeAccruePartnerCommission,
+  reversePartnerCommissionsForInvoice,
+} from '@/core/creatorPartners';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
 
@@ -554,6 +560,21 @@ async function maybeBackAttributeFromCheckoutSession(
           userId: refereeUserId,
           message: `Back-attributed to partner ${partner.id} via promo code ${promoCodeId} on session ${session.id}`,
         });
+        // Race defense: invoice.paid can arrive BEFORE checkout.session.completed
+        // (Stripe orders events best-effort). Any already-paid invoice for this
+        // referee was dropped as 'organic' at accrual time; now that
+        // referred_by_code is stamped, retroactively accrue anything we missed.
+        // Best-effort: a Stripe list failure just means the operator recovers
+        // via scripts/list-partner-commissions later, or we catch it on the next
+        // invoice.
+        const backfilled = await accrueMissedInvoicesForReferee(refereeUserId);
+        for (const inv of backfilled) {
+          logAudit({
+            type: 'partner_commission_accrued',
+            userId: refereeUserId,
+            message: `Backfilled accrual for invoice ${inv.id} after back-attribution (session ${session.id})`,
+          });
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'promo code lookup failed';
@@ -653,6 +674,74 @@ export async function POST(request: NextRequest) {
       }
       case 'customer.subscription.deleted': {
         await clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
+        break;
+      }
+      case 'invoice.paid': {
+        // Creator Partner commission accrual (Phase 3). Every paid invoice
+        // whose customer was referred by a creator partner earns a
+        // commission ledger row via UNIQUE(stripe_invoice_id) — retries
+        // and out-of-order deliveries are safe.
+        const invoice = event.data.object as Stripe.Invoice;
+        const outcome = await maybeAccruePartnerCommission(invoice);
+        if (outcome.kind === 'accrued') {
+          logAudit({
+            type: 'partner_commission_accrued',
+            message: `Invoice ${invoice.id}: accrued ${outcome.commissionAmount} on billed ${outcome.billedAmount} ${outcome.currency}`,
+          });
+        }
+        break;
+      }
+      case 'charge.refunded': {
+        // Any refund on a paid invoice reverses that invoice's accrued
+        // commission. Partial vs full refund is treated identically —
+        // the whole commission flips to 'reversed'. Anything already
+        // marked 'paid' (out the door) needs a manual clawback.
+        const charge = event.data.object as Stripe.Charge;
+        const invoiceId =
+          typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+        if (invoiceId) {
+          const reversed = reversePartnerCommissionsForInvoice(invoiceId);
+          if (reversed > 0) {
+            logAudit({
+              type: 'partner_commission_reversed',
+              message: `Charge ${charge.id} refunded on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+            });
+          }
+        }
+        break;
+      }
+      case 'charge.dispute.created': {
+        // A chargeback usually means Stripe pulls the money back. Reverse
+        // proactively so we don't pay out a commission we're about to lose.
+        // If the dispute is later WON (`charge.dispute.closed` with
+        // status=won), operator can restore via a manual UPDATE — most
+        // disputes on trading-tool subs are lost, so revert is the right
+        // default.
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId =
+          typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+        if (chargeId) {
+          try {
+            const charge = await getStripe().charges.retrieve(chargeId);
+            const invoiceId =
+              typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+            if (invoiceId) {
+              const reversed = reversePartnerCommissionsForInvoice(invoiceId);
+              if (reversed > 0) {
+                logAudit({
+                  type: 'partner_commission_reversed',
+                  message: `Dispute ${dispute.id} opened on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+                });
+              }
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'charge lookup failed';
+            logAudit({
+              type: 'partner_commission_reverse_error',
+              message: `Dispute ${dispute.id} charge lookup failed: ${message}`,
+            });
+          }
+        }
         break;
       }
       case 'invoice.payment_failed': {
