@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Modulor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=Space+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --chalk: #E8E1D0;
+    --chalk-2: #DCD3BE;
+    --concrete: #C6BFAE;
+    --ink: #14120E;
+    --brick: #B23025;        /* Corbusier muted red */
+    --ochre: #C8974A;
+    --deep-blue: #2E5B84;
+    --umber: #4A3B2A;
+    --muted: #6A6353;
+    --rule: rgba(20,18,14,0.16);
+    --rule-2: rgba(20,18,14,0.32);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--chalk); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1360px; margin: 0 auto; padding: 0 40px; position: relative; }
+
+  /* Faint concrete grain */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2'/></filter><rect width='300' height='300' filter='url(%23n)' opacity='0.5'/></svg>");
+    opacity: 0.05;
+  }
+
+  .mono { font-family: 'Space Mono', monospace; }
+  .cap { text-transform: uppercase; letter-spacing: 0.14em; }
+
+  /* --- Nav --- */
+  .nav {
+    display: grid; grid-template-columns: 3fr 6fr 3fr;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 600; font-size: 20px; letter-spacing: -0.02em;
+  }
+  .brand .mark {
+    width: 30px; height: 30px; flex: none; position: relative;
+    background: var(--brick);
+  }
+  .brand .mark::after {
+    content: ''; position: absolute;
+    top: 8px; right: -8px;
+    width: 16px; height: 14px;
+    background: var(--ochre);
+  }
+  .brand em { font-style: normal; color: var(--brick); }
+  .nav .links { display: flex; justify-content: center; gap: 30px; font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .nav .links a:hover { color: var(--brick); }
+  .nav .right { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+  @media (max-width: 900px) { .nav { grid-template-columns: auto 1fr; } .nav .links { display: none; } }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Space Mono', monospace; font-weight: 500; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 12px 20px;
+    border: 1.5px solid var(--ink);
+    background: transparent; color: var(--ink);
+    transition: all 120ms;
+  }
+  .btn:hover { background: var(--ink); color: var(--chalk); }
+  .btn.brick { background: var(--brick); color: var(--chalk); border-color: var(--brick); }
+  .btn.brick:hover { background: var(--ink); border-color: var(--ink); }
+  .btn.big { padding: 18px 28px; font-size: 13px; }
+
+  /* Meta strip */
+  .strip {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    border-bottom: 1px solid var(--rule-2);
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  }
+  .strip > div { padding: 12px 20px; border-right: 1px solid var(--rule); }
+  .strip > div:last-child { border-right: 0; }
+  .strip b { color: var(--ink); font-family: 'Inter Tight', sans-serif; font-weight: 600; font-size: 14px; letter-spacing: -0.02em; text-transform: none; }
+  .strip b.brick { color: var(--brick); }
+  .strip b.blue { color: var(--deep-blue); }
+
+  /* --- Hero: modulor grid composition --- */
+  .hero {
+    display: grid; grid-template-columns: 1fr 7fr 4fr;
+    border-bottom: 1px solid var(--rule-2);
+    min-height: 720px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+  .hero .side {
+    border-right: 1px solid var(--rule-2);
+    padding: 40px 20px;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    background: var(--concrete);
+    position: relative;
+  }
+  .hero .side .num {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500; font-size: 14px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--umber);
+  }
+  .hero .side .num b {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 600; font-size: 60px; letter-spacing: -0.04em;
+    display: block; color: var(--ink); text-transform: none; letter-spacing: -0.04em;
+  }
+  .hero .side .modulor {
+    /* Le Corbusier modulor figure — a stack of proportional bars */
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .hero .side .modulor span {
+    display: block; height: 6px; background: var(--brick);
+    width: 100%;
+  }
+  .hero .side .modulor span:nth-child(1) { width: 20%; }
+  .hero .side .modulor span:nth-child(2) { width: 32%; }
+  .hero .side .modulor span:nth-child(3) { width: 51%; }
+  .hero .side .modulor span:nth-child(4) { width: 82%; background: var(--ochre); }
+  .hero .side .modulor span:nth-child(5) { width: 100%; background: var(--deep-blue); }
+
+  .hero .l {
+    padding: 60px 40px;
+    border-right: 1px solid var(--rule-2);
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+  }
+  @media (max-width: 900px) { .hero .l, .hero .side { border-right: 0; border-bottom: 1px solid var(--rule-2); } }
+
+  .kicker {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--brick);
+  }
+  .kicker::before { content: '⎯⎯ '; color: var(--brick); }
+
+  h1 {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500;
+    font-size: clamp(64px, 8.5vw, 140px);
+    line-height: 0.9;
+    letter-spacing: -0.045em;
+    margin: 32px 0 28px;
+  }
+  h1 .th { font-weight: 300; color: var(--umber); }
+  h1 .br { color: var(--brick); }
+  h1 .oc { color: var(--ochre); }
+  h1 .bl { color: var(--deep-blue); }
+  h1 .box { background: var(--ochre); padding: 0 0.1em; color: var(--ink); display: inline-block; line-height: 0.95; }
+
+  .deck {
+    font-size: 20px; line-height: 1.55; max-width: 600px;
+    margin: 0 0 32px;
+    color: var(--umber);
+    font-weight: 400;
+  }
+  .deck em { font-style: normal; color: var(--brick); font-weight: 600; }
+
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* Big architectural meter panel on the right */
+  .hero .r {
+    background: var(--brick); color: var(--chalk);
+    padding: 40px 32px;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+  .hero .r::before {
+    content: ''; position: absolute;
+    top: 40px; right: 32px; bottom: 40px;
+    width: 4px;
+    background: repeating-linear-gradient(to bottom, var(--chalk) 0 2px, transparent 2px 8px);
+    opacity: 0.6;
+  }
+  .hero .r .top .idx {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(232,225,208,0.6);
+  }
+  .hero .r .top h4 {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500;
+    font-size: 22px; letter-spacing: -0.02em; margin: 4px 0 32px;
+    color: var(--chalk);
+  }
+  .hero .r .metric {
+    padding: 14px 0; border-top: 1px solid rgba(232,225,208,0.25);
+  }
+  .hero .r .metric:last-child { border-bottom: 1px solid rgba(232,225,208,0.25); }
+  .hero .r .metric .k {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(232,225,208,0.6);
+  }
+  .hero .r .metric .v {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500; font-size: 40px; letter-spacing: -0.03em;
+    margin-top: 2px;
+    color: var(--chalk);
+  }
+  .hero .r .metric .v.oc { color: var(--ochre); }
+
+  /* --- Sections --- */
+  section { border-bottom: 1px solid var(--rule-2); }
+  .sect-head {
+    display: grid; grid-template-columns: 1fr 5fr 3fr;
+    border-bottom: 1px solid var(--rule-2);
+    align-items: stretch;
+  }
+  @media (max-width: 900px) { .sect-head { grid-template-columns: 1fr; } }
+  .sect-head .num {
+    padding: 40px 20px;
+    background: var(--concrete);
+    border-right: 1px solid var(--rule-2);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    display: flex; flex-direction: column; justify-content: space-between;
+    color: var(--umber);
+  }
+  .sect-head .num b {
+    display: block;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500; font-size: 72px; letter-spacing: -0.04em;
+    color: var(--ink);
+    margin-top: 8px;
+    text-transform: none;
+    letter-spacing: -0.04em;
+  }
+  .sect-head .txt {
+    padding: 40px 40px;
+    border-right: 1px solid var(--rule-2);
+    display: flex; align-items: center;
+  }
+  h2 {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500;
+    font-size: clamp(42px, 5vw, 76px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+  }
+  h2 .th { font-weight: 300; color: var(--umber); }
+  h2 .br { color: var(--brick); }
+  h2 .box { background: var(--ochre); padding: 0 0.1em; color: var(--ink); }
+  .sect-head .meta {
+    padding: 40px 32px;
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  }
+  .sect-head .meta b { color: var(--ink); font-family: 'Inter Tight', sans-serif; font-weight: 500; font-size: 14px; text-transform: none; letter-spacing: -0.01em; }
+
+  /* Signals grid — architectural rooms */
+  .signals { display: grid; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .signals { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .signals { grid-template-columns: 1fr; } }
+  .sig {
+    padding: 32px;
+    border-right: 1px solid var(--rule-2);
+    border-bottom: 1px solid var(--rule-2);
+    position: relative; min-height: 300px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .sig:nth-child(3n) { border-right: 0; }
+  .sig:nth-last-child(-n+3) { border-bottom: 0; }
+  @media (max-width: 900px) {
+    .sig:nth-child(3n) { border-right: 1px solid var(--rule-2); }
+    .sig:nth-child(2n) { border-right: 0; }
+    .sig:nth-last-child(-n+3) { border-bottom: 1px solid var(--rule-2); }
+    .sig:nth-last-child(-n+2) { border-bottom: 0; }
+  }
+  .sig .top {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sig .top .live { color: var(--brick); }
+  .sig .top .live::before { content: '● '; }
+  /* per-sig accents */
+  .sig.a::after, .sig.b::after, .sig.c::after, .sig.d::after, .sig.e::after, .sig.f::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 6px;
+  }
+  .sig.a::after { background: var(--brick); }
+  .sig.b::after { background: var(--ochre); }
+  .sig.c::after { background: var(--deep-blue); }
+  .sig.d::after { background: var(--ink); }
+  .sig.e::after { background: var(--brick); }
+  .sig.f::after { background: var(--ochre); }
+
+  .sig h3 {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500; font-size: 30px; letter-spacing: -0.03em; line-height: 1;
+    margin: 20px 0 8px;
+  }
+  .sig p { font-size: 15px; line-height: 1.5; color: var(--umber); }
+  .sig .val {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sig .val b {
+    font-family: 'Inter Tight', sans-serif; font-weight: 500;
+    font-size: 32px; letter-spacing: -0.03em;
+    color: var(--brick);
+    text-transform: none;
+  }
+  .sig .val b.blue { color: var(--deep-blue); }
+  .sig .val b.dark { color: var(--ink); }
+
+  /* Feature: prose + chart, architectural */
+  .feature { display: grid; grid-template-columns: 5fr 7fr; border-bottom: 1px solid var(--rule-2); }
+  @media (max-width: 900px) { .feature { grid-template-columns: 1fr; } .feature > * + * { border-top: 1px solid var(--rule-2); } }
+  .feature .prose {
+    padding: 60px 40px;
+    border-right: 1px solid var(--rule-2);
+    display: flex; flex-direction: column; justify-content: center;
+    background: var(--chalk);
+  }
+  @media (max-width: 900px) { .feature .prose { border-right: 0; } }
+  .feature .prose .idx { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brick); margin-bottom: 12px; }
+  .feature .prose h3 {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500;
+    font-size: clamp(36px, 4.5vw, 64px);
+    line-height: 0.98; letter-spacing: -0.04em;
+    margin: 0 0 24px;
+  }
+  .feature .prose h3 .th { font-weight: 300; color: var(--umber); }
+  .feature .prose h3 .br { color: var(--brick); }
+  .feature .prose h3 .box { background: var(--ochre); padding: 0 0.08em; }
+  .feature .prose p { font-size: 17px; line-height: 1.6; color: var(--umber); margin: 0 0 14px; max-width: 460px; }
+
+  .feature .stat-strip { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--rule-2); border-bottom: 1px solid var(--rule-2); margin-top: 32px; }
+  .feature .stat-strip .st { padding: 20px 0; border-right: 1px solid var(--rule); }
+  .feature .stat-strip .st:last-child { border-right: 0; }
+  .feature .stat-strip .st .k { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .feature .stat-strip .st .v { font-family: 'Inter Tight', sans-serif; font-weight: 500; font-size: 34px; letter-spacing: -0.03em; margin-top: 4px; }
+
+  .feature .chart-wrap {
+    padding: 40px;
+    background: var(--concrete);
+    display: flex; align-items: center;
+  }
+  .chart-frame {
+    background: var(--chalk);
+    border: 1.5px solid var(--ink);
+    padding: 32px;
+    width: 100%;
+    position: relative;
+  }
+  .chart-frame::before { content: 'FIG. 01 · SPX γ PROFILE'; position: absolute; top: -10px; left: 20px; background: var(--concrete); padding: 0 8px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.18em; }
+  .chart-frame svg { display: block; width: 100%; height: auto; }
+
+  /* Rothko-style pull quote (banded fields) */
+  .rothko {
+    border-bottom: 1px solid var(--rule-2);
+    display: grid;
+    grid-template-rows: 40% 60%;
+    min-height: 480px;
+    position: relative;
+  }
+  .rothko .top { background: var(--brick); }
+  .rothko .bot { background: var(--ochre); position: relative; padding: 40px; display: flex; align-items: center; }
+  .rothko .content { max-width: 900px; margin: 0 auto; position: relative; z-index: 2; }
+  .rothko .idx { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--brick); }
+  .rothko .q {
+    font-family: 'Inter Tight', sans-serif; font-weight: 500;
+    font-size: clamp(36px, 5.5vw, 76px); line-height: 0.95; letter-spacing: -0.04em;
+    color: var(--ink);
+    margin: 16px 0 20px;
+  }
+  .rothko .q .th { font-weight: 300; color: var(--umber); }
+  .rothko .attr { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--umber); }
+
+  /* CTA */
+  .cta {
+    background: var(--deep-blue); color: var(--chalk);
+    padding: 120px 40px; text-align: left;
+    position: relative; overflow: hidden;
+    display: grid; grid-template-columns: 6fr 5fr; gap: 40px; align-items: end;
+  }
+  @media (max-width: 900px) { .cta { grid-template-columns: 1fr; text-align: left; } }
+  .cta::before {
+    content: ''; position: absolute; right: -20%; top: -30%;
+    width: 60%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--ochre); opacity: 0.6;
+    filter: blur(2px);
+  }
+  .cta .content { position: relative; z-index: 2; }
+  .cta .idx { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ochre); }
+  .cta h2 {
+    color: var(--chalk); margin: 16px 0 32px;
+    font-size: clamp(52px, 6vw, 108px);
+  }
+  .cta h2 .box { background: var(--ochre); color: var(--ink); }
+  .cta p { font-size: 18px; max-width: 480px; opacity: 0.85; margin: 0 0 32px; }
+  .cta .btn { background: var(--chalk); color: var(--ink); border-color: var(--chalk); }
+  .cta .btn:hover { background: var(--ochre); border-color: var(--ochre); color: var(--ink); }
+
+  footer { padding: 32px 0; display: flex; justify-content: space-between; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; flex-wrap: wrap; gap: 20px; color: var(--muted); }
+  footer .fbrand { color: var(--ink); font-weight: 700; }
+  footer a:hover { color: var(--brick); }
+
+  .back { position: fixed; top: 12px; right: 12px; z-index: 200; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--chalk); border: 1.5px solid var(--brick); padding: 6px 12px; color: var(--brick); }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All mockups</a>
+
+<div class="page">
+  <nav class="nav">
+    <div class="brand"><span class="mark"></span> zero<em>gex</em></div>
+    <div class="links">
+      <a href="#">Signals</a>
+      <a href="#">Heatmap</a>
+      <a href="#">Playbook</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="right">
+      <a href="#" class="btn">Sign in</a>
+      <a href="#" class="btn brick">Boot →</a>
+    </div>
+  </nav>
+</div>
+
+<div class="page" style="max-width: 1360px;">
+  <div class="strip">
+    <div>SESSION · <b class="brick">OPEN</b></div>
+    <div>SPX · <b>6,412.30</b></div>
+    <div>γ FLIP · <b class="brick">6,398</b></div>
+    <div>NET GEX · <b class="brick">−1.82B</b></div>
+    <div>TRAP · <b>+82</b></div>
+    <div>LATENCY · <b class="blue">247ms</b></div>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <aside class="side">
+      <div class="num"><span>ISSUE №</span><b>138</b></div>
+      <div class="modulor">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="num" style="transform: rotate(0);">Vol. IV<br/>MMXXVI</div>
+    </aside>
+
+    <div class="l">
+      <div class="kicker">The dealer positioning system</div>
+      <h1>
+        <span class="th">a</span> <span class="br">system</span><br/>
+        for reading<br/>
+        the <span class="box">tape.</span>
+      </h1>
+      <p class="deck">ZeroGEX is a small, disciplined set of live-computed instruments for reading dealer positioning across the SPX and SPY option chain — <em>the flip, the walls, the traps</em> — composed on a single reference grid.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn brick big">Boot a free desk →</a>
+        <a href="#" class="btn big">See today's read</a>
+      </div>
+    </div>
+
+    <aside class="r">
+      <div class="top">
+        <div class="idx">The desk · SPX · 14:32 ET</div>
+        <h4>Session — open · negative γ · amplifying regime.</h4>
+      </div>
+      <div>
+        <div class="metric"><div class="k">γ Flip</div><div class="v oc">6,398</div></div>
+        <div class="metric"><div class="k">Net GEX</div><div class="v">−1.82B</div></div>
+        <div class="metric"><div class="k">Call wall</div><div class="v">6,450</div></div>
+        <div class="metric"><div class="k">Put wall</div><div class="v">6,350</div></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Signals -->
+  <section>
+    <div class="sect-head">
+      <div class="num"><span>§ 01 / signals</span><b>18</b></div>
+      <div class="txt"><h2><span class="th">a</span> <span class="br">catalogue</span><br/>of instruments.</h2></div>
+      <div class="meta">
+        <div>CAT. № · <b>ZG-01/S</b></div>
+        <div>REV · <b>2026.03</b></div>
+        <div>REFRESH · <b>250 ms</b></div>
+      </div>
+    </div>
+
+    <div class="signals">
+      <div class="sig a">
+        <div class="top"><span>001</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Gamma flip.</h3>
+          <p>The single strike at which aggregate dealer γ changes sign. Every intraday session organises itself around it.</p>
+        </div>
+        <div class="val"><span>Now</span><b>6,398</b></div>
+      </div>
+      <div class="sig b">
+        <div class="top"><span>002</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Net dealer GEX.</h3>
+          <p>The signed sum of dealer γ over the whole surface. Signs the regime, sizes the conviction.</p>
+        </div>
+        <div class="val"><span>Now</span><b>−1.82B</b></div>
+      </div>
+      <div class="sig c">
+        <div class="top"><span>003</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Call wall.</h3>
+          <p>The strike carrying the largest short-call dealer γ. Historically the ceiling on advances.</p>
+        </div>
+        <div class="val"><span>Level</span><b class="blue">6,450</b></div>
+      </div>
+      <div class="sig d">
+        <div class="top"><span>004</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Put wall.</h3>
+          <p>The strike carrying the largest short-put dealer γ. Historically the floor into declines.</p>
+        </div>
+        <div class="val"><span>Level</span><b class="dark">6,350</b></div>
+      </div>
+      <div class="sig e">
+        <div class="top"><span>005</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Positioning trap.</h3>
+          <p>Retail long, dealers short — or vice versa. The highest-conviction reversal setups.</p>
+        </div>
+        <div class="val"><span>Score</span><b>+82</b></div>
+      </div>
+      <div class="sig f">
+        <div class="top"><span>006</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Squeeze setup.</h3>
+          <p>Composite of γ, skew, and vanna. Flags regimes of compounding directional risk.</p>
+        </div>
+        <div class="val"><span>Regime</span><b>HIGH</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature -->
+  <section>
+    <div class="sect-head">
+      <div class="num"><span>§ 02 / the chart</span><b>01</b></div>
+      <div class="txt"><h2><span class="th">one</span> <span class="br">line</span>,<br/>drawn to <span class="box">scale.</span></h2></div>
+      <div class="meta">
+        <div>FIG. · <b>01</b></div>
+        <div>SCALE · <b>1 pt = 1 pt</b></div>
+        <div>SRC · <b>SIP · IEX · CBOE</b></div>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="prose">
+        <div class="idx">FIG. 01 · SPX γ · 14:32 ET</div>
+        <h3><span class="th">above</span> <span class="br">the flip.</span><br/>Below <span class="box">the flip.</span></h3>
+        <p>The gamma flip is the price at which the machine reverses polarity. Above · dealer books absorb volatility; ranges compress. Below · they chase; ranges triple.</p>
+        <p>ZeroGEX draws this line every fifteen seconds from the option chain that is currently printing — never from a stale close.</p>
+        <div class="stat-strip">
+          <div class="st"><div class="k">γ Flip · SPX</div><div class="v">6,398</div></div>
+          <div class="st"><div class="k">Net GEX</div><div class="v" style="color: var(--brick);">−1.82B</div></div>
+          <div class="st"><div class="k">Regime · minutes</div><div class="v">47</div></div>
+          <div class="st"><div class="k">Refresh</div><div class="v">250 ms</div></div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-frame">
+          <svg viewBox="0 0 620 320" preserveAspectRatio="xMidYMid meet">
+            <!-- axes -->
+            <line x1="40" y1="20" x2="40" y2="290" stroke="#14120E" stroke-width="1.5"/>
+            <line x1="40" y1="290" x2="600" y2="290" stroke="#14120E" stroke-width="1.5"/>
+            <line x1="40" y1="170" x2="600" y2="170" stroke="#14120E" stroke-width="0.8" stroke-dasharray="4 5"/>
+            <text x="34" y="174" font-family="Space Mono" font-size="10" text-anchor="end" fill="#6A6353">γ=0</text>
+
+            <!-- positive gamma (ochre + concrete stripes) -->
+            <g stroke="#14120E" stroke-width="1">
+              <rect x="60"  y="140" width="30" height="30"  fill="#C8974A"/>
+              <rect x="96"  y="112" width="30" height="58"  fill="#C8974A"/>
+              <rect x="132" y="78"  width="30" height="92"  fill="#C8974A"/>
+              <rect x="168" y="42"  width="30" height="128" fill="#2E5B84"/>
+              <rect x="204" y="72"  width="30" height="98"  fill="#C8974A"/>
+              <rect x="240" y="106" width="30" height="64"  fill="#C8974A"/>
+              <rect x="276" y="140" width="30" height="30"  fill="#C8974A"/>
+            </g>
+
+            <!-- neg gamma (brick) -->
+            <g stroke="#14120E" stroke-width="1">
+              <rect x="312" y="170" width="30" height="50" fill="#B23025"/>
+              <rect x="348" y="170" width="30" height="92" fill="#B23025"/>
+              <rect x="384" y="170" width="30" height="72" fill="#B23025"/>
+              <rect x="420" y="170" width="30" height="46" fill="#B23025"/>
+              <rect x="456" y="170" width="30" height="26" fill="#B23025"/>
+              <rect x="492" y="170" width="30" height="14" fill="#B23025"/>
+              <rect x="528" y="170" width="30" height="6" fill="#B23025"/>
+            </g>
+
+            <line x1="306" y1="20" x2="306" y2="290" stroke="#14120E" stroke-width="1.4" stroke-dasharray="6 4"/>
+            <circle cx="306" cy="20" r="5" fill="#14120E"/>
+            <text x="312" y="34" font-family="Space Mono" font-size="11" font-weight="700" fill="#14120E">FLIP · 6,398</text>
+
+            <g font-family="Space Mono" font-size="9" fill="#6A6353">
+              <text x="60" y="308">6,300</text>
+              <text x="180" y="308">6,400</text>
+              <text x="310" y="308">6,450</text>
+              <text x="440" y="308">6,500</text>
+              <text x="560" y="308">6,540</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rothko pull -->
+  <section class="rothko">
+    <div class="top"></div>
+    <div class="bot">
+      <div class="content">
+        <div class="idx">— from the preface, vol. II</div>
+        <div class="q"><span class="th">above the flip,</span> hedge slower.<br/><span class="th">below,</span> hedge sooner.<br/>there is no third instruction.</div>
+        <div class="attr">§ 0.2 · the codex</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="content">
+      <div class="idx">— Open a free desk · runs in a tab</div>
+      <h2>Read the <span class="box">tape.</span><br/>Draw the line.</h2>
+    </div>
+    <div class="content">
+      <p>Free tier includes the γ flip, walls, and net GEX for SPX and SPY, refreshed every 250 ms. Signal alerts by email or webhook when you're ready.</p>
+      <a href="#" class="btn big">Boot ZeroGEX →</a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="fbrand">© ZeroGEX / MMXXVI / Cat. № ZG-01</div>
+    <div><a href="#">STATUS</a> · <a href="#">DOCS</a> · <a href="#">TERMS</a> · <a href="#">PRIVACY</a></div>
+  </footer>
+</div>
+
+</body>
+</html>
