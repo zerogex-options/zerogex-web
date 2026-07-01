@@ -35,6 +35,24 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/unauthorized',
   '/spx-gamma-levels',
   '/trading-mistakes',
+  // Action Card permalinks (/cards/{id}) are the public viral artifact for
+  // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
+  // Discord crawlers can render the colocated OG preview and so a non-member
+  // who clicks a shared link gets the receipt, not a /login wall.
+  '/cards/*',
+  // Daily Scorecard permalinks (/scorecard/{date}, /scorecard/today) — the
+  // 4:15 PM ET auto-tweet links here, and the same anonymous-access logic
+  // applies (crawlers + non-members must both reach the receipt).
+  '/scorecard/*',
+  // Daily Gamma Forecast permalinks (/forecast/{date}, /forecast/today) —
+  // the 7:00 AM ET morning card and 4:01 PM ET receipt overlay. Public for
+  // the same reason: every commitment AND its receipt must be readable by
+  // anyone with the URL, including OG crawlers.
+  '/forecast/*',
+  // GEX Replay (/replay/{date}) — scrubbable historical session viewer
+  // with shareable per-moment snapshot OG cards. Anonymous-accessible
+  // for the same crawler + non-member reasons.
+  '/replay/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [

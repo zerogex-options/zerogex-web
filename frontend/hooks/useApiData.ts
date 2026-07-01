@@ -1170,6 +1170,10 @@ export interface SignalActionResponse {
   context?: Record<string, unknown>;
   alternatives_considered?: SignalActionAlternative[];
   near_misses?: SignalActionNearMiss[];
+  /** Persisted signal_action_cards row id — present on Trade Cards, omitted
+   *  on STAND_DOWN. When present, the card has a stable /cards/{id}
+   *  permalink with its own OpenGraph preview. */
+  id?: number;
   [key: string]: unknown;
 }
 
