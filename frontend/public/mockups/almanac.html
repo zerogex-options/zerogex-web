@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — The Options Almanac</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Lora:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F4EDDD;
+    --paper-2: #EDE4CE;
+    --ink: #14100C;
+    --ink-soft: #3A2E22;
+    --muted: #74624B;
+    --rule: rgba(20,16,12,0.22);
+    --oxblood: #7A1D1D;
+    --gold: #B08B34;
+    --sky: #274F6C;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Lora', Georgia, serif; }
+  body {
+    background-image:
+      radial-gradient(rgba(20,16,12,0.05) 1px, transparent 1px),
+      radial-gradient(rgba(20,16,12,0.03) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1px 1px;
+  }
+  a { color: inherit; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+
+  /* Masthead */
+  .masthead { border-bottom: 3px double var(--ink); padding: 20px 0 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .masthead .brand { font-family: 'Fraunces', serif; font-weight: 900; font-size: 28px; letter-spacing: -0.01em; }
+  .masthead .brand em { font-style: italic; color: var(--oxblood); }
+  .masthead nav { display: flex; gap: 22px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; }
+  .masthead nav a { text-decoration: none; }
+  .masthead nav a:hover { color: var(--oxblood); }
+  .cta { display: inline-block; text-decoration: none; font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; padding: 8px 14px; border: 1.5px solid var(--ink); background: var(--paper); }
+  .cta:hover { background: var(--ink); color: var(--paper); }
+
+  /* Volume line */
+  .volume { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 8px 0; margin-top: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; letter-spacing: 0.06em; text-transform: uppercase; }
+  .volume b { color: var(--oxblood); }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: 3fr 2fr; gap: 48px; padding: 44px 0 32px; border-bottom: 1px solid var(--rule); }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+  .kicker { font-family: 'IBM Plex Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--oxblood); margin-bottom: 12px; }
+  h1.title { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(56px, 8.5vw, 108px); line-height: 0.9; letter-spacing: -0.025em; margin: 0 0 20px; }
+  h1.title em { font-style: italic; color: var(--oxblood); }
+  h1.title .amp { font-family: 'Fraunces', serif; font-style: italic; color: var(--gold); font-weight: 500; }
+  .deck { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; line-height: 1.35; color: var(--ink-soft); max-width: 640px; }
+  .byline { margin-top: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; display: flex; gap: 20px; flex-wrap: wrap; }
+  .byline span::before { content: '§ '; color: var(--gold); }
+
+  .hero-side { border-left: 1px solid var(--rule); padding-left: 32px; }
+  @media (max-width: 900px) { .hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: 24px; } }
+  .quote { font-family: 'Fraunces', serif; font-style: italic; font-size: 20px; line-height: 1.4; margin: 0 0 20px; }
+  .quote::before { content: '“'; font-size: 72px; line-height: 0; vertical-align: -22px; color: var(--gold); margin-right: 6px; }
+  .signature { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .signature b { color: var(--ink); }
+
+  .hero-actions { margin-top: 28px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; padding: 14px 22px; border: 1.5px solid var(--ink); background: var(--ink); color: var(--paper); }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn:hover { background: var(--oxblood); border-color: var(--oxblood); color: var(--paper); }
+
+  /* Ticker plate */
+  .plate { margin-top: 32px; border: 1.5px solid var(--ink); background: var(--paper-2); padding: 18px 22px; }
+  .plate .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; font-family: 'IBM Plex Mono', monospace; }
+  @media (max-width: 700px) { .plate .row { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
+  .plate .k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .plate .v { font-family: 'Fraunces', serif; font-weight: 900; font-size: 28px; letter-spacing: -0.01em; margin-top: 4px; }
+  .plate .up { color: #276A2E; }
+  .plate .down { color: var(--oxblood); }
+
+  /* Section headers */
+  section { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+  .sect-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+  .chapter { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--oxblood); }
+  .sect-head h2 { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(36px, 4.5vw, 52px); letter-spacing: -0.02em; margin: 4px 0 0; }
+  .rule-heavy { height: 6px; background: var(--ink); margin-bottom: 8px; width: 60px; }
+  .sect-desc { font-family: 'Fraunces', serif; font-style: italic; font-size: 18px; color: var(--ink-soft); max-width: 520px; text-align: right; }
+  @media (max-width: 700px) { .sect-head { flex-direction: column; align-items: flex-start; } .sect-desc { text-align: left; } }
+
+  /* Columns */
+  .cols3 { columns: 3; column-gap: 40px; column-rule: 1px solid var(--rule); }
+  @media (max-width: 900px) { .cols3 { columns: 2; } }
+  @media (max-width: 620px) { .cols3 { columns: 1; } }
+  .cols3 article { break-inside: avoid; margin-bottom: 28px; }
+  .cols3 h3 { font-family: 'Fraunces', serif; font-weight: 900; font-size: 24px; letter-spacing: -0.01em; margin: 0 0 8px; }
+  .cols3 h3 .num { font-family: 'Fraunces', serif; font-style: italic; color: var(--gold); margin-right: 8px; }
+  .cols3 p { font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+  .drop::first-letter { font-family: 'Fraunces', serif; font-weight: 900; font-size: 62px; line-height: 0.85; float: left; padding: 6px 10px 0 0; color: var(--oxblood); }
+
+  /* Feature block: chart + prose */
+  .duet { display: grid; grid-template-columns: 5fr 4fr; gap: 44px; align-items: start; }
+  @media (max-width: 900px) { .duet { grid-template-columns: 1fr; } }
+  .frame { border: 1.5px solid var(--ink); padding: 22px; background: var(--paper-2); position: relative; }
+  .frame::before { content: 'FIGURE 1'; position: absolute; top: -10px; left: 20px; background: var(--paper); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; padding: 0 8px; color: var(--muted); }
+  .chart-cap { font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-top: 14px; text-align: center; }
+  .prose h3 { font-family: 'Fraunces', serif; font-weight: 900; font-size: 30px; letter-spacing: -0.01em; margin: 0 0 10px; }
+  .prose p { font-size: 17px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 14px; }
+  .prose .marginalia { border-left: 3px solid var(--oxblood); padding-left: 14px; font-family: 'Fraunces', serif; font-style: italic; color: var(--ink); font-size: 15px; margin: 18px 0; }
+
+  /* Testimonial strip */
+  .voices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  @media (max-width: 900px) { .voices { grid-template-columns: 1fr; } }
+  .voice { border-top: 4px solid var(--ink); padding-top: 18px; }
+  .voice p { font-family: 'Fraunces', serif; font-style: italic; font-size: 19px; line-height: 1.45; margin: 0 0 14px; }
+  .voice .who { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .voice .who b { color: var(--ink); }
+
+  /* CTA */
+  .cta-block { background: var(--ink); color: var(--paper); padding: 64px 40px; margin-top: 40px; text-align: center; }
+  .cta-block .kicker { color: var(--gold); }
+  .cta-block h2 { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(40px, 6vw, 72px); letter-spacing: -0.02em; margin: 8px 0 20px; }
+  .cta-block h2 em { color: var(--gold); font-style: italic; }
+  .cta-block p { font-family: 'Fraunces', serif; font-size: 20px; max-width: 520px; margin: 0 auto 28px; color: rgba(244,237,221,0.8); }
+  .cta-block .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+  .cta-block .btn:hover { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+
+  /* Colophon footer */
+  footer { padding: 40px 0 60px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 3px double var(--ink); }
+  footer a { text-decoration: none; }
+
+  .back { position: fixed; top: 16px; left: 16px; z-index: 10; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--paper); border: 1.5px solid var(--ink); padding: 6px 10px; text-decoration: none; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All Mockups</a>
+
+<div class="page">
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="brand">Zero<em>GEX</em> Almanac</div>
+    <nav>
+      <a href="#">Signals</a>
+      <a href="#">Heatmap</a>
+      <a href="#">Education</a>
+      <a href="#">Pricing</a>
+      <a href="#" class="cta">Sign in</a>
+    </nav>
+  </header>
+
+  <div class="volume">
+    <span>VOL. IV · No. 138</span>
+    <span>Tuesday · <b>SPX 6,412</b> · <b>VIX 13.8</b> · <b>0DTE Bias: negative γ</b></span>
+    <span>Est. 2024 · Sixty-Second Read</span>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <div class="kicker">Volume IV · The dealer positioning report</div>
+      <h1 class="title">Read the <em>tape</em> <span class="amp">&</span><br/>the <em>book</em>.</h1>
+      <p class="deck">ZeroGEX is a working almanac of dealer positioning, gamma exposure, and 0DTE flow — updated in real time, written for humans who trade with a plan and read before they click.</p>
+      <div class="byline">
+        <span>Live SPX &amp; SPY coverage</span>
+        <span>Signals refreshed 250ms</span>
+        <span>Est. before the closing bell</span>
+      </div>
+      <div class="hero-actions">
+        <a href="#" class="btn">Open a free desk</a>
+        <a href="#" class="btn ghost">Read a sample day →</a>
+      </div>
+    </div>
+    <aside class="hero-side">
+      <p class="quote">The market does not care what you believe. It cares where dealers must hedge. Our job, therefore, is to know where — before it matters.</p>
+      <div class="signature">— From <b>The Preface</b>, Vol. I</div>
+
+      <div class="plate">
+        <div class="row">
+          <div><div class="k">SPX γ Flip</div><div class="v">6,398</div></div>
+          <div><div class="k">Call Wall</div><div class="v">6,450</div></div>
+          <div><div class="k">Put Wall</div><div class="v">6,350</div></div>
+          <div><div class="k">Net GEX</div><div class="v down">−1.8B</div></div>
+          <div><div class="k">Trap Score</div><div class="v up">+82</div></div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Chapter I: Contents -->
+  <section>
+    <div class="sect-head">
+      <div>
+        <div class="chapter">Chapter I</div>
+        <div class="rule-heavy"></div>
+        <h2>Table of Signals.</h2>
+      </div>
+      <p class="sect-desc">Nine instruments in the almanac. Each written up like a chapter — with definition, formula, examples, and the one place you'd get it wrong.</p>
+    </div>
+
+    <div class="cols3">
+      <article>
+        <h3><span class="num">i.</span> The Gamma Flip</h3>
+        <p class="drop">The single price at which dealer positioning changes signs. Above it, dealers stabilize; below it, they amplify. Every intraday move should be read in relation to this line first.</p>
+      </article>
+      <article>
+        <h3><span class="num">ii.</span> The Call & Put Walls</h3>
+        <p>Concentrations of open interest that act as magnets and repellents. Priced continuously against dealer positioning, not raw OI.</p>
+      </article>
+      <article>
+        <h3><span class="num">iii.</span> Dealer Delta Pressure</h3>
+        <p>Net directional obligation dealers accumulate through the session. Turns a fuzzy "market feels heavy" into a signed number you can act on.</p>
+      </article>
+      <article>
+        <h3><span class="num">iv.</span> The Positioning Trap</h3>
+        <p>An asymmetry between where retail believes price is going and where dealers are hedged. Where the two disagree, the market reveals its intent.</p>
+      </article>
+      <article>
+        <h3><span class="num">v.</span> Squeeze Setup</h3>
+        <p>Composite score across gamma, skew, and vanna. Flags the regimes in which a small directional impulse compounds into a session-defining move.</p>
+      </article>
+      <article>
+        <h3><span class="num">vi.</span> Tape Flow Bias</h3>
+        <p>Directional read of aggressor flow, weighted by strike proximity to key walls. Answers "who's leaning on this move?" in a single line.</p>
+      </article>
+      <article>
+        <h3><span class="num">vii.</span> Vanna & Charm</h3>
+        <p>The second-order Greeks that turn overnight and mid-morning into predictable regimes. Read them, and you stop being surprised at 10:30.</p>
+      </article>
+      <article>
+        <h3><span class="num">viii.</span> Range Break Imminence</h3>
+        <p>An early-warning gauge of intraday range failure. Combines expected-move exhaustion with dealer re-hedge thresholds.</p>
+      </article>
+      <article>
+        <h3><span class="num">ix.</span> End-of-Day Pressure</h3>
+        <p>The final-hour re-hedging bias every closing print obeys. Traded well, it's the one hour of the day with a legible edge.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Chapter II: Feature duet -->
+  <section>
+    <div class="sect-head">
+      <div>
+        <div class="chapter">Chapter II</div>
+        <div class="rule-heavy"></div>
+        <h2>Positioning, drawn.</h2>
+      </div>
+      <p class="sect-desc">Every signal in the almanac is rendered as a plate — the number on the left, the picture on the right, the reasoning underneath.</p>
+    </div>
+
+    <div class="duet">
+      <div>
+        <div class="frame">
+          <!-- SVG: gamma profile chart, engraved style -->
+          <svg viewBox="0 0 520 320" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#14100C" stroke-width="0.6"/>
+              </pattern>
+            </defs>
+            <!-- axes -->
+            <line x1="40" y1="290" x2="500" y2="290" stroke="#14100C" stroke-width="1.2"/>
+            <line x1="40" y1="20" x2="40" y2="290" stroke="#14100C" stroke-width="1.2"/>
+            <!-- baseline zero -->
+            <line x1="40" y1="155" x2="500" y2="155" stroke="#14100C" stroke-width="0.6" stroke-dasharray="3 4"/>
+            <!-- bars (gamma by strike) -->
+            <g>
+              <!-- positive gamma -->
+              <rect x="60"  y="130" width="24" height="25" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="92"  y="112" width="24" height="43" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="124" y="80"  width="24" height="75" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="156" y="55"  width="24" height="100" fill="#B08B34" stroke="#14100C"/>
+              <rect x="188" y="90"  width="24" height="65" fill="url(#hatch)" stroke="#14100C"/>
+              <!-- flip label bar (tiny) -->
+              <rect x="220" y="152" width="24" height="3" fill="#7A1D1D" stroke="#14100C"/>
+              <!-- negative gamma -->
+              <rect x="252" y="155" width="24" height="60" fill="#7A1D1D" stroke="#14100C"/>
+              <rect x="284" y="155" width="24" height="88" fill="#7A1D1D" stroke="#14100C"/>
+              <rect x="316" y="155" width="24" height="105" fill="#7A1D1D" stroke="#14100C"/>
+              <rect x="348" y="155" width="24" height="70" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="380" y="155" width="24" height="42" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="412" y="155" width="24" height="22" fill="url(#hatch)" stroke="#14100C"/>
+              <rect x="444" y="155" width="24" height="14" fill="url(#hatch)" stroke="#14100C"/>
+            </g>
+            <!-- flip line + label -->
+            <line x1="232" y1="20" x2="232" y2="290" stroke="#7A1D1D" stroke-width="1.4" stroke-dasharray="6 4"/>
+            <text x="238" y="34" font-family="IBM Plex Mono, monospace" font-size="10" fill="#7A1D1D">FLIP · 6,398</text>
+            <!-- call/put wall markers -->
+            <line x1="168" y1="20" x2="168" y2="290" stroke="#B08B34" stroke-width="1" stroke-dasharray="2 4"/>
+            <text x="112" y="14" font-family="IBM Plex Mono, monospace" font-size="10" fill="#B08B34">CALL WALL · 6,450</text>
+            <line x1="328" y1="20" x2="328" y2="290" stroke="#274F6C" stroke-width="1" stroke-dasharray="2 4"/>
+            <text x="332" y="14" font-family="IBM Plex Mono, monospace" font-size="10" fill="#274F6C">PUT WALL · 6,350</text>
+            <!-- x labels -->
+            <g font-family="IBM Plex Mono, monospace" font-size="9" fill="#14100C">
+              <text x="72" y="305">6,300</text>
+              <text x="200" y="305">6,380</text>
+              <text x="328" y="305">6,460</text>
+              <text x="448" y="305">6,540</text>
+            </g>
+            <text x="270" y="20" font-family="Fraunces, serif" font-style="italic" font-size="12" fill="#14100C" text-anchor="middle">SPX · Dealer Gamma by Strike · today</text>
+          </svg>
+        </div>
+        <div class="chart-cap">Plate 1 · Gamma exposure profile, hand-hatched · positive above the flip, negative below.</div>
+      </div>
+
+      <div class="prose">
+        <h3>Where dealers must trade against themselves.</h3>
+        <p>The Gamma Flip is the pivot around which every intraday session organizes itself. Above it, dealer books are long gamma — hedgers absorb volatility, ranges compress, moves die on approach. Below it, the machine runs the other way: hedgers must chase, ranges expand, and small impulses become 1% candles before you finish your coffee.</p>
+        <p>ZeroGEX draws this line, every fifteen seconds, from the option chain that actually printed — not from a stale snapshot at yesterday's close.</p>
+        <div class="marginalia">"When the market is above the flip, hedge slower. When it is below, hedge sooner. There is no third instruction." — Vol. II, §4</div>
+        <p>Pair the flip with the Call and Put Walls, and you have a map: three lines on an intraday chart that tell you, with unfashionable clarity, where the money is trying to go.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Voices -->
+  <section>
+    <div class="sect-head">
+      <div>
+        <div class="chapter">Chapter III</div>
+        <div class="rule-heavy"></div>
+        <h2>Voices from the desk.</h2>
+      </div>
+      <p class="sect-desc">Selected correspondence from subscribers, printed with permission.</p>
+    </div>
+
+    <div class="voices">
+      <div class="voice">
+        <p>"I stopped guessing at 09:31. Read the flip, mark the walls, pick the side that has to hedge into me. That's the whole trade."</p>
+        <div class="who"><b>D. Nakamura</b> · SPX day trader · Chicago</div>
+      </div>
+      <div class="voice">
+        <p>"The trap detector caught two prints last week that I would have chased. Losses I didn't take are the trades I'm proudest of."</p>
+        <div class="who"><b>R. Ferreira</b> · prop, small book · São Paulo</div>
+      </div>
+      <div class="voice">
+        <p>"I trade one hour a day, the last one. End-of-day pressure is the only thing on my screen. Best decision I made in 2025."</p>
+        <div class="who"><b>K. Ellison</b> · discretionary · London</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-block">
+    <div class="kicker">Volume V · Now shipping</div>
+    <h2>Read <em>the book</em>.<br/>Then trade <em>the tape</em>.</h2>
+    <p>A working almanac of dealer positioning, updated live through the session. Free to open, no card, no ceremony.</p>
+    <a href="#" class="btn">Open a free desk →</a>
+  </div>
+
+  <footer>
+    <div>© ZeroGEX Publishing Co. · Est. 2024 · All figures illustrative</div>
+    <div><a href="#">Colophon</a> · <a href="#">Terms</a> · <a href="#">Privacy</a></div>
+  </footer>
+</div>
+
+</body>
+</html>

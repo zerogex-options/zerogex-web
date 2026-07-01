@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Style Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F1EBD8;
+    --ink: #1B1611;
+    --muted: #6B5F4F;
+    --amber: #F4A825;
+    --border: #1B1611;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 64px 32px 96px; }
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(48px, 7vw, 84px); line-height: 0.95; letter-spacing: -0.02em; margin: 12px 0 24px; }
+  h1 em { font-style: italic; color: var(--amber); }
+  .lead { font-size: 20px; line-height: 1.55; max-width: 640px; color: var(--muted); margin: 0 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 24px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .card { display: flex; flex-direction: column; background: #FBF6E8; border: 2px solid var(--ink); border-radius: 20px; padding: 28px; text-decoration: none; color: var(--ink); box-shadow: 6px 6px 0 var(--ink); transition: transform 120ms ease, box-shadow 120ms ease; overflow: hidden; }
+  .card:hover { transform: translate(-2px, -2px); box-shadow: 10px 10px 0 var(--ink); }
+  .swatch { display: flex; height: 90px; border-radius: 10px; overflow: hidden; border: 2px solid var(--ink); margin-bottom: 20px; }
+  .swatch > span { flex: 1; }
+  .card h2 { font-family: 'Fraunces', serif; font-weight: 900; font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 18px; flex: 1; }
+  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 999px; margin-right: 6px; margin-bottom: 6px; background: var(--bg); }
+  .go { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); margin-top: 12px; font-weight: 700; letter-spacing: 0.02em; }
+  .go::after { content: ' →'; }
+  footer { margin-top: 64px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); border-top: 1px solid rgba(27,22,17,0.15); padding-top: 24px; }
+  .note { background: #FBF6E8; border: 1.5px dashed var(--ink); border-radius: 14px; padding: 20px 24px; margin-top: 40px; font-size: 15px; color: var(--muted); }
+  .note b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">ZeroGEX / Design Studies</div>
+  <h1>Four <em>directions</em><br/>for a website<br/>with a spine.</h1>
+  <p class="lead">Four fully-styled landing-page mockups exploring visual identities that would set ZeroGEX apart from the standard SaaS-dashboard-in-navy-blue crowd. Each is a standalone page — open one, live in it for a minute, see how it feels.</p>
+
+  <div class="grid">
+    <a class="card" href="./almanac.html">
+      <div class="swatch"><span style="background:#F4EDDD"></span><span style="background:#7A1D1D"></span><span style="background:#B08B34"></span><span style="background:#14100C"></span></div>
+      <h2>1. The Almanac</h2>
+      <p>Editorial. Serif-heavy. Cream paper, oxblood ink, gold-leaf accents. A trading almanac you'd find in an old broker's library — dropped into 2026 with live data.</p>
+      <div><span class="tag">Fraunces</span><span class="tag">columned</span><span class="tag">editorial</span></div>
+      <div class="go">Open the Almanac</div>
+    </a>
+
+    <a class="card" href="./terminal.html">
+      <div class="swatch"><span style="background:#0A0E13"></span><span style="background:#FFB020"></span><span style="background:#4FE8A8"></span><span style="background:#FF6E6E"></span></div>
+      <h2>2. Terminal Deluxe</h2>
+      <p>A love letter to the Bloomberg terminal, rebuilt for a phone. Deep navy-black, warm amber, CRT scanlines, blinking cursors, live-feel tables — dense but breathable.</p>
+      <div><span class="tag">JetBrains Mono</span><span class="tag">CRT</span><span class="tag">dense</span></div>
+      <div class="go">Boot the Terminal</div>
+    </a>
+
+    <a class="card" href="./chunky.html">
+      <div class="swatch"><span style="background:#F1EBD8"></span><span style="background:#F4A825"></span><span style="background:#1B1611"></span><span style="background:#C63B3B"></span></div>
+      <h2>3. Chunky Cream</h2>
+      <p>Warm cream, chunky bevelled buttons, hand-drawn line illustrations, rotated sticker badges. PostHog-adjacent, but built for gamma traders — with a gecko mascot pulling shift on the trading floor.</p>
+      <div><span class="tag">Fraunces 900</span><span class="tag">hand-drawn</span><span class="tag">playful</span></div>
+      <div class="go">Meet the Gecko</div>
+    </a>
+
+    <a class="card" href="./brutalist.html">
+      <div class="swatch"><span style="background:#EFEBE3"></span><span style="background:#0B0B0B"></span><span style="background:#FFB000"></span><span style="background:#E4322B"></span></div>
+      <h2>4. Brutalist</h2>
+      <p>Swiss grid, oversized numerals, ruthless black borders, no rounded corners. The visual equivalent of "here's the number, do something with it." Confident, engineered, quiet.</p>
+      <div><span class="tag">Space Grotesk</span><span class="tag">grid</span><span class="tag">sharp</span></div>
+      <div class="go">Enter the Grid</div>
+    </a>
+  </div>
+
+  <div class="note">
+    <b>How to use these.</b> These aren't full sites — each is a one-page landing that establishes the visual system so you can see how it feels. Pick the one that pulls you, and we can extend the palette + typography + component patterns across the rest of the marketing pages (pricing, education, signal pages).
+  </div>
+
+  <footer>ZeroGEX / mockups / 2026</footer>
+</div>
+</body>
+</html>
