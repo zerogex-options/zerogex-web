@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Editorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Söhne:wght@400;500;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ivory: #F1EBDA;
+    --ivory-2: #EAE3CD;
+    --petrol: #17383E;
+    --petrol-2: #1E4650;
+    --coral: #CF573C;
+    --sand: #D7B77A;
+    --ink: #0C1B1E;
+    --ink-soft: #2E4348;
+    --muted: #5E6E71;
+    --rule: rgba(12,27,30,0.18);
+    --rule-soft: rgba(12,27,30,0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--ivory); color: var(--ink); font-family: 'Inter', 'Söhne', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+  .sc { font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.18em; }
+
+  /* Masthead */
+  .mast { padding: 28px 0 22px; display: grid; grid-template-columns: 3fr 6fr 3fr; align-items: center; gap: 24px; border-bottom: 2px solid var(--ink); }
+  .mast .brand { font-family: 'Fraunces', serif; font-weight: 900; font-size: 34px; letter-spacing: -0.02em; color: var(--petrol); }
+  .mast .brand em { font-style: italic; color: var(--coral); }
+  .mast .center { text-align: center; }
+  .mast .center .kicker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .mast .center .issue { font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 18px; color: var(--ink-soft); margin-top: 2px; }
+  .mast .right { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+
+  nav.subnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  nav.subnav .links { display: flex; gap: 26px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+  nav.subnav .links a:hover { color: var(--coral); }
+  nav.subnav .meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  nav.subnav .meta b { color: var(--ink); font-weight: 500; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; padding: 12px 20px; border: 1.5px solid var(--ink); background: var(--ivory); color: var(--ink); letter-spacing: 0.02em; }
+  .btn:hover { background: var(--ink); color: var(--ivory); }
+  .btn.primary { background: var(--petrol); color: var(--ivory); border-color: var(--petrol); }
+  .btn.primary:hover { background: var(--coral); border-color: var(--coral); }
+  .btn.big { padding: 16px 26px; font-size: 14px; }
+
+  /* Hero: asymmetric magazine cover */
+  .hero { display: grid; grid-template-columns: 7fr 5fr; gap: 60px; padding: 60px 0 60px; border-bottom: 1px solid var(--rule); }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+
+  .kicker { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--coral); }
+  .kicker::before { content: '— '; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(60px, 8vw, 116px); line-height: 0.95; letter-spacing: -0.025em; margin: 20px 0 24px; color: var(--ink); }
+  h1 em { font-style: italic; color: var(--coral); }
+  h1 .amp { font-family: 'Fraunces', serif; font-style: italic; color: var(--sand); font-weight: 500; }
+  .deck { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; line-height: 1.4; max-width: 640px; color: var(--ink-soft); margin: 0 0 32px; }
+  .deck em { font-style: italic; color: var(--petrol); font-weight: 700; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+  .byline { display: flex; gap: 30px; padding: 20px 0 0; border-top: 1px solid var(--rule); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); flex-wrap: wrap; }
+  .byline b { color: var(--ink); font-family: 'Fraunces', serif; font-weight: 700; letter-spacing: 0; text-transform: none; font-size: 14px; }
+
+  /* Feature panel: today's read-out */
+  .brief {
+    background: var(--petrol);
+    color: var(--ivory);
+    padding: 32px 30px;
+    position: relative;
+  }
+  .brief .head { display: flex; justify-content: space-between; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(241,235,218,0.7); margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(241,235,218,0.18); }
+  .brief .head .live { color: var(--sand); }
+  .brief .head .live::before { content: '● '; }
+  .brief h4 { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sand); margin: 0 0 8px; font-weight: 500; }
+  .brief h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 34px; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 20px; }
+  .brief h3 em { font-style: italic; color: var(--coral); }
+  .brief p { font-family: 'Fraunces', serif; font-size: 17px; line-height: 1.5; color: rgba(241,235,218,0.85); margin: 0 0 20px; }
+  .brief .measures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 24px; padding-top: 20px; border-top: 1px solid rgba(241,235,218,0.18); }
+  .brief .measures .k { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(241,235,218,0.55); }
+  .brief .measures .v { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; letter-spacing: -0.02em; margin-top: 2px; }
+  .brief .measures .v.s { color: var(--sand); }
+  .brief .measures .v.c { color: var(--coral); }
+
+  /* Sections */
+  section { padding: 100px 0; border-bottom: 1px solid var(--rule); }
+  .sect-head { display: grid; grid-template-columns: 3fr 6fr 3fr; gap: 40px; align-items: baseline; margin-bottom: 44px; padding-bottom: 18px; border-bottom: 2px solid var(--ink); }
+  @media (max-width: 900px) { .sect-head { grid-template-columns: 1fr; gap: 6px; } }
+  .sect-head .num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--coral); }
+  h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(40px, 5vw, 72px); line-height: 1; letter-spacing: -0.02em; margin: 0; }
+  h2 em { font-style: italic; color: var(--coral); }
+  .sect-meta { font-family: 'Fraunces', serif; font-style: italic; font-size: 17px; color: var(--muted); text-align: right; }
+  @media (max-width: 900px) { .sect-meta { text-align: left; } }
+
+  /* Editorial 3-column grid of instruments */
+  .instr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px 30px; }
+  @media (max-width: 900px) { .instr { grid-template-columns: 1fr; } }
+  .instr article { padding-top: 18px; border-top: 3px solid var(--petrol); }
+  .instr article.a { border-top-color: var(--petrol); }
+  .instr article.b { border-top-color: var(--coral); }
+  .instr article.c { border-top-color: var(--sand); }
+  .instr .idx { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .instr h3 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 30px; letter-spacing: -0.015em; margin: 8px 0 10px; line-height: 1.05; }
+  .instr h3 em { font-style: italic; color: var(--coral); }
+  .instr .subhead { font-family: 'Fraunces', serif; font-style: italic; font-size: 17px; color: var(--ink-soft); margin: 0 0 14px; }
+  .instr p { font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 14px; }
+  .instr .val { display: flex; justify-content: space-between; align-items: baseline; padding-top: 14px; border-top: 1px solid var(--rule-soft); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .instr .val b { font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; letter-spacing: -0.02em; color: var(--petrol); text-transform: none; }
+  .instr .val b.c { color: var(--coral); }
+
+  /* Feature: chart + prose */
+  .feature-split { display: grid; grid-template-columns: 5fr 7fr; gap: 60px; align-items: center; }
+  @media (max-width: 900px) { .feature-split { grid-template-columns: 1fr; gap: 40px; } }
+  .feature-split .l h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(36px, 4vw, 56px); letter-spacing: -0.02em; margin: 0 0 20px; line-height: 1.05; }
+  .feature-split .l h3 em { font-style: italic; color: var(--coral); }
+  .feature-split .l p { font-family: 'Fraunces', serif; font-size: 19px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 16px; }
+  .feature-split .l p .drop { float: left; font-family: 'Fraunces', serif; font-weight: 700; font-size: 68px; line-height: 0.85; padding: 6px 12px 0 0; color: var(--coral); }
+  .feature-split .l .marg { font-family: 'Fraunces', serif; font-style: italic; font-size: 16px; color: var(--petrol); border-left: 3px solid var(--sand); padding-left: 14px; margin: 20px 0; }
+
+  .chart-frame {
+    background: var(--ivory-2);
+    padding: 8px;
+    border: 1.5px solid var(--ink);
+    position: relative;
+  }
+  .chart-frame::before { content: 'FIG. I · SPX γ PROFILE'; position: absolute; top: -10px; left: 24px; background: var(--ivory); padding: 0 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.22em; color: var(--muted); }
+  .chart-frame .inner { border: 1px solid var(--rule); background: var(--ivory); padding: 30px; }
+  .chart-frame svg { display: block; width: 100%; height: auto; }
+  .chart-frame .cap { font-family: 'Fraunces', serif; font-style: italic; font-size: 15px; text-align: center; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
+
+  /* Pull quote */
+  .pull { padding: 100px 0; text-align: center; border-bottom: 1px solid var(--rule); }
+  .pull .q { font-family: 'Fraunces', serif; font-weight: 500; font-style: italic; font-size: clamp(34px, 4.5vw, 64px); line-height: 1.15; letter-spacing: -0.02em; margin: 0 auto 24px; max-width: 1000px; }
+  .pull .q em { color: var(--coral); }
+  .pull .attr { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .pull .attr b { color: var(--ink); font-family: 'Fraunces', serif; font-weight: 700; text-transform: none; letter-spacing: 0; font-size: 15px; }
+
+  /* Voices */
+  .voices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  @media (max-width: 900px) { .voices { grid-template-columns: 1fr; } }
+  .voice { padding-top: 18px; border-top: 3px solid var(--ink); }
+  .voice p { font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 22px; line-height: 1.35; margin: 0 0 16px; }
+  .voice p em { font-style: normal; color: var(--coral); }
+  .voice .who { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .voice .who b { color: var(--ink); font-family: 'Fraunces', serif; font-weight: 700; letter-spacing: 0; text-transform: none; font-size: 15px; }
+
+  /* CTA */
+  .cta { background: var(--ivory-2); border: 1.5px solid var(--ink); padding: 88px 40px; text-align: center; margin: 40px 0; position: relative; }
+  .cta::before, .cta::after { content: ''; position: absolute; left: 20px; right: 20px; height: 3px; }
+  .cta::before { top: 18px; border-top: 1px solid var(--coral); border-bottom: 1px solid var(--coral); }
+  .cta::after { bottom: 18px; border-top: 1px solid var(--coral); border-bottom: 1px solid var(--coral); }
+  .cta .kicker { color: var(--coral); }
+  .cta h2 { margin: 10px auto 24px; max-width: 800px; }
+  .cta p { font-family: 'Fraunces', serif; font-size: 20px; max-width: 560px; margin: 0 auto 32px; color: var(--ink-soft); }
+
+  footer { padding: 40px 0 60px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 2px solid var(--ink); }
+  footer .fbrand { font-family: 'Fraunces', serif; font-weight: 900; font-size: 20px; color: var(--petrol); letter-spacing: -0.01em; text-transform: none; }
+  footer a:hover { color: var(--coral); }
+
+  .back { position: fixed; top: 14px; right: 14px; z-index: 200; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--ivory); border: 1.5px solid var(--petrol); padding: 6px 12px; color: var(--petrol); }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All mockups</a>
+
+<div class="page">
+
+  <div class="mast">
+    <div class="brand">Zero<em>GEX</em></div>
+    <div class="center">
+      <div class="kicker sc">Issue 138 · Vol. IV · MMXXVI</div>
+      <div class="issue">A quarterly on dealer positioning — updated every quarter-second.</div>
+    </div>
+    <div class="right">
+      <a href="#" class="btn">Sign in</a>
+      <a href="#" class="btn primary">Subscribe →</a>
+    </div>
+  </div>
+
+  <nav class="subnav">
+    <div class="links">
+      <a href="#">Signals</a>
+      <a href="#">Heatmap</a>
+      <a href="#">Education</a>
+      <a href="#">Pricing</a>
+      <a href="#">Archive</a>
+      <a href="#">API</a>
+    </div>
+    <div class="meta">
+      Tuesday · 14:32 ET · SPX <b>6,412</b> · VIX <b>13.8</b> · γ Flip <b style="color: var(--coral);">6,398</b>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" style="border-top: 0;">
+    <div>
+      <div class="kicker">The dealer positioning report · Vol. IV</div>
+      <h1>Read the <em>book</em>.<br/><span class="amp">&amp;</span> the <em>tape</em><br/>will tell on itself.</h1>
+      <p class="deck">A live, quarterly-styled read of the dealer's hedging obligation across the SPX and SPY option chain — <em>the flip, the walls, the traps</em> — refreshed every 250 milliseconds and written up in plain english.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn primary big">Subscribe — free tier</a>
+        <a href="#" class="btn big">Read today's report</a>
+      </div>
+      <div class="byline">
+        <div><span class="sc">Reporting on</span><br/><b>SPX · SPY · /ES</b></div>
+        <div><span class="sc">Refresh</span><br/><b>Every 250 ms</b></div>
+        <div><span class="sc">Circulation</span><br/><b>12,400 desks</b></div>
+      </div>
+    </div>
+
+    <aside class="brief">
+      <div class="head">
+        <div>The daily brief · Tuesday</div>
+        <div class="live">Live</div>
+      </div>
+      <h4>The report — <span style="color: rgba(241,235,218,0.5);">14:32 ET</span></h4>
+      <h3>SPX has slipped below the flip. The market is now the machine's <em>amplifier</em>.</h3>
+      <p>The index broke below the γ flip at 10:14 ET and has held there through the mid-session. In this regime, dealer hedges chase price rather than absorb it. Expect ranges to expand into the close; the put wall at 6,350 is the level that matters.</p>
+      <div class="measures">
+        <div><div class="k">γ Flip</div><div class="v s">6,398</div></div>
+        <div><div class="k">Net GEX</div><div class="v c">−1.82B</div></div>
+        <div><div class="k">Call Wall</div><div class="v">6,450</div></div>
+        <div><div class="k">Put Wall</div><div class="v">6,350</div></div>
+        <div><div class="k">Trap</div><div class="v s">+82</div></div>
+        <div><div class="k">Regime</div><div class="v">Amplify</div></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- § 1 · Instruments -->
+  <section>
+    <div class="sect-head">
+      <div class="num">Report I · Instruments</div>
+      <h2>Eighteen readings.<br/><em>One</em> report.</h2>
+      <div class="sect-meta">The instruments of the desk — each with a definition, a live level, and a place in the story of the trading day. Six shown.</div>
+    </div>
+
+    <div class="instr">
+      <article class="a">
+        <div class="idx">№ 01 · Signal</div>
+        <h3>The <em>gamma flip.</em></h3>
+        <div class="subhead">The pivot of dealer positioning.</div>
+        <p>The single strike at which dealer γ changes sign. Above · dealers absorb volatility. Below · they amplify it. Every intraday plan begins here.</p>
+        <div class="val"><span>Now</span><b>6,398</b></div>
+      </article>
+      <article class="b">
+        <div class="idx">№ 02 · Signal</div>
+        <h3>Net dealer <em>GEX.</em></h3>
+        <div class="subhead">The total obligation, signed.</div>
+        <p>Aggregate dealer gamma across the SPX and SPY chain. Signs the regime, sizes the conviction. When it deepens, the machine's hand grows heavier.</p>
+        <div class="val"><span>Now</span><b class="c">−1.82B</b></div>
+      </article>
+      <article class="c">
+        <div class="idx">№ 03 · Level</div>
+        <h3>The <em>call wall.</em></h3>
+        <div class="subhead">Historically a ceiling on advances.</div>
+        <p>The strike carrying the largest short-call dealer γ. A magnet on approach, a lid on breach. Ranked by conviction, not by open interest.</p>
+        <div class="val"><span>Level</span><b>6,450</b></div>
+      </article>
+      <article class="a">
+        <div class="idx">№ 04 · Level</div>
+        <h3>The <em>put wall.</em></h3>
+        <div class="subhead">Historically a floor into declines.</div>
+        <p>The strike carrying the largest short-put dealer γ. Reflexive rebound zone into weakness, ranked and refreshed live.</p>
+        <div class="val"><span>Level</span><b>6,350</b></div>
+      </article>
+      <article class="b">
+        <div class="idx">№ 05 · Composite</div>
+        <h3>The <em>positioning trap.</em></h3>
+        <div class="subhead">Retail one way, dealers the other.</div>
+        <p>An index of divergence between retail positioning and dealer hedge. Historically the ugliest reversal setups in the market; a red flag before it is a chart pattern.</p>
+        <div class="val"><span>Score</span><b>+82</b></div>
+      </article>
+      <article class="c">
+        <div class="idx">№ 06 · Composite</div>
+        <h3>The <em>squeeze setup.</em></h3>
+        <div class="subhead">Where a small impulse compounds.</div>
+        <p>A composite of γ, skew, and vanna. Flags regimes in which a small directional impulse compounds into a session-defining move.</p>
+        <div class="val"><span>Regime</span><b>HIGH</b></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- § 2 · Feature -->
+  <section>
+    <div class="sect-head">
+      <div class="num">Report II · Method</div>
+      <h2>The <em>flip</em>, drawn from today.</h2>
+      <div class="sect-meta">Fig. I. Dealer γ exposure across strikes, SPX, 14:32 ET. Positive γ hatched above the axis; negative γ set in solid below.</div>
+    </div>
+
+    <div class="feature-split">
+      <div class="l">
+        <h3>Positive <em>above</em>.<br/>Negative below.</h3>
+        <p><span class="drop">T</span>he flip is the single price at which the machine reverses polarity. Above it, dealer books absorb volatility; ranges compress and rallies die on approach. Below it, the same books chase price; a 1% candle prints before the coffee is cold.</p>
+        <div class="marg">"When the market is above the flip, hedge slower. When it is below, hedge sooner. There is no third instruction." — Vol. II, § 4.</div>
+        <p>ZeroGEX draws this line, every fifteen seconds, from the option chain that is currently printing — not from a stale close, not from a proxy.</p>
+      </div>
+
+      <div class="chart-frame">
+        <div class="inner">
+          <svg viewBox="0 0 720 340" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="hpe" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#17383E" stroke-width="0.6"/>
+              </pattern>
+              <pattern id="hcx" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#CF573C" stroke-width="0.6"/>
+              </pattern>
+            </defs>
+            <line x1="60" y1="30" x2="60" y2="310" stroke="#0C1B1E" stroke-width="1.2"/>
+            <line x1="60" y1="310" x2="700" y2="310" stroke="#0C1B1E" stroke-width="1.2"/>
+            <line x1="60" y1="180" x2="700" y2="180" stroke="#0C1B1E" stroke-width="0.6" stroke-dasharray="3 5"/>
+            <text x="54" y="184" font-family="IBM Plex Mono" font-size="10" fill="#5E6E71" text-anchor="end">γ=0</text>
+            <!-- pos -->
+            <g stroke="#17383E" stroke-width="0.8">
+              <rect x="80"  y="150" width="34" height="30"  fill="url(#hpe)"/>
+              <rect x="120" y="120" width="34" height="60"  fill="url(#hpe)"/>
+              <rect x="160" y="82"  width="34" height="98"  fill="url(#hpe)"/>
+              <rect x="200" y="50"  width="34" height="130" fill="#17383E"/>
+              <rect x="240" y="76"  width="34" height="104" fill="url(#hpe)"/>
+              <rect x="280" y="112" width="34" height="68"  fill="url(#hpe)"/>
+              <rect x="320" y="150" width="34" height="30"  fill="url(#hpe)"/>
+            </g>
+            <!-- neg -->
+            <g stroke="#CF573C" stroke-width="0.8">
+              <rect x="360" y="180" width="34" height="50" fill="url(#hcx)"/>
+              <rect x="400" y="180" width="34" height="94" fill="#CF573C"/>
+              <rect x="440" y="180" width="34" height="72" fill="url(#hcx)"/>
+              <rect x="480" y="180" width="34" height="48" fill="url(#hcx)"/>
+              <rect x="520" y="180" width="34" height="24" fill="url(#hcx)"/>
+              <rect x="560" y="180" width="34" height="14" fill="url(#hcx)"/>
+              <rect x="600" y="180" width="34" height="8" fill="url(#hcx)"/>
+            </g>
+            <line x1="354" y1="30" x2="354" y2="310" stroke="#CF573C" stroke-width="1.4" stroke-dasharray="6 4"/>
+            <text x="360" y="42" font-family="Fraunces" font-style="italic" font-size="14" fill="#CF573C">The flip · 6,398</text>
+            <line x1="217" y1="30" x2="217" y2="310" stroke="#17383E" stroke-width="0.8" stroke-dasharray="2 4"/>
+            <text x="66" y="24" font-family="IBM Plex Mono" font-size="10" fill="#17383E" letter-spacing="1.5">CALL WALL · 6,450</text>
+            <line x1="417" y1="30" x2="417" y2="310" stroke="#CF573C" stroke-width="0.8" stroke-dasharray="2 4"/>
+            <text x="424" y="24" font-family="IBM Plex Mono" font-size="10" fill="#CF573C" letter-spacing="1.5">PUT WALL · 6,350</text>
+            <g font-family="IBM Plex Mono" font-size="9" fill="#5E6E71">
+              <text x="80"  y="326">6,300</text>
+              <text x="220" y="326">6,400</text>
+              <text x="380" y="326">6,450</text>
+              <text x="520" y="326">6,500</text>
+              <text x="620" y="326">6,540</text>
+            </g>
+          </svg>
+          <div class="cap">— Fig. I · Dealer γ profile · SPX · 14:32 ET · refreshed 250ms —</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pull quote -->
+  <div class="pull">
+    <div class="q">"The market does not care what you believe.<br/>It cares where dealers <em>must</em> hedge."</div>
+    <div class="attr">— <b>From the preface</b>, Vol. II</div>
+  </div>
+
+  <!-- Voices -->
+  <section>
+    <div class="sect-head">
+      <div class="num">Report III · Correspondence</div>
+      <h2>Letters<br/>from readers.</h2>
+      <div class="sect-meta">Selected notes from ZeroGEX subscribers, printed with permission. Additional correspondence in the Archive.</div>
+    </div>
+    <div class="voices">
+      <div class="voice">
+        <p>"I stopped guessing at 9:31. Read the flip, mark the walls, pick the side that <em>must</em> hedge into me."</p>
+        <div class="who"><b>D. Nakamura</b> · SPX day trader · Chicago</div>
+      </div>
+      <div class="voice">
+        <p>"The trap detector caught two prints last week I would have chased. Losses I did <em>not</em> take are the trades I am proudest of."</p>
+        <div class="who"><b>R. Ferreira</b> · Prop, small book · São Paulo</div>
+      </div>
+      <div class="voice">
+        <p>"I trade one hour a day — <em>the last one</em>. End-of-day pressure is the only line on my screen."</p>
+        <div class="who"><b>K. Ellison</b> · Discretionary · London</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="kicker">Now shipping · Vol. V · MMXXVI</div>
+    <h2>Read the <em>report.</em><br/>Then trade the tape.</h2>
+    <p>A working, quarterly-styled read of dealer positioning — updated every quarter-second. Free tier includes the γ flip, the walls, and net GEX for SPX and SPY.</p>
+    <a href="#" class="btn primary big">Subscribe · free tier →</a>
+  </div>
+
+  <footer>
+    <div class="fbrand">Zero<span style="color: var(--coral);">GEX</span> · MMXXVI · Vol. IV · No. 138</div>
+    <div><a href="#">Colophon</a> · <a href="#">Terms</a> · <a href="#">Privacy</a> · <a href="#">Contact</a></div>
+  </footer>
+
+</div>
+
+</body>
+</html>
