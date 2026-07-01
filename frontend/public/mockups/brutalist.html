@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
+  [data-theme="light"] {
     --paper: #EFEBE3;
     --paper-2: #E3DDD1;
     --ink: #0B0B0B;
@@ -17,7 +17,29 @@
     --red: #E4322B;
     --line: #0B0B0B;
     --muted: #6E6A63;
+    --tape-bg: #0B0B0B;
+    --tape-fg: #EFEBE3;
+    --btn-bg: #0B0B0B;
+    --btn-fg: #EFEBE3;
   }
+  [data-theme="dark"] {
+    --paper: #14140F;
+    --paper-2: #1D1D17;
+    --ink: #E9E4CE;
+    --ink-soft: #B0AC97;
+    --amber: #FFB000;
+    --red: #FF6E6E;
+    --line: #E9E4CE;
+    --muted: #8A876F;
+    --tape-bg: #E9E4CE;
+    --tape-fg: #14140F;
+    --btn-bg: #E9E4CE;
+    --btn-fg: #14140F;
+  }
+  /* Theme toggle button */
+  .theme-toggle { position: fixed; top: 12px; right: 116px; z-index: 300; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 150ms; }
+  .theme-toggle:hover { background: var(--ink); color: var(--paper); }
+  .theme-toggle svg { width: 14px; height: 14px; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: var(--paper); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
@@ -98,11 +120,20 @@
   .cell-sig p { font-size: 14px; line-height: 1.45; color: var(--ink-soft); }
   .cell-sig .val { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 20px; letter-spacing: -0.01em; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--ink); display: flex; justify-content: space-between; align-items: center; }
   .cell-sig .val .n { color: var(--red); font-size: 24px; }
-  .cell-sig.acc { background: var(--amber); }
-  .cell-sig.dark { background: var(--ink); color: var(--paper); }
-  .cell-sig.dark p { color: rgba(239,235,227,0.75); }
-  .cell-sig.dark .val { border-top-color: var(--paper); }
-  .cell-sig.dark .top { color: rgba(239,235,227,0.6); }
+  /* .acc = amber card — always dark text for readability across themes */
+  .cell-sig.acc { background: var(--amber); color: #0B0B0B; }
+  .cell-sig.acc p { color: rgba(11,11,11,0.72); }
+  .cell-sig.acc .val { border-top-color: rgba(11,11,11,0.3); }
+  .cell-sig.acc .top { color: rgba(11,11,11,0.55); }
+  /* .dark = inverted-tone card — always ink-panel background with paper text */
+  [data-theme="light"] .cell-sig.dark { background: #0B0B0B; color: #EFEBE3; }
+  [data-theme="light"] .cell-sig.dark p { color: rgba(239,235,227,0.75); }
+  [data-theme="light"] .cell-sig.dark .val { border-top-color: #EFEBE3; }
+  [data-theme="light"] .cell-sig.dark .top { color: rgba(239,235,227,0.6); }
+  [data-theme="dark"] .cell-sig.dark { background: #EFEBE3; color: #14140F; }
+  [data-theme="dark"] .cell-sig.dark p { color: rgba(20,20,15,0.75); }
+  [data-theme="dark"] .cell-sig.dark .val { border-top-color: #14140F; }
+  [data-theme="dark"] .cell-sig.dark .top { color: rgba(20,20,15,0.55); }
 
   /* Split feature */
   .split { display: grid; grid-template-columns: 5fr 7fr; }
@@ -156,6 +187,10 @@
 <body>
 
 <a class="back" href="./index.html">← All mockups</a>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  <span id="themeLabel">Dark</span>
+</button>
 
 <!-- Marquee tape -->
 <div class="tape">
@@ -468,6 +503,26 @@
     <div><a href="#">STATUS/</a> <a href="#">DOCS/</a> <a href="#">TERMS/</a> <a href="#">PRIVACY/</a></div>
   </footer>
 </div>
+
+<script>
+  (function () {
+    const html = document.documentElement;
+    const btn = document.getElementById('themeToggle');
+    const lbl = document.getElementById('themeLabel');
+    const KEY = 'zg-brutalist-theme';
+    const stored = localStorage.getItem(KEY);
+    if (stored) html.setAttribute('data-theme', stored);
+    const updateLbl = () => lbl.textContent = html.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
+    updateLbl();
+    btn.addEventListener('click', () => {
+      const cur = html.getAttribute('data-theme');
+      const next = cur === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem(KEY, next);
+      updateLbl();
+    });
+  })();
+</script>
 
 </body>
 </html>

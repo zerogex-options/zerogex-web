@@ -6,240 +6,105 @@
 <title>ZeroGEX — Style Mockups</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #F1EBD8;
-    --ink: #1B1611;
-    --muted: #6B5F4F;
-    --amber: #F4A825;
-    --border: #1B1611;
+    --bg: #F1EAD3;
+    --panel: #ECE4CA;
+    --ink: #201A14;
+    --muted: #7C7263;
+    --accent: #7B4E2C;
+    --border: #201A14;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 64px 32px 96px; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Space Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 64px 32px 96px; }
   .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-  h1 { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(48px, 7vw, 84px); line-height: 0.95; letter-spacing: -0.02em; margin: 12px 0 24px; }
-  h1 em { font-style: italic; color: var(--amber); }
-  .lead { font-size: 20px; line-height: 1.55; max-width: 640px; color: var(--muted); margin: 0 0 40px; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: clamp(48px, 7vw, 88px); line-height: 0.98; letter-spacing: -0.035em; margin: 12px 0 24px; }
+  h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
+  .lead { font-size: 20px; line-height: 1.55; max-width: 720px; color: var(--muted); margin: 0 0 40px; font-weight: 400; }
   .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 24px; }
   @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
-  .card { display: flex; flex-direction: column; background: #FBF6E8; border: 2px solid var(--ink); border-radius: 20px; padding: 28px; text-decoration: none; color: var(--ink); box-shadow: 6px 6px 0 var(--ink); transition: transform 120ms ease, box-shadow 120ms ease; overflow: hidden; }
-  .card:hover { transform: translate(-2px, -2px); box-shadow: 10px 10px 0 var(--ink); }
-  .swatch { display: flex; height: 90px; border-radius: 10px; overflow: hidden; border: 2px solid var(--ink); margin-bottom: 20px; }
+  .card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); padding: 28px; text-decoration: none; color: var(--ink); transition: transform 120ms ease, box-shadow 120ms ease; overflow: hidden; }
+  .card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--border); }
+  .swatch { display: flex; height: 90px; border: 1px solid var(--border); margin-bottom: 20px; }
   .swatch > span { flex: 1; }
-  .card h2 { font-family: 'Fraunces', serif; font-weight: 900; font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
-  .card p { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 18px; flex: 1; }
-  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 999px; margin-right: 6px; margin-bottom: 6px; background: var(--bg); }
-  .go { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); margin-top: 12px; font-weight: 700; letter-spacing: 0.02em; }
+  .card h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 28px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0 0 18px; flex: 1; }
+  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 3px 8px; border: 1px solid var(--border); margin-right: 6px; margin-bottom: 6px; background: var(--bg); letter-spacing: 0.06em; }
+  .go { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); margin-top: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
   .go::after { content: ' →'; }
-  footer { margin-top: 64px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); border-top: 1px solid rgba(27,22,17,0.15); padding-top: 24px; }
-  .note { background: #FBF6E8; border: 1.5px dashed var(--ink); border-radius: 14px; padding: 20px 24px; margin-top: 40px; font-size: 15px; color: var(--muted); }
+  .modes { display: inline-flex; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .modes b { color: var(--accent); font-weight: 500; }
+  footer { margin-top: 64px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); border-top: 1px solid rgba(32,26,20,0.15); padding-top: 24px; }
+  .note { background: var(--panel); border: 1px solid var(--border); padding: 20px 24px; margin-top: 40px; font-size: 15px; color: var(--muted); line-height: 1.6; }
   .note b { color: var(--ink); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">ZeroGEX / Design Studies</div>
-  <h1>Twenty-four <em>directions</em><br/>for a website<br/>with a spine.</h1>
-  <p class="lead">Twenty-four fully-styled landing-page mockups. The final four (21–24) are hybrids of the two you liked most (Brutalist + Terminal Deluxe), warmed up and given room to breathe — walnut and slate instead of stark black/amber, thinner rules, more air, MCM warmth without literal MCM cosplay.</p>
+  <h1>Six <em>directions.</em><br/>Each with light &amp;<br/>dark modes.</h1>
+  <p class="lead">The Brutalist grid + the Terminal Deluxe DNA, kept and varied. Each mockup ships with a light/dark toggle in the nav — switch modes and see how the palette reads either way.</p>
 
   <div class="grid">
-    <a class="card" href="./almanac.html">
-      <div class="swatch"><span style="background:#F4EDDD"></span><span style="background:#7A1D1D"></span><span style="background:#B08B34"></span><span style="background:#14100C"></span></div>
-      <h2>1. The Almanac</h2>
-      <p>Editorial. Serif-heavy. Cream paper, oxblood ink, gold-leaf accents. A trading almanac you'd find in an old broker's library — dropped into 2026 with live data.</p>
-      <div><span class="tag">Fraunces</span><span class="tag">columned</span><span class="tag">editorial</span></div>
-      <div class="go">Open the Almanac</div>
-    </a>
-
     <a class="card" href="./terminal.html">
       <div class="swatch"><span style="background:#0A0E13"></span><span style="background:#FFB020"></span><span style="background:#4FE8A8"></span><span style="background:#FF6E6E"></span></div>
-      <h2>2. Terminal Deluxe</h2>
-      <p>A love letter to the Bloomberg terminal, rebuilt for a phone. Deep navy-black, warm amber, CRT scanlines, blinking cursors, live-feel tables — dense but breathable.</p>
-      <div><span class="tag">JetBrains Mono</span><span class="tag">CRT</span><span class="tag">dense</span></div>
+      <h2>Terminal Deluxe</h2>
+      <p>The classic Bloomberg homage. Deep navy-black with electric amber, mint, coral. Clinical, live, dense. The original.</p>
+      <div><span class="tag">JetBrains Mono</span><span class="tag">amber</span><span class="tag">CRT</span></div>
+      <div class="modes"><b>◐</b> light + dark</div>
       <div class="go">Boot the Terminal</div>
-    </a>
-
-    <a class="card" href="./chunky.html">
-      <div class="swatch"><span style="background:#F1EBD8"></span><span style="background:#F4A825"></span><span style="background:#1B1611"></span><span style="background:#C63B3B"></span></div>
-      <h2>3. Chunky Cream</h2>
-      <p>Warm cream, chunky bevelled buttons, hand-drawn line illustrations, rotated sticker badges. PostHog-adjacent, but built for gamma traders — with a gecko mascot pulling shift on the trading floor.</p>
-      <div><span class="tag">Fraunces 900</span><span class="tag">hand-drawn</span><span class="tag">playful</span></div>
-      <div class="go">Meet the Gecko</div>
-    </a>
-
-    <a class="card" href="./brutalist.html">
-      <div class="swatch"><span style="background:#EFEBE3"></span><span style="background:#0B0B0B"></span><span style="background:#FFB000"></span><span style="background:#E4322B"></span></div>
-      <h2>4. Brutalist</h2>
-      <p>Swiss grid, oversized numerals, ruthless black borders, no rounded corners. The visual equivalent of "here's the number, do something with it." Confident, engineered, quiet.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">grid</span><span class="tag">sharp</span></div>
-      <div class="go">Enter the Grid</div>
-    </a>
-
-    <a class="card" href="./blueprint.html">
-      <div class="swatch"><span style="background:#0F2447"></span><span style="background:#F1EBD7"></span><span style="background:#FFA95E"></span><span style="background:#7BDFFF"></span></div>
-      <h2>5. Blueprint</h2>
-      <p>Engineering-schematic aesthetic. Prussian blue ground, off-white hairlines, orange callouts, cyan levels. Every element labelled like it was drafted with drafting instruments — signals as parts in a catalog.</p>
-      <div><span class="tag">IBM Plex</span><span class="tag">technical</span><span class="tag">annotated</span></div>
-      <div class="go">Open the Blueprint</div>
-    </a>
-
-    <a class="card" href="./memphis.html">
-      <div class="swatch"><span style="background:#E17457"></span><span style="background:#2E5DA8"></span><span style="background:#C8DE47"></span><span style="background:#F4C5B6"></span></div>
-      <h2>6. Neo-Memphis</h2>
-      <p>Playful geometric shapes, dusty terracotta + cobalt + lime, mixed serif italics with tight grotesk. Feels like a fintech that wants to be liked, not feared. Confetti behind the hero, sticker-note stats.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">Instrument Serif</span><span class="tag">playful</span></div>
-      <div class="go">See the Confetti</div>
-    </a>
-
-    <a class="card" href="./sketchbook.html">
-      <div class="swatch"><span style="background:#FAF6E9"></span><span style="background:#14100B"></span><span style="background:#C63737"></span><span style="background:#F7D65A"></span></div>
-      <h2>7. Sketchbook</h2>
-      <p>Literal trader's notebook. Graph paper, ink pen, hand-lettered headers, red-pen annotations, yellow sticky notes, taped-in polaroids. Charts drawn with wobbly lines. Absurdly distinctive — feels artisanal.</p>
-      <div><span class="tag">Kalam</span><span class="tag">Caveat</span><span class="tag">hand-lettered</span></div>
-      <div class="go">Turn the Page</div>
-    </a>
-
-    <a class="card" href="./aurora.html">
-      <div class="swatch"><span style="background:#05070E"></span><span style="background:#A78BFA"></span><span style="background:#2DD4BF"></span><span style="background:#EC4899"></span></div>
-      <h2>8. Aurora</h2>
-      <p>Very dark ground with iridescent violet + teal + magenta gradient wash. Frosted-glass panels, Playfair Display italic serif hero, JetBrains Mono labels. Reads as premium, sophisticated, quiet — Stripe-adjacent but pushed further.</p>
-      <div><span class="tag">Playfair Display</span><span class="tag">glassmorphism</span><span class="tag">premium</span></div>
-      <div class="go">Enter the Aurora</div>
-    </a>
-
-    <a class="card" href="./ledger.html">
-      <div class="swatch"><span style="background:#F1EAD1"></span><span style="background:#1D4030"></span><span style="background:#A08034"></span><span style="background:#6E1E1E"></span></div>
-      <h2>9. Ledger</h2>
-      <p>Bank certificate / private-banking aesthetic. Cream + hunter green + gold-leaf + claret. Copperplate seal, ruled ledger tables, guilloche borders. Feels like a walnut-paneled library and an annual report.</p>
-      <div><span class="tag">Cormorant</span><span class="tag">EB Garamond</span><span class="tag">institutional</span></div>
-      <div class="go">Open the Ledger</div>
-    </a>
-
-    <a class="card" href="./wireframe.html">
-      <div class="swatch"><span style="background:#060809"></span><span style="background:#7BE0FF"></span><span style="background:#F5C13A"></span><span style="background:#FF7A6B"></span></div>
-      <h2>10. Wireframe</h2>
-      <p>Isometric CAD render aesthetic — the option chain drawn as a 3D wireframe surface. Hairline neon lines on near-black, corner reticles, engineering annotations. Feels like a Rhino/Fusion export or a Bloomberg surface view.</p>
-      <div><span class="tag">Inter Tight</span><span class="tag">CAD</span><span class="tag">3D</span></div>
-      <div class="go">Render the Surface</div>
-    </a>
-
-    <a class="card" href="./codex.html">
-      <div class="swatch"><span style="background:#F3F0E5"></span><span style="background:#14130E"></span><span style="background:#B23B1E"></span><span style="background:#274F6C"></span></div>
-      <h2>11. Codex</h2>
-      <p>Technical spec-document aesthetic — like an RFC or a Fed research paper. Serif body (Newsreader), formal § numbering, marginalia, footnotes, revision numbers. Reads as authoritative and quietly obsessive about precision.</p>
-      <div><span class="tag">Newsreader</span><span class="tag">specification</span><span class="tag">footnotes</span></div>
-      <div class="go">Read the Codex</div>
-    </a>
-
-    <a class="card" href="./editorial.html">
-      <div class="swatch"><span style="background:#F1EBDA"></span><span style="background:#17383E"></span><span style="background:#CF573C"></span><span style="background:#D7B77A"></span></div>
-      <h2>12. Editorial</h2>
-      <p>Monocle / FT Weekend magazine aesthetic. Ivory paper, deep petrol panels, coral accents, sand highlights. Fraunces serif with mono details. Asymmetric print rhythm — feels cosmopolitan, sophisticated, and unmistakably editorial.</p>
-      <div><span class="tag">Fraunces</span><span class="tag">Inter</span><span class="tag">editorial</span></div>
-      <div class="go">Read the Report</div>
-    </a>
-
-    <a class="card" href="./bauhaus.html">
-      <div class="swatch"><span style="background:#EDE6D3"></span><span style="background:#E63A2C"></span><span style="background:#F4C43C"></span><span style="background:#1B4CBB"></span></div>
-      <h2>13. Bauhaus</h2>
-      <p>Herbert Bayer composition. Ivory paper, primary red/yellow/blue, black. Big geometric shapes as compositional elements — circle, triangle, square. Signal cards each sit on a distinct primary field. Feels like a 1923 poster.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">primary</span><span class="tag">geometric</span></div>
-      <div class="go">Compose the Poster</div>
-    </a>
-
-    <a class="card" href="./modulor.html">
-      <div class="swatch"><span style="background:#E8E1D0"></span><span style="background:#B23025"></span><span style="background:#C8974A"></span><span style="background:#2E5B84"></span></div>
-      <h2>14. Modulor</h2>
-      <p>Le Corbusier polychromie palette — chalk + muted brick + ochre + deep petrol. Architectural grid, Modulor proportional bars, oversized numerals as building-scale signage. Restrained mid-century sophistication.</p>
-      <div><span class="tag">Inter Tight</span><span class="tag">Modulor</span><span class="tag">architectural</span></div>
-      <div class="go">Enter the Modulor</div>
-    </a>
-
-    <a class="card" href="./rothko.html">
-      <div class="swatch"><span style="background:#6D2418"></span><span style="background:#C25B2E"></span><span style="background:#DDA84A"></span><span style="background:#1C3243"></span></div>
-      <h2>15. Rothko</h2>
-      <p>Meditative stacked color fields — maroon over ochre, petrol over burnt orange, cream over teal, cadmium over maroon. Type sits inside the fields. Room-by-room palette shifts as you scroll. Emotional and grand.</p>
-      <div><span class="tag">Inter Tight</span><span class="tag">color-field</span><span class="tag">meditative</span></div>
-      <div class="go">Walk the Rooms</div>
-    </a>
-
-    <a class="card" href="./serigraph.html">
-      <div class="swatch"><span style="background:#E63A2C"></span><span style="background:#F4C43C"></span><span style="background:#35B0CC"></span><span style="background:#EF6DA0"></span></div>
-      <h2>16. Serigraph</h2>
-      <p>Warhol pop — held on a tight leash. Halftone dot fills, four-up repetition of the same signal in four colors, hot primary palette, drop-shadow blocks. Loud without being campy — mid-century pop with financial gravity.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">halftone</span><span class="tag">pop</span></div>
-      <div class="go">Print the Serigraph</div>
-    </a>
-
-    <a class="card" href="./karesansui.html">
-      <div class="swatch"><span style="background:#F1ECDF"></span><span style="background:#C8C0AC"></span><span style="background:#6E7A55"></span><span style="background:#2C2823"></span></div>
-      <h2>17. Karesansui</h2>
-      <p>Japanese rock garden. Warm off-white paper, a single stone as focal element, raked-sand curves in the background, moss accent. Content placed with the space it needs. Extreme restraint — Inter Tight 200 + Cormorant italic accents.</p>
-      <div><span class="tag">Inter Tight 200</span><span class="tag">Cormorant</span><span class="tag">zen</span></div>
-      <div class="go">Enter the Garden</div>
-    </a>
-
-    <a class="card" href="./casestudy.html">
-      <div class="swatch"><span style="background:#EFE9D8"></span><span style="background:#7B4E2C"></span><span style="background:#7A8763"></span><span style="background:#6B675E"></span></div>
-      <h2>18. Case Study</h2>
-      <p>Eames / Koenig house. Bone paper, walnut veneer panel, brushed-steel structural grid, soft avocado accent. Measurement panel floats on a steel column. Restrained architectural composition.</p>
-      <div><span class="tag">Inter Tight</span><span class="tag">walnut</span><span class="tag">architectural</span></div>
-      <div class="go">Open the House</div>
-    </a>
-
-    <a class="card" href="./hifi.html">
-      <div class="swatch"><span style="background:#EDE7D5"></span><span style="background:#7B4E2C"></span><span style="background:#C4C0B6"></span><span style="background:#D48A2A"></span></div>
-      <h2>19. Hi-Fi</h2>
-      <p>Braun / Dieter Rams record console. Warm cream + walnut veneer + brushed-aluminum faceplate + single amber LED accent. Numbers as VU meters, signals as knobs on a machined dial. Mellow analog precision.</p>
-      <div><span class="tag">Inter Tight</span><span class="tag">IBM Plex Mono</span><span class="tag">machined</span></div>
-      <div class="go">Turn it on</div>
-    </a>
-
-    <a class="card" href="./nordic.html">
-      <div class="swatch"><span style="background:#EEE9DC"></span><span style="background:#8E9B7E"></span><span style="background:#C08464"></span><span style="background:#6F4E36"></span></div>
-      <h2>20. Nordic</h2>
-      <p>Norm Architects / Aesop. Oat paper, sage green, terracotta, walnut. Cormorant Garamond serif italic + Inter Tight body. Very generous air. A vessel-like measurement card in the hero. Quiet luxury.</p>
-      <div><span class="tag">Cormorant Garamond</span><span class="tag">sage</span><span class="tag">quiet</span></div>
-      <div class="go">Read the Notes</div>
-    </a>
-
-    <a class="card" href="./brutalist-warm.html">
-      <div class="swatch"><span style="background:#ECE5D3"></span><span style="background:#2E2A24"></span><span style="background:#7C5033"></span><span style="background:#C48739"></span></div>
-      <h2>21. Brutalist Warm</h2>
-      <p>Brutalist's structural grid discipline — same 12-col rigor and confident sans-serif — but warmed up. Warm slate instead of pure black, walnut brown accents, muted amber highlight, thinner 1px rules with more air.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">walnut</span><span class="tag">grid</span></div>
-      <div class="go">Enter the Grid</div>
     </a>
 
     <a class="card" href="./terminal-walnut.html">
       <div class="swatch"><span style="background:#1D1A16"></span><span style="background:#C48739"></span><span style="background:#8CA275"></span><span style="background:#D77B62"></span></div>
-      <h2>22. Terminal Walnut</h2>
-      <p>Terminal Deluxe evolved. Warm dark charcoal instead of pure black, cream text instead of stark white, walnut-amber accent instead of electric neon, muted sage/coral for pos/neg. Mellow but still terminal.</p>
+      <h2>Terminal Walnut</h2>
+      <p>Same terminal, mellowed. Warm charcoal + walnut-amber accent + sage pos + coral neg. Cream text instead of stark white. Mellow, not clinical.</p>
       <div><span class="tag">JetBrains Mono</span><span class="tag">warm dark</span><span class="tag">mellow</span></div>
-      <div class="go">Boot the Terminal</div>
+      <div class="modes"><b>◐</b> light + dark</div>
+      <div class="go">Open the Walnut</div>
     </a>
 
-    <a class="card" href="./steelwood.html">
-      <div class="swatch"><span style="background:#EFE9D7"></span><span style="background:#22201C"></span><span style="background:#7B4E2C"></span><span style="background:#C48739"></span></div>
-      <h2>23. Steel &amp; Wood</h2>
-      <p>Explicit hybrid: Brutalist's off-white paper base with Terminal's dark charcoal readout panels inset, walnut wood accents at the CTA. Structural grid + machined readout. The best of both, held together.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">JetBrains Mono</span><span class="tag">hybrid</span></div>
-      <div class="go">Open the House</div>
+    <a class="card" href="./terminal-california.html">
+      <div class="swatch"><span style="background:#1F1728"></span><span style="background:#E76F51"></span><span style="background:#F4A261"></span><span style="background:#B4C68A"></span></div>
+      <h2>Terminal California Sunset</h2>
+      <p>Palm Springs dusk. Deep plum-navy sky, sunset coral + gold accents, dusty sage pos, rose neg. Warm sand text. Light mode is a blush cream sky.</p>
+      <div><span class="tag">JetBrains Mono</span><span class="tag">coral / gold</span><span class="tag">plum</span></div>
+      <div class="modes"><b>◐</b> light + dark</div>
+      <div class="go">Watch the Sunset</div>
     </a>
 
-    <a class="card" href="./instrument.html">
-      <div class="swatch"><span style="background:#EFE8D5"></span><span style="background:#7B4E2C"></span><span style="background:#C48739"></span><span style="background:#22201C"></span></div>
-      <h2>24. Instrument</h2>
-      <p>Refined Brutalist — thinner rules, oversized numerals as readouts, walnut as single-color accent, generous whitespace between sections. Fewer elements per screen, each one bigger. The confidence of Brutalist, the restraint of MCM.</p>
-      <div><span class="tag">Space Grotesk</span><span class="tag">oversized</span><span class="tag">restrained</span></div>
-      <div class="go">Read the Instrument</div>
+    <a class="card" href="./terminal-pacific.html">
+      <div class="swatch"><span style="background:#0F1815"></span><span style="background:#B87B4B"></span><span style="background:#7DA987"></span><span style="background:#C97556"></span></div>
+      <h2>Terminal Pacific Northwest</h2>
+      <p>Cascadia forest at dusk. Deep pine-slate, wet cedar amber, moss green pos, rust neg. Fog cream text. Light mode is a warm oat + deep pine.</p>
+      <div><span class="tag">JetBrains Mono</span><span class="tag">cedar / moss</span><span class="tag">forest</span></div>
+      <div class="modes"><b>◐</b> light + dark</div>
+      <div class="go">Enter the Forest</div>
+    </a>
+
+    <a class="card" href="./terminal-bourbon.html">
+      <div class="swatch"><span style="background:#1A120C"></span><span style="background:#B8934C"></span><span style="background:#9C9756"></span><span style="background:#A64236"></span></div>
+      <h2>Terminal Bourbon</h2>
+      <p>Speakeasy at closing time. Espresso dark, aged brass accent, olive pos, oxblood neg. Parchment text. Light mode is straight parchment.</p>
+      <div><span class="tag">JetBrains Mono</span><span class="tag">brass / oxblood</span><span class="tag">espresso</span></div>
+      <div class="modes"><b>◐</b> light + dark</div>
+      <div class="go">Pour a Bourbon</div>
+    </a>
+
+    <a class="card" href="./brutalist.html">
+      <div class="swatch"><span style="background:#EFEBE3"></span><span style="background:#0B0B0B"></span><span style="background:#FFB000"></span><span style="background:#E4322B"></span></div>
+      <h2>Brutalist</h2>
+      <p>Swiss grid, oversized numerals, 2px black rules, no rounded corners. Confident and engineered. Dark mode inverts to cream-on-charcoal with the amber preserved.</p>
+      <div><span class="tag">Space Grotesk</span><span class="tag">grid</span><span class="tag">sharp</span></div>
+      <div class="modes"><b>◐</b> light + dark</div>
+      <div class="go">Enter the Grid</div>
     </a>
   </div>
 
   <div class="note">
-    <b>How to use these.</b> These aren't full sites — each is a one-page landing that establishes the visual system so you can see how it feels. Pick the one that pulls you, and we can extend the palette + typography + component patterns across the rest of the marketing pages (pricing, education, signal pages).
+    <b>How to use these.</b> Each mockup has a light/dark toggle in the top nav — click it to see both modes. Terminal Deluxe, Walnut, California, Pacific, and Bourbon share the same layout but different palettes, so switching between them tests whether the palette carries the identity. Brutalist keeps its distinct grid layout.
   </div>
 
   <footer>ZeroGEX / mockups / 2026</footer>

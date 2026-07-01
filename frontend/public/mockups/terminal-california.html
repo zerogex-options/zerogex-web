@@ -3,47 +3,47 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ZeroGEX — Terminal Walnut</title>
+<title>ZeroGEX — Terminal California Sunset</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* ---- Palette: Walnut (warm ambered dark & warm cream light) ---- */
+  /* ---- Palette: California Sunset ---- */
   [data-theme="dark"] {
-    --bg: #1D1A16;
-    --bg-2: #24211B;
-    --panel: #26221C;
-    --panel-2: #2D2921;
-    --line: rgba(240,232,213,0.09);
-    --line-2: rgba(240,232,213,0.16);
-    --line-3: rgba(240,232,213,0.28);
-    --text: #F0E8D5;
-    --text-dim: rgba(240,232,213,0.65);
-    --text-fade: rgba(240,232,213,0.40);
-    --accent: #C48739;
-    --accent-hot: #E0A24D;
-    --accent-soft: rgba(196,135,57,0.18);
-    --pos: #8CA275;
-    --neg: #D77B62;
-    --brand-text: #F0E8D5;
+    --bg: #1F1728;                 /* deep plum-navy dusk */
+    --bg-2: #261C31;
+    --panel: #291E35;
+    --panel-2: #33253F;
+    --line: rgba(245,231,214,0.09);
+    --line-2: rgba(245,231,214,0.16);
+    --line-3: rgba(245,231,214,0.28);
+    --text: #F5E7D6;                /* warm sand */
+    --text-dim: rgba(245,231,214,0.65);
+    --text-fade: rgba(245,231,214,0.40);
+    --accent: #E76F51;              /* sunset coral */
+    --accent-hot: #F4A261;          /* sunset gold */
+    --accent-soft: rgba(244,162,97,0.18);
+    --pos: #B4C68A;                 /* dusty sage */
+    --neg: #E56B78;                 /* dusty rose */
+    --brand-text: #F5E7D6;
   }
   [data-theme="light"] {
-    --bg: #F1EAD3;
-    --bg-2: #E8E0C6;
-    --panel: #ECE4CA;
-    --panel-2: #E2D9BB;
-    --line: rgba(32,26,20,0.09);
-    --line-2: rgba(32,26,20,0.20);
-    --line-3: rgba(32,26,20,0.36);
-    --text: #201A14;
-    --text-dim: rgba(32,26,20,0.68);
-    --text-fade: rgba(32,26,20,0.40);
-    --accent: #7B4E2C;
-    --accent-hot: #9C6837;
-    --accent-soft: rgba(123,78,44,0.14);
-    --pos: #556C42;
-    --neg: #B85838;
-    --brand-text: #201A14;
+    --bg: #F5E4D6;                  /* blush cream sky */
+    --bg-2: #EED9C6;
+    --panel: #F0DBC7;
+    --panel-2: #E6CFB6;
+    --line: rgba(70,42,72,0.08);
+    --line-2: rgba(70,42,72,0.20);
+    --line-3: rgba(70,42,72,0.36);
+    --text: #3E2740;                /* deep plum ink */
+    --text-dim: rgba(62,39,64,0.68);
+    --text-fade: rgba(62,39,64,0.40);
+    --accent: #C55643;
+    --accent-hot: #D97F3A;
+    --accent-soft: rgba(197,86,67,0.14);
+    --pos: #6B7E48;
+    --neg: #B8474F;
+    --brand-text: #3E2740;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,7 +51,6 @@
   a { color: inherit; text-decoration: none; }
   .page { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
 
-  /* Command bar */
   .cmdbar { border-bottom: 1px solid var(--line-2); padding: 12px 0; display: flex; gap: 26px; align-items: center; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
   .cmdbar .lbl { color: var(--text-fade); }
   .cmdbar .val { color: var(--text); }
@@ -59,7 +58,6 @@
   .cmdbar .cursor { display: inline-block; width: 7px; height: 13px; background: var(--accent-hot); vertical-align: -2px; animation: blink 1.2s steps(2) infinite; margin-left: 6px; }
   @keyframes blink { 50% { opacity: 0; } }
 
-  /* Nav */
   .nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 40px; padding: 22px 0; border-bottom: 1px solid var(--line-2); }
   .brand { display: flex; align-items: center; gap: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 20px; letter-spacing: -0.02em; color: var(--brand-text); }
   .brand .mark { width: 12px; height: 12px; background: var(--accent-hot); border-radius: 2px; box-shadow: 0 0 10px var(--accent-soft); }
@@ -69,7 +67,6 @@
   @media (max-width: 800px) { .navlinks { display: none; } }
   .nav-right { display: flex; gap: 10px; align-items: center; }
 
-  /* Theme toggle */
   .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-2); background: transparent; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 150ms; }
   .theme-toggle:hover { border-color: var(--accent-hot); color: var(--accent-hot); }
   .theme-toggle svg { width: 14px; height: 14px; }
@@ -80,7 +77,6 @@
   .btn.solid:hover { background: var(--accent-hot); border-color: var(--accent-hot); color: var(--bg); box-shadow: 0 0 24px var(--accent-soft); }
   .btn.big { padding: 16px 26px; font-size: 13px; }
 
-  /* Ticker */
   .ticker { border-bottom: 1px solid var(--line-2); overflow: hidden; padding: 10px 0; }
   .ticker-track { display: flex; gap: 40px; white-space: nowrap; animation: tick 42s linear infinite; font-size: 12px; }
   .ticker-track span { color: var(--text-dim); }
@@ -89,7 +85,6 @@
   .ticker-track .down { color: var(--neg); }
   @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-  /* Hero */
   .hero { padding: 100px 0 60px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: center; }
   @media (max-width: 960px) { .hero { grid-template-columns: 1fr; padding: 60px 0; } }
   .kicker { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent-hot); margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
@@ -108,9 +103,8 @@
   .stat .v.amber { color: var(--accent-hot); }
   .stat .v.pos { color: var(--pos); }
 
-  /* Panel (chart card) */
   .panel { background: var(--panel); border: 1px solid var(--line-2); overflow: hidden; box-shadow: 0 40px 80px -30px rgba(0,0,0,0.35); }
-  [data-theme="light"] .panel { box-shadow: 0 30px 60px -30px rgba(32,26,20,0.15); }
+  [data-theme="light"] .panel { box-shadow: 0 30px 60px -30px rgba(62,39,64,0.15); }
   .panel .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-2); background: var(--panel-2); font-size: 11px; color: var(--text-fade); letter-spacing: 0.16em; text-transform: uppercase; }
   .panel .head .live { color: var(--accent-hot); display: flex; align-items: center; gap: 8px; }
   .panel .head .live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-hot); box-shadow: 0 0 8px var(--accent-hot); animation: blink 1.5s infinite; }
@@ -127,7 +121,6 @@
   .miniquotes .up { color: var(--pos); }
   .miniquotes .amb { color: var(--accent-hot); }
 
-  /* Sections */
   section { padding: 120px 0; border-top: 1px solid var(--line-2); }
   .sect-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; gap: 20px; flex-wrap: wrap; padding-bottom: 24px; border-bottom: 1px solid var(--line-2); }
   .sect-head h2 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: clamp(36px, 4vw, 56px); letter-spacing: -0.03em; margin: 12px 0 0; line-height: 1; color: var(--text); }
@@ -136,7 +129,6 @@
   .sect-head p { font-size: 13px; color: var(--text-dim); max-width: 400px; margin: 0; line-height: 1.6; }
   .id { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-hot); }
 
-  /* Signal grid */
   .sig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   @media (max-width: 900px) { .sig-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 620px) { .sig-grid { grid-template-columns: 1fr; } }
@@ -152,7 +144,6 @@
   .sig .val .now { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 26px; letter-spacing: -0.02em; color: var(--accent-hot); }
   .sig .val .lbl { font-size: 11px; color: var(--text-fade); letter-spacing: 0.16em; text-transform: uppercase; }
 
-  /* Playbook table */
   .book { border: 1px solid var(--line-2); overflow: hidden; }
   .book table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .book th, .book td { text-align: left; padding: 16px 20px; border-bottom: 1px solid var(--line-2); color: var(--text); }
@@ -164,7 +155,6 @@
   .book td.neg { color: var(--neg); }
   .book tr:hover td { background: var(--panel-2); }
 
-  /* CTA */
   .cta-block { border: 1px solid var(--accent-hot); background: linear-gradient(135deg, var(--accent-soft), transparent 60%); padding: 72px 40px; text-align: center; margin-top: 40px; margin-bottom: 40px; position: relative; overflow: hidden; }
   .cta-block::before, .cta-block::after { content: ''; position: absolute; width: 24px; height: 24px; border: 2px solid var(--accent-hot); }
   .cta-block::before { top: 12px; left: 12px; border-right: 0; border-bottom: 0; }
@@ -228,7 +218,6 @@
     </div>
   </div>
 
-  <!-- Hero -->
   <section class="hero" style="border: 0;">
     <div>
       <div class="kicker">The dealer positioning terminal</div>
@@ -263,11 +252,11 @@
           </div>
         </div>
 
-        <svg id="heroChart" viewBox="0 0 520 220" preserveAspectRatio="none">
+        <svg viewBox="0 0 520 220" preserveAspectRatio="none">
           <defs>
             <linearGradient id="glow" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+              <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
             </linearGradient>
             <linearGradient id="glow2" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
@@ -303,7 +292,6 @@
     </div>
   </section>
 
-  <!-- Signal grid -->
   <section>
     <div class="sect-head">
       <div>
@@ -353,7 +341,6 @@
     </div>
   </section>
 
-  <!-- Playbook -->
   <section>
     <div class="sect-head">
       <div>
@@ -380,7 +367,6 @@
     </div>
   </section>
 
-  <!-- CTA -->
   <section style="padding-bottom: 40px;">
     <div class="cta-block">
       <div class="id" style="justify-content: center; display: inline-flex;">The desk is ready</div>
@@ -401,7 +387,7 @@
     const html = document.documentElement;
     const btn = document.getElementById('themeToggle');
     const lbl = document.getElementById('themeLabel');
-    const KEY = 'zg-terminal-walnut-theme';
+    const KEY = 'zg-terminal-california-theme';
     const stored = localStorage.getItem(KEY);
     if (stored) html.setAttribute('data-theme', stored);
     const updateLbl = () => lbl.textContent = html.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark';
