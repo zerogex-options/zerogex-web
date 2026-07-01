@@ -1,5 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { captureServer } from '@/core/telemetry/posthog-server';
+import { TelemetryEvent } from '@/core/telemetry/events';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
 export const runtime = 'nodejs';
@@ -52,6 +54,17 @@ export default async function Image({ params }: { params: { id: string } }) {
   const entry = card?.entry?.ref_price as number | undefined;
   const stop = card?.stop?.ref_price as number | undefined;
   const target = card?.target?.ref_price as number | undefined;
+
+  // Deterministic distinctId keeps repeat crawler fetches from the same URL
+  // collapsed to one PostHog "visitor" — Twitter/Slack retry aggressively.
+  await captureServer(`og:card:${Number.isFinite(cardId) ? cardId : 'unknown'}`, TelemetryEvent.OgPreviewed, {
+    surface: 'card',
+    card_id: Number.isFinite(cardId) ? cardId : null,
+    symbol,
+    action: card?.action ?? null,
+    tier: card?.tier ?? null,
+    resolved: Boolean(card),
+  });
 
   return new ImageResponse(
     (

@@ -1,5 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { captureServer } from '@/core/telemetry/posthog-server';
+import { TelemetryEvent } from '@/core/telemetry/events';
 
 export const runtime = 'nodejs';
 export const alt = 'ZeroGEX Gamma Forecast Card — projected range, pin, regime';
@@ -82,6 +84,16 @@ export default async function Image({ params }: { params: { date: string } }) {
   const accent = regimeAccent(morning?.regime ?? null);
   const regimeLabel = humanizeRegime(morning?.regime ?? null);
   const heroLabel = hasReceipt ? 'Forecast Receipt' : 'Morning Forecast';
+
+  await captureServer(`og:forecast:${date}`, TelemetryEvent.OgPreviewed, {
+    surface: 'forecast',
+    date,
+    symbol,
+    regime: morning?.regime ?? null,
+    range_model: morning?.range_model ?? null,
+    has_receipt: hasReceipt,
+    resolved: Boolean(payload),
+  });
 
   return new ImageResponse(
     (

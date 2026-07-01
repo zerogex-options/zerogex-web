@@ -31,6 +31,8 @@ export const TelemetryEvent = {
   ForecastShareClicked: 'forecast_share_clicked',
   /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
   ReplayShareClicked: 'replay_share_clicked',
+  /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
+  OgPreviewed: 'og_previewed',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];
