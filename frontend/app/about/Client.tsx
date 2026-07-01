@@ -80,9 +80,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
 }) {
   return (
     <div style={{
-      background: isDark
-        ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
-        : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
+      background: 'var(--bg-card)',
       border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
     }}>
       <div style={{

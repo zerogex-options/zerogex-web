@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { useTheme, Palette } from '@/core/ThemeContext';
 
 interface PaletteMeta {
@@ -15,20 +14,20 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'walnut',
     name: 'Terminal Walnut',
-    subtitle: 'Default · warm neutral',
-    swatch: ['#1D1A16', '#C48739', '#8CA275', '#D77B62'],
+    subtitle: 'Default · clean warm neutral',
+    swatch: ['#14100A', '#C48338', '#F0CE6C', '#E67F5C'],
   },
   {
     id: 'california',
     name: 'California Sunset',
     subtitle: 'Warm dusk · coral & gold',
-    swatch: ['#1F1728', '#E76F51', '#F4D35E', '#6B9EC7'],
+    swatch: ['#120817', '#EB5F3E', '#FFDA57', '#4FA3E8'],
   },
   {
     id: 'pacific',
     name: 'Pacific Northwest',
-    subtitle: 'Cool forest · emerald & haze',
-    swatch: ['#0F1815', '#B87B4B', '#3ACD86', '#6690AB'],
+    subtitle: 'Cool forest · emerald & sky',
+    swatch: ['#050C09', '#4FE8A0', '#4FBFF0', '#E8C24C'],
   },
   {
     id: 'deluxe',
@@ -61,27 +60,25 @@ export default function ThemeDropdown() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Select theme palette"
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs uppercase tracking-wider transition-colors"
+        aria-label={`Theme palette: ${current.name}`}
+        title={current.name}
+        className="inline-flex items-center rounded-md transition-colors"
         style={{
           border: '1px solid var(--border-default)',
           background: 'transparent',
-          color: 'var(--text-secondary)',
-          fontFamily: 'monospace',
-          letterSpacing: '0.08em',
+          padding: '6px',
+          cursor: 'pointer',
         }}
       >
         <span
           aria-hidden
           className="inline-flex overflow-hidden rounded-sm"
-          style={{ width: '30px', height: '10px', border: '1px solid var(--border-default)' }}
+          style={{ width: '48px', height: '16px' }}
         >
           {current.swatch.map((c, i) => (
             <span key={i} style={{ flex: 1, background: c }} />
           ))}
         </span>
-        <span className="hidden sm:inline">{current.name}</span>
-        <ChevronDown size={12} style={{ transition: 'transform 150ms', transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {open && (

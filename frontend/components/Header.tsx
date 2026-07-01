@@ -670,7 +670,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                           style={{
-                            background: theme === 'dark' ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)` : "var(--bg-card)",
+                            background: "var(--bg-card)",
                             borderColor: border,
                             color: 'var(--text-primary)',
                           }}
@@ -690,7 +690,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         }}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                         style={{
-                          background: theme === 'dark' ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)` : "var(--bg-card)",
+                          background: "var(--bg-card)",
                           borderColor: active ? `${'var(--color-brand-primary)'}60` : border,
                           color: active ? 'var(--color-brand-primary)' : 'var(--text-primary)',
                         }}
@@ -780,10 +780,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                   className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
                   style={{
-                    background:
-                      theme === "dark"
-                        ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)`
-                        : "var(--bg-card)",
+                    background: "var(--bg-card)",
                     borderColor: border,
                     color: 'var(--text-primary)',
                   }}
