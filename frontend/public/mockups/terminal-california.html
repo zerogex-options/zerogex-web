@@ -23,9 +23,14 @@
     --accent: #E76F51;              /* sunset coral */
     --accent-hot: #F4A261;          /* sunset gold */
     --accent-soft: rgba(244,162,97,0.18);
+    --gold: #F4D35E;                /* bright canary gold */
+    --gold-soft: rgba(244,211,94,0.16);
+    --maroon: #B44957;              /* desert maroon */
+    --navy: #6B9EC7;                /* Palm Springs pool blue */
     --pos: #B4C68A;                 /* dusty sage */
     --neg: #E56B78;                 /* dusty rose */
     --brand-text: #F5E7D6;
+    --ink-on-bright: #1F1728;
   }
   [data-theme="light"] {
     --bg: #F5E4D6;                  /* blush cream sky */
@@ -41,9 +46,14 @@
     --accent: #C55643;
     --accent-hot: #D97F3A;
     --accent-soft: rgba(197,86,67,0.14);
+    --gold: #B58817;                /* deep marigold */
+    --gold-soft: rgba(181,136,23,0.14);
+    --maroon: #8E2E35;              /* deep desert maroon */
+    --navy: #2E5C8A;                /* navy pool */
     --pos: #6B7E48;
     --neg: #B8474F;
     --brand-text: #3E2740;
+    --ink-on-bright: #3E2740;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -135,9 +145,17 @@
   .sig { border: 1px solid var(--line-2); background: var(--panel); padding: 24px; position: relative; overflow: hidden; }
   .sig::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent-hot); opacity: 0; transition: opacity 200ms; }
   .sig:hover::before { opacity: 1; }
-  .sig .id-row { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); margin-bottom: 20px; }
+  .sig .id-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); margin-bottom: 20px; }
+  .sig .id-row .id-left { display: flex; align-items: center; gap: 10px; }
+  .sig .id-row .chip { width: 10px; height: 10px; flex: none; }
   .sig .id-row .live { color: var(--accent-hot); }
   .sig .id-row .live::before { content: '● '; }
+  /* Chip categories — different signal groups get different accent colors */
+  .sig .chip.c-flip { background: var(--accent-hot); }
+  .sig .chip.c-gex  { background: var(--maroon); }
+  .sig .chip.c-wall { background: var(--navy); }
+  .sig .chip.c-trap { background: var(--gold); }
+  .sig .chip.c-sqz  { background: var(--accent); }
   .sig h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 10px; color: var(--text); }
   .sig p { font-size: 13px; line-height: 1.55; color: var(--text-dim); margin: 0 0 20px; }
   .sig .val { display: flex; justify-content: space-between; align-items: baseline; padding-top: 16px; border-top: 1px solid var(--line-2); }
@@ -150,9 +168,21 @@
   .book th { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-fade); background: var(--panel); font-weight: 500; }
   .book tr:last-child td { border-bottom: 0; }
   .book td.state { font-weight: 500; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .book td.state span { display: inline-block; padding: 3px 8px; }
   .book td.amber { color: var(--accent-hot); }
+  .book td.amber span { background: var(--accent-soft); color: var(--accent-hot); }
+  .book td.gold  span { background: var(--gold-soft);  color: var(--gold); }
+  .book td.maroon span { background: rgba(180,73,87,0.16); color: var(--maroon); }
+  .book td.navy   span { background: rgba(107,158,199,0.14); color: var(--navy); }
   .book td.pos { color: var(--pos); }
+  .book td.pos span { background: rgba(180,198,138,0.14); color: var(--pos); }
   .book td.neg { color: var(--neg); }
+  .book td.neg span { background: rgba(229,107,120,0.14); color: var(--neg); }
+  [data-theme="light"] .book td.pos span { background: rgba(107,126,72,0.14); }
+  [data-theme="light"] .book td.neg span { background: rgba(184,71,79,0.14); }
+  [data-theme="light"] .book td.gold span { background: rgba(181,136,23,0.14); }
+  [data-theme="light"] .book td.maroon span { background: rgba(142,46,53,0.14); }
+  [data-theme="light"] .book td.navy span { background: rgba(46,92,138,0.14); }
   .book tr:hover td { background: var(--panel-2); }
 
   .cta-block { border: 1px solid var(--accent-hot); background: linear-gradient(135deg, var(--accent-soft), transparent 60%); padding: 72px 40px; text-align: center; margin-top: 40px; margin-bottom: 40px; position: relative; overflow: hidden; }
@@ -272,21 +302,21 @@
           <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110 L520,220 L0,220 Z" fill="url(#glow2)"/>
           <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110 L520,0 L0,0 Z" fill="url(#glow)" transform="scale(1,-1) translate(0,-220)"/>
           <path d="M0,110 C40,70 90,30 150,25 C210,20 240,90 270,110 C300,130 340,190 400,200 C450,208 490,150 520,110" fill="none" stroke="var(--accent-hot)" stroke-width="1.4"/>
-          <line x1="270" y1="0" x2="270" y2="220" stroke="var(--neg)" stroke-dasharray="4 4" stroke-width="1"/>
-          <text x="276" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--neg)">FLIP · 6,398</text>
-          <line x1="140" y1="0" x2="140" y2="220" stroke="var(--pos)" stroke-dasharray="2 3" stroke-width="0.8"/>
-          <text x="80" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--pos)">CALL WALL 6,450</text>
-          <line x1="400" y1="0" x2="400" y2="220" stroke="var(--text-fade)" stroke-dasharray="2 3" stroke-width="0.8"/>
-          <text x="332" y="212" font-family="JetBrains Mono" font-size="10" fill="var(--text-dim)">PUT WALL 6,350</text>
+          <line x1="270" y1="0" x2="270" y2="220" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+          <text x="276" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
+          <line x1="140" y1="0" x2="140" y2="220" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.8"/>
+          <text x="80" y="18" font-family="JetBrains Mono" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
+          <line x1="400" y1="0" x2="400" y2="220" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.8"/>
+          <text x="332" y="212" font-family="JetBrains Mono" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
         </svg>
 
         <div class="miniquotes">
-          <div><span>γ FLIP</span><span class="amb">6,398</span></div>
-          <div><span>NET GEX</span><span class="down">−1.82B</span></div>
-          <div><span>CALL WALL</span><span class="up">6,450</span></div>
-          <div><span>PUT WALL</span><span>6,350</span></div>
-          <div><span>TRAP SCORE</span><span class="up">+82</span></div>
-          <div><span>SQUEEZE</span><span class="up">HIGH</span></div>
+          <div><span>γ FLIP</span><span style="color: var(--gold);">6,398</span></div>
+          <div><span>NET GEX</span><span style="color: var(--maroon);">−1.82B</span></div>
+          <div><span>CALL WALL</span><span style="color: var(--navy);">6,450</span></div>
+          <div><span>PUT WALL</span><span style="color: var(--navy);">6,350</span></div>
+          <div><span>TRAP SCORE</span><span style="color: var(--gold);">+82</span></div>
+          <div><span>SQUEEZE</span><span style="color: var(--accent-hot);">HIGH</span></div>
         </div>
       </div>
     </div>
@@ -303,37 +333,37 @@
 
     <div class="sig-grid">
       <div class="sig">
-        <div class="id-row"><span>SIG · 001</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-flip"></span>SIG · 001</span><span class="live">LIVE</span></div>
         <h3>Gamma Flip</h3>
         <p>The pivot at which dealer positioning changes signs. Above · stabilizing. Below · amplifying.</p>
         <div class="val"><span class="lbl">Now</span><span class="now">6,398</span></div>
       </div>
       <div class="sig">
-        <div class="id-row"><span>SIG · 002</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-gex"></span>SIG · 002</span><span class="live">LIVE</span></div>
         <h3>Net GEX</h3>
         <p>Total dealer gamma across the SPX/SPY chain. Sign, size, and slope of the regime.</p>
-        <div class="val"><span class="lbl">Now</span><span class="now" style="color: var(--neg);">−1.82B</span></div>
+        <div class="val"><span class="lbl">Now</span><span class="now" style="color: var(--maroon);">−1.82B</span></div>
       </div>
       <div class="sig">
-        <div class="id-row"><span>SIG · 003</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-wall"></span>SIG · 003</span><span class="live">LIVE</span></div>
         <h3>Call Wall</h3>
         <p>Concentration of dealer short-call gamma. Historically acts as a ceiling on advances.</p>
-        <div class="val"><span class="lbl">Level</span><span class="now">6,450</span></div>
+        <div class="val"><span class="lbl">Level</span><span class="now" style="color: var(--navy);">6,450</span></div>
       </div>
       <div class="sig">
-        <div class="id-row"><span>SIG · 004</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-wall"></span>SIG · 004</span><span class="live">LIVE</span></div>
         <h3>Put Wall</h3>
         <p>Concentration of dealer short-put gamma. Historically acts as a floor into declines.</p>
-        <div class="val"><span class="lbl">Level</span><span class="now">6,350</span></div>
+        <div class="val"><span class="lbl">Level</span><span class="now" style="color: var(--navy);">6,350</span></div>
       </div>
       <div class="sig">
-        <div class="id-row"><span>SIG · 005</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-trap"></span>SIG · 005</span><span class="live">LIVE</span></div>
         <h3>Trap Score</h3>
         <p>Asymmetry between retail positioning and dealer hedge. High = expect fade.</p>
-        <div class="val"><span class="lbl">Score</span><span class="now" style="color: var(--pos);">+82</span></div>
+        <div class="val"><span class="lbl">Score</span><span class="now" style="color: var(--gold);">+82</span></div>
       </div>
       <div class="sig">
-        <div class="id-row"><span>SIG · 006</span><span class="live">LIVE</span></div>
+        <div class="id-row"><span class="id-left"><span class="chip c-sqz"></span>SIG · 006</span><span class="live">LIVE</span></div>
         <h3>Squeeze Setup</h3>
         <p>Composite of γ, skew, and vanna. Flags regimes with compounding directional risk.</p>
         <div class="val"><span class="lbl">Regime</span><span class="now">HIGH</span></div>
@@ -356,12 +386,12 @@
           <tr><th>Regime</th><th>State</th><th>Historical bias</th><th>Preferred vehicle</th><th>Conf.</th></tr>
         </thead>
         <tbody>
-          <tr><td>Positive γ · above flip</td><td class="state pos">STABLE</td><td>Mean reversion, range compression</td><td>Iron condor, short strangles</td><td class="pos">HIGH</td></tr>
-          <tr><td>Positive γ · near call wall</td><td class="state amber">FADE</td><td>Fade advance into wall</td><td>Short call spreads</td><td class="amber">MEDIUM</td></tr>
-          <tr><td>Negative γ · below flip</td><td class="state neg">AMPLIFY</td><td>Trend continuation, ranges expand</td><td>Long directional, debit spreads</td><td class="pos">HIGH</td></tr>
-          <tr><td>Negative γ · at put wall</td><td class="state amber">BOUNCE</td><td>Reflexive rebound off dealer hedge</td><td>Long call spreads, short-dated</td><td class="amber">MEDIUM</td></tr>
-          <tr><td>Trap · retail long, dealer short</td><td class="state neg">FADE-RALLY</td><td>Fade euphoric strength</td><td>Bear call spreads</td><td class="pos">HIGH</td></tr>
-          <tr><td>End-of-day negative γ</td><td class="state amber">RE-HEDGE</td><td>Directional pin into close</td><td>Directional 0DTE</td><td class="amber">MEDIUM</td></tr>
+          <tr><td>Positive γ · above flip</td><td class="state pos"><span>STABLE</span></td><td>Mean reversion, range compression</td><td>Iron condor, short strangles</td><td class="pos">HIGH</td></tr>
+          <tr><td>Positive γ · near call wall</td><td class="state gold"><span>FADE</span></td><td>Fade advance into wall</td><td>Short call spreads</td><td class="gold">MEDIUM</td></tr>
+          <tr><td>Negative γ · below flip</td><td class="state neg"><span>AMPLIFY</span></td><td>Trend continuation, ranges expand</td><td>Long directional, debit spreads</td><td class="pos">HIGH</td></tr>
+          <tr><td>Negative γ · at put wall</td><td class="state navy"><span>BOUNCE</span></td><td>Reflexive rebound off dealer hedge</td><td>Long call spreads, short-dated</td><td class="navy">MEDIUM</td></tr>
+          <tr><td>Trap · retail long, dealer short</td><td class="state maroon"><span>FADE-RALLY</span></td><td>Fade euphoric strength</td><td>Bear call spreads</td><td class="pos">HIGH</td></tr>
+          <tr><td>End-of-day negative γ</td><td class="state amber"><span>RE-HEDGE</span></td><td>Directional pin into close</td><td>Directional 0DTE</td><td class="amber">MEDIUM</td></tr>
         </tbody>
       </table>
     </div>
