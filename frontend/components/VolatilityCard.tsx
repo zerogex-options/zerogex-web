@@ -152,7 +152,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
       className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
       style={{
         backgroundColor: cardBg,
-        border: `1px solid ${colors.muted}`,
+        border: `1px solid ${'var(--text-secondary)'}`,
         boxShadow: shadowBase,
       }}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
@@ -162,14 +162,14 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
       <div className="flex justify-between items-start mb-3">
         <h3
           className="text-xs font-semibold tracking-wider uppercase"
-          style={{ color: colors.muted }}
+          style={{ color: 'var(--text-secondary)' }}
         >
           {isSpeed ? `Level / ${indexLabel}` : "Momentum"}
         </h3>
         <button
           onClick={() => setPanelOpen((v) => !v)}
           className={`inline-flex items-center transition-opacity ${panelOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
-          style={{ color: panelOpen ? valueColor : colors.muted }}
+          style={{ color: panelOpen ? valueColor : 'var(--text-secondary)' }}
           type="button"
           title={panelOpen ? "Close" : `What is the ${isSpeed ? "speedometer" : "tachometer"}?`}
         >
@@ -190,7 +190,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
             <div className="text-2xl sm:text-3xl font-bold break-words" style={{ color: textColor }}>
               {vix!.toFixed(2)}
             </div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
               {indexLabel}
               {vixTimestamp ? ` · ${formatEtTimestamp(vixTimestamp)}` : ""}
             </div>

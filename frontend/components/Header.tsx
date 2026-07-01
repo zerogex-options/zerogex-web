@@ -320,9 +320,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <button
                   onClick={onToggleTheme}
                   className="rounded-full border transition-colors"
-                  style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px", padding: isCollapsed ? "6px" : "9px" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                  style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px", padding: isCollapsed ? "6px" : "9px" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                   aria-label="Toggle theme"
                 >
                   {theme === "dark" ? <Moon size={isCollapsed ? 18 : 20} /> : <Sun size={isCollapsed ? 18 : 20} />}
@@ -334,9 +334,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       type="button"
                       onClick={() => setProfileMenuOpen((prev) => !prev)}
                       className="rounded-full border transition-colors"
-                      style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                      style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                       aria-label="Open profile menu"
                     >
                       <CircleUserRound size={18} />
@@ -350,7 +350,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           top: "calc(100% + 8px)",
                           minWidth: "210px",
                           borderColor: border,
-                          background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+                          background: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
                           boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
                           zIndex: 60,
                         }}
@@ -415,7 +415,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         appearance: "none",
                         WebkitAppearance: "none",
                         MozAppearance: "none",
-                        background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                        background: "color-mix(in srgb, var(--bg-card) 80%, transparent)",
                         borderColor: border,
                         color: 'var(--text-primary)',
                         width: "100%",
@@ -439,7 +439,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         top: "50%",
                         transform: "translateY(-50%)",
                         pointerEvents: "none",
-                        color: colors.muted,
+                        color: 'var(--text-secondary)',
                       }}
                     />
                   </div>
@@ -451,7 +451,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                       className="px-2 py-1 rounded-lg border text-xs font-semibold transition-all duration-200"
                       style={{
-                        background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
+                        background: "color-mix(in srgb, var(--bg-card) 80%, transparent)",
                         borderColor: border,
                         color: 'var(--text-primary)',
                         width: "96px",
@@ -472,7 +472,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
                       <span className="font-bold" style={{ fontSize: "1.5rem", lineHeight: 1.05 }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish, fontSize: "12px" }}>
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -480,9 +480,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     </div>
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
                       <div className="flex items-center gap-1.5 mt-0.5" title={row2Label}>
-                        {extendedHoursIcon === "moon" ? <Moon size={11} style={{ color: colors.muted }} /> : <Sun size={11} style={{ color: colors.muted }} />}
+                        {extendedHoursIcon === "moon" ? <Moon size={11} style={{ color: 'var(--text-secondary)' }} /> : <Sun size={11} style={{ color: 'var(--text-secondary)' }} />}
                         <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
-                        <span className="text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? colors.bullish : colors.bearish }}>
+                        <span className="text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row2Positive ? "+" : ""}{row2Change.toFixed(2)} ({row2Positive ? "+" : ""}{row2ChangePercent.toFixed(2)}%)
                         </span>
                       </div>
@@ -518,9 +518,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     type="button"
                     onClick={() => setProfileMenuOpen((prev) => !prev)}
                     className="rounded-full border transition-colors"
-                    style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                    style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                     aria-label="Open profile menu"
                   >
                     <CircleUserRound size={20} />
@@ -534,7 +534,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         top: "calc(100% + 8px)",
                         minWidth: "210px",
                         borderColor: border,
-                        background: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+                        background: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
                         boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
                         zIndex: 60,
                       }}
@@ -592,8 +592,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <button
               onClick={toggleCollapsed}
               className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute"
-              style={{ color: colors.muted, backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)", right: "12px" }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.muted}20`; }}
+              style={{ color: 'var(--text-secondary)', backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)", right: "12px" }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--text-secondary)'}20`; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
               aria-label={isCollapsed ? "Expand header" : "Collapse header"}
             >
@@ -631,9 +631,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               <button
                 onClick={onToggleTheme}
                 className="rounded-full border transition-colors"
-                style={{ borderColor: border, color: colors.muted, backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.accent}26`; e.currentTarget.style.color = colors.accent; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = colors.muted; }}
+                style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
@@ -670,7 +670,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                           style={{
-                            background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
+                            background: theme === 'dark' ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)` : "var(--bg-card)",
                             borderColor: border,
                             color: 'var(--text-primary)',
                           }}
@@ -690,9 +690,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         }}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
                         style={{
-                          background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
-                          borderColor: active ? `${colors.primary}60` : border,
-                          color: active ? colors.primary : 'var(--text-primary)',
+                          background: theme === 'dark' ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)` : "var(--bg-card)",
+                          borderColor: active ? `${'var(--color-brand-primary)'}60` : border,
+                          color: active ? 'var(--color-brand-primary)' : 'var(--text-primary)',
                         }}
                       >
                         <span>{page.label}</span>
@@ -707,7 +707,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         type="button"
                         onClick={() => setMobileExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
                         className="mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: colors.primary }}
+                        style={{ color: 'var(--color-brand-primary)' }}
                       >
                         {group.label}
                         <ChevronDown size={14} style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
@@ -722,14 +722,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             const subgroupActive = subgroupId != null && pathname === subgroupId;
                             const subgroupLabelStyle = {
                               color: subgroupActive
-                                ? colors.primary
-                                : theme === "dark"
-                                  ? colors.light
-                                  : colors.dark,
+                                ? 'var(--color-brand-primary)'
+                                : "var(--text-primary)",
                               opacity: subgroupActive ? 1 : 0.8,
                             };
                             return (
-                              <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${colors.primary}33` }}>
+                              <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${'var(--color-brand-primary)'}33` }}>
                                 <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
                                   {subgroupId ? (
                                     <button
@@ -784,8 +782,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   style={{
                     background:
                       theme === "dark"
-                        ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)`
-                        : colors.cardLight,
+                        ? `linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)`
+                        : "var(--bg-card)",
                     borderColor: border,
                     color: 'var(--text-primary)',
                   }}
@@ -804,7 +802,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       setMobileMenuOpen(false);
                     }}
                     className="rounded-lg border px-3 py-2 text-sm font-semibold col-span-2"
-                    style={{ borderColor: border, color: colors.muted }}
+                    style={{ borderColor: border, color: 'var(--text-secondary)' }}
                   >
                     Account
                   </button>
@@ -817,7 +815,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       setMobileMenuOpen(false);
                     }}
                     className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                    style={{ borderColor: border, color: colors.muted }}
+                    style={{ borderColor: border, color: 'var(--text-secondary)' }}
                   >
                     Upgrade
                   </button>
@@ -833,7 +831,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     setMobileMenuOpen(false);
                   }}
                   className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{ borderColor: border, color: colors.muted }}
+                  style={{ borderColor: border, color: 'var(--text-secondary)' }}
                 >
                   {authSession?.authenticated ? "Log out" : "Login"}
                 </button>
@@ -845,9 +843,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null ? (
                 <div className="flex items-center gap-3 flex-wrap" title={row2Label}>
                   {extendedHoursIcon === "moon" ? (
-                    <Moon size={20} style={{ color: colors.muted }} />
+                    <Moon size={20} style={{ color: 'var(--text-secondary)' }} />
                   ) : (
-                    <Sun size={20} style={{ color: colors.muted }} />
+                    <Sun size={20} style={{ color: 'var(--text-secondary)' }} />
                   )}
                   <span className="font-bold text-2xl" title={row2Label}>
                     ${row2Price.toFixed(2)}
@@ -858,9 +856,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     style={{
                       backgroundColor:
                         theme === "dark"
-                          ? `${row2Positive ? colors.bullish : colors.bearish}15`
-                          : `${row2Positive ? colors.bullish : colors.bearish}10`,
-                      color: row2Positive ? colors.bullish : colors.bearish,
+                          ? `${row2Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`
+                          : `${row2Positive ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
+                      color: row2Positive ? 'var(--color-bull)' : 'var(--color-bear)',
                     }}
                   >
                     {row2Positive ? (
@@ -888,9 +886,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       style={{
                         backgroundColor:
                           theme === "dark"
-                            ? `${row1Positive ? colors.bullish : colors.bearish}15`
-                            : `${row1Positive ? colors.bullish : colors.bearish}10`,
-                        color: row1Positive ? colors.bullish : colors.bearish,
+                            ? `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`
+                            : `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
+                        color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)',
                       }}
                     >
                       {row1Positive ? (

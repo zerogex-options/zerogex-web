@@ -79,7 +79,7 @@ function SocialLinks({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: 'var(--color-brand-primary)',
     color: '#ffffff',
     textDecoration: 'none',
     transition: 'transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease',
@@ -158,15 +158,15 @@ function SocialLinks({
 
 export default function Footer({ theme }: FooterProps) {
   const isDark = theme === 'dark';
-  const subtext = isDark ? colors.muted : 'var(--text-muted)';
-  const textLight = isDark ? colors.light : 'var(--text-inverse)';
+  const subtext = isDark ? 'var(--text-secondary)' : 'var(--text-muted)';
+  const textLight = isDark ? "var(--text-primary)" : 'var(--text-inverse)';
 
   return (
     <footer
       className="border-t mt-16"
       style={{
         background: isDark
-          ? `linear-gradient(135deg, ${colors.cardDark}66 0%, var(--bg-active) 100%)`
+          ? 'linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 40%, transparent) 0%, var(--bg-active) 100%)'
           : 'var(--border-subtle)',
         borderColor: border,
       }}
@@ -174,7 +174,7 @@ export default function Footer({ theme }: FooterProps) {
       <div className="container mx-auto px-6 py-12">
         <div className="hidden md:flex" style={{ alignItems: 'center', gap: 32 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.primary, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-brand-primary)', marginBottom: 14 }}>
               Navigation
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
@@ -223,9 +223,9 @@ export default function Footer({ theme }: FooterProps) {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '5px 12px', borderRadius: 999,
-                background: `${colors.primary}18`,
-                border: `1px solid ${colors.primary}40`,
-                color: colors.primary, fontSize: 11, fontWeight: 700,
+                background: `${'var(--color-brand-primary)'}18`,
+                border: `1px solid ${'var(--color-brand-primary)'}40`,
+                color: 'var(--color-brand-primary)', fontSize: 11, fontWeight: 700,
                 letterSpacing: '0.04em', textDecoration: 'none',
                 marginTop: 4,
               }}
@@ -247,7 +247,7 @@ export default function Footer({ theme }: FooterProps) {
 
         <div className="flex md:hidden" style={{ gap: 16 }}>
           <div style={{ flex: '0 0 62%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.primary, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-brand-primary)', marginBottom: 4 }}>
               Navigation
             </div>
             {footerLinks.map((item) => (
@@ -272,9 +272,9 @@ export default function Footer({ theme }: FooterProps) {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '5px 10px', borderRadius: 999,
-                background: `${colors.primary}18`,
-                border: `1px solid ${colors.primary}40`,
-                color: colors.primary, fontSize: 11, fontWeight: 700,
+                background: `${'var(--color-brand-primary)'}18`,
+                border: `1px solid ${'var(--color-brand-primary)'}40`,
+                color: 'var(--color-brand-primary)', fontSize: 11, fontWeight: 700,
                 letterSpacing: '0.04em', textDecoration: 'none',
                 width: 'fit-content', marginTop: 4,
               }}

@@ -48,17 +48,17 @@ const REGIME_LABELS: Record<GEXHistoricalRegime, string> = {
 function regimeColor(regime: GEXHistoricalRegime): { bg: string; fg: string } {
   switch (regime) {
     case 'extreme_high':
-      return { bg: 'rgba(27, 196, 125, 0.18)', fg: colors.bullish };
+      return { bg: 'rgba(27, 196, 125, 0.18)', fg: 'var(--color-bull)' };
     case 'elevated':
-      return { bg: 'rgba(245, 158, 11, 0.18)', fg: colors.neutral };
+      return { bg: 'rgba(245, 158, 11, 0.18)', fg: 'var(--color-warning)' };
     case 'low':
-      return { bg: 'rgba(245, 158, 11, 0.18)', fg: colors.neutral };
+      return { bg: 'rgba(245, 158, 11, 0.18)', fg: 'var(--color-warning)' };
     case 'extreme_low':
-      return { bg: 'rgba(255, 77, 90, 0.18)', fg: colors.bearish };
+      return { bg: 'rgba(255, 77, 90, 0.18)', fg: 'var(--color-bear)' };
     case 'normal':
-      return { bg: 'rgba(255, 211, 128, 0.10)', fg: colors.muted };
+      return { bg: 'rgba(255, 211, 128, 0.10)', fg: 'var(--text-secondary)' };
     default:
-      return { bg: 'transparent', fg: colors.muted };
+      return { bg: 'transparent', fg: 'var(--text-secondary)' };
   }
 }
 

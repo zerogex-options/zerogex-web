@@ -41,7 +41,7 @@ export default function ExpandableCard({
             style={{
               color: 'var(--text-primary)',
               backgroundColor: 'var(--bg-card)',
-              borderColor: colors.muted,
+              borderColor: 'var(--text-secondary)',
             }}
           >
             <Expand size={16} />

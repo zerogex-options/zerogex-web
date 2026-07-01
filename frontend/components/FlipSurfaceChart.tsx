@@ -47,10 +47,10 @@ const NEGATIVE_HUE: RGB = { r: 188, g: 80, b: 144 };
 
 // Reference-line colours mirrored from the Strike Profile chart on the
 // Dealer Positioning page so the two read as a coherent pair.
-const CALL_WALL_COLOR = colors.bullish;
-const PUT_WALL_COLOR = colors.bearish;
+const CALL_WALL_COLOR = 'var(--color-bull)';
+const PUT_WALL_COLOR = 'var(--color-bear)';
 const SPOT_COLOR = '#06B6D4';
-const FLIP_COLOR = colors.warning;
+const FLIP_COLOR = 'var(--color-warning)';
 
 // Bigger / bolder typography for the reference-line labels so they pop
 // against the navy / magenta gradient cells.
@@ -118,7 +118,7 @@ export default function FlipSurfaceChart({
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = 'var(--text-primary)';
-  const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
+  const mutedText = isDark ? 'var(--text-secondary)' : 'var(--color-text-secondary)';
 
   const { data: surface, loading, error } = useFlipSurface(symbol, horizons, { refreshInterval: 7000 });
 
@@ -501,7 +501,7 @@ export default function FlipSurfaceChart({
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${colors.muted}`,
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
         <div className="flex items-start justify-between gap-3 mb-4 flex-wrap shrink-0">
@@ -516,7 +516,7 @@ export default function FlipSurfaceChart({
         </div>
 
         {error ? (
-          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: colors.bearish }}>
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--color-bear)' }}>
             {error === 'No data available yet'
               ? `No usable option snapshot for ${symbol} — check ingestion.`
               : `Backend error: ${error}`}

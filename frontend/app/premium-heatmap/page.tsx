@@ -193,7 +193,7 @@ export default function PremiumHeatmapPage() {
     return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
   }, [data, metric, optionType]);
 
-  const muted = theme === 'dark' ? colors.muted : colors.dark;
+  const muted = theme === 'dark' ? 'var(--text-secondary)' : "var(--text-primary)";
   const inputBorder = 'var(--border-default)';
   const inputBg = 'var(--bg-card)';
   const inputColor = 'var(--text-primary)';

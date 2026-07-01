@@ -144,7 +144,7 @@ export default function NewsHeadlinesBadge({
   const hasFresh = !!newestHighSignal && now - newestHighSignal.publishedAtMs < FRESH_THRESHOLD_MS;
 
   const border = "var(--color-border)";
-  const cardBg = theme === "dark" ? `${colors.cardDark}f5` : `${colors.cardLight}f5`;
+  const cardBg = "color-mix(in srgb, var(--bg-card) 96%, transparent)";
 
   const iconSize = compact ? 18 : 20;
 
@@ -155,18 +155,18 @@ export default function NewsHeadlinesBadge({
       className="relative rounded-full border transition-colors"
       style={{
         borderColor: border,
-        color: colors.muted,
+        color: 'var(--text-secondary)',
         backgroundColor: "transparent",
         padding: compact ? "6px" : "9px",
         cursor: "pointer",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = `${colors.accent}26`;
-        e.currentTarget.style.color = colors.accent;
+        e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`;
+        e.currentTarget.style.color = 'var(--color-brand-accent)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent";
-        e.currentTarget.style.color = colors.muted;
+        e.currentTarget.style.color = 'var(--text-secondary)';
       }}
       aria-label="Top headlines"
       title={
@@ -186,9 +186,9 @@ export default function NewsHeadlinesBadge({
             width: compact ? "10px" : "12px",
             height: compact ? "10px" : "12px",
             borderRadius: "999px",
-            background: colors.coral,
-            border: `1px solid ${colors.coral}66`,
-            boxShadow: `0 0 10px ${colors.coral}80`,
+            background: 'var(--color-brand-coral)',
+            border: `1px solid ${'var(--color-brand-coral)'}66`,
+            boxShadow: `0 0 10px ${'var(--color-brand-coral)'}80`,
           }}
         />
       )}
@@ -251,7 +251,7 @@ export default function NewsHeadlinesBadge({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Newspaper size={16} style={{ color: colors.primary }} />
+            <Newspaper size={16} style={{ color: 'var(--color-brand-primary)' }} />
             <span
               className="text-xs font-bold uppercase tracking-wider"
               style={{ color: 'var(--text-primary)' }}
@@ -263,7 +263,7 @@ export default function NewsHeadlinesBadge({
             type="button"
             onClick={() => setOpen(false)}
             className="rounded-md p-1"
-            style={{ color: colors.muted, background: "transparent", cursor: "pointer" }}
+            style={{ color: 'var(--text-secondary)', background: "transparent", cursor: "pointer" }}
             aria-label="Close"
           >
             <X size={14} />
@@ -288,12 +288,10 @@ export default function NewsHeadlinesBadge({
                   onClick={() => setFilterMode(mode)}
                   className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors"
                   style={{
-                    background: active ? colors.primary : "transparent",
+                    background: active ? 'var(--color-brand-primary)' : "transparent",
                     color: active
                       ? "#FFFFFF"
-                      : theme === "dark"
-                        ? colors.light
-                        : colors.dark,
+                      : "var(--text-primary)",
                     cursor: "pointer",
                   }}
                 >
@@ -304,7 +302,7 @@ export default function NewsHeadlinesBadge({
           </div>
           <span
             className="text-[10px] font-semibold uppercase tracking-wider"
-            style={{ color: colors.muted }}
+            style={{ color: 'var(--text-secondary)' }}
           >
             {visibleHeadlines.length} shown
           </span>
@@ -312,7 +310,7 @@ export default function NewsHeadlinesBadge({
         {isFallback && (
           <div
             className="mt-2 text-[10px]"
-            style={{ color: colors.muted }}
+            style={{ color: 'var(--text-secondary)' }}
           >
             No high-signal headlines yet — showing all.
           </div>
@@ -320,15 +318,15 @@ export default function NewsHeadlinesBadge({
       </div>
 
       {loading && !data ? (
-        <div className="px-4 py-6 text-xs" style={{ color: colors.muted, textAlign: "center" }}>
+        <div className="px-4 py-6 text-xs" style={{ color: 'var(--text-secondary)', textAlign: "center" }}>
           Loading headlines…
         </div>
       ) : error && headlines.length === 0 ? (
-        <div className="px-4 py-6 text-xs" style={{ color: colors.muted, textAlign: "center" }}>
+        <div className="px-4 py-6 text-xs" style={{ color: 'var(--text-secondary)', textAlign: "center" }}>
           Unable to load headlines.
         </div>
       ) : visibleHeadlines.length === 0 ? (
-        <div className="px-4 py-6 text-xs" style={{ color: colors.muted, textAlign: "center" }}>
+        <div className="px-4 py-6 text-xs" style={{ color: 'var(--text-secondary)', textAlign: "center" }}>
           No headlines available.
         </div>
       ) : (
@@ -341,8 +339,8 @@ export default function NewsHeadlinesBadge({
                 key={h.id}
                 className="rounded-lg border p-3"
                 style={{
-                  borderColor: fresh ? pal.border : `${colors.muted}40`,
-                  background: fresh ? pal.bg : `${colors.muted}1a`,
+                  borderColor: fresh ? pal.border : `${'var(--text-secondary)'}40`,
+                  background: fresh ? pal.bg : `${'var(--text-secondary)'}1a`,
                   marginTop: idx === 0 ? 0 : "8px",
                 }}
               >
@@ -360,7 +358,7 @@ export default function NewsHeadlinesBadge({
                   </span>
                   <span
                     className="text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ color: colors.muted, whiteSpace: "nowrap" }}
+                    style={{ color: 'var(--text-secondary)', whiteSpace: "nowrap" }}
                     title={
                       new Date(h.publishedAtMs).toLocaleString("en-US", {
                         timeZone: "America/New_York",
@@ -381,7 +379,7 @@ export default function NewsHeadlinesBadge({
                       textDecoration: "none",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.color = colors.accent;
+                      e.currentTarget.style.color = 'var(--color-brand-accent)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.color =
@@ -400,14 +398,14 @@ export default function NewsHeadlinesBadge({
                 )}
                 <div
                   className="mt-1.5 flex items-center justify-between text-[11px] font-semibold"
-                  style={{ color: colors.muted }}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   <span>
                     {h.source}
                     {h.crossSourceCount >= 2 && (
                       <span
                         title={`Cross-confirmed by ${h.crossSourceCount} sources`}
-                        style={{ marginLeft: 6, color: colors.bullish, fontWeight: 700 }}
+                        style={{ marginLeft: 6, color: 'var(--color-bull)', fontWeight: 700 }}
                       >
                         ×{h.crossSourceCount}
                       </span>
@@ -425,7 +423,7 @@ export default function NewsHeadlinesBadge({
         className="border-t px-4 py-2.5 text-[10px]"
         style={{
           borderColor: border,
-          color: colors.muted,
+          color: 'var(--text-secondary)',
           textAlign: "center",
         }}
       >

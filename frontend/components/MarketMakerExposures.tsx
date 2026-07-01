@@ -207,8 +207,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const isDark = theme === 'dark';
   const textPrimary = 'var(--text-primary)';
   const cardBg = 'var(--bg-card)';
-  const border = colors.muted;
-  const subtle = colors.muted;
+  const border = 'var(--text-secondary)';
+  const subtle = 'var(--text-secondary)';
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
@@ -1565,7 +1565,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             paused && (
               <span
                 className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+                style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
               >
                 Paused
               </span>
@@ -1657,7 +1657,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={downY}
                       width={volBarW}
                       height={Math.max(0, downH)}
-                      fill={colors.bearish}
+                      fill={'var(--color-bear)'}
                     />
                   )}
                   {c.upVolume > 0 && (
@@ -1666,7 +1666,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={upY}
                       width={volBarW}
                       height={Math.max(0, upH)}
-                      fill={colors.bullish}
+                      fill={'var(--color-bull)'}
                     />
                   )}
                 </g>
@@ -1718,9 +1718,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 if (prevClose == null || c.close === prevClose) {
                   color = textPrimary;
                 } else if (c.close > prevClose) {
-                  color = colors.bullish;
+                  color = 'var(--color-bull)';
                 } else {
-                  color = colors.bearish;
+                  color = 'var(--color-bear)';
                 }
 
                 // ── Fill: close vs OPEN ──
@@ -1846,7 +1846,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={y - barH / 2}
                       width={Math.max(0, w)}
                       height={barH}
-                      fill={positive ? colors.bullish : colors.bearish}
+                      fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
                       opacity={barOpacity}
                     />
                   )}
@@ -1866,7 +1866,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
-                    fill={colors.bullish}
+                    fill={'var(--color-bull)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1876,7 +1876,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
-                    fill={colors.bearish}
+                    fill={'var(--color-bear)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1933,7 +1933,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
-                    fill={colors.bullish}
+                    fill={'var(--color-bull)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1943,7 +1943,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
-                    fill={colors.bearish}
+                    fill={'var(--color-bear)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -2132,7 +2132,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   <div
                     className="font-mono tabular-nums mt-1"
                     style={{
-                      color: hoveredCandle.close >= hoveredCandle.open ? colors.bullish : colors.bearish,
+                      color: hoveredCandle.close >= hoveredCandle.open ? 'var(--color-bull)' : 'var(--color-bear)',
                     }}
                   >
                     {hoveredCandle.close - hoveredCandle.open >= 0 ? '+' : ''}
@@ -2143,9 +2143,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
                       Vol {formatVolume(hoveredCandle.upVolume + hoveredCandle.downVolume)}
                       {' · '}
-                      <span style={{ color: colors.bullish }}>↑ {formatVolume(hoveredCandle.upVolume)}</span>
+                      <span style={{ color: 'var(--color-bull)' }}>↑ {formatVolume(hoveredCandle.upVolume)}</span>
                       {' / '}
-                      <span style={{ color: colors.bearish }}>↓ {formatVolume(hoveredCandle.downVolume)}</span>
+                      <span style={{ color: 'var(--color-bear)' }}>↓ {formatVolume(hoveredCandle.downVolume)}</span>
                     </div>
                   )}
                 </>
@@ -2155,10 +2155,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
                   {gexMode === 'split' ? (
                     <>
-                      <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
                       </div>
-                      <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                         Put GEX: {formatExposure(hoveredStrike.putGex)}
                       </div>
                       <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
@@ -2168,7 +2168,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   ) : (
                     <div
                       className="font-mono tabular-nums"
-                      style={{ color: hoveredStrike.netGex >= 0 ? colors.bullish : colors.bearish }}
+                      style={{ color: hoveredStrike.netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
                     >
                       Net GEX: {formatExposure(hoveredStrike.netGex)}
                     </div>
@@ -2178,10 +2178,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'right' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                     Call OI: {hoveredStrike.callOi.toLocaleString()}
                   </div>
-                  <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                     Put OI: {hoveredStrike.putOi.toLocaleString()}
                   </div>
                   <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>

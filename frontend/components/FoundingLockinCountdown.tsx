@@ -66,9 +66,9 @@ function Unit({ value, label }: { value: number; label: string }) {
         justifyContent: 'center',
         padding: '12px 6px 10px',
         backgroundColor: 'var(--bg-elevated, rgba(255, 255, 255, 0.04))',
-        border: `1px solid ${colors.primary}33`,
+        border: `1px solid ${'var(--color-brand-primary)'}33`,
         borderRadius: 10,
-        boxShadow: `inset 0 0 0 1px ${colors.primary}14, 0 1px 0 rgba(0,0,0,0.18)`,
+        boxShadow: `inset 0 0 0 1px ${'var(--color-brand-primary)'}14, 0 1px 0 rgba(0,0,0,0.18)`,
       }}
     >
       <div
@@ -79,7 +79,7 @@ function Unit({ value, label }: { value: number; label: string }) {
           fontWeight: 700,
           lineHeight: 1,
           letterSpacing: '0.04em',
-          color: colors.primary,
+          color: 'var(--color-brand-primary)',
           fontVariantNumeric: 'tabular-nums',
         }}
         aria-hidden="true"
@@ -120,8 +120,8 @@ export default function FoundingLockinCountdown() {
         marginBottom: 18,
         padding: 10,
         borderRadius: 12,
-        background: `linear-gradient(180deg, ${colors.primary}14 0%, ${colors.primary}05 100%)`,
-        border: `1px solid ${colors.primary}33`,
+        background: `linear-gradient(180deg, ${'var(--color-brand-primary)'}14 0%, ${'var(--color-brand-primary)'}05 100%)`,
+        border: `1px solid ${'var(--color-brand-primary)'}33`,
       }}
     >
       <Unit value={snapshot.days} label="Days" />

@@ -93,7 +93,7 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
             fontWeight: 700,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            color: colors.primary,
+            color: 'var(--color-brand-primary)',
             marginBottom: 10,
           }}
         >
@@ -160,7 +160,7 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
             fontWeight: 600,
             letterSpacing: '0.02em',
             color: '#ffffff',
-            backgroundColor: submitting ? `${colors.primary}99` : colors.primary,
+            backgroundColor: submitting ? `${'var(--color-brand-primary)'}99` : 'var(--color-brand-primary)',
             border: 'none',
             borderRadius: 8,
             cursor: submitting ? 'not-allowed' : 'pointer',

@@ -48,7 +48,7 @@ function getFlowDescription(value: number, type: 'vanna' | 'charm' | 'eod_charm'
 
 function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isDark: boolean }) {
   const width = maxAbs > 0 ? Math.min(100, (Math.abs(value) / maxAbs) * 100) : 0;
-  const barColor = value >= 0 ? colors.bullish : colors.bearish;
+  const barColor = value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
 
   return (
     <div
@@ -100,29 +100,29 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
     volRiskLabel = 'Low';
   }
   const volRiskColor = volRiskLabel === 'High'
-    ? colors.bearish
+    ? 'var(--color-bear)'
     : volRiskLabel === 'Medium'
-      ? colors.warning
-      : colors.muted;
+      ? 'var(--color-warning)'
+      : 'var(--text-secondary)';
 
   const flowItems = [
     {
       title: 'Vanna (vol\u2192delta)',
       description: getFlowDescription(totalVanna, 'vanna'),
       value: totalVanna,
-      color: totalVanna >= 0 ? colors.bullish : colors.bearish,
+      color: totalVanna >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
     },
     {
       title: 'Charm (time\u2192delta)',
       description: getFlowDescription(totalCharm, 'charm'),
       value: totalCharm,
-      color: totalCharm >= 0 ? colors.bullish : colors.bearish,
+      color: totalCharm >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
     },
     {
       title: 'End-of-day charm',
       description: getFlowDescription(eodCharm, 'eod_charm'),
       value: eodCharm,
-      color: eodCharm >= 0 ? colors.bullish : colors.bearish,
+      color: eodCharm >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
     },
   ];
 
@@ -132,7 +132,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
         className="rounded-2xl p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${colors.muted}`,
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
       <div className="flex items-center gap-2 mb-5">
@@ -152,7 +152,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           <div key={item.title} className="flex items-center gap-4">
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold" style={{ color: textColor }}>{item.title}</div>
-              <div className="text-xs" style={{ color: colors.muted }}>{item.description}</div>
+              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.description}</div>
             </div>
             <div className="text-sm font-bold whitespace-nowrap" style={{ color: item.color }}>
               {formatB(item.value)}
@@ -165,7 +165,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold" style={{ color: textColor }}>Vol expansion risk</div>
-            <div className="text-xs" style={{ color: colors.muted }}>
+            <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               {volRiskLabel === 'N/A'
                 ? 'No expansion signal available'
                 : volRiskLabel === 'Low'

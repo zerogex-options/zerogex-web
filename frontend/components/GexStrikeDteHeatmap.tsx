@@ -43,7 +43,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   if (maxAbs < 1 || Math.abs(value) < maxAbs * 0.02) {
     return {
       backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
-      color: isDark ? colors.muted : 'var(--color-text-secondary)',
+      color: isDark ? 'var(--text-secondary)' : 'var(--color-text-secondary)',
     };
   }
 
@@ -118,9 +118,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
         <div
           className="rounded-2xl p-6 h-full flex items-center justify-center"
-          style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${colors.muted}` }}
+          style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
         >
-          <span className="text-sm" style={{ color: colors.muted }}>No heatmap data available</span>
+          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>No heatmap data available</span>
         </div>
       </ExpandableCard>
     );
@@ -132,7 +132,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         className="rounded-2xl p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${colors.muted}`,
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
       <div className="flex items-center gap-2 mb-4">
@@ -157,9 +157,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         <table className="w-full text-xs">
           <thead>
             <tr>
-              <th className="text-left py-2 px-2 font-semibold" style={{ color: colors.muted }}>Strike</th>
+              <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>Strike</th>
               {dteColumns.map((dte) => (
-                <th key={dte} className="text-center py-2 px-2 font-semibold" style={{ color: colors.muted }}>
+                <th key={dte} className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   {dte}DTE
                 </th>
               ))}
@@ -196,7 +196,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 mt-4 text-xs" style={{ color: colors.muted }}>
+      <div className="flex flex-wrap gap-4 mt-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(27, 196, 125, 0.6)' }} />
           High + GEX

@@ -268,7 +268,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${colors.muted}` }}>
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -302,7 +302,7 @@ export default function UnderlyingCandlesChart() {
               y={(padTop + priceAreaBottom) / 2}
               transform={`rotate(-90, 18, ${(padTop + priceAreaBottom) / 2})`}
               fontSize="12"
-              fill={colors.muted}
+              fill={'var(--text-secondary)'}
             >
               Price
             </text>
@@ -317,7 +317,7 @@ export default function UnderlyingCandlesChart() {
                     x2={width - padRight}
                     y1={y}
                     y2={y}
-                    stroke={colors.muted}
+                    stroke={'var(--text-secondary)'}
                     opacity={0.2}
                   />
                   <text
@@ -325,7 +325,7 @@ export default function UnderlyingCandlesChart() {
                     y={y + 4}
                     textAnchor="end"
                     fontSize="10"
-                    fill={colors.muted}
+                    fill={'var(--text-secondary)'}
                   >
                     {priceLabel(price, priceAxis.step)}
                   </text>
@@ -338,7 +338,7 @@ export default function UnderlyingCandlesChart() {
               y={(volumeAreaTop + volumeAreaBottom) / 2}
               transform={`rotate(-90, 18, ${(volumeAreaTop + volumeAreaBottom) / 2})`}
               fontSize="12"
-              fill={colors.muted}
+              fill={'var(--text-secondary)'}
             >
               Volume
             </text>
@@ -348,8 +348,8 @@ export default function UnderlyingCandlesChart() {
               if (y < volumeAreaTop - 0.5 || y > volumeAreaBottom + 0.5) return null;
               return (
                 <g key={`v-${vol}`}>
-                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
-                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
+                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={'var(--text-secondary)'} opacity={0.12} />
+                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={'var(--text-secondary)'}>
                     {volumeLabel(vol)}
                   </text>
                 </g>
@@ -361,7 +361,7 @@ export default function UnderlyingCandlesChart() {
               const prevClose = i > 0 ? bars[i - 1].close : b.open;
               const isUp = b.close > prevClose;
               const isHollow = b.close > b.open;
-              const c = isUp ? colors.bullish : colors.bearish;
+              const c = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
               const openY = yPrice(b.open);
               const closeY = yPrice(b.close);
               const highY = yPrice(b.high);
@@ -417,7 +417,7 @@ export default function UnderlyingCandlesChart() {
                       y={downTopY}
                       width={candleWidth}
                       height={Math.max(1, downBottomY - downTopY)}
-                      fill={colors.bearish}
+                      fill={'var(--color-bear)'}
                       opacity={0.75}
                     />
                   )}
@@ -427,7 +427,7 @@ export default function UnderlyingCandlesChart() {
                       y={upTopY}
                       width={candleWidth}
                       height={Math.max(1, upBottomY - upTopY)}
-                      fill={colors.bullish}
+                      fill={'var(--color-bull)'}
                       opacity={0.75}
                     />
                   )}
@@ -454,7 +454,7 @@ export default function UnderlyingCandlesChart() {
               const showLabel = labeledDateMarkerKeys.has(marker.key);
               return (
                 <g key={`date-marker-${marker.key}`}>
-                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
+                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={'var(--text-secondary)'} opacity={0.22} />
                   {showLabel ? (
                     timeframe === "1day" ? (
                       <text
@@ -462,13 +462,13 @@ export default function UnderlyingCandlesChart() {
                         y={volumeAreaBottom + 44}
                         fontSize="10"
                         textAnchor="start"
-                        fill={colors.muted}
+                        fill={'var(--text-secondary)'}
                         transform={`rotate(-90, ${x + 6}, ${volumeAreaBottom + 44})`}
                       >
                         {marker.label}
                       </text>
                     ) : (
-                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={colors.muted}>
+                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={'var(--text-secondary)'}>
                         {marker.label}
                       </text>
                     )
@@ -481,7 +481,7 @@ export default function UnderlyingCandlesChart() {
               x2={width - padRight}
               y1={priceAreaBottom}
               y2={priceAreaBottom}
-              stroke={colors.muted}
+              stroke={'var(--text-secondary)'}
               opacity={0.35}
             />
             <line
@@ -489,7 +489,7 @@ export default function UnderlyingCandlesChart() {
               x2={width - padRight}
               y1={volumeAreaBottom}
               y2={volumeAreaBottom}
-              stroke={colors.muted}
+              stroke={'var(--text-secondary)'}
               opacity={0.6}
             />
           </svg>
