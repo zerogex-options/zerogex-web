@@ -117,7 +117,7 @@ export default function FlipSurfaceChart({
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
 
   const { data: surface, loading, error } = useFlipSurface(symbol, horizons, { refreshInterval: 7000 });
@@ -197,7 +197,7 @@ export default function FlipSurfaceChart({
     const plotW = Math.max(10, cssW - PAD_L - PAD_R);
     const plotH = Math.max(10, cssH - PAD_T - PAD_B);
 
-    ctx.fillStyle = isDark ? colors.cardDark : colors.cardLight;
+    ctx.fillStyle = 'var(--bg-card)';
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
     const grid = surface.grid;
@@ -500,7 +500,7 @@ export default function FlipSurfaceChart({
       <div
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          backgroundColor: 'var(--bg-card)',
           border: `1px solid ${colors.muted}`,
         }}
       >

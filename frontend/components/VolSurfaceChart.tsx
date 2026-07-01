@@ -284,7 +284,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-secondary)';
   const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
 
@@ -302,8 +302,8 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
       <div
         className="rounded-2xl p-6 h-full"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
+          backgroundColor: 'var(--bg-card)',
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
       <div className="flex items-center gap-2 mb-4">
@@ -316,7 +316,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
       </div>
 
       {loading && surface.length === 0 ? (
-        <div className="flex items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>
+        <div className="flex items-center justify-center h-[300px] text-sm" style={{ color: 'var(--text-secondary)' }}>
           Loading vol surface...
         </div>
       ) : error ? (
@@ -324,7 +324,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           {error}
         </div>
       ) : surface.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[300px] text-sm" style={{ color: colors.muted }}>
+        <div className="flex flex-col items-center justify-center h-[300px] text-sm" style={{ color: 'var(--text-secondary)' }}>
           <span>No vol surface data available</span>
           {normalized.emptyReason && <span className="text-xs mt-2 opacity-80">{normalized.emptyReason}</span>}
         </div>

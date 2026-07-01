@@ -194,9 +194,9 @@ export default function PremiumHeatmapPage() {
   }, [data, metric, optionType]);
 
   const muted = theme === 'dark' ? colors.muted : colors.dark;
-  const inputBorder = theme === 'dark' ? colors.borderDark : colors.borderLight;
-  const inputBg = theme === 'dark' ? colors.cardDark : colors.cardLight;
-  const inputColor = theme === 'dark' ? colors.light : colors.dark;
+  const inputBorder = 'var(--border-default)';
+  const inputBg = 'var(--bg-card)';
+  const inputColor = 'var(--text-primary)';
 
   const selectStyle: React.CSSProperties = {
     padding: '6px 10px',

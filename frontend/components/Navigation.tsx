@@ -322,7 +322,7 @@ export default function Navigation({ theme }: NavigationProps) {
                               }`,
                             }
                           : {
-                              color: theme === "dark" ? colors.light : colors.dark,
+                              color: 'var(--text-primary)',
                               opacity: 0.72,
                               background: "transparent",
                               border: "1px solid transparent",

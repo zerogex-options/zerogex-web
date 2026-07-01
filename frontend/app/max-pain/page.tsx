@@ -276,8 +276,8 @@ export default function MaxPainPage() {
         : 'A lower pin suggests gravity can remain to the downside into expiry, especially on failed bounces.'
   } Day and swing traders can use this as context: fade overextensions near the pin, but treat decisive breaks away from max pain as trend-confirmation signals.`;
 
-  const textColor = theme === "dark" ? colors.light : colors.dark;
-  const panelBg = theme === "dark" ? colors.cardDark : colors.cardLight;
+  const textColor = 'var(--text-primary)';
+  const panelBg = 'var(--bg-card)';
 
   const tsWidth = 1200;
   const tsHeight = 444;
@@ -410,8 +410,8 @@ export default function MaxPainPage() {
       <section className="mb-8">
         <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: colors.muted }}>
-            <div className="text-xs mb-1 flex items-center gap-1" style={{ color: colors.muted }}>
+          <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)' }}>
+            <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
               Current Max Pain (All Expirations)
               <TooltipWrapper text="Whole-chain max pain: the single strike where the most option value across ALL listed expirations would expire worthless, pooled into one payout curve. Open interest only changes at settlement, so this is recomputed once a day (pre-market). It's the authoritative value and is what drives the Implied Move below.">
                 <Info size={12} />
@@ -423,9 +423,9 @@ export default function MaxPainPage() {
               style={{
                 backgroundColor:
                   theme === "dark"
-                    ? `${impliedMove >= 0 ? colors.bullish : colors.bearish}15`
-                    : `${impliedMove >= 0 ? colors.bullish : colors.bearish}10`,
-                color: impliedMove >= 0 ? colors.bullish : colors.bearish,
+                    ? `${impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}15`
+                    : `${impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
+                color: impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
               }}
               title="Implied move = Max Pain - Current Underlying"
             >
@@ -455,7 +455,7 @@ export default function MaxPainPage() {
               value={activeExpirationValue}
               onChange={(e) => setSelectedExpiration(e.target.value)}
               className="px-3 py-2 rounded border"
-              style={{ backgroundColor: panelBg, borderColor: colors.muted, color: textColor }}
+              style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)', color: textColor }}
             >
               {expirationOptions.map((exp) => (
                 <option key={exp.expiration} value={exp.expiration}>{exp.expiration}</option>
@@ -469,12 +469,12 @@ export default function MaxPainPage() {
         ) : oiLoading && !maxPainCurrent ? (
           <div className="py-8"><LoadingSpinner /></div>
         ) : oiChart.length === 0 ? (
-          <div className="text-center py-8" style={{ color: colors.muted }}>No max pain OI data available</div>
+          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain OI data available</div>
         ) : (
           <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={380}>
             <BarChart data={oiChart} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.muted} opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" stroke={'var(--text-secondary)'} opacity={0.3} />
               <XAxis
                 dataKey="strike"
                 stroke={textColor}
@@ -506,7 +506,7 @@ export default function MaxPainPage() {
               <ReferenceLine
                 ifOverflow="extendDomain"
                 x={safeNum(activeExpiration?.max_pain || currentMaxPain)}
-                stroke={colors.primary}
+                stroke={'var(--color-brand-primary)'}
                 strokeDasharray="6 4"
                 strokeWidth={2}
                 label={{
@@ -529,8 +529,8 @@ export default function MaxPainPage() {
                   dy: underlyingLabelDy,
                 }}
               />
-              <Bar dataKey="callNotionalM" name="Call Notional" fill={colors.bullish} />
-              <Bar dataKey="putNotionalM" name="Put Notional" fill={colors.bearish} />
+              <Bar dataKey="callNotionalM" name="Call Notional" fill={'var(--color-bull)'} />
+              <Bar dataKey="putNotionalM" name="Put Notional" fill={'var(--color-bear)'} />
             </BarChart>
           </ResponsiveContainer>
           </MobileScrollableChart>
@@ -549,7 +549,7 @@ export default function MaxPainPage() {
         ) : seriesLoading && !maxPainSeries ? (
           <div className="py-8"><LoadingSpinner /></div>
         ) : seriesChart.length === 0 ? (
-          <div className="text-center py-8" style={{ color: colors.muted }}>No max pain timeseries data available</div>
+          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain timeseries data available</div>
         ) : (
           <div className="relative overflow-x-auto">
           <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => { setHoveredIdx(null); setHoverPx(null); }}>
@@ -558,18 +558,18 @@ export default function MaxPainPage() {
               const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
               return (
                 <g key={val}>
-                  <line x1={padLeft} x2={tsWidth - padRight} y1={yPos} y2={yPos} stroke={colors.muted} opacity={0.25} />
+                  <line x1={padLeft} x2={tsWidth - padRight} y1={yPos} y2={yPos} stroke={'var(--text-secondary)'} opacity={0.25} />
                   <text x={padLeft - 8} y={yPos + 4} textAnchor="end" fontSize="10" fill={textColor}>{label}</text>
                 </g>
               );
             })}
 
-            <path d={maxPainPath} fill="none" stroke={colors.primary} strokeWidth={2.5} />
+            <path d={maxPainPath} fill="none" stroke={'var(--color-brand-primary)'} strokeWidth={2.5} />
 
             {seriesChart.map((r, i) => {
               const x = padLeft + i * xStep;
               const up = r.close >= r.open;
-              const c = up ? colors.bullish : colors.bearish;
+              const c = up ? 'var(--color-bull)' : 'var(--color-bear)';
               const openY = y(r.open);
               const closeY = y(r.close);
               const highY = y(r.high);
@@ -601,9 +601,9 @@ export default function MaxPainPage() {
               const showLabel = labeledDateMarkerKeys.has(marker.key);
               return (
                 <g key={`date-marker-${marker.key}`}>
-                  <line x1={x} x2={x} y1={padTop} y2={tsHeight - padBottom} stroke={colors.muted} opacity={0.22} />
+                  <line x1={x} x2={x} y1={padTop} y2={tsHeight - padBottom} stroke={'var(--text-secondary)'} opacity={0.22} />
                   {showLabel ? (
-                    <text x={x + 4} y={dateLabelY} fontSize="10" textAnchor="start" fill={colors.muted}>
+                    <text x={x + 4} y={dateLabelY} fontSize="10" textAnchor="start" fill={'var(--text-secondary)'}>
                       {marker.label}
                     </text>
                   ) : null}
@@ -617,14 +617,14 @@ export default function MaxPainPage() {
                 x2={padLeft + resolvedIdx * xStep}
                 y1={padTop}
                 y2={tsHeight - padBottom}
-                stroke={colors.muted}
+                stroke={'var(--text-secondary)'}
                 opacity={0.5}
                 strokeDasharray="3,3"
                 pointerEvents="none"
               />
             ) : null}
 
-            <rect x={padLeft} y={8} width="10" height="2" fill={colors.primary} />
+            <rect x={padLeft} y={8} width="10" height="2" fill={'var(--color-brand-primary)'} />
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
           {hoveredRow && hoverPx ? (

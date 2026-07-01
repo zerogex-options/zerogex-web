@@ -254,7 +254,7 @@ export default function NewsHeadlinesBadge({
             <Newspaper size={16} style={{ color: colors.primary }} />
             <span
               className="text-xs font-bold uppercase tracking-wider"
-              style={{ color: theme === "dark" ? colors.light : colors.dark }}
+              style={{ color: 'var(--text-primary)' }}
             >
               Top Headlines
             </span>
@@ -377,7 +377,7 @@ export default function NewsHeadlinesBadge({
                     rel="noopener noreferrer"
                     className="mt-2 block text-sm font-bold leading-snug"
                     style={{
-                      color: theme === "dark" ? colors.light : colors.dark,
+                      color: 'var(--text-primary)',
                       textDecoration: "none",
                     }}
                     onMouseEnter={(e) => {
@@ -385,7 +385,7 @@ export default function NewsHeadlinesBadge({
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.color =
-                        theme === "dark" ? colors.light : colors.dark;
+                        'var(--text-primary)';
                     }}
                   >
                     {h.title}
@@ -393,7 +393,7 @@ export default function NewsHeadlinesBadge({
                 ) : (
                   <div
                     className="mt-2 text-sm font-bold leading-snug"
-                    style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {h.title}
                   </div>

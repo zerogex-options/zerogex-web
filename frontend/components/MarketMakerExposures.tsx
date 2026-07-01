@@ -205,8 +205,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const VOL_AREA_TOP = PLOT_BOTTOM - PLOT_HEIGHT * 0.2;
   const VOL_AREA_BOTTOM = PLOT_BOTTOM;
   const isDark = theme === 'dark';
-  const textPrimary = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const textPrimary = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
   const border = colors.muted;
   const subtle = colors.muted;
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';

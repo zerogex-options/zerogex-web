@@ -54,7 +54,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
     const alpha = 0.15 + intensity * 0.55;
     return {
       backgroundColor: `rgba(27, 196, 125, ${alpha})`,
-      color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
+      color: intensity > 0.5 ? 'var(--color-surface)' : ('var(--text-primary)'),
     };
   }
 
@@ -62,7 +62,7 @@ function getCellStyle(value: number, maxAbs: number, isDark: boolean): { backgro
   const alpha = 0.15 + intensity * 0.55;
   return {
     backgroundColor: `rgba(255, 77, 90, ${alpha})`,
-    color: intensity > 0.5 ? 'var(--color-surface)' : (isDark ? colors.light : colors.dark),
+    color: intensity > 0.5 ? 'var(--color-surface)' : ('var(--text-primary)'),
   };
 }
 
@@ -70,7 +70,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
   const { theme } = useTheme();
   const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   // Per-1% (stored) → active unit. Applied only to displayed labels.
   const gexFactor = gexScaleFactor(gexUnit, spotPrice);
 
@@ -118,7 +118,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
         <div
           className="rounded-2xl p-6 h-full flex items-center justify-center"
-          style={{ backgroundColor: isDark ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}
+          style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${colors.muted}` }}
         >
           <span className="text-sm" style={{ color: colors.muted }}>No heatmap data available</span>
         </div>
@@ -131,7 +131,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       <div
         className="rounded-2xl p-6 h-full"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          backgroundColor: 'var(--bg-card)',
           border: `1px solid ${colors.muted}`,
         }}
       >

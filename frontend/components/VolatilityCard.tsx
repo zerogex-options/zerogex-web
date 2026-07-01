@@ -44,7 +44,7 @@ interface InfoPanelProps {
 function InfoPanel({ type, isDark }: InfoPanelProps) {
   const isSpeed = type === "speedometer";
   const zones = isSpeed ? SPEEDOMETER_ZONES : TACHOMETER_ZONES;
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const mutedColor = isDark ? "var(--text-secondary)" : "var(--text-secondary)";
   const dividerColor = isDark ? "var(--border-subtle)" : "var(--border-default)";
 
@@ -135,9 +135,9 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
   const [panelOpen, setPanelOpen] = useState(false);
   const isSpeed = type === "speedometer";
   const valueColor = interpolateGaugeColor(value);
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
 
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const cardBg = 'var(--bg-card)';
   const shadowBase = isDark
     ? "0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)"
     : "0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)";

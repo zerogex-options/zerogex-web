@@ -134,8 +134,8 @@ export default function GammaHeatmapCanvas() {
   const { getMaxDataPoints, symbol } = useTimeframe();
   const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
-  const textPrimary = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const textPrimary = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
   const border = colors.muted;
   const subtle = colors.muted;
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
@@ -477,7 +477,7 @@ export default function GammaHeatmapCanvas() {
     const plotW = Math.max(10, cssW - PAD_L - PAD_R);
     const plotH = Math.max(10, cssH - PAD_T - PAD_B);
 
-    ctx.fillStyle = isDark ? colors.cardDark : colors.cardLight;
+    ctx.fillStyle = 'var(--bg-card)';
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
     const T = grid.timestamps.length;

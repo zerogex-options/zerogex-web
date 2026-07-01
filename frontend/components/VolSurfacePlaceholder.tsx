@@ -12,13 +12,13 @@ export default function VolSurfacePlaceholder() {
     <div
       className="rounded-2xl p-6 flex flex-col h-full"
       style={{
-        backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+        backgroundColor: 'var(--bg-card)',
         border: `1px solid ${colors.muted}`,
       }}
     >
       <h3
         className="text-sm font-bold tracking-wider uppercase mb-4"
-        style={{ color: isDark ? colors.light : colors.dark }}
+        style={{ color: 'var(--text-primary)' }}
       >
         VOL SURFACE
       </h3>

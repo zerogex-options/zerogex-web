@@ -222,7 +222,7 @@ export default function UnderlyingCandlesChart() {
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
     return (
-      <div className="rounded-lg p-6 text-center text-[var(--color-text-secondary)]" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg p-6 text-center text-[var(--color-text-secondary)]" style={{ backgroundColor: 'var(--bg-card)' }}>
         No underlying timeseries data available
       </div>
     );
@@ -268,7 +268,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${colors.muted}` }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -437,7 +437,7 @@ export default function UnderlyingCandlesChart() {
                       y={volumeAreaBottom + 18}
                       fontSize={isMobile ? "8" : "10"}
                       textAnchor="middle"
-                      fill={theme === "dark" ? colors.light : colors.dark}
+                      fill={'var(--text-primary)'}
                     >
                       {new Date(b.timestamp).toLocaleTimeString("en-US", {
                         hour: "2-digit",

@@ -72,7 +72,7 @@ function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isD
 export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVannaFlowsProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
 
   const rows = byStrikeData || [];
   const totalVanna = rows.reduce((sum, r) => sum + Number(r.vanna_exposure || 0), 0);
@@ -131,7 +131,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
       <div
         className="rounded-2xl p-6 h-full"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
+          backgroundColor: 'var(--bg-card)',
           border: `1px solid ${colors.muted}`,
         }}
       >

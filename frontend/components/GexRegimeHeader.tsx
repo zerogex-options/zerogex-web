@@ -117,8 +117,8 @@ export default function GexRegimeHeader({
 }: GexRegimeHeaderProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const textColor = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
 
   const gammaFlip = gexSummary?.gamma_flip ?? null;
   const spotPrice = quoteData?.close;

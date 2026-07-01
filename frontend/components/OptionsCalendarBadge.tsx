@@ -189,7 +189,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
               <CalendarDays size={16} style={{ color: colors.primary }} />
               <span
                 className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                style={{ color: 'var(--text-primary)' }}
               >
                 Options Calendar
               </span>
@@ -255,7 +255,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
                     <div
                       className="mt-2 text-xs leading-snug"
                       style={{
-                        color: theme === "dark" ? colors.light : colors.dark,
+                        color: 'var(--text-primary)',
                         opacity: 0.85,
                       }}
                     >

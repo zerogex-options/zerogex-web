@@ -100,7 +100,7 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
         className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider flex items-center gap-2"
         style={{
           backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
-          color: theme === 'dark' ? colors.light : colors.dark,
+          color: 'var(--text-primary)',
           border: `1px solid ${colors.muted}40`,
           boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
         }}

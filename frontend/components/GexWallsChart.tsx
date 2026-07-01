@@ -118,10 +118,10 @@ function WallMapTooltip({
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
       {payload.map((entry, i) => {
         if (entry.dataKey === 'callValue') {
-          return <div key={i} style={{ color: colors.bullish }}>Call {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
+          return <div key={i} style={{ color: 'var(--color-bull)' }}>Call {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
         }
         if (entry.dataKey === 'putValue') {
-          return <div key={i} style={{ color: colors.bearish }}>Put {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
+          return <div key={i} style={{ color: 'var(--color-bear)' }}>Put {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
         }
         return null;
       })}
@@ -133,7 +133,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
   const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
   const inputBg = 'var(--color-surface-subtle)';
@@ -307,15 +307,15 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   const renderLegend = () => (
     <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
       <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bull)' }} />
         Call {modeLabel(displayMode)}
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bear)' }} />
         Put {modeLabel(displayMode)}
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#FFD700' }} />
+        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: 'var(--color-gold)' }} />
         Spot (nearest strike)
       </div>
     </div>
@@ -326,8 +326,8 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
       <div
         className="rounded-2xl p-6"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
+          backgroundColor: 'var(--bg-card)',
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -430,7 +430,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         </div>
 
         {!chartData.length ? (
-          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: colors.muted }}>
+          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--text-secondary)' }}>
             No open-interest data available for the selected expiration.
           </div>
         ) : (
@@ -459,11 +459,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="value" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={colors.bullish} opacity={1} barSize={14} />
-                <Bar yAxisId="value" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={colors.bearish} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} opacity={1} barSize={14} />
+                <Bar yAxisId="value" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} opacity={1} barSize={14} />
 
                 {closestStrike != null && (
-                  <ReferenceLine yAxisId="value" x={closestStrike} stroke="#FFD700" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: '#FFD700', position: 'top', fontSize: 11 }} />
+                  <ReferenceLine yAxisId="value" x={closestStrike} stroke="var(--color-gold)" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: 'var(--color-gold)', position: 'top', fontSize: 11 }} />
                 )}
               </ComposedChart>
             </ResponsiveContainer>

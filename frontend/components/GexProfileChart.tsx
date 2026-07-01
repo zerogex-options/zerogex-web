@@ -299,10 +299,10 @@ function ProfileTooltip({
         )}
       </div>
       {call != null && (
-        <div style={{ color: colors.bullish }}>Call GEX: {formatExposure(Number(call))}</div>
+        <div style={{ color: 'var(--color-bull)' }}>Call GEX: {formatExposure(Number(call))}</div>
       )}
       {put != null && (
-        <div style={{ color: colors.bearish }}>Put GEX: {formatExposure(Number(put))}</div>
+        <div style={{ color: 'var(--color-bear)' }}>Put GEX: {formatExposure(Number(put))}</div>
       )}
       {net != null && (
         <div style={{ color: 'var(--color-text-primary)' }}>Net GEX: {formatExposure(Number(net))}</div>
@@ -331,7 +331,7 @@ export default function GexProfileChart({
   const { gexUnit } = useGexUnit();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
+  const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
   const gridStroke = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
 
@@ -491,8 +491,8 @@ export default function GexProfileChart({
       <div
         className="rounded-2xl p-6"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
+          backgroundColor: 'var(--bg-card)',
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
         {/* Header: title on the left, legend top-right above the plot area so
@@ -575,11 +575,11 @@ export default function GexProfileChart({
               </label>
             )}
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bullish }} />
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bull)' }} />
               Call GEX
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: colors.bearish }} />
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bear)' }} />
               Put GEX
             </div>
             <div className="flex items-center gap-1.5">
@@ -594,15 +594,15 @@ export default function GexProfileChart({
         </div>
 
         {error ? (
-          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: colors.bearish }}>
+          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--color-bear)' }}>
             Failed to load GEX profile: {error}
           </div>
         ) : loading && !profileData ? (
-          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: colors.muted }}>
+          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--text-secondary)' }}>
             Loading GEX profile…
           </div>
         ) : !hasData ? (
-          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: colors.muted }}>
+          <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--text-secondary)' }}>
             No GEX profile data available.
           </div>
         ) : (
@@ -704,7 +704,7 @@ export default function GexProfileChart({
                   yAxisId="strike"
                   dataKey="callGex"
                   name="Call GEX"
-                  fill={colors.bullish}
+                  fill={'var(--color-bull)'}
                   barSize={BAR_SIZE}
                   isAnimationActive={false}
                 />
@@ -712,7 +712,7 @@ export default function GexProfileChart({
                   yAxisId="strike"
                   dataKey="putGex"
                   name="Put GEX"
-                  fill={colors.bearish}
+                  fill={'var(--color-bear)'}
                   barSize={BAR_SIZE}
                   isAnimationActive={false}
                 />
@@ -749,13 +749,13 @@ export default function GexProfileChart({
                   <ReferenceLine
                     yAxisId="strike"
                     x={gammaFlip}
-                    stroke={colors.warning}
+                    stroke={'var(--color-warning)'}
                     strokeDasharray="4 4"
                     label={{
                       value: `Flip: ${formatStrikePrecise(gammaFlip)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.flip,
-                      fill: colors.warning,
+                      fill: 'var(--color-warning)',
                       fontSize: 10,
                     }}
                   />
@@ -764,13 +764,13 @@ export default function GexProfileChart({
                   <ReferenceLine
                     yAxisId="strike"
                     x={callWall}
-                    stroke={colors.bullish}
+                    stroke={'var(--color-bull)'}
                     strokeDasharray="2 4"
                     label={{
                       value: `Call Wall: ${formatStrikePrecise(callWall)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.callWall,
-                      fill: colors.bullish,
+                      fill: 'var(--color-bull)',
                       fontSize: 10,
                     }}
                   />
@@ -779,13 +779,13 @@ export default function GexProfileChart({
                   <ReferenceLine
                     yAxisId="strike"
                     x={putWall}
-                    stroke={colors.bearish}
+                    stroke={'var(--color-bear)'}
                     strokeDasharray="2 4"
                     label={{
                       value: `Put Wall: ${formatStrikePrecise(putWall)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.putWall,
-                      fill: colors.bearish,
+                      fill: 'var(--color-bear)',
                       fontSize: 10,
                     }}
                   />

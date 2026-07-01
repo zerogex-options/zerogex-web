@@ -363,7 +363,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               router.push("/account");
                             }}
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                            style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                            style={{ color: 'var(--text-primary)' }}
                           >
                             <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
                           </button>
@@ -376,7 +376,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               router.push("/pricing");
                             }}
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                            style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                            style={{ color: 'var(--text-primary)' }}
                           >
                             <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
                           </button>
@@ -392,7 +392,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             router.push("/login");
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                          style={{ color: 'var(--text-primary)' }}
                         >
                           <span className="inline-flex items-center gap-2.5">
                             {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
@@ -417,7 +417,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         MozAppearance: "none",
                         background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
                         borderColor: border,
-                        color: theme === "dark" ? colors.light : colors.dark,
+                        color: 'var(--text-primary)',
                         width: "100%",
                         height: "100%",
                         padding: "0 22px 0 10px",
@@ -453,7 +453,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       style={{
                         background: theme === "dark" ? `${colors.cardDark}cc` : `${colors.cardLight}cc`,
                         borderColor: border,
-                        color: theme === "dark" ? colors.light : colors.dark,
+                        color: 'var(--text-primary)',
                         width: "96px",
                         backdropFilter: "blur(8px)",
                       }}
@@ -481,7 +481,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
                       <div className="flex items-center gap-1.5 mt-0.5" title={row2Label}>
                         {extendedHoursIcon === "moon" ? <Moon size={11} style={{ color: colors.muted }} /> : <Sun size={11} style={{ color: colors.muted }} />}
-                        <span className="text-xs font-semibold" style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
                         <span className="text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? colors.bullish : colors.bearish }}>
                           {row2Positive ? "+" : ""}{row2Change.toFixed(2)} ({row2Positive ? "+" : ""}{row2ChangePercent.toFixed(2)}%)
                         </span>
@@ -547,7 +547,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             router.push("/account");
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                          style={{ color: 'var(--text-primary)' }}
                         >
                           <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
                         </button>
@@ -560,7 +560,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             router.push("/pricing");
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                          style={{ color: 'var(--text-primary)' }}
                         >
                           <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
                         </button>
@@ -576,7 +576,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           router.push("/login");
                         }}
                         className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                        style={{ color: theme === "dark" ? colors.light : colors.dark }}
+                        style={{ color: 'var(--text-primary)' }}
                       >
                         <span className="inline-flex items-center gap-2.5">
                           {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
@@ -672,7 +672,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           style={{
                             background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                             borderColor: border,
-                            color: theme === 'dark' ? colors.light : colors.dark,
+                            color: 'var(--text-primary)',
                           }}
                         >
                           <span>{page.label}</span>
@@ -692,7 +692,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         style={{
                           background: theme === 'dark' ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)` : colors.cardLight,
                           borderColor: active ? `${colors.primary}60` : border,
-                          color: active ? colors.primary : theme === 'dark' ? colors.light : colors.dark,
+                          color: active ? colors.primary : 'var(--text-primary)',
                         }}
                       >
                         <span>{page.label}</span>
@@ -756,7 +756,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                       setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
                                     }}
                                     className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
-                                    style={{ color: theme === "dark" ? colors.light : colors.dark, opacity: 0.8 }}
+                                    style={{ color: 'var(--text-primary)', opacity: 0.8 }}
                                   >
                                     <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
                                   </button>
@@ -787,7 +787,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         ? `linear-gradient(135deg, ${colors.cardDark} 0%, var(--bg-active) 100%)`
                         : colors.cardLight,
                     borderColor: border,
-                    color: theme === "dark" ? colors.light : colors.dark,
+                    color: 'var(--text-primary)',
                   }}
                 >
                   <option>SPY</option>

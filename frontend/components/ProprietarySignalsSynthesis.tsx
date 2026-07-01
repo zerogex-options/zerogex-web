@@ -39,7 +39,7 @@ interface CardShellProps {
 function CardShell({ title, tooltip, children }: CardShellProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const cardBg = 'var(--bg-card)';
   const shadowBase = isDark
     ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
     : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)';
