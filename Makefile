@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders checkout-recovery public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders checkout-recovery public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry founding-demote backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -29,6 +29,7 @@ help:
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
+	@echo "  make founding-demote - Downgrade founding-cohort users on pro/basic who never redeemed the founding rate and have no active sub (DRY_RUN=1 to preview, YES=1 to apply). Driven by the systemd timer at the FOUNDING_LOCKIN_DEADLINE."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
@@ -231,6 +232,16 @@ revoke-partner:
 # operators use to dry-run before the next scheduled tick.
 partner-grant-expiry:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Downgrade founding-cohort users (founding_eligible=1) comped onto tier=
+# pro/basic at cutover who never redeemed the founding rate AND have no
+# active/trialing Stripe subscription. Driven by
+# zerogex-web-founding-cohort-demotion.timer (deploy step 089), which
+# fires once at the FOUNDING_LOCKIN_DEADLINE (2026-07-01 09:30 ET).
+# Idempotent: re-runs after the deadline no-op because downgraded users
+# no longer match the WHERE clause.
+founding-demote:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Segment the tier='public' cohort into the four reactivation buckets used
 # by the campaign (unverified / founding-eligible / churned / verified-
