@@ -335,12 +335,12 @@ export default function LandingPage() {
 
           <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-small"
               style={{
                 background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 10,
                 padding: '8px 14px',
-                fontSize: 13,
                 fontWeight: 700,
                 color: 'var(--color-text-primary)',
                 cursor: 'pointer',
@@ -352,12 +352,12 @@ export default function LandingPage() {
 
           <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-small"
               style={{
                 background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 10,
                 padding: '8px 14px',
-                fontSize: 13,
                 fontWeight: 700,
                 color: 'var(--color-text-primary)',
                 cursor: 'pointer',
@@ -370,12 +370,12 @@ export default function LandingPage() {
           {/* Login */}
           <Link href="/login" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-small"
               style={{
                 background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 10,
                 padding: '8px 14px',
-                fontSize: 13,
                 fontWeight: 700,
                 color: 'var(--color-text-primary)',
                 cursor: 'pointer',
@@ -482,13 +482,11 @@ export default function LandingPage() {
 
           {/* Supporting tagline — the through-line for the brand */}
           <p
-            className="zg-h3"
+            className="zg-h2"
             style={{
               color: text,
               margin: '0 auto 18px',
               maxWidth: 760,
-              fontWeight: 600,
-              fontSize: 'clamp(18px, 3vw, 24px)',
             }}
           >
             Know the levels that matter — before SPY/SPX/QQQ get there.
@@ -587,10 +585,10 @@ export default function LandingPage() {
                     padding: '12px 14px',
                   }}
                 >
-                  <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                  <div className="zg-label" style={{ color: C.muted, marginBottom: 4 }}>
                     {m.label}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: m.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div className="zg-h4" style={{ color: m.color, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {m.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                     {m.value}
                   </div>
@@ -633,13 +631,13 @@ export default function LandingPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em' }}>
+              <span className="zg-label" style={{ color: C.muted }}>
                 {item.symbol}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: text }}>
+              <span className="zg-mono" style={{ fontSize: 13, color: text }}>
                 {item.price}
               </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: item.up ? C.green : C.red }}>
+              <span className="zg-caption" style={{ fontWeight: 600, color: item.up ? C.green : C.red }}>
                 {item.up ? <TrendingUp size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> : <TrendingDown size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />}
                 {' '}{item.change}
               </span>
@@ -739,10 +737,10 @@ export default function LandingPage() {
               >
                 <item.icon size={18} style={{ color: item.color }} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: text, lineHeight: 1.3, letterSpacing: '-0.2px' }}>
+              <div className="zg-h4" style={{ color: text }}>
                 {item.title}
               </div>
-              <div style={{ fontSize: 14, color: subtext, lineHeight: 1.6 }}>
+              <div className="zg-small" style={{ color: subtext }}>
                 {item.body}
               </div>
             </div>
@@ -829,9 +827,9 @@ export default function LandingPage() {
         >
           <div>
             <div
+              className="zg-label"
               style={{
-                display: 'inline-block', fontSize: 11, fontWeight: 700,
-                letterSpacing: '0.18em', textTransform: 'uppercase',
+                display: 'inline-block',
                 color: C.green, background: `${C.green}18`,
                 border: `1px solid ${C.green}40`, borderRadius: 100,
                 padding: '4px 14px', marginBottom: 20,
@@ -839,21 +837,16 @@ export default function LandingPage() {
             >
               What is ZeroGEX?
             </div>
-            <h2
-              style={{
-                fontSize: 'clamp(26px, 3.5vw, 42px)', fontWeight: 800,
-                color: text, margin: '0 0 20px', lineHeight: 1.2, letterSpacing: '-0.5px',
-              }}
-            >
+            <h2 className="zg-h1" style={{ color: text, margin: '0 0 20px' }}>
               Gamma Exposure,{' '}
               <span style={{ color: C.amber }}>Decoded</span>
             </h2>
-            <p style={{ fontSize: 16, color: subtext, lineHeight: 1.75, margin: '0 0 20px' }}>
+            <p className="zg-body" style={{ color: subtext, margin: '0 0 20px' }}>
               <strong style={{ color: text }}>Gamma Exposure (GEX)</strong> is the hidden force that drives
               intraday market dynamics. When dealers sell options, they must hedge by trading the underlying —
               creating predictable price gravity and invisible walls at key levels.
             </p>
-            <p style={{ fontSize: 16, color: subtext, lineHeight: 1.75, margin: '0 0 28px' }}>
+            <p className="zg-body" style={{ color: subtext, margin: '0 0 28px' }}>
               ZeroGEX surfaces these forces in real-time so you can anticipate institutional hedging flows,
               identify gamma flip levels, and time your entries with precision.
             </p>
@@ -910,8 +903,8 @@ export default function LandingPage() {
                   <item.icon size={16} style={{ color: item.color }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 3 }}>{item.label}</div>
-                  <div style={{ fontSize: 13, color: subtext, lineHeight: 1.5 }}>{item.desc}</div>
+                  <div className="zg-h4" style={{ color: text, marginBottom: 3 }}>{item.label}</div>
+                  <div className="zg-small" style={{ color: subtext }}>{item.desc}</div>
                 </div>
               </div>
             ))}
@@ -1042,8 +1035,8 @@ export default function LandingPage() {
               >
                 <item.icon size={20} style={{ color: item.color }} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: text, marginBottom: 8 }}>{item.title}</div>
-              <div style={{ fontSize: 14, color: subtext, lineHeight: 1.65 }}>{item.body}</div>
+              <div className="zg-h4" style={{ color: text, marginBottom: 8 }}>{item.title}</div>
+              <div className="zg-small" style={{ color: subtext }}>{item.body}</div>
             </div>
           ))}
         </div>
@@ -1098,10 +1091,10 @@ export default function LandingPage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber, marginBottom: 8 }}>
+            <div className="zg-label" style={{ color: C.amber, marginBottom: 8 }}>
               Education Hub
             </div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: C.light, letterSpacing: '-0.5px' }}>
+            <div className="zg-h2" style={{ color: C.light }}>
               Read the methodology, then read the tape.
             </div>
           </div>
@@ -1168,16 +1161,16 @@ export default function LandingPage() {
                   transition: 'border-color 0.18s ease, transform 0.18s ease',
                 }}
               >
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber }}>
+                <div className="zg-label" style={{ color: C.amber }}>
                   {item.eyebrow}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: C.light, letterSpacing: '-0.2px' }}>
+                <div className="zg-h3" style={{ color: C.light }}>
                   {item.title}
                 </div>
-                <div style={{ fontSize: 13, color: subtext, lineHeight: 1.6, flex: 1 }}>
+                <div className="zg-small" style={{ color: subtext, flex: 1 }}>
                   {item.body}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="zg-small" style={{ marginTop: 6, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
                   Read <ArrowRight size={14} />
                 </div>
               </div>
@@ -1206,12 +1199,7 @@ export default function LandingPage() {
           }}
         />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2
-            style={{
-              fontSize: 'clamp(28px, 4.5vw, 56px)', fontWeight: 900,
-              color: text, margin: '0 0 16px', letterSpacing: '-1px', lineHeight: 1.1,
-            }}
-          >
+          <h2 className="zg-h1" style={{ color: text, margin: '0 0 16px' }}>
             Ready to See What the{' '}
             <span
               style={{
@@ -1224,7 +1212,7 @@ export default function LandingPage() {
               Market Makers See?
             </span>
           </h2>
-          <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.65 }}>
+          <p className="zg-lead" style={{ color: subtext, margin: '0 auto 40px', maxWidth: 520 }}>
             Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.
           </p>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
