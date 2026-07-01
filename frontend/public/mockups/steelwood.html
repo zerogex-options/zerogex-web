@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeroGEX — Steel &amp; Wood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EFE9D7;
+    --paper-2: #E6DFC9;
+    --paper-3: #D8D0B6;
+    --slate: #22201C;
+    --slate-2: #2C2924;
+    --slate-3: #38342D;
+    --walnut: #7B4E2C;
+    --walnut-2: #99663E;
+    --amber: #C48739;
+    --amber-hot: #DE9A38;
+    --coral: #C15C3F;
+    --moss: #7A8B5F;
+    --steel: #7A736A;
+    --text: #F0E8D5;
+    --ink: #22201C;
+    --ink-soft: #4A443C;
+    --muted: #7C7263;
+    --rule: rgba(34,32,28,0.14);
+    --rule-2: rgba(34,32,28,0.32);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'Space Grotesk', 'Neue Haas Grotesk', system-ui, sans-serif; font-weight: 400; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1360px; margin: 0 auto; padding: 0 32px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .cap { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+
+  /* --- Nav --- */
+  .nav {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 40px;
+    padding: 22px 0; border-bottom: 1px solid var(--rule-2);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }
+  .brand .mark {
+    width: 24px; height: 24px; flex: none;
+    background: var(--walnut);
+    position: relative;
+  }
+  .brand .mark::after {
+    content: ''; position: absolute; top: 3px; right: -9px;
+    width: 14px; height: 18px;
+    background: var(--amber);
+  }
+  .brand em { font-style: normal; color: var(--muted); font-weight: 400; }
+  .nav .links { display: flex; justify-content: center; gap: 28px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .nav .links a:hover { color: var(--walnut); }
+  @media (max-width: 800px) { .nav .links { display: none; } }
+  .nav .right { display: flex; align-items: center; gap: 20px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 12px 20px; border: 1px solid var(--slate); background: transparent; color: var(--slate);
+  }
+  .btn:hover { background: var(--slate); color: var(--paper); }
+  .btn.walnut { background: var(--walnut); color: var(--paper); border-color: var(--walnut); }
+  .btn.walnut:hover { background: var(--slate); border-color: var(--slate); }
+  .btn.big { padding: 18px 28px; font-size: 13px; }
+
+  /* Meta strip */
+  .strip { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid var(--rule-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .strip > div { padding: 12px 20px; border-right: 1px solid var(--rule); }
+  .strip > div:last-child { border-right: 0; }
+  .strip b { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 14px; letter-spacing: -0.01em; text-transform: none; }
+  .strip b.amb { color: var(--walnut); }
+  .strip b.rd { color: var(--coral); }
+  .strip b.mo { color: var(--moss); }
+
+  /* --- Hero: paper + inset dark panel + walnut column --- */
+  .hero {
+    display: grid; grid-template-columns: 6fr 6fr;
+    align-items: stretch;
+    border-bottom: 1px solid var(--rule-2);
+    min-height: 660px;
+  }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+  .hero .l {
+    padding: 72px 32px 60px 0;
+    border-right: 1px solid var(--rule-2);
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+  }
+  @media (max-width: 900px) { .hero .l { border-right: 0; border-bottom: 1px solid var(--rule-2); padding: 60px 0; } }
+  .stamp { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--walnut); }
+  .stamp::before { content: '⎯⎯  '; }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(64px, 8vw, 128px);
+    line-height: 0.94;
+    letter-spacing: -0.045em;
+    margin: 24px 0 32px;
+  }
+  h1 .th { color: var(--muted); font-weight: 400; }
+  h1 .w { color: var(--walnut); }
+  h1 .amb-box { background: var(--amber); color: var(--slate); padding: 0 0.08em; display: inline-block; line-height: 0.92; }
+
+  .deck { font-size: 20px; line-height: 1.55; max-width: 540px; color: var(--ink-soft); margin: 0 0 40px; font-weight: 400; }
+  .deck em { font-style: normal; color: var(--walnut); font-weight: 500; }
+
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+
+  .hero-meta { display: flex; gap: 40px; padding-top: 24px; border-top: 1px solid var(--rule); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); flex-wrap: wrap; }
+  .hero-meta div b {
+    display: block;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 500;
+    font-size: 22px; color: var(--ink);
+    text-transform: none; letter-spacing: -0.02em; margin-top: 4px;
+  }
+  .hero-meta div b.a { color: var(--walnut); }
+
+  /* Right column — dark readout on wood ground */
+  .hero .r {
+    position: relative;
+    padding: 40px;
+    background: var(--paper-2);
+    display: flex; align-items: center;
+    overflow: hidden;
+  }
+  /* Walnut veneer accent — vertical strip */
+  .hero .r::before {
+    content: '';
+    position: absolute; top: 0; bottom: 0; right: 0; width: 34%;
+    background:
+      linear-gradient(180deg, #a06a44 0%, var(--walnut) 30%, #6a4326 100%);
+    box-shadow: -8px 0 20px -8px rgba(34,32,28,0.15);
+  }
+  .hero .r::after {
+    content: '';
+    position: absolute; top: 0; bottom: 0; right: 0; width: 34%;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(30,14,4,0.08) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(255,240,220,0.03) 0 2px, transparent 2px 12px);
+    pointer-events: none;
+  }
+
+  /* Steel readout panel — inset dark */
+  .readout {
+    position: relative; z-index: 2;
+    background: var(--slate);
+    color: var(--text);
+    padding: 30px 28px;
+    width: 92%;
+    max-width: 540px;
+    box-shadow: 0 30px 60px -20px rgba(34,32,28,0.4);
+  }
+  .readout .head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid rgba(240,232,213,0.16); margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,232,213,0.55); }
+  .readout .head .live { color: var(--amber-hot); }
+  .readout .head .live::before { content: '● '; }
+  .readout .measures { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+  .readout .m { padding: 12px 0; border-top: 1px solid rgba(240,232,213,0.12); }
+  .readout .m .k { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(240,232,213,0.5); }
+  .readout .m .v { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 32px; letter-spacing: -0.03em; margin-top: 4px; }
+  .readout .m .v.amb { color: var(--amber-hot); }
+  .readout .m .v.rd { color: var(--coral); }
+  .readout .m .v.mo { color: var(--moss); }
+  .readout .foot { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(240,232,213,0.16); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(240,232,213,0.55); display: flex; justify-content: space-between; }
+
+  /* --- Sections --- */
+  section { border-bottom: 1px solid var(--rule-2); }
+  .sect-head {
+    display: grid; grid-template-columns: 3fr 6fr 3fr;
+    align-items: baseline;
+    padding: 40px 0 20px;
+    border-bottom: 1px solid var(--rule-2);
+    gap: 40px;
+    margin-bottom: 0;
+  }
+  @media (max-width: 900px) { .sect-head { grid-template-columns: 1fr; gap: 12px; } }
+  .sect-head .num { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--walnut); }
+  h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(42px, 5vw, 68px);
+    line-height: 1; letter-spacing: -0.035em;
+    max-width: 720px;
+  }
+  h2 .th { color: var(--muted); font-weight: 400; }
+  h2 .w { color: var(--walnut); }
+  h2 .amb-box { background: var(--amber); color: var(--slate); padding: 0 0.08em; }
+  .sect-head .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-align: right; letter-spacing: 0.06em; text-transform: uppercase; }
+  .sect-head .meta b { color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 14px; letter-spacing: -0.01em; text-transform: none; }
+  @media (max-width: 900px) { .sect-head .meta { text-align: left; } }
+
+  /* Signal grid — 3 up */
+  .signals { display: grid; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .signals { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .signals { grid-template-columns: 1fr; } }
+  .sig {
+    padding: 32px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    min-height: 260px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: var(--paper);
+  }
+  .sig:nth-child(3n) { border-right: 0; }
+  .sig:nth-last-child(-n+3) { border-bottom: 0; }
+  @media (max-width: 900px) {
+    .sig:nth-child(3n) { border-right: 1px solid var(--rule); }
+    .sig:nth-child(2n) { border-right: 0; }
+  }
+  .sig .top {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sig .top .live { color: var(--walnut); }
+  .sig .top .live::before { content: '● '; color: var(--moss); }
+  .sig h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 24px; letter-spacing: -0.02em; margin: 18px 0 10px; line-height: 1.05; }
+  .sig p { font-size: 14px; line-height: 1.55; color: var(--ink-soft); font-weight: 400; }
+  .sig .val {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-top: 16px; margin-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+  }
+  .sig .val b {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 500;
+    font-size: 28px; letter-spacing: -0.03em; text-transform: none;
+    color: var(--walnut);
+  }
+  .sig .val b.rd { color: var(--coral); }
+  .sig .val b.mo { color: var(--moss); }
+  .sig .val b.ink { color: var(--ink); }
+  /* One dark cell for visual anchor */
+  .sig.dark { background: var(--slate); color: var(--text); }
+  .sig.dark p { color: rgba(240,232,213,0.7); }
+  .sig.dark .top { color: rgba(240,232,213,0.5); }
+  .sig.dark .top .live { color: var(--amber-hot); }
+  .sig.dark .val { border-top-color: rgba(240,232,213,0.14); color: rgba(240,232,213,0.55); }
+  .sig.dark .val b { color: var(--amber-hot); }
+
+  /* Feature: prose + chart */
+  .feature { display: grid; grid-template-columns: 5fr 7fr; }
+  @media (max-width: 900px) { .feature { grid-template-columns: 1fr; } .feature > * + * { border-top: 1px solid var(--rule-2); } }
+  .feature .prose {
+    padding: 60px 32px;
+    border-right: 1px solid var(--rule-2);
+    display: flex; flex-direction: column; justify-content: center;
+    background: var(--paper-2);
+  }
+  @media (max-width: 900px) { .feature .prose { border-right: 0; } }
+  .feature .prose .idx { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--walnut); }
+  .feature .prose h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(36px, 4vw, 56px); line-height: 1; letter-spacing: -0.03em;
+    margin: 16px 0 24px;
+  }
+  .feature .prose h3 .th { color: var(--muted); font-weight: 400; }
+  .feature .prose h3 .w { color: var(--walnut); }
+  .feature .prose h3 .amb-box { background: var(--amber); color: var(--slate); padding: 0 0.08em; }
+  .feature .prose p { font-size: 17px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 16px; max-width: 460px; }
+  .feature .prose p em { font-style: normal; color: var(--walnut); font-weight: 500; }
+  .feature .prose ul { list-style: none; margin: 24px 0 0; }
+  .feature .prose li {
+    display: flex; justify-content: space-between; padding: 14px 0;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+  }
+  .feature .prose li:last-child { border-bottom: 1px solid var(--rule); }
+  .feature .prose li b {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 500;
+    font-size: 22px; letter-spacing: -0.02em; color: var(--ink); text-transform: none;
+  }
+
+  /* Dark chart panel — inset in the wood house */
+  .feature .chart-wrap {
+    padding: 32px; background: var(--paper-2);
+    display: flex; align-items: center;
+  }
+  .chart-frame {
+    background: var(--slate); color: var(--text);
+    padding: 24px; width: 100%; position: relative;
+    box-shadow: 0 20px 40px -10px rgba(34,32,28,0.2);
+  }
+  .chart-frame::before { content: 'FIG.01 / SPX γ · 14:32 ET'; position: absolute; top: -10px; left: 20px; background: var(--paper-2); padding: 0 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: var(--muted); }
+  .chart-frame svg { display: block; width: 100%; height: auto; }
+
+  /* Pull quote — dark inset */
+  .pull { padding: 100px 0; border-bottom: 1px solid var(--rule-2); background: var(--paper-2); }
+  .pull-inner { max-width: 1000px; margin: 0 auto; padding: 0 32px; }
+  .pull .idx { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--walnut); margin-bottom: 24px; }
+  .pull .q {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: clamp(36px, 5vw, 72px);
+    line-height: 1; letter-spacing: -0.035em;
+  }
+  .pull .q .th { color: var(--muted); font-weight: 400; }
+  .pull .q .w { color: var(--walnut); }
+  .pull .q em { font-style: italic; font-weight: 400; }
+  .pull .who { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--rule-2); display: inline-block; padding-right: 40px; }
+
+  /* CTA — dark panel on paper */
+  .cta { padding: 100px 0; }
+  .cta-inner {
+    background: var(--slate); color: var(--text);
+    padding: 80px 60px;
+    position: relative; overflow: hidden;
+    display: grid; grid-template-columns: 6fr 5fr; gap: 60px; align-items: center;
+  }
+  @media (max-width: 900px) { .cta-inner { grid-template-columns: 1fr; padding: 60px 40px; } }
+  .cta-inner::before {
+    content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 40%;
+    background:
+      linear-gradient(180deg, #a06a44 0%, var(--walnut) 30%, #6a4326 100%);
+    opacity: 0.85;
+  }
+  .cta-inner::after {
+    content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 40%;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(30,14,4,0.1) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+  }
+  .cta .content { position: relative; z-index: 2; }
+  .cta .idx { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber-hot); }
+  .cta h2 {
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif; font-weight: 500;
+    font-size: clamp(48px, 6vw, 96px); line-height: 0.95; letter-spacing: -0.04em;
+    margin: 12px 0 24px;
+  }
+  .cta h2 .amb-box { background: var(--amber); color: var(--slate); padding: 0 0.06em; display: inline-block; line-height: 0.94; }
+  .cta h2 .th { color: rgba(240,232,213,0.55); font-weight: 400; }
+  .cta p { font-size: 17px; color: rgba(240,232,213,0.75); max-width: 460px; margin-bottom: 32px; line-height: 1.6; }
+  .cta .btn { background: var(--amber); color: var(--slate); border-color: var(--amber); }
+  .cta .btn:hover { background: var(--text); color: var(--slate); border-color: var(--text); }
+
+  footer { padding: 40px 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--rule-2); }
+  footer a:hover { color: var(--walnut); }
+
+  .back { position: fixed; top: 12px; right: 12px; z-index: 200; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--slate); color: var(--amber-hot); padding: 6px 12px; border: 1px solid var(--slate); }
+</style>
+</head>
+<body>
+
+<a class="back" href="./index.html">← All mockups</a>
+
+<div class="page">
+  <nav class="nav">
+    <div class="brand"><span class="mark"></span> zerogex</div>
+    <div class="links">
+      <a href="#">Signals</a>
+      <a href="#">Heatmap</a>
+      <a href="#">Playbook</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+    </div>
+    <div class="right">
+      <a href="#" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);">Sign in</a>
+      <a href="#" class="btn walnut">Open a desk →</a>
+    </div>
+  </nav>
+
+  <div class="strip">
+    <div>SESSION · <b class="mo">OPEN</b></div>
+    <div>SPX · <b>6,412.30</b></div>
+    <div>γ FLIP · <b class="amb">6,398</b></div>
+    <div>NET GEX · <b class="rd">−1.82B</b></div>
+    <div>TRAP · <b>+82</b></div>
+    <div>LATENCY · <b>247ms</b></div>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="l">
+      <div class="stamp">Live · dealer positioning · SPX / SPY</div>
+      <h1>
+        A <span class="w">terminal</span><br/>
+        <span class="th">for reading</span><br/>
+        the <span class="amb-box">tape.</span>
+      </h1>
+      <p class="deck">
+        ZeroGEX reads the entire live SPX/SPY option chain, computes the dealer's <em>obligation</em>, and prints the three lines that matter — the gamma flip, the call wall, the put wall. Then it tells you what a person with a book would do next.
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn walnut big">Open a free desk →</a>
+        <a href="#" class="btn big">Read today's brief</a>
+      </div>
+      <div class="hero-meta">
+        <div>Signals live<b class="a">18</b></div>
+        <div>Refresh<b>250 ms</b></div>
+        <div>On the desk<b>12,400+</b></div>
+      </div>
+    </div>
+
+    <div class="r">
+      <div class="readout">
+        <div class="head">
+          <div>The desk · SPX · 14:32 ET</div>
+          <div class="live">Live · 247ms</div>
+        </div>
+        <div class="measures">
+          <div class="m"><div class="k">γ Flip</div><div class="v amb">6,398</div></div>
+          <div class="m"><div class="k">Net GEX</div><div class="v rd">−1.82B</div></div>
+          <div class="m"><div class="k">Call wall</div><div class="v">6,450</div></div>
+          <div class="m"><div class="k">Put wall</div><div class="v">6,350</div></div>
+          <div class="m"><div class="k">Trap</div><div class="v mo">+82</div></div>
+          <div class="m"><div class="k">Regime</div><div class="v">amplify</div></div>
+        </div>
+        <div class="foot">
+          <span>src · SIP / IEX / CBOE</span>
+          <span>rev · 1138.7</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Signals -->
+  <section>
+    <div class="sect-head">
+      <div class="num">§ 01 / signals · 18 live</div>
+      <h2>Eighteen instruments,<br/><span class="th">one</span> live desk.</h2>
+      <div class="meta">
+        FEED · <b>SIP / IEX / CBOE</b><br/>
+        REFRESH · <b>250 ms</b><br/>
+        UPTIME · <b>99.98%</b>
+      </div>
+    </div>
+
+    <div class="signals">
+      <div class="sig">
+        <div class="top"><span>SIG 001</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Gamma flip</h3>
+          <p>The pivot at which dealer positioning changes signs. Above · stabilizing. Below · amplifying.</p>
+        </div>
+        <div class="val"><span>Now</span><b>6,398</b></div>
+      </div>
+      <div class="sig">
+        <div class="top"><span>SIG 002</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Net dealer GEX</h3>
+          <p>Total dealer gamma across the SPX/SPY chain. Sign, size, and slope of the regime.</p>
+        </div>
+        <div class="val"><span>Now</span><b class="rd">−1.82B</b></div>
+      </div>
+      <div class="sig dark">
+        <div class="top"><span>SIG 003</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Call wall</h3>
+          <p>Concentration of dealer short-call gamma. Historically a ceiling on advances.</p>
+        </div>
+        <div class="val"><span>Level</span><b>6,450</b></div>
+      </div>
+      <div class="sig">
+        <div class="top"><span>SIG 004</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Put wall</h3>
+          <p>Concentration of dealer short-put gamma. Historically a floor into declines.</p>
+        </div>
+        <div class="val"><span>Level</span><b class="ink">6,350</b></div>
+      </div>
+      <div class="sig">
+        <div class="top"><span>SIG 005</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Trap score</h3>
+          <p>Retail long, dealer short — the ugliest reversal setups on the tape.</p>
+        </div>
+        <div class="val"><span>Score</span><b class="mo">+82</b></div>
+      </div>
+      <div class="sig">
+        <div class="top"><span>SIG 006</span><span class="live">LIVE</span></div>
+        <div>
+          <h3>Squeeze setup</h3>
+          <p>Composite of γ, skew, and vanna. Flags regimes of compounding directional risk.</p>
+        </div>
+        <div class="val"><span>Regime</span><b class="ink">HIGH</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature -->
+  <section>
+    <div class="sect-head">
+      <div class="num">§ 02 / the chart · 1</div>
+      <h2>One <span class="w">line,</span><br/><span class="th">drawn to scale.</span></h2>
+      <div class="meta">
+        FIG · <b>01</b><br/>
+        SCALE · <b>1:1</b><br/>
+        SRC · <b>SIP / IEX / CBOE</b>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="prose">
+        <div class="idx">FIG. 01 · SPX γ · 14:32 ET</div>
+        <h3><span class="th">Positive</span> above.<br/><span class="w">Negative</span> below.</h3>
+        <p>The gamma flip is the pivot around which every intraday session organizes itself. Above · dealer books absorb volatility. Below · they chase price and the range triples.</p>
+        <p>ZeroGEX draws this line every fifteen seconds from the option chain that is <em>currently printing</em>.</p>
+        <ul>
+          <li><span>γ Flip · SPX</span><b>6,398</b></li>
+          <li><span>Regime · min</span><b>NEG · 47</b></li>
+          <li><span>Refresh</span><b>250 ms</b></li>
+          <li><span>Source</span><b>SIP / IEX / CBOE</b></li>
+        </ul>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-frame">
+          <svg viewBox="0 0 620 340" preserveAspectRatio="xMidYMid meet">
+            <g stroke="rgba(240,232,213,0.08)" stroke-width="0.5">
+              <line x1="40" y1="60" x2="600" y2="60"/>
+              <line x1="40" y1="130" x2="600" y2="130"/>
+              <line x1="40" y1="200" x2="600" y2="200"/>
+              <line x1="40" y1="270" x2="600" y2="270"/>
+            </g>
+            <line x1="40" y1="30" x2="40" y2="290" stroke="rgba(240,232,213,0.28)" stroke-width="0.6"/>
+            <line x1="40" y1="290" x2="600" y2="290" stroke="rgba(240,232,213,0.28)" stroke-width="0.6"/>
+            <line x1="40" y1="170" x2="600" y2="170" stroke="rgba(240,232,213,0.4)" stroke-width="0.6" stroke-dasharray="3 5"/>
+            <text x="34" y="174" font-family="JetBrains Mono" font-size="9" text-anchor="end" fill="rgba(240,232,213,0.55)">γ=0</text>
+
+            <g fill="#7A8B5F">
+              <rect x="60"  y="140" width="30" height="30"/>
+              <rect x="96"  y="112" width="30" height="58"/>
+              <rect x="132" y="78"  width="30" height="92"/>
+              <rect x="168" y="42"  width="30" height="128" fill="#DE9A38"/>
+              <rect x="204" y="72"  width="30" height="98"/>
+              <rect x="240" y="106" width="30" height="64"/>
+              <rect x="276" y="140" width="30" height="30"/>
+            </g>
+
+            <g fill="#C15C3F">
+              <rect x="312" y="170" width="30" height="50"/>
+              <rect x="348" y="170" width="30" height="92"/>
+              <rect x="384" y="170" width="30" height="72"/>
+              <rect x="420" y="170" width="30" height="46"/>
+              <rect x="456" y="170" width="30" height="26"/>
+              <rect x="492" y="170" width="30" height="14"/>
+              <rect x="528" y="170" width="30" height="6"/>
+            </g>
+
+            <line x1="306" y1="20" x2="306" y2="290" stroke="#DE9A38" stroke-width="1.2" stroke-dasharray="4 4"/>
+            <text x="312" y="34" font-family="JetBrains Mono" font-size="11" fill="#DE9A38" font-weight="500">flip · 6,398</text>
+
+            <g font-family="JetBrains Mono" font-size="9" fill="rgba(240,232,213,0.5)">
+              <text x="60" y="308">6,300</text>
+              <text x="180" y="308">6,400</text>
+              <text x="310" y="308">6,450</text>
+              <text x="440" y="308">6,500</text>
+              <text x="560" y="308">6,540</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pull quote -->
+  <div class="pull">
+    <div class="pull-inner">
+      <div class="idx">— From the preface, vol. II</div>
+      <div class="q"><span class="th">"When the market is above the flip, hedge slower.</span> Below, hedge <span class="w">sooner.</span> <em>There is no third instruction."</em></div>
+      <div class="who">§ 0.2 · The codex</div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="page" style="padding: 0;">
+      <div class="cta-inner">
+        <div class="content">
+          <div class="idx">— Free tier · runs in a tab</div>
+          <h2>Open a desk. <span class="th">Read the</span> <span class="amb-box">tape.</span></h2>
+        </div>
+        <div class="content">
+          <p>Free tier includes the γ flip, the walls, and net GEX on SPX and SPY, refreshed every 250 ms. Signal alerts and full instrument set when you're ready.</p>
+          <a href="#" class="btn big">Open a free desk →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>© zerogex / 2026 · not financial advice</div>
+    <div>STATUS · DOCS · TERMS · PRIVACY</div>
+  </footer>
+</div>
+
+</body>
+</html>
