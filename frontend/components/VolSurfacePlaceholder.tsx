@@ -20,7 +20,7 @@ export default function VolSurfacePlaceholder() {
         className="zg-h3 mb-4"
         style={{ color: 'var(--text-primary)' }}
       >
-        Volatility surface
+        Volatility Surface
       </h3>
       <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-[200px]">
         <LineChart size={48} style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
