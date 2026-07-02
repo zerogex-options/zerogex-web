@@ -419,18 +419,6 @@ export default function LandingPage() {
             backgroundSize: '64px 64px',
           }}
         />
-        {/* Radial glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '30%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: 900, height: 600,
-            background: `radial-gradient(ellipse, ${C.amber}14 0%, transparent 70%)`,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
-        />
-
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 900, width: '100%' }}>
           {/* Badge */}
           <div
@@ -1175,15 +1163,6 @@ export default function LandingPage() {
         }}
       >
         {/* Glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: 700, height: 400,
-            background: `radial-gradient(ellipse, ${C.amber}18 0%, transparent 70%)`,
-            pointerEvents: 'none',
-          }}
-        />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h2 className="zg-h1" style={{ color: text, margin: '0 0 16px' }}>
             Ready to See What the{' '}
