@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, Clock, Lock, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, History, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
@@ -551,6 +551,108 @@ export default async function SpxGammaLevelsPage() {
               </Link>
             </li>
           </ul>
+        </section>
+
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>
+            Two free tools nobody else ships
+          </h2>
+          <p style={{ margin: '0 0 16px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            No login required. Bookmark either — the URL stays valid every day.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 14,
+            }}
+          >
+            <Link
+              href="/forecast"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: 20,
+                borderRadius: 14,
+                border: '1px solid var(--border-default)',
+                background: 'var(--color-surface)',
+                textDecoration: 'none',
+                color: 'var(--color-text-primary)',
+                transition: 'transform 120ms ease, border-color 120ms ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'var(--color-bull-soft, rgba(16,185,129,0.14))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-bull, #10B981)',
+                  }}
+                >
+                  <CheckCircle2 size={20} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Gamma Forecast</div>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
+                Every morning at 7 AM ET we commit to a projected range, pin strike, and regime call —
+                hashed and immutable. Every afternoon we grade ourselves in public.
+              </div>
+              <div
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, fontWeight: 700, color: 'var(--color-brand-primary)',
+                  marginTop: 'auto',
+                }}
+              >
+                Browse the receipts <ArrowRight size={13} />
+              </div>
+            </Link>
+
+            <Link
+              href="/replay"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: 20,
+                borderRadius: 14,
+                border: '1px solid var(--border-default)',
+                background: 'var(--color-surface)',
+                textDecoration: 'none',
+                color: 'var(--color-text-primary)',
+                transition: 'transform 120ms ease, border-color 120ms ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'var(--color-warning-soft, rgba(255,133,49,0.14))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-warning, #FF8531)',
+                  }}
+                >
+                  <History size={20} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>GEX Replay</div>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
+                Scrub through any past session minute-by-minute. Watch walls shift, gamma flip drift,
+                and per-strike GEX migrate. Drop two pins to see the delta between any two moments.
+              </div>
+              <div
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, fontWeight: 700, color: 'var(--color-brand-primary)',
+                  marginTop: 'auto',
+                }}
+              >
+                Pick a session <ArrowRight size={13} />
+              </div>
+            </Link>
+          </div>
         </section>
 
         <section
