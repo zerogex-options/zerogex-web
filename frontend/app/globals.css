@@ -147,9 +147,9 @@
   --font-display: var(--font-libre-baskerville);
   --font-body: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
-  --heat-low: #DAC490;
-  --heat-mid: #B08D57;
-  --heat-high: #8B6A34;
+  --heat-low: #8B3550;
+  --heat-mid: #C7213D;
+  --heat-high: #7A1E2C;
   --chart-1: #0E3A53;
   --chart-2: #7A1E2C;
   --chart-3: #B08D57;
@@ -172,7 +172,7 @@
   --accent-3: #B08D57;
   --accent-4: #7A1E2C;
   --color-accent: #0E3A53;
-  --color-accent-hot: #B08D57;
+  --color-accent-hot: #C7213D;
   --color-accent-soft: rgba(14,58,83,0.20);
   --color-gold: #B08D57;
   --color-gold-soft: rgba(176,141,87,0.22);
@@ -196,13 +196,13 @@
   --color-bull-soft: rgba(31,166,94,0.22);
   --color-bear: #C7213D;
   --color-bear-soft: rgba(199,33,61,0.22);
-  --color-warning: #B08D57;
-  --color-warning-soft: rgba(176,141,87,0.22);
+  --color-warning: #C7213D;
+  --color-warning-soft: rgba(199,33,61,0.20);
   --color-info: #0E3A53;
   --color-info-soft: rgba(14,58,83,0.10);
   --color-brand-primary: #0E3A53;
-  --color-brand-accent: #B08D57;
-  --color-brand-coral: #7A1E2C;
+  --color-brand-accent: #C7213D;
+  --color-brand-coral: #C7213D;
   --color-brand-deep: #161A1D;
   --color-chart-tooltip-bg: #FAF8F4;
   --color-chart-tooltip-border: rgba(22,26,29,0.18);
@@ -215,10 +215,10 @@
   --color-surface-subtle: var(--bg-subtle);
 }
 :root.palette-wallstreet.dark {
-  --heat-low: #E4C889;
-  --heat-mid: #C5A05A;
-  --heat-high: #957738;
-  --chart-1: #164E6B;
+  --heat-low: #B45585;
+  --heat-mid: #E93D5A;
+  --heat-high: #7A1E2C;
+  --chart-1: #4A9BD1;
   --chart-2: #9A2638;
   --chart-3: #C5A05A;
   --chart-4: #7B8790;
@@ -236,16 +236,16 @@
   --border-default: rgba(236,231,220,0.22);
   --border-strong: rgba(236,231,220,0.34);
   --accent-1: #ECE7DC;
-  --accent-2: #164E6B;
+  --accent-2: #4A9BD1;
   --accent-3: #C5A05A;
-  --accent-4: #9A2638;
-  --color-accent: #164E6B;
-  --color-accent-hot: #C5A05A;
-  --color-accent-soft: rgba(22,78,107,0.24);
+  --accent-4: #E93D5A;
+  --color-accent: #4A9BD1;
+  --color-accent-hot: #E93D5A;
+  --color-accent-soft: rgba(74,155,209,0.24);
   --color-gold: #C5A05A;
   --color-gold-soft: rgba(197,160,90,0.26);
-  --color-pop-navy: #164E6B;
-  --color-pop-navy-soft: rgba(22,78,107,0.24);
+  --color-pop-navy: #4A9BD1;
+  --color-pop-navy-soft: rgba(74,155,209,0.24);
   --color-pop-gold: #C5A05A;
   --color-pop-gold-soft: rgba(197,160,90,0.26);
   --color-pop-burgundy: #9A2638;
@@ -253,24 +253,24 @@
   --color-concrete: #7B8790;
   --color-concrete-soft: rgba(123,135,144,0.22);
   --color-maroon: #9A2638;
-  --color-navy: #164E6B;
-  --color-royal: #164E6B;
+  --color-navy: #4A9BD1;
+  --color-royal: #4A9BD1;
   --color-canary: #C5A05A;
   --color-emerald: #35C979;
   --color-emerald-soft: rgba(53,201,121,0.26);
-  --color-hazy: #164E6B;
-  --color-hazy-soft: rgba(22,78,107,0.16);
+  --color-hazy: #4A9BD1;
+  --color-hazy-soft: rgba(74,155,209,0.18);
   --color-bull: #35C979;
   --color-bull-soft: rgba(53,201,121,0.26);
   --color-bear: #E93D5A;
   --color-bear-soft: rgba(233,61,90,0.26);
-  --color-warning: #C5A05A;
-  --color-warning-soft: rgba(197,160,90,0.24);
-  --color-info: #164E6B;
-  --color-info-soft: rgba(22,78,107,0.20);
-  --color-brand-primary: #164E6B;
-  --color-brand-accent: #C5A05A;
-  --color-brand-coral: #9A2638;
+  --color-warning: #E93D5A;
+  --color-warning-soft: rgba(233,61,90,0.26);
+  --color-info: #4A9BD1;
+  --color-info-soft: rgba(74,155,209,0.20);
+  --color-brand-primary: #4A9BD1;
+  --color-brand-accent: #E93D5A;
+  --color-brand-coral: #E93D5A;
   --color-brand-deep: #ECE7DC;
   --color-chart-tooltip-bg: #191E28;
   --color-chart-tooltip-border: rgba(236,231,220,0.16);
@@ -550,9 +550,10 @@
 }
 
 /* ---- Palette: Miami Beach ---------- */
-/* White sand, hot pink, pool cyan, flash yellow, electric purple. */
+/* White sand, hot pink, pool cyan, flash yellow, electric purple.
+   Wide geometric Poppins for 80s marquee typography. */
 :root.palette-miami {
-  --font-display: var(--font-bebas);
+  --font-display: var(--font-poppins);
   --font-body: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #FFE066;
