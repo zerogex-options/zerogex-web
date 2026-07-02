@@ -501,7 +501,7 @@ export default function IntradayToolsPage() {
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="zg-h3" style={{ color: textColor }}>ORB breakout map</h3>
-                  <TooltipWrapper text="The green line is the ORB high through the session, the red line is the ORB low, the yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
+                  <TooltipWrapper text="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
