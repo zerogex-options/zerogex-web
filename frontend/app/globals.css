@@ -705,15 +705,9 @@ html, body {
 
 body {
   background-color: var(--background);
-  background-image:
-    linear-gradient(var(--color-grid-overlay), var(--color-grid-overlay)),
-    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
-  background-size: 44px 44px;
   color: var(--foreground);
   font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif);
   position: relative;
-  background-attachment: fixed;
 }
 
 html {
