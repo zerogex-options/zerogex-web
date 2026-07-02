@@ -20,8 +20,8 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'kyoto',
     name: 'Kyoto Zen',
-    subtitle: 'Sand, matcha, cedar — quiet and organic',
-    swatch: ['#0F0E0A', '#C57A32', '#9FC178', '#E8C078'],
+    subtitle: 'Pine, cedar, sand — quiet Swiss modernism',
+    swatch: ['#0F0E0A', '#6BAF7E', '#C57A32', '#E8C078'],
   },
   {
     id: 'miami',

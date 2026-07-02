@@ -138,15 +138,16 @@
 
 /* ---- Palette: Walnut (default) ---------- */
 /* ---- Palette: Kyoto Zen ---------- */
-/* Calm, serene, earthy. Sand paper, matcha, cedar, sun, stone. */
+/* Calm, serene, humble. Sand paper, Japanese pine/evergreen, cedar, sun, stone. */
+/* One clean neo-grotesque sans throughout — Muji / MUJI-adjacent quiet Swiss. */
 :root.palette-kyoto {
-  --font-display: var(--font-eb-garamond);
-  --font-body: var(--font-manrope);
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #D9964E;
   --heat-mid: #C07028;
   --heat-high: #8A4E1A;
-  --chart-1: #6B8E4E;
+  --chart-1: #2E5A3F;
   --chart-2: #C05A2E;
   --chart-3: #C07028;
   --chart-4: #4E6B7C;
@@ -172,27 +173,27 @@
   --color-accent-soft: rgba(192,112,40,0.16);
   --color-gold: #B08A3C;
   --color-gold-soft: rgba(176,138,60,0.16);
-  --color-pop-matcha: #6B8E4E;
-  --color-pop-matcha-soft: rgba(107,142,78,0.18);
+  --color-pop-pine: #2E5A3F;
+  --color-pop-pine-soft: rgba(46,90,63,0.16);
   --color-pop-sun: #D97A32;
   --color-pop-sun-soft: rgba(217,122,50,0.18);
   --color-maroon: #A03A24;
   --color-navy: #4E6B7C;
   --color-stone: #6F6B62;
-  --color-emerald: #6B8E4E;
-  --color-emerald-soft: rgba(107,142,78,0.16);
+  --color-emerald: #2E5A3F;
+  --color-emerald-soft: rgba(46,90,63,0.16);
   --color-hazy: #4E6B7C;
   --color-hazy-soft: rgba(78,107,124,0.16);
-  --color-bull: #6B8E4E;
-  --color-bull-soft: rgba(107,142,78,0.16);
+  --color-bull: #2E5A3F;
+  --color-bull-soft: rgba(46,90,63,0.16);
   --color-bear: #C05A2E;
   --color-bear-soft: rgba(192,90,46,0.16);
   --color-warning: #D97A32;
   --color-warning-soft: rgba(217,122,50,0.16);
   --color-info: #4E6B7C;
   --color-info-soft: rgba(78,107,124,0.10);
-  --color-brand-primary: #7A5230;
-  --color-brand-accent: #C07028;
+  --color-brand-primary: #2E5A3F;
+  --color-brand-accent: #7A5230;
   --color-brand-coral: #C05A2E;
   --color-brand-deep: #4A3620;
   --color-chart-tooltip-bg: #F8F3E4;
@@ -209,7 +210,7 @@
   --heat-low: #F0BF6A;
   --heat-mid: #E29048;
   --heat-high: #C57A32;
-  --chart-1: #9FC178;
+  --chart-1: #6BAF7E;
   --chart-2: #E38264;
   --chart-3: #E29048;
   --chart-4: #8FA9BB;
@@ -230,31 +231,31 @@
   --accent-2: #C57A32;
   --accent-3: #E29048;
   --accent-4: #E38264;
-  --color-accent: #C57A32;
+  --color-accent: #6BAF7E;
   --color-accent-hot: #E29048;
-  --color-accent-soft: rgba(226,144,72,0.18);
+  --color-accent-soft: rgba(107,175,126,0.18);
   --color-gold: #E8C078;
   --color-gold-soft: rgba(232,192,120,0.18);
-  --color-pop-matcha: #9FC178;
-  --color-pop-matcha-soft: rgba(159,193,120,0.20);
+  --color-pop-pine: #6BAF7E;
+  --color-pop-pine-soft: rgba(107,175,126,0.20);
   --color-pop-sun: #F0A050;
   --color-pop-sun-soft: rgba(240,160,80,0.20);
   --color-maroon: #C25E44;
   --color-navy: #8FA9BB;
   --color-stone: #8A857A;
-  --color-emerald: #9FC178;
-  --color-emerald-soft: rgba(159,193,120,0.18);
+  --color-emerald: #6BAF7E;
+  --color-emerald-soft: rgba(107,175,126,0.18);
   --color-hazy: #8FA9BB;
   --color-hazy-soft: rgba(143,169,187,0.16);
-  --color-bull: #9FC178;
-  --color-bull-soft: rgba(159,193,120,0.20);
+  --color-bull: #6BAF7E;
+  --color-bull-soft: rgba(107,175,126,0.20);
   --color-bear: #E38264;
   --color-bear-soft: rgba(227,130,100,0.20);
   --color-warning: #F0A050;
   --color-warning-soft: rgba(240,160,80,0.20);
   --color-info: #8FA9BB;
   --color-info-soft: rgba(143,169,187,0.16);
-  --color-brand-primary: #C57A32;
+  --color-brand-primary: #6BAF7E;
   --color-brand-accent: #E29048;
   --color-brand-coral: #E38264;
   --color-brand-deep: #A57548;
