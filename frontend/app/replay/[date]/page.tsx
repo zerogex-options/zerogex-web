@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
-import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
+import SymbolPicker from '@/components/SymbolPicker';
+import { resolveSymbol } from '@/core/symbols';
 import ReplayScrubber from './ReplayScrubber';
 
 const REVALIDATE_SECONDS = 1800;

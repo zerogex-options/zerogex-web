@@ -3,16 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useTransition } from 'react';
 
-const SYMBOLS = ['SPY', 'QQQ', 'SPX'] as const;
-export type PickerSymbol = (typeof SYMBOLS)[number];
-export const DEFAULT_SYMBOL: PickerSymbol = 'SPY';
-
-export function resolveSymbol(raw: string | undefined | null): PickerSymbol {
-  const upper = (raw || '').toUpperCase();
-  return (SYMBOLS as readonly string[]).includes(upper)
-    ? (upper as PickerSymbol)
-    : DEFAULT_SYMBOL;
-}
+import { DEFAULT_SYMBOL, SYMBOLS, type PickerSymbol } from '@/core/symbols';
 
 // useSearchParams() forces its subtree out of static rendering, so the
 // component that reads it must live inside a Suspense boundary — same
