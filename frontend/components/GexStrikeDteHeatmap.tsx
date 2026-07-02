@@ -140,7 +140,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
           className="zg-h3"
           style={{ color: textColor }}
         >
-          GEX HEATMAP (STRIKE &times; DTE)
+          GEX heatmap · strike &times; DTE
         </h3>
         <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
