@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTransition } from 'react';
+import { Suspense, useTransition } from 'react';
 
 const SYMBOLS = ['SPY', 'QQQ', 'SPX'] as const;
 export type PickerSymbol = (typeof SYMBOLS)[number];
@@ -14,11 +14,11 @@ export function resolveSymbol(raw: string | undefined | null): PickerSymbol {
     : DEFAULT_SYMBOL;
 }
 
-// Segmented button row that mirrors the LiveBulletin picker's tokens.
-// Syncs the ?symbol=X search param so both server components (which
-// read searchParams) and client components (which read useSearchParams)
-// see the same source of truth without extra client state.
-export default function SymbolPicker({ current }: { current: PickerSymbol }) {
+// useSearchParams() forces its subtree out of static rendering, so the
+// component that reads it must live inside a Suspense boundary — same
+// pattern app/pricing/Client.tsx uses. The outer default export supplies
+// the Suspense wrapper; the inner reader does the work.
+function PickerInner({ current }: { current: PickerSymbol }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -33,7 +33,8 @@ export default function SymbolPicker({ current }: { current: PickerSymbol }) {
       params.set('symbol', next);
     }
     const qs = params.toString();
-    start(() => router.push(qs ? `${pathname}?${qs}` : pathname));
+    const target = pathname ?? '/';
+    start(() => router.push(qs ? `${target}?${qs}` : target));
   }
 
   return (
@@ -59,5 +60,35 @@ export default function SymbolPicker({ current }: { current: PickerSymbol }) {
         );
       })}
     </div>
+  );
+}
+
+// Fallback matches the picker's outer footprint (3 buttons, ~120px wide)
+// so headers don't reflow when Suspense resolves.
+function PickerFallback() {
+  return (
+    <div className="flex items-center gap-2" aria-hidden>
+      {SYMBOLS.map((s) => (
+        <div
+          key={s}
+          className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase"
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          {s}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function SymbolPicker(props: { current: PickerSymbol }) {
+  return (
+    <Suspense fallback={<PickerFallback />}>
+      <PickerInner {...props} />
+    </Suspense>
   );
 }
