@@ -2,9 +2,7 @@
 
 import { Info } from 'lucide-react';
 import { MetricCardProps } from '@/core/types';
-import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
-import ExpandableCard from './ExpandableCard';
 import { useTheme } from '@/core/ThemeContext';
 
 export default function MetricCard({
@@ -27,25 +25,14 @@ export default function MetricCard({
   };
 
   return (
-    <ExpandableCard className="h-full">
-      <div
-      className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
+    <div
+      className="h-full p-6 rounded-2xl flex flex-col"
       style={{
         backgroundColor: "var(--bg-card)",
         border: `1px solid ${'var(--text-secondary)'}`,
-        boxShadow: resolvedTheme === 'dark' 
-          ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)' 
-          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
-          ? '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)'
-          : '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
+        boxShadow: resolvedTheme === 'dark'
           ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
-          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)';
+          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
       }}
     >
       <div className="flex justify-between items-start mb-3">
@@ -79,7 +66,6 @@ export default function MetricCard({
           {subtitle}
         </div>
       )}
-      </div>
-    </ExpandableCard>
+    </div>
   );
 }

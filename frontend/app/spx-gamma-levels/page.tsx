@@ -182,7 +182,8 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         ? 'var(--color-negative)'
         : 'var(--color-text-secondary)';
   return (
-    <article
+    <Link
+      href={`/gamma-exposure?symbol=${symbol}`}
       style={{
         background: 'linear-gradient(145deg, var(--color-surface) 0%, var(--bg-active) 100%)',
         border: '1px solid var(--border-default)',
@@ -191,7 +192,12 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         display: 'flex',
         flexDirection: 'column',
         gap: 18,
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer',
+        transition: 'border-color 150ms, transform 150ms',
       }}
+      className="hover:!border-[var(--color-brand-primary)]"
     >
       <header>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
@@ -236,13 +242,11 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.75 }}>
           Snapshot: {fmtTimestampET(data?.timestamp)}
         </span>
-        <Link
-          href={`/gamma-exposure?symbol=${symbol}`}
+        <span
           style={{
             fontSize: 12,
             fontWeight: 700,
             color: 'var(--color-brand-primary)',
-            textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
@@ -250,9 +254,9 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         >
           Live {symbol} dashboard
           <ArrowRight size={14} />
-        </Link>
+        </span>
       </footer>
-    </article>
+    </Link>
   );
 }
 

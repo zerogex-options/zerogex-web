@@ -4,6 +4,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { TierId } from '@/core/auth';
 import {
+  sendCancellationEmail,
   sendFoundingWelcomeEmail,
   sendPaidWelcomeEmail,
   sendPaymentFailedEmail,
@@ -45,6 +46,9 @@ type UserRow = {
   // Last-synced Stripe status, used to detect transitions (e.g. trialing →
   // active) so the funnel events fire exactly once on the actual change.
   subscription_status: string | null;
+  // Last-synced cancel_at_period_end flag (0/1). Read pre-UPDATE so the
+  // 0→1 transition fires the cancellation acknowledgement email once.
+  cancel_at_period_end: number;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -153,7 +157,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
     .prepare(
       `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              subscription_status
+              subscription_status, cancel_at_period_end
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -245,6 +249,8 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   // emit funnel events only on the actual transition (so trial_started and
   // subscription_paid each fire once, not on every poll/redelivery).
   const previousStatus = user.subscription_status;
+  const previousCancelAtPeriodEnd = user.cancel_at_period_end ? 1 : 0;
+  const nextCancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
   const item = subscription.items.data[0];
   const priceId = item?.price.id ?? null;
@@ -342,6 +348,69 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   if (isActive) {
     await maybeProcessReferral(user, subscription);
     await maybeSendPaidWelcomeEmail(user, subscription);
+  }
+
+  await maybeHandleCancelAckTransition(user, {
+    previous: previousCancelAtPeriodEnd,
+    next: nextCancelAtPeriodEnd,
+    periodEndIso,
+    subscriptionId: subscription.id,
+  });
+}
+
+// Fires the cancellation acknowledgement email on the 0→1 transition of
+// cancel_at_period_end (the moment the customer clicks Cancel), and clears
+// the send-latch on the reverse 1→0 (reactivation) so a future re-cancel
+// can re-fire. Idempotent via CAS-claim on cancel_ack_email_sent_at, so
+// webhook redeliveries can't double-send. Best-effort: failures never
+// unwind the tier sync.
+async function maybeHandleCancelAckTransition(
+  user: UserRow,
+  opts: {
+    previous: number;
+    next: number;
+    periodEndIso: string | null;
+    subscriptionId: string;
+  },
+): Promise<void> {
+  if (opts.previous === 0 && opts.next === 1) {
+    const stamp = nowIso();
+    const claim = getDb()
+      .prepare(
+        `UPDATE users SET cancel_ack_email_sent_at = ?, updated_at = ?
+         WHERE id = ? AND cancel_ack_email_sent_at IS NULL`,
+      )
+      .run(stamp, stamp, user.id) as { changes: number | bigint };
+
+    if (Number(claim.changes) === 0) return;
+
+    try {
+      await sendCancellationEmail(user.email, { periodEndIso: opts.periodEndIso });
+      logAudit({
+        type: 'cancellation_ack_email_sent',
+        userId: user.id,
+        email: user.email,
+        message: `Sent cancellation ack email for sub ${opts.subscriptionId}`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'cancellation ack email send failed';
+      logAudit({
+        type: 'cancellation_ack_email_error',
+        userId: user.id,
+        email: user.email,
+        message: `Cancellation ack email send failed for sub ${opts.subscriptionId}: ${message}`,
+      });
+    }
+    return;
+  }
+
+  if (opts.previous === 1 && opts.next === 0) {
+    getDb()
+      .prepare(
+        `UPDATE users SET cancel_ack_email_sent_at = NULL, updated_at = ?
+         WHERE id = ? AND cancel_ack_email_sent_at IS NOT NULL`,
+      )
+      .run(nowIso(), user.id);
   }
 }
 

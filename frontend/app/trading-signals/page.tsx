@@ -807,7 +807,21 @@ function ActionCardSection({ data, error, onRetry, hideLowConfidence, onToggleHi
         </div>
       )}
 
-      {data && !hidden && (isStandDown ? <StandDownCard data={data} /> : <TradeCard data={data} />)}
+      {data && !hidden && (
+        isStandDown ? (
+          <StandDownCard data={data} />
+        ) : permalinkId != null ? (
+          <Link
+            href={`/cards/${permalinkId}`}
+            className="block transition-opacity hover:opacity-95"
+            style={{ color: 'inherit', textDecoration: 'none' }}
+          >
+            <TradeCard data={data} />
+          </Link>
+        ) : (
+          <TradeCard data={data} />
+        )
+      )}
     </section>
   );
 }

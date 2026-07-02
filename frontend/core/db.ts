@@ -331,6 +331,13 @@ function initDb(): DatabaseSync {
     );
   }
 
+  // Idempotency stamp for the cancellation acknowledgement email fired when
+  // Stripe flips cancel_at_period_end false → true (the "clicked Cancel"
+  // moment). NULL = eligible; set to ISO on send via CAS in the webhook so
+  // redeliveries can't double-fire. Cleared back to NULL on the reverse
+  // transition (reactivation) so a future re-cancel can re-fire.
+  ensureColumn('users', 'cancel_ack_email_sent_at', 'TEXT');
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).

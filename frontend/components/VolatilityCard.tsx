@@ -6,7 +6,6 @@ import { Info } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
-import { colors } from "@/core/colors";
 import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
@@ -199,22 +198,17 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
   const shadowBase = isDark
     ? "0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)"
     : "0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)";
-  const shadowHover = isDark
-    ? "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)"
-    : "0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)";
 
   const showVix = isSpeed && typeof vix === "number" && Number.isFinite(vix);
 
   return (
     <div
-      className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
+      className="h-full p-6 rounded-2xl flex flex-col"
       style={{
         backgroundColor: cardBg,
         border: `1px solid ${'var(--text-secondary)'}`,
         boxShadow: shadowBase,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
     >
       {/* Title row */}
       <div className="flex justify-between items-start mb-3">
