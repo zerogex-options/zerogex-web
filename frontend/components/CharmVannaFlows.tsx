@@ -140,7 +140,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           className="zg-h3"
           style={{ color: textColor }}
         >
-          Charm &amp; vanna flows
+          Charm &amp; Vanna Flows
         </h3>
         <TooltipWrapper text="Shows aggregate vanna and charm exposures across the chain, plus an end-of-day charm estimate to indicate potential hedging pressure into the close.">
           <Info size={14} />

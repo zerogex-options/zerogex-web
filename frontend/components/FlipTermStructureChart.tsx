@@ -291,7 +291,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
       >
         <div className="flex items-center gap-2 mb-4">
           <h3 className="zg-h3" style={{ color: textColor }}>
-            GAMMA FLIP · TERM STRUCTURE
+            Gamma Flip · Term Structure
           </h3>
           <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago — read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
             <Info size={14} />

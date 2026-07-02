@@ -507,7 +507,7 @@ export default function FlipSurfaceChart({
         <div className="flex items-start justify-between gap-3 mb-4 flex-wrap shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
-              HORIZON × PRICE CONTOUR
+              Horizon × Price Contour
             </h3>
             <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilising), red cells are short-gamma (destabilising). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />

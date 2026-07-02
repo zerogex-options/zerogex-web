@@ -32,8 +32,8 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'wallstreet',
     name: 'Wall Street',
-    subtitle: 'Yankees navy, royal, lilac, taxi yellow',
-    swatch: ['#050D1E', '#4A82FF', '#C4A8F5', '#FCD40D'],
+    subtitle: 'Ultramarine, royal, magenta, taxi yellow',
+    swatch: ['#030A1F', '#4A82FF', '#E15FA4', '#FFC300'],
   },
 ];
 

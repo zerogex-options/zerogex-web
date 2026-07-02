@@ -51,9 +51,9 @@ export default function MetricCard({
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           {icon && <div style={{ color: 'var(--text-secondary)' }}>{icon}</div>}
-          <h3 
-            className="zg-label"
-            style={{ color: 'var(--text-secondary)' }}
+          <h3
+            className="zg-small"
+            style={{ color: 'var(--text-secondary)', fontWeight: 600 }}
           >
             {title}
           </h3>
