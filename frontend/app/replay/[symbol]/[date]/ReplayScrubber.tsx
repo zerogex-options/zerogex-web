@@ -83,21 +83,36 @@ export default function ReplayScrubber({
   const currentFrame = frames[cursor] ?? frames[0];
   const cursorTimestamp = currentFrame?.timestamp ?? null;
 
-  // Strike bars for the current minute. Sort ascending by strike so the
-  // x-axis reads left-to-right low → high; clamp net_gex to numbers only
+  // Union of every strike seen across the session. Locks the x-axis so
+  // it doesn't jitter mid-playback when a strike drops in or out of a
+  // frame's payload (nulls are filtered per-frame below).
+  const allStrikes = useMemo(() => {
+    const set = new Set<number>();
+    for (const f of frames) {
+      for (const s of f.strikes ?? []) {
+        if (s.strike != null) set.add(s.strike);
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [frames]);
+
+  // Strike bars for the current minute. Zero-fill any union strike that
+  // isn't present in this frame so every frame renders the full axis
   // (Recharts is unhappy with nulls inside the data array).
-  const chartData = useMemo(
-    () =>
-      (currentFrame?.strikes ?? [])
-        .filter((s) => s.strike != null && s.net_gex != null)
-        .sort((a, b) => (a.strike! - b.strike!))
-        .map((s) => ({
-          strike: s.strike!,
-          net_gex: s.net_gex!,
-          fill: s.net_gex! >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-        })),
-    [currentFrame],
-  );
+  const chartData = useMemo(() => {
+    const byStrike = new Map<number, number>();
+    for (const s of currentFrame?.strikes ?? []) {
+      if (s.strike != null && s.net_gex != null) byStrike.set(s.strike, s.net_gex);
+    }
+    return allStrikes.map((strike) => {
+      const net_gex = byStrike.get(strike) ?? 0;
+      return {
+        strike,
+        net_gex,
+        fill: net_gex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+      };
+    });
+  }, [currentFrame, allStrikes]);
 
   const gammaFlip = currentFrame?.gamma_flip ?? null;
 
@@ -142,11 +157,7 @@ export default function ReplayScrubber({
       () => {
         setCursor((prev) => {
           const next = prev + 1;
-          if (next >= frames.length) {
-            setIsPlaying(false);
-            return prev;
-          }
-          return next;
+          return next >= frames.length ? 0 : next;
         });
       },
       Math.max(50, Math.round(1000 / speed)),
