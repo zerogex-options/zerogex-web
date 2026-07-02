@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
-import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
+import SymbolPicker from '@/components/SymbolPicker';
+import { resolveSymbol } from '@/core/symbols';
 
 // Landing page for /replay — lists the recent trading days that have
 // replayable GEX data and links to /replay/[date]. ISR-cached for an

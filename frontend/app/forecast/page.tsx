@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
-import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
+import SymbolPicker from '@/components/SymbolPicker';
+import { resolveSymbol } from '@/core/symbols';
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors

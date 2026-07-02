@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, Magnet, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
-import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
+import SymbolPicker from '@/components/SymbolPicker';
+import { resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
