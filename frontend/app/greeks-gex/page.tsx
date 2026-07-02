@@ -16,6 +16,7 @@ import GexUnitToggle from '@/components/GexUnitToggle';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
+import { isIndexSymbol } from '@/core/utils';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -95,8 +96,8 @@ export default function GreeksGEXPage() {
           <MetricCard
             title={`${symbol} Price`}
             value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
-            tooltip={`Current ${symbol} price and volume from the real-time quote feed.`}
+            subtitle={quoteData && !isIndexSymbol(symbol) ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
+            tooltip={isIndexSymbol(symbol) ? `Current ${symbol} price from the real-time quote feed.` : `Current ${symbol} price and volume from the real-time quote feed.`}
             theme={theme}
           />
           <MetricCard

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Info, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Info } from "lucide-react";
 import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -49,9 +50,7 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
   const dividerColor = isDark ? "var(--border-subtle)" : "var(--border-default)";
 
   return (
-    <div className="mt-4 flex flex-col gap-3">
-      <div style={{ borderTop: `1px solid ${dividerColor}` }} />
-
+    <div className="flex flex-col gap-3">
       {/* Derivation */}
       <p className="text-xs leading-relaxed" style={{ color: mutedColor }}>
         {isSpeed ? (
@@ -131,11 +130,70 @@ function formatEtTimestamp(ts: string): string {
   }
 }
 
+const INFO_POPUP_WIDTH = 340;
+const INFO_POPUP_GAP = 10;
+const VIEWPORT_PADDING = 12;
+
+type PopupPlacement = "top" | "bottom";
+
+type PopupLayout = {
+  top: number;
+  left: number;
+  placement: PopupPlacement;
+};
+
 function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLabel = "VIX" }: GaugeCardProps) {
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [layout, setLayout] = useState<PopupLayout | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const isSpeed = type === "speedometer";
   const valueColor = interpolateGaugeColor(value);
   const textColor = 'var(--text-primary)';
+
+  const updateLayout = useCallback(() => {
+    if (!triggerRef.current || typeof window === "undefined") return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const popupHeight = popupRef.current?.offsetHeight ?? 360;
+
+    const triggerCenter = rect.left + rect.width / 2;
+    const rawLeft = triggerCenter - INFO_POPUP_WIDTH / 2;
+    const left = Math.min(
+      Math.max(rawLeft, VIEWPORT_PADDING),
+      viewportWidth - INFO_POPUP_WIDTH - VIEWPORT_PADDING,
+    );
+
+    const roomAbove = rect.top - VIEWPORT_PADDING;
+    const roomBelow = viewportHeight - rect.bottom - VIEWPORT_PADDING;
+    const placement: PopupPlacement =
+      roomAbove >= popupHeight + INFO_POPUP_GAP || roomAbove >= roomBelow ? "top" : "bottom";
+
+    const top = placement === "top"
+      ? rect.top - INFO_POPUP_GAP
+      : rect.bottom + INFO_POPUP_GAP;
+
+    setLayout({ top, left, placement });
+  }, []);
+
+  useEffect(() => {
+    if (!hoverOpen) return;
+    updateLayout();
+    const handle = () => updateLayout();
+    window.addEventListener("resize", handle);
+    window.addEventListener("scroll", handle, true);
+    return () => {
+      window.removeEventListener("resize", handle);
+      window.removeEventListener("scroll", handle, true);
+    };
+  }, [hoverOpen, updateLayout]);
+
+  useEffect(() => {
+    if (!hoverOpen) return;
+    const raf = requestAnimationFrame(updateLayout);
+    return () => cancelAnimationFrame(raf);
+  }, [hoverOpen, updateLayout]);
 
   const cardBg = 'var(--bg-card)';
   const shadowBase = isDark
@@ -167,13 +225,17 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
           {isSpeed ? `Level / ${indexLabel}` : "Momentum"}
         </h3>
         <button
-          onClick={() => setPanelOpen((v) => !v)}
-          className={`inline-flex items-center transition-opacity ${panelOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
-          style={{ color: panelOpen ? valueColor : 'var(--text-secondary)' }}
+          ref={triggerRef}
+          onMouseEnter={() => setHoverOpen(true)}
+          onMouseLeave={() => setHoverOpen(false)}
+          onFocus={() => setHoverOpen(true)}
+          onBlur={() => setHoverOpen(false)}
+          className={`inline-flex items-center transition-opacity ${hoverOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+          style={{ color: hoverOpen ? valueColor : 'var(--text-secondary)', cursor: "help", background: "none", border: "none", padding: 0 }}
           type="button"
-          title={panelOpen ? "Close" : `What is the ${isSpeed ? "speedometer" : "tachometer"}?`}
+          aria-label={`What is the ${isSpeed ? "speedometer" : "tachometer"}?`}
         >
-          {panelOpen ? <X size={14} /> : <Info size={14} />}
+          <Info size={14} />
         </button>
       </div>
 
@@ -210,8 +272,32 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
         />
       </div>
 
-      {/* Expandable info panel */}
-      {panelOpen && <InfoPanel type={type} isDark={isDark} />}
+      {/* Hover popup — portal-rendered so it can escape the card's clipping ancestor */}
+      {hoverOpen && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popupRef}
+            role="tooltip"
+            className="pointer-events-none fixed z-[9999] rounded-xl border px-4 py-3"
+            style={{
+              top: layout?.top ?? -9999,
+              left: layout?.left ?? -9999,
+              transform: layout?.placement === "top" ? "translateY(-100%)" : undefined,
+              width: `${INFO_POPUP_WIDTH}px`,
+              maxHeight: `calc(100vh - ${VIEWPORT_PADDING * 2}px)`,
+              overflowY: "auto",
+              background: "var(--bg-card)",
+              borderColor: "var(--border-default)",
+              color: "var(--text-primary)",
+              boxShadow: "0 12px 28px var(--color-info-soft), 0 2px 8px rgba(0,0,0,0.12)",
+              opacity: layout ? 1 : 0,
+            }}
+          >
+            <InfoPanel type={type} isDark={isDark} />
+          </div>,
+          document.body,
+        )
+      }
     </div>
   );
 }
