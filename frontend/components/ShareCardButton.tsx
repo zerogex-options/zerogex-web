@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check, Link2, Twitter } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
 import type { TelemetryEventName } from '@/core/telemetry/events';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 interface ShareCardButtonProps {
   /** The artifact id used for analytics attribution (card id, scorecard date, …). */
@@ -31,6 +32,10 @@ export default function ShareCardButton({
   eventName = 'card_share_clicked',
 }: ShareCardButtonProps) {
   const [copied, setCopied] = useState(false);
+  const { data: session, loading } = useAuthSession();
+  // Admin-only surface. Rendered nothing (not even during load) so a
+  // non-admin visitor never sees "Share to X" flash in and out of the DOM.
+  if (loading || session?.user?.tier !== 'admin') return null;
 
   const handleCopy = async () => {
     try {
