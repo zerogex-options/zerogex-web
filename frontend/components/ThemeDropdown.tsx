@@ -32,8 +32,8 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'wallstreet',
     name: 'Wall Street',
-    subtitle: 'Gold, money-green, ticker red — trading floor',
-    swatch: ['#0A0E13', '#FFB020', '#1BAA5C', '#E63946'],
+    subtitle: 'Navy, royal, lilac, canary — corporate confident',
+    swatch: ['#08122A', '#6188F5', '#B79EE5', '#FFDD3A'],
   },
 ];
 
