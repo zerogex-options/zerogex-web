@@ -5,7 +5,7 @@ import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Public permalink for one trading day's Scorecard recap. Server-rendered,
@@ -95,13 +95,10 @@ async function loadScorecard(day: string, symbol: string): Promise<ScorecardPayl
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }): Promise<Metadata> {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
     return { title: 'Scorecard not found — ZeroGEX', robots: { index: false, follow: false } };
@@ -114,7 +111,7 @@ export async function generateMetadata({
   const description = data?.tweet_text
     ? data.tweet_text.split('\n')[0]
     : 'Daily aggregate of ZeroGEX Playbook calls + per-signal P&L. One number per day, time-stamped and shareable.';
-  const url = `${SITE_URL}/scorecard/${date}`;
+  const url = `${SITE_URL}/scorecard/${sym}/${date}`;
   return {
     title,
     description,
@@ -138,13 +135,10 @@ export async function generateMetadata({
 
 export default async function ScorecardPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }) {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const data = await loadScorecard(date, sym);
@@ -156,7 +150,8 @@ export default async function ScorecardPage({
     regimeLabel === 'short gamma' ? 'var(--color-bear)' :
     regimeLabel === 'long gamma' ? 'var(--color-bull)' :
     'var(--color-warning)';
-  const scorecardUrl = `${SITE_URL}/scorecard/${date}`;
+  const scorecardUrl = `${SITE_URL}/scorecard/${sym}/${date}`;
+  const pickerHrefs = buildSymbolHrefs((s) => `/scorecard/${s}/${date}`);
   const tweetBody = data.tweet_text.split('\n')[0];
 
   return (
@@ -186,7 +181,7 @@ export default async function ScorecardPage({
               {sym} · {human}
             </h1>
           </div>
-          <SymbolPicker current={sym} />
+          <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>
         {data.is_empty ? (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">

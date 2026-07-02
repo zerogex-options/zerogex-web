@@ -101,6 +101,37 @@ export default function ReplayScrubber({
 
   const gammaFlip = currentFrame?.gamma_flip ?? null;
 
+  // Session-wide net_gex bounds so the y-axis stays pinned as the user
+  // scrubs (Recharts otherwise auto-scales per-frame and the whole chart
+  // jitters).  Padded ±5% so bars at the extremes aren't glued to the
+  // frame edge.  Symmetric around zero so the bull/bear scale is
+  // comparable — a +2M vs a −1M bar reads honestly.
+  const yDomain = useMemo<[number, number]>(() => {
+    let peak = 0;
+    for (const f of frames) {
+      for (const s of f.strikes ?? []) {
+        const v = s.net_gex;
+        if (v == null || !Number.isFinite(v)) continue;
+        const abs = Math.abs(v);
+        if (abs > peak) peak = abs;
+      }
+    }
+    const padded = peak * 1.05 || 1;
+    return [-padded, padded];
+  }, [frames]);
+
+  // Abbreviate large magnitudes (dealer GEX runs to billions on SPX).
+  // "1.2B", "-450M", "12K" — matches how a trader reads OI / notional.
+  function formatMagnitude(v: number): string {
+    if (!Number.isFinite(v)) return '—';
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '';
+    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
+    if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
+    if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
+    return `${sign}${abs.toFixed(0)}`;
+  }
+
   useEffect(() => {
     if (!isPlaying) {
       if (playRef.current) clearInterval(playRef.current);
@@ -145,7 +176,7 @@ export default function ReplayScrubber({
   }, []);
 
   const minuteToken = cursorTimestamp ? isoToMinuteToken(cursorTimestamp) : '0930';
-  const snapshotPath = `/replay/${sessionDate}/snapshot/${minuteToken}`;
+  const snapshotPath = `/replay/${symbol}/${sessionDate}/snapshot/${minuteToken}`;
   const snapshotUrl = `${siteUrl}${snapshotPath}`;
 
   const handleCopyShare = async () => {
@@ -334,7 +365,12 @@ export default function ReplayScrubber({
                 stroke="var(--color-text-secondary)"
                 tickFormatter={(v) => v.toFixed(0)}
               />
-              <YAxis stroke="var(--color-text-secondary)" />
+              <YAxis
+                stroke="var(--color-text-secondary)"
+                domain={yDomain}
+                width={54}
+                tickFormatter={formatMagnitude}
+              />
               <Tooltip
                 contentStyle={{
                   background: 'var(--color-surface)',
@@ -343,7 +379,7 @@ export default function ReplayScrubber({
                   fontSize: 12,
                 }}
                 formatter={(value) => [
-                  typeof value === 'number' && Number.isFinite(value) ? value.toFixed(0) : '—',
+                  typeof value === 'number' ? formatMagnitude(value) : '—',
                   'Net GEX',
                 ]}
                 labelFormatter={(label) => `Strike $${label}`}
@@ -380,7 +416,11 @@ export default function ReplayScrubber({
               <BarChart data={diffRows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="strike" stroke="var(--color-text-secondary)" tickFormatter={(v) => v.toFixed(0)} />
-                <YAxis stroke="var(--color-text-secondary)" />
+                <YAxis
+                  stroke="var(--color-text-secondary)"
+                  width={54}
+                  tickFormatter={formatMagnitude}
+                />
                 <Tooltip
                   contentStyle={{
                     background: 'var(--color-surface)',
@@ -389,7 +429,7 @@ export default function ReplayScrubber({
                     fontSize: 12,
                   }}
                   formatter={(value) => [
-                  typeof value === 'number' && Number.isFinite(value) ? value.toFixed(0) : '—',
+                  typeof value === 'number' ? formatMagnitude(value) : '—',
                   'Δ Net GEX',
                 ]}
                   labelFormatter={(label) => `Strike $${label}`}

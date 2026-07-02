@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
+import { resolveSymbol } from '@/core/symbols';
 
 export const runtime = 'nodejs';
 export const alt = "ZeroGEX Daily Scorecard — yesterday's Playbook calls + per-signal P&L";
@@ -63,8 +64,8 @@ function regimeAccent(label: string | undefined): string {
   return '#FF8531';
 }
 
-export default async function Image({ params }: { params: { date: string } }) {
-  const symbol = 'SPY';
+export default async function Image({ params }: { params: { symbol: string; date: string } }) {
+  const symbol = resolveSymbol(params.symbol);
   const date = params.date;
   const payload = ISO_DATE.test(date)
     ? await serverApiGet<ScorecardPayload>(

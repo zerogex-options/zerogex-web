@@ -81,8 +81,6 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Strategy Tools',
     items: [
-      { id: '/forecast', label: 'Forecast' },
-      { id: '/replay', label: 'Replay' },
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
@@ -129,6 +127,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
+      { id: '/forecast', label: 'Forecast', requiredTier: 'admin' },
+      { id: '/replay', label: 'Replay', requiredTier: 'admin' },
     ],
   },
 ];

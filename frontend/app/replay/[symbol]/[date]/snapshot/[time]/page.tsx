@@ -5,7 +5,7 @@ import { ChevronLeft, Magnet, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
@@ -105,15 +105,12 @@ async function loadFrame(date: string, hhmm: string, symbol: string): Promise<Fr
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string; time: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string; time: string }>;
 }): Promise<Metadata> {
-  const { date, time } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date, time } = await params;
   const sym = resolveSymbol(symbol);
-  const url = `${SITE_URL}/replay/${date}/snapshot/${time}`;
+  const url = `${SITE_URL}/replay/${sym}/${date}/snapshot/${time}`;
   const human = formatHumanDate(date);
   const minute = `${time.slice(0, 2)}:${time.slice(2, 4)} ET`;
   return {
@@ -138,13 +135,10 @@ export async function generateMetadata({
 
 export default async function ReplaySnapshotPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string; time: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string; time: string }>;
 }) {
-  const { date, time } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date, time } = await params;
   const sym = resolveSymbol(symbol);
   if (!ISO_DATE.test(date) || !HHMM.test(time)) notFound();
   const frame = await loadFrame(date, time, sym);
@@ -152,7 +146,8 @@ export default async function ReplaySnapshotPage({
 
   const minute = `${time.slice(0, 2)}:${time.slice(2, 4)} ET`;
   const human = formatHumanDate(date);
-  const permalink = `${SITE_URL}/replay/${date}/snapshot/${time}`;
+  const permalink = `${SITE_URL}/replay/${sym}/${date}/snapshot/${time}`;
+  const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}/snapshot/${time}`);
   const tweetBody = `${sym} GEX surface at ${minute} on ${human}.`;
   const summary = frame.summary;
 
@@ -160,7 +155,7 @@ export default async function ReplaySnapshotPage({
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href={`/replay/${date}`}
+          href={`/replay/${sym}/${date}`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
         >
           <ChevronLeft size={14} /> Back to player
@@ -186,7 +181,7 @@ export default async function ReplaySnapshotPage({
               Frame {formatTimeEt(frame.frame_ts)} ET (requested {formatTimeEt(frame.requested_ts)} ET)
             </p>
           </div>
-          <SymbolPicker current={sym} />
+          <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>
       </header>
 

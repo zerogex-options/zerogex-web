@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors
@@ -97,7 +97,7 @@ export default async function ForecastLanding({
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadDates(symbol);
   const entries = data?.dates ?? [];
-  const symbolQuery = symbol === 'SPY' ? '' : `?symbol=${symbol}`;
+  const pickerHrefs = buildSymbolHrefs((s) => (s === 'SPY' ? '/forecast' : `/forecast?symbol=${s}`));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -111,7 +111,7 @@ export default async function ForecastLanding({
               Yesterday&rsquo;s promise, today&rsquo;s receipt
             </h1>
           </div>
-          <SymbolPicker current={symbol} />
+          <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every morning at 7 AM ET we commit {symbol} to a projected range, a pin strike, and a
@@ -134,7 +134,7 @@ export default async function ForecastLanding({
               return (
                 <li key={entry.date}>
                   <Link
-                    href={`/forecast/${entry.date}${symbolQuery}`}
+                    href={`/forecast/${symbol}/${entry.date}`}
                     className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
                   >
                     <div className="flex items-baseline justify-between gap-3">

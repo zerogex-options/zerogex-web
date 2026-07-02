@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import ReplayScrubber from './ReplayScrubber';
 
 const REVALIDATE_SECONDS = 1800;
@@ -56,16 +56,13 @@ async function loadRange(date: string, symbol: string): Promise<ReplayRangePaylo
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }): Promise<Metadata> {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   const human = formatHumanDate(date);
-  const url = `${SITE_URL}/replay/${date}`;
+  const url = `${SITE_URL}/replay/${sym}/${date}`;
   return {
     title: `${sym} GEX Replay · ${human} — ZeroGEX`,
     description: `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`,
@@ -82,13 +79,10 @@ export async function generateMetadata({
 
 export default async function ReplayDatePage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }) {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const data = await loadRange(date, sym);
@@ -111,6 +105,7 @@ export default async function ReplayDatePage({
     );
   }
   const human = formatHumanDate(date);
+  const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}`);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -135,7 +130,7 @@ export default async function ReplayDatePage({
               {data.count} per-minute frames · {data.is_today ? 'live (today)' : 'historical'}
             </p>
           </div>
-          <SymbolPicker current={sym} />
+          <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>
       </header>
 

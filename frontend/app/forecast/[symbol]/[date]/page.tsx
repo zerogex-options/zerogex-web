@@ -5,7 +5,7 @@ import { ChevronLeft, CheckCircle2, XCircle, Magnet } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Public permalink for one trading day's Gamma Forecast Card.
@@ -123,20 +123,17 @@ async function loadStats(symbol: string): Promise<RollingStats | null> {
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }): Promise<Metadata> {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
     return { title: 'Forecast not found — ZeroGEX', robots: { index: false, follow: false } };
   }
   const data = await loadForecast(date, sym);
   const human = formatHumanDate(date);
-  const url = `${SITE_URL}/forecast/${date}`;
+  const url = `${SITE_URL}/forecast/${sym}/${date}`;
   const hasReceipt = data?.receipt != null;
   const titleHead = hasReceipt ? 'Receipt' : 'Forecast';
   const title = data
@@ -170,13 +167,10 @@ export async function generateMetadata({
 
 export default async function ForecastPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ date: string }>;
-  searchParams: Promise<{ symbol?: string }>;
+  params: Promise<{ symbol: string; date: string }>;
 }) {
-  const { date } = await params;
-  const { symbol } = await searchParams;
+  const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const [data, stats] = await Promise.all([loadForecast(date, sym), loadStats(sym)]);
@@ -187,7 +181,8 @@ export default async function ForecastPage({
   const human = formatHumanDate(date);
   const regimeLabel = humanizeRegime(morning.regime);
   const regimeAccent = regimeColor(morning.regime);
-  const permalink = `${SITE_URL}/forecast/${date}`;
+  const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
+  const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
     ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}, pin ${receipt.pin_hit ? 'hit' : 'missed'}, regime ${receipt.regime_correct ? 'correct' : 'wrong'}.`
     : `${sym} ${date} forecast — range ${fmtPrice(morning.projected_low)}–${fmtPrice(morning.projected_high)}, pin ${fmtPrice(morning.pin_strike)}, regime ${regimeLabel}.`;
@@ -224,7 +219,7 @@ export default async function ForecastPage({
                 : `Committed ${morning.ts} · receipt at 4:05 PM ET`}
             </p>
           </div>
-          <SymbolPicker current={sym} />
+          <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>
       </header>
 

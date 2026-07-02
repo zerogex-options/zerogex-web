@@ -1,31 +1,27 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useTransition } from 'react';
+import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { DEFAULT_SYMBOL, SYMBOLS, type PickerSymbol } from '@/core/symbols';
+import { SYMBOLS, type PickerSymbol } from '@/core/symbols';
 
-// useSearchParams() forces its subtree out of static rendering, so the
-// component that reads it must live inside a Suspense boundary — same
-// pattern app/pricing/Client.tsx uses. The outer default export supplies
-// the Suspense wrapper; the inner reader does the work.
-function PickerInner({ current }: { current: PickerSymbol }) {
+interface PickerProps {
+  current: PickerSymbol;
+  /** Pre-computed per-symbol targets. The picker itself is a client
+   *  component, so it can't build URLs — the caller (a server component
+   *  or landing page) constructs the map so the target can be either a
+   *  path segment swap (/forecast/QQQ/2026-07-01) or a query change
+   *  (/forecast?symbol=QQQ) depending on the surface. */
+  hrefs: Record<PickerSymbol, string>;
+}
+
+export default function SymbolPicker({ current, hrefs }: PickerProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [pending, start] = useTransition();
 
   function pick(next: PickerSymbol) {
     if (next === current) return;
-    const params = new URLSearchParams(searchParams?.toString() ?? '');
-    if (next === DEFAULT_SYMBOL) {
-      params.delete('symbol');
-    } else {
-      params.set('symbol', next);
-    }
-    const qs = params.toString();
-    const target = pathname ?? '/';
-    start(() => router.push(qs ? `${target}?${qs}` : target));
+    start(() => router.push(hrefs[next]));
   }
 
   return (
@@ -51,35 +47,5 @@ function PickerInner({ current }: { current: PickerSymbol }) {
         );
       })}
     </div>
-  );
-}
-
-// Fallback matches the picker's outer footprint (3 buttons, ~120px wide)
-// so headers don't reflow when Suspense resolves.
-function PickerFallback() {
-  return (
-    <div className="flex items-center gap-2" aria-hidden>
-      {SYMBOLS.map((s) => (
-        <div
-          key={s}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase"
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          {s}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export default function SymbolPicker(props: { current: PickerSymbol }) {
-  return (
-    <Suspense fallback={<PickerFallback />}>
-      <PickerInner {...props} />
-    </Suspense>
   );
 }
