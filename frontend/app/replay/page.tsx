@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
 
 // Landing page for /replay — lists the recent trading days that have
 // replayable GEX data and links to /replay/[date]. ISR-cached for an
@@ -65,20 +66,30 @@ async function loadSessions(symbol: string): Promise<ReplaySessionList | null> {
   );
 }
 
-export default async function ReplayLanding() {
-  const symbol = 'SPY';
+export default async function ReplayLanding({
+  searchParams,
+}: {
+  searchParams: Promise<{ symbol?: string }>;
+}) {
+  const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadSessions(symbol);
   const sessions = data?.sessions ?? [];
+  const symbolQuery = symbol === 'SPY' ? '' : `?symbol=${symbol}`;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <header className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          ZeroGEX · GEX Replay
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+              ZeroGEX · GEX Replay
+            </div>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+              Scrub through any past session
+            </h1>
+          </div>
+          <SymbolPicker current={symbol} />
         </div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          Scrub through any past session
-        </h1>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
           days is replayable. Drag the playhead to watch walls shift, gamma flip drift, and
@@ -90,7 +101,7 @@ export default async function ReplayLanding() {
       <section>
         {sessions.length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No replayable sessions available yet. Check back after the next trading day.
+            No replayable sessions for {symbol} yet. Check back after the next trading day.
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -103,7 +114,7 @@ export default async function ReplayLanding() {
               return (
                 <li key={session.date}>
                   <Link
-                    href={`/replay/${session.date}`}
+                    href={`/replay/${session.date}${symbolQuery}`}
                     className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
                   >
                     <div className="flex items-baseline justify-between gap-3">

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, Magnet, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
+import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
@@ -110,7 +111,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date, time } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   const url = `${SITE_URL}/replay/${date}/snapshot/${time}`;
   const human = formatHumanDate(date);
   const minute = `${time.slice(0, 2)}:${time.slice(2, 4)} ET`;
@@ -143,7 +144,7 @@ export default async function ReplaySnapshotPage({
 }) {
   const { date, time } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!ISO_DATE.test(date) || !HHMM.test(time)) notFound();
   const frame = await loadFrame(date, time, sym);
   if (!frame) notFound();
@@ -172,15 +173,20 @@ export default async function ReplaySnapshotPage({
       </div>
 
       <header className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          ZeroGEX · Replay snapshot
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+              ZeroGEX · Replay snapshot
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {sym} · {human} @ {minute}
+            </h1>
+            <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
+              Frame {formatTimeEt(frame.frame_ts)} ET (requested {formatTimeEt(frame.requested_ts)} ET)
+            </p>
+          </div>
+          <SymbolPicker current={sym} />
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          {sym} · {human} @ {minute}
-        </h1>
-        <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-          Frame {formatTimeEt(frame.frame_ts)} ET (requested {formatTimeEt(frame.requested_ts)} ET)
-        </p>
       </header>
 
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

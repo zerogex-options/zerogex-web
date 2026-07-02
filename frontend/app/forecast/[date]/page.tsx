@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, CheckCircle2, XCircle, Magnet } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
+import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Public permalink for one trading day's Gamma Forecast Card.
@@ -128,7 +129,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
     return { title: 'Forecast not found — ZeroGEX', robots: { index: false, follow: false } };
   }
@@ -175,7 +176,7 @@ export default async function ForecastPage({
 }) {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const [data, stats] = await Promise.all([loadForecast(date, sym), loadStats(sym)]);
   if (!data) notFound();
@@ -208,17 +209,22 @@ export default async function ForecastPage({
       </div>
 
       <header className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          ZeroGEX · {receipt ? 'Forecast Receipt' : 'Morning Forecast'}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+              ZeroGEX · {receipt ? 'Forecast Receipt' : 'Morning Forecast'}
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {sym} · {human}
+            </h1>
+            <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
+              {receipt
+                ? `Committed ${morning.ts} · Receipt ${receipt.ts}`
+                : `Committed ${morning.ts} · receipt at 4:05 PM ET`}
+            </p>
+          </div>
+          <SymbolPicker current={sym} />
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          {sym} · {human}
-        </h1>
-        <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-          {receipt
-            ? `Committed ${morning.ts} · Receipt ${receipt.ts}`
-            : `Committed ${morning.ts} · receipt at 4:05 PM ET`}
-        </p>
       </header>
 
       <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">

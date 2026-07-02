@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
+import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
 import { serverApiGet } from '@/core/api/serverFetch';
 
 // Public permalink for one trading day's Scorecard recap. Server-rendered,
@@ -100,7 +101,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
     return { title: 'Scorecard not found — ZeroGEX', robots: { index: false, follow: false } };
   }
@@ -143,7 +144,7 @@ export default async function ScorecardPage({
 }) {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const data = await loadScorecard(date, sym);
   if (!data) notFound();
@@ -175,12 +176,17 @@ export default async function ScorecardPage({
       </div>
 
       <header className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          ZeroGEX · Scorecard
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+              ZeroGEX · Scorecard
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {sym} · {human}
+            </h1>
+          </div>
+          <SymbolPicker current={sym} />
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          {sym} · {human}
-        </h1>
         {data.is_empty ? (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Quiet tape. No Playbook calls were emitted and no signals flipped direction. Either a

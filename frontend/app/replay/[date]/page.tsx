@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import SymbolPicker, { resolveSymbol } from '@/components/SymbolPicker';
 import ReplayScrubber from './ReplayScrubber';
 
 const REVALIDATE_SECONDS = 1800;
@@ -61,7 +62,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   const human = formatHumanDate(date);
   const url = `${SITE_URL}/replay/${date}`;
   return {
@@ -87,7 +88,7 @@ export default async function ReplayDatePage({
 }) {
   const { date } = await params;
   const { symbol } = await searchParams;
-  const sym = (symbol || 'SPY').toUpperCase();
+  const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const data = await loadRange(date, sym);
   if (!data || data.frames.length === 0) {
@@ -121,15 +122,20 @@ export default async function ReplayDatePage({
         </Link>
       </div>
       <header className="mb-6">
-        <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          ZeroGEX · GEX Replay
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+              ZeroGEX · GEX Replay
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {sym} · {human}
+            </h1>
+            <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
+              {data.count} per-minute frames · {data.is_today ? 'live (today)' : 'historical'}
+            </p>
+          </div>
+          <SymbolPicker current={sym} />
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          {sym} · {human}
-        </h1>
-        <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-          {data.count} per-minute frames · {data.is_today ? 'live (today)' : 'historical'}
-        </p>
       </header>
 
       <ReplayScrubber symbol={sym} sessionDate={date} initialFrames={data.frames} siteUrl={SITE_URL} />
