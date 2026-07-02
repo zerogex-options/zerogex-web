@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
-  DM_Sans,
-  DM_Serif_Display,
-  EB_Garamond,
-  Fraunces,
+  Bebas_Neue,
+  Cormorant_Garamond,
   Inter,
   JetBrains_Mono,
-  Manrope,
-  Space_Grotesk,
-  Syne,
+  Libre_Baskerville,
+  Noto_Sans,
+  Playfair_Display,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -18,19 +16,11 @@ import { GexUnitProvider } from '@/core/GexUnitContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 
-// California Sunset — body sans.
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-dm-sans',
-  display: 'swap',
-});
-
-// Miami Beach body, plus legacy fallback for the site-wide body font var.
-const spaceGrotesk = Space_Grotesk({
+// Site body sans — Inter is the shared body font across every palette.
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-space-grotesk',
+  variable: '--font-inter',
   display: 'swap',
 });
 
@@ -42,69 +32,59 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-// California Sunset — display serif, warm & modern.
-const fraunces = Fraunces({
+// Wall Street — editorial serif, tailored, ivory-and-navy.
+const libreBaskerville = Libre_Baskerville({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-fraunces',
+  weight: ['400', '700'],
+  variable: '--font-libre-baskerville',
   display: 'swap',
 });
 
-// Kyoto Zen — display serif, calm & classical.
-const ebGaramond = EB_Garamond({
+// California Sunset — display serif, Hollywood editorial.
+const playfair = Playfair_Display({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-eb-garamond',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-playfair',
   display: 'swap',
 });
 
-// Kyoto Zen — body sans, quiet and humble.
-const manrope = Manrope({
+// Kyoto Zen — display serif, calm classical elegance.
+const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-manrope',
+  variable: '--font-cormorant',
   display: 'swap',
 });
 
-// Miami Beach — display, geometric 80s.
-const syne = Syne({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-  variable: '--font-syne',
-  display: 'swap',
-});
-
-// Wall Street — display serif, editorial gravitas.
-const dmSerif = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-dm-serif',
-  display: 'swap',
-});
-
-// Wall Street — body sans.
-const inter = Inter({
+// Kyoto Zen — body sans, humanist and humble.
+const notoSans = Noto_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-inter',
+  variable: '--font-noto-sans',
+  display: 'swap',
+});
+
+// Miami Beach — display, condensed 80s club marquee.
+const bebas = Bebas_Neue({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-bebas',
   display: 'swap',
 });
 
 const FONT_VARIABLES = [
-  dmSans.variable,
-  spaceGrotesk.variable,
-  jetbrainsMono.variable,
-  fraunces.variable,
-  ebGaramond.variable,
-  manrope.variable,
-  syne.variable,
-  dmSerif.variable,
   inter.variable,
+  jetbrainsMono.variable,
+  libreBaskerville.variable,
+  playfair.variable,
+  cormorant.variable,
+  notoSans.variable,
+  bebas.variable,
 ].join(' ');
 
-type PaletteId = 'california' | 'kyoto' | 'miami' | 'wallstreet';
-const PALETTES: PaletteId[] = ['california', 'kyoto', 'miami', 'wallstreet'];
-const DEFAULT_PALETTE: PaletteId = 'california';
+type PaletteId = 'wallstreet' | 'california' | 'kyoto' | 'miami';
+const PALETTES: PaletteId[] = ['wallstreet', 'california', 'kyoto', 'miami'];
+const DEFAULT_PALETTE: PaletteId = 'wallstreet';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
   pacific: 'miami',
