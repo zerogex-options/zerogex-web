@@ -15,19 +15,19 @@ const PALETTES: PaletteMeta[] = [
     id: 'walnut',
     name: 'Terminal Walnut',
     subtitle: 'Default · clean warm neutral',
-    swatch: ['#14100A', '#C48338', '#F0CE6C', '#E67F5C'],
+    swatch: ['#14100A', '#E29040', '#FFD870', '#FF8862'],
   },
   {
     id: 'california',
     name: 'California Sunset',
     subtitle: 'Warm dusk · coral & gold',
-    swatch: ['#120817', '#EB5F3E', '#FFDA57', '#4FA3E8'],
+    swatch: ['#120817', '#FF6E48', '#FFDF64', '#62B0F0'],
   },
   {
     id: 'pacific',
     name: 'Pacific Northwest',
     subtitle: 'Cool forest · emerald & sky',
-    swatch: ['#050C09', '#4FE8A0', '#4FBFF0', '#E8C24C'],
+    swatch: ['#050C09', '#58EEA6', '#5FCAF5', '#F5D058'],
   },
   {
     id: 'deluxe',
@@ -40,6 +40,7 @@ const PALETTES: PaletteMeta[] = [
 export default function ThemeDropdown() {
   const { palette, setPalette } = useTheme();
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<'left' | 'right'>('right');
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,13 +52,27 @@ export default function ThemeDropdown() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  // Choose whether the dropdown anchors to the trigger's left or right edge,
+  // based on the trigger's position in the viewport. Sidebar-mounted triggers
+  // (far left) anchor left so the panel opens rightward; header-mounted
+  // triggers (far right) anchor right so it opens leftward.
+  const handleToggle = () => {
+    if (!open && wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect();
+      const dropdownWidth = 260;
+      const spaceRight = window.innerWidth - rect.left;
+      setAnchor(spaceRight >= dropdownWidth + 16 ? 'left' : 'right');
+    }
+    setOpen((v) => !v);
+  };
+
   const current = PALETTES.find((p) => p.id === palette) ?? PALETTES[0];
 
   return (
     <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Theme palette: ${current.name}`}
@@ -85,8 +100,9 @@ export default function ThemeDropdown() {
         <div
           role="listbox"
           aria-label="Theme palettes"
-          className="absolute right-0 mt-2 z-50"
+          className="absolute mt-2 z-50"
           style={{
+            [anchor]: 0,
             minWidth: '260px',
             padding: '6px',
             background: 'var(--bg-card)',
