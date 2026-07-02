@@ -392,7 +392,7 @@ export default function ReplayScrubber({
                   label={{ value: 'Flip', position: 'top', fill: 'var(--color-warning)', fontSize: 10 }}
                 />
               )}
-              <Bar dataKey="net_gex" />
+              <Bar dataKey="net_gex" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>
