@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
-  Bebas_Neue,
   Cormorant_Garamond,
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
   Noto_Sans,
   Playfair_Display,
+  Poppins,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -64,11 +64,11 @@ const notoSans = Noto_Sans({
   display: 'swap',
 });
 
-// Miami Beach — display, condensed 80s club marquee.
-const bebas = Bebas_Neue({
+// Miami Beach — display sans, wide geometric 80s marquee.
+const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-bebas',
+  weight: ['500', '600', '700', '800', '900'],
+  variable: '--font-poppins',
   display: 'swap',
 });
 
@@ -79,7 +79,7 @@ const FONT_VARIABLES = [
   playfair.variable,
   cormorant.variable,
   notoSans.variable,
-  bebas.variable,
+  poppins.variable,
 ].join(' ');
 
 type PaletteId = 'wallstreet' | 'california' | 'kyoto' | 'miami';
