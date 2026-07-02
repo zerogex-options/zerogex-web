@@ -386,12 +386,12 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
         borderRadius: 16,
         overflow: 'hidden',
         background:
-          'linear-gradient(120deg, #f5b400 0%, #ff7a18 35%, #ff2e63 70%, #ff7a18 100%)',
+          'linear-gradient(120deg, var(--color-brand-primary) 0%, var(--heat-mid) 35%, var(--color-accent-hot) 70%, var(--heat-mid) 100%)',
         backgroundSize: '220% 100%',
         animation: 'zgxPromoShine 4s linear infinite, zgxPromoPulse 2.4s ease-in-out infinite',
         boxShadow:
-          '0 0 0 1px rgba(255,255,255,0.18) inset, 0 14px 50px rgba(255, 122, 24, 0.45)',
-        color: '#0b0b0b',
+          '0 0 0 1px rgba(255,255,255,0.18) inset, 0 14px 50px color-mix(in srgb, var(--color-brand-primary) 45%, transparent)',
+        color: 'var(--text-inverse)',
         textAlign: 'center',
         fontWeight: 900,
       }}
