@@ -12,28 +12,28 @@ interface PaletteMeta {
 
 const PALETTES: PaletteMeta[] = [
   {
-    id: 'walnut',
-    name: 'Terminal Walnut',
-    subtitle: 'Default · clean warm neutral',
-    swatch: ['#14100A', '#E29040', '#FFD870', '#FF8862'],
-  },
-  {
     id: 'california',
     name: 'California Sunset',
-    subtitle: 'Warm dusk · coral & gold',
-    swatch: ['#120817', '#FF6E48', '#FFDF64', '#62B0F0'],
+    subtitle: 'Coral, teal, gold — vintage Hollywood',
+    swatch: ['#150C1D', '#FF6A48', '#FFDF64', '#2FDCC0'],
   },
   {
-    id: 'pacific',
-    name: 'Pacific Northwest',
-    subtitle: 'Cool forest · emerald & sky',
-    swatch: ['#050C09', '#58EEA6', '#5FCAF5', '#F5D058'],
+    id: 'kyoto',
+    name: 'Kyoto Zen',
+    subtitle: 'Sand, matcha, cedar — quiet and organic',
+    swatch: ['#0F0E0A', '#C57A32', '#9FC178', '#E8C078'],
   },
   {
-    id: 'deluxe',
-    name: 'Terminal Deluxe',
-    subtitle: 'Pro · high-contrast Bloomberg',
-    swatch: ['#0A0E13', '#FFB020', '#4FE8A8', '#FF6E6E'],
+    id: 'miami',
+    name: 'Miami Beach',
+    subtitle: 'Neon pink, aqua, night sky — 80s loud',
+    swatch: ['#060A16', '#FF4FA0', '#4CE5F7', '#00E5C9'],
+  },
+  {
+    id: 'wallstreet',
+    name: 'Wall Street',
+    subtitle: 'Gold, money-green, ticker red — trading floor',
+    swatch: ['#0A0E13', '#FFB020', '#1BAA5C', '#E63946'],
   },
 ];
 
