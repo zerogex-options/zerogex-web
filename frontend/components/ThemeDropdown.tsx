@@ -12,28 +12,28 @@ interface PaletteMeta {
 
 const PALETTES: PaletteMeta[] = [
   {
+    id: 'wallstreet',
+    name: 'Wall Street',
+    subtitle: 'Banker navy, old gold, burgundy tie',
+    swatch: ['#0E1116', '#164E6B', '#C5A05A', '#9A2638'],
+  },
+  {
     id: 'california',
     name: 'California Sunset',
-    subtitle: 'Coral, tangerine, gold, teal — sun-drenched',
-    swatch: ['#1A0F26', '#FF5B38', '#FFE470', '#3AF0D0'],
+    subtitle: 'Sunset coral, pacific teal, vintage gold',
+    swatch: ['#171B24', '#E1785B', '#3E9C9B', '#D7A84B'],
   },
   {
     id: 'kyoto',
     name: 'Kyoto Zen',
-    subtitle: 'Pine, cedar, sand — quiet Swiss modernism',
-    swatch: ['#0F0E0A', '#6BAF7E', '#C57A32', '#E8C078'],
+    subtitle: 'Bonsai green, shrine red, blossom pink',
+    swatch: ['#171B16', '#A5B875', '#C94B3F', '#E0A7A0'],
   },
   {
     id: 'miami',
     name: 'Miami Beach',
-    subtitle: 'Neon pink, aqua, night sky — 80s loud',
-    swatch: ['#060A16', '#FF4FA0', '#4CE5F7', '#00E5C9'],
-  },
-  {
-    id: 'wallstreet',
-    name: 'Wall Street',
-    subtitle: 'Ultramarine, royal, magenta, taxi yellow',
-    swatch: ['#030A1F', '#4A82FF', '#E15FA4', '#FFC300'],
+    subtitle: 'Hot pink, neon cyan, cabana yellow',
+    swatch: ['#0B1026', '#FF3CAC', '#00E5FF', '#FFE156'],
   },
 ];
 
