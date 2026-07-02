@@ -26,5 +26,5 @@ function todayInET(): string {
 }
 
 export default function ScorecardTodayPage() {
-  redirect(`/scorecard/${todayInET()}`);
+  redirect(`/scorecard/SPY/${todayInET()}`);
 }

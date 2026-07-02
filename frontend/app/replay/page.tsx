@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
-import { resolveSymbol } from '@/core/symbols';
+import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 
 // Landing page for /replay — lists the recent trading days that have
 // replayable GEX data and links to /replay/[date]. ISR-cached for an
@@ -75,7 +75,7 @@ export default async function ReplayLanding({
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadSessions(symbol);
   const sessions = data?.sessions ?? [];
-  const symbolQuery = symbol === 'SPY' ? '' : `?symbol=${symbol}`;
+  const pickerHrefs = buildSymbolHrefs((s) => (s === 'SPY' ? '/replay' : `/replay?symbol=${s}`));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -89,7 +89,7 @@ export default async function ReplayLanding({
               Scrub through any past session
             </h1>
           </div>
-          <SymbolPicker current={symbol} />
+          <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
@@ -115,7 +115,7 @@ export default async function ReplayLanding({
               return (
                 <li key={session.date}>
                   <Link
-                    href={`/replay/${session.date}${symbolQuery}`}
+                    href={`/replay/${symbol}/${session.date}`}
                     className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
                   >
                     <div className="flex items-baseline justify-between gap-3">

@@ -145,7 +145,7 @@ export default function ReplayScrubber({
   }, []);
 
   const minuteToken = cursorTimestamp ? isoToMinuteToken(cursorTimestamp) : '0930';
-  const snapshotPath = `/replay/${sessionDate}/snapshot/${minuteToken}`;
+  const snapshotPath = `/replay/${symbol}/${sessionDate}/snapshot/${minuteToken}`;
   const snapshotUrl = `${siteUrl}${snapshotPath}`;
 
   const handleCopyShare = async () => {

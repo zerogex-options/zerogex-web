@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
+import { resolveSymbol } from '@/core/symbols';
 
 export const runtime = 'nodejs';
 export const alt = 'ZeroGEX Replay snapshot — historical dealer gamma surface';
@@ -63,8 +64,8 @@ function hhmmToIsoUtc(date: string, hhmm: string): string | null {
   }
 }
 
-export default async function Image({ params }: { params: { date: string; time: string } }) {
-  const symbol = 'SPY';
+export default async function Image({ params }: { params: { symbol: string; date: string; time: string } }) {
+  const symbol = resolveSymbol(params.symbol);
   const iso = hhmmToIsoUtc(params.date, params.time);
   const payload = iso
     ? await serverApiGet<FramePayload>(
@@ -269,7 +270,7 @@ export default async function Image({ params }: { params: { date: string; time: 
               display: 'flex',
             }}
           >
-            zerogex.io/replay/{params.date}
+            zerogex.io/replay/{symbol}/{params.date}
           </div>
         </div>
       </div>

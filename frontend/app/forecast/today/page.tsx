@@ -19,5 +19,5 @@ function todayInET(): string {
 }
 
 export default function ForecastTodayPage() {
-  redirect(`/forecast/${todayInET()}`);
+  redirect(`/forecast/SPY/${todayInET()}`);
 }

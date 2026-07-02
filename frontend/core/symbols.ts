@@ -13,3 +13,23 @@ export function resolveSymbol(raw: string | undefined | null): PickerSymbol {
     ? (upper as PickerSymbol)
     : DEFAULT_SYMBOL;
 }
+
+/**
+ * Build the per-symbol href map the SymbolPicker consumes.  Given a
+ * function that maps a symbol to its target URL, produce an object keyed
+ * by every valid symbol — saves each page an ~identical three-line
+ * reduce.  Example:
+ *
+ *   const hrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
+ */
+export function buildSymbolHrefs(
+  hrefFor: (symbol: PickerSymbol) => string,
+): Record<PickerSymbol, string> {
+  return SYMBOLS.reduce(
+    (acc, s) => {
+      acc[s] = hrefFor(s);
+      return acc;
+    },
+    {} as Record<PickerSymbol, string>,
+  );
+}
