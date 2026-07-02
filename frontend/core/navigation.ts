@@ -126,8 +126,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
-      { id: '/forecast', label: 'Gamma Forecast', requiredTier: 'admin' },
-      { id: '/replay', label: 'GEX Replay', requiredTier: 'admin' },
+      { id: '/forecast', label: 'Forecast', requiredTier: 'admin' },
+      { id: '/replay', label: 'Replay', requiredTier: 'admin' },
     ],
   },
 ];
