@@ -14,8 +14,8 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'california',
     name: 'California Sunset',
-    subtitle: 'Coral, teal, gold — vintage Hollywood',
-    swatch: ['#150C1D', '#FF6A48', '#FFDF64', '#2FDCC0'],
+    subtitle: 'Coral, tangerine, gold, teal — sun-drenched',
+    swatch: ['#1A0F26', '#FF5B38', '#FFE470', '#3AF0D0'],
   },
   {
     id: 'kyoto',
@@ -32,8 +32,8 @@ const PALETTES: PaletteMeta[] = [
   {
     id: 'wallstreet',
     name: 'Wall Street',
-    subtitle: 'Navy, royal, lilac, canary — corporate confident',
-    swatch: ['#08122A', '#6188F5', '#B79EE5', '#FFDD3A'],
+    subtitle: 'Yankees navy, royal, lilac, taxi yellow',
+    swatch: ['#050D1E', '#4A82FF', '#C4A8F5', '#FCD40D'],
   },
 ];
 

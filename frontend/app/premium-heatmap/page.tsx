@@ -215,7 +215,7 @@ export default function PremiumHeatmapPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <h1 className="text-3xl font-bold">Premium Heat Map</h1>
+        <h1 className="text-3xl font-bold">Premium Surface</h1>
         <BetaBadge size="md" />
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>

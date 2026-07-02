@@ -477,7 +477,10 @@ export default function GammaHeatmapCanvas() {
     const plotW = Math.max(10, cssW - PAD_L - PAD_R);
     const plotH = Math.max(10, cssH - PAD_T - PAD_B);
 
-    ctx.fillStyle = 'var(--bg-card)';
+    // Canvas doesn't resolve CSS vars — read once per render.
+    const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+    const bgCardColor = rootStyle?.getPropertyValue('--bg-card').trim() || (isDark ? '#111' : '#fff');
+    ctx.fillStyle = bgCardColor;
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
     const T = grid.timestamps.length;
@@ -676,8 +679,15 @@ export default function GammaHeatmapCanvas() {
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
       const cellW = plotW / T;
       const candleW = Math.max(2, Math.min(8, cellW * 0.42));
-      const bullEdge = darken('var(--color-bull)', 0.6);
-      const bearEdge = darken('var(--color-bear)', 0.6);
+      // Canvas fillStyle/strokeStyle don't resolve CSS vars — they'd
+      // silently retain whatever fill was set previously and the candles
+      // would render as the last-used color (typically white or black).
+      // Resolve to concrete hex once per render.
+      const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+      const bullColor = rootStyle?.getPropertyValue('--color-bull').trim() || '#1BC47D';
+      const bearColor = rootStyle?.getPropertyValue('--color-bear').trim() || '#FF5A66';
+      const bullEdge = darken(bullColor, 0.6);
+      const bearEdge = darken(bearColor, 0.6);
       grid.slotsMs.forEach((ms, i) => {
         const row = priceByMs.get(ms);
         if (!row) return;
@@ -693,7 +703,7 @@ export default function GammaHeatmapCanvas() {
         const yHigh = yForStrike(high);
         const yLow = yForStrike(low);
         const up = close >= open;
-        const fill = up ? 'var(--color-bull)' : 'var(--color-bear)';
+        const fill = up ? bullColor : bearColor;
         const edge = up ? bullEdge : bearEdge;
         const bodyTop = Math.min(yOpen, yClose);
         const bodyBottom = Math.max(yOpen, yClose);
