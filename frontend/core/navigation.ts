@@ -86,6 +86,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
       { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
       { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
+      { id: '/replay', label: 'Daily Replay' },
     ],
   },
   {
@@ -128,7 +129,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
       { id: '/forecast', label: 'Forecast', requiredTier: 'admin' },
-      { id: '/replay', label: 'Replay', requiredTier: 'admin' },
     ],
   },
 ];
