@@ -156,12 +156,14 @@ export default async function ReplayDatePage({
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Drag the scrubber to any minute · use play/pause to auto-advance · the underlying candles
-        chart shows where the tape was as you scrub, and the strike-profile bars flip out from zero
-        so bull/bear pressure reads at a glance · drop pin A then pin B to see the strike-by-strike
-        delta between two moments · click <em>Snapshot this minute</em> to generate a branded
-        permalink with an OG image you can share. MP4 export of arbitrary windows is on the
-        roadmap; today you share branded stills of the moments that mattered.
+        Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
+        the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
+        the same price axis so a wick and a strike bar at the same level line up horizontally ·
+        candles past the cursor ghost out and light back to full opacity as the playhead sweeps
+        through them · drop pin A then pin B to see the strike-by-strike delta between two moments ·
+        click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you
+        can share. MP4 export of arbitrary windows is on the roadmap; today you share branded
+        stills of the moments that mattered.
       </section>
     </main>
   );

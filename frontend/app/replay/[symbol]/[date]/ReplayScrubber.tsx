@@ -18,9 +18,12 @@ import { capture } from '@/core/telemetry/posthog-client';
 // client-side once the initial range payload is hydrated — scrubbing
 // renders from in-memory state with no per-frame network call.
 //
-// Layout: candles chart on top so the trader reads price action first,
-// horizontal strike profile below so strikes on the Y-axis line up with
-// the price axis above. Pin-diff mirrors the same orientation.
+// Layout: single SVG that shares one price/strike Y-axis between the
+// left-side candlestick chart (session tape) and the right-side
+// horizontal strike-profile bars, mirroring the GEX Strike Profile page
+// so a viewer's spatial intuition transfers. Future candles (past the
+// scrubber cursor) render at 25% opacity and light to 100% as the
+// cursor sweeps through them.
 
 interface Frame {
   timestamp: string;
@@ -49,6 +52,12 @@ interface ReplayScrubberProps {
 
 const PLAY_SPEEDS = [1, 4, 16, 60] as const;
 type PlaySpeed = (typeof PLAY_SPEEDS)[number];
+
+// Opacity for candles whose timestamp is later than the scrubber
+// cursor — 75% transparent per the design so the "not yet reached"
+// portion of the tape reads as ghosted context that will light up as
+// the playhead sweeps into it.
+const FUTURE_CANDLE_OPACITY = 0.25;
 
 function formatTime(iso: string): string {
   try {
@@ -113,9 +122,9 @@ export default function ReplayScrubber({
   const currentFrame = frames[cursor] ?? frames[0];
   const cursorTimestamp = currentFrame?.timestamp ?? null;
 
-  // Union of every strike seen across the session. Locks the y-axis so
-  // it doesn't jitter mid-playback when a strike drops in or out of a
-  // frame's payload (nulls are filtered per-frame below).
+  // Union of every strike seen across the session. Locks the strike
+  // ladder so it doesn't jitter mid-playback when a strike drops in or
+  // out of a frame's payload (nulls are filtered per-frame below).
   const allStrikes = useMemo(() => {
     const set = new Set<number>();
     for (const f of frames) {
@@ -123,38 +132,27 @@ export default function ReplayScrubber({
         if (s.strike != null) set.add(s.strike);
       }
     }
-    // Sort descending so higher strikes render at the top of the Y-axis
-    // once the chart is flipped to a vertical layout — reads like a
-    // dealer's ladder, calls up, puts down.
-    return Array.from(set).sort((a, b) => b - a);
+    return Array.from(set).sort((a, b) => a - b);
   }, [frames]);
 
-  // Strike rows for the current minute. Zero-fill any union strike that
-  // isn't present in this frame so every frame renders the full ladder
-  // (Recharts is unhappy with nulls inside the data array).
-  const chartData = useMemo(() => {
+  // Strike → net GEX map for the cursor's minute. Zero-fill any union
+  // strike missing from this frame so every strike-row on the ladder
+  // renders (even if just as an empty rung).
+  const strikeGexByStrike = useMemo(() => {
     const byStrike = new Map<number, number>();
     for (const s of currentFrame?.strikes ?? []) {
       if (s.strike != null && s.net_gex != null) byStrike.set(s.strike, s.net_gex);
     }
-    return allStrikes.map((strike) => {
-      const net_gex = byStrike.get(strike) ?? 0;
-      return {
-        strike,
-        net_gex,
-        fill: net_gex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-      };
-    });
-  }, [currentFrame, allStrikes]);
+    return byStrike;
+  }, [currentFrame]);
 
   const gammaFlip = currentFrame?.gamma_flip ?? null;
 
-  // Session-wide net_gex bounds so the value axis stays pinned as the
-  // user scrubs (Recharts otherwise auto-scales per-frame and the whole
-  // chart jitters). Padded ±5% so bars at the extremes aren't glued to
-  // the frame edge. Symmetric around zero so the bull/bear scale is
-  // comparable — a +2M vs a −1M bar reads honestly.
-  const xDomain = useMemo<[number, number]>(() => {
+  // Session-wide GEX peak so the horizontal-bar magnitude axis stays
+  // pinned as the user scrubs (otherwise the widest bar this minute
+  // would drift with playback and every strike's bar would visually
+  // resize even when its own value hadn't changed).
+  const gexPeak = useMemo(() => {
     let peak = 0;
     for (const f of frames) {
       for (const s of f.strikes ?? []) {
@@ -164,9 +162,30 @@ export default function ReplayScrubber({
         if (abs > peak) peak = abs;
       }
     }
-    const padded = peak * 1.05 || 1;
-    return [-padded, padded];
+    return peak * 1.05 || 1;
   }, [frames]);
+
+  // Union price range so candles and strikes share a Y-axis without
+  // clipping. Candles set the tape's high/low; strikes contribute the
+  // strike-ladder ceiling/floor. Padded ±3% so the highest and lowest
+  // extremes aren't glued to the chart edge.
+  const yBounds = useMemo(() => {
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (const c of candles) {
+      if (c.low != null && Number.isFinite(c.low) && c.low < lo) lo = c.low;
+      if (c.high != null && Number.isFinite(c.high) && c.high > hi) hi = c.high;
+    }
+    for (const s of allStrikes) {
+      if (s < lo) lo = s;
+      if (s > hi) hi = s;
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+      return { lo: 0, hi: 1 };
+    }
+    const pad = (hi - lo) * 0.03 || 1;
+    return { lo: lo - pad, hi: hi + pad };
+  }, [candles, allStrikes]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -234,8 +253,6 @@ export default function ReplayScrubber({
 
   // Diff between the two pins, when both are dropped. Computed inline
   // since the per-frame strike payload is small (~60 rows × 2 frames).
-  // Sort descending so the diff chart matches the main strike profile's
-  // orientation (higher strikes at the top).
   const diffRows = useMemo(() => {
     if (pinA == null || pinB == null) return null;
     const a = frames[pinA];
@@ -385,75 +402,23 @@ export default function ReplayScrubber({
         </div>
       </div>
 
-      {/* Underlying candles — session-long OHLC with a vertical marker
-          at the scrubber's cursor so the trader sees where price was
-          when the GEX frame below was captured. */}
-      <UnderlyingCandles
+      {/* Combined candles + strike-profile overlay */}
+      <ReplayOverlayChart
         symbol={symbol}
         candles={candles}
+        strikes={allStrikes}
+        strikeGex={strikeGexByStrike}
+        gexPeak={gexPeak}
+        yLo={yBounds.lo}
+        yHi={yBounds.hi}
+        gammaFlip={gammaFlip}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
       />
 
-      {/* Horizontal strike profile — strikes on Y so the ladder reads
-          top-to-bottom like an option chain, net GEX flips left/right
-          from zero so bull/bear pressure is a directional glance. */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-        <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          Dealer net GEX · strike profile
-        </div>
-        <div className="mt-3 h-[520px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={chartData}
-              margin={{ top: 8, right: 24, left: 16, bottom: 8 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                type="number"
-                domain={xDomain}
-                stroke="var(--color-text-secondary)"
-                tickFormatter={formatMagnitude}
-              />
-              <YAxis
-                type="category"
-                dataKey="strike"
-                stroke="var(--color-text-secondary)"
-                width={64}
-                tickFormatter={(v) => Number(v).toFixed(0)}
-                interval="preserveStartEnd"
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 6,
-                  fontSize: 12,
-                }}
-                formatter={(value) => [
-                  typeof value === 'number' ? formatMagnitude(value) : '—',
-                  'Net GEX',
-                ]}
-                labelFormatter={(label) => `Strike $${label}`}
-              />
-              <ReferenceLine x={0} stroke="var(--color-border)" />
-              {gammaFlip != null && (
-                <ReferenceLine
-                  y={gammaFlip}
-                  stroke="var(--color-warning)"
-                  strokeDasharray="4 2"
-                  label={{ value: 'Flip', position: 'right', fill: 'var(--color-warning)', fontSize: 10 }}
-                />
-              )}
-              <Bar dataKey="net_gex" isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Pin diff */}
+      {/* Pin diff — kept as its own card since it's a delta view between
+          two moments, not something you overlay on live price action. */}
       {diffRows && (
         <div className="rounded-xl border-2 px-5 py-4" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}>
           <div className="flex items-baseline justify-between gap-3">
@@ -511,28 +476,58 @@ export default function ReplayScrubber({
   );
 }
 
-interface UnderlyingCandlesProps {
+interface ReplayOverlayChartProps {
   symbol: string;
   candles: Candle[];
+  strikes: number[];
+  strikeGex: Map<number, number>;
+  gexPeak: number;
+  yLo: number;
+  yHi: number;
+  gammaFlip: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
 }
 
-// SVG candlestick chart of the session's underlying tape. Kept purpose-
-// built for the replay page (rather than reusing the general
-// UnderlyingCandlesChart) because we need three overlays — the scrubber
-// cursor plus optional pin A / pin B markers — anchored to the frame
-// timestamps, and a full-chart component would fetch its own bars on a
-// different cadence and not know where the cursor is.
-function UnderlyingCandles({
+// Combined candles + strike-profile chart. Single SVG canvas so both
+// panels share exactly one Y-axis (price = strike), mirroring the layout
+// of the GEX Strike Profile page. Future candles (later than the
+// cursor) render at FUTURE_CANDLE_OPACITY and light to 1.0 as the
+// playhead sweeps over them.
+function ReplayOverlayChart({
   symbol,
   candles,
+  strikes,
+  strikeGex,
+  gexPeak,
+  yLo,
+  yHi,
+  gammaFlip,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
-}: UnderlyingCandlesProps) {
-  const usable = useMemo(
+}: ReplayOverlayChartProps) {
+  // ── Layout ──
+  // Candles occupy the left ~60% of the canvas, strike labels sit in a
+  // narrow column, and the horizontal GEX bars extend from a center line
+  // in the right panel — matches MarketMakerExposures so the muscle-
+  // memory transfers.
+  const CW = 1200;
+  const CH = 560;
+  const PLOT_TOP = 24;
+  const PLOT_BOTTOM = 500;
+  const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+  const LEFT_X = 0;
+  const LEFT_W = 720;
+  const STRIKE_X = LEFT_X + LEFT_W;
+  const STRIKE_W = 64;
+  const GAP = 12;
+  const MID_X = STRIKE_X + STRIKE_W + GAP;
+  const MID_W = CW - MID_X - 8;
+  const MID_CENTER = MID_X + MID_W / 2;
+
+  const usableCandles = useMemo(
     () =>
       candles.filter(
         (c) =>
@@ -541,29 +536,42 @@ function UnderlyingCandles({
     [candles],
   );
 
-  const { minPrice, maxPrice } = useMemo(() => {
-    let lo = Number.POSITIVE_INFINITY;
-    let hi = Number.NEGATIVE_INFINITY;
-    for (const c of usable) {
-      if (c.low != null && c.low < lo) lo = c.low;
-      if (c.high != null && c.high > hi) hi = c.high;
-    }
-    if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
-      return { minPrice: 0, maxPrice: 1 };
-    }
-    const pad = (hi - lo) * 0.05 || 1;
-    return { minPrice: lo - pad, maxPrice: hi + pad };
-  }, [usable]);
+  const cursorMs = cursorTimestamp
+    ? new Date(cursorTimestamp).getTime()
+    : Number.POSITIVE_INFINITY;
+  const pinAMs = pinATimestamp
+    ? new Date(pinATimestamp).getTime()
+    : null;
+  const pinBMs = pinBTimestamp
+    ? new Date(pinBTimestamp).getTime()
+    : null;
 
-  const indexOfTimestamp = useCallback(
+  const yForPrice = useCallback(
+    (price: number) =>
+      PLOT_TOP + (1 - (price - yLo) / Math.max(1e-9, yHi - yLo)) * PLOT_HEIGHT,
+    [yLo, yHi, PLOT_TOP, PLOT_HEIGHT],
+  );
+
+  const xForCandle = useCallback(
+    (idx: number) => {
+      if (usableCandles.length === 0) return LEFT_X + 12;
+      const usableW = LEFT_W - 24;
+      if (usableCandles.length === 1) return LEFT_X + 12 + usableW / 2;
+      const ratio = idx / (usableCandles.length - 1);
+      return LEFT_X + 12 + ratio * usableW;
+    },
+    [usableCandles.length, LEFT_X, LEFT_W],
+  );
+
+  const indexForTimestamp = useCallback(
     (ts: string | null): number | null => {
-      if (ts == null || usable.length === 0) return null;
+      if (ts == null || usableCandles.length === 0) return null;
       const targetMs = new Date(ts).getTime();
       if (!Number.isFinite(targetMs)) return null;
       let bestIdx = -1;
       let bestDist = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < usable.length; i += 1) {
-        const barMs = new Date(usable[i].timestamp).getTime();
+      for (let i = 0; i < usableCandles.length; i += 1) {
+        const barMs = new Date(usableCandles[i].timestamp).getTime();
         if (!Number.isFinite(barMs)) continue;
         const dist = Math.abs(barMs - targetMs);
         if (dist < bestDist) {
@@ -573,71 +581,62 @@ function UnderlyingCandles({
       }
       return bestIdx >= 0 ? bestIdx : null;
     },
-    [usable],
+    [usableCandles],
   );
 
-  const cursorIdx = indexOfTimestamp(cursorTimestamp);
-  const pinAIdx = indexOfTimestamp(pinATimestamp);
-  const pinBIdx = indexOfTimestamp(pinBTimestamp);
+  const cursorCandleIdx = indexForTimestamp(cursorTimestamp);
+  const pinACandleIdx = indexForTimestamp(pinATimestamp);
+  const pinBCandleIdx = indexForTimestamp(pinBTimestamp);
+  const currentBar =
+    cursorCandleIdx != null ? usableCandles[cursorCandleIdx] : null;
 
-  const priceTicks = useMemo(() => {
-    const steps = 5;
-    const out: number[] = [];
-    for (let i = 0; i <= steps; i += 1) {
-      out.push(minPrice + ((maxPrice - minPrice) * i) / steps);
-    }
-    return out;
-  }, [minPrice, maxPrice]);
-
+  // Sparse tick labels so 390-bar sessions don't wallpaper the axis.
   const timeTicks = useMemo(() => {
-    const desired = 6;
-    if (usable.length <= desired) {
-      return usable.map((_, i) => i);
+    const desired = 8;
+    if (usableCandles.length <= desired) {
+      return usableCandles.map((_, i) => i);
     }
-    const step = Math.max(1, Math.floor(usable.length / desired));
+    const step = Math.max(1, Math.floor(usableCandles.length / desired));
     const out: number[] = [];
-    for (let i = 0; i < usable.length; i += step) out.push(i);
-    if (out[out.length - 1] !== usable.length - 1) out.push(usable.length - 1);
+    for (let i = 0; i < usableCandles.length; i += step) out.push(i);
+    if (out[out.length - 1] !== usableCandles.length - 1) {
+      out.push(usableCandles.length - 1);
+    }
     return out;
-  }, [usable]);
+  }, [usableCandles]);
 
-  if (usable.length === 0) {
-    return (
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-        <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          {symbol} price action
-        </div>
-        <div className="mt-3 text-xs text-[var(--color-text-secondary)]">
-          No underlying candles available for this session — the tape may
-          predate the underlying_quotes ingestion window, or the day was a
-          non-trading day for the underlying.
-        </div>
-      </div>
-    );
-  }
+  const strikeLabels = useMemo(() => {
+    if (strikes.length === 0) return [] as number[];
+    // Cap the printed labels around a reasonable density — SPX chains
+    // can carry 100+ strikes and stacking every one becomes a solid
+    // block of text. Keep the extremes and step through the rest.
+    const desired = 20;
+    if (strikes.length <= desired) return strikes;
+    const step = Math.max(1, Math.floor(strikes.length / desired));
+    const out: number[] = [];
+    for (let i = 0; i < strikes.length; i += step) out.push(strikes[i]);
+    if (out[out.length - 1] !== strikes[strikes.length - 1]) {
+      out.push(strikes[strikes.length - 1]);
+    }
+    return out;
+  }, [strikes]);
 
-  const width = 1100;
-  const height = 300;
-  const padLeft = 60;
-  const padRight = 20;
-  const padTop = 24;
-  const padBottom = 30;
-  const plotW = width - padLeft - padRight;
-  const plotH = height - padTop - padBottom;
+  // Session's candle timeline determines when a strike bar's minute is
+  // "reached" — if the trader hasn't scrubbed past the current cursor,
+  // every candle to the right of cursorCandleIdx should ghost out.
+  const isFutureCandle = useCallback(
+    (candleMs: number) => Number.isFinite(cursorMs) && candleMs > cursorMs,
+    [cursorMs],
+  );
 
-  const yPrice = (p: number) =>
-    padTop +
-    (1 - (p - minPrice) / Math.max(1e-9, maxPrice - minPrice)) * plotH;
-  const xStep = plotW / Math.max(1, usable.length - 1);
-  const candleWidth = Math.max(1.5, Math.min(6, xStep * 0.7));
-
-  const currentBar = cursorIdx != null ? usable[cursorIdx] : null;
+  const xStep = (LEFT_W - 24) / Math.max(1, usableCandles.length - 1);
+  const candleWidth = Math.max(1.5, Math.min(7, xStep * 0.65));
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          {symbol} price action
+          {symbol} price · dealer net GEX · strike profile
         </div>
         {currentBar && (
           <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
@@ -652,123 +651,281 @@ function UnderlyingCandles({
       <div className="mt-3 w-full overflow-x-auto">
         <svg
           role="img"
-          aria-label={`${symbol} underlying candles for the replay session`}
+          aria-label={`${symbol} replay overlay: candles left, horizontal strike profile right, shared price axis`}
           width="100%"
-          viewBox={`0 0 ${width} ${height}`}
+          viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMinYMin meet"
           className="block w-full"
-          style={{ aspectRatio: `${width} / ${height}` }}
+          style={{ aspectRatio: `${CW} / ${CH}` }}
         >
-          {priceTicks.map((price) => {
-            const y = yPrice(price);
+          {/* Shared horizontal grid lines — one per strike-label row so
+              a strike bar on the right aligns visually with a wick on
+              the left at the same price. */}
+          {strikeLabels.map((p) => {
+            const y = yForPrice(p);
             return (
-              <g key={`p-${price.toFixed(4)}`}>
+              <g key={`grid-${p}`}>
                 <line
-                  x1={padLeft}
-                  x2={width - padRight}
+                  x1={LEFT_X}
+                  x2={STRIKE_X}
                   y1={y}
                   y2={y}
                   stroke="var(--color-border)"
-                  opacity={0.5}
+                  opacity={0.4}
+                />
+                <line
+                  x1={MID_X}
+                  x2={MID_X + MID_W}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--color-border)"
+                  opacity={0.4}
                 />
                 <text
-                  x={padLeft - 8}
-                  y={y + 4}
-                  textAnchor="end"
-                  fontSize="10"
+                  x={STRIKE_X + STRIKE_W / 2}
+                  y={y + 3.5}
+                  textAnchor="middle"
+                  fontSize={11}
                   fill="var(--color-text-secondary)"
                 >
-                  ${price.toFixed(2)}
+                  {p.toFixed(0)}
                 </text>
               </g>
             );
           })}
 
+          {/* Gamma flip line stretches across BOTH panels so it reads as
+              a single regime marker regardless of which panel you're
+              looking at. */}
+          {gammaFlip != null && (() => {
+            const y = yForPrice(gammaFlip);
+            return (
+              <g>
+                <line
+                  x1={LEFT_X}
+                  x2={MID_X + MID_W}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--color-warning)"
+                  strokeDasharray="4 3"
+                  opacity={0.75}
+                />
+                <text
+                  x={MID_X + MID_W - 4}
+                  y={y - 4}
+                  textAnchor="end"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill="var(--color-warning)"
+                >
+                  Flip {gammaFlip.toFixed(2)}
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* ── LEFT PANEL: candles ── */}
+          {usableCandles.length === 0 ? (
+            <text
+              x={LEFT_X + LEFT_W / 2}
+              y={(PLOT_TOP + PLOT_BOTTOM) / 2}
+              textAnchor="middle"
+              fontSize={12}
+              fill="var(--color-text-secondary)"
+            >
+              No underlying candles available for this session.
+            </text>
+          ) : (
+            usableCandles.map((c, i) => {
+              if (
+                c.open == null ||
+                c.high == null ||
+                c.low == null ||
+                c.close == null
+              ) {
+                return null;
+              }
+              const x = xForCandle(i);
+              const barMs = new Date(c.timestamp).getTime();
+              const future = isFutureCandle(barMs);
+              const opacity = future ? FUTURE_CANDLE_OPACITY : 1;
+              const isUp = c.close >= c.open;
+              const color = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
+              const hollow = c.close > c.open;
+              const yO = yForPrice(c.open);
+              const yC = yForPrice(c.close);
+              const yH = yForPrice(c.high);
+              const yL = yForPrice(c.low);
+              const bodyTop = Math.min(yO, yC);
+              const bodyH = Math.max(1, Math.abs(yO - yC));
+              const bodyBottom = bodyTop + bodyH;
+              return (
+                <g key={`cdl-${c.timestamp}`} opacity={opacity}>
+                  {hollow ? (
+                    <>
+                      <line
+                        x1={x}
+                        x2={x}
+                        y1={yH}
+                        y2={bodyTop}
+                        stroke={color}
+                        strokeWidth={1}
+                      />
+                      <line
+                        x1={x}
+                        x2={x}
+                        y1={bodyBottom}
+                        y2={yL}
+                        stroke={color}
+                        strokeWidth={1}
+                      />
+                    </>
+                  ) : (
+                    <line
+                      x1={x}
+                      x2={x}
+                      y1={yH}
+                      y2={yL}
+                      stroke={color}
+                      strokeWidth={1}
+                    />
+                  )}
+                  <rect
+                    x={x - candleWidth / 2}
+                    y={bodyTop}
+                    width={candleWidth}
+                    height={bodyH}
+                    fill={hollow ? 'none' : color}
+                    stroke={color}
+                    strokeWidth={hollow ? 1 : 0}
+                  />
+                </g>
+              );
+            })
+          )}
+
+          {/* Time axis labels below the candles panel. */}
           {timeTicks.map((idx) => {
-            const x = padLeft + idx * xStep;
-            const bar = usable[idx];
-            if (!bar) return null;
+            const c = usableCandles[idx];
+            if (!c) return null;
+            const x = xForCandle(idx);
             return (
               <text
-                key={`t-${bar.timestamp}`}
+                key={`t-${c.timestamp}`}
                 x={x}
-                y={height - padBottom + 16}
+                y={PLOT_BOTTOM + 20}
                 textAnchor="middle"
-                fontSize="10"
+                fontSize={10}
                 fill="var(--color-text-secondary)"
               >
-                {formatTime(bar.timestamp)}
+                {formatTime(c.timestamp)}
               </text>
             );
           })}
 
-          {usable.map((bar, i) => {
-            if (
-              bar.open == null ||
-              bar.high == null ||
-              bar.low == null ||
-              bar.close == null
-            ) {
-              return null;
-            }
-            const x = padLeft + i * xStep;
-            const isUp = bar.close >= bar.open;
-            const c = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
-            const openY = yPrice(bar.open);
-            const closeY = yPrice(bar.close);
-            const highY = yPrice(bar.high);
-            const lowY = yPrice(bar.low);
-            const bodyY = Math.min(openY, closeY);
-            const bodyH = Math.max(1, Math.abs(openY - closeY));
+          {/* ── RIGHT PANEL: horizontal strike-profile bars ── */}
+          <line
+            x1={MID_CENTER}
+            x2={MID_CENTER}
+            y1={PLOT_TOP}
+            y2={PLOT_BOTTOM}
+            stroke="var(--color-border)"
+            opacity={0.55}
+          />
+          {strikes.map((strike) => {
+            const net = strikeGex.get(strike) ?? 0;
+            if (net === 0) return null;
+            const y = yForPrice(strike);
+            const w = (Math.abs(net) / gexPeak) * (MID_W / 2);
+            const positive = net >= 0;
+            const barH = Math.max(
+              2,
+              Math.min(9, (PLOT_HEIGHT / Math.max(1, strikes.length)) * 0.6),
+            );
             return (
-              <g key={bar.timestamp}>
-                <line
-                  x1={x}
-                  x2={x}
-                  y1={highY}
-                  y2={lowY}
-                  stroke={c}
-                  strokeWidth={1}
-                />
-                <rect
-                  x={x - candleWidth / 2}
-                  y={bodyY}
-                  width={candleWidth}
-                  height={bodyH}
-                  fill={isUp ? 'transparent' : c}
-                  stroke={c}
-                  strokeWidth={1}
-                />
-              </g>
+              <rect
+                key={`gex-${strike}`}
+                x={positive ? MID_CENTER : MID_CENTER - Math.max(0, w)}
+                y={y - barH / 2}
+                width={Math.max(0, w)}
+                height={barH}
+                fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
+                opacity={0.9}
+              />
             );
           })}
+          <text
+            x={MID_X + 6}
+            y={PLOT_BOTTOM + 20}
+            fontSize={10}
+            fill="var(--color-text-secondary)"
+          >
+            −{formatMagnitude(gexPeak)}
+          </text>
+          <text
+            x={MID_CENTER}
+            y={PLOT_BOTTOM + 20}
+            textAnchor="middle"
+            fontSize={10}
+            fill="var(--color-text-secondary)"
+          >
+            0
+          </text>
+          <text
+            x={MID_X + MID_W - 6}
+            y={PLOT_BOTTOM + 20}
+            textAnchor="end"
+            fontSize={10}
+            fill="var(--color-text-secondary)"
+          >
+            +{formatMagnitude(gexPeak)}
+          </text>
+          <text
+            x={LEFT_X + 4}
+            y={PLOT_TOP - 8}
+            fontSize={10}
+            fill="var(--color-text-secondary)"
+            fontWeight={700}
+          >
+            {symbol} · price
+          </text>
+          <text
+            x={MID_X}
+            y={PLOT_TOP - 8}
+            fontSize={10}
+            fill="var(--color-text-secondary)"
+            fontWeight={700}
+          >
+            Dealer net GEX
+          </text>
 
-          {/* Cursor / pins drawn last so they sit over the bars. */}
-          {pinAIdx != null && (
-            <CursorOverlay
-              x={padLeft + pinAIdx * xStep}
-              top={padTop}
-              bottom={height - padBottom}
+          {/* Overlays: pins first (they're context markers), cursor on
+              top so it always wins the visual competition. */}
+          {pinACandleIdx != null && pinAMs != null && (
+            <TimeMarker
+              x={xForCandle(pinACandleIdx)}
+              top={PLOT_TOP}
+              bottom={PLOT_BOTTOM}
               label="A"
               color="var(--color-warning)"
               dashed
             />
           )}
-          {pinBIdx != null && (
-            <CursorOverlay
-              x={padLeft + pinBIdx * xStep}
-              top={padTop}
-              bottom={height - padBottom}
+          {pinBCandleIdx != null && pinBMs != null && (
+            <TimeMarker
+              x={xForCandle(pinBCandleIdx)}
+              top={PLOT_TOP}
+              bottom={PLOT_BOTTOM}
               label="B"
               color="var(--color-bull)"
               dashed
             />
           )}
-          {cursorIdx != null && (
-            <CursorOverlay
-              x={padLeft + cursorIdx * xStep}
-              top={padTop}
-              bottom={height - padBottom}
+          {cursorCandleIdx != null && (
+            <TimeMarker
+              x={xForCandle(cursorCandleIdx)}
+              top={PLOT_TOP}
+              bottom={PLOT_BOTTOM}
               label="Now"
               color="var(--color-text-primary)"
             />
@@ -779,7 +936,7 @@ function UnderlyingCandles({
   );
 }
 
-function CursorOverlay({
+function TimeMarker({
   x,
   top,
   bottom,
@@ -819,7 +976,7 @@ function CursorOverlay({
         x={x}
         y={top - 8}
         textAnchor="middle"
-        fontSize="10"
+        fontSize={10}
         fontWeight={700}
         fill="var(--color-surface)"
       >
