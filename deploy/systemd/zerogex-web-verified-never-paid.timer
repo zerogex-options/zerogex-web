@@ -1,0 +1,18 @@
+[Unit]
+Description=ZeroGEX web verified-never-paid trial-nudge email timer (~every 2h)
+
+[Timer]
+# Every 2 hours, on :30 so it doesn't collide with the hourly auth backup at
+# :00, the trial-reminder timer at :15, or the checkout-recovery timer at
+# :45. The script's 2h lag means a user who signed up on one tick becomes
+# eligible on the next; the tight cadence keeps the median time-to-email
+# close to the 2h intent (worst case ~4h) rather than pushing it out to
+# 8h+ if we ran every 6h.
+OnCalendar=00/2:30:00
+# Spread load across deploys / coalesce if many users hit the same minute.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
