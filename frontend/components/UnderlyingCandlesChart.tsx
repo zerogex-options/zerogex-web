@@ -172,32 +172,91 @@ export default function UnderlyingCandlesChart() {
     return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
 
-  // Stage 2 — merge the live tick onto the tip bar. Cheap; runs on
-  // every WS push. Same overlay technique GammaHeatmapCanvas uses,
-  // and this is what actually locks the candle tip in step with the
-  // header price / GEX profile spot line / dashboard price card in
-  // one React commit.
+  // Stage 2 — reconcile the live WS tick with the historical tip bar.
+  //
+  // This is the merge point that a previous attempt got wrong. The
+  // rules below are strict and each one prevents a specific failure
+  // mode we've hit before:
+  //
+  //   1. HISTORY IS AUTHORITATIVE. Every render starts from a fresh
+  //      `historicalBars` (the useMarketHistorical poll's own memo).
+  //      We never accumulate state across renders — no chance for
+  //      H/L to drift monotonically upward because the frontend
+  //      "remembered" an old high.
+  //
+  //   2. BUCKET-SCOPED OVERLAY. The tip is patched only when the WS
+  //      tick's timestamp falls inside the tip's bucket window
+  //      [tipStart, tipStart + intervalMinutes). During the seconds
+  //      of a bucket rollover — say the 5-minute chart's 15:35 bar
+  //      still tops the historical response, but the WS has already
+  //      delivered ticks for the 15:40:00 bar — we do NOT patch the
+  //      15:35 bar with a 15:40 price. The overlay just waits for
+  //      the next historical response to add the new tip bar.
+  //
+  //   3. MONOTONIC-WIDENING OVERLAY. We use max/min against the
+  //      FRESH historical H/L, never against a prior render's
+  //      patched H/L. So when historical eventually catches up with
+  //      its own true H/L for the bucket, our overlay converges
+  //      cleanly.
+  //
+  //   4. VOLUME NEVER TOUCHED. The WS payload carries per-1-minute
+  //      up/down volume; the tip bar might be a 5-minute or 1-day
+  //      aggregation. Mixing scopes would double-count. Historical
+  //      wins for volume; freshness is bounded by the 5s heartbeat
+  //      poll (LIVE_MODE_HEARTBEAT_MS in useApiData.ts).
+  //
+  //   5. TIMESTAMP NEVER TOUCHED. The tip's timestamp is the bucket
+  //      start; the WS timestamp is a 1-minute floor. Rewriting the
+  //      tip's timestamp would slide the x-axis under the user.
+  //
+  //   6. SESSION GUARD. Skipped when the market is closed (indexes
+  //      after 16:00 ET, weekends, holidays). Extended hours for
+  //      equities still overlays — pre-market/AH ticks are real.
+  //
+  // Note: no separate "staleness guard" is needed. Guard (2) already
+  // subsumes it — if the WS tick's timestamp lies inside the tip's
+  // bucket window, then by definition the tip is CURRENT (someone
+  // just traded inside its bucket). If historical is far behind, the
+  // WS tick will be past `tipEndMs` and guard (2) skips overlay.
+  //
+  // The overlay is a pure function of (freshHistorical, currentQuote):
+  // deterministic, idempotent, and self-correcting on every render.
   const bars = useMemo(() => {
+    if (historicalBars.length === 0) return historicalBars;
     const liveClose = quote?.close ?? null;
-    if (
-      historicalBars.length === 0 ||
-      liveClose == null ||
-      !quote?.session ||
-      quote.session === 'closed'
-    ) {
+    if (liveClose == null || !quote?.session || quote.session === 'closed') {
       return historicalBars;
     }
     const tip = historicalBars[historicalBars.length - 1];
+    const bucketMs = intervalMinutes * 60 * 1000;
+    const tipStartMs = new Date(tip.timestamp).getTime();
+    if (!Number.isFinite(tipStartMs)) return historicalBars;
+    const tipEndMs = tipStartMs + bucketMs;
+
+    // (2) Bucket-scoped: the WS tick must fall inside [tipStart, tipEnd).
+    // Also handles the staleness case — a WS tick past tipEndMs
+    // means historical hasn't caught up and we shouldn't paint a
+    // fresh price onto an old bucket.
+    const quoteTsMs = quote.timestamp ? new Date(quote.timestamp).getTime() : NaN;
+    if (!Number.isFinite(quoteTsMs) || quoteTsMs < tipStartMs || quoteTsMs >= tipEndMs) {
+      return historicalBars;
+    }
+
+    // (3) Same-value early exit — avoids allocating a new array
+    // when nothing has changed, cutting wasted renders during
+    // quiet-market minutes where the live tick pins the tip close.
     if (liveClose === tip.close) return historicalBars;
+
     const patched = historicalBars.slice();
     patched[patched.length - 1] = {
       ...tip,
       close: liveClose,
       high: Math.max(tip.high, liveClose),
       low: Math.min(tip.low, liveClose),
+      // Volume, upVolume, downVolume, timestamp — untouched.
     };
     return patched;
-  }, [historicalBars, quote]);
+  }, [historicalBars, quote, intervalMinutes]);
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];

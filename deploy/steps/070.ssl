@@ -192,10 +192,10 @@ server {
         limit_req zone=zerogex_api_per_ip burst=1000 nodelay;
     }
 
-    # WebSocket reverse proxy. Direct to FastAPI for now — disabled by
-    # default in the app (NEXT_PUBLIC_ENABLE_WEBSOCKET=false). If/when
-    # WS is enabled, this block will need its own auth solution since
-    # browser WebSockets can't send custom headers like X-API-Key.
+    # WebSocket reverse proxy. Direct to FastAPI. Auth is ticket-based
+    # (short-lived HS256 JWT in ?ticket=), minted by the BFF at
+    # /api/ws/ticket and verified by FastAPI with the same
+    # END_USER_TOKEN_SECRET the header end-user-token path uses.
     location /ws {
         proxy_pass ${API_UPSTREAM}/ws;
         proxy_http_version 1.1;
@@ -206,9 +206,25 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
 
+        # Suppress access logging on the handshake — the ticket JWT
+        # rides in ?ticket= and access.log's combined format writes
+        # the full request URI. A compromised log ship would otherwise
+        # yield short-lived (60s) but real tickets. The upgrade is
+        # still visible in error.log if debugging is needed.
+        access_log off;
+
+        # Long-lived connections. proxy_read_timeout must exceed the
+        # server-side idle window (WS_IDLE_TIMEOUT_SECONDS, default
+        # 120s) with headroom; client pings every 15s keep the
+        # connection warm during quiet markets.
         proxy_connect_timeout 15s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+
+        # Handshake-rate cap. Per-connection limit prevents a single
+        # IP from opening thousands of concurrent sockets.
+        limit_req zone=zerogex_api_per_ip burst=100 nodelay;
+        limit_conn zerogex_ws_per_ip 32;
     }
 
     # Frontend reverse proxy

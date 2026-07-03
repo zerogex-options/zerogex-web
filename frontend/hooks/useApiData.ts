@@ -797,17 +797,80 @@ function snapshotMarketQuote(entry: MarketQuoteCacheEntry): {
 // flag flips back to false and full-speed polling resumes
 // transparently to every existing useMarketQuote consumer.
 
-// Heartbeat cadence used while the live stream is active. Slow enough
-// that it's essentially free, fast enough to notice a broken socket
-// within one bar's worth of trading.
-const LIVE_MODE_HEARTBEAT_MS = 20_000;
+// Heartbeat cadence used while the live stream is serving a symbol.
+// Chosen so cumulative-daily-volume (which the WS payload doesn't
+// carry — it lives on a separate ``underlying_daily_volume`` join)
+// stays fresh enough that the dashboard's "Day Vol" text doesn't
+// look stuck, while still being 5× lighter than the pre-WS 1Hz poll.
+const LIVE_MODE_HEARTBEAT_MS = 5_000;
 
-let liveStreamActive = false;
+// How long after the last WS tick to treat a symbol as "live-served."
+// If nothing arrives within this window we downgrade THAT symbol
+// back to full-rate polling — critical for correctness in two
+// scenarios:
+//   1. User selects SPX/QQQ but ingestion only streams SPY today.
+//      The WS subscribes, gets no ticks, and we do NOT throttle poll
+//      for SPX/QQQ — user sees full-rate updates.
+//   2. Ingestion process crashes. WS stays connected (pongs still
+//      flow), no NOTIFYs. Symbols that were live tick past their
+//      TTL, everyone falls back to full-rate poll until ingestion
+//      recovers.
+// 6s covers the normal ~1s inter-tick during market hours with
+// generous slack for a quiet illiquid minute.
+const WS_SYMBOL_LIVE_TTL_MS = 6_000;
 
+// Only symbols in this map have received a WS tick recently. The
+// value is the wall-clock ms at which we started to consider the
+// symbol live; a timeout demotes it back to poll-driven after
+// WS_SYMBOL_LIVE_TTL_MS with no new tick. syncMarketQuotePoll gates
+// on presence in this map — not on a global "live stream up" flag —
+// so the WS being connected but not delivering ticks for a given
+// symbol behaves the same as the WS being disconnected: full-rate
+// poll for that symbol.
+const wsLiveExpiresAt = new Map<string, number>();
+const wsLiveDemoteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function isSymbolWsLive(symbol: string): boolean {
+  const expires = wsLiveExpiresAt.get(symbol);
+  if (expires === undefined) return false;
+  if (Date.now() >= expires) {
+    wsLiveExpiresAt.delete(symbol);
+    return false;
+  }
+  return true;
+}
+
+function markSymbolWsLive(symbol: string): void {
+  const wasLive = isSymbolWsLive(symbol);
+  wsLiveExpiresAt.set(symbol, Date.now() + WS_SYMBOL_LIVE_TTL_MS);
+  const existing = wsLiveDemoteTimers.get(symbol);
+  if (existing) clearTimeout(existing);
+  wsLiveDemoteTimers.set(
+    symbol,
+    setTimeout(() => {
+      wsLiveDemoteTimers.delete(symbol);
+      wsLiveExpiresAt.delete(symbol);
+      // Restore full-rate polling for this symbol. Runs even if the
+      // WS is still connected — WS-connected-but-silent is exactly
+      // the SPX/QQQ + ingestion-down failure mode we're guarding.
+      syncMarketQuotePoll(symbol);
+    }, WS_SYMBOL_LIVE_TTL_MS),
+  );
+  // Newly live: recompute the poll interval to heartbeat immediately.
+  if (!wasLive) syncMarketQuotePoll(symbol);
+}
+
+// Kept as a bring-down knob (called by quoteStream.suspend()). When
+// the socket goes away we clear all per-symbol live markers so every
+// symbol's poll goes back to full rate on the next sync. No longer
+// used as the sole gate on throttling; presence in wsLiveExpiresAt
+// is authoritative.
 export function setLiveStreamActive(active: boolean): void {
-  if (liveStreamActive === active) return;
-  liveStreamActive = active;
-  // Recompute every symbol's poll interval now that the mode changed.
+  if (active) return; // symbols are marked live only by real ticks
+  // Socket dropped — demote every symbol back to poll-driven.
+  wsLiveDemoteTimers.forEach((timer) => clearTimeout(timer));
+  wsLiveDemoteTimers.clear();
+  wsLiveExpiresAt.clear();
   marketQuoteCache.forEach((_entry, symbol) => {
     syncMarketQuotePoll(symbol);
   });
@@ -885,6 +948,11 @@ export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): voi
   entry.error = null;
   entry.hasFetched = true;
   entry.listeners.forEach((fn) => fn());
+  // Mark this symbol as live — recomputes the poll cadence so the
+  // symbol's HTTP polling drops to the heartbeat. Symbols the WS
+  // hasn't served (SPX/QQQ when ingestion only streams SPY) never
+  // enter this map and stay on full-rate polling.
+  markSymbolWsLive(symbol);
 }
 
 function syncMarketQuotePoll(symbol: string): void {
@@ -896,12 +964,14 @@ function syncMarketQuotePoll(symbol: string): void {
   const baseInterval = Number.isFinite(minInterval)
     ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
     : 0;
-  // With the live stream up, we don't need 1Hz polling — the socket
-  // pushes every tick. Keep a slow heartbeat so we still poll enough
-  // to notice a silent broken connection (the quoteStream's stall
-  // watchdog is the primary detector; this is defence-in-depth).
+  // Per-symbol gating: the poll drops to heartbeat only when a WS
+  // tick for THIS symbol arrived recently. A symbol the WS isn't
+  // serving (SPX/QQQ before ingestion adds them; or ANY symbol
+  // during an ingestion outage where the socket stays open but no
+  // NOTIFYs flow) stays at full-rate polling, so users always see
+  // fresh data regardless of what the WS is or isn't delivering.
   const requestedInterval =
-    liveStreamActive && baseInterval > 0
+    isSymbolWsLive(symbol) && baseInterval > 0
       ? Math.max(baseInterval, LIVE_MODE_HEARTBEAT_MS)
       : baseInterval;
   if (requestedInterval === entry.pollIntervalMs) return;

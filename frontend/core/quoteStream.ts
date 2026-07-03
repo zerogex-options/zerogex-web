@@ -251,7 +251,12 @@ class QuoteStream {
   private onOpen(): void {
     this.reconnectAttempt = 0;
     this.lastMessageAt = Date.now();
-    setLiveStreamActive(true);
+    // NOTE: we deliberately do NOT flip a global "live" flag here.
+    // Poll throttling is decided per-symbol in useApiData.ts based
+    // on whether a WS tick actually arrived for that symbol —
+    // opening a socket that never delivers ticks (SPX/QQQ before
+    // ingestion adds them, or ingestion crashed while socket is
+    // open) must not throttle polls or the user sees stale prices.
     // Re-arm ping + stall watchdog.
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.pingTimer = setInterval(() => this.pingIfIdle(), PING_INTERVAL_MS);
