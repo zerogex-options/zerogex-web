@@ -19,11 +19,16 @@ import { capture } from '@/core/telemetry/posthog-client';
 // renders from in-memory state with no per-frame network call.
 //
 // Layout: single SVG that shares one price/strike Y-axis between the
-// left-side candlestick chart (session tape) and the right-side
-// horizontal strike-profile bars, mirroring the GEX Strike Profile page
-// so a viewer's spatial intuition transfers. Future candles (past the
-// scrubber cursor) render at 25% opacity and light to 100% as the
-// cursor sweeps through them.
+// left-side candlestick chart (5-min OHLC bars aggregated from the same
+// per-minute payload the GEX frames use) and the right-side horizontal
+// strike-profile bars, mirroring the GEX Strike Profile page so a
+// viewer's spatial intuition transfers. Scrubbing still advances one
+// minute at a time and the GEX ladder still updates every minute — the
+// candlestick just presents that minute inside its 5-min bucket. The
+// bucket that contains the cursor grows minute-by-minute (open pinned,
+// close/high/low expand as bars come in), past buckets stay sealed at
+// their full OHLC, and future buckets render at 25% opacity and light
+// to 100% as the cursor sweeps in.
 
 interface Frame {
   timestamp: string;
@@ -157,6 +162,103 @@ function formatMagnitude(v: number): string {
   if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
   if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
   return `${sign}${abs.toFixed(0)}`;
+}
+
+// 5-min OHLC bucket for the candlestick tape. Backend still ships
+// per-minute candles (same rows the per-minute GEX frames come from);
+// we aggregate on the client so the scrubber, the GEX ladder, and the
+// growing current-bucket candle all stay minute-aligned to one payload.
+const FIVE_MIN_MS = 5 * 60_000;
+
+interface CandleBucket {
+  bucketStart: string;
+  bucketStartMs: number;
+  bucketEndMs: number;
+  members: Candle[];
+  fullOpen: number | null;
+  fullHigh: number | null;
+  fullLow: number | null;
+  fullClose: number | null;
+}
+
+// Group 1-min candles by their 5-min floor and precompute the sealed
+// OHLC of each bucket. Bucket keys are UTC-aligned to 5 min; the RTH
+// open (9:30 ET) already lines up with a 5-min boundary in both EST
+// and EDT so 9:30, 9:35, … bucket cleanly.
+function bucketize5Min(candles: Candle[]): CandleBucket[] {
+  const map = new Map<number, CandleBucket>();
+  for (const c of candles) {
+    const t = new Date(c.timestamp).getTime();
+    if (!Number.isFinite(t)) continue;
+    const key = Math.floor(t / FIVE_MIN_MS) * FIVE_MIN_MS;
+    let b = map.get(key);
+    if (!b) {
+      b = {
+        bucketStart: new Date(key).toISOString(),
+        bucketStartMs: key,
+        bucketEndMs: key + FIVE_MIN_MS,
+        members: [],
+        fullOpen: null,
+        fullHigh: null,
+        fullLow: null,
+        fullClose: null,
+      };
+      map.set(key, b);
+    }
+    b.members.push(c);
+  }
+  const arr = Array.from(map.values()).sort(
+    (a, b) => a.bucketStartMs - b.bucketStartMs,
+  );
+  for (const b of arr) {
+    b.members.sort(
+      (x, y) => new Date(x.timestamp).getTime() - new Date(y.timestamp).getTime(),
+    );
+    const first = b.members[0];
+    const last = b.members[b.members.length - 1];
+    b.fullOpen = first?.open ?? null;
+    b.fullClose = last?.close ?? null;
+    let h = Number.NEGATIVE_INFINITY;
+    let l = Number.POSITIVE_INFINITY;
+    for (const m of b.members) {
+      if (m.high != null && Number.isFinite(m.high) && m.high > h) h = m.high;
+      if (m.low != null && Number.isFinite(m.low) && m.low < l) l = m.low;
+    }
+    b.fullHigh = Number.isFinite(h) ? h : null;
+    b.fullLow = Number.isFinite(l) ? l : null;
+  }
+  return arr;
+}
+
+// OHLC of the bucket considering only members whose timestamp ≤ limit.
+// Drives the "growing" current bucket — open pins to the first minute
+// that arrived, close tracks whichever minute the scrubber is on, and
+// high/low expand as new minutes come in. For a fully-past bucket
+// (limit ≥ bucketEnd) this returns the same values as the precomputed
+// fullOHLC; for a fully-future bucket every member is skipped and all
+// four come back null.
+function partialBucketOHLC(
+  bucket: CandleBucket,
+  limitMs: number,
+): { open: number | null; high: number | null; low: number | null; close: number | null } {
+  let openVal: number | null = null;
+  let closeVal: number | null = null;
+  let h = Number.NEGATIVE_INFINITY;
+  let l = Number.POSITIVE_INFINITY;
+  for (const m of bucket.members) {
+    const t = new Date(m.timestamp).getTime();
+    if (!Number.isFinite(t) || t > limitMs) continue;
+    if (openVal == null && m.open != null) openVal = m.open;
+    if (m.close != null) closeVal = m.close;
+    if (m.high != null && Number.isFinite(m.high) && m.high > h) h = m.high;
+    if (m.low != null && Number.isFinite(m.low) && m.low < l) l = m.low;
+  }
+  return {
+    open: openVal,
+    high: Number.isFinite(h) ? h : null,
+    low: Number.isFinite(l) ? l : null,
+    close: closeVal,
+  };
 }
 
 export default function ReplayScrubber({
@@ -593,6 +695,13 @@ function ReplayOverlayChart({
     [candles],
   );
 
+  // Aggregate the per-minute payload into 5-min OHLC buckets — the
+  // candlestick tape displays 5-min bars while the scrubber, the pins,
+  // and the GEX ladder all stay at 1-min resolution. The bucket the
+  // cursor lives in grows minute-by-minute; past buckets stay sealed;
+  // future buckets show their eventual OHLC at 25% opacity.
+  const buckets = useMemo(() => bucketize5Min(usableCandles), [usableCandles]);
+
   const cursorMs = cursorTimestamp
     ? new Date(cursorTimestamp).getTime()
     : Number.POSITIVE_INFINITY;
@@ -609,52 +718,95 @@ function ReplayOverlayChart({
     [yLo, yHi, PLOT_TOP, PLOT_HEIGHT],
   );
 
-  const xForCandle = useCallback(
-    (idx: number) => {
-      if (usableCandles.length === 0) return LEFT_X + 12;
+  // Time-based x mapping so both the 5-min bucket candles and the
+  // minute-precise cursor/pin lines project onto one continuous
+  // timeline. The domain runs from the first bucket's start to the
+  // last bucket's end (i.e. the last bucket's start + 5 min) so a
+  // cursor in the final bucket still has room to advance visually
+  // through its 5 minutes.
+  const timelineStartMs =
+    buckets.length > 0 ? buckets[0].bucketStartMs : 0;
+  const timelineEndMs =
+    buckets.length > 0
+      ? buckets[buckets.length - 1].bucketEndMs
+      : timelineStartMs + 1;
+
+  const xForTime = useCallback(
+    (ms: number) => {
       const usableW = LEFT_W - 24;
-      if (usableCandles.length === 1) return LEFT_X + 12 + usableW / 2;
-      const ratio = idx / (usableCandles.length - 1);
-      return LEFT_X + 12 + ratio * usableW;
-    },
-    [usableCandles.length, LEFT_X, LEFT_W],
-  );
-
-  const indexForTimestamp = useCallback(
-    (ts: string | null): number | null => {
-      if (ts == null || usableCandles.length === 0) return null;
-      const targetMs = new Date(ts).getTime();
-      if (!Number.isFinite(targetMs)) return null;
-      let bestIdx = -1;
-      let bestDist = Number.POSITIVE_INFINITY;
-      for (let i = 0; i < usableCandles.length; i += 1) {
-        const barMs = new Date(usableCandles[i].timestamp).getTime();
-        if (!Number.isFinite(barMs)) continue;
-        const dist = Math.abs(barMs - targetMs);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = i;
-        }
+      if (buckets.length === 0) return LEFT_X + 12;
+      if (buckets.length === 1 || timelineEndMs === timelineStartMs) {
+        return LEFT_X + 12 + usableW / 2;
       }
-      return bestIdx >= 0 ? bestIdx : null;
+      if (!Number.isFinite(ms)) return LEFT_X + 12;
+      const ratio = (ms - timelineStartMs) / (timelineEndMs - timelineStartMs);
+      const clamped = Math.max(0, Math.min(1, ratio));
+      return LEFT_X + 12 + clamped * usableW;
     },
-    [usableCandles],
+    [buckets.length, timelineStartMs, timelineEndMs, LEFT_X, LEFT_W],
   );
 
-  const cursorCandleIdx = indexForTimestamp(cursorTimestamp);
-  const pinACandleIdx = indexForTimestamp(pinATimestamp);
-  const pinBCandleIdx = indexForTimestamp(pinBTimestamp);
-  const currentBar =
-    cursorCandleIdx != null ? usableCandles[cursorCandleIdx] : null;
+  // Per-bucket render OHLC + opacity. Bucket start > cursor → dim
+  // preview at the sealed OHLC. Otherwise we recompute OHLC from just
+  // the members already reached; if that yields no data (e.g. bucket
+  // start ≤ cursor but every minute in the bucket is still future),
+  // fall back to the sealed OHLC at dim opacity so the tape stays
+  // continuous instead of leaving a gap.
+  const renderedBuckets = useMemo(() => {
+    return buckets.map((b) => {
+      if (b.bucketStartMs > cursorMs) {
+        return {
+          bucket: b,
+          open: b.fullOpen,
+          high: b.fullHigh,
+          low: b.fullLow,
+          close: b.fullClose,
+          opacity: FUTURE_CANDLE_OPACITY,
+        };
+      }
+      const partial = partialBucketOHLC(b, cursorMs);
+      const reached =
+        partial.open != null &&
+        partial.high != null &&
+        partial.low != null &&
+        partial.close != null;
+      if (reached) {
+        return {
+          bucket: b,
+          open: partial.open,
+          high: partial.high,
+          low: partial.low,
+          close: partial.close,
+          opacity: 1,
+        };
+      }
+      return {
+        bucket: b,
+        open: b.fullOpen,
+        high: b.fullHigh,
+        low: b.fullLow,
+        close: b.fullClose,
+        opacity: FUTURE_CANDLE_OPACITY,
+      };
+    });
+  }, [buckets, cursorMs]);
 
-  // Sparse tick labels so 390-bar sessions don't wallpaper the axis.
-  // Evenly-spaced picker: puts the first tick at index 0, the last at
-  // count-1, and (desired-2) evenly interpolated between them. Beats
-  // "step from 0 and append the last" — which used to jam the final
-  // two labels within a few pixels when the step didn't divide evenly.
+  const currentBar = useMemo(() => {
+    if (!Number.isFinite(cursorMs)) return null;
+    return (
+      renderedBuckets.find(
+        (r) =>
+          r.bucket.bucketStartMs <= cursorMs && cursorMs < r.bucket.bucketEndMs,
+      ) ?? null
+    );
+  }, [renderedBuckets, cursorMs]);
+
+  // Sparse tick labels so ~78-bucket sessions don't wallpaper the axis.
+  // Evenly-spaced picker: puts the first tick at bucket 0, the last at
+  // buckets.length-1, and (desired-2) evenly interpolated between them.
   const timeTicks = useMemo(
-    () => evenlySpacedIndices(usableCandles.length, 8),
-    [usableCandles.length],
+    () => evenlySpacedIndices(buckets.length, 8),
+    [buckets.length],
   );
 
   // Y-axis price labels — computed from the price range, NOT from the
@@ -672,16 +824,17 @@ function ReplayOverlayChart({
   );
   const priceStep = priceTicks.length >= 2 ? priceTicks[1] - priceTicks[0] : 1;
 
-  // Session's candle timeline determines when a strike bar's minute is
-  // "reached" — if the trader hasn't scrubbed past the current cursor,
-  // every candle to the right of cursorCandleIdx should ghost out.
-  const isFutureCandle = useCallback(
-    (candleMs: number) => Number.isFinite(cursorMs) && candleMs > cursorMs,
-    [cursorMs],
-  );
-
-  const xStep = (LEFT_W - 24) / Math.max(1, usableCandles.length - 1);
-  const candleWidth = Math.max(1.5, Math.min(7, xStep * 0.65));
+  // Bucket-to-bucket pixel spacing is what a 5-min step maps to on the
+  // shared time axis — derived from timeline extents rather than
+  // (usableW / bucketCount-1) so the arithmetic stays exact even when
+  // the session's first candle isn't flush with its bucket start.
+  const bucketSpacingPx = useMemo(() => {
+    if (buckets.length < 2 || timelineEndMs === timelineStartMs) {
+      return LEFT_W - 24;
+    }
+    return (FIVE_MIN_MS / (timelineEndMs - timelineStartMs)) * (LEFT_W - 24);
+  }, [buckets.length, timelineStartMs, timelineEndMs, LEFT_W]);
+  const candleWidth = Math.max(2, Math.min(9, bucketSpacingPx * 0.65));
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
@@ -778,8 +931,8 @@ function ReplayOverlayChart({
             );
           })()}
 
-          {/* ── LEFT PANEL: candles ── */}
-          {usableCandles.length === 0 ? (
+          {/* ── LEFT PANEL: 5-min candles ── */}
+          {renderedBuckets.length === 0 ? (
             <text
               x={LEFT_X + LEFT_W / 2}
               y={(PLOT_TOP + PLOT_BOTTOM) / 2}
@@ -790,31 +943,28 @@ function ReplayOverlayChart({
               No underlying candles available for this session.
             </text>
           ) : (
-            usableCandles.map((c, i) => {
+            renderedBuckets.map((rb) => {
               if (
-                c.open == null ||
-                c.high == null ||
-                c.low == null ||
-                c.close == null
+                rb.open == null ||
+                rb.high == null ||
+                rb.low == null ||
+                rb.close == null
               ) {
                 return null;
               }
-              const x = xForCandle(i);
-              const barMs = new Date(c.timestamp).getTime();
-              const future = isFutureCandle(barMs);
-              const opacity = future ? FUTURE_CANDLE_OPACITY : 1;
-              const isUp = c.close >= c.open;
+              const x = xForTime(rb.bucket.bucketStartMs);
+              const isUp = rb.close >= rb.open;
               const color = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
-              const hollow = c.close > c.open;
-              const yO = yForPrice(c.open);
-              const yC = yForPrice(c.close);
-              const yH = yForPrice(c.high);
-              const yL = yForPrice(c.low);
+              const hollow = rb.close > rb.open;
+              const yO = yForPrice(rb.open);
+              const yC = yForPrice(rb.close);
+              const yH = yForPrice(rb.high);
+              const yL = yForPrice(rb.low);
               const bodyTop = Math.min(yO, yC);
               const bodyH = Math.max(1, Math.abs(yO - yC));
               const bodyBottom = bodyTop + bodyH;
               return (
-                <g key={`cdl-${c.timestamp}`} opacity={opacity}>
+                <g key={`cdl-${rb.bucket.bucketStart}`} opacity={rb.opacity}>
                   {hollow ? (
                     <>
                       <line
@@ -863,21 +1013,21 @@ function ReplayOverlayChart({
               bounds instead of clipping against the SVG frame or
               overlapping the strike-labels column. */}
           {timeTicks.map((idx, tickPos) => {
-            const c = usableCandles[idx];
-            if (!c) return null;
+            const b = buckets[idx];
+            if (!b) return null;
             const isFirst = tickPos === 0;
             const isLast = tickPos === timeTicks.length - 1;
-            const x = xForCandle(idx);
+            const x = xForTime(b.bucketStartMs);
             return (
               <text
-                key={`t-${c.timestamp}`}
+                key={`t-${b.bucketStart}`}
                 x={x}
                 y={PLOT_BOTTOM + 20}
                 textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                 fontSize={10}
                 fill="var(--color-text-secondary)"
               >
-                {formatTime(c.timestamp)}
+                {formatTime(b.bucketStart)}
               </text>
             );
           })}
@@ -959,10 +1109,13 @@ function ReplayOverlayChart({
           </text>
 
           {/* Overlays: pins first (they're context markers), cursor on
-              top so it always wins the visual competition. */}
-          {pinACandleIdx != null && pinAMs != null && (
+              top so it always wins the visual competition. Anchoring to
+              the exact minute (not to the containing 5-min bucket) so
+              the playhead slides visibly minute-by-minute inside a
+              bucket instead of stepping in 5-min hops. */}
+          {pinAMs != null && buckets.length > 0 && (
             <TimeMarker
-              x={xForCandle(pinACandleIdx)}
+              x={xForTime(pinAMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
               label="A"
@@ -970,9 +1123,9 @@ function ReplayOverlayChart({
               dashed
             />
           )}
-          {pinBCandleIdx != null && pinBMs != null && (
+          {pinBMs != null && buckets.length > 0 && (
             <TimeMarker
-              x={xForCandle(pinBCandleIdx)}
+              x={xForTime(pinBMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
               label="B"
@@ -980,9 +1133,9 @@ function ReplayOverlayChart({
               dashed
             />
           )}
-          {cursorCandleIdx != null && (
+          {Number.isFinite(cursorMs) && buckets.length > 0 && (
             <TimeMarker
-              x={xForCandle(cursorCandleIdx)}
+              x={xForTime(cursorMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
               label="Now"
