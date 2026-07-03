@@ -107,6 +107,46 @@ function evenlySpacedIndices(count: number, desired: number): number[] {
   return Array.from(new Set(out));
 }
 
+// Nice round tick values for a price axis: pick a step from the
+// {1, 2, 5} × 10^k ladder that produces roughly ``target`` labels
+// across [lo, hi], then walk the ladder at that step. Beats picking
+// N evenly-spaced strikes from the chain — the price-axis ticks
+// stay on round numbers (e.g. 715, 720, 725…) instead of drifting
+// with the strike list's actual spacing.
+function niceTicks(lo: number, hi: number, target: number): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return [];
+  const range = hi - lo;
+  const rough = range / Math.max(1, target);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / magnitude;
+  let step: number;
+  if (norm < 1.5) step = 1 * magnitude;
+  else if (norm < 3.5) step = 2 * magnitude;
+  else if (norm < 7.5) step = 5 * magnitude;
+  else step = 10 * magnitude;
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  // Multiply-count rather than accumulate — repeated += drifts at
+  // sub-integer steps (e.g. 0.1 accumulates FP error and the last
+  // tick drops out at 0.7 * 10 = 7.000000000001).
+  const count = Math.floor((hi - start) / step + 1e-9) + 1;
+  for (let i = 0; i < count; i += 1) {
+    const v = start + i * step;
+    if (v > hi + 1e-9) break;
+    ticks.push(v);
+  }
+  return ticks;
+}
+
+// Format a price-axis label with just enough precision to disambiguate
+// neighbours at the chosen tick step, so a $5-step axis reads 715 / 720
+// / 725 (no trailing .00) and a $0.10-step axis reads 715.0 / 715.1.
+function formatPriceTick(v: number, step: number): string {
+  if (!Number.isFinite(v)) return '';
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+  return v.toFixed(decimals);
+}
+
 // Abbreviate large magnitudes (dealer GEX runs to billions on SPX).
 // "1.2B", "-450M", "12K" — matches how a trader reads OI / notional.
 function formatMagnitude(v: number): string {
@@ -617,14 +657,20 @@ function ReplayOverlayChart({
     [usableCandles.length],
   );
 
-  const strikeLabels = useMemo(() => {
-    if (strikes.length === 0) return [] as number[];
-    // Cap the printed labels around a reasonable density — SPX chains
-    // can carry 100+ strikes and stacking every one becomes a solid
-    // block of text. Same evenly-spaced picker as the time axis so the
-    // top/bottom rungs of the ladder don't crowd each other.
-    return evenlySpacedIndices(strikes.length, 20).map((i) => strikes[i]);
-  }, [strikes]);
+  // Y-axis price labels — computed from the price range, NOT from the
+  // strike list. Picking every N-th strike gave ragged intervals like
+  // 774/771/768/765/762/758/755 (step drifts between 3 and 4) because
+  // the strike chain isn't a uniform ladder to sample from. Anchoring
+  // to a {1,2,5}×10^k step guarantees a consistent gap between every
+  // label and lands them on round numbers a trader reads without
+  // arithmetic. Density target scales with plot height so a tall chart
+  // uses more labels and a compact one uses fewer.
+  const priceTickTarget = Math.max(6, Math.round(PLOT_HEIGHT / 34));
+  const priceTicks = useMemo(
+    () => niceTicks(yLo, yHi, priceTickTarget),
+    [yLo, yHi, priceTickTarget],
+  );
+  const priceStep = priceTicks.length >= 2 ? priceTicks[1] - priceTicks[0] : 1;
 
   // Session's candle timeline determines when a strike bar's minute is
   // "reached" — if the trader hasn't scrubbed past the current cursor,
@@ -663,10 +709,13 @@ function ReplayOverlayChart({
           className="block w-full"
           style={{ aspectRatio: `${CW} / ${CH}` }}
         >
-          {/* Shared horizontal grid lines — one per strike-label row so
-              a strike bar on the right aligns visually with a wick on
-              the left at the same price. */}
-          {strikeLabels.map((p) => {
+          {/* Shared horizontal grid lines + price labels on the round-
+              number tick ladder. The label price is a chart-axis value
+              — the strike bars still render at their actual strike
+              positions — but a wick at $743.20 and a strike bar at 743
+              line up under the same '743' label because both use the
+              same yForPrice mapping. */}
+          {priceTicks.map((p) => {
             const y = yForPrice(p);
             return (
               <g key={`grid-${p}`}>
@@ -693,7 +742,7 @@ function ReplayOverlayChart({
                   fontSize={11}
                   fill="var(--color-text-secondary)"
                 >
-                  {p.toFixed(0)}
+                  {formatPriceTick(p, priceStep)}
                 </text>
               </g>
             );
