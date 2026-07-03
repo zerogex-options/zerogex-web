@@ -571,19 +571,18 @@ export default async function SpxGammaLevelsPage() {
               gap: 14,
             }}
           >
-            <div
-              aria-disabled="true"
+            <Link
+              href="/forecast"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
                 padding: 20,
                 borderRadius: 14,
-                border: '1px dashed var(--border-default)',
+                border: '1px solid var(--border-default)',
                 background: 'var(--color-surface)',
-                color: 'var(--color-text-secondary)',
-                opacity: 0.55,
-                cursor: 'not-allowed',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
                 position: 'relative',
               }}
             >
@@ -593,7 +592,7 @@ export default async function SpxGammaLevelsPage() {
                     width: 36, height: 36, borderRadius: 10,
                     background: 'var(--color-surface-subtle, rgba(255,255,255,0.05))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--color-brand-primary)',
                   }}
                 >
                   <CheckCircle2 size={20} />
@@ -602,24 +601,29 @@ export default async function SpxGammaLevelsPage() {
                 <div
                   style={{
                     marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
                     padding: '2px 8px',
-                    borderRadius: 999,
-                    border: '1px solid var(--border-default)',
+                    borderRadius: 4,
+                    background: 'color-mix(in srgb, var(--color-brand-accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--color-brand-accent) 33%, transparent)',
                     fontSize: 10,
-                    fontWeight: 800,
+                    fontWeight: 700,
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--color-brand-accent)',
+                    lineHeight: 1.1,
                   }}
                 >
-                  Coming soon
+                  Beta
                 </div>
+                <ArrowRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
                 Every morning at 7 AM ET we commit to a projected range, pin strike, and regime call —
                 hashed and immutable. Every afternoon we grade ourselves in public.
               </div>
-            </div>
+            </Link>
 
             <Link
               href="/replay"

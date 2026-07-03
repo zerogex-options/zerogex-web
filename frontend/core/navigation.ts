@@ -87,6 +87,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
       { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
       { id: '/replay', label: 'Daily Replay' },
+      { id: '/forecast', label: 'Daily Forecast', beta: true },
     ],
   },
   {
@@ -128,7 +129,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
-      { id: '/forecast', label: 'Forecast', requiredTier: 'admin' },
     ],
   },
 ];
