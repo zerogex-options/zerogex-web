@@ -22,7 +22,7 @@ export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
         height: '32px',
         borderRadius: '9999px',
         backgroundColor: 'transparent',
-        border: `2px solid ${colors.muted}`,
+        border: `2px solid ${'var(--text-secondary)'}`,
         padding: '2px',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
@@ -45,7 +45,7 @@ export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
           height: '24px',
           borderRadius: '50%',
           backgroundColor: 'transparent',
-          border: `2px solid ${colors.muted}`,
+          border: `2px solid ${'var(--text-secondary)'}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -54,9 +54,9 @@ export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
         }}
       >
         {theme === 'dark' ? (
-          <Moon size={14} color={colors.muted} />
+          <Moon size={14} color={'var(--text-secondary)'} />
         ) : (
-          <Sun size={14} color={colors.muted} />
+          <Sun size={14} color={'var(--text-secondary)'} />
         )}
       </div>
     </button>

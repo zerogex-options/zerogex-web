@@ -22,7 +22,7 @@ function getDistanceMeta(level: number | null | undefined, spotPrice: number | n
 
   return {
     isAbove,
-    color: isAbove ? colors.bullish : colors.bearish,
+    color: isAbove ? 'var(--color-bull)' : 'var(--color-bear)',
     deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
     pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
     spotRelationLabel: `${isAbove ? 'above' : 'below'} spot`,

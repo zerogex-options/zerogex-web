@@ -255,7 +255,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
               onClick={handleDownload}
               disabled={downloadState === 'working'}
               className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-opacity disabled:opacity-60"
-              style={{ background: 'var(--color-warning)', color: '#1a1205' }}
+              style={{ background: 'var(--color-warning)', color: 'var(--text-inverse)' }}
             >
               <Download size={16} />
               {downloadState === 'working' ? 'Rendering…' : 'Download PNG'}

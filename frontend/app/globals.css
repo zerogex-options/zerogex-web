@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 :root {
+  /* Font families — resolved via Next font optimization in app/layout.tsx.
+     Fallbacks so unstyled server-rendered content still looks reasonable. */
+  --font-display: var(--font-space-grotesk), 'Neue Haas Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body:    var(--font-space-grotesk), 'Neue Haas Grotesk', 'Inter', system-ui, sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
   --background: #F5F7FA;
   --foreground: #1E293B;
 
@@ -24,10 +30,10 @@
   --accent-3: #2563EB;
   --accent-4: #E0527E;
 
-  --color-bull: #1BC47D;
-  --color-bull-soft: rgba(27, 196, 125, 0.10);
-  --color-bear: #FF4D5A;
-  --color-bear-soft: rgba(255, 77, 90, 0.10);
+  --color-bull: #10B85E;
+  --color-bull-soft: rgba(16, 184, 94, 0.22);
+  --color-bear: #E7213D;
+  --color-bear-soft: rgba(231, 33, 61, 0.22);
   --color-warning: #F59E0B;
   --color-warning-soft: rgba(245, 158, 11, 0.10);
   --color-info: #003F5C;
@@ -105,10 +111,10 @@
   --accent-3: #BC5090;
   --accent-4: #FF6361;
 
-  --color-bull: #1BC47D;
-  --color-bull-soft: rgba(27, 196, 125, 0.18);
-  --color-bear: #FF4D5A;
-  --color-bear-soft: rgba(255, 77, 90, 0.18);
+  --color-bull: #22D982;
+  --color-bull-soft: rgba(34, 217, 130, 0.26);
+  --color-bear: #FF3855;
+  --color-bear-soft: rgba(255, 56, 85, 0.26);
   --color-warning: #FFA600;
   --color-warning-soft: rgba(255, 166, 0, 0.18);
   --color-info: #2C4875;
@@ -123,6 +129,561 @@
   --color-chart-tooltip-bg: var(--bg-card);
   --color-chart-tooltip-text: var(--text-primary);
   --color-chart-tooltip-muted: var(--text-secondary);
+}
+
+/* ============================================================
+   THEME PALETTES — 4 palettes × 2 modes
+   Combines with .dark on <html> for dark-mode variants.
+   ============================================================ */
+
+/* ============================================================
+   4 THEME PALETTES — mockup-matched
+   Wall Street · California Sunset · Kyoto Zen · Miami Beach
+   ============================================================ */
+
+/* ---- Palette: Wall Street ---------- */
+/* Tailored ivory, banker navy, old gold, burgundy. */
+:root.palette-wallstreet {
+  --font-display: var(--font-libre-baskerville);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #8B3550;
+  --heat-mid: #C7213D;
+  --heat-high: #7A1E2C;
+  --chart-1: #0E3A53;
+  --chart-2: #7A1E2C;
+  --chart-3: #B08D57;
+  --chart-4: #5B6670;
+  --chart-5: #161A1D;
+  --bg-main: #F5F3EF;
+  --bg-subtle: #EAE7DF;
+  --bg-card: #FAF8F4;
+  --bg-hover: #E1DDD1;
+  --bg-active: #D3CEBF;
+  --text-primary: #161A1D;
+  --text-secondary: rgba(22,26,29,0.75);
+  --text-muted: rgba(22,26,29,0.50);
+  --text-inverse: #F5F3EF;
+  --border-subtle: rgba(22,26,29,0.10);
+  --border-default: rgba(22,26,29,0.22);
+  --border-strong: rgba(22,26,29,0.40);
+  --accent-1: #161A1D;
+  --accent-2: #0E3A53;
+  --accent-3: #B08D57;
+  --accent-4: #7A1E2C;
+  --color-accent: #0E3A53;
+  --color-accent-hot: #C7213D;
+  --color-accent-soft: rgba(14,58,83,0.20);
+  --color-gold: #B08D57;
+  --color-gold-soft: rgba(176,141,87,0.22);
+  --color-pop-navy: #0E3A53;
+  --color-pop-navy-soft: rgba(14,58,83,0.20);
+  --color-pop-gold: #B08D57;
+  --color-pop-gold-soft: rgba(176,141,87,0.22);
+  --color-pop-burgundy: #7A1E2C;
+  --color-pop-burgundy-soft: rgba(122,30,44,0.20);
+  --color-concrete: #5B6670;
+  --color-concrete-soft: rgba(91,102,112,0.20);
+  --color-maroon: #7A1E2C;
+  --color-navy: #0E3A53;
+  --color-royal: #0E3A53;
+  --color-canary: #B08D57;
+  --color-emerald: #1FA65E;
+  --color-emerald-soft: rgba(31,166,94,0.22);
+  --color-hazy: #0E3A53;
+  --color-hazy-soft: rgba(14,58,83,0.14);
+  --color-bull: #10B85E;
+  --color-bull-soft: rgba(16,184,94,0.22);
+  --color-bear: #E7213D;
+  --color-bear-soft: rgba(231,33,61,0.22);
+  --color-warning: #C7213D;
+  --color-warning-soft: rgba(199,33,61,0.20);
+  --color-info: #0E3A53;
+  --color-info-soft: rgba(14,58,83,0.10);
+  --color-brand-primary: #0E3A53;
+  --color-brand-accent: #C7213D;
+  --color-brand-coral: #C7213D;
+  --color-brand-deep: #161A1D;
+  --color-chart-tooltip-bg: #FAF8F4;
+  --color-chart-tooltip-border: rgba(22,26,29,0.18);
+  --color-grid-line: rgba(22,26,29,0.08);
+  --color-grid-overlay: rgba(245,243,239,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-wallstreet.dark {
+  --heat-low: #B45585;
+  --heat-mid: #E93D5A;
+  --heat-high: #7A1E2C;
+  --chart-1: #4A9BD1;
+  --chart-2: #9A2638;
+  --chart-3: #C5A05A;
+  --chart-4: #7B8790;
+  --chart-5: #ECE7DC;
+  --bg-main: #0E1116;
+  --bg-subtle: #13171F;
+  --bg-card: #191E28;
+  --bg-hover: #212633;
+  --bg-active: #2A3040;
+  --text-primary: #ECE7DC;
+  --text-secondary: rgba(236,231,220,0.78);
+  --text-muted: rgba(236,231,220,0.52);
+  --text-inverse: #0E1116;
+  --border-subtle: rgba(236,231,220,0.09);
+  --border-default: rgba(236,231,220,0.22);
+  --border-strong: rgba(236,231,220,0.34);
+  --accent-1: #ECE7DC;
+  --accent-2: #4A9BD1;
+  --accent-3: #C5A05A;
+  --accent-4: #E93D5A;
+  --color-accent: #4A9BD1;
+  --color-accent-hot: #E93D5A;
+  --color-accent-soft: rgba(74,155,209,0.24);
+  --color-gold: #C5A05A;
+  --color-gold-soft: rgba(197,160,90,0.26);
+  --color-pop-navy: #4A9BD1;
+  --color-pop-navy-soft: rgba(74,155,209,0.24);
+  --color-pop-gold: #C5A05A;
+  --color-pop-gold-soft: rgba(197,160,90,0.26);
+  --color-pop-burgundy: #9A2638;
+  --color-pop-burgundy-soft: rgba(154,38,56,0.24);
+  --color-concrete: #7B8790;
+  --color-concrete-soft: rgba(123,135,144,0.22);
+  --color-maroon: #9A2638;
+  --color-navy: #4A9BD1;
+  --color-royal: #4A9BD1;
+  --color-canary: #C5A05A;
+  --color-emerald: #35C979;
+  --color-emerald-soft: rgba(53,201,121,0.26);
+  --color-hazy: #4A9BD1;
+  --color-hazy-soft: rgba(74,155,209,0.18);
+  --color-bull: #22D982;
+  --color-bull-soft: rgba(34,217,130,0.26);
+  --color-bear: #FF3855;
+  --color-bear-soft: rgba(255,56,85,0.26);
+  --color-warning: #E93D5A;
+  --color-warning-soft: rgba(233,61,90,0.26);
+  --color-info: #4A9BD1;
+  --color-info-soft: rgba(74,155,209,0.20);
+  --color-brand-primary: #4A9BD1;
+  --color-brand-accent: #E93D5A;
+  --color-brand-coral: #E93D5A;
+  --color-brand-deep: #ECE7DC;
+  --color-chart-tooltip-bg: #191E28;
+  --color-chart-tooltip-border: rgba(236,231,220,0.16);
+  --color-grid-line: rgba(236,231,220,0.08);
+  --color-grid-overlay: rgba(14,17,22,0.12);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+
+/* ---- Palette: California Sunset ---------- */
+/* Sand villa, sunset coral, pacific teal, vintage gold, canyon brown. */
+:root.palette-california {
+  --font-display: var(--font-playfair);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #E7B378;
+  --heat-mid: #D96C4A;
+  --heat-high: #B04527;
+  --chart-1: #4F8C8B;
+  --chart-2: #D96C4A;
+  --chart-3: #C7A05A;
+  --chart-4: #7B4E3A;
+  --chart-5: #2B2A28;
+  --bg-main: #F4E3C1;
+  --bg-subtle: #ECD8B0;
+  --bg-card: #FBF1D8;
+  --bg-hover: #E3CCA0;
+  --bg-active: #D5BB8A;
+  --text-primary: #2B2A28;
+  --text-secondary: rgba(43,42,40,0.75);
+  --text-muted: rgba(43,42,40,0.50);
+  --text-inverse: #F4E3C1;
+  --border-subtle: rgba(43,42,40,0.10);
+  --border-default: rgba(43,42,40,0.22);
+  --border-strong: rgba(43,42,40,0.40);
+  --accent-1: #7B4E3A;
+  --accent-2: #4F8C8B;
+  --accent-3: #C7A05A;
+  --accent-4: #D96C4A;
+  --color-accent: #D96C4A;
+  --color-accent-hot: #C7A05A;
+  --color-accent-soft: rgba(217,108,74,0.20);
+  --color-gold: #C7A05A;
+  --color-gold-soft: rgba(199,160,90,0.22);
+  --color-pop-coral: #D96C4A;
+  --color-pop-coral-soft: rgba(217,108,74,0.20);
+  --color-pop-teal: #4F8C8B;
+  --color-pop-teal-soft: rgba(79,140,139,0.22);
+  --color-pop-gold: #C7A05A;
+  --color-pop-gold-soft: rgba(199,160,90,0.22);
+  --color-maroon: #7B4E3A;
+  --color-navy: #4F8C8B;
+  --color-emerald: #1FA88A;
+  --color-emerald-soft: rgba(31,168,138,0.22);
+  --color-hazy: #4F8C8B;
+  --color-hazy-soft: rgba(79,140,139,0.14);
+  --color-bull: #22B563;
+  --color-bull-soft: rgba(34,181,99,0.22);
+  --color-bear: #E63822;
+  --color-bear-soft: rgba(230,56,34,0.22);
+  --color-warning: #C7A05A;
+  --color-warning-soft: rgba(199,160,90,0.22);
+  --color-info: #4F8C8B;
+  --color-info-soft: rgba(79,140,139,0.10);
+  --color-brand-primary: #D96C4A;
+  --color-brand-accent: #C7A05A;
+  --color-brand-coral: #D96C4A;
+  --color-brand-deep: #7B4E3A;
+  --color-chart-tooltip-bg: #FBF1D8;
+  --color-chart-tooltip-border: rgba(43,42,40,0.18);
+  --color-grid-line: rgba(43,42,40,0.08);
+  --color-grid-overlay: rgba(244,227,193,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-california.dark {
+  --heat-low: #EEB874;
+  --heat-mid: #E1785B;
+  --heat-high: #B24E32;
+  --chart-1: #3E9C9B;
+  --chart-2: #E1785B;
+  --chart-3: #D7A84B;
+  --chart-4: #8D5C42;
+  --chart-5: #F6EAD2;
+  --bg-main: #171B24;
+  --bg-subtle: #1D222D;
+  --bg-card: #232937;
+  --bg-hover: #2A3040;
+  --bg-active: #33394B;
+  --text-primary: #F6EAD2;
+  --text-secondary: rgba(246,234,210,0.78);
+  --text-muted: rgba(246,234,210,0.52);
+  --text-inverse: #171B24;
+  --border-subtle: rgba(246,234,210,0.09);
+  --border-default: rgba(246,234,210,0.20);
+  --border-strong: rgba(246,234,210,0.32);
+  --accent-1: #8D5C42;
+  --accent-2: #3E9C9B;
+  --accent-3: #D7A84B;
+  --accent-4: #E1785B;
+  --color-accent: #E1785B;
+  --color-accent-hot: #D7A84B;
+  --color-accent-soft: rgba(225,120,91,0.24);
+  --color-gold: #D7A84B;
+  --color-gold-soft: rgba(215,168,75,0.26);
+  --color-pop-coral: #E1785B;
+  --color-pop-coral-soft: rgba(225,120,91,0.24);
+  --color-pop-teal: #3E9C9B;
+  --color-pop-teal-soft: rgba(62,156,155,0.24);
+  --color-pop-gold: #D7A84B;
+  --color-pop-gold-soft: rgba(215,168,75,0.26);
+  --color-maroon: #8D5C42;
+  --color-navy: #3E9C9B;
+  --color-emerald: #4FCFC0;
+  --color-emerald-soft: rgba(79,207,192,0.26);
+  --color-hazy: #3E9C9B;
+  --color-hazy-soft: rgba(62,156,155,0.16);
+  --color-bull: #35E082;
+  --color-bull-soft: rgba(53,224,130,0.28);
+  --color-bear: #FF4A2E;
+  --color-bear-soft: rgba(255,74,46,0.28);
+  --color-warning: #D7A84B;
+  --color-warning-soft: rgba(215,168,75,0.24);
+  --color-info: #3E9C9B;
+  --color-info-soft: rgba(62,156,155,0.18);
+  --color-brand-primary: #E1785B;
+  --color-brand-accent: #D7A84B;
+  --color-brand-coral: #E1785B;
+  --color-brand-deep: #8D5C42;
+  --color-chart-tooltip-bg: #232937;
+  --color-chart-tooltip-border: rgba(246,234,210,0.16);
+  --color-grid-line: rgba(246,234,210,0.08);
+  --color-grid-overlay: rgba(23,27,36,0.12);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+
+/* ---- Palette: Kyoto Zen ---------- */
+/* Rice paper, bonsai green, temple red, blossom pink, waterfall blue. */
+:root.palette-kyoto {
+  --font-display: var(--font-cormorant);
+  --font-body: var(--font-noto-sans);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #E0C084;
+  --heat-mid: #B5483A;
+  --heat-high: #8B2E1D;
+  --chart-1: #8A9A5B;
+  --chart-2: #B5483A;
+  --chart-3: #D8A7A1;
+  --chart-4: #6F8F8A;
+  --chart-5: #2F3329;
+  --bg-main: #EFE8D8;
+  --bg-subtle: #E4DCC8;
+  --bg-card: #F6F0E1;
+  --bg-hover: #DAD1B8;
+  --bg-active: #CDC3A5;
+  --text-primary: #2F3329;
+  --text-secondary: rgba(47,51,41,0.75);
+  --text-muted: rgba(47,51,41,0.50);
+  --text-inverse: #EFE8D8;
+  --border-subtle: rgba(47,51,41,0.10);
+  --border-default: rgba(47,51,41,0.22);
+  --border-strong: rgba(47,51,41,0.40);
+  --accent-1: #2F3329;
+  --accent-2: #8A9A5B;
+  --accent-3: #B5483A;
+  --accent-4: #6F8F8A;
+  --color-accent: #8A9A5B;
+  --color-accent-hot: #B5483A;
+  --color-accent-soft: rgba(138,154,91,0.22);
+  --color-gold: #D8A7A1;
+  --color-gold-soft: rgba(216,167,161,0.24);
+  --color-pop-pine: #8A9A5B;
+  --color-pop-pine-soft: rgba(138,154,91,0.22);
+  --color-pop-red: #B5483A;
+  --color-pop-red-soft: rgba(181,72,58,0.22);
+  --color-pop-blossom: #D8A7A1;
+  --color-pop-blossom-soft: rgba(216,167,161,0.22);
+  --color-pop-waterfall: #6F8F8A;
+  --color-pop-waterfall-soft: rgba(111,143,138,0.20);
+  --color-maroon: #B5483A;
+  --color-navy: #6F8F8A;
+  --color-emerald: #6B9A3E;
+  --color-emerald-soft: rgba(107,154,62,0.22);
+  --color-hazy: #6F8F8A;
+  --color-hazy-soft: rgba(111,143,138,0.14);
+  --color-bull: #2AB554;
+  --color-bull-soft: rgba(42,181,84,0.22);
+  --color-bear: #E22D2D;
+  --color-bear-soft: rgba(226,45,45,0.22);
+  --color-warning: #D8A7A1;
+  --color-warning-soft: rgba(216,167,161,0.24);
+  --color-info: #6F8F8A;
+  --color-info-soft: rgba(111,143,138,0.10);
+  --color-brand-primary: #8A9A5B;
+  --color-brand-accent: #B5483A;
+  --color-brand-coral: #B5483A;
+  --color-brand-deep: #2F3329;
+  --color-chart-tooltip-bg: #F6F0E1;
+  --color-chart-tooltip-border: rgba(47,51,41,0.18);
+  --color-grid-line: rgba(47,51,41,0.08);
+  --color-grid-overlay: rgba(239,232,216,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-kyoto.dark {
+  --heat-low: #E8D08A;
+  --heat-mid: #C94B3F;
+  --heat-high: #9E3A31;
+  --chart-1: #A5B875;
+  --chart-2: #C94B3F;
+  --chart-3: #E0A7A0;
+  --chart-4: #7CA5A0;
+  --chart-5: #E8DDC7;
+  --bg-main: #171B16;
+  --bg-subtle: #1D221C;
+  --bg-card: #232823;
+  --bg-hover: #2A302A;
+  --bg-active: #333A33;
+  --text-primary: #E8DDC7;
+  --text-secondary: rgba(232,221,199,0.78);
+  --text-muted: rgba(232,221,199,0.52);
+  --text-inverse: #171B16;
+  --border-subtle: rgba(232,221,199,0.09);
+  --border-default: rgba(232,221,199,0.20);
+  --border-strong: rgba(232,221,199,0.32);
+  --accent-1: #E8DDC7;
+  --accent-2: #A5B875;
+  --accent-3: #C94B3F;
+  --accent-4: #7CA5A0;
+  --color-accent: #A5B875;
+  --color-accent-hot: #C94B3F;
+  --color-accent-soft: rgba(165,184,117,0.24);
+  --color-gold: #E0A7A0;
+  --color-gold-soft: rgba(224,167,160,0.26);
+  --color-pop-pine: #A5B875;
+  --color-pop-pine-soft: rgba(165,184,117,0.24);
+  --color-pop-red: #C94B3F;
+  --color-pop-red-soft: rgba(201,75,63,0.24);
+  --color-pop-blossom: #E0A7A0;
+  --color-pop-blossom-soft: rgba(224,167,160,0.24);
+  --color-pop-waterfall: #7CA5A0;
+  --color-pop-waterfall-soft: rgba(124,165,160,0.20);
+  --color-maroon: #C94B3F;
+  --color-navy: #7CA5A0;
+  --color-emerald: #B5D060;
+  --color-emerald-soft: rgba(181,208,96,0.28);
+  --color-hazy: #7CA5A0;
+  --color-hazy-soft: rgba(124,165,160,0.16);
+  --color-bull: #3FE072;
+  --color-bull-soft: rgba(63,224,114,0.28);
+  --color-bear: #FF3F3F;
+  --color-bear-soft: rgba(255,63,63,0.28);
+  --color-warning: #E0A7A0;
+  --color-warning-soft: rgba(224,167,160,0.26);
+  --color-info: #7CA5A0;
+  --color-info-soft: rgba(124,165,160,0.18);
+  --color-brand-primary: #A5B875;
+  --color-brand-accent: #C94B3F;
+  --color-brand-coral: #C94B3F;
+  --color-brand-deep: #E8DDC7;
+  --color-chart-tooltip-bg: #232823;
+  --color-chart-tooltip-border: rgba(232,221,199,0.16);
+  --color-grid-line: rgba(232,221,199,0.08);
+  --color-grid-overlay: rgba(23,27,22,0.12);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+
+/* ---- Palette: Miami Beach ---------- */
+/* White sand, hot pink, pool cyan, flash yellow, electric purple.
+   Wide geometric Poppins for 80s marquee typography. */
+:root.palette-miami {
+  --font-display: var(--font-poppins);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #FFE066;
+  --heat-mid: #FFD23F;
+  --heat-high: #E5A500;
+  --chart-1: #00BFD8;
+  --chart-2: #FF2FA2;
+  --chart-3: #FFD23F;
+  --chart-4: #7B2CFF;
+  --chart-5: #15151F;
+  --bg-main: #F7F3E8;
+  --bg-subtle: #EDE9DC;
+  --bg-card: #FBF8ED;
+  --bg-hover: #E4E0D2;
+  --bg-active: #D6D1C0;
+  --text-primary: #15151F;
+  --text-secondary: rgba(21,21,31,0.75);
+  --text-muted: rgba(21,21,31,0.50);
+  --text-inverse: #F7F3E8;
+  --border-subtle: rgba(21,21,31,0.10);
+  --border-default: rgba(21,21,31,0.22);
+  --border-strong: rgba(21,21,31,0.40);
+  --accent-1: #7B2CFF;
+  --accent-2: #FF2FA2;
+  --accent-3: #00BFD8;
+  --accent-4: #FFD23F;
+  --color-accent: #FF2FA2;
+  --color-accent-hot: #00BFD8;
+  --color-accent-soft: rgba(255,47,162,0.22);
+  --color-gold: #FFD23F;
+  --color-gold-soft: rgba(255,210,63,0.24);
+  --color-pop-pink: #FF2FA2;
+  --color-pop-pink-soft: rgba(255,47,162,0.22);
+  --color-pop-cyan: #00BFD8;
+  --color-pop-cyan-soft: rgba(0,191,216,0.22);
+  --color-pop-yellow: #FFD23F;
+  --color-pop-yellow-soft: rgba(255,210,63,0.24);
+  --color-pop-purple: #7B2CFF;
+  --color-pop-purple-soft: rgba(123,44,255,0.22);
+  --color-maroon: #7B2CFF;
+  --color-navy: #7B2CFF;
+  --color-emerald: #00BFD8;
+  --color-emerald-soft: rgba(0,191,216,0.22);
+  --color-hazy: #00BFD8;
+  --color-hazy-soft: rgba(0,191,216,0.14);
+  --color-bull: #10D960;
+  --color-bull-soft: rgba(16,217,96,0.22);
+  --color-bear: #FF2C4E;
+  --color-bear-soft: rgba(255,44,78,0.22);
+  --color-warning: #FFD23F;
+  --color-warning-soft: rgba(255,210,63,0.22);
+  --color-info: #7B2CFF;
+  --color-info-soft: rgba(123,44,255,0.10);
+  --color-brand-primary: #FF2FA2;
+  --color-brand-accent: #00BFD8;
+  --color-brand-coral: #FF2FA2;
+  --color-brand-deep: #7B2CFF;
+  --color-chart-tooltip-bg: #FBF8ED;
+  --color-chart-tooltip-border: rgba(21,21,31,0.18);
+  --color-grid-line: rgba(21,21,31,0.08);
+  --color-grid-overlay: rgba(247,243,232,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-miami.dark {
+  --heat-low: #FFEE7D;
+  --heat-mid: #FFE156;
+  --heat-high: #CFA500;
+  --chart-1: #00E5FF;
+  --chart-2: #FF3CAC;
+  --chart-3: #FFE156;
+  --chart-4: #9B5CFF;
+  --chart-5: #F8F4FF;
+  --bg-main: #0B1026;
+  --bg-subtle: #101532;
+  --bg-card: #161C3E;
+  --bg-hover: #1D244D;
+  --bg-active: #262D5E;
+  --text-primary: #F8F4FF;
+  --text-secondary: rgba(248,244,255,0.80);
+  --text-muted: rgba(248,244,255,0.54);
+  --text-inverse: #0B1026;
+  --border-subtle: rgba(248,244,255,0.10);
+  --border-default: rgba(248,244,255,0.22);
+  --border-strong: rgba(248,244,255,0.34);
+  --accent-1: #9B5CFF;
+  --accent-2: #FF3CAC;
+  --accent-3: #00E5FF;
+  --accent-4: #FFE156;
+  --color-accent: #FF3CAC;
+  --color-accent-hot: #00E5FF;
+  --color-accent-soft: rgba(255,60,172,0.26);
+  --color-gold: #FFE156;
+  --color-gold-soft: rgba(255,225,86,0.28);
+  --color-pop-pink: #FF3CAC;
+  --color-pop-pink-soft: rgba(255,60,172,0.26);
+  --color-pop-cyan: #00E5FF;
+  --color-pop-cyan-soft: rgba(0,229,255,0.26);
+  --color-pop-yellow: #FFE156;
+  --color-pop-yellow-soft: rgba(255,225,86,0.28);
+  --color-pop-purple: #9B5CFF;
+  --color-pop-purple-soft: rgba(155,92,255,0.26);
+  --color-maroon: #9B5CFF;
+  --color-navy: #9B5CFF;
+  --color-emerald: #00E5FF;
+  --color-emerald-soft: rgba(0,229,255,0.28);
+  --color-hazy: #00E5FF;
+  --color-hazy-soft: rgba(0,229,255,0.16);
+  --color-bull: #22FF6A;
+  --color-bull-soft: rgba(34,255,106,0.30);
+  --color-bear: #FF3062;
+  --color-bear-soft: rgba(255,48,98,0.30);
+  --color-warning: #FFE156;
+  --color-warning-soft: rgba(255,225,86,0.28);
+  --color-info: #9B5CFF;
+  --color-info-soft: rgba(155,92,255,0.20);
+  --color-brand-primary: #FF3CAC;
+  --color-brand-accent: #00E5FF;
+  --color-brand-coral: #FF3CAC;
+  --color-brand-deep: #9B5CFF;
+  --color-chart-tooltip-bg: #161C3E;
+  --color-chart-tooltip-border: rgba(248,244,255,0.16);
+  --color-grid-line: rgba(248,244,255,0.08);
+  --color-grid-overlay: rgba(11,16,38,0.12);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
 }
 
 @theme inline {
@@ -145,15 +706,9 @@ html, body {
 
 body {
   background-color: var(--background);
-  background-image:
-    linear-gradient(var(--color-grid-overlay), var(--color-grid-overlay)),
-    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
-  background-size: 44px 44px;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif);
   position: relative;
-  background-attachment: fixed;
 }
 
 html {
@@ -169,4 +724,150 @@ html {
 
 :root.dark .zg-feature-shell {
   box-shadow: 0 4px 12px var(--color-info-soft), 0 1px 3px rgba(255, 211, 128, 0.12);
+}
+
+/* ============================================================
+   TYPOGRAPHY SYSTEM — one place, used everywhere.
+   Base scale is 16px root. Line-heights favor legibility over
+   density; letter-spacing tightens with size. Mono variants use
+   tabular-nums for aligned columns of numeric data.
+   ============================================================ */
+:root {
+  --lh-tight: 1.05;
+  --lh-snug: 1.2;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
+}
+
+/* Display — hero H1s. Use sparingly, one per page. */
+.zg-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(48px, 6.5vw, 96px);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+/* Page title — section-level headings, page names, feature titles. */
+.zg-h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+
+/* Subsection heading — card titles, sidebar section headers. */
+.zg-h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(22px, 2.4vw, 28px);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* Panel / group heading — chart titles, table titles, dashboard tiles. */
+.zg-h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: var(--lh-snug);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* Small heading / eyebrow — the label above a chart or card. */
+.zg-h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+
+/* Body — default readable prose. */
+.zg-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: var(--lh-relaxed);
+  color: var(--text-primary);
+}
+
+/* Lead — first-paragraph or deck copy, slightly larger than body. */
+.zg-lead {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: var(--lh-relaxed);
+  color: var(--text-secondary);
+}
+
+/* Small — footnotes, secondary UI text. */
+.zg-small {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: var(--lh-normal);
+  color: var(--text-secondary);
+}
+
+/* Caption — chart footnotes, image captions, hints under form fields. */
+.zg-caption {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: var(--lh-normal);
+  color: var(--text-muted);
+}
+
+/* Mono — numeric readouts, price/level values, ticker rows. Tabular
+   nums keep columns of numbers aligned even at variable widths. */
+.zg-mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* Label — the small ALL-CAPS/tracked-out mono strings used for
+   metric names, section eyebrows, "SIGNALS · LIVE" style micro-heads.
+   The ONE place uppercase is sanctioned. */
+.zg-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Emphasis — sparing inline highlight. */
+.zg-em {
+  color: var(--color-accent-hot);
+  font-weight: 500;
+}
+
+/* Strong — heavier inline emphasis without color shift. */
+.zg-strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Code block — inline or block. */
+.zg-code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--bg-hover);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }

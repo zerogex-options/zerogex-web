@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, Clock, Lock, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, History, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import LandingHeader from '@/components/LandingHeader';
 import Footer from './Footer';
-import Header from './Header';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
 // publish on X every morning. Pure server component: ISR-cached at 900s so the
@@ -182,7 +182,8 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         ? 'var(--color-negative)'
         : 'var(--color-text-secondary)';
   return (
-    <article
+    <Link
+      href={`/gamma-exposure?symbol=${symbol}`}
       style={{
         background: 'linear-gradient(145deg, var(--color-surface) 0%, var(--bg-active) 100%)',
         border: '1px solid var(--border-default)',
@@ -191,7 +192,12 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         display: 'flex',
         flexDirection: 'column',
         gap: 18,
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer',
+        transition: 'border-color 150ms, transform 150ms',
       }}
+      className="hover:!border-[var(--color-brand-primary)]"
     >
       <header>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
@@ -236,13 +242,11 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.75 }}>
           Snapshot: {fmtTimestampET(data?.timestamp)}
         </span>
-        <Link
-          href={`/gamma-exposure?symbol=${symbol}`}
+        <span
           style={{
             fontSize: 12,
             fontWeight: 700,
             color: 'var(--color-brand-primary)',
-            textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
@@ -250,9 +254,9 @@ function SymbolCard({ symbol, data }: { symbol: Symbol; data: GexSummary | null 
         >
           Live {symbol} dashboard
           <ArrowRight size={14} />
-        </Link>
+        </span>
       </footer>
-    </article>
+    </Link>
   );
 }
 
@@ -301,7 +305,7 @@ export default async function SpxGammaLevelsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <Header />
+      <LandingHeader />
 
       <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
         <header style={{ marginBottom: 36 }}>
@@ -551,6 +555,111 @@ export default async function SpxGammaLevelsPage() {
               </Link>
             </li>
           </ul>
+        </section>
+
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>
+            Two free tools nobody else ships
+          </h2>
+          <p style={{ margin: '0 0 16px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            No login required. Bookmark either — the URL stays valid every day.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 14,
+            }}
+          >
+            <Link
+              href="/forecast"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: 20,
+                borderRadius: 14,
+                border: '1px solid var(--border-default)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+                position: 'relative',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'var(--color-surface-subtle, rgba(255,255,255,0.05))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-brand-primary)',
+                  }}
+                >
+                  <CheckCircle2 size={20} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Daily Forecast</div>
+                <div
+                  style={{
+                    marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    background: 'color-mix(in srgb, var(--color-brand-accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--color-brand-accent) 33%, transparent)',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-brand-accent)',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  Beta
+                </div>
+                <ArrowRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
+                Every morning at 7 AM ET we commit to a projected range, pin strike, and regime call —
+                hashed and immutable. Every afternoon we grade ourselves in public.
+              </div>
+            </Link>
+
+            <Link
+              href="/replay"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: 20,
+                borderRadius: 14,
+                border: '1px solid var(--border-default)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+                position: 'relative',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'var(--color-surface-subtle, rgba(255,255,255,0.05))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-brand-primary)',
+                  }}
+                >
+                  <History size={20} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Daily Replay</div>
+                <ArrowRight size={16} style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }} />
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
+                Scrub through any past session minute-by-minute. Watch walls shift, gamma flip drift,
+                and per-strike GEX migrate. Drop two pins to see the delta between any two moments.
+              </div>
+            </Link>
+          </div>
         </section>
 
         <section

@@ -193,10 +193,10 @@ export default function PremiumHeatmapPage() {
     return { strikes, dtes, expirationLabels, z, hasGrid, hasData };
   }, [data, metric, optionType]);
 
-  const muted = theme === 'dark' ? colors.muted : colors.dark;
-  const inputBorder = theme === 'dark' ? colors.borderDark : colors.borderLight;
-  const inputBg = theme === 'dark' ? colors.cardDark : colors.cardLight;
-  const inputColor = theme === 'dark' ? colors.light : colors.dark;
+  const muted = theme === 'dark' ? 'var(--text-secondary)' : "var(--text-primary)";
+  const inputBorder = 'var(--border-default)';
+  const inputBg = 'var(--bg-card)';
+  const inputColor = 'var(--text-primary)';
 
   const selectStyle: React.CSSProperties = {
     padding: '6px 10px',
@@ -215,7 +215,7 @@ export default function PremiumHeatmapPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <h1 className="text-3xl font-bold">Premium Heat Map</h1>
+        <h1 className="text-3xl font-bold">Premium Surface</h1>
         <BetaBadge size="md" />
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>

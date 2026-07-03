@@ -47,10 +47,10 @@ const NEGATIVE_HUE: RGB = { r: 188, g: 80, b: 144 };
 
 // Reference-line colours mirrored from the Strike Profile chart on the
 // Dealer Positioning page so the two read as a coherent pair.
-const CALL_WALL_COLOR = colors.bullish;
-const PUT_WALL_COLOR = colors.bearish;
+const CALL_WALL_COLOR = 'var(--color-bull)';
+const PUT_WALL_COLOR = 'var(--color-bear)';
 const SPOT_COLOR = '#06B6D4';
-const FLIP_COLOR = colors.warning;
+const FLIP_COLOR = 'var(--color-warning)';
 
 // Bigger / bolder typography for the reference-line labels so they pop
 // against the navy / magenta gradient cells.
@@ -117,8 +117,8 @@ export default function FlipSurfaceChart({
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
-  const mutedText = isDark ? colors.muted : 'var(--color-text-secondary)';
+  const textColor = 'var(--text-primary)';
+  const mutedText = isDark ? 'var(--text-secondary)' : 'var(--color-text-secondary)';
 
   const { data: surface, loading, error } = useFlipSurface(symbol, horizons, { refreshInterval: 7000 });
 
@@ -197,7 +197,7 @@ export default function FlipSurfaceChart({
     const plotW = Math.max(10, cssW - PAD_L - PAD_R);
     const plotH = Math.max(10, cssH - PAD_T - PAD_B);
 
-    ctx.fillStyle = isDark ? colors.cardDark : colors.cardLight;
+    ctx.fillStyle = 'var(--bg-card)';
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
     const grid = surface.grid;
@@ -500,14 +500,14 @@ export default function FlipSurfaceChart({
       <div
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
-          backgroundColor: isDark ? colors.cardDark : colors.cardLight,
-          border: `1px solid ${colors.muted}`,
+          backgroundColor: 'var(--bg-card)',
+          border: `1px solid ${'var(--text-secondary)'}`,
         }}
       >
         <div className="flex items-start justify-between gap-3 mb-4 flex-wrap shrink-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>
-              HORIZON × PRICE CONTOUR
+            <h3 className="zg-h3" style={{ color: textColor }}>
+              Horizon × Price Contour
             </h3>
             <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilising), red cells are short-gamma (destabilising). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />
@@ -516,7 +516,7 @@ export default function FlipSurfaceChart({
         </div>
 
         {error ? (
-          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: colors.bearish }}>
+          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--color-bear)' }}>
             {error === 'No data available yet'
               ? `No usable option snapshot for ${symbol} — check ingestion.`
               : `Backend error: ${error}`}

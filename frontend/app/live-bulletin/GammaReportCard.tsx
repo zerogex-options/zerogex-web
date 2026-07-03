@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
+import { useChartTheme } from '@/hooks/useChartTheme';
 import {
   fmtNetGex,
   fmtPrice,
@@ -12,42 +13,79 @@ import {
   type ReportModel,
 } from './bulletinHelpers';
 
-// The card is a fully self-contained dark asset: every color is an explicit
-// hex/rgba (never a CSS theme variable) so the exported PNG looks identical
-// regardless of the operator's light/dark site theme, and so html-to-image
-// never has to resolve a `var(--...)` against the live document.
-const C = {
-  bgTop: '#04141E',
-  bgBottom: '#07212F',
-  border: 'rgba(245, 158, 11, 0.22)',
-  panel: 'rgba(255, 255, 255, 0.035)',
-  panelBorder: 'rgba(255, 255, 255, 0.07)',
-  textPrimary: '#F3F7FB',
-  textSecondary: '#9DB1C4',
-  textFaint: '#5E7689',
-  amber: '#F59E0B',
-  bull: '#1BC47D',
-  bear: '#FF5A66',
-  blue: '#3B82F6',
-  // brand accents (pacificDesertSunset) used for the top swath + glow
-  coral: '#FF6361',
-  pink: '#E0527E',
-  peach: '#FFD380',
-  ocean: '#2563EB',
-} as const;
-
-// Sleek brand gradient used for the top ribbon + header wash.
-const BRAND_SWATH = `linear-gradient(90deg, ${C.peach} 0%, ${C.amber} 26%, ${C.coral} 52%, ${C.pink} 74%, ${C.ocean} 100%)`;
-
-const REGIME_ACCENT: Record<ReportModel['regime'], string> = {
-  positive: C.bull,
-  negative: C.bear,
-  neutral: C.amber,
-  unresolved: C.textFaint,
+// Card colors are pulled from the active palette at render time via
+// useChartTheme, so the exported PNG matches whatever theme the operator has
+// selected (Wall Street navy, Miami neon, Kyoto pine, California coral).
+// html-to-image resolves computed styles, so passing plain color strings
+// (rather than raw var(--...) references) keeps the rasterizer reliable.
+type CardColors = {
+  bgTop: string;
+  bgBottom: string;
+  border: string;
+  panel: string;
+  panelBorder: string;
+  textPrimary: string;
+  textSecondary: string;
+  textFaint: string;
+  amber: string;
+  bull: string;
+  bear: string;
+  blue: string;
+  coral: string;
+  pink: string;
+  peach: string;
+  ocean: string;
 };
 
-const FONT_STACK =
-  '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+function buildCardColors(chart: ReturnType<typeof useChartTheme>): CardColors {
+  // Always render the card on a dark, "quant terminal" surface so the exported
+  // asset holds up on both light and dark reposts — but pull the accent hues
+  // from the current palette so the brand palette shows through.
+  return {
+    // Deep two-stop gradient tinted by the palette's info hue.
+    bgTop: mixHex(chart.info || '#04141E', '#000000', 0.85),
+    bgBottom: mixHex(chart.info || '#07212F', '#000000', 0.72),
+    border: hexAlpha(chart.accentHot || chart.gold || '#F59E0B', 0.24),
+    panel: 'rgba(255, 255, 255, 0.04)',
+    panelBorder: 'rgba(255, 255, 255, 0.08)',
+    textPrimary: '#F3F7FB',
+    textSecondary: '#9DB1C4',
+    textFaint: '#5E7689',
+    amber: chart.accentHot || chart.gold || '#F59E0B',
+    bull: chart.bull || '#1BC47D',
+    bear: chart.bear || '#FF5A66',
+    blue: chart.info || '#3B82F6',
+    coral: chart.series[1] || chart.bear || '#FF6361',
+    pink: chart.maroon || '#E0527E',
+    peach: chart.gold || '#FFD380',
+    ocean: chart.navy || chart.info || '#2563EB',
+  };
+}
+
+// Blend `hex` toward `target` by `t` in [0,1]. Used to darken the palette's
+// info hue into the two-stop card background gradient.
+function mixHex(hex: string, target: string, t: number): string {
+  const parse = (h: string) => {
+    const s = h.replace('#', '');
+    const n = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
+    return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+  };
+  const [ar, ag, ab] = parse(hex);
+  const [br, bg, bb] = parse(target);
+  const lerp = (a: number, b: number) => Math.round(a + (b - a) * t);
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(lerp(ar, br))}${toHex(lerp(ag, bg))}${toHex(lerp(ab, bb))}`;
+}
+
+// Convert a #RRGGBB (or #RGB) into rgba() at the given alpha.
+function hexAlpha(hex: string, alpha: number): string {
+  const s = hex.replace('#', '');
+  const n = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
+  const r = parseInt(n.slice(0, 2), 16);
+  const g = parseInt(n.slice(2, 4), 16);
+  const b = parseInt(n.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export interface GammaReportCardProps {
   model: ReportModel;
@@ -65,6 +103,26 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
   { model, headline, lead, asOf, logoUrl, watermark = true, width = 640 },
   ref,
 ) {
+  const chart = useChartTheme();
+  const C = useMemo(() => buildCardColors(chart), [chart]);
+
+  // The brand ribbon spans the palette's spectrum: gold → warm accent →
+  // primary accent → maroon → deep info blue. Every hue is a live theme
+  // token, so the ribbon shifts with the palette.
+  const BRAND_SWATH = `linear-gradient(90deg, ${C.peach} 0%, ${C.amber} 26%, ${C.coral} 52%, ${C.pink} 74%, ${C.ocean} 100%)`;
+
+  const REGIME_ACCENT: Record<ReportModel['regime'], string> = {
+    positive: C.bull,
+    negative: C.bear,
+    neutral: C.amber,
+    unresolved: C.textFaint,
+  };
+
+  // Resolve the palette's body font (set on <html>) at render time so the
+  // card typography matches the site theme. Fallbacks retain reasonable
+  // typography if the CSS var hasn't loaded yet.
+  const FONT_STACK = 'var(--font-body), var(--font-display), -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif';
+
   const accent = REGIME_ACCENT[model.regime];
   const copy = regimeCopy(model.regime);
   const changeColor =
@@ -151,13 +209,13 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
 
       {/* subtle tiled brand watermark — baked into the export so reposts stay
           attributed. Sits behind the content layer at low opacity. */}
-      {watermark && <Watermark />}
+      {watermark && <Watermark textPrimary={C.textPrimary} />}
 
       <div style={{ position: 'relative', padding: '30px 30px 22px' }}>
         {/* Brand row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <BrandMark logoUrl={logoUrl} height={52} />
+            <BrandMark logoUrl={logoUrl} height={52} coral={C.coral} />
             <span
               style={{
                 fontSize: 10,
@@ -256,7 +314,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           }}
         >
           <div>
-            <div style={CARD_LABEL}>{model.symbol} Spot</div>
+            <div style={makeCardLabel(C.textFaint)}>{model.symbol} Spot</div>
             <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.5 }}>
               {fmtPrice(model.spot)}
             </div>
@@ -276,25 +334,26 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             marginTop: 18,
           }}
         >
-          <Metric label="Gamma Flip" value={fmtPrice(model.gammaFlip)} accent={C.amber} />
+          <Metric label="Gamma Flip" value={fmtPrice(model.gammaFlip)} accent={C.amber} C={C} />
           <Metric
             label="Net GEX"
             value={fmtNetGex(model.netGex)}
             accent={model.netGex == null ? C.textPrimary : model.netGex >= 0 ? C.bull : C.bear}
+            C={C}
           />
-          <Metric label="Put / Call" value={fmtRatio(model.putCallRatio)} accent={C.textPrimary} />
-          <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} />
-          <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} />
-          <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} />
+          <Metric label="Put / Call" value={fmtRatio(model.putCallRatio)} accent={C.textPrimary} C={C} />
+          <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} C={C} />
+          <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} C={C} />
+          <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} C={C} />
         </div>
 
         {/* Probability-bounded expected range */}
         {model.expectedRange && (
-          <ExpectedRangePanel symbol={model.symbol} range={model.expectedRange} />
+          <ExpectedRangePanel symbol={model.symbol} range={model.expectedRange} C={C} />
         )}
 
         {/* Gamma map */}
-        <GammaMap model={model} />
+        <GammaMap model={model} C={C} />
 
         {/* Footer */}
         <div
@@ -310,7 +369,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <BrandMark logoUrl={logoUrl} height={16} />
+            <BrandMark logoUrl={logoUrl} height={16} coral={C.coral} />
             <span style={{ color: C.textFaint, fontWeight: 500 }}>zerogex.io · @zerogex</span>
           </span>
           <span>Derived analytics · not financial advice</span>
@@ -324,7 +383,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
 // rasterizes reliably into the PNG export; rotated and oversized (inset -30%)
 // so it fills the card edge-to-edge after rotation and can't be cleanly
 // cropped out of a repost.
-function Watermark() {
+function Watermark({ textPrimary }: { textPrimary: string }) {
   const rows = Array.from({ length: 16 });
   const cols = Array.from({ length: 7 });
   return (
@@ -354,7 +413,7 @@ function Watermark() {
                 fontSize: 22,
                 fontWeight: 800,
                 letterSpacing: 1.5,
-                color: C.textPrimary,
+                color: textPrimary,
               }}
             >
               zerogex.io
@@ -369,7 +428,7 @@ function Watermark() {
 // Renders the brand wordmark from a pre-rasterized PNG data URL (so it embeds
 // cleanly in the PNG export); falls back to a styled "ZEROGEX" text lockup
 // while the logo is still rasterizing or if it fails to load.
-function BrandMark({ logoUrl, height }: { logoUrl?: string | null; height: number }) {
+function BrandMark({ logoUrl, height, coral }: { logoUrl?: string | null; height: number; coral: string }) {
   if (logoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={logoUrl} alt="ZeroGEX" style={{ height, width: 'auto', display: 'block' }} />;
@@ -381,8 +440,8 @@ function BrandMark({ logoUrl, height }: { logoUrl?: string | null; height: numbe
           width: height * 0.34,
           height: height * 0.34,
           borderRadius: '50%',
-          background: C.coral,
-          boxShadow: `0 0 10px ${C.coral}`,
+          background: coral,
+          boxShadow: `0 0 10px ${coral}`,
           display: 'inline-block',
         }}
       />
@@ -391,31 +450,33 @@ function BrandMark({ logoUrl, height }: { logoUrl?: string | null; height: numbe
   );
 }
 
-const CARD_LABEL: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: 1.3,
-  textTransform: 'uppercase',
-  color: C.textFaint,
-  marginBottom: 5,
-};
+function makeCardLabel(color: string): React.CSSProperties {
+  return {
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 1.3,
+    textTransform: 'uppercase',
+    color,
+    marginBottom: 5,
+  };
+}
 
 // The probability-bounded prediction: a 1σ implied expected-move band for the
 // chosen horizon, plus a sentence on how the dealer walls sit relative to it.
-function ExpectedRangePanel({ symbol, range }: { symbol: string; range: ExpectedRange }) {
+function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: ExpectedRange; C: CardColors }) {
   const pct = (range.sigmaPct * 100).toFixed(1);
   return (
     <div
       style={{
         marginTop: 14,
-        background: `linear-gradient(135deg, ${C.blue}1f, ${C.panel})`,
-        border: `1px solid ${C.blue}44`,
+        background: `linear-gradient(135deg, ${hexAlpha(C.blue, 0.12)}, ${C.panel})`,
+        border: `1px solid ${hexAlpha(C.blue, 0.27)}`,
         borderRadius: 14,
         padding: '14px 16px',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div style={CARD_LABEL}>Expected Range · {range.horizonLabel}</div>
+        <div style={makeCardLabel(C.textFaint)}>Expected Range · {range.horizonLabel}</div>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue }}>
           ~68% · 1σ · {range.volIndex} {range.vix.toFixed(1)}
         </div>
@@ -447,7 +508,7 @@ function ExpectedRangePanel({ symbol, range }: { symbol: string; range: Expected
   );
 }
 
-function Metric({ label, value, accent }: { label: string; value: string; accent: string }) {
+function Metric({ label, value, accent, C }: { label: string; value: string; accent: string; C: CardColors }) {
   return (
     <div
       style={{
@@ -457,7 +518,7 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
         padding: '12px 13px',
       }}
     >
-      <div style={CARD_LABEL}>{label}</div>
+      <div style={makeCardLabel(C.textFaint)}>{label}</div>
       <div style={{ fontSize: 19, fontWeight: 800, color: accent, letterSpacing: -0.2 }}>
         {value}
       </div>
@@ -516,7 +577,7 @@ function assignLevels(points: MapPoint[], pos: (v: number) => number) {
   };
 }
 
-function GammaMap({ model }: { model: ReportModel }) {
+function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
   const points: MapPoint[] = [
     { key: 'put', label: 'Put Wall', value: model.putWall!, color: C.bull, side: 'below' as const, priority: 1 },
     { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.amber, side: 'above' as const, priority: 2 },
@@ -555,7 +616,7 @@ function GammaMap({ model }: { model: ReportModel }) {
 
   return (
     <div style={{ marginTop: 20 }}>
-      <div style={CARD_LABEL}>Positioning Map</div>
+      <div style={makeCardLabel(C.textFaint)}>Positioning Map</div>
       <div style={{ position: 'relative', height, marginTop: 6 }}>
         {above.map((p) => (
           <Marker
@@ -563,6 +624,7 @@ function GammaMap({ model }: { model: ReportModel }) {
             p={p}
             left={pos(p.value)}
             top={trackY - TRACK_GAP - (aboveLayout.levelOf(p.key) + 1) * ROW_H}
+            textFaint={C.textFaint}
           />
         ))}
         {/* track */}
@@ -574,7 +636,7 @@ function GammaMap({ model }: { model: ReportModel }) {
             right: 0,
             height: TRACK_H,
             borderRadius: 2,
-            background: `linear-gradient(90deg, ${C.bull}55, ${C.amber}55, ${C.bear}55)`,
+            background: `linear-gradient(90deg, ${hexAlpha(C.bull, 0.33)}, ${hexAlpha(C.amber, 0.33)}, ${hexAlpha(C.bear, 0.33)})`,
           }}
         />
         {/* shaded 1σ expected-move band */}
@@ -587,8 +649,8 @@ function GammaMap({ model }: { model: ReportModel }) {
               width: `${Math.max(0, bandRight - bandLeft)}%`,
               height: TRACK_H + 12,
               borderRadius: 4,
-              background: `${C.blue}26`,
-              border: `1px solid ${C.blue}66`,
+              background: hexAlpha(C.blue, 0.15),
+              border: `1px solid ${hexAlpha(C.blue, 0.40)}`,
               boxSizing: 'border-box',
             }}
           />
@@ -615,6 +677,7 @@ function GammaMap({ model }: { model: ReportModel }) {
             p={p}
             left={pos(p.value)}
             top={trackY + TRACK_H + TRACK_GAP + belowLayout.levelOf(p.key) * ROW_H}
+            textFaint={C.textFaint}
           />
         ))}
       </div>
@@ -626,10 +689,12 @@ function Marker({
   p,
   left,
   top,
+  textFaint,
 }: {
   p: { label: string; value: number; color: string };
   left: number;
   top: number;
+  textFaint: string;
 }) {
   // Clamp the label box so edge markers don't overflow the card.
   const clamped = Math.min(92, Math.max(8, left));
@@ -651,7 +716,7 @@ function Marker({
           fontWeight: 700,
           letterSpacing: 0.6,
           textTransform: 'uppercase',
-          color: C.textFaint,
+          color: textFaint,
         }}
       >
         {p.label}

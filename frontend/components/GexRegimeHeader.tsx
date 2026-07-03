@@ -61,28 +61,28 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
   positive: {
     badge: '+ Gamma Regime',
     label: 'Positive GEX (pinned, low vol)',
-    color: colors.bullish,
+    color: 'var(--color-bull)',
     bgColor: 'var(--color-bull-soft)',
     borderColor: 'var(--color-bull)',
   },
   negative: {
     badge: '- Gamma Regime',
     label: 'Negative GEX (trending, high vol)',
-    color: colors.bearish,
+    color: 'var(--color-bear)',
     bgColor: 'var(--color-bear-soft)',
     borderColor: 'var(--color-bear)',
   },
   neutral: {
     badge: '~ Gamma Regime',
     label: 'At the Flip (neutral, transition)',
-    color: colors.primary,
+    color: 'var(--color-brand-primary)',
     bgColor: 'var(--color-warning-soft)',
     borderColor: 'var(--color-warning)',
   },
   unresolved: {
     badge: '? Gamma Regime',
     label: 'Flip unresolved this snapshot',
-    color: colors.muted,
+    color: 'var(--text-secondary)',
     bgColor: 'var(--color-surface-subtle)',
     borderColor: 'var(--color-border)',
   },
@@ -90,17 +90,17 @@ const regimeConfig: Record<Regime, { badge: string; label: string; color: string
 
 const postureConfig: Record<NonNullable<GexRegimeHeaderProps['postureTag']>, { color: string; bgColor: string; borderColor: string }> = {
   Aggressive: {
-    color: colors.bearish,
+    color: 'var(--color-bear)',
     bgColor: 'var(--color-bear-soft)',
     borderColor: 'var(--color-bear)',
   },
   Balanced: {
-    color: colors.primary,
+    color: 'var(--color-brand-primary)',
     bgColor: 'var(--color-warning-soft)',
     borderColor: 'var(--color-warning)',
   },
   Defensive: {
-    color: colors.bullish,
+    color: 'var(--color-bull)',
     bgColor: 'var(--color-bull-soft)',
     borderColor: 'var(--color-bull)',
   },
@@ -117,8 +117,8 @@ export default function GexRegimeHeader({
 }: GexRegimeHeaderProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const textColor = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const textColor = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
 
   const gammaFlip = gexSummary?.gamma_flip ?? null;
   const spotPrice = quoteData?.close;
@@ -131,7 +131,7 @@ export default function GexRegimeHeader({
   return (
     <div
       className="rounded-2xl p-4 mb-6"
-      style={{ backgroundColor: cardBg, border: `1px solid ${colors.muted}` }}
+      style={{ backgroundColor: cardBg, border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         {/* Left: Regime badge */}
@@ -168,12 +168,12 @@ export default function GexRegimeHeader({
               {gammaFlip != null ? `$${gammaFlip.toFixed(2)}` : '--'}
             </span>
           </span>
-          <span style={{ color: colors.muted }}>
+          <span style={{ color: 'var(--text-secondary)' }}>
             {symbol} last: <span style={{ color: textColor, fontWeight: 500 }}>{spotPrice != null ? `$${spotPrice.toFixed(2)}` : '--'}</span>
             {flipDistance != null && (
               <>
                 {' — '}
-                <span style={{ color: aboveFlip ? colors.bullish : colors.bearish }}>
+                <span style={{ color: aboveFlip ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {Math.abs(flipDistance).toFixed(2)} pts {aboveFlip ? 'above' : 'below'} flip
                 </span>
               </>
@@ -183,7 +183,7 @@ export default function GexRegimeHeader({
 
         {/* Right: Scenario label */}
         <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: colors.muted }}>Scenario:</span>
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Scenario:</span>
           <div
             className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
             style={{
@@ -206,7 +206,7 @@ export default function GexRegimeHeader({
               style={{
                 borderColor: contextHorizon === 'intraday' ? 'var(--color-info)' : 'var(--color-border)',
                 backgroundColor: contextHorizon === 'intraday' ? 'var(--color-info-soft)' : 'transparent',
-                color: contextHorizon === 'intraday' ? textColor : colors.muted,
+                color: contextHorizon === 'intraday' ? textColor : 'var(--text-secondary)',
               }}
             >
               Intraday
@@ -217,13 +217,13 @@ export default function GexRegimeHeader({
               style={{
                 borderColor: contextHorizon === 'swing' ? 'var(--color-info)' : 'var(--color-border)',
                 backgroundColor: contextHorizon === 'swing' ? 'var(--color-info-soft)' : 'transparent',
-                color: contextHorizon === 'swing' ? textColor : colors.muted,
+                color: contextHorizon === 'swing' ? textColor : 'var(--text-secondary)',
               }}
             >
               Swing
             </button>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {marketContextSummary}
           </p>
         </div>

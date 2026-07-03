@@ -375,7 +375,7 @@ export default function IntradayToolsPage() {
             {vwapChart.length > 0 ? (
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VWAP VS UNDERLYING PRICE</h3>
+                  <h3 className="zg-h3" style={{ color: textColor }}>VWAP vs. underlying price</h3>
                   <TooltipWrapper text="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
@@ -465,7 +465,7 @@ export default function IntradayToolsPage() {
                 return (
                   <div>
                     <div className="flex items-baseline justify-between mb-3">
-                      <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>Position Within Range</h3>
+                      <h3 className="zg-h3" style={{ color: textColor }}>Position Within Range</h3>
                       <div className="text-sm" style={{ color: statusColor, fontWeight: 600 }}>{status}</div>
                     </div>
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-2" style={{ color: mutedText }}>
@@ -500,8 +500,8 @@ export default function IntradayToolsPage() {
             {orbChart.length > 0 ? (
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>ORB BREAKOUT MAP</h3>
-                  <TooltipWrapper text="The green line is the ORB high through the session, the red line is the ORB low, the yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
+                  <h3 className="zg-h3" style={{ color: textColor }}>ORB breakout map</h3>
+                  <TooltipWrapper text="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
@@ -572,7 +572,7 @@ export default function IntradayToolsPage() {
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>VOLUME SPIKES VS UNDERLYING PRICE</h3>
+              <h3 className="zg-h3" style={{ color: textColor }}>Volume spikes vs. underlying price</h3>
               <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
             </div>
             <MobileScrollableChart>

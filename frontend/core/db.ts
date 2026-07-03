@@ -309,6 +309,13 @@ function initDb(): DatabaseSync {
   // column as a permanent dedupe key for the lifetime of the account.
   ensureColumn('users', 'checkout_recovery_email_sent_at', 'TEXT');
 
+  // One-shot latch for the founder-voice nudge sent ~2h after signup to
+  // users who verified their email but never opened checkout (see
+  // scripts/send-verified-never-paid.mts). NULL = eligible, set to the ISO
+  // timestamp on send. Never cleared: this is the "hey, try the free trial"
+  // welcome-mat email, and re-firing after any state churn would spam.
+  ensureColumn('users', 'verified_never_paid_email_sent_at', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when
@@ -330,6 +337,13 @@ function initDb(): DatabaseSync {
          AND stripe_subscription_id IS NULL`,
     );
   }
+
+  // Idempotency stamp for the cancellation acknowledgement email fired when
+  // Stripe flips cancel_at_period_end false → true (the "clicked Cancel"
+  // moment). NULL = eligible; set to ISO on send via CAS in the webhook so
+  // redeliveries can't double-fire. Cleared back to NULL on the reverse
+  // transition (reactivation) so a future re-cancel can re-fire.
+  ensureColumn('users', 'cancel_ack_email_sent_at', 'TEXT');
 
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification

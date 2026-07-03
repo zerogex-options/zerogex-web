@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
+import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
@@ -21,8 +21,6 @@ import {
   ChevronDown,
   Shield,
   Clock,
-  Sun,
-  Moon,
 } from 'lucide-react';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
@@ -79,21 +77,21 @@ function StatCard({ label, value, sub, isDark = true }: { label: string; value: 
   return (
     <div
       style={{
-        background: isDark
-          ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
-          : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
+        background: 'var(--bg-card)',
         border: `1px solid ${C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
         textAlign: 'center',
-        backdropFilter: 'blur(12px)',
       }}
     >
-      <div style={{ fontSize: 36, fontWeight: 800, color: C.amber, letterSpacing: '-1px', lineHeight: 1 }}>
+      <div
+        className="zg-h2"
+        style={{ color: 'var(--color-accent-hot)', letterSpacing: '-0.02em', lineHeight: 1 }}
+      >
         {value}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: C.light, marginTop: 8 }}>{label}</div>
-      {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{sub}</div>}
+      <div className="zg-body" style={{ fontWeight: 600, marginTop: 8 }}>{label}</div>
+      {sub && <div className="zg-caption" style={{ marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -110,9 +108,7 @@ function FeatureCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered
-          ? (isDark ? `linear-gradient(135deg, ${C.cardHover} 0%, var(--bg-active) 100%)` : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)')
-          : (isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)'),
+        background: hovered ? 'var(--bg-hover)' : 'var(--bg-card)',
         border: `1px solid ${hovered ? color + '55' : C.border}`,
         borderRadius: 16,
         padding: '28px 24px',
@@ -135,8 +131,8 @@ function FeatureCard({
       >
         <Icon size={22} style={{ color }} />
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: C.light, marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{description}</div>
+      <div className="zg-h4" style={{ marginBottom: 8 }}>{title}</div>
+      <div className="zg-small" style={{ lineHeight: 1.6 }}>{description}</div>
     </div>
   );
 }
@@ -155,7 +151,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 20px',
           borderRadius: 12,
-          background: hovered ? `${color}18` : (isDark ? `${C.card}cc` : 'var(--bg-card)'),
+          background: hovered ? `${color}18` : 'var(--bg-card)',
           border: `1px solid ${hovered ? color + '60' : C.border}`,
           transition: 'all 0.2s ease',
           cursor: 'pointer',
@@ -163,7 +159,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
         }}
       >
         <Icon size={16} style={{ color: hovered ? color : C.muted }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: hovered ? C.light : C.muted }}>{label}</span>
+        <span className="zg-small" style={{ fontWeight: 600, color: hovered ? C.light : C.muted }}>{label}</span>
         <ArrowRight size={12} style={{ color: hovered ? color : 'transparent', marginLeft: 'auto', transition: 'all 0.2s' }} />
       </div>
     </Link>
@@ -174,37 +170,31 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
 function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <div
+      <span
+        className="zg-label"
         style={{
           display: 'inline-block',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: C.amber,
-          background: `${C.amber}18`,
-          border: `1px solid ${C.amber}40`,
+          color: 'var(--color-accent-hot)',
+          background: 'var(--color-accent-soft)',
+          border: '1px solid var(--color-accent-soft)',
           borderRadius: 100,
           padding: '4px 14px',
           marginBottom: 16,
         }}
       >
         {eyebrow}
-      </div>
+      </span>
       <h2
-        style={{
-          fontSize: 'clamp(28px, 4vw, 44px)',
-          fontWeight: 800,
-          color: C.light,
-          margin: 0,
-          lineHeight: 1.15,
-          letterSpacing: '-0.5px',
-        }}
+        className="zg-h1"
+        style={{ margin: 0, color: 'var(--text-primary)' }}
       >
         {title}
       </h2>
       {sub && (
-        <p style={{ fontSize: 17, color: C.muted, marginTop: 14, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
+        <p
+          className="zg-lead"
+          style={{ marginTop: 14, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' }}
+        >
           {sub}
         </p>
       )}
@@ -214,19 +204,12 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const { theme, setTheme } = useTheme();
-  const [scrolled, setScrolled] = useState(false);
+  const { theme } = useTheme();
 
   const isDark = theme === 'dark';
   const bg     = 'transparent';
   const text   = isDark ? C.light  : 'var(--color-text-primary)';
   const subtext = 'var(--color-text-secondary)';
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
@@ -295,113 +278,7 @@ export default function LandingPage() {
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
 
-      {/* ── Sticky Nav ───────────────────────────────────────────────────────── */}
-      <nav
-        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
-        style={{
-          background: scrolled
-            ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
-            : 'transparent',
-          borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
-          backdropFilter: scrolled ? 'blur(20px)' : 'none',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <div className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ margin: 0, padding: 0, lineHeight: 0 }}>
-          <Image
-            src='/title.svg'
-            alt="ZeroGEX"
-            width={300}
-            height={60}
-            priority
-            className="h-[130%] sm:h-[150%] w-auto block"
-            style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* Theme toggle */}
-          <button
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
-            style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              cursor: 'pointer', color: C.muted,
-            }}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-
-          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button
-              style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Education
-            </button>
-          </Link>
-
-          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button
-              style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Pricing
-            </button>
-          </Link>
-
-          {/* Login */}
-          <Link href="/login" style={{ textDecoration: 'none' }}>
-            <button
-              style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Login
-            </button>
-          </Link>
-
-          {/* Launch App CTA */}
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
-              style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                border: 'none',
-                color: 'var(--text-inverse)',
-                cursor: 'pointer',
-                boxShadow: `0 4px 16px ${C.amber}50`,
-              }}
-            >
-              Launch App <ArrowRight size={14} />
-            </button>
-          </Link>
-        </div>
-      </nav>
+      <LandingHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section
@@ -424,26 +301,15 @@ export default function LandingPage() {
             backgroundSize: '64px 64px',
           }}
         />
-        {/* Radial glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '30%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: 900, height: 600,
-            background: `radial-gradient(ellipse, ${C.amber}14 0%, transparent 70%)`,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
-        />
-
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 900, width: '100%' }}>
           {/* Badge */}
           <div
+            className="zg-label"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              fontSize: 'clamp(10px, 2.8vw, 12px)', fontWeight: 700, letterSpacing: '0.12em',
-              textTransform: 'uppercase', color: C.amber,
-              background: `${C.amber}18`, border: `1px solid ${C.amber}40`,
+              color: 'var(--color-accent-hot)',
+              background: 'var(--color-accent-soft)',
+              border: '1px solid var(--color-accent-soft)',
               borderRadius: 100, padding: '5px 16px',
               marginBottom: 28,
               maxWidth: '100%',
@@ -463,14 +329,8 @@ export default function LandingPage() {
 
           {/* Headline — pain-first hook */}
           <h1
-            style={{
-              fontSize: 'clamp(30px, 9vw, 82px)',
-              fontWeight: 900,
-              lineHeight: 1.05,
-              letterSpacing: 'clamp(-1px, -0.4vw, -2px)',
-              margin: '0 0 18px',
-              color: text,
-            }}
+            className="zg-display"
+            style={{ margin: '0 0 18px', color: text }}
           >
             Stop trading{' '}
             <span
@@ -487,14 +347,11 @@ export default function LandingPage() {
 
           {/* Supporting tagline — the through-line for the brand */}
           <p
+            className="zg-h2"
             style={{
-              fontSize: 'clamp(16px, 4.2vw, 26px)',
-              fontWeight: 700,
               color: text,
-              lineHeight: 1.35,
               margin: '0 auto 18px',
               maxWidth: 760,
-              letterSpacing: '-0.3px',
             }}
           >
             Know the levels that matter — before SPY/SPX/QQQ get there.
@@ -502,13 +359,8 @@ export default function LandingPage() {
 
           {/* Sub-headline body */}
           <p
-            style={{
-              fontSize: 'clamp(14px, 4vw, 19px)',
-              color: subtext,
-              lineHeight: 1.55,
-              maxWidth: 680,
-              margin: '0 auto 40px',
-            }}
+            className="zg-lead"
+            style={{ color: subtext, maxWidth: 680, margin: '0 auto 40px' }}
           >
             ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
           </p>
@@ -574,8 +426,7 @@ export default function LandingPage() {
               borderRadius: 20,
               border: `1px solid ${C.border}`,
               overflow: 'hidden',
-              background: isDark ? `${C.card}aa` : 'var(--bg-card)',
-              backdropFilter: 'blur(20px)',
+              background: 'var(--bg-card)',
               boxShadow: `0 32px 80px var(--color-info-soft), 0 0 0 1px ${C.amber}20`,
               padding: 'clamp(14px, 3.5vw, 24px)',
             }}
@@ -592,16 +443,16 @@ export default function LandingPage() {
                 <div
                   key={m.label}
                   style={{
-                    background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)',
+                    background: 'var(--bg-hover)',
                     border: `1px solid ${C.border}`,
                     borderRadius: 12,
                     padding: '12px 14px',
                   }}
                 >
-                  <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                  <div className="zg-label" style={{ color: C.muted, marginBottom: 4 }}>
                     {m.label}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: m.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div className="zg-h4" style={{ color: m.color, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {m.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                     {m.value}
                   </div>
@@ -615,7 +466,7 @@ export default function LandingPage() {
       {/* ── Ticker tape ──────────────────────────────────────────────────────── */}
       <div
         style={{
-          background: isDark ? `${C.card}99` : 'var(--bg-hover)',
+          background: 'var(--bg-hover)',
           borderTop: `1px solid ${C.border}`,
           borderBottom: `1px solid ${C.border}`,
           padding: '10px 0',
@@ -644,13 +495,13 @@ export default function LandingPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em' }}>
+              <span className="zg-label" style={{ color: C.muted }}>
                 {item.symbol}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: text }}>
+              <span className="zg-mono" style={{ fontSize: 13, color: text }}>
                 {item.price}
               </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: item.up ? C.green : C.red }}>
+              <span className="zg-caption" style={{ fontWeight: 600, color: item.up ? C.green : C.red }}>
                 {item.up ? <TrendingUp size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> : <TrendingDown size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />}
                 {' '}{item.change}
               </span>
@@ -724,9 +575,7 @@ export default function LandingPage() {
             <div
               key={item.title}
               style={{
-                background: isDark
-                  ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
-                  : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
+                background: 'var(--bg-card)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 16,
                 padding: '24px 22px',
@@ -750,10 +599,10 @@ export default function LandingPage() {
               >
                 <item.icon size={18} style={{ color: item.color }} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: text, lineHeight: 1.3, letterSpacing: '-0.2px' }}>
+              <div className="zg-h4" style={{ color: text }}>
                 {item.title}
               </div>
-              <div style={{ fontSize: 14, color: subtext, lineHeight: 1.6 }}>
+              <div className="zg-small" style={{ color: subtext }}>
                 {item.body}
               </div>
             </div>
@@ -840,9 +689,9 @@ export default function LandingPage() {
         >
           <div>
             <div
+              className="zg-label"
               style={{
-                display: 'inline-block', fontSize: 11, fontWeight: 700,
-                letterSpacing: '0.18em', textTransform: 'uppercase',
+                display: 'inline-block',
                 color: C.green, background: `${C.green}18`,
                 border: `1px solid ${C.green}40`, borderRadius: 100,
                 padding: '4px 14px', marginBottom: 20,
@@ -850,21 +699,16 @@ export default function LandingPage() {
             >
               What is ZeroGEX?
             </div>
-            <h2
-              style={{
-                fontSize: 'clamp(26px, 3.5vw, 42px)', fontWeight: 800,
-                color: text, margin: '0 0 20px', lineHeight: 1.2, letterSpacing: '-0.5px',
-              }}
-            >
+            <h2 className="zg-h1" style={{ color: text, margin: '0 0 20px' }}>
               Gamma Exposure,{' '}
               <span style={{ color: C.amber }}>Decoded</span>
             </h2>
-            <p style={{ fontSize: 16, color: subtext, lineHeight: 1.75, margin: '0 0 20px' }}>
+            <p className="zg-body" style={{ color: subtext, margin: '0 0 20px' }}>
               <strong style={{ color: text }}>Gamma Exposure (GEX)</strong> is the hidden force that drives
               intraday market dynamics. When dealers sell options, they must hedge by trading the underlying —
               creating predictable price gravity and invisible walls at key levels.
             </p>
-            <p style={{ fontSize: 16, color: subtext, lineHeight: 1.75, margin: '0 0 28px' }}>
+            <p className="zg-body" style={{ color: subtext, margin: '0 0 28px' }}>
               ZeroGEX surfaces these forces in real-time so you can anticipate institutional hedging flows,
               identify gamma flip levels, and time your entries with precision.
             </p>
@@ -888,11 +732,10 @@ export default function LandingPage() {
           {/* Visual explanation */}
           <div
             style={{
-              background: isDark ? `${C.card}aa` : 'var(--bg-card)',
+              background: 'var(--bg-card)',
               border: `1px solid ${C.border}`,
               borderRadius: 20,
               padding: 28,
-              backdropFilter: 'blur(12px)',
             }}
           >
             {[
@@ -921,8 +764,8 @@ export default function LandingPage() {
                   <item.icon size={16} style={{ color: item.color }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 3 }}>{item.label}</div>
-                  <div style={{ fontSize: 13, color: subtext, lineHeight: 1.5 }}>{item.desc}</div>
+                  <div className="zg-h4" style={{ color: text, marginBottom: 3 }}>{item.label}</div>
+                  <div className="zg-small" style={{ color: subtext }}>{item.desc}</div>
                 </div>
               </div>
             ))}
@@ -934,9 +777,7 @@ export default function LandingPage() {
       <section
         style={{
           padding: '80px 32px',
-          background: isDark
-            ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
-            : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 50%, transparent 100%)',
+          background: 'var(--bg-subtle)',
         }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -1037,10 +878,9 @@ export default function LandingPage() {
             <div
               key={item.title}
               style={{
-                background: isDark ? `${C.card}66` : 'var(--bg-card)',
+                background: 'var(--bg-card)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 16, padding: '24px 22px',
-                backdropFilter: 'blur(8px)',
               }}
             >
               <div
@@ -1053,8 +893,8 @@ export default function LandingPage() {
               >
                 <item.icon size={20} style={{ color: item.color }} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: text, marginBottom: 8 }}>{item.title}</div>
-              <div style={{ fontSize: 14, color: subtext, lineHeight: 1.65 }}>{item.body}</div>
+              <div className="zg-h4" style={{ color: text, marginBottom: 8 }}>{item.title}</div>
+              <div className="zg-small" style={{ color: subtext }}>{item.body}</div>
             </div>
           ))}
         </div>
@@ -1064,9 +904,7 @@ export default function LandingPage() {
       <section
         style={{
           padding: '80px 32px',
-          background: isDark
-            ? `linear-gradient(180deg, transparent 0%, ${C.card}22 100%)`
-            : 'transparent',
+          background: 'transparent',
         }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -1109,10 +947,10 @@ export default function LandingPage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber, marginBottom: 8 }}>
+            <div className="zg-label" style={{ color: C.amber, marginBottom: 8 }}>
               Education Hub
             </div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: C.light, letterSpacing: '-0.5px' }}>
+            <div className="zg-h2" style={{ color: C.light }}>
               Read the methodology, then read the tape.
             </div>
           </div>
@@ -1170,7 +1008,7 @@ export default function LandingPage() {
                   border: `1px solid ${C.border}`,
                   borderRadius: 16,
                   padding: '22px 22px 20px',
-                  background: isDark ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)` : 'var(--bg-card)',
+                  background: 'var(--bg-card)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -1179,16 +1017,16 @@ export default function LandingPage() {
                   transition: 'border-color 0.18s ease, transform 0.18s ease',
                 }}
               >
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.amber }}>
+                <div className="zg-label" style={{ color: C.amber }}>
                   {item.eyebrow}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: C.light, letterSpacing: '-0.2px' }}>
+                <div className="zg-h3" style={{ color: C.light }}>
                   {item.title}
                 </div>
-                <div style={{ fontSize: 13, color: subtext, lineHeight: 1.6, flex: 1 }}>
+                <div className="zg-small" style={{ color: subtext, flex: 1 }}>
                   {item.body}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="zg-small" style={{ marginTop: 6, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
                   Read <ArrowRight size={14} />
                 </div>
               </div>
@@ -1207,22 +1045,8 @@ export default function LandingPage() {
         }}
       >
         {/* Glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: 700, height: 400,
-            background: `radial-gradient(ellipse, ${C.amber}18 0%, transparent 70%)`,
-            pointerEvents: 'none',
-          }}
-        />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2
-            style={{
-              fontSize: 'clamp(28px, 4.5vw, 56px)', fontWeight: 900,
-              color: text, margin: '0 0 16px', letterSpacing: '-1px', lineHeight: 1.1,
-            }}
-          >
+          <h2 className="zg-h1" style={{ color: text, margin: '0 0 16px' }}>
             Ready to See What the{' '}
             <span
               style={{
@@ -1235,7 +1059,7 @@ export default function LandingPage() {
               Market Makers See?
             </span>
           </h2>
-          <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 520, lineHeight: 1.65 }}>
+          <p className="zg-lead" style={{ color: subtext, margin: '0 auto 40px', maxWidth: 520 }}>
             Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.
           </p>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>

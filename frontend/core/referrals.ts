@@ -243,6 +243,17 @@ type RewardOutcome =
 // Latched on referrals.status so webhook retries / repeated sub events can't
 // double-reward. Never throws — billing sync must not be unwound by a reward
 // hiccup; the audit row records the outcome.
+//
+// Creator Partner Program interaction: if the referrer's partner_tier is
+// 'creator', they are compensated via CASH commission on invoice.paid
+// (Phase 3 accrual into partner_commissions), not via the standard free
+// month. Return 'none' WITHOUT claiming the referral row so Phase 3 can
+// still see and transition it. Skipping the claim leaves the row as
+// 'pending' forever from the OLD program's point of view; Phase 3
+// introduces its own status transitions on that row when it lands. Gated
+// on partner_tier rather than program-enabled so that flipping the master
+// switch off doesn't retroactively free-month-reward every past creator
+// referee.
 export async function rewardReferrerForConvertedReferee(
   refereeUserId: string,
 ): Promise<RewardOutcome> {
@@ -256,6 +267,17 @@ export async function rewardReferrerForConvertedReferee(
     )
     .get(refereeUserId) as { id: string; referrer_user_id: string } | undefined;
   if (!referral) return { kind: 'none' };
+
+  // Creator partners are on the commission model. Skip the free-month
+  // reward BEFORE claiming the referral row (see comment on the function
+  // for why). Reading partner_tier from the referrer row directly avoids
+  // an extra join and stays valid even after revoke (revoked partners
+  // fall back to the free-month path for any NEW referees they attract,
+  // which matches the revoke script's intent).
+  const referrerPartnerTier = db
+    .prepare('SELECT partner_tier FROM users WHERE id = ?')
+    .get(referral.referrer_user_id) as { partner_tier: string | null } | undefined;
+  if (referrerPartnerTier?.partner_tier === 'creator') return { kind: 'none' };
 
   // Claim the row first so a concurrent/duplicate webhook can't also reward.
   const claimed = db

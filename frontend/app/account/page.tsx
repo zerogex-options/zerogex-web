@@ -244,7 +244,12 @@ function AccountPageContent() {
   const email = authSession?.user?.email ?? '';
   const tierLabel = TIER_LABELS[tier] ?? 'Public';
   const canUpgrade = tier !== 'pro' && tier !== 'admin';
-  const canManageBilling = tier !== 'public' && tier !== 'admin';
+  const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Also allow anyone with a Stripe subscription on file — a customer whose
+  // first charge failed sits at tier=public but has stripe_subscription_id
+  // set, and the billing portal is precisely where they update the card that
+  // got declined. Gating on tier alone would lock them out of the fix.
+  const canManageBilling = tier !== 'admin' && (tier !== 'public' || hasActiveSubscription);
 
   const handleManageSubscription = async () => {
     setOpening(true);
@@ -647,6 +652,15 @@ function AccountPageContent() {
           >
             <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
           </button>
+          {!canManageBilling && tier === 'public' && (
+            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
+              You don't have an active subscription yet. Choose a plan on the{' '}
+              <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
+                pricing page
+              </Link>{' '}
+              to get started.
+            </p>
+          )}
         </section>
 
         {referral?.enabled && referral.link && (

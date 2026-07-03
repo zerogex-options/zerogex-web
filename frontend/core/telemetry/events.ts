@@ -23,6 +23,16 @@ export const TelemetryEvent = {
   SubscriptionPaid: 'subscription_paid',
   /** Subscription ended → tier reset to public; the churn event (server). */
   SubscriptionCancelled: 'subscription_cancelled',
+  /** Action Card permalink share button clicked (client, /cards/[id]). */
+  CardShareClicked: 'card_share_clicked',
+  /** Daily Scorecard permalink share button clicked (client, /scorecard/[date]). */
+  ScorecardShareClicked: 'scorecard_share_clicked',
+  /** Gamma Forecast Card permalink share button clicked (client, /forecast/[date]). */
+  ForecastShareClicked: 'forecast_share_clicked',
+  /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
+  ReplayShareClicked: 'replay_share_clicked',
+  /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
+  OgPreviewed: 'og_previewed',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

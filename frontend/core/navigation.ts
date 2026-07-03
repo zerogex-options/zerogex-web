@@ -83,9 +83,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
-      { id: '/premium-heatmap', label: 'Premium Heat Map', requiredTier: 'basic', beta: true },
+      { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
       { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
       { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
+      { id: '/replay', label: 'Daily Replay' },
+      { id: '/forecast', label: 'Daily Forecast', beta: true },
     ],
   },
   {
