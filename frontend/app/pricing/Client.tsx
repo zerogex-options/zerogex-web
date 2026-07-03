@@ -1,10 +1,10 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
+import LandingHeader from '@/components/LandingHeader';
 import PlanComparison from '@/components/PlanComparison';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
@@ -12,7 +12,7 @@ import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
-import { ArrowRight, CheckCircle2, Heart, Loader2, Moon, Sparkles, Sun } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Heart, Loader2, Sparkles } from 'lucide-react';
 
 const C = {
   card: 'var(--color-surface)',
@@ -501,10 +501,9 @@ function PricingClientInner({
   promoDeadlineLabel,
   referralEnabled,
 }: Props) {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isDark = theme === 'dark';
   const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
   const [cadence, setCadence] = useState<Cadence>('monthly');
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
@@ -716,49 +715,7 @@ function PricingClientInner({
           }
         }
       `}</style>
-      <nav
-        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
-        style={{
-          background: `${isDark ? 'var(--color-bg)' : 'var(--color-bg)'}ee`,
-          borderBottom: `1px solid ${C.border}`,
-          backdropFilter: 'blur(20px)',
-        }}
-      >
-        <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
-          <Image src="/title.svg" alt="ZeroGEX" width={300} height={60} priority className="h-[130%] sm:h-[150%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
-            style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              cursor: 'pointer',
-              color: C.muted,
-            }}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <Link href="/about" style={{ textDecoration: 'none' }}>
-            <button
-              style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: C.light,
-                cursor: 'pointer',
-              }}
-            >
-              About
-            </button>
-          </Link>
-        </div>
-      </nav>
+      <LandingHeader hidePricingButton />
 
       <section style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
         <div

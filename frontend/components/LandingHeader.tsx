@@ -1,35 +1,62 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
+import { normalizeTier } from '@/core/auth';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import ThemeDropdown from './ThemeDropdown';
 
 const C = {
   bgDark: 'var(--color-bg)',
   card: 'var(--color-surface)',
   amber: 'var(--color-brand-primary)',
   border: 'var(--border-default)',
+  light: 'var(--color-text-primary)',
   muted: 'var(--color-text-secondary)',
 };
 
-export default function Header() {
+interface LandingHeaderProps {
+  // Set on /pricing itself to omit the self-referential Pricing button.
+  hidePricingButton?: boolean;
+}
+
+export default function LandingHeader({ hidePricingButton = false }: LandingHeaderProps) {
   const { theme, setTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+  const { data: authSession } = useAuthSession();
+
   const isDark = theme === 'dark';
+  const isAuthed = !!authSession?.authenticated;
+  const tier = normalizeTier(authSession?.user?.tier);
+  const hasPaidTier = tier === 'basic' || tier === 'pro';
+  const showPricing = !hidePricingButton && !hasPaidTier;
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
       style={{
-        background: `${isDark ? C.bgDark : 'var(--color-bg)'}ee`,
-        borderBottom: `1px solid ${C.border}`,
-        backdropFilter: 'blur(20px)',
+        background: scrolled
+          ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
+          : 'transparent',
+        borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
+        backdropFilter: scrolled ? 'blur(20px)' : 'none',
+        transition: 'all 0.3s ease',
       }}
     >
       <Link
         href="/"
         className="h-full flex items-center overflow-hidden flex-shrink-0"
-        style={{ textDecoration: 'none', padding: 0, margin: 0, lineHeight: 0 }}
+        style={{ textDecoration: 'none', margin: 0, padding: 0, lineHeight: 0 }}
       >
         <Image
           src="/title.svg"
@@ -48,12 +75,13 @@ export default function Header() {
           }}
         />
       </Link>
+
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <button
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
           className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
           style={{
-            background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+            background: 'var(--bg-hover)',
             border: `1px solid ${C.border}`,
             cursor: 'pointer',
             color: C.muted,
@@ -62,14 +90,19 @@ export default function Header() {
         >
           {isDark ? <Sun size={14} /> : <Moon size={14} />}
         </button>
+
+        <div className="hidden sm:block">
+          <ThemeDropdown />
+        </div>
+
         <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
           <button
+            className="zg-small"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               borderRadius: 10,
               padding: '8px 14px',
-              fontSize: 13,
               fontWeight: 700,
               color: 'var(--color-text-primary)',
               cursor: 'pointer',
@@ -78,22 +111,43 @@ export default function Header() {
             Education
           </button>
         </Link>
-        <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+
+        {showPricing && (
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+            <button
+              className="zg-small"
+              style={{
+                background: 'var(--bg-hover)',
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                padding: '8px 14px',
+                fontWeight: 700,
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              Pricing
+            </button>
+          </Link>
+        )}
+
+        <Link href={isAuthed ? '/account' : '/login'} style={{ textDecoration: 'none' }}>
           <button
+            className="zg-small"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               borderRadius: 10,
               padding: '8px 14px',
-              fontSize: 13,
               fontWeight: 700,
               color: 'var(--color-text-primary)',
               cursor: 'pointer',
             }}
           >
-            Pricing
+            {isAuthed ? 'Account' : 'Login'}
           </button>
         </Link>
+
         <Link href="/dashboard" style={{ textDecoration: 'none' }}>
           <button
             className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
