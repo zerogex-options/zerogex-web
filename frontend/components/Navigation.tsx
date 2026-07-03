@@ -222,21 +222,23 @@ export default function Navigation({ theme }: NavigationProps) {
                 const isExternal = page.external === true;
                 const isActive = pathname === page.id;
                 const isHovered = hoveredPage === page.id;
+                const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+                // Only animate paint-only properties. Animating the `border`/
+                // `background` shorthands (or using `transition-all`) let the
+                // browser re-evaluate the whole box each frame, which shifted
+                // rows a couple of pixels on hover and made the mouse bounce
+                // in and out of the wrapper — the flicker in the recording.
                 const commonStyle = {
-                  color: isActive || isHovered
-                    ? (theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)')
-                    : "var(--text-primary)",
+                  color: isActive || isHovered ? accent : "var(--text-primary)",
                   opacity: isActive || isHovered ? 1 : 0.72,
-                  background: isHovered && !isActive
-                    ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}18`
+                  backgroundColor: isHovered && !isActive
+                    ? `${accent}18`
                     : isActive
-                      ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}14`
+                      ? `${accent}14`
                       : "transparent",
-                  border: `1px solid ${
-                    isActive || isHovered
-                      ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}40`
-                      : "transparent"
-                  }`,
+                  borderColor: isActive || isHovered ? `${accent}40` : "transparent",
+                  transitionProperty: "color, background-color, border-color, opacity",
+                  transitionDuration: "200ms",
                 };
 
                 if (isExternal) {
@@ -249,7 +251,7 @@ export default function Navigation({ theme }: NavigationProps) {
                       rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                       onMouseEnter={() => setHoveredPage(page.id)}
                       onMouseLeave={() => setHoveredPage(null)}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                      className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                       style={commonStyle}
                     >
                       <span>{page.label}</span>
@@ -264,7 +266,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     onClick={() => router.push(resolveNavTarget(page.id))}
                     onMouseEnter={() => setHoveredPage(page.id)}
                     onMouseLeave={() => setHoveredPage(null)}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                    className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                     style={commonStyle}
                     type="button"
                   >
@@ -300,33 +302,34 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subgroupId = subgroup.id;
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
                         const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
+                        const subgroupAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+                        const subgroupTransition = {
+                          transitionProperty: "color, background-color, border-color, opacity",
+                          transitionDuration: "200ms",
+                        };
                         const subgroupStyle = subgroupId != null
                           ? {
-                              color: subgroupActive || subgroupHovered
-                                ? (theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)')
-                                : "var(--text-primary)",
+                              color: subgroupActive || subgroupHovered ? subgroupAccent : "var(--text-primary)",
                               opacity: subgroupActive || subgroupHovered ? 1 : 0.72,
-                              background: subgroupHovered && !subgroupActive
-                                ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}18`
+                              backgroundColor: subgroupHovered && !subgroupActive
+                                ? `${subgroupAccent}18`
                                 : subgroupActive
-                                  ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}14`
+                                  ? `${subgroupAccent}14`
                                   : "transparent",
-                              border: `1px solid ${
-                                subgroupActive || subgroupHovered
-                                  ? `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}40`
-                                  : "transparent"
-                              }`,
+                              borderColor: subgroupActive || subgroupHovered ? `${subgroupAccent}40` : "transparent",
+                              ...subgroupTransition,
                             }
                           : {
                               color: 'var(--text-primary)',
                               opacity: 0.72,
-                              background: "transparent",
-                              border: "1px solid transparent",
+                              backgroundColor: "transparent",
+                              borderColor: "transparent",
+                              ...subgroupTransition,
                             };
                         return (
-                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}33` }}>
+                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${subgroupAccent}33` }}>
                             <div
-                              className="mb-1 flex w-full items-center rounded-xl text-sm font-semibold transition-all duration-200"
+                              className="mb-1 flex w-full items-center rounded-xl border border-solid text-sm font-semibold"
                               style={subgroupStyle}
                               onMouseEnter={() => subgroupId && setHoveredPage(subgroupId)}
                               onMouseLeave={() => setHoveredPage(null)}
