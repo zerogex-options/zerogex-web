@@ -714,10 +714,36 @@ interface MarketQuoteCacheEntry {
   pollTimer: ReturnType<typeof setInterval> | null;
   pollIntervalMs: number;
   inflight: AbortController | null;
+  // WebSocket state — one shared WS per symbol drives every subscriber.
+  // When ``wsOpen`` is true the poll loop stays quiet; on error/close the
+  // poll resumes automatically so a broken WS never degrades below the
+  // old poll behaviour.
+  ws: WebSocket | null;
+  wsOpen: boolean;
+  wsAttempts: number;
+  wsRetryTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const marketQuoteCache = new Map<string, MarketQuoteCacheEntry>();
 let nextMarketQuoteSubscriberId = 0;
+
+const WS_MAX_BACKOFF_MS = 30000;
+const WS_INITIAL_BACKOFF_MS = 1000;
+
+function isBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof WebSocket !== 'undefined';
+}
+
+function marketQuoteWsUrl(symbol: string): string | null {
+  const raw = process.env.NEXT_PUBLIC_WS_URL;
+  if (!raw) return null;
+  const base = raw.replace(/\/+$/, '');
+  // NEXT_PUBLIC_WS_URL is documented as ``ws://host:port/ws`` — treat it
+  // as the WS namespace and append the /market/quote route. Passing
+  // just ``ws://host:port`` also works because we normalize the tail.
+  const path = base.endsWith('/ws') ? '/market/quote' : '/ws/market/quote';
+  return `${base}${path}?${symbolQuery(symbol)}`;
+}
 
 function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
   let entry = marketQuoteCache.get(symbol);
@@ -732,6 +758,10 @@ function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
       pollTimer: null,
       pollIntervalMs: 0,
       inflight: null,
+      ws: null,
+      wsOpen: false,
+      wsAttempts: 0,
+      wsRetryTimer: null,
     };
     marketQuoteCache.set(symbol, entry);
   }
@@ -770,23 +800,129 @@ async function fetchMarketQuote(symbol: string): Promise<void> {
   }
 }
 
+function applyWsPayload(entry: MarketQuoteCacheEntry, raw: unknown): void {
+  entry.data = normalizeNumbers(raw) as MarketQuoteRow;
+  entry.loading = false;
+  entry.error = null;
+  entry.hasFetched = true;
+  entry.listeners.forEach((fn) => fn());
+}
+
+function closeMarketQuoteWs(entry: MarketQuoteCacheEntry): void {
+  if (entry.wsRetryTimer) {
+    clearTimeout(entry.wsRetryTimer);
+    entry.wsRetryTimer = null;
+  }
+  const ws = entry.ws;
+  entry.ws = null;
+  entry.wsOpen = false;
+  if (ws) {
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
+    try {
+      ws.close();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function ensureMarketQuoteWs(symbol: string): void {
+  if (!isBrowser()) return;
+  const url = marketQuoteWsUrl(symbol);
+  if (!url) return;
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  if (entry.ws) return;
+
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(url);
+  } catch (err) {
+    // Malformed URL / mixed-content refusal — fall back to poll silently.
+    console.warn('[useMarketQuote] WS construct failed, falling back to poll', err);
+    return;
+  }
+  entry.ws = ws;
+
+  ws.onopen = () => {
+    entry.wsOpen = true;
+    entry.wsAttempts = 0;
+    // Poll loop is redundant once the push channel is up. syncMarketQuotePoll
+    // recomputes based on the wsOpen flag.
+    syncMarketQuotePoll(symbol);
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg && typeof msg === 'object') {
+        const type = (msg as { type?: string }).type;
+        const data = (msg as { data?: unknown }).data;
+        if ((type === 'snapshot' || type === 'tick') && data != null) {
+          applyWsPayload(entry, data);
+        }
+      }
+    } catch (err) {
+      console.warn('[useMarketQuote] WS message parse failed', err);
+    }
+  };
+
+  ws.onerror = () => {
+    // ``onclose`` will follow and drive the retry; don't schedule twice.
+  };
+
+  ws.onclose = () => {
+    const wasOpen = entry.wsOpen;
+    entry.wsOpen = false;
+    entry.ws = null;
+    // Resume polling for the gap between now and reconnect.
+    syncMarketQuotePoll(symbol);
+    // Only retry while at least one live subscriber remains. Freezes and
+    // unmounted symbols don't burn a reconnect loop.
+    const hasLiveSubs = Array.from(entry.liveIntervals.values()).some((n) => n > 0);
+    if (!hasLiveSubs) return;
+    const attempt = wasOpen ? 0 : entry.wsAttempts;
+    entry.wsAttempts = attempt + 1;
+    const delay = Math.min(WS_MAX_BACKOFF_MS, WS_INITIAL_BACKOFF_MS * Math.pow(2, attempt));
+    entry.wsRetryTimer = setTimeout(() => {
+      entry.wsRetryTimer = null;
+      ensureMarketQuoteWs(symbol);
+    }, delay);
+  };
+}
+
 function syncMarketQuotePoll(symbol: string): void {
   const entry = getOrCreateMarketQuoteEntry(symbol);
   let minInterval = Infinity;
   entry.liveIntervals.forEach((interval) => {
     if (interval > 0 && interval < minInterval) minInterval = interval;
   });
-  const requestedInterval = Number.isFinite(minInterval)
-    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
+  const hasLiveSubs = Number.isFinite(minInterval);
+  // Push channel wins: while WS is open, quotes arrive on their own so the
+  // poll timer is unnecessary. Keep it running as a safety net when WS is
+  // down or unavailable.
+  const requestedInterval = hasLiveSubs && !entry.wsOpen
+    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor((minInterval as number) * REFRESH_ACCELERATION_FACTOR))
     : 0;
-  if (requestedInterval === entry.pollIntervalMs) return;
-  if (entry.pollTimer) {
-    clearInterval(entry.pollTimer);
-    entry.pollTimer = null;
+  if (requestedInterval !== entry.pollIntervalMs) {
+    if (entry.pollTimer) {
+      clearInterval(entry.pollTimer);
+      entry.pollTimer = null;
+    }
+    entry.pollIntervalMs = requestedInterval;
+    if (requestedInterval > 0) {
+      entry.pollTimer = setInterval(() => { void fetchMarketQuote(symbol); }, requestedInterval);
+    }
   }
-  entry.pollIntervalMs = requestedInterval;
-  if (requestedInterval > 0) {
-    entry.pollTimer = setInterval(() => { void fetchMarketQuote(symbol); }, requestedInterval);
+  // Bring the WS up (or tear it down) to match the live-subscriber state.
+  // Always evaluated — the poll-interval short-circuit above doesn't cover
+  // the last-subscriber-leaves case where pollIntervalMs was already 0.
+  if (hasLiveSubs) {
+    ensureMarketQuoteWs(symbol);
+  } else {
+    closeMarketQuoteWs(entry);
   }
 }
 
