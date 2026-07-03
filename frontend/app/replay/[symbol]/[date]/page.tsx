@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import ReplayScrubber from './ReplayScrubber';
@@ -118,6 +119,8 @@ export default async function ReplayDatePage({
   }
   const human = formatHumanDate(date);
   const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}`);
+  const permalink = `${SITE_URL}/replay/${sym}/${date}`;
+  const tweetBody = `${sym} ${date} GEX replay — scrub the dealer gamma surface minute-by-minute.`;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -128,6 +131,12 @@ export default async function ReplayDatePage({
         >
           <ChevronLeft size={14} /> All sessions
         </Link>
+        <ShareCardButton
+          cardId={`replay:${sym}:${date}`}
+          tweetText={tweetBody}
+          cardUrl={permalink}
+          eventName="replay_share_clicked"
+        />
       </div>
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
