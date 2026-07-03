@@ -90,6 +90,23 @@ function isoToMinuteToken(iso: string): string {
   }
 }
 
+// Pick `desired` evenly-spaced indices from 0..count-1 inclusive,
+// deduping in case rounding lands two picks on the same integer. Used
+// for both axes so the first and last labels always fall on the endpoints
+// with the same spacing between every intermediate tick — no more
+// "second-to-last tick is one bar away from the last" collisions at the
+// chart edges.
+function evenlySpacedIndices(count: number, desired: number): number[] {
+  if (count <= 0) return [];
+  if (count <= desired) return Array.from({ length: count }, (_, i) => i);
+  const out: number[] = [];
+  const denom = Math.max(1, desired - 1);
+  for (let i = 0; i < desired; i += 1) {
+    out.push(Math.round((i * (count - 1)) / denom));
+  }
+  return Array.from(new Set(out));
+}
+
 // Abbreviate large magnitudes (dealer GEX runs to billions on SPX).
 // "1.2B", "-450M", "12K" — matches how a trader reads OI / notional.
 function formatMagnitude(v: number): string {
@@ -591,34 +608,22 @@ function ReplayOverlayChart({
     cursorCandleIdx != null ? usableCandles[cursorCandleIdx] : null;
 
   // Sparse tick labels so 390-bar sessions don't wallpaper the axis.
-  const timeTicks = useMemo(() => {
-    const desired = 8;
-    if (usableCandles.length <= desired) {
-      return usableCandles.map((_, i) => i);
-    }
-    const step = Math.max(1, Math.floor(usableCandles.length / desired));
-    const out: number[] = [];
-    for (let i = 0; i < usableCandles.length; i += step) out.push(i);
-    if (out[out.length - 1] !== usableCandles.length - 1) {
-      out.push(usableCandles.length - 1);
-    }
-    return out;
-  }, [usableCandles]);
+  // Evenly-spaced picker: puts the first tick at index 0, the last at
+  // count-1, and (desired-2) evenly interpolated between them. Beats
+  // "step from 0 and append the last" — which used to jam the final
+  // two labels within a few pixels when the step didn't divide evenly.
+  const timeTicks = useMemo(
+    () => evenlySpacedIndices(usableCandles.length, 8),
+    [usableCandles.length],
+  );
 
   const strikeLabels = useMemo(() => {
     if (strikes.length === 0) return [] as number[];
     // Cap the printed labels around a reasonable density — SPX chains
     // can carry 100+ strikes and stacking every one becomes a solid
-    // block of text. Keep the extremes and step through the rest.
-    const desired = 20;
-    if (strikes.length <= desired) return strikes;
-    const step = Math.max(1, Math.floor(strikes.length / desired));
-    const out: number[] = [];
-    for (let i = 0; i < strikes.length; i += step) out.push(strikes[i]);
-    if (out[out.length - 1] !== strikes[strikes.length - 1]) {
-      out.push(strikes[strikes.length - 1]);
-    }
-    return out;
+    // block of text. Same evenly-spaced picker as the time axis so the
+    // top/bottom rungs of the ladder don't crowd each other.
+    return evenlySpacedIndices(strikes.length, 20).map((i) => strikes[i]);
   }, [strikes]);
 
   // Session's candle timeline determines when a strike bar's minute is
@@ -804,17 +809,22 @@ function ReplayOverlayChart({
             })
           )}
 
-          {/* Time axis labels below the candles panel. */}
-          {timeTicks.map((idx) => {
+          {/* Time axis labels below the candles panel. Edge-anchor the
+              first and last labels so they stay flush inside the plot
+              bounds instead of clipping against the SVG frame or
+              overlapping the strike-labels column. */}
+          {timeTicks.map((idx, tickPos) => {
             const c = usableCandles[idx];
             if (!c) return null;
+            const isFirst = tickPos === 0;
+            const isLast = tickPos === timeTicks.length - 1;
             const x = xForCandle(idx);
             return (
               <text
                 key={`t-${c.timestamp}`}
                 x={x}
                 y={PLOT_BOTTOM + 20}
-                textAnchor="middle"
+                textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                 fontSize={10}
                 fill="var(--color-text-secondary)"
               >
