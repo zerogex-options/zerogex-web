@@ -746,6 +746,63 @@ export async function sendCancellationEmail(
   }
 }
 
+// Founder-voice nudge to a user who signed up + verified their email but never
+// opened checkout. Fired ~2h after signup by scripts/send-verified-never-paid.mts.
+// One-shot per account (idempotency latch on users.verified_never_paid_email_sent_at).
+// Deliberately no discount — the pitch is that the free trial removes the
+// financial risk, so a coupon would just muddy the ask.
+export async function sendVerifiedNeverPaidEmail(to: string) {
+  const subject = 'Quick note from Michael at ZeroGEX';
+  const pricingUrl = `${getAppUrl()}/pricing`;
+  const safePricingUrl = escapeHtml(pricingUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet — wanted to reach out personally rather than route you through a generic marketing flow.",
+    '',
+    "If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.",
+    '',
+    "If you have a question, a hesitation, or feedback on what's missing — just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
+    '',
+    "If you're ready to start the trial:",
+    pricingUrl,
+    '',
+    'Either way, thanks for giving ZeroGEX a look.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet &mdash; wanted to reach out personally rather than route you through a generic marketing flow.</p>
+      <p>If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.</p>
+      <p>If you have a question, a hesitation, or feedback on what's missing &mdash; just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start the free trial</a>
+      </p>
+      <p>Either way, thanks for giving ZeroGEX a look.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';
