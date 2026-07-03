@@ -94,6 +94,17 @@ export interface EquityCurveResponse {
   points: EquityCurvePoint[];
 }
 
+export interface BotEquityBundle {
+  bot_id: string;
+  display_name: string;
+  points: EquityCurvePoint[];
+}
+
+export interface EquityBundlesResponse {
+  days: number;
+  bundles: BotEquityBundle[];
+}
+
 export interface BotTrade {
   id: number;
   underlying: string;
