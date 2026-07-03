@@ -18,6 +18,17 @@ interface ReplayFrame {
   strikes: Array<{ strike: number | null; net_gex: number | null }>;
 }
 
+interface ReplayCandle {
+  timestamp: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  up_volume: number | null;
+  down_volume: number | null;
+  volume: number | null;
+}
+
 interface ReplayRangePayload {
   symbol: string;
   date: string;
@@ -25,6 +36,7 @@ interface ReplayRangePayload {
   is_today: boolean;
   count: number;
   frames: ReplayFrame[];
+  candles: ReplayCandle[];
 }
 
 function isValidDate(raw: string): boolean {
@@ -134,14 +146,22 @@ export default async function ReplayDatePage({
         </div>
       </header>
 
-      <ReplayScrubber symbol={sym} sessionDate={date} initialFrames={data.frames} siteUrl={SITE_URL} />
+      <ReplayScrubber
+        symbol={sym}
+        sessionDate={date}
+        initialFrames={data.frames}
+        initialCandles={data.candles ?? []}
+        siteUrl={SITE_URL}
+      />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Drag the scrubber to any minute · use play/pause to auto-advance · drop pin A then pin B
-        to see the strike-by-strike delta between two moments · click <em>Snapshot this minute</em>
-        {' '}to generate a branded permalink with an OG image you can share. MP4 export of arbitrary
-        windows is on the roadmap; today you share branded stills of the moments that mattered.
+        Drag the scrubber to any minute · use play/pause to auto-advance · the underlying candles
+        chart shows where the tape was as you scrub, and the strike-profile bars flip out from zero
+        so bull/bear pressure reads at a glance · drop pin A then pin B to see the strike-by-strike
+        delta between two moments · click <em>Snapshot this minute</em> to generate a branded
+        permalink with an OG image you can share. MP4 export of arbitrary windows is on the
+        roadmap; today you share branded stills of the moments that mattered.
       </section>
     </main>
   );
