@@ -82,12 +82,14 @@ export default function Navigation({ theme }: NavigationProps) {
     () =>
       navGroups
         .map((group) => {
-          // "Signals" is always shown to every tier so the marketing surface
-          // stays intact; unentitled clicks are routed to /pricing instead.
-          // Admin-only items are still gated so internal tools never leak.
-          const bypassTierCheck = group.label === "Signals";
+          // "Signals" stays as a marketing surface for signed-in Basic users
+          // (unentitled clicks route to /pricing), but drops entirely for
+          // public/unauthenticated visitors. Admin-only items are always gated.
+          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
+            // Premium Surface is a Basic entitlement — hide it from public.
+            if (isPublicUser && item.id === "/premium-heatmap") return false;
             if (item.requiredTier === "admin") return hasRequiredTier(item.id, currentTier);
             if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
@@ -99,7 +101,7 @@ export default function Navigation({ theme }: NavigationProps) {
           return { ...group, items, subgroups };
         })
         .filter((group) => group.items.length + group.subgroups.length > 0),
-    [navGroups, currentTier],
+    [navGroups, currentTier, isPublicUser],
   );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {

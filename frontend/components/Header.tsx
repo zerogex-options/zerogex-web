@@ -114,9 +114,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     () =>
       mobileNavGroups
         .map((group) => {
-          const bypassTierCheck = group.label === "Signals";
+          // "Signals" stays visible for signed-in Basic users (marketing surface,
+          // unentitled clicks route to /pricing) but drops entirely for
+          // public/unauthenticated visitors.
+          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
+            // Premium Surface is a Basic entitlement — hide it from public.
+            if (isPublicUser && item.id === "/premium-heatmap") return false;
             if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
           };
@@ -127,7 +132,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           return { ...group, items, subgroups };
         })
         .filter((group) => group.items.length + group.subgroups.length > 0),
-    [mobileNavGroups, currentTier],
+    [mobileNavGroups, currentTier, isPublicUser],
   );
 
 
