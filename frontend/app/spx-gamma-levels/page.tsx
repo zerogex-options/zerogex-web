@@ -559,10 +559,10 @@ export default async function SpxGammaLevelsPage() {
 
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Two free tools coming soon
+            Two free tools nobody else ships
           </h2>
           <p style={{ margin: '0 0 16px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            In private beta. Both will be free — no login required.
+            No login required. Bookmark either — the URL stays valid every day.
           </p>
           <div
             style={{
