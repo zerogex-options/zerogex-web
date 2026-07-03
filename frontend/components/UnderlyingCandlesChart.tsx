@@ -130,7 +130,13 @@ export default function UnderlyingCandlesChart() {
   const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
   const data = useMemo(() => dataAll.slice(-fetchWindowUnits), [dataAll, fetchWindowUnits]);
 
-  const bars = useMemo(() => {
+  // Stage 1 — aggregate the historical rows. Expensive
+  // (omitClosedMarketTimes walks all bars, aggregateBars does bucket
+  // sort + slice + map) and depends only on the historical response
+  // + timeframe, not on the live tick. Keeping this in its own memo
+  // means a 1Hz WS push doesn't re-sort N minutes of history every
+  // second.
+  const historicalBars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
@@ -163,34 +169,35 @@ export default function UnderlyingCandlesChart() {
       { rows: [] as CandleBar[], prevClose: seed },
     );
 
-    const aggregated = aggregateBars(normalized.rows, intervalMinutes, maxPoints);
+    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
+  }, [data, intervalMinutes, maxPoints]);
 
-    // Merge the live tick onto the tip bar's close so this chart moves
-    // in lockstep with every other spot-price surface (header, price
-    // card, GEX profile spot line). Without this the tip refreshes
-    // only when the 1-minute historical bucket rolls over, so the
-    // header price ticks up in real time while the candle stays flat
-    // — exactly the desync the user asked to eliminate. Same technique
-    // GammaHeatmapCanvas already uses on its tip candle.
+  // Stage 2 — merge the live tick onto the tip bar. Cheap; runs on
+  // every WS push. Same overlay technique GammaHeatmapCanvas uses,
+  // and this is what actually locks the candle tip in step with the
+  // header price / GEX profile spot line / dashboard price card in
+  // one React commit.
+  const bars = useMemo(() => {
     const liveClose = quote?.close ?? null;
     if (
-      aggregated.length === 0 ||
+      historicalBars.length === 0 ||
       liveClose == null ||
       !quote?.session ||
       quote.session === 'closed'
     ) {
-      return aggregated;
+      return historicalBars;
     }
-    const tip = aggregated[aggregated.length - 1];
-    if (liveClose === tip.close) return aggregated;
-    aggregated[aggregated.length - 1] = {
+    const tip = historicalBars[historicalBars.length - 1];
+    if (liveClose === tip.close) return historicalBars;
+    const patched = historicalBars.slice();
+    patched[patched.length - 1] = {
       ...tip,
       close: liveClose,
       high: Math.max(tip.high, liveClose),
       low: Math.min(tip.low, liveClose),
     };
-    return aggregated;
-  }, [data, intervalMinutes, maxPoints, quote]);
+    return patched;
+  }, [historicalBars, quote]);
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];

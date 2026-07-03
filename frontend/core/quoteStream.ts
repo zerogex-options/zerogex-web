@@ -37,7 +37,7 @@
 
 'use client';
 
-import type { MarketQuoteRow } from '@/hooks/useApiData';
+import type { LiveQuoteIncoming } from '@/hooks/useApiData';
 import { applyLiveQuote, setLiveStreamActive } from '@/hooks/useApiData';
 
 // ---------- feature flag & config ----------
@@ -115,11 +115,17 @@ class QuoteStream {
    * subscription goes out immediately; otherwise it queues for the
    * next connect. Returns an unsubscribe function that decrements the
    * refcount and removes the sub only when the last caller detaches.
+   *
+   * Also clears the ``stopped`` latch so an acquire after a pagehide
+   * (which we now use for bfcache-safe suspend) reactivates the
+   * stream instead of no-op-ing forever.
    */
   acquire(symbol: string): () => void {
     if (!isEnabled()) return () => undefined;
     const sym = symbol.trim().toUpperCase();
     if (!sym) return () => undefined;
+
+    if (this.stopped) this.stopped = false;
 
     const next = (this.refCounts.get(sym) ?? 0) + 1;
     this.refCounts.set(sym, next);
@@ -144,24 +150,48 @@ class QuoteStream {
     };
   }
 
-  /** Force-close and stop reconnecting. Used on logout/page unload. */
-  shutdown(): void {
-    this.stopped = true;
+  /**
+   * Suspend the connection without permanently disabling it. Used on
+   * ``pagehide`` (mobile Safari backgrounding, bfcache navigation).
+   * The stream will resume on the next ``resume()`` call — typically
+   * driven by ``pageshow`` or a visibility change.
+   *
+   * A previous version used ``shutdown()`` on pagehide which set
+   * ``stopped = true`` permanently — restoring from bfcache left the
+   * stream dead until a hard reload, because effect re-runs don't
+   * fire on bfcache restore.
+   */
+  suspend(): void {
+    setLiveStreamActive(false);
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.pingTimer) clearInterval(this.pingTimer);
     if (this.stallTimer) clearTimeout(this.stallTimer);
     this.reconnectTimer = null;
     this.pingTimer = null;
     this.stallTimer = null;
-    setLiveStreamActive(false);
     if (this.ws) {
       try {
-        this.ws.close(1000, 'client shutdown');
+        this.ws.close(1000, 'client suspend');
       } catch {
         /* ignore */
       }
     }
     this.ws = null;
+  }
+
+  /** Reopen after a suspend if there are active subscriptions. */
+  resume(): void {
+    if (this.desiredSymbols.size === 0) return;
+    this.reconnectAttempt = 0;
+    this.ensureConnection();
+  }
+
+  /** Permanent teardown — release everything. Used on logout. */
+  shutdown(): void {
+    this.stopped = true;
+    this.suspend();
+    this.desiredSymbols.clear();
+    this.refCounts.clear();
   }
 
   // ---------- connection lifecycle ----------
@@ -202,7 +232,15 @@ class QuoteStream {
       socket.onopen = () => this.onOpen();
       socket.onmessage = (ev) => this.onMessage(ev);
       socket.onerror = () => this.onError();
-      socket.onclose = (ev) => this.onClose(ev);
+      // Capture ``socket`` in the closure so onClose can compare
+      // against ``this.ws``. Without this, an old socket's late
+      // ``onclose`` (from a stall-watchdog forced close) would fire
+      // AFTER a new socket had been assigned to ``this.ws``, and the
+      // unconditional ``this.ws = null`` at the bottom of onClose
+      // would orphan the fresh connection — server holds us at zero
+      // subscribed symbols and no ticks arrive until the next
+      // reconnect cycle.
+      socket.onclose = (ev) => this.onClose(ev, socket);
     } catch {
       this.scheduleReconnect();
     } finally {
@@ -217,16 +255,38 @@ class QuoteStream {
     // Re-arm ping + stall watchdog.
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.pingTimer = setInterval(() => this.pingIfIdle(), PING_INTERVAL_MS);
-    this.resetStallWatchdog();
+    this.markQuoteReceived();
     // Re-issue every desired subscription (this covers reconnect and
     // any acquires that happened while the socket was in CONNECTING).
     const wanted = Array.from(this.desiredSymbols);
     if (wanted.length > 0) this.sendSubscribe(wanted);
   }
 
+  /**
+   * Reset the stall watchdog. Only real quote frames call this — a
+   * pong from the server keeps ``lastMessageAt`` fresh (so we don't
+   * ping in a busy loop) but doesn't mask an ingestion-down state
+   * where the API server is alive and pongs cheerfully while no
+   * NOTIFYs are flowing.
+   */
+  private markQuoteReceived(): void {
+    if (this.stallTimer) clearTimeout(this.stallTimer);
+    this.stallTimer = setTimeout(() => {
+      try {
+        if (this.ws) this.ws.close(4000, 'stall_timeout');
+      } catch {
+        /* ignore */
+      }
+    }, STALL_TIMEOUT_MS);
+  }
+
   private onMessage(ev: MessageEvent): void {
+    // lastMessageAt tracks ANY server frame — used by pingIfIdle to
+    // suppress redundant pings when the market's already busy. The
+    // stall watchdog, however, is only reset on real 'quote' frames
+    // (via markQuoteReceived()) so an ingestion-down state where the
+    // server still answers our pings can't defeat detection.
     this.lastMessageAt = Date.now();
-    this.resetStallWatchdog();
     let frame: ServerFrame | null = null;
     try {
       frame = JSON.parse(String(ev.data)) as ServerFrame;
@@ -236,19 +296,31 @@ class QuoteStream {
     if (!frame || typeof frame !== 'object') return;
     switch (frame.type) {
       case 'quote': {
-        const row: MarketQuoteRow = {
+        // Preserve null OHLC as null (not coerced to 0) — a data hole
+        // or illiquid warmup tick with null prices used to render
+        // $0.00 across the header, price card, GEX spot line, and
+        // candle tip. applyLiveQuote's merge preserves the previous
+        // value for any null field, so passing null through is the
+        // correct behaviour: the last known price stays on screen
+        // until a real tick arrives.
+        const row: LiveQuoteIncoming = {
           symbol: frame.symbol,
           timestamp: frame.timestamp,
-          open: (frame.open as number) ?? 0,
-          high: (frame.high as number) ?? 0,
-          low: (frame.low as number) ?? 0,
-          close: (frame.close as number) ?? 0,
+          open: frame.open ?? null,
+          high: frame.high ?? null,
+          low: frame.low ?? null,
+          close: frame.close ?? null,
           volume: frame.volume ?? null,
           up_volume: frame.up_volume ?? null,
           down_volume: frame.down_volume ?? null,
           session: frame.session ?? null,
         };
         applyLiveQuote(frame.symbol, row);
+        // Only 'quote' frames should reset the stall watchdog —
+        // pongs would otherwise mask an ingestion-down state (the
+        // stall timeout never fires because our own pings elicit
+        // pongs that count as messages).
+        this.markQuoteReceived();
         break;
       }
       case 'welcome':
@@ -269,7 +341,12 @@ class QuoteStream {
     // suppressing the default console noise from onerror.
   }
 
-  private onClose(ev: CloseEvent): void {
+  private onClose(ev: CloseEvent, socket: WebSocket): void {
+    // Only null out ``this.ws`` if the socket that closed is the
+    // current one. A stall-watchdog forced-close on the OLD socket
+    // can fire AFTER ``connect()`` has already assigned a new
+    // socket; without this guard we'd orphan the new connection.
+    if (this.ws !== socket) return;
     if (this.pingTimer) clearInterval(this.pingTimer);
     if (this.stallTimer) clearTimeout(this.stallTimer);
     this.pingTimer = null;
@@ -330,29 +407,29 @@ class QuoteStream {
     }
   }
 
-  private resetStallWatchdog(): void {
-    if (this.stallTimer) clearTimeout(this.stallTimer);
-    this.stallTimer = setTimeout(() => {
-      // No traffic in STALL_TIMEOUT_MS — force a reconnect. The
-      // browser's own onclose fires eventually, but "eventually" can
-      // be many minutes on a broken NAT.
-      try {
-        if (this.ws) this.ws.close(4000, 'stall_timeout');
-      } catch {
-        /* ignore */
-      }
-    }, STALL_TIMEOUT_MS);
-  }
 }
 
 // Module-level singleton. Import as `quoteStream` and call
 // `.acquire(symbol)` to receive live pushes.
 export const quoteStream = new QuoteStream();
 
-// Kill the socket cleanly when the page goes away so the server can
-// reclaim the slot instead of waiting for the WS_IDLE_TIMEOUT to fire.
+// Close the socket cleanly when the page goes away so the server can
+// reclaim the slot instead of waiting for WS_IDLE_TIMEOUT to fire —
+// but SUSPEND (not shutdown) because mobile Safari fires pagehide on
+// tab backgrounding with the tab remaining in bfcache. shutdown()
+// would latch ``stopped=true`` and no subsequent effect re-mount can
+// re-open (bfcache restore doesn't re-fire useEffect). suspend() is
+// idempotent and resume() reopens on next visibility.
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
-    quoteStream.shutdown();
+    quoteStream.suspend();
+  });
+  window.addEventListener('pageshow', () => {
+    quoteStream.resume();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      quoteStream.resume();
+    }
   });
 }

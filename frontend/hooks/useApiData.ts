@@ -814,27 +814,71 @@ export function setLiveStreamActive(active: boolean): void {
 }
 
 /**
- * Fold a WebSocket-delivered tick into the shared cache. Called by the
- * quoteStream singleton on every 'quote' frame. Fans out to every
+ * Fold a WebSocket-delivered tick into the shared cache. Called by
+ * the quoteStream singleton on every 'quote' frame. Fans out to every
  * subscriber via the same listeners.forEach() the HTTP poll uses — so
  * the header price, the price card, the strike-profile spot line, and
  * the candle-tip overlay update in one React commit.
  *
- * Merges into the existing row instead of replacing wholesale so a WS
- * frame that omits a field (some early ticks arrive with null volume)
- * doesn't blow away good data from the last poll.
+ * Merges into the existing row keeping the PREVIOUS value for any
+ * field the incoming frame doesn't carry (null or undefined). This is
+ * essential:
+ *
+ *   - `session`: the header, GEX heatmap, and candle tip overlay all
+ *     read `quote.session` to decide whether to render the live tick.
+ *     A tick without `session` used to clobber a good HTTP-poll value
+ *     to null and disable every live overlay.
+ *   - `volume`: WS payload carries per-bar up/down volume, not the
+ *     cumulative daily volume the HTTP quote endpoint returns.
+ *     Preserving prev keeps the dashboard's "Day Vol" reading intact.
+ *   - `open/high/low/close`: null OHLC on a data hole or illiquid
+ *     warmup tick would render $0.00; falling back to prev keeps the
+ *     last known price on screen until a real tick lands.
+ *
+ * Applies only to null-ish (null or undefined) fields — a real numeric
+ * 0 (a legitimate value for volume during pre-market) still wins.
  */
-export function applyLiveQuote(symbol: string, incoming: MarketQuoteRow): void {
+export type LiveQuoteIncoming = {
+  symbol: string;
+  timestamp: string;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  close?: number | null;
+  volume?: number | null;
+  up_volume?: number | null;
+  down_volume?: number | null;
+  session?: string | null;
+};
+
+export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): void {
   const entry = getOrCreateMarketQuoteEntry(symbol);
   const prev = entry.data;
+  const pickNumber = (
+    inc: number | null | undefined,
+    prevValue: number | null | undefined,
+    fallback: number,
+  ): number => {
+    if (inc !== undefined && inc !== null) return inc;
+    if (prevValue !== undefined && prevValue !== null) return prevValue;
+    return fallback;
+  };
+  const pickNullable = <T>(inc: T | null | undefined, prevValue: T | null | undefined): T | null => {
+    if (inc !== undefined && inc !== null) return inc;
+    if (prevValue !== undefined && prevValue !== null) return prevValue;
+    return null;
+  };
   const merged: MarketQuoteRow = {
-    ...(prev ?? ({} as MarketQuoteRow)),
-    ...incoming,
-    // Prefer the incoming close/high/low/open — those are the values
-    // that changed. Volume from the WS payload can lag the HTTP
-    // /api/market/quote endpoint's cumulative-daily-volume by a bar;
-    // keep prev.volume when the incoming frame doesn't carry it.
-    volume: incoming.volume ?? prev?.volume ?? null,
+    symbol: incoming.symbol,
+    timestamp: incoming.timestamp,
+    open: pickNumber(incoming.open, prev?.open, prev?.open ?? 0),
+    high: pickNumber(incoming.high, prev?.high, prev?.high ?? 0),
+    low: pickNumber(incoming.low, prev?.low, prev?.low ?? 0),
+    close: pickNumber(incoming.close, prev?.close, prev?.close ?? 0),
+    volume: pickNullable(incoming.volume, prev?.volume),
+    up_volume: pickNullable(incoming.up_volume, prev?.up_volume),
+    down_volume: pickNullable(incoming.down_volume, prev?.down_volume),
+    session: pickNullable(incoming.session, prev?.session),
   };
   entry.data = merged;
   entry.loading = false;
