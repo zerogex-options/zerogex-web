@@ -80,8 +80,7 @@ frontend/
 │   ├── ErrorMessage.tsx   # Error handling
 │   └── ...               # Navigation, header, etc.
 ├── hooks/                 # Custom React hooks
-│   ├── useApiData.ts      # API data fetching
-│   └── useWebSocket.ts    # WebSocket connections
+│   └── useApiData.ts      # API data fetching (poll + WebSocket-fed cache)
 └── core/                  # Core utilities
     ├── api/               # API client
     ├── types.ts           # TypeScript types

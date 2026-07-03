@@ -108,7 +108,7 @@ export interface GEXProfileRow {
   put_wall?: number | null;
 }
 
-interface MarketQuoteRow {
+export interface MarketQuoteRow {
   timestamp: string;
   symbol: string;
   open: number;
@@ -770,26 +770,6 @@ async function fetchMarketQuote(symbol: string): Promise<void> {
   }
 }
 
-function syncMarketQuotePoll(symbol: string): void {
-  const entry = getOrCreateMarketQuoteEntry(symbol);
-  let minInterval = Infinity;
-  entry.liveIntervals.forEach((interval) => {
-    if (interval > 0 && interval < minInterval) minInterval = interval;
-  });
-  const requestedInterval = Number.isFinite(minInterval)
-    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
-    : 0;
-  if (requestedInterval === entry.pollIntervalMs) return;
-  if (entry.pollTimer) {
-    clearInterval(entry.pollTimer);
-    entry.pollTimer = null;
-  }
-  entry.pollIntervalMs = requestedInterval;
-  if (requestedInterval > 0) {
-    entry.pollTimer = setInterval(() => { void fetchMarketQuote(symbol); }, requestedInterval);
-  }
-}
-
 function ensureInitialMarketQuoteFetch(symbol: string): void {
   const entry = getOrCreateMarketQuoteEntry(symbol);
   if (!entry.hasFetched && !entry.inflight) {
@@ -803,6 +783,94 @@ function snapshotMarketQuote(entry: MarketQuoteCacheEntry): {
   error: string | null;
 } {
   return { data: entry.data, loading: entry.loading, error: entry.error };
+}
+
+// ---- Live-stream integration ----
+//
+// When the WebSocket quote stream (see core/quoteStream.ts) is up, it
+// writes ticks into this cache via applyLiveQuote() below and sets the
+// module-level `liveStreamActive` flag via setLiveStreamActive(). The
+// poll-loop scheduler consults that flag and drops each symbol's poll
+// cadence to a slow heartbeat — enough to detect a socket that
+// silently died while the browser still thinks it's connected, but
+// far below the 1Hz polling load. When the socket disconnects, the
+// flag flips back to false and full-speed polling resumes
+// transparently to every existing useMarketQuote consumer.
+
+// Heartbeat cadence used while the live stream is active. Slow enough
+// that it's essentially free, fast enough to notice a broken socket
+// within one bar's worth of trading.
+const LIVE_MODE_HEARTBEAT_MS = 20_000;
+
+let liveStreamActive = false;
+
+export function setLiveStreamActive(active: boolean): void {
+  if (liveStreamActive === active) return;
+  liveStreamActive = active;
+  // Recompute every symbol's poll interval now that the mode changed.
+  marketQuoteCache.forEach((_entry, symbol) => {
+    syncMarketQuotePoll(symbol);
+  });
+}
+
+/**
+ * Fold a WebSocket-delivered tick into the shared cache. Called by the
+ * quoteStream singleton on every 'quote' frame. Fans out to every
+ * subscriber via the same listeners.forEach() the HTTP poll uses — so
+ * the header price, the price card, the strike-profile spot line, and
+ * the candle-tip overlay update in one React commit.
+ *
+ * Merges into the existing row instead of replacing wholesale so a WS
+ * frame that omits a field (some early ticks arrive with null volume)
+ * doesn't blow away good data from the last poll.
+ */
+export function applyLiveQuote(symbol: string, incoming: MarketQuoteRow): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  const prev = entry.data;
+  const merged: MarketQuoteRow = {
+    ...(prev ?? ({} as MarketQuoteRow)),
+    ...incoming,
+    // Prefer the incoming close/high/low/open — those are the values
+    // that changed. Volume from the WS payload can lag the HTTP
+    // /api/market/quote endpoint's cumulative-daily-volume by a bar;
+    // keep prev.volume when the incoming frame doesn't carry it.
+    volume: incoming.volume ?? prev?.volume ?? null,
+  };
+  entry.data = merged;
+  entry.loading = false;
+  entry.error = null;
+  entry.hasFetched = true;
+  entry.listeners.forEach((fn) => fn());
+}
+
+function syncMarketQuotePoll(symbol: string): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  let minInterval = Infinity;
+  entry.liveIntervals.forEach((interval) => {
+    if (interval > 0 && interval < minInterval) minInterval = interval;
+  });
+  const baseInterval = Number.isFinite(minInterval)
+    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
+    : 0;
+  // With the live stream up, we don't need 1Hz polling — the socket
+  // pushes every tick. Keep a slow heartbeat so we still poll enough
+  // to notice a silent broken connection (the quoteStream's stall
+  // watchdog is the primary detector; this is defence-in-depth).
+  const requestedInterval =
+    liveStreamActive && baseInterval > 0
+      ? Math.max(baseInterval, LIVE_MODE_HEARTBEAT_MS)
+      : baseInterval;
+  if (requestedInterval === entry.pollIntervalMs) return;
+  if (entry.pollTimer) {
+    clearInterval(entry.pollTimer);
+    entry.pollTimer = null;
+  }
+  entry.pollIntervalMs = requestedInterval;
+  if (requestedInterval > 0) {
+    entry.pollTimer = setInterval(() => {
+      void fetchMarketQuote(symbol);
+    }, requestedInterval);
+  }
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
@@ -850,7 +918,22 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
     entry.listeners.add(listener);
     listener();
 
+    // Acquire a WebSocket subscription for this symbol. Dynamic import
+    // side-steps the circular-import risk between this module and
+    // core/quoteStream.ts (which imports applyLiveQuote from here) and
+    // keeps the WS bundle out of any consumer that never subscribes.
+    // If the feature flag is off or ticket minting fails, `acquire()`
+    // is a no-op and returns a no-op release function.
+    let releaseStream: (() => void) | null = null;
+    let released = false;
+    void import('@/core/quoteStream').then(({ quoteStream }) => {
+      if (released) return;
+      releaseStream = quoteStream.acquire(symbol);
+    });
+
     return () => {
+      released = true;
+      if (releaseStream) releaseStream();
       entry.listeners.delete(listener);
       entry.liveIntervals.delete(id);
       syncMarketQuotePoll(symbol);

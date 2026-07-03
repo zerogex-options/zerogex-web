@@ -163,8 +163,34 @@ export default function UnderlyingCandlesChart() {
       { rows: [] as CandleBar[], prevClose: seed },
     );
 
-    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
-  }, [data, intervalMinutes, maxPoints]);
+    const aggregated = aggregateBars(normalized.rows, intervalMinutes, maxPoints);
+
+    // Merge the live tick onto the tip bar's close so this chart moves
+    // in lockstep with every other spot-price surface (header, price
+    // card, GEX profile spot line). Without this the tip refreshes
+    // only when the 1-minute historical bucket rolls over, so the
+    // header price ticks up in real time while the candle stays flat
+    // — exactly the desync the user asked to eliminate. Same technique
+    // GammaHeatmapCanvas already uses on its tip candle.
+    const liveClose = quote?.close ?? null;
+    if (
+      aggregated.length === 0 ||
+      liveClose == null ||
+      !quote?.session ||
+      quote.session === 'closed'
+    ) {
+      return aggregated;
+    }
+    const tip = aggregated[aggregated.length - 1];
+    if (liveClose === tip.close) return aggregated;
+    aggregated[aggregated.length - 1] = {
+      ...tip,
+      close: liveClose,
+      high: Math.max(tip.high, liveClose),
+      low: Math.min(tip.low, liveClose),
+    };
+    return aggregated;
+  }, [data, intervalMinutes, maxPoints, quote]);
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];
