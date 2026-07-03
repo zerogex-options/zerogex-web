@@ -4,8 +4,8 @@ import { ArrowRight, CheckCircle2, Clock, History, Lock, TrendingDown, TrendingU
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import LandingHeader from '@/components/LandingHeader';
 import Footer from './Footer';
-import Header from './Header';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
 // publish on X every morning. Pure server component: ISR-cached at 900s so the
@@ -305,7 +305,7 @@ export default async function SpxGammaLevelsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <Header />
+      <LandingHeader />
 
       <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
         <header style={{ marginBottom: 36 }}>

@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
-import ThemeDropdown from '@/components/ThemeDropdown';
+import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import {
@@ -22,8 +21,6 @@ import {
   ChevronDown,
   Shield,
   Clock,
-  Sun,
-  Moon,
 } from 'lucide-react';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
@@ -207,19 +204,12 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const { theme, setTheme } = useTheme();
-  const [scrolled, setScrolled] = useState(false);
+  const { theme } = useTheme();
 
   const isDark = theme === 'dark';
   const bg     = 'transparent';
   const text   = isDark ? C.light  : 'var(--color-text-primary)';
   const subtext = 'var(--color-text-secondary)';
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
@@ -288,115 +278,7 @@ export default function LandingPage() {
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
 
-      {/* ── Sticky Nav ───────────────────────────────────────────────────────── */}
-      <nav
-        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
-        style={{
-          background: scrolled
-            ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
-            : 'transparent',
-          borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
-          backdropFilter: scrolled ? 'blur(20px)' : 'none',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <div className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ margin: 0, padding: 0, lineHeight: 0 }}>
-          <Image
-            src='/title.svg'
-            alt="ZeroGEX"
-            width={300}
-            height={60}
-            priority
-            className="h-[130%] sm:h-[150%] w-auto block"
-            style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* Theme toggle */}
-          <button
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
-            style={{
-              background: 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              cursor: 'pointer', color: C.muted,
-            }}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-
-          <div className="hidden sm:block"><ThemeDropdown /></div>
-
-          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button
-              className="zg-small"
-              style={{
-                background: 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Education
-            </button>
-          </Link>
-
-          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button
-              className="zg-small"
-              style={{
-                background: 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Pricing
-            </button>
-          </Link>
-
-          {/* Login */}
-          <Link href="/login" style={{ textDecoration: 'none' }}>
-            <button
-              className="zg-small"
-              style={{
-                background: 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontWeight: 700,
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-              }}
-            >
-              Login
-            </button>
-          </Link>
-
-          {/* Launch App CTA */}
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
-              style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                border: 'none',
-                color: 'var(--text-inverse)',
-                cursor: 'pointer',
-                boxShadow: `0 4px 16px ${C.amber}50`,
-              }}
-            >
-              Launch App <ArrowRight size={14} />
-            </button>
-          </Link>
-        </div>
-      </nav>
+      <LandingHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section
