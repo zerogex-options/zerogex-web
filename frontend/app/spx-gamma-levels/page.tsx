@@ -598,7 +598,7 @@ export default async function SpxGammaLevelsPage() {
                 >
                   <CheckCircle2 size={20} />
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>Gamma Forecast</div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Daily Forecast</div>
                 <div
                   style={{
                     marginLeft: 'auto',
@@ -621,19 +621,18 @@ export default async function SpxGammaLevelsPage() {
               </div>
             </div>
 
-            <div
-              aria-disabled="true"
+            <Link
+              href="/replay"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
                 padding: 20,
                 borderRadius: 14,
-                border: '1px dashed var(--border-default)',
+                border: '1px solid var(--border-default)',
                 background: 'var(--color-surface)',
-                color: 'var(--color-text-secondary)',
-                opacity: 0.55,
-                cursor: 'not-allowed',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
                 position: 'relative',
               }}
             >
@@ -643,33 +642,19 @@ export default async function SpxGammaLevelsPage() {
                     width: 36, height: 36, borderRadius: 10,
                     background: 'var(--color-surface-subtle, rgba(255,255,255,0.05))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--color-brand-primary)',
                   }}
                 >
                   <History size={20} />
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>GEX Replay</div>
-                <div
-                  style={{
-                    marginLeft: 'auto',
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    border: '1px solid var(--border-default)',
-                    fontSize: 10,
-                    fontWeight: 800,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  Coming soon
-                </div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>Daily Replay</div>
+                <ArrowRight size={16} style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }} />
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
                 Scrub through any past session minute-by-minute. Watch walls shift, gamma flip drift,
                 and per-strike GEX migrate. Drop two pins to see the delta between any two moments.
               </div>
-            </div>
+            </Link>
           </div>
         </section>
 
