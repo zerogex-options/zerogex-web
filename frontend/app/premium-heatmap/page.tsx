@@ -6,6 +6,7 @@ import { usePremiumSurface } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import { moveToBreakevenPct } from '@/core/premiumBreakeven';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import BetaBadge from '@/components/BetaBadge';
@@ -150,18 +151,8 @@ export default function PremiumHeatmapPage() {
     const dtes = slices.map((s) => s.dte);
     const expirationLabels = slices.map((s) => s.expiration);
 
-    // Per-cell value depends on the selected metric:
-    //   extrinsic      → premium − intrinsic (already computed server-side).
-    //   breakeven_pct  → % spot must move for the contract to break even at
-    //                    expiry. Breakeven = strike + premium (call) or
-    //                    strike − premium (put), so:
-    //                      call move = strike + premium − spot
-    //                      put  move = spot − strike + premium
-    //                    For ITM strikes this collapses to extrinsic, but for
-    //                    OTM strikes the move is |strike − spot| larger — the
-    //                    contract needs spot to travel to strike *and* pay
-    //                    the premium. Clamped at 0 to ignore crossed/stale
-    //                    quotes that would imply a free trade.
+    // Per-cell value: extrinsic $ passes through the API's pre-computed field;
+    // breakeven % delegates to core/premiumBreakeven so the math is unit-testable.
     const spot = data.spot_price;
     let filledCells = 0;
     const z: (number | null)[][] = slices.map((slice) => {
@@ -169,16 +160,11 @@ export default function PremiumHeatmapPage() {
       for (const sp of slice.strikes) {
         const idx = strikeIndex.get(sp.strike);
         if (idx === undefined) continue;
-        if (metric === 'extrinsic') {
-          if (sp.extrinsic != null) {
-            row[idx] = sp.extrinsic;
-            filledCells++;
-          }
-        } else if (sp.premium != null && spot > 0) {
-          const moveDollars = optionType === 'C'
-            ? sp.strike + sp.premium - spot
-            : spot - sp.strike + sp.premium;
-          row[idx] = (Math.max(0, moveDollars) / spot) * 100;
+        const value = metric === 'extrinsic'
+          ? sp.extrinsic
+          : moveToBreakevenPct(sp.strike, sp.premium, spot, optionType);
+        if (value != null) {
+          row[idx] = value;
           filledCells++;
         }
       }
