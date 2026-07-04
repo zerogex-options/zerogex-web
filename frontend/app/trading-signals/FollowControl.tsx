@@ -180,11 +180,11 @@ export default function FollowControl({
             />
             <ChannelRow
               label="Email"
-              status="Queued"
+              status="Live"
               checked={state.email}
               onToggle={() => setState((s) => ({ ...s, email: !s.email }))}
               color={color}
-              description="Rows are logged now; delivery worker not yet wired."
+              description="Delivered via the zerogex-web-tradeworkz-notify.timer every minute. Requires a verified email."
             />
             <ChannelRow
               label="Webhook"
@@ -192,7 +192,7 @@ export default function FollowControl({
               checked={state.webhook}
               onToggle={() => setState((s) => ({ ...s, webhook: !s.webhook }))}
               color={color}
-              description="Rows are logged now; delivery worker not yet wired."
+              description="Rows are logged now; a delivery worker for outbound webhooks is not yet wired."
             />
 
             <div className="pt-2">

@@ -251,15 +251,28 @@ const TRADEWORKZ_INTERNAL_API =
   process.env.TRADEWORKZ_INTERNAL_API ||
   envLocal.TRADEWORKZ_INTERNAL_API ||
   'http://127.0.0.1:8000';
+// Accept either ZEROGEX_API_TOKEN (the current name) or the legacy
+// ZEROGEX_API_KEY. The BFF proxy (core/api/proxy.ts) reads both with
+// the same precedence, so honoring both here keeps the worker in step
+// with the existing deploy.
 const ZEROGEX_API_TOKEN =
-  process.env.ZEROGEX_API_TOKEN || envLocal.ZEROGEX_API_TOKEN || '';
+  process.env.ZEROGEX_API_TOKEN ||
+  envLocal.ZEROGEX_API_TOKEN ||
+  process.env.ZEROGEX_API_KEY ||
+  envLocal.ZEROGEX_API_KEY ||
+  '';
 
 if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
   process.exit(1);
 }
-if (cliArgs.yes && !ZEROGEX_API_TOKEN) {
-  console.error('Error: ZEROGEX_API_TOKEN must be set to reach the TradeWorkz internal endpoints.');
+// Dry-run also needs the token — it queries the queued-notifications
+// endpoint to show what would be sent. Without the token the request
+// would fail with 401 further down; fail earlier and clearer.
+if ((cliArgs.yes || cliArgs.dryRun) && !ZEROGEX_API_TOKEN) {
+  console.error(
+    'Error: ZEROGEX_API_TOKEN (or legacy ZEROGEX_API_KEY) must be set to reach the TradeWorkz internal endpoints.',
+  );
   process.exit(1);
 }
 

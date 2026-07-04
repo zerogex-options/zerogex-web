@@ -878,7 +878,11 @@ function tw_fmtMoneySigned(v: number | undefined | null): string {
   if (v === undefined || v === null || !Number.isFinite(v)) return '—';
   const abs = Math.abs(v);
   const sign = v < 0 ? '-' : '+';
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  // Promote to M once the rounded K representation would hit 1000.00
+  // — same rounding-boundary rule as fmtMoney in app/trading-signals/
+  // format.ts, so a $999,999.99 amount reads "$1.00M" instead of the
+  // visually-indistinguishable "$1000.00K".
+  if (abs >= 999_995) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
   if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
   return `${sign}$${abs.toFixed(2)}`;
 }
