@@ -368,6 +368,9 @@ export default function TradeWorkzClient() {
             onSelect={onSelectBot}
             selectedBotId={selectedBotId}
             sparklineByBot={bundleByBot}
+            bots={bots}
+            followedIds={followedIds}
+            onFollowChanged={follows.refetch}
           />
         </section>
 
