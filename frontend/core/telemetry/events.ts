@@ -33,6 +33,8 @@ export const TelemetryEvent = {
   ReplayShareClicked: 'replay_share_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
+  /** Beehiiv newsletter signup completed on /api/newsletter/subscribe (server). */
+  NewsletterSignup: 'newsletter_signup',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];
