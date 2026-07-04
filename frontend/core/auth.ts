@@ -35,6 +35,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/unauthorized',
   '/spx-gamma-levels',
   '/trading-mistakes',
+  // Broker affiliate comparison page — anonymous-accessible, links out
+  // to the six brokers listed in app/brokers/brokerData.ts. Traffic to
+  // this page is what the BrokerCTA component funnels into.
+  '/brokers',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
   // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
   // Discord crawlers can render the colocated OG preview and so a non-member
