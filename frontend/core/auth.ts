@@ -26,6 +26,9 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/help',
   '/pricing',
   '/founding',
+  // Newsletter landing + confirmation — anonymous, no auth required.
+  '/newsletter',
+  '/newsletter/*',
   '/privacy',
   '/terms',
   '/login',
