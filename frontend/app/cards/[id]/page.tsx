@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
+import BrokerCTA from '@/components/BrokerCTA';
 import { serverApiGet } from '@/core/api/serverFetch';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
@@ -149,6 +150,8 @@ export default async function ActionCardPage({
       </header>
 
       {isStandDown ? <StandDownCard data={card} /> : <TradeCard data={card} />}
+
+      <BrokerCTA surface="card" variant="inline" />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this card</div>

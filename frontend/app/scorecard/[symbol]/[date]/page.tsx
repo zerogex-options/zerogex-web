@@ -5,6 +5,7 @@ import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
+import BrokerCTA from '@/components/BrokerCTA';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
@@ -292,6 +293,8 @@ export default async function ScorecardPage({
           </div>
         </section>
       )}
+
+      <BrokerCTA surface="scorecard" variant="inline" />
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this scorecard</div>

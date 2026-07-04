@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
+import BrokerCTA from '@/components/BrokerCTA';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import ReplayScrubber from './ReplayScrubber';
 
@@ -162,6 +163,8 @@ export default async function ReplayDatePage({
         initialCandles={data.candles ?? []}
         siteUrl={SITE_URL}
       />
+
+      <BrokerCTA surface="replay" variant="sidebar" />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>

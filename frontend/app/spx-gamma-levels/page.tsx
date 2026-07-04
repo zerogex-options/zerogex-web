@@ -5,6 +5,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import LandingHeader from '@/components/LandingHeader';
+import BrokerCTA from '@/components/BrokerCTA';
 import Footer from './Footer';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
@@ -408,6 +409,8 @@ export default async function SpxGammaLevelsPage() {
             <SymbolCard key={symbol} symbol={symbol} data={snapshots[symbol]} />
           ))}
         </section>
+
+        <BrokerCTA surface="spx-gamma-levels" variant="inline" />
 
         <section
           style={{
