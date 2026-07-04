@@ -33,6 +33,8 @@ export const TelemetryEvent = {
   ReplayShareClicked: 'replay_share_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
+  /** Broker affiliate CTA clicked on a public share surface or the /brokers page. */
+  BrokerCtaClick: 'broker_cta_click',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];
