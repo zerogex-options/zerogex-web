@@ -373,6 +373,48 @@ function initDb(): DatabaseSync {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL'
   );
 
+  // Broker affiliate attribution: one row per click on a broker CTA from a
+  // public share surface (or the /brokers comparison page). Deliberately a
+  // separate table from `referrals` — the domain overlap (attribution to a
+  // partner) is thin, but the columns don't line up 1:1 (no referee user id
+  // at click time, no reward status, opaque cookie-driven attribution_id
+  // instead of a user id join key). Keeps the two revenue streams
+  // independently queryable.
+  //
+  // `attribution_id` is the opaque UUID stored in the zgx_attr cookie set by
+  // proxy.ts. It persists across sessions (2y max-age), so today's click can
+  // be joined to a subscription conversion months later. `user_id` is
+  // captured when the click happened inside a logged-in session — most
+  // clicks will be anonymous since these are public share surfaces. `ip_hash`
+  // is SHA-256(ip + ATTRIBUTION_IP_PEPPER) purely for the rate limiter and
+  // downstream dedup; the raw IP never lands.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS broker_attribution_clicks (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      clicked_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      surface        TEXT NOT NULL,
+      broker_partner TEXT NOT NULL,
+      path           TEXT NOT NULL,
+      attribution_id TEXT NOT NULL,
+      user_id        TEXT,
+      session_id     TEXT,
+      utm_source     TEXT,
+      utm_medium     TEXT,
+      utm_campaign   TEXT,
+      ip_hash        TEXT,
+      user_agent     TEXT
+    );
+  `);
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS ix_broker_attribution_clicks_broker_partner ON broker_attribution_clicks(broker_partner);'
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS ix_broker_attribution_clicks_attribution_id ON broker_attribution_clicks(attribution_id);'
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS ix_broker_attribution_clicks_clicked_at ON broker_attribution_clicks(clicked_at);'
+  );
+
   return db;
 }
 

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME, hasTierAccess, isPublicRoute, requiredTierForRoute } from '@/core/auth';
 import { getSessionFromRequest } from '@/core/serverAuth';
 import { recordRequest, resolveUserIdFromCookie } from '@/core/monitoring';
+import {
+  ATTRIBUTION_COOKIE_NAME,
+  mintAttributionId,
+  setAttributionCookie,
+} from '@/core/attribution';
 
 function readPositiveInt(name: string, fallback: number) {
   const raw = process.env[name];
@@ -12,6 +17,23 @@ function readPositiveInt(name: string, fallback: number) {
 const SESSION_COOKIE_MAX_AGE_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
 
 const STATIC_ASSET_EXT = /\.(?:css|js|map|svg|png|jpg|jpeg|gif|webp|woff2?|ttf|eot|ico|txt|json|xml)$/i;
+
+// Mint a fresh zgx_attr cookie on the first HTML request that lands
+// without one. Guarded away from static asset requests, API calls, and
+// Next internals so the cookie is only touched on real page navigations —
+// keeps the middleware fast on the request paths that outnumber pages.
+function attributionShouldTouch(pathname: string): boolean {
+  if (pathname.startsWith('/_next')) return false;
+  if (pathname.startsWith('/api/')) return false;
+  if (STATIC_ASSET_EXT.test(pathname)) return false;
+  return true;
+}
+
+function ensureAttributionCookie(request: NextRequest, response: NextResponse): void {
+  if (!attributionShouldTouch(request.nextUrl.pathname)) return;
+  if (request.cookies.get(ATTRIBUTION_COOKIE_NAME)?.value) return;
+  setAttributionCookie(response, mintAttributionId());
+}
 
 function recordRequestForMonitoring(request: NextRequest) {
   try {
@@ -37,6 +59,12 @@ function recordRequestForMonitoring(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  const response = await proxyImpl(request);
+  ensureAttributionCookie(request, response);
+  return response;
+}
+
+async function proxyImpl(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   recordRequestForMonitoring(request);
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
