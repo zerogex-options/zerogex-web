@@ -9,35 +9,45 @@
 // the paid page renders — no parallel implementation, no drift, one source of
 // truth.
 //
-// When the card's underlying data has all resolved (GEX summary, live quote,
-// prior close, volatility), we stamp ``data-bulletin-ready="true"`` on the
-// wrapper and set ``window.__zerogexBulletinReady`` so Playwright's
+// Data flow: all four upstream feeds (GEX summary, market quote, session
+// close, volatility gauge) are SSR-fetched in the page.tsx server component
+// using the ZEROGEX_API_TOKEN, so this client component is a pure renderer.
+// It does NOT call the auth-gated /api/* endpoints from the browser — a
+// Playwright session has no user cookie and every hook-based fetch would
+// otherwise return 401 and never satisfy the ready selector.
+//
+// When the logo raster resolves and we have enough data to render a
+// complete card, we stamp ``data-bulletin-ready="true"`` on the wrapper
+// and set ``window.__zerogexBulletinReady`` so Playwright's
 // ``waitForSelector`` and ``waitForFunction`` both work as ready-signals.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  useGEXSummary,
-  useMarketQuote,
-  useSessionCloses,
-  useVolatilityGauge,
-} from '@/hooks/useApiData';
 import GammaReportCard from '../../GammaReportCard';
 import {
   buildReportModel,
   fmtDateET,
   fmtTimeET,
-  HORIZONS,
+  type GexSummaryInput,
   type HorizonKey,
 } from '../../bulletinHelpers';
 import { rasterizeSvg } from '../../imageExport';
 
 interface SnapshotClientProps {
   symbol: 'SPY' | 'SPX' | 'QQQ';
-  horizon?: HorizonKey;
-  /** Cosmetic — drives the "as-of" date label rather than the underlying data,
-   *  which is always the latest snapshot. */
+  horizon: HorizonKey;
   dateLabel?: string;
   watermark?: boolean;
+  volIndex: 'VIX' | 'VXN';
+  /** SSR-fetched GEX summary — becomes the card's level fields. */
+  summary: GexSummaryInput | null;
+  /** SSR-computed spot: quote.close ?? summary.spot_price ?? null. */
+  spot: number | null;
+  /** SSR-computed prior close for the change % chip. */
+  priorClose: number | null;
+  /** SSR-fetched VIX / VXN level for the expected-range band. */
+  vix: number | null;
+  /** GEX summary's timestamp — drives the "as of" label. */
+  timestamp: string | null;
 }
 
 declare global {
@@ -48,31 +58,23 @@ declare global {
 
 export default function SnapshotClient({
   symbol,
-  horizon = 'daily',
+  horizon,
   dateLabel,
   watermark = true,
+  volIndex,
+  summary,
+  spot,
+  priorClose,
+  vix,
+  timestamp,
 }: SnapshotClientProps) {
-  // Same VIX/VXN pairing as LiveBulletinClient — QQQ uses VXN, everything else
-  // uses VIX. Keeps the expected-range panel consistent between the paid card
-  // and the screenshot.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
-
-  const { data: summary } = useGEXSummary(symbol, 10_000);
-  const { data: quote } = useMarketQuote(symbol, 5_000);
-  const { data: sessionCloses } = useSessionCloses(symbol, 60_000, quote?.session ?? null);
-  const { data: volGauge } = useVolatilityGauge(30_000, volIndex);
-
-  const priorClose = sessionCloses?.current_session_close ?? null;
-  const spot = quote?.close ?? summary?.spot_price ?? null;
-  const vix = volGauge?.index ?? null;
-
   const model = useMemo(
     () =>
       buildReportModel({
         symbol,
         spot,
         priorClose,
-        summary: summary ?? null,
+        summary,
         vix,
         volIndex,
         horizon,
@@ -81,13 +83,9 @@ export default function SnapshotClient({
   );
 
   const asOf = useMemo(() => {
-    const ts = summary?.timestamp;
-    // If a caller passed dateLabel explicitly (e.g. backfilling a specific
-    // session), honor it; otherwise derive from the summary timestamp so
-    // the card reads the actual data freshness.
-    const dateFragment = dateLabel ?? fmtDateET(ts);
-    return `${dateFragment} · ${fmtTimeET(ts)}`;
-  }, [summary?.timestamp, dateLabel]);
+    const dateFragment = dateLabel ?? fmtDateET(timestamp ?? undefined);
+    return `${dateFragment} · ${fmtTimeET(timestamp ?? undefined)}`;
+  }, [timestamp, dateLabel]);
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -102,20 +100,12 @@ export default function SnapshotClient({
     };
   }, []);
 
-  // Signal readiness once we've resolved enough data to render a card that
-  // isn't visibly loading — Playwright uses this to time its screenshot.
-  //
-  // We wait for: summary (level fields), quote or a spot from the summary,
-  // session close (drives change %), and the logo raster (so the header
-  // doesn't screenshot with the fallback text lockup). Volatility is
-  // intentionally NOT gated — a VIX outage would otherwise block the whole
-  // fire, and the card gracefully hides the expected-range panel when vix
-  // is null.
-  const ready =
-    Boolean(summary) &&
-    (spot != null) &&
-    Boolean(sessionCloses) &&
-    Boolean(logoUrl);
+  // Ready when the logo raster has landed AND the SSR summary was
+  // usable.  We accept a null summary (server outage / stale row) but
+  // treat that as "still ready to screenshot" so Playwright doesn't
+  // hang waiting for data that will never come — the card will render
+  // "—" placeholders and the tweet job can decide whether to attach it.
+  const ready = summary != null && logoUrl != null;
 
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

@@ -104,16 +104,23 @@ async function main() {
   try {
     await page.goto(url.href, { waitUntil: 'networkidle', timeout: 45_000 });
 
-    // Wait for the snapshot's ready signal — the SnapshotClient sets this
-    // once GEX summary, spot, session close and the logo raster have all
-    // resolved. Prefer the DOM attribute (survives race with hooks) but
-    // fall back to the window flag if the attribute selector times out.
+    // Wait for the snapshot's ready signal — the SnapshotClient sets
+    // ``data-bulletin-ready="true"`` once the logo raster has loaded on top
+    // of the SSR-fetched data. Prefer the DOM attribute (survives races
+    // with hooks); fall back to the window flag; and as a last resort,
+    // proceed anyway after ~10s so we still ship a card when the ready
+    // signal was blocked by a data-fetch outage (the SSR data is already
+    // baked into the DOM by that point — this just misses the logo).
     try {
-      await page.waitForSelector('[data-bulletin-ready="true"]', { timeout: 30_000 });
+      await page.waitForSelector('[data-bulletin-ready="true"]', { timeout: 20_000 });
     } catch {
-      await page.waitForFunction(() => window.__zerogexBulletinReady === true, {
-        timeout: 15_000,
-      });
+      try {
+        await page.waitForFunction(() => window.__zerogexBulletinReady === true, {
+          timeout: 10_000,
+        });
+      } catch {
+        log('bulletin-ready signal never fired — screenshotting anyway');
+      }
     }
 
     // Small paint settle so any late layout shift (last hook re-render, font
