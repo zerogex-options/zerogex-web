@@ -17,9 +17,17 @@ const C = {
 const EFFECTIVE_DATE = 'April 25, 2026';
 const CONTACT_EMAIL = 'support@zerogex.io';
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section style={{ marginTop: 36 }}>
+    <section id={id} style={{ marginTop: 36, scrollMarginTop: 100 }}>
       <h2
         style={{
           margin: 0,
@@ -320,7 +328,27 @@ export default function TermsPage() {
             </p>
           </Section>
 
-          <Section title="16. Contact">
+          <Section id="advertising-disclosure" title="16. Advertising Disclosure">
+            <p>
+              ZeroGEX participates in affiliate programs with select brokers. When you open a
+              brokerage account through a link on this site, we may earn a commission. This does
+              not affect the price you pay, the interest rate you receive, or the features
+              available to you. We only include brokers we consider suitable for the readership
+              of this site — options-experienced retail traders — and we do not accept payment
+              for favorable placement.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              The current list of participating brokers is published on{' '}
+              <Link href="/brokers" style={{ color: C.amber }}>
+                /brokers
+              </Link>
+              . Broker-specific offers (introductory rebates, transfer bonuses) are set by the
+              broker, not by us, and can change without notice. Confirm the current terms with
+              the broker directly before opening an account.
+            </p>
+          </Section>
+
+          <Section title="17. Contact">
             <p>
               Questions about these Terms can be sent to{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>

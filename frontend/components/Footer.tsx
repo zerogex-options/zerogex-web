@@ -19,6 +19,7 @@ const footerLinks = [
   { href: '/giving', label: 'Giving Back', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
   { href: '/education', label: 'Education', external: false },
+  { href: '/brokers', label: 'Brokers', external: false },
   { href: '/privacy', label: 'Privacy', external: false },
   { href: '/terms', label: 'Terms', external: false },
 ];
