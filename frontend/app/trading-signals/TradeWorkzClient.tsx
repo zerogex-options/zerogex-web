@@ -15,12 +15,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import BotDetailPanel from './BotDetailPanel';
 import BotRosterCard from './BotRosterCard';
 import EmptyState from './EmptyState';
 import FleetOverviewChart from './FleetOverviewChart';
 import LeaderboardTable from './LeaderboardTable';
+import NotificationBell from './NotificationBell';
 import { RosterSkeleton, SummarySkeleton } from './Skeleton';
 import { botColor } from './palette';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
@@ -44,6 +46,9 @@ export default function TradeWorkzClient() {
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
   const [simMessage, setSimMessage] = useState<string | null>(null);
   const [simBusy, setSimBusy] = useState(false);
+
+  const session = useAuthSession();
+  const isAdmin = session.data?.user?.tier === 'admin';
 
   const summary = useApiData<FleetSummary>('/api/tradeworkz/summary', {
     refreshInterval: AUTO_REFRESH_MS,
@@ -190,35 +195,42 @@ export default function TradeWorkzClient() {
             </p>
           </div>
           <div className="flex flex-col items-start md:items-end gap-2">
-            <div className="flex gap-2">
-              <button
-                onClick={runSimulate}
-                disabled={simBusy}
-                className="inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-full transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-info)',
-                  color: 'var(--color-on-info, #ffffff)',
-                  opacity: simBusy ? 0.6 : 1,
-                }}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Seed demo data
-              </button>
-              <TooltipWrapper text="Wipe every bot's trade / equity / metrics / ml_state back to the pre-trade baseline.">
-                <button
-                  onClick={runClear}
-                  disabled={simBusy}
-                  className="text-xs font-medium px-3 py-2 rounded-full transition-colors"
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: 'var(--color-text-secondary)',
-                    border: '1px solid var(--color-border)',
-                    opacity: simBusy ? 0.6 : 1,
-                  }}
-                >
-                  Clear
-                </button>
-              </TooltipWrapper>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              {isAdmin ? (
+                <>
+                  <TooltipWrapper text="Wipe existing history and seed 60 sessions of deterministic synthetic trades per bot. Admin only.">
+                    <button
+                      onClick={runSimulate}
+                      disabled={simBusy}
+                      className="inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-info)',
+                        color: 'var(--color-on-info, #ffffff)',
+                        opacity: simBusy ? 0.6 : 1,
+                      }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Seed demo data
+                    </button>
+                  </TooltipWrapper>
+                  <TooltipWrapper text="Wipe every bot's trade / equity / metrics / ml_state back to the pre-trade baseline. Admin only.">
+                    <button
+                      onClick={runClear}
+                      disabled={simBusy}
+                      className="text-xs font-medium px-3 py-2 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: 'var(--color-text-secondary)',
+                        border: '1px solid var(--color-border)',
+                        opacity: simBusy ? 0.6 : 1,
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </TooltipWrapper>
+                </>
+              ) : null}
             </div>
             {simMessage ? (
               <div

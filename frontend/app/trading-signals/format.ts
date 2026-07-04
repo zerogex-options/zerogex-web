@@ -8,10 +8,11 @@ export function fmtMoney(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
   const abs = Math.abs(value);
   const sign = value < 0 ? '-' : '';
+  // Two consistent branches: `$X.XXM` at or above $1,000,000, `$X.XXK`
+  // everywhere below. Two decimals everywhere, so the same number reads
+  // the same across NAV, P&L, and trade rows.
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 10_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
-  return `${sign}$${abs.toFixed(2)}`;
+  return `${sign}$${(abs / 1_000).toFixed(2)}K`;
 }
 
 export function fmtMoneyFull(value: number | null | undefined): string {

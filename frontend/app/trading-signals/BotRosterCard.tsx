@@ -15,8 +15,9 @@
  * anything but color and shape.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useApiData } from '@/hooks/useApiData';
+import FollowControl from './FollowControl';
 import Sparkline from './Sparkline';
 import { botColor, botColorSoft } from './palette';
 import { fmtMoney, fmtPct, fmtSignedMoney, toneVar } from './format';
@@ -31,26 +32,6 @@ interface Props {
   onFollowChanged: () => void;
 }
 
-interface FollowResponse {
-  follows: Array<{ bot_id: string; channels: Record<string, boolean> }>;
-}
-
-async function postFollow(botId: string): Promise<void> {
-  await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channels: { in_app: true } }),
-  });
-}
-
-async function deleteFollow(botId: string): Promise<void> {
-  await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
-    method: 'DELETE',
-    credentials: 'include',
-  });
-}
-
 export default function BotRosterCard({
   bot,
   onOpen,
@@ -63,28 +44,11 @@ export default function BotRosterCard({
     `/api/tradeworkz/bots/${bot.id}/equity-curve?days=30`,
     { refreshInterval: 60_000 },
   );
-  const [busy, setBusy] = useState(false);
   const color = botColor(bot.id, paletteIndex);
 
   const sparkPoints = useMemo(
     () => sparkline.data?.points.map((p) => p.ending_nav) ?? [],
     [sparkline.data],
-  );
-
-  const handleFollow = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (busy) return;
-      setBusy(true);
-      try {
-        if (followed) await deleteFollow(bot.id);
-        else await postFollow(bot.id);
-        onFollowChanged();
-      } finally {
-        setBusy(false);
-      }
-    },
-    [busy, followed, bot.id, onFollowChanged],
   );
 
   return (
@@ -182,19 +146,12 @@ export default function BotRosterCard({
               Hit rate {fmtPct(bot.lifetime_win_rate, 1)} · {bot.lifetime_trades} trades
             </div>
           </div>
-          <button
-            onClick={handleFollow}
-            disabled={busy}
-            className="text-xs px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-            style={{
-              backgroundColor: followed ? botColorSoft(bot.id, paletteIndex) : 'transparent',
-              color: followed ? color : 'var(--color-text-primary)',
-              border: `1px solid ${followed ? color : 'var(--color-border)'}`,
-              opacity: busy ? 0.6 : 1,
-            }}
-          >
-            {followed ? '✓ Following' : 'Follow'}
-          </button>
+          <FollowControl
+            botId={bot.id}
+            paletteIndex={paletteIndex}
+            followed={followed}
+            onFollowChanged={onFollowChanged}
+          />
         </div>
       </div>
     </div>
