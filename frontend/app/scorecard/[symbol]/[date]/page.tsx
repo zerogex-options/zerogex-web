@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
+import NewsletterCTA from '@/components/NewsletterCTA';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
@@ -293,7 +294,13 @@ export default async function ScorecardPage({
         </section>
       )}
 
-      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <NewsletterCTA
+        surface="scorecard"
+        variant="inline"
+        headline={`Get the next ${sym} morning card in your inbox — free.`}
+      />
+
+      <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this scorecard</div>
         Daily aggregate of the ZeroGEX engine&rsquo;s output for {sym}. &ldquo;Playbook calls&rdquo;
         counts every non-STAND_DOWN Action Card persisted that day; each one has its own

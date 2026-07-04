@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import NewsletterCTA from '@/components/NewsletterCTA';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
@@ -155,13 +156,22 @@ export default async function ReplayDatePage({
         </div>
       </header>
 
-      <ReplayScrubber
-        symbol={sym}
-        sessionDate={date}
-        initialFrames={data.frames}
-        initialCandles={data.candles ?? []}
-        siteUrl={SITE_URL}
-      />
+      <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+        <ReplayScrubber
+          symbol={sym}
+          sessionDate={date}
+          initialFrames={data.frames}
+          initialCandles={data.candles ?? []}
+          siteUrl={SITE_URL}
+        />
+        <div>
+          <NewsletterCTA
+            surface="replay"
+            variant="sidebar"
+            headline={`Next ${sym} morning card — free.`}
+          />
+        </div>
+      </div>
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>

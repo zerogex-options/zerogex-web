@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, CheckCircle2, XCircle, Magnet } from 'lucide-react';
 
+import NewsletterCTA from '@/components/NewsletterCTA';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
@@ -321,7 +322,13 @@ export default async function ForecastPage({
         </section>
       )}
 
-      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <NewsletterCTA
+        surface="forecast"
+        variant="inline"
+        headline={`Get the ${sym} morning card in your inbox — free.`}
+      />
+
+      <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this forecast</div>
         Daily commitment for {sym} written at 7:00 AM ET. The projected range is anchored on the
         open spot and bounded by the GEX call/put walls with a 10% safety expansion; event days

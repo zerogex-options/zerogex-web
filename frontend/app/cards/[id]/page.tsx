@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
+import NewsletterCTA from '@/components/NewsletterCTA';
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
 import { serverApiGet } from '@/core/api/serverFetch';
@@ -149,6 +150,12 @@ export default async function ActionCardPage({
       </header>
 
       {isStandDown ? <StandDownCard data={card} /> : <TradeCard data={card} />}
+
+      <NewsletterCTA
+        surface="cards"
+        variant="inline"
+        headline="Want the next morning's dealer-gamma map before the open?"
+      />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this card</div>

@@ -15,6 +15,7 @@
 // ``waitForSelector`` and ``waitForFunction`` both work as ready-signals.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import NewsletterCTA from '@/components/NewsletterCTA';
 import {
   useGEXSummary,
   useMarketQuote,
@@ -145,6 +146,12 @@ export default function SnapshotClient({
           logoUrl={logoUrl}
           watermark={watermark}
         />
+      </div>
+      {/* Rendered OUTSIDE [data-bulletin-card] so the tweet-PNG Playwright
+          capture never includes it — the CTA is only for the (rare) human
+          who lands on this page directly. */}
+      <div style={{ maxWidth: 480, width: '100%', marginTop: 32 }}>
+        <NewsletterCTA surface="live-bulletin" variant="inline" />
       </div>
     </div>
   );
