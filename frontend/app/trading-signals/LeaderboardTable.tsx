@@ -13,9 +13,10 @@ import { useMemo } from 'react';
 import { LeaderboardSkeleton } from './Skeleton';
 import Sparkline from './Sparkline';
 import EmptyState from './EmptyState';
+import FollowControl from './FollowControl';
 import { botColor, botColorSoft } from './palette';
 import { fmtMoney, fmtPct, fmtSignedPct, toneVar } from './format';
-import type { BotEquityBundle, LeaderboardResponse } from './types';
+import type { BotEquityBundle, LeaderboardResponse, BotRow } from './types';
 
 interface Props {
   data: LeaderboardResponse | null;
@@ -24,6 +25,9 @@ interface Props {
   onSelect: (botId: string) => void;
   selectedBotId: string | null;
   sparklineByBot: Map<string, BotEquityBundle>;
+  bots: BotRow[]; // for palette index mapping (fixed by roster order)
+  followedIds: Set<string>;
+  onFollowChanged: () => void;
 }
 
 export default function LeaderboardTable({
@@ -33,8 +37,18 @@ export default function LeaderboardTable({
   onSelect,
   selectedBotId,
   sparklineByBot,
+  bots,
+  followedIds,
+  onFollowChanged,
 }: Props) {
   const rows = useMemo(() => data?.leaderboard ?? [], [data]);
+  // Palette index is fixed by the FULL roster order (not the leaderboard
+  // ordering) so a bot keeps its color across period toggles.
+  const paletteIndexOf = useMemo(() => {
+    const m = new Map<string, number>();
+    bots.forEach((b, i) => m.set(b.id, i));
+    return (id: string) => m.get(id) ?? 0;
+  }, [bots]);
   if (loading && !data) return <LeaderboardSkeleton />;
   if (error && !data) {
     return (
@@ -75,7 +89,8 @@ export default function LeaderboardTable({
               <Th align="right">Win %</Th>
               <Th align="right">Avg %</Th>
               <Th align="right">P&amp;L</Th>
-              <Th align="right" className="pr-5">Return</Th>
+              <Th align="right">Return</Th>
+              <Th align="right" className="pr-5 w-14">Follow</Th>
             </tr>
           </thead>
           <tbody>
@@ -155,10 +170,24 @@ export default function LeaderboardTable({
                     {fmtMoney(row.pnl)}
                   </td>
                   <td
-                    className="pr-5 py-3 text-right tabular-nums font-medium"
+                    className="py-3 text-right tabular-nums font-medium"
                     style={{ color: toneVar(row.return_pct) }}
                   >
                     {fmtSignedPct(row.return_pct, 2)}
+                  </td>
+                  <td
+                    className="pr-5 py-3 text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="inline-flex">
+                      <FollowControl
+                        botId={row.bot_id}
+                        paletteIndex={paletteIndexOf(row.bot_id)}
+                        followed={followedIds.has(row.bot_id)}
+                        onFollowChanged={onFollowChanged}
+                        variant="icon"
+                      />
+                    </div>
                   </td>
                 </tr>
               );
