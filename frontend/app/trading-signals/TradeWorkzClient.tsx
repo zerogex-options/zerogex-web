@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Zap } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -148,6 +148,50 @@ export default function TradeWorkzClient() {
     }
   }, [simBusy, summary, botsData, leaderboard]);
 
+  const runInjectTest = useCallback(async () => {
+    if (simBusy) return;
+    // Prefer a bot the caller is currently focused on. Fall back to the
+    // first followed bot (their subscription won't fire otherwise), then
+    // to the leaderboard's top row, then to any enabled bot.
+    const targetBotId =
+      selectedBotId ??
+      Array.from(followedIds)[0] ??
+      leaderboard.data?.leaderboard?.[0]?.bot_id ??
+      bots[0]?.id ??
+      null;
+    if (!targetBotId) {
+      setSimMessage('No bot available to inject a test event against.');
+      return;
+    }
+    setSimBusy(true);
+    setSimMessage(null);
+    try {
+      const res = await fetch('/api/tradeworkz/admin/inject-test-event', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot_id: targetBotId, event_type: 'both' }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      const entry = data.notifications_written?.entry ?? 0;
+      const exit = data.notifications_written?.exit ?? 0;
+      setSimMessage(
+        `Injected test entry + exit against ${data.bot_display_name ?? targetBotId}. ` +
+          `Notifications queued: ${entry + exit} (entry=${entry}, exit=${exit}). ` +
+          `Email rows deliver on the next minute-cadence timer fire.`,
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setSimMessage(`Inject failed: ${message}`);
+    } finally {
+      setSimBusy(false);
+    }
+  }, [simBusy, selectedBotId, followedIds, leaderboard.data, bots]);
+
   const runClear = useCallback(async () => {
     if (simBusy) return;
     setSimBusy(true);
@@ -212,6 +256,22 @@ export default function TradeWorkzClient() {
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       Seed demo data
+                    </button>
+                  </TooltipWrapper>
+                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels — in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
+                    <button
+                      onClick={runInjectTest}
+                      disabled={simBusy}
+                      className="inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-full transition-colors"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: 'var(--color-info)',
+                        border: '1px solid var(--color-info)',
+                        opacity: simBusy ? 0.6 : 1,
+                      }}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      Test event
                     </button>
                   </TooltipWrapper>
                   <TooltipWrapper text="Wipe every bot's trade / equity / metrics / ml_state back to the pre-trade baseline. Admin only.">
