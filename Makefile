@@ -165,6 +165,15 @@ clear-zombie-customers:
 webhook-health:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/webhook-health.mjs'
 
+# Drain queued TradeWorkz email notifications through Resend. Reads rows
+# from tw_notifications_log via /api/tradeworkz/internal/queued-notifications,
+# resolves each end_user -> email via the auth SQLite DB, sends the email,
+# and marks the row 'sent' / 'failed'. Scheduled every minute by
+# zerogex-web-tradeworkz-notify.timer. Pass DRY_RUN=1 to preview,
+# LIMIT=N to bound the batch size, PREVIEW_TO=<email> for a sample send.
+tradeworkz-notify:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/tradeworkz-notify-deliver.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
 # Send the ~48h-before-trial-end reminder email to every currently-trialing
 # user whose first charge lands in the next ~48h (windowed +/- 3h so a
 # multi-hour cron cadence still catches the cohort exactly once). Idempotent

@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# ==============================================
+# Step 091: TradeWorkz Follower Email Delivery Timer (systemd)
+# ==============================================
+#
+# Installs and enables the TradeWorkz email notification delivery timer
+# (see deploy/systemd/zerogex-web-tradeworkz-notify.{service,timer}). The
+# timer fires every minute and triggers `make tradeworkz-notify`, which
+# drains queued email rows from tw_notifications_log via two internal
+# OA endpoints:
+#     GET  /api/tradeworkz/internal/queued-notifications
+#     POST /api/tradeworkz/internal/mark-notification
+# Both are behind the SIGNALS scope, so the worker uses the SAME
+# ZEROGEX_API_TOKEN the BFF proxy carries.
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo,
+# and `systemctl enable --now` is a no-op for an already-enabled timer.
+# No config file is written (the script reads ZEROGEX_API_TOKEN,
+# TRADEWORKZ_INTERNAL_API, RESEND_API_KEY, RESEND_FROM_EMAIL,
+# NEXT_PUBLIC_APP_URL, AUTH_DB_PATH from frontend/.env.local).
+
+set -e
+
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "TradeWorkz Follower Email Delivery Timer Setup"
+
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-tradeworkz-notify"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+    warn_missing_env ZEROGEX_API_TOKEN
+    warn_missing_env TRADEWORKZ_INTERNAL_API
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# The worker READS the auth SQLite DB (users.email lookup); it does not
+# write to it. ProtectHome=read-only already lets read from anywhere
+# under $HOME, so no ReadWritePaths line is needed here. But if the
+# operator points AUTH_DB_PATH at a directory OUTSIDE $HOME (say
+# /var/lib/zerogex), the sandbox blocks the read too. Drop-in adds a
+# ReadOnlyPaths= line in that case.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]] && [[ "$AUTH_DB_PATH" != "$HOME"* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadOnlyPaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadOnlyPaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH inside \$HOME or unset)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH covered by ProtectHome=read-only default"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every minute, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+log ""

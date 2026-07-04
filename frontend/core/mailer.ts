@@ -844,3 +844,194 @@ export async function sendPasswordResetEmail(to: string, link: string) {
     throw new Error(`Resend error: ${result.error.message}`);
   }
 }
+
+/**
+ * Notification email for a TradeWorkz bot entering or exiting a position.
+ *
+ * Called by scripts/tradeworkz-notify-deliver.mts once per queued
+ * ``tw_notifications_log`` row with ``channel='email'``. The payload
+ * shape mirrors what the reconciler writes on entry / exit — see
+ * src/tradeworkz/reconciler.py. The email is intentionally short —
+ * followers ask for an alert, not a novel — and links back to
+ * /trading-signals for the full drilldown.
+ */
+export type TradeworkzEventType = 'entry' | 'exit' | 'add' | 'cut' | 'stopped' | 'target';
+
+export interface TradeworkzEmailPayload {
+  underlying?: string;
+  direction?: 'bullish' | 'bearish' | string;
+  strategy_type?: string;
+  outcome?: 'win' | 'loss' | 'scratch' | string;
+  realized_pnl?: number;
+  pnl_percent?: number;
+  reason?: string;
+  contracts?: number;
+  entry_price?: number;
+  exit_price?: number;
+  target_price?: number;
+  stop_price?: number;
+  conviction?: number;
+  rationale?: string;
+}
+
+function tw_fmtMoneySigned(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '-' : '+';
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
+function tw_fmtPct(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+}
+
+function tw_fmtPrice(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  return `$${v.toFixed(2)}`;
+}
+
+function tw_outcomeChip(outcome: string | undefined): { label: string; color: string; bg: string } {
+  if (outcome === 'win') return { label: 'WIN', color: '#0F7A3A', bg: '#DBF3E4' };
+  if (outcome === 'loss') return { label: 'LOSS', color: '#A31226', bg: '#FBE1E5' };
+  return { label: 'SCRATCH', color: '#374151', bg: '#E5E7EB' };
+}
+
+export async function sendTradeworkzNotification(
+  to: string,
+  args: {
+    botId: string;
+    botDisplayName: string;
+    eventType: TradeworkzEventType | string;
+    payload: TradeworkzEmailPayload;
+    dashboardUrl?: string;
+  },
+) {
+  const { botDisplayName, eventType, payload } = args;
+  const dashboardUrl = args.dashboardUrl ?? `${getAppUrl()}/trading-signals`;
+  const isExit = eventType === 'exit' || eventType === 'stopped' || eventType === 'target';
+  const isEntry = eventType === 'entry';
+  const dirText =
+    payload.direction === 'bullish'
+      ? 'LONG'
+      : payload.direction === 'bearish'
+        ? 'SHORT'
+        : (payload.direction || 'NEUTRAL').toUpperCase();
+  const underlying = payload.underlying ?? 'SPY';
+
+  const subject = isExit
+    ? `${botDisplayName} closed ${dirText} ${underlying} ${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`
+    : isEntry
+      ? `${botDisplayName} opened ${dirText} ${underlying} · ${payload.contracts ?? '?'} contracts @ ${tw_fmtPrice(payload.entry_price ?? null)}`
+      : `${botDisplayName} — ${eventType.toUpperCase()} on ${underlying}`;
+
+  const textLines: string[] = [];
+  textLines.push(`${botDisplayName} · ${eventType.toUpperCase()}`);
+  textLines.push('');
+  textLines.push(`Underlying: ${underlying}`);
+  textLines.push(`Direction: ${dirText}`);
+  if (payload.strategy_type) textLines.push(`Structure: ${payload.strategy_type}`);
+  if (payload.contracts !== undefined) textLines.push(`Contracts: ${payload.contracts}`);
+  if (isEntry) {
+    if (payload.entry_price !== undefined) textLines.push(`Entry: ${tw_fmtPrice(payload.entry_price)}`);
+    if (payload.target_price !== undefined) textLines.push(`Target: ${tw_fmtPrice(payload.target_price)}`);
+    if (payload.stop_price !== undefined) textLines.push(`Stop: ${tw_fmtPrice(payload.stop_price)}`);
+    if (payload.conviction !== undefined) textLines.push(`Conviction: ${(payload.conviction * 100).toFixed(0)}%`);
+  }
+  if (isExit) {
+    if (payload.entry_price !== undefined) textLines.push(`Entry: ${tw_fmtPrice(payload.entry_price)}`);
+    if (payload.exit_price !== undefined) textLines.push(`Exit: ${tw_fmtPrice(payload.exit_price)}`);
+    textLines.push(`P&L: ${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`);
+    if (payload.outcome) textLines.push(`Outcome: ${payload.outcome.toUpperCase()}`);
+    if (payload.reason) textLines.push(`Reason: ${payload.reason}`);
+  }
+  if (payload.rationale) {
+    textLines.push('');
+    textLines.push(payload.rationale);
+  }
+  textLines.push('');
+  textLines.push(`Open the dashboard: ${dashboardUrl}`);
+  textLines.push('');
+  textLines.push('You are receiving this because you followed this bot on TradeWorkz. Manage or unfollow from the dashboard.');
+
+  const outcome = tw_outcomeChip(payload.outcome);
+  const safeUrl = escapeHtml(dashboardUrl);
+  const safeBotName = escapeHtml(botDisplayName);
+  const safeReason = payload.reason ? escapeHtml(payload.reason) : null;
+  const safeStrategy = payload.strategy_type ? escapeHtml(payload.strategy_type) : null;
+  const safeRationale = payload.rationale ? escapeHtml(payload.rationale) : null;
+  const headline = isExit
+    ? `${safeBotName} closed a ${dirText} ${escapeHtml(underlying)} trade`
+    : isEntry
+      ? `${safeBotName} opened a ${dirText} ${escapeHtml(underlying)} trade`
+      : `${safeBotName} — ${eventType.toUpperCase()} on ${escapeHtml(underlying)}`;
+  const headerColor = isExit && payload.outcome
+    ? payload.outcome === 'win' ? '#0F7A3A' : payload.outcome === 'loss' ? '#A31226' : '#374151'
+    : '#003F5C';
+
+  const rows: Array<{ label: string; value: string; tone?: string }> = [];
+  if (payload.strategy_type) rows.push({ label: 'Structure', value: safeStrategy! });
+  if (payload.contracts !== undefined) rows.push({ label: 'Contracts', value: String(payload.contracts) });
+  if (isEntry) {
+    if (payload.entry_price !== undefined) rows.push({ label: 'Entry', value: tw_fmtPrice(payload.entry_price) });
+    if (payload.target_price !== undefined) rows.push({ label: 'Target', value: tw_fmtPrice(payload.target_price) });
+    if (payload.stop_price !== undefined) rows.push({ label: 'Stop', value: tw_fmtPrice(payload.stop_price) });
+    if (payload.conviction !== undefined) rows.push({ label: 'Conviction', value: `${(payload.conviction * 100).toFixed(0)}%` });
+  } else if (isExit) {
+    if (payload.entry_price !== undefined) rows.push({ label: 'Entry', value: tw_fmtPrice(payload.entry_price) });
+    if (payload.exit_price !== undefined) rows.push({ label: 'Exit', value: tw_fmtPrice(payload.exit_price) });
+    rows.push({
+      label: 'Realized P&L',
+      value: `${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`,
+      tone: (payload.realized_pnl ?? 0) >= 0 ? '#0F7A3A' : '#A31226',
+    });
+    if (safeReason) rows.push({ label: 'Reason', value: safeReason });
+  }
+
+  const rowsHtml = rows
+    .map(
+      (r) => `
+        <tr>
+          <td style="padding:6px 0; color:#6b7280; font-size:13px; width:120px;">${r.label}</td>
+          <td style="padding:6px 0; color:${r.tone ?? '#111827'}; font-size:13px; font-weight:500; text-align:right; font-variant-numeric: tabular-nums;">${r.value}</td>
+        </tr>`,
+    )
+    .join('');
+
+  const outcomeBadge = isExit && payload.outcome
+    ? `<span style="display:inline-block; margin-left:8px; padding:2px 8px; border-radius:9999px; background:${outcome.bg}; color:${outcome.color}; font-size:11px; font-weight:600; letter-spacing:0.03em;">${outcome.label}</span>`
+    : '';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <div style="border-top: 3px solid ${headerColor}; padding-top: 20px;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">
+          TradeWorkz ${eventType.toUpperCase()}${outcomeBadge}
+        </div>
+        <h1 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px;">${headline}</h1>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">${rowsHtml}</table>
+        ${safeRationale ? `<p style="font-size: 13px; color: #4b5563; border-left: 3px solid #e5e7eb; padding-left: 10px; margin: 16px 0;">${safeRationale}</p>` : ''}
+        <p style="margin: 24px 0;">
+          <a href="${safeUrl}" style="display: inline-block; padding: 10px 18px; background: ${headerColor}; color: #ffffff; font-weight: 600; text-decoration: none; border-radius: 8px; font-size: 14px;">Open dashboard</a>
+        </p>
+      </div>
+      <p style="font-size: 11px; color: #9ca3af; margin-top: 32px; line-height: 1.5;">
+        You are receiving this because you followed ${safeBotName} on TradeWorkz. Manage channels or unfollow from the bot card on the dashboard.
+      </p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text: textLines.join('\n'),
+    html,
+  });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}

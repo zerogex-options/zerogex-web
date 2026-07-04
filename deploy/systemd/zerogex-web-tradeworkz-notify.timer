@@ -1,0 +1,15 @@
+[Unit]
+Description=ZeroGEX TradeWorkz follower email delivery timer (every minute)
+
+[Timer]
+# Every minute, staggered a few seconds off :00 so it doesn't collide with
+# other :00-fired maintenance cron jobs. The delivery worker is fast when
+# the queue is empty (single HTTP call, short response), so a minute-level
+# cadence is fine.
+OnCalendar=*:0/1:12
+# Randomize a bit so rolling deploys don't all fire together.
+RandomizedDelaySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

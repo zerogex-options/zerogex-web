@@ -117,8 +117,14 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
   if (typeof window === 'undefined') return null;
 
   return createPortal(
+    // Full-viewport scroll container. Content always starts at the top
+    // (items-start) so a modal taller than the viewport stays reachable
+    // from its header — items-center would center-align tall content and
+    // clip the top off-screen. Padding on this layer keeps the modal off
+    // the viewport edges; padding-top:0 on mobile so the header is right
+    // at the top of the scroll area on small screens.
     <div
-      className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-3 md:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 overflow-y-auto px-3 md:px-6 py-6 md:py-10"
       onClick={onClose}
       style={{
         backgroundColor: 'rgba(0,0,0,0.55)',
@@ -126,7 +132,7 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
       }}
     >
       <div
-        className="relative w-full max-w-5xl rounded-2xl my-8"
+        className="relative w-full max-w-5xl rounded-2xl mx-auto"
         onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: 'var(--color-surface)',
