@@ -68,7 +68,18 @@ if [ -f "$ENV_FILE" ]; then
     warn_missing_env RESEND_API_KEY
     warn_missing_env RESEND_FROM_EMAIL
     warn_missing_env NEXT_PUBLIC_APP_URL
-    warn_missing_env ZEROGEX_API_TOKEN
+    # Either the current-name ZEROGEX_API_TOKEN or the legacy
+    # ZEROGEX_API_KEY works — the worker (and the BFF proxy) accept
+    # both with the same precedence. Only warn when neither is set.
+    api_token=$(grep -E "^ZEROGEX_API_TOKEN=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    api_key=$(grep -E "^ZEROGEX_API_KEY=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -n "$api_token" ]; then
+        log "  ✓ ZEROGEX_API_TOKEN is set"
+    elif [ -n "$api_key" ]; then
+        log "  ✓ ZEROGEX_API_KEY is set (accepted as fallback for ZEROGEX_API_TOKEN)"
+    else
+        log "  ⚠ ZEROGEX_API_TOKEN / ZEROGEX_API_KEY unset in $ENV_FILE — timer will install but sends will error until set"
+    fi
     warn_missing_env TRADEWORKZ_INTERNAL_API
 else
     log "  ⚠ $ENV_FILE not found — step 030 should have created it"

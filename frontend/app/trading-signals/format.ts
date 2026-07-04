@@ -9,9 +9,16 @@ export function fmtMoney(value: number | null | undefined): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? '-' : '';
   // Two consistent branches: `$X.XXM` at or above $1,000,000, `$X.XXK`
-  // everywhere below. Two decimals everywhere, so the same number reads
+  // everywhere below. Two decimals everywhere so the same number reads
   // the same across NAV, P&L, and trade rows.
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  //
+  // The threshold is 999,995 rather than 1,000,000 to avoid the
+  // rounding-boundary display bug where 999,999.99 formats as
+  // "$1000.00K" (technically "under $1M" but visually indistinguishable
+  // from an $1M number). At 999,995+ we promote to M so the same value
+  // reads "$1.00M" — matching how "$1.01M" already renders for slightly
+  // larger amounts.
+  if (abs >= 999_995) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
   return `${sign}$${(abs / 1_000).toFixed(2)}K`;
 }
 
