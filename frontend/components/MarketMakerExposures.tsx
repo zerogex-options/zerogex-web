@@ -160,14 +160,13 @@ const FLIP_LINE = '#FFB44A';
 
 // Session level lines (pre-market + previous-session high/low) — non-index
 // symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
-// Deliberately distinct hue families from the GEX levels above: violet for
-// the pre-market pair, pink for the previous-session pair, with the lighter
-// shade on the high and the deeper shade on the low. The fine-dotted dash
-// keeps them visually subordinate to the walls/flip/spot lines.
-const PM_HIGH_LINE = '#C084FC';
-const PM_LOW_LINE = '#9333EA';
-const PREV_HIGH_LINE = '#F472B6';
-const PREV_LOW_LINE = '#DB2777';
+// Deliberately distinct hues from the GEX levels above: violet for the
+// pre-market pair, pink for the previous-session pair. High and low of a
+// session share its hue — same convention as the walls sharing KEY_LEVEL —
+// and the on-line pills disambiguate. The fine-dotted dash keeps them
+// visually subordinate to the walls/flip/spot lines.
+const PM_LEVEL_LINE = '#C084FC';
+const PREV_LEVEL_LINE = '#F472B6';
 const SESSION_LEVEL_DASH = '2 3';
 
 const ZOOM_MIN = 0.4;
@@ -980,16 +979,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       const prevHigh = toNumber(sessionLevels.prev_session_high);
       const prevLow = toNumber(sessionLevels.prev_session_low);
       if (pmHigh != null) {
-        items.push({ y: yFor(pmHigh), price: pmHigh, color: PM_HIGH_LINE, label: 'PM High', dash: SESSION_LEVEL_DASH });
+        items.push({ y: yFor(pmHigh), price: pmHigh, color: PM_LEVEL_LINE, label: 'PM High', dash: SESSION_LEVEL_DASH });
       }
       if (pmLow != null) {
-        items.push({ y: yFor(pmLow), price: pmLow, color: PM_LOW_LINE, label: 'PM Low', dash: SESSION_LEVEL_DASH });
+        items.push({ y: yFor(pmLow), price: pmLow, color: PM_LEVEL_LINE, label: 'PM Low', dash: SESSION_LEVEL_DASH });
       }
       if (prevHigh != null) {
-        items.push({ y: yFor(prevHigh), price: prevHigh, color: PREV_HIGH_LINE, label: 'Prev High', dash: SESSION_LEVEL_DASH });
+        items.push({ y: yFor(prevHigh), price: prevHigh, color: PREV_LEVEL_LINE, label: 'Prev High', dash: SESSION_LEVEL_DASH });
       }
       if (prevLow != null) {
-        items.push({ y: yFor(prevLow), price: prevLow, color: PREV_LOW_LINE, label: 'Prev Low', dash: SESSION_LEVEL_DASH });
+        items.push({ y: yFor(prevLow), price: prevLow, color: PREV_LEVEL_LINE, label: 'Prev Low', dash: SESSION_LEVEL_DASH });
       }
     }
     return items;
@@ -2370,29 +2369,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </span>
         {!symbolIsIndex && (
           <>
-            <span className="flex items-center gap-1.5" title="High of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+            <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
               <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_HIGH_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
               </svg>
-              <span style={{ color: textPrimary }}>PM High</span>
+              <span style={{ color: textPrimary }}>PM High/Low</span>
             </span>
-            <span className="flex items-center gap-1.5" title="Low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+            <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30–16:00 ET)">
               <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LOW_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
               </svg>
-              <span style={{ color: textPrimary }}>PM Low</span>
-            </span>
-            <span className="flex items-center gap-1.5" title="High of the previous regular session (09:30–16:00 ET)">
-              <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_HIGH_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
-              </svg>
-              <span style={{ color: textPrimary }}>Prev High</span>
-            </span>
-            <span className="flex items-center gap-1.5" title="Low of the previous regular session (09:30–16:00 ET)">
-              <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LOW_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
-              </svg>
-              <span style={{ color: textPrimary }}>Prev Low</span>
+              <span style={{ color: textPrimary }}>Prev High/Low</span>
             </span>
           </>
         )}
