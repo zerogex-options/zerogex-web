@@ -305,6 +305,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 10,
     kind: 'tier1',
   },
+  'spy-vs-spx-gamma-levels': {
+    slug: 'spy-vs-spx-gamma-levels',
+    href: '/education/spy-vs-spx-gamma-levels',
+    title: 'SPY vs SPX Options: Which Gamma Levels Matter?',
+    blurb:
+      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and why the level that matters most is the one where they agree.',
+    description:
+      'SPY vs SPX options — which gamma levels matter? How the two dealer gamma books differ, translating levels with the ~10x ratio, which carries more weight, and why confluence between SPX and SPY is the strongest signal.',
+    datePublished: '2026-07-06',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
 };
 
 /**
@@ -392,7 +404,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'options-support-and-resistance': [
     'gamma-walls-explained',
     'why-spy-reverses-at-levels',
-    'gamma-exposure-explained',
+    'spy-vs-spx-gamma-levels',
   ],
   'how-to-avoid-chasing-0dte': [
     '0dte-dealer-positioning-explained',
@@ -418,6 +430,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'what-is-negative-gamma',
     'gamma-exposure-explained',
+  ],
+  'spy-vs-spx-gamma-levels': [
+    'gamma-walls-explained',
+    'options-support-and-resistance',
+    'how-to-read-a-gamma-flip',
   ],
 };
 

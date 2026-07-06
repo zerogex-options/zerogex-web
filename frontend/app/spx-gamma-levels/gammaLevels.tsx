@@ -157,7 +157,7 @@ const LEARN_MORE_LINKS: { href: string; label: string }[] = [
   { href: '/education/gamma-walls-explained', label: 'What Is a Call Wall?' },
   { href: '/education/options-support-and-resistance', label: 'What Is a Put Wall?' },
   { href: '/education/how-to-trade-around-gamma-flip', label: 'How Traders Use Gamma Levels' },
-  { href: '/education/gamma-exposure-explained', label: 'Gamma Exposure (GEX) Explained' },
+  { href: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Options: Which Gamma Levels Matter?' },
 ];
 
 function fmtPrice(value: number | null | undefined): string {

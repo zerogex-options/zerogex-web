@@ -18,6 +18,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/spy-vs-spx-gamma-levels',
+    kind: 'Published • July 6, 2026 • 16:00 UTC',
+    title: 'SPY vs SPX Options: Which Gamma Levels Matter?',
+    blurb:
+      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and why the level that matters most is the one where the two agree.',
+  },
+  {
     href: '/education/announcing-folds-of-honor-pledge',
     kind: 'Published • June 24, 2026 • Announcement',
     title: 'Announcing Our 3% Pledge to Folds of Honor',
