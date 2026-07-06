@@ -28,6 +28,7 @@ interface Props {
   bots: BotRow[]; // for palette index mapping (fixed by roster order)
   followedIds: Set<string>;
   onFollowChanged: () => void;
+  onOptimisticFollow?: (botId: string, followed: boolean) => void;
 }
 
 export default function LeaderboardTable({
@@ -40,6 +41,7 @@ export default function LeaderboardTable({
   bots,
   followedIds,
   onFollowChanged,
+  onOptimisticFollow,
 }: Props) {
   const rows = useMemo(() => data?.leaderboard ?? [], [data]);
   // Palette index is fixed by the FULL roster order (not the leaderboard
@@ -185,6 +187,7 @@ export default function LeaderboardTable({
                         paletteIndex={paletteIndexOf(row.bot_id)}
                         followed={followedIds.has(row.bot_id)}
                         onFollowChanged={onFollowChanged}
+                        onOptimisticFollow={onOptimisticFollow}
                         variant="icon"
                       />
                     </div>

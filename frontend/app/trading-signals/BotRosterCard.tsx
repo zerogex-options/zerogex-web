@@ -30,6 +30,7 @@ interface Props {
   paletteIndex?: number;
   followed: boolean;
   onFollowChanged: () => void;
+  onOptimisticFollow?: (botId: string, followed: boolean) => void;
 }
 
 export default function BotRosterCard({
@@ -39,6 +40,7 @@ export default function BotRosterCard({
   paletteIndex = 0,
   followed,
   onFollowChanged,
+  onOptimisticFollow,
 }: Props) {
   const sparkline = useApiData<EquityCurveResponse>(
     `/api/tradeworkz/bots/${bot.id}/equity-curve?days=30`,
@@ -151,6 +153,7 @@ export default function BotRosterCard({
             paletteIndex={paletteIndex}
             followed={followed}
             onFollowChanged={onFollowChanged}
+            onOptimisticFollow={onOptimisticFollow}
           />
         </div>
       </div>
