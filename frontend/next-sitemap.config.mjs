@@ -80,6 +80,11 @@ const config = {
     '/founding',
     // /landing is served by a 308 redirect to / (see next.config.ts)
     '/landing',
+    // Content clones of /spx-gamma-levels — identical view, canonical points
+    // back at /spx-gamma-levels, so keep the duplicates out of the sitemap and
+    // let signals consolidate onto the single canonical URL.
+    '/spy-gamma-levels',
+    '/qqq-gamma-levels',
     // 301 redirect to /education/gamma-exposure-explained — keep the source
     // URL out of the sitemap so Google stops finding it via discovery and
     // funnels signals into the pillar instead.

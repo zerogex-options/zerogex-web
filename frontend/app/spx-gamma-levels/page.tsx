@@ -6,6 +6,7 @@ import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import LandingHeader from '@/components/LandingHeader';
 import Footer from './Footer';
+import ShareBlock from './ShareBlock';
 
 // Free, public, ~15-minute-delayed view of the derived dealer-gamma levels we
 // publish on X every morning. Pure server component: ISR-cached at 900s so the
@@ -81,6 +82,60 @@ function fmtNetGex(value: number | null | undefined): string {
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
   return `${sign}$${abs.toFixed(0)}`;
+}
+
+// ── Copy/paste share snippet ────────────────────────────────────────────────
+// The shareable block is built server-side from the same ISR snapshot that
+// feeds the cards below, so it stays in sync and ships inside the static HTML.
+// Formatting is plain-text and platform-agnostic (ASCII +/- signs, trimmed
+// decimals) so it pastes cleanly into X, StockTwits, Reddit, Discord, etc.:
+//   • spot + gamma flip keep the index/ETF decimal convention (SPX whole,
+//     SPY/QQQ two decimals),
+//   • call/put walls are strikes → whole numbers,
+//   • net GEX collapses to a signed $B/$M/$K magnitude.
+const SHARE_URL = 'https://zerogex.io/spx-gamma-levels';
+
+function fmtShareLevel(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  if (value >= 1000) return Math.round(value).toString();
+  return value.toFixed(2);
+}
+
+function fmtShareStrike(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return Math.round(value).toString();
+}
+
+function fmtShareGex(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const abs = Math.abs(value);
+  const sign = value >= 0 ? '+' : '-';
+  const trim = (x: number, dp: number) => parseFloat(x.toFixed(dp)).toString();
+  if (abs >= 1e9) return `${sign}$${trim(abs / 1e9, 2)}B`;
+  if (abs >= 1e6) return `${sign}$${trim(abs / 1e6, 1)}M`;
+  if (abs >= 1e3) return `${sign}$${trim(abs / 1e3, 0)}K`;
+  return `${sign}$${Math.round(abs)}`;
+}
+
+function shareLine(symbol: Symbol, data: GexSummary | null): string {
+  return (
+    `${symbol}: spot ${fmtShareLevel(data?.spot_price)} | ` +
+    `Call Wall ${fmtShareStrike(data?.call_wall)} | ` +
+    `Put Wall ${fmtShareStrike(data?.put_wall)} | ` +
+    `Gamma Flip ${fmtShareLevel(data?.gamma_flip)} | ` +
+    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}`
+  );
+}
+
+function buildShareSnippet(snapshots: Record<Symbol, GexSummary | null>): string {
+  return [
+    'SPX / SPY / QQQ gamma levels from ZeroGEX:',
+    shareLine('SPX', snapshots.SPX),
+    shareLine('SPY', snapshots.SPY),
+    shareLine('QQQ', snapshots.QQQ),
+    'Free delayed levels:',
+    SHARE_URL,
+  ].join('\n');
 }
 
 function fmtTimestampET(iso: string | undefined): string {
@@ -264,6 +319,14 @@ export default async function SpxGammaLevelsPage() {
   const snapshots = await loadSnapshots();
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
+  // Daily copy/paste share snapshot — built here so it ships in the ISR HTML and
+  // is passed to the interactive ShareBlock as a ready-to-post string.
+  const shareSnippet = buildShareSnippet(snapshots);
+  const shareHasData = SYMBOLS.some((s) => {
+    const spot = snapshots[s]?.spot_price;
+    return typeof spot === 'number' && Number.isFinite(spot);
+  });
+
   // The freshest timestamp across the three symbols is what we surface as the
   // page's "as of" line — the ISR cache holds for 900s, so any individual cell
   // may be up to ~15 minutes older than the actual server clock.
@@ -354,6 +417,13 @@ export default async function SpxGammaLevelsPage() {
             an expiration pin. Live dashboards update every few seconds — this page caches ~15 minutes behind that.
           </p>
         </header>
+
+        <ShareBlock
+          snippet={shareSnippet}
+          shareUrl={SHARE_URL}
+          hasData={shareHasData}
+          asOf={latestTimestamp ? fmtTimestampET(latestTimestamp) : null}
+        />
 
         {!anyData && (
           <div

@@ -34,6 +34,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/reset-password',
   '/unauthorized',
   '/spx-gamma-levels',
+  // /spy-gamma-levels and /qqq-gamma-levels are content clones of
+  // /spx-gamma-levels (same public, delayed view; canonical → spx-gamma-levels).
+  '/spy-gamma-levels',
+  '/qqq-gamma-levels',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
   // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
