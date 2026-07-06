@@ -64,7 +64,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/admin/*', minimumTier: 'admin' },
   // Advanced Signals — Pro only.
   { pattern: '/signal-score', minimumTier: 'pro' },
-  { pattern: '/trading-signals', minimumTier: 'admin' },
+  { pattern: '/trading-signals', minimumTier: 'pro' },
   { pattern: '/advanced-signals', minimumTier: 'pro' },
   { pattern: '/eod-pressure', minimumTier: 'pro' },
   { pattern: '/squeeze-setup', minimumTier: 'pro' },
