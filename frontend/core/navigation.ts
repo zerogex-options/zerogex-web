@@ -32,7 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Signals',
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
-      { id: '/trading-signals', label: 'TradeWorkz', requiredTier: 'pro', beta: true },
+      { id: '/trading-signals', label: 'TradeWorkz™', requiredTier: 'pro', beta: true },
     ],
     subgroups: [
       {

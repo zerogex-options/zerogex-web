@@ -54,7 +54,7 @@ const CHANNEL_META: Array<{
     key: 'in_app',
     label: 'In-app',
     status: 'Live',
-    description: 'Appears in the notification bell on the TradeWorkz dashboard.',
+    description: 'Appears in the notification bell on the TradeWorkz™ dashboard.',
   },
   {
     key: 'email',
@@ -249,7 +249,7 @@ export default function NotificationsClient() {
             Notifications
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)] max-w-2xl mt-2 leading-relaxed">
-            Manage the TradeWorkz bots you follow and the channels each subscription uses.
+            Manage the TradeWorkz™ bots you follow and the channels each subscription uses.
             Changes save automatically.
           </p>
         </div>
@@ -304,7 +304,7 @@ export default function NotificationsClient() {
               You aren't following any bots yet
             </h2>
             <p className="text-sm text-[var(--color-text-secondary)] max-w-md mx-auto">
-              Head to TradeWorkz and click Follow on any bot to start receiving entry / exit
+              Head to TradeWorkz™ and click Follow on any bot to start receiving entry / exit
               notifications.
             </p>
             <Link
@@ -312,7 +312,7 @@ export default function NotificationsClient() {
               className="inline-block mt-4 text-xs font-medium px-3 py-2 rounded-full"
               style={{ backgroundColor: 'var(--color-info)', color: 'var(--color-on-info, #ffffff)' }}
             >
-              Open TradeWorkz
+              Open TradeWorkz™
             </Link>
           </div>
         ) : (
