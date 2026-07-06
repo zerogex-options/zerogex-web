@@ -35,7 +35,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, BellDot, Loader2 } from 'lucide-react';
+import { AlertCircle, Bell, BellDot, Check, Loader2 } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { botColor, botColorSoft } from './palette';
 
@@ -46,6 +46,12 @@ interface Props {
   paletteIndex: number;
   followed: boolean;
   onFollowChanged: () => void;
+  // Optional: parent flips the pill's local `followedIds` set instantly
+  // instead of waiting on the network refetch. Without this, the pill
+  // can still read "Follow" for the ~200ms between a successful save
+  // and the parent's follows.refetch() landing, which reads as a dead
+  // click and prompts the user to click again.
+  onOptimisticFollow?: (botId: string, followed: boolean) => void;
   variant?: Variant;
 }
 
@@ -98,19 +104,34 @@ async function upsertFollow(botId: string, state: BotState): Promise<void> {
   if (state.in_app) channels.in_app = true;
   if (state.email) channels.email = true;
   if (state.webhook) channels.webhook = true;
-  await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
+  const res = await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ channels, min_confidence: state.min_confidence }),
   });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.text();
+      detail = body.slice(0, 200);
+    } catch {
+      /* ignore body-read errors */
+    }
+    throw new Error(
+      `Follow failed (HTTP ${res.status})${detail ? `: ${detail}` : ''}`,
+    );
+  }
 }
 
 async function removeFollow(botId: string): Promise<void> {
-  await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
+  const res = await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
     method: 'DELETE',
     credentials: 'include',
   });
+  if (!res.ok) {
+    throw new Error(`Unfollow failed (HTTP ${res.status})`);
+  }
 }
 
 export default function FollowControl({
@@ -118,6 +139,7 @@ export default function FollowControl({
   paletteIndex,
   followed,
   onFollowChanged,
+  onOptimisticFollow,
   variant = 'pill',
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -130,6 +152,13 @@ export default function FollowControl({
   const [saved, setSaved] = useState<BotState | null>(null);
   const [draft, setDraft] = useState<BotState>(DEFAULT_STATE);
   const [busy, setBusy] = useState(false);
+  // Transient states so a save round-trip is always visible: `error` is
+  // the message from an inline-surfaced fetch failure, cleared as soon
+  // as the user tweaks anything or reopens. `justSaved` flips true on
+  // success and drives the "Saved ✓" chip; a timeout clears it and
+  // closes the popover after ~600ms so the confirmation is readable.
+  const [error, setError] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number }>({
@@ -148,6 +177,8 @@ export default function FollowControl({
 
   useEffect(() => {
     if (!open) return;
+    setError(null);
+    setJustSaved(false);
     followsRes.refetch();
     const record = followsRes.data?.follows.find((f) => f.bot_id === botId);
     if (record) {
@@ -182,7 +213,17 @@ export default function FollowControl({
   }, [saved, draft]);
 
   const anyChannelOn = draft.in_app || draft.email || draft.webhook;
-  const canSave = !busy && hasChanges && anyChannelOn;
+  const canSave = !busy && !justSaved && hasChanges && anyChannelOn;
+
+  // Any user edit clears a lingering error so the popover doesn't
+  // pretend a stale failure still applies to the new draft.
+  const patchDraft = useCallback(
+    (patch: Partial<BotState>) => {
+      if (error) setError(null);
+      setDraft((s) => ({ ...s, ...patch }));
+    },
+    [error],
+  );
 
   const reposition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -238,18 +279,31 @@ export default function FollowControl({
       e.stopPropagation();
       if (busy || !canSave) return;
       setBusy(true);
+      setError(null);
       try {
         await upsertFollow(botId, draft);
-        // Snapshot the new "saved" state so a second Save without any
-        // further edits reads as a no-op (button greys out again).
+        // Snapshot the new saved state so an unchanged re-Save is a
+        // no-op (button re-greys). Show a visible "Saved ✓" tick for a
+        // beat before closing — the earlier flow closed instantly,
+        // which on a slow round-trip read as a dead click.
         setSaved({ ...draft });
+        setJustSaved(true);
+        // Flip parent state instantly if the parent wired the
+        // optimistic callback. That kills the "pill still says Follow
+        // after a successful save" lag which was the main cause of the
+        // "took two clicks" experience.
+        onOptimisticFollow?.(botId, true);
         onFollowChanged();
-        setOpen(false);
-      } finally {
+        setBusy(false);
+        setTimeout(() => setOpen(false), 500);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Unknown error saving';
+        setError(message);
         setBusy(false);
       }
     },
-    [busy, canSave, botId, draft, onFollowChanged],
+    [busy, canSave, botId, draft, onFollowChanged, onOptimisticFollow],
   );
 
   const onUnfollow = useCallback(
@@ -257,15 +311,21 @@ export default function FollowControl({
       e.stopPropagation();
       if (busy) return;
       setBusy(true);
+      setError(null);
       try {
         await removeFollow(botId);
+        onOptimisticFollow?.(botId, false);
         onFollowChanged();
+        setBusy(false);
         setOpen(false);
-      } finally {
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Unknown error';
+        setError(message);
         setBusy(false);
       }
     },
-    [busy, botId, onFollowChanged],
+    [busy, botId, onFollowChanged, onOptimisticFollow],
   );
 
   const toggleOpen = useCallback((e: React.MouseEvent) => {
@@ -350,9 +410,7 @@ export default function FollowControl({
                   label="In-app"
                   status="Live"
                   checked={draft.in_app}
-                  onToggle={() =>
-                    setDraft((s) => ({ ...s, in_app: !s.in_app }))
-                  }
+                  onToggle={() => patchDraft({ in_app: !draft.in_app })}
                   color={color}
                   description="Appears in the bell at the top of the TradeWorkz™ page."
                 />
@@ -360,9 +418,7 @@ export default function FollowControl({
                   label="Email"
                   status="Live"
                   checked={draft.email}
-                  onToggle={() =>
-                    setDraft((s) => ({ ...s, email: !s.email }))
-                  }
+                  onToggle={() => patchDraft({ email: !draft.email })}
                   color={color}
                   description="Sent by the minute-cadence email worker. Requires a verified email."
                 />
@@ -370,9 +426,7 @@ export default function FollowControl({
                   label="Webhook"
                   status="Queued"
                   checked={draft.webhook}
-                  onToggle={() =>
-                    setDraft((s) => ({ ...s, webhook: !s.webhook }))
-                  }
+                  onToggle={() => patchDraft({ webhook: !draft.webhook })}
                   color={color}
                   description="Rows are logged now; a webhook delivery worker is not yet wired."
                 />
@@ -393,10 +447,7 @@ export default function FollowControl({
                     step={0.05}
                     value={draft.min_confidence}
                     onChange={(e) =>
-                      setDraft((s) => ({
-                        ...s,
-                        min_confidence: Number(e.target.value),
-                      }))
+                      patchDraft({ min_confidence: Number(e.target.value) })
                     }
                     onClick={(e) => e.stopPropagation()}
                     className="w-full"
@@ -408,6 +459,20 @@ export default function FollowControl({
                   </div>
                 </div>
               </div>
+              {error ? (
+                <div
+                  className="px-4 py-2 text-[11px] flex items-start gap-2"
+                  style={{
+                    backgroundColor: 'var(--color-bear-soft)',
+                    color: 'var(--color-bear)',
+                    borderTop: '1px solid var(--color-border)',
+                  }}
+                  role="alert"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span className="leading-snug break-words">{error}</span>
+                </div>
+              ) : null}
               <div
                 className="px-4 py-3 flex items-center justify-between gap-2 border-t"
                 style={{
@@ -419,9 +484,16 @@ export default function FollowControl({
                   <button
                     onClick={onUnfollow}
                     disabled={busy}
-                    className="text-[11px] text-[var(--color-bear)] hover:underline"
+                    className="text-[11px] text-[var(--color-bear)] hover:underline inline-flex items-center gap-1"
                   >
-                    {busy ? 'Working…' : 'Unfollow'}
+                    {busy ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Working…
+                      </>
+                    ) : (
+                      'Unfollow'
+                    )}
                   </button>
                 ) : (
                   <span
@@ -435,25 +507,40 @@ export default function FollowControl({
                 )}
                 <button
                   onClick={onSave}
-                  disabled={!canSave}
+                  disabled={!canSave && !justSaved}
                   className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors inline-flex items-center gap-1.5"
                   style={{
-                    backgroundColor: canSave
-                      ? color
-                      : 'var(--color-surface-subtle)',
-                    color: canSave
-                      ? 'var(--color-on-info, #ffffff)'
-                      : 'var(--color-text-secondary)',
-                    border: `1px solid ${canSave ? color : 'var(--color-border)'}`,
-                    opacity: canSave ? 1 : 0.7,
-                    cursor: canSave ? 'pointer' : 'not-allowed',
+                    backgroundColor: justSaved
+                      ? 'var(--color-bull)'
+                      : canSave
+                        ? color
+                        : 'var(--color-surface-subtle)',
+                    color:
+                      justSaved || canSave
+                        ? 'var(--color-on-info, #ffffff)'
+                        : 'var(--color-text-secondary)',
+                    border: `1px solid ${
+                      justSaved
+                        ? 'var(--color-bull)'
+                        : canSave
+                          ? color
+                          : 'var(--color-border)'
+                    }`,
+                    opacity: canSave || justSaved ? 1 : 0.7,
+                    cursor: canSave ? 'pointer' : 'default',
                   }}
                   aria-live="polite"
+                  aria-busy={busy}
                 >
                   {busy ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Saving…
+                    </>
+                  ) : justSaved ? (
+                    <>
+                      <Check className="w-3 h-3" />
+                      Saved
                     </>
                   ) : (
                     'Save'

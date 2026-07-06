@@ -74,10 +74,50 @@ export default function TradeWorkzClient() {
     [bots],
   );
 
-  const followedIds = useMemo(
-    () => new Set((follows.data?.follows ?? []).map((f) => f.bot_id)),
-    [follows.data],
-  );
+  // Optimistic overlay on top of the server-derived follow list, so a
+  // successful Save flips the pill / bell icon INSTANTLY instead of
+  // waiting for the /me/follows refetch to land (~200ms). Keyed by
+  // bot_id, value is the desired boolean; entries are cleared once the
+  // server's follows.data reflects the same state.
+  const [optimisticFollows, setOptimisticFollows] = useState<
+    Map<string, boolean>
+  >(new Map());
+  const followedIds = useMemo(() => {
+    const s = new Set((follows.data?.follows ?? []).map((f) => f.bot_id));
+    for (const [id, wanted] of optimisticFollows.entries()) {
+      if (wanted) s.add(id);
+      else s.delete(id);
+    }
+    return s;
+  }, [follows.data, optimisticFollows]);
+
+  // Clear optimistic entries once the server confirms them, so a
+  // subsequent legitimate change from another surface (Account >
+  // Notifications, another tab) can't be masked by a stale optimistic
+  // overlay.
+  useEffect(() => {
+    if (optimisticFollows.size === 0) return;
+    const serverSet = new Set((follows.data?.follows ?? []).map((f) => f.bot_id));
+    setOptimisticFollows((prev) => {
+      const next = new Map(prev);
+      let changed = false;
+      for (const [id, wanted] of prev.entries()) {
+        if (serverSet.has(id) === wanted) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [follows.data, optimisticFollows]);
+
+  const onOptimisticFollow = useCallback((botId: string, wanted: boolean) => {
+    setOptimisticFollows((prev) => {
+      const next = new Map(prev);
+      next.set(botId, wanted);
+      return next;
+    });
+  }, []);
 
   const paletteIndex = useCallback(
     (botId: string) => {
@@ -431,6 +471,7 @@ export default function TradeWorkzClient() {
             bots={bots}
             followedIds={followedIds}
             onFollowChanged={follows.refetch}
+            onOptimisticFollow={onOptimisticFollow}
           />
         </section>
 
@@ -465,6 +506,7 @@ export default function TradeWorkzClient() {
                   selected={selectedBotId === bot.id}
                   followed={followedIds.has(bot.id)}
                   onFollowChanged={follows.refetch}
+                  onOptimisticFollow={onOptimisticFollow}
                 />
               ))}
             </div>
