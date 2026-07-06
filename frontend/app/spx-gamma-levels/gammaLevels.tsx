@@ -5,6 +5,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import LandingHeader from '@/components/LandingHeader';
+import PlotOnTradingView from '@/components/PlotOnTradingView';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
 
@@ -590,6 +591,11 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             <SymbolCard key={symbol} symbol={symbol} data={snapshots[symbol]} isPrimary={symbol === primary} />
           ))}
         </section>
+
+        {/* Free-indicator funnel: hand the trader a way to plot today's numbers
+            on their own chart, then route them to the live dashboard. Shared by
+            all three ticker pages via this GammaLevelsView. */}
+        <PlotOnTradingView />
 
         <section
           style={{
