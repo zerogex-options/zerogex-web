@@ -19,6 +19,7 @@ import {
 import {
   useApiData,
   useGEXSummary,
+  useSessionLevels,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
@@ -26,7 +27,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { etTodayDateKey, getMarketSession, omitClosedMarketTimes } from '@/core/utils';
+import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -156,6 +157,18 @@ const MID_W = 280;
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
+
+// Session level lines (pre-market + previous-session high/low) — non-index
+// symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
+// Deliberately distinct hue families from the GEX levels above: violet for
+// the pre-market pair, pink for the previous-session pair, with the lighter
+// shade on the high and the deeper shade on the low. The fine-dotted dash
+// keeps them visually subordinate to the walls/flip/spot lines.
+const PM_HIGH_LINE = '#C084FC';
+const PM_LOW_LINE = '#9333EA';
+const PREV_HIGH_LINE = '#F472B6';
+const PREV_LOW_LINE = '#DB2777';
+const SESSION_LEVEL_DASH = '2 3';
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
@@ -321,6 +334,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // needed for candle data — the price chart pulls OHLC from
   // /api/market/historical below, which is the dedicated tape source.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
+
+  // ── Session levels: pre-market + previous-session high/low ──
+  // Non-index symbols only (SPY/QQQ etc.) — cash indexes have no pre-market
+  // session, so the fetch is skipped entirely and no lines are drawn.  The
+  // backend rolls these at 04:00 ET (pre-market start) and live-updates the
+  // pre-market pair while that session is in progress; a 60s poll is plenty.
+  const symbolIsIndex = isIndexSymbol(symbol);
+  const { data: sessionLevels } = useSessionLevels(symbol, 60000, !symbolIsIndex);
 
   // Expiry dropdown universe.  Sourced from a dedicated lightweight endpoint
   // that scans a TRAILING WINDOW of gex_by_strike — NOT just the latest
@@ -934,10 +955,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
 
   const keyLevels = useMemo(() => {
-    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
+    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
-    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }> = [];
+    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }> = [];
     if (effFlip != null && Number.isFinite(effFlip)) {
       items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
@@ -950,8 +971,29 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (effPutWall != null && Number.isFinite(effPutWall)) {
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
     }
+    // Session context levels — pre-market + previous-session high/low.
+    // Non-index symbols only; each pushes independently so partial data
+    // (e.g. no pre-market print yet at 04:01 ET) still draws what exists.
+    if (!symbolIsIndex && sessionLevels && !sessionLevels.is_index) {
+      const pmHigh = toNumber(sessionLevels.premarket_high);
+      const pmLow = toNumber(sessionLevels.premarket_low);
+      const prevHigh = toNumber(sessionLevels.prev_session_high);
+      const prevLow = toNumber(sessionLevels.prev_session_low);
+      if (pmHigh != null) {
+        items.push({ y: yFor(pmHigh), price: pmHigh, color: PM_HIGH_LINE, label: 'PM High', dash: SESSION_LEVEL_DASH });
+      }
+      if (pmLow != null) {
+        items.push({ y: yFor(pmLow), price: pmLow, color: PM_LOW_LINE, label: 'PM Low', dash: SESSION_LEVEL_DASH });
+      }
+      if (prevHigh != null) {
+        items.push({ y: yFor(prevHigh), price: prevHigh, color: PREV_HIGH_LINE, label: 'Prev High', dash: SESSION_LEVEL_DASH });
+      }
+      if (prevLow != null) {
+        items.push({ y: yFor(prevLow), price: prevLow, color: PREV_LOW_LINE, label: 'Prev Low', dash: SESSION_LEVEL_DASH });
+      }
+    }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, yBounds, PLOT_HEIGHT]);
+  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2017,7 +2059,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y1={lvl.y}
                     y2={lvl.y}
                     stroke={lvl.color}
-                    strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
+                    strokeDasharray={lvl.dash ?? (lvl.emphasized ? '5 3' : '4 4')}
                     strokeWidth={lvl.emphasized ? 1.4 : 1}
                     opacity={0.85}
                   />
@@ -2326,6 +2368,34 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
+        {!symbolIsIndex && (
+          <>
+            <span className="flex items-center gap-1.5" title="High of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_HIGH_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+              </svg>
+              <span style={{ color: textPrimary }}>PM High</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="Low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LOW_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+              </svg>
+              <span style={{ color: textPrimary }}>PM Low</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="High of the previous regular session (09:30–16:00 ET)">
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_HIGH_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+              </svg>
+              <span style={{ color: textPrimary }}>Prev High</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="Low of the previous regular session (09:30–16:00 ET)">
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LOW_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+              </svg>
+              <span style={{ color: textPrimary }}>Prev Low</span>
+            </span>
+          </>
+        )}
         <span className="ml-auto">Hover any panel for details</span>
       </div>
       )}

@@ -907,6 +907,41 @@ export function useSessionCloses(
   return result;
 }
 
+export interface SessionLevelsData {
+  symbol: string;
+  /** True for cash indexes (SPX, NDX, …) — no pre-market print; all level fields are null. */
+  is_index: boolean;
+  /** ET date whose pre-market the premarket_* fields describe. Levels roll at 04:00 ET, not at the close. */
+  trading_date: string | null;
+  /** High of trading_date's 04:00–09:30 ET pre-market session (live while the pre-market is in progress). */
+  premarket_high: number | null;
+  premarket_low: number | null;
+  /** ET date of the previous regular session the prev_session_* fields describe. */
+  prev_session_date: string | null;
+  /** High/low of the previous regular session (09:30–16:00 ET incl. the closing auction print). */
+  prev_session_high: number | null;
+  prev_session_low: number | null;
+  source?: string | null;
+  updated_at?: string | null;
+}
+
+/**
+ * Pre-market + previous-session high/low for the chart level overlays.
+ * Backed by /api/market/session-levels (the session-levels capture job with
+ * a live 1-min-bar fallback). Pass `enabled=false` for index symbols — they
+ * have no pre-market session, so there is nothing to fetch or draw.
+ */
+export function useSessionLevels(
+  symbol = 'SPY',
+  refreshInterval = 60000,
+  enabled = true,
+) {
+  return useApiData<SessionLevelsData>(
+    `/api/market/session-levels?${symbolQuery(symbol)}`,
+    { refreshInterval, enabled },
+  );
+}
+
 export function useTradeSignal(symbol = 'SPY', timeframe: SignalTimeframe = 'intraday', refreshInterval = 15000) {
   return useApiData<TradeSignalResponse>(
     `/api/signals/trade?${symbolQuery(symbol, { timeframe })}`,
