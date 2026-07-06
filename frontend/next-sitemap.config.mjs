@@ -80,11 +80,6 @@ const config = {
     '/founding',
     // /landing is served by a 308 redirect to / (see next.config.ts)
     '/landing',
-    // Content clones of /spx-gamma-levels — identical view, canonical points
-    // back at /spx-gamma-levels, so keep the duplicates out of the sitemap and
-    // let signals consolidate onto the single canonical URL.
-    '/spy-gamma-levels',
-    '/qqq-gamma-levels',
     // 301 redirect to /education/gamma-exposure-explained — keep the source
     // URL out of the sitemap so Google stops finding it via discovery and
     // funnels signals into the pillar instead.
@@ -141,10 +136,15 @@ const config = {
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
     }
-    if (urlPath === '/spx-gamma-levels') {
-      // Lead-magnet page is the SEO landing for "SPX gamma levels" intent
-      // searches — refreshed every market day, so daily changefreq matches
-      // reality and the priority sits just below the homepage.
+    if (
+      urlPath === '/spx-gamma-levels' ||
+      urlPath === '/spy-gamma-levels' ||
+      urlPath === '/qqq-gamma-levels'
+    ) {
+      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ
+      // gamma levels" intent searches. Each is self-canonical and refreshed
+      // every market day, so daily changefreq matches reality and the priority
+      // sits just below the homepage.
       return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };
     }
     if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {
