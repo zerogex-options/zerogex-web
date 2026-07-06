@@ -54,8 +54,14 @@ map $http_upgrade $connection_upgrade {
 MAPEOF
 fi
 
-if [ ! -f /etc/nginx/conf.d/zerogex-rate-limit.conf ]; then
-  sudo tee /etc/nginx/conf.d/zerogex-rate-limit.conf > /dev/null <<'LIMITEOF'
+# Always regenerate — this file is the source of truth for the shared
+# limit_req_zone / limit_conn_zone declarations. The prior version had
+# an `if [ ! -f ]` guard which meant a host that already had the older
+# file (pre-WS, without zerogex_ws_per_ip) never picked up new zones
+# on re-deploy; the /ws location block then failed nginx -t with "zero
+# size shared memory zone". Idempotent by design — writing the same
+# content is a no-op after nginx reload.
+sudo tee /etc/nginx/conf.d/zerogex-rate-limit.conf > /dev/null <<'LIMITEOF'
 # Per-IP rate limiting for app/API endpoints
 limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
 # Per-IP concurrent-connection cap for /ws. limit_req caps handshake
@@ -63,7 +69,6 @@ limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
 # thousands of persistent sockets. 10m holds ~160k IPs.
 limit_conn_zone $binary_remote_addr zone=zerogex_ws_per_ip:10m;
 LIMITEOF
-fi
 
 # Proxy response cache. The same zone is also defined by zerogex-oa
 # (deploy/steps/120.nginx_api). Whichever repo deploys first writes the
