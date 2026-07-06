@@ -229,7 +229,7 @@ export default function TradeWorkzClient() {
                 className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
                 style={{ backgroundColor: 'var(--color-info-soft)', color: 'var(--color-info)' }}
               >
-                Admin Beta
+                Beta
               </span>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl leading-relaxed">

@@ -1,23 +1,30 @@
 import { redirect } from 'next/navigation';
+import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { requireSession } from '@/core/serverAuth';
 import TradeWorkzClient from './TradeWorkzClient';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * TradeWorkz™ dashboard — a multi-bot signaled-trading engine that
- * replaces the legacy /trading-signals blotter. Admin-tier only until
- * customer rollout.
+ * TradeWorkz™ dashboard — a multi-bot signaled-trading engine.
  *
- * The tier gate is enforced twice on purpose: once here (server-side
- * redirect for direct navigations) and once in `frontend/core/auth.ts`
- * `ROUTE_ACCESS_RULES` (Next.js middleware / proxy). Belt-and-braces so
- * an SSR path that skips the proxy can't leak the page to a non-admin.
+ * Pro-tier gated (see `frontend/core/auth.ts` ROUTE_ACCESS_RULES). The
+ * middleware layer already redirects unauthorized visitors to
+ * /unauthorized, which shows an "Upgrade to unlock" pro CTA. This
+ * server-side check is a belt-and-braces re-gate so an SSR path that
+ * skips the middleware can't leak the page.
+ *
+ * Admin-only surfaces inside the dashboard (Seed / Test / Clear)
+ * are further gated inside the client via useAuthSession().
  */
 export default async function TradingSignalsPage() {
   const actor = await requireSession();
-  if (!actor || actor.user.tier !== 'admin') {
-    redirect('/');
+  if (!actor) {
+    redirect('/login?next=/trading-signals');
+  }
+  const tier = normalizeTier(actor.user.tier);
+  if (!hasTierAccess(tier, 'pro')) {
+    redirect(`/unauthorized?required=pro&current=${tier}&path=/trading-signals`);
   }
   return <TradeWorkzClient />;
 }

@@ -59,11 +59,35 @@ const LOCAL_STORAGE_KEY = 'tradeworkz.last_seen_notification_id';
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [lastSeen, setLastSeen] = useState<number>(() => readLastSeen());
+  const [busy, setBusy] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const feed = useApiData<FeedResponse>('/api/tradeworkz/me/feed?limit=40', {
     refreshInterval: 20_000,
   });
+
+  const clearFeed = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await fetch('/api/tradeworkz/me/feed', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      // Refetch produces an empty feed; reset the unread cursor so the
+      // badge doesn't tick back up on the same rows if the DELETE races
+      // a still-in-flight write.
+      setLastSeen(0);
+      try {
+        window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+      } catch {
+        /* localStorage unavailable — accept the lost-across-reload cost */
+      }
+      feed.refetch();
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, feed]);
 
   const entries = useMemo(() => feed.data?.feed ?? [], [feed.data]);
   const unreadCount = useMemo(
@@ -149,14 +173,31 @@ export default function NotificationBell() {
           }}
         >
           <div
-            className="px-4 py-3 flex items-center justify-between border-b"
+            className="px-4 py-3 flex items-center justify-between border-b gap-2"
             style={{ borderColor: 'var(--color-border)' }}
           >
             <div className="text-sm font-semibold text-[var(--color-text-primary)]">
               Notifications
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
-              In-app · Live
+            <div className="flex items-center gap-2">
+              {entries.length > 0 ? (
+                <button
+                  onClick={clearFeed}
+                  disabled={busy}
+                  className="text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-bear)] transition-colors"
+                  style={{ opacity: busy ? 0.6 : 1 }}
+                  title="Delete every in-app notification for your account. Queued email notifications are unaffected."
+                >
+                  Clear
+                </button>
+              ) : null}
+              <a
+                href="/account/notifications"
+                className="text-[11px] font-medium text-[var(--color-info)] hover:underline"
+                title="Manage channels + conviction thresholds under Account > Notifications."
+              >
+                Manage
+              </a>
             </div>
           </div>
           <div className="max-h-96 overflow-y-auto">
