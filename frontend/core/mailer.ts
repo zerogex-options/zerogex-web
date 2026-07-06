@@ -958,7 +958,7 @@ export async function sendTradeworkzNotification(
   textLines.push('');
   textLines.push(`Open the dashboard: ${dashboardUrl}`);
   textLines.push('');
-  textLines.push('You are receiving this because you followed this bot on TradeWorkz. Manage or unfollow from the dashboard.');
+  textLines.push('You are receiving this because you followed this bot on TradeWorkz™. Manage or unfollow from the dashboard.');
 
   const outcome = tw_outcomeChip(payload.outcome);
   const safeUrl = escapeHtml(dashboardUrl);
@@ -1012,7 +1012,7 @@ export async function sendTradeworkzNotification(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <div style="border-top: 3px solid ${headerColor}; padding-top: 20px;">
         <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">
-          TradeWorkz ${eventType.toUpperCase()}${outcomeBadge}
+          TradeWorkz&trade; ${eventType.toUpperCase()}${outcomeBadge}
         </div>
         <h1 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px;">${headline}</h1>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">${rowsHtml}</table>
@@ -1022,7 +1022,7 @@ export async function sendTradeworkzNotification(
         </p>
       </div>
       <p style="font-size: 11px; color: #9ca3af; margin-top: 32px; line-height: 1.5;">
-        You are receiving this because you followed ${safeBotName} on TradeWorkz. Manage channels or unfollow from the bot card on the dashboard.
+        You are receiving this because you followed ${safeBotName} on TradeWorkz&trade;. Manage channels or unfollow from the bot card on the dashboard.
       </p>
     </div>
   `.trim();
