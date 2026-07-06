@@ -108,7 +108,7 @@ export interface GEXProfileRow {
   put_wall?: number | null;
 }
 
-interface MarketQuoteRow {
+export interface MarketQuoteRow {
   timestamp: string;
   symbol: string;
   open: number;
@@ -770,26 +770,6 @@ async function fetchMarketQuote(symbol: string): Promise<void> {
   }
 }
 
-function syncMarketQuotePoll(symbol: string): void {
-  const entry = getOrCreateMarketQuoteEntry(symbol);
-  let minInterval = Infinity;
-  entry.liveIntervals.forEach((interval) => {
-    if (interval > 0 && interval < minInterval) minInterval = interval;
-  });
-  const requestedInterval = Number.isFinite(minInterval)
-    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
-    : 0;
-  if (requestedInterval === entry.pollIntervalMs) return;
-  if (entry.pollTimer) {
-    clearInterval(entry.pollTimer);
-    entry.pollTimer = null;
-  }
-  entry.pollIntervalMs = requestedInterval;
-  if (requestedInterval > 0) {
-    entry.pollTimer = setInterval(() => { void fetchMarketQuote(symbol); }, requestedInterval);
-  }
-}
-
 function ensureInitialMarketQuoteFetch(symbol: string): void {
   const entry = getOrCreateMarketQuoteEntry(symbol);
   if (!entry.hasFetched && !entry.inflight) {
@@ -803,6 +783,208 @@ function snapshotMarketQuote(entry: MarketQuoteCacheEntry): {
   error: string | null;
 } {
   return { data: entry.data, loading: entry.loading, error: entry.error };
+}
+
+// ---- Live-stream integration ----
+//
+// When the WebSocket quote stream (see core/quoteStream.ts) is up, it
+// writes ticks into this cache via applyLiveQuote() below and sets the
+// module-level `liveStreamActive` flag via setLiveStreamActive(). The
+// poll-loop scheduler consults that flag and drops each symbol's poll
+// cadence to a slow heartbeat — enough to detect a socket that
+// silently died while the browser still thinks it's connected, but
+// far below the 1Hz polling load. When the socket disconnects, the
+// flag flips back to false and full-speed polling resumes
+// transparently to every existing useMarketQuote consumer.
+
+// Heartbeat cadence used while the live stream is serving a symbol.
+// Chosen so cumulative-daily-volume (which the WS payload doesn't
+// carry — it lives on a separate ``underlying_daily_volume`` join)
+// stays fresh enough that the dashboard's "Day Vol" text doesn't
+// look stuck, while still being 5× lighter than the pre-WS 1Hz poll.
+const LIVE_MODE_HEARTBEAT_MS = 5_000;
+
+// How long after the last WS tick to treat a symbol as "live-served."
+// If nothing arrives within this window we downgrade THAT symbol
+// back to full-rate polling — critical for correctness in two
+// scenarios:
+//   1. User selects SPX/QQQ but ingestion only streams SPY today.
+//      The WS subscribes, gets no ticks, and we do NOT throttle poll
+//      for SPX/QQQ — user sees full-rate updates.
+//   2. Ingestion process crashes. WS stays connected (pongs still
+//      flow), no NOTIFYs. Symbols that were live tick past their
+//      TTL, everyone falls back to full-rate poll until ingestion
+//      recovers.
+// 6s covers the normal ~1s inter-tick during market hours with
+// generous slack for a quiet illiquid minute.
+const WS_SYMBOL_LIVE_TTL_MS = 6_000;
+
+// Only symbols in this map have received a WS tick recently. The
+// value is the wall-clock ms at which we started to consider the
+// symbol live; a timeout demotes it back to poll-driven after
+// WS_SYMBOL_LIVE_TTL_MS with no new tick. syncMarketQuotePoll gates
+// on presence in this map — not on a global "live stream up" flag —
+// so the WS being connected but not delivering ticks for a given
+// symbol behaves the same as the WS being disconnected: full-rate
+// poll for that symbol.
+const wsLiveExpiresAt = new Map<string, number>();
+const wsLiveDemoteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function isSymbolWsLive(symbol: string): boolean {
+  const expires = wsLiveExpiresAt.get(symbol);
+  if (expires === undefined) return false;
+  if (Date.now() >= expires) {
+    wsLiveExpiresAt.delete(symbol);
+    return false;
+  }
+  return true;
+}
+
+function markSymbolWsLive(symbol: string): void {
+  const wasLive = isSymbolWsLive(symbol);
+  wsLiveExpiresAt.set(symbol, Date.now() + WS_SYMBOL_LIVE_TTL_MS);
+  const existing = wsLiveDemoteTimers.get(symbol);
+  if (existing) clearTimeout(existing);
+  wsLiveDemoteTimers.set(
+    symbol,
+    setTimeout(() => {
+      wsLiveDemoteTimers.delete(symbol);
+      wsLiveExpiresAt.delete(symbol);
+      // Restore full-rate polling for this symbol. Runs even if the
+      // WS is still connected — WS-connected-but-silent is exactly
+      // the SPX/QQQ + ingestion-down failure mode we're guarding.
+      syncMarketQuotePoll(symbol);
+    }, WS_SYMBOL_LIVE_TTL_MS),
+  );
+  // Newly live: recompute the poll interval to heartbeat immediately.
+  if (!wasLive) syncMarketQuotePoll(symbol);
+}
+
+// Kept as a bring-down knob (called by quoteStream.suspend()). When
+// the socket goes away we clear all per-symbol live markers so every
+// symbol's poll goes back to full rate on the next sync. No longer
+// used as the sole gate on throttling; presence in wsLiveExpiresAt
+// is authoritative.
+export function setLiveStreamActive(active: boolean): void {
+  if (active) return; // symbols are marked live only by real ticks
+  // Socket dropped — demote every symbol back to poll-driven.
+  wsLiveDemoteTimers.forEach((timer) => clearTimeout(timer));
+  wsLiveDemoteTimers.clear();
+  wsLiveExpiresAt.clear();
+  marketQuoteCache.forEach((_entry, symbol) => {
+    syncMarketQuotePoll(symbol);
+  });
+}
+
+/**
+ * Fold a WebSocket-delivered tick into the shared cache. Called by
+ * the quoteStream singleton on every 'quote' frame. Fans out to every
+ * subscriber via the same listeners.forEach() the HTTP poll uses — so
+ * the header price, the price card, the strike-profile spot line, and
+ * the candle-tip overlay update in one React commit.
+ *
+ * Merges into the existing row keeping the PREVIOUS value for any
+ * field the incoming frame doesn't carry (null or undefined). This is
+ * essential:
+ *
+ *   - `session`: the header, GEX heatmap, and candle tip overlay all
+ *     read `quote.session` to decide whether to render the live tick.
+ *     A tick without `session` used to clobber a good HTTP-poll value
+ *     to null and disable every live overlay.
+ *   - `volume`: WS payload carries per-bar up/down volume, not the
+ *     cumulative daily volume the HTTP quote endpoint returns.
+ *     Preserving prev keeps the dashboard's "Day Vol" reading intact.
+ *   - `open/high/low/close`: null OHLC on a data hole or illiquid
+ *     warmup tick would render $0.00; falling back to prev keeps the
+ *     last known price on screen until a real tick lands.
+ *
+ * Applies only to null-ish (null or undefined) fields — a real numeric
+ * 0 (a legitimate value for volume during pre-market) still wins.
+ */
+export type LiveQuoteIncoming = {
+  symbol: string;
+  timestamp: string;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  close?: number | null;
+  volume?: number | null;
+  up_volume?: number | null;
+  down_volume?: number | null;
+  session?: string | null;
+};
+
+export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  const prev = entry.data;
+  const pickNumber = (
+    inc: number | null | undefined,
+    prevValue: number | null | undefined,
+    fallback: number,
+  ): number => {
+    if (inc !== undefined && inc !== null) return inc;
+    if (prevValue !== undefined && prevValue !== null) return prevValue;
+    return fallback;
+  };
+  const pickNullable = <T>(inc: T | null | undefined, prevValue: T | null | undefined): T | null => {
+    if (inc !== undefined && inc !== null) return inc;
+    if (prevValue !== undefined && prevValue !== null) return prevValue;
+    return null;
+  };
+  const merged: MarketQuoteRow = {
+    symbol: incoming.symbol,
+    timestamp: incoming.timestamp,
+    open: pickNumber(incoming.open, prev?.open, prev?.open ?? 0),
+    high: pickNumber(incoming.high, prev?.high, prev?.high ?? 0),
+    low: pickNumber(incoming.low, prev?.low, prev?.low ?? 0),
+    close: pickNumber(incoming.close, prev?.close, prev?.close ?? 0),
+    volume: pickNullable(incoming.volume, prev?.volume),
+    up_volume: pickNullable(incoming.up_volume, prev?.up_volume),
+    down_volume: pickNullable(incoming.down_volume, prev?.down_volume),
+    session: pickNullable(incoming.session, prev?.session),
+  };
+  entry.data = merged;
+  entry.loading = false;
+  entry.error = null;
+  entry.hasFetched = true;
+  entry.listeners.forEach((fn) => fn());
+  // Mark this symbol as live — recomputes the poll cadence so the
+  // symbol's HTTP polling drops to the heartbeat. Symbols the WS
+  // hasn't served (SPX/QQQ when ingestion only streams SPY) never
+  // enter this map and stay on full-rate polling.
+  markSymbolWsLive(symbol);
+}
+
+function syncMarketQuotePoll(symbol: string): void {
+  const entry = getOrCreateMarketQuoteEntry(symbol);
+  let minInterval = Infinity;
+  entry.liveIntervals.forEach((interval) => {
+    if (interval > 0 && interval < minInterval) minInterval = interval;
+  });
+  const baseInterval = Number.isFinite(minInterval)
+    ? Math.max(MIN_REFRESH_INTERVAL_MS, Math.floor(minInterval * REFRESH_ACCELERATION_FACTOR))
+    : 0;
+  // Per-symbol gating: the poll drops to heartbeat only when a WS
+  // tick for THIS symbol arrived recently. A symbol the WS isn't
+  // serving (SPX/QQQ before ingestion adds them; or ANY symbol
+  // during an ingestion outage where the socket stays open but no
+  // NOTIFYs flow) stays at full-rate polling, so users always see
+  // fresh data regardless of what the WS is or isn't delivering.
+  const requestedInterval =
+    isSymbolWsLive(symbol) && baseInterval > 0
+      ? Math.max(baseInterval, LIVE_MODE_HEARTBEAT_MS)
+      : baseInterval;
+  if (requestedInterval === entry.pollIntervalMs) return;
+  if (entry.pollTimer) {
+    clearInterval(entry.pollTimer);
+    entry.pollTimer = null;
+  }
+  entry.pollIntervalMs = requestedInterval;
+  if (requestedInterval > 0) {
+    entry.pollTimer = setInterval(() => {
+      void fetchMarketQuote(symbol);
+    }, requestedInterval);
+  }
 }
 
 export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
@@ -850,7 +1032,22 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
     entry.listeners.add(listener);
     listener();
 
+    // Acquire a WebSocket subscription for this symbol. Dynamic import
+    // side-steps the circular-import risk between this module and
+    // core/quoteStream.ts (which imports applyLiveQuote from here) and
+    // keeps the WS bundle out of any consumer that never subscribes.
+    // If the feature flag is off or ticket minting fails, `acquire()`
+    // is a no-op and returns a no-op release function.
+    let releaseStream: (() => void) | null = null;
+    let released = false;
+    void import('@/core/quoteStream').then(({ quoteStream }) => {
+      if (released) return;
+      releaseStream = quoteStream.acquire(symbol);
+    });
+
     return () => {
+      released = true;
+      if (releaseStream) releaseStream();
       entry.listeners.delete(listener);
       entry.liveIntervals.delete(id);
       syncMarketQuotePoll(symbol);
