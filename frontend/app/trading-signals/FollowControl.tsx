@@ -26,9 +26,16 @@
  *   * icon — a 28px round Bell / BellDot for the leaderboard rows.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, BellDot } from 'lucide-react';
+import { Bell, BellDot, Loader2 } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { botColor, botColorSoft } from './palette';
 
@@ -114,7 +121,14 @@ export default function FollowControl({
   variant = 'pill',
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [state, setState] = useState<BotState>(DEFAULT_STATE);
+  // Two state slices tracked separately so the Save button can compare
+  // them: `saved` is the last-known DB record for this (user, bot), and
+  // `draft` is what the popover currently shows. A change is any diff
+  // between the two. For a bot the user does NOT yet follow, `saved` is
+  // null and Save is enabled as long as at least one channel is picked
+  // — the first Save creates the follow row.
+  const [saved, setSaved] = useState<BotState | null>(null);
+  const [draft, setDraft] = useState<BotState>(DEFAULT_STATE);
   const [busy, setBusy] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -138,19 +152,37 @@ export default function FollowControl({
     const record = followsRes.data?.follows.find((f) => f.bot_id === botId);
     if (record) {
       const ch = normalizeChannels(record.channels);
-      setState({
+      const s: BotState = {
         in_app: ch.in_app,
         email: ch.email,
         webhook: ch.webhook,
         min_confidence: Number(record.min_confidence ?? 0),
-      });
+      };
+      setSaved(s);
+      setDraft(s);
     } else {
-      setState(DEFAULT_STATE);
+      // Not currently following — saved is null so Save reads as an
+      // active affordance from the moment the popover opens.
+      setSaved(null);
+      setDraft(DEFAULT_STATE);
     }
     // Popovers re-open often — leaving followsRes / botId out of deps
     // keeps the reset from firing while the user is toggling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, botId]);
+
+  const hasChanges = useMemo(() => {
+    if (saved === null) return true;
+    return (
+      saved.in_app !== draft.in_app ||
+      saved.email !== draft.email ||
+      saved.webhook !== draft.webhook ||
+      saved.min_confidence !== draft.min_confidence
+    );
+  }, [saved, draft]);
+
+  const anyChannelOn = draft.in_app || draft.email || draft.webhook;
+  const canSave = !busy && hasChanges && anyChannelOn;
 
   const reposition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -204,17 +236,20 @@ export default function FollowControl({
   const onSave = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (busy) return;
+      if (busy || !canSave) return;
       setBusy(true);
       try {
-        await upsertFollow(botId, state);
+        await upsertFollow(botId, draft);
+        // Snapshot the new "saved" state so a second Save without any
+        // further edits reads as a no-op (button greys out again).
+        setSaved({ ...draft });
         onFollowChanged();
         setOpen(false);
       } finally {
         setBusy(false);
       }
     },
-    [busy, botId, state, onFollowChanged],
+    [busy, canSave, botId, draft, onFollowChanged],
   );
 
   const onUnfollow = useCallback(
@@ -314,9 +349,9 @@ export default function FollowControl({
                 <ChannelRow
                   label="In-app"
                   status="Live"
-                  checked={state.in_app}
+                  checked={draft.in_app}
                   onToggle={() =>
-                    setState((s) => ({ ...s, in_app: !s.in_app }))
+                    setDraft((s) => ({ ...s, in_app: !s.in_app }))
                   }
                   color={color}
                   description="Appears in the bell at the top of the TradeWorkz™ page."
@@ -324,9 +359,9 @@ export default function FollowControl({
                 <ChannelRow
                   label="Email"
                   status="Live"
-                  checked={state.email}
+                  checked={draft.email}
                   onToggle={() =>
-                    setState((s) => ({ ...s, email: !s.email }))
+                    setDraft((s) => ({ ...s, email: !s.email }))
                   }
                   color={color}
                   description="Sent by the minute-cadence email worker. Requires a verified email."
@@ -334,9 +369,9 @@ export default function FollowControl({
                 <ChannelRow
                   label="Webhook"
                   status="Queued"
-                  checked={state.webhook}
+                  checked={draft.webhook}
                   onToggle={() =>
-                    setState((s) => ({ ...s, webhook: !s.webhook }))
+                    setDraft((s) => ({ ...s, webhook: !s.webhook }))
                   }
                   color={color}
                   description="Rows are logged now; a webhook delivery worker is not yet wired."
@@ -348,7 +383,7 @@ export default function FollowControl({
                       Min. conviction
                     </label>
                     <span className="text-[11px] tabular-nums text-[var(--color-text-secondary)]">
-                      {(state.min_confidence * 100).toFixed(0)}%
+                      {(draft.min_confidence * 100).toFixed(0)}%
                     </span>
                   </div>
                   <input
@@ -356,9 +391,9 @@ export default function FollowControl({
                     min={0}
                     max={0.95}
                     step={0.05}
-                    value={state.min_confidence}
+                    value={draft.min_confidence}
                     onChange={(e) =>
-                      setState((s) => ({
+                      setDraft((s) => ({
                         ...s,
                         min_confidence: Number(e.target.value),
                       }))
@@ -386,29 +421,43 @@ export default function FollowControl({
                     disabled={busy}
                     className="text-[11px] text-[var(--color-bear)] hover:underline"
                   >
-                    Unfollow
+                    {busy ? 'Working…' : 'Unfollow'}
                   </button>
                 ) : (
-                  <span />
+                  <span
+                    className="text-[11px] text-[var(--color-text-secondary)]"
+                    style={{ opacity: hasChanges && anyChannelOn ? 1 : 0.6 }}
+                  >
+                    {anyChannelOn
+                      ? 'Ready to follow'
+                      : 'Pick at least one channel'}
+                  </span>
                 )}
                 <button
                   onClick={onSave}
-                  disabled={
-                    busy ||
-                    (!state.in_app && !state.email && !state.webhook)
-                  }
-                  className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+                  disabled={!canSave}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors inline-flex items-center gap-1.5"
                   style={{
-                    backgroundColor: color,
-                    color: 'var(--color-on-info, #ffffff)',
-                    opacity:
-                      busy ||
-                      (!state.in_app && !state.email && !state.webhook)
-                        ? 0.6
-                        : 1,
+                    backgroundColor: canSave
+                      ? color
+                      : 'var(--color-surface-subtle)',
+                    color: canSave
+                      ? 'var(--color-on-info, #ffffff)'
+                      : 'var(--color-text-secondary)',
+                    border: `1px solid ${canSave ? color : 'var(--color-border)'}`,
+                    opacity: canSave ? 1 : 0.7,
+                    cursor: canSave ? 'pointer' : 'not-allowed',
                   }}
+                  aria-live="polite"
                 >
-                  {followed ? 'Save' : 'Follow'}
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    'Save'
+                  )}
                 </button>
               </div>
             </div>,
