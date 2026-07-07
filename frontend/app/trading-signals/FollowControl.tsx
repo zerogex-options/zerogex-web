@@ -36,7 +36,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Bell, BellDot, Check, Loader2 } from 'lucide-react';
-import { useApiData } from '@/hooks/useApiData';
 import { botColor, botColorSoft } from './palette';
 
 type Variant = 'pill' | 'icon';
@@ -96,6 +95,32 @@ function normalizeChannels(
     in_app: Boolean(obj.in_app ?? true),
     email: Boolean(obj.email ?? false),
     webhook: Boolean(obj.webhook ?? false),
+  };
+}
+
+async function fetchMyFollows(): Promise<FollowsResponse | null> {
+  try {
+    const res = await fetch('/api/tradeworkz/me/follows', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as FollowsResponse;
+  } catch {
+    return null;
+  }
+}
+
+function stateFromRecord(
+  record: FollowsResponse['follows'][number] | undefined,
+): BotState | null {
+  if (!record) return null;
+  const ch = normalizeChannels(record.channels);
+  return {
+    in_app: ch.in_app,
+    email: ch.email,
+    webhook: ch.webhook,
+    min_confidence: Number(record.min_confidence ?? 0),
   };
 }
 
@@ -179,37 +204,36 @@ export default function FollowControl({
 
   // Pull the caller's existing follow record so the popover opens with
   // the ACTUAL current channels + threshold pre-loaded, not the client
-  // default. Refresh whenever the popover is opened so a change made on
-  // /account/notifications reflects here without a page reload.
-  const followsRes = useApiData<FollowsResponse>('/api/tradeworkz/me/follows', {
-    refreshInterval: 0,
-  });
+  // default. We fetch directly (no cache) on every open so the state we
+  // paint always reflects the last write — including one that just
+  // closed the popover a moment ago.
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setError(null);
     setPhase('idle');
-    followsRes.refetch();
-    const record = followsRes.data?.follows.find((f) => f.bot_id === botId);
-    if (record) {
-      const ch = normalizeChannels(record.channels);
-      const s: BotState = {
-        in_app: ch.in_app,
-        email: ch.email,
-        webhook: ch.webhook,
-        min_confidence: Number(record.min_confidence ?? 0),
-      };
-      setSaved(s);
-      setDraft(s);
-    } else {
-      // Not currently following — saved is null so Save reads as an
-      // active affordance from the moment the popover opens.
-      setSaved(null);
-      setDraft(DEFAULT_STATE);
-    }
-    // Popovers re-open often — leaving followsRes / botId out of deps
-    // keeps the reset from firing while the user is toggling.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLoading(true);
+    (async () => {
+      const body = await fetchMyFollows();
+      if (cancelled) return;
+      const record = body?.follows.find((f) => f.bot_id === botId);
+      const s = stateFromRecord(record);
+      if (s) {
+        setSaved(s);
+        setDraft(s);
+      } else {
+        // Not currently following — saved is null so Save reads as an
+        // active affordance from the moment the popover opens.
+        setSaved(null);
+        setDraft(DEFAULT_STATE);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, botId]);
 
   const hasChanges = useMemo(() => {
@@ -223,7 +247,7 @@ export default function FollowControl({
   }, [saved, draft]);
 
   const anyChannelOn = draft.in_app || draft.email || draft.webhook;
-  const canSave = !locked && hasChanges && anyChannelOn;
+  const canSave = !locked && !loading && hasChanges && anyChannelOn;
 
   // Any user edit clears a lingering error so the popover doesn't
   // pretend a stale failure still applies to the new draft.
@@ -288,9 +312,11 @@ export default function FollowControl({
     };
   }, [open, locked]);
 
-  // Save arc: idle → saving (HTTP) → saved (~900ms confirmation) → close.
-  // The popover stays open the entire time; the button copy walks the
-  // phases so the user always sees what's happening.
+  // Save arc: idle → saving (HTTP write + verification read) → saved
+  // (~900ms confirmation) → close. The popover stays open the entire
+  // time; "Saving…" now spans the full round-trip, including the GET
+  // that reads back the canonical row, so by the time "Saved" shows
+  // the state on the next open is already locked in.
   const onSave = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -299,7 +325,14 @@ export default function FollowControl({
       setPhase('saving');
       try {
         await upsertFollow(botId, draft);
-        setSaved({ ...draft });
+        // Read back the server-canonical row before flipping to
+        // "Saved". Without this, an immediate reopen would race the
+        // parent's follows.refetch() and read pre-save state.
+        const verify = await fetchMyFollows();
+        const record = verify?.follows.find((f) => f.bot_id === botId);
+        const canonical = stateFromRecord(record) ?? { ...draft };
+        setSaved(canonical);
+        setDraft(canonical);
         onOptimisticFollow?.(botId, true);
         onFollowChanged();
         setPhase('saved');
@@ -317,7 +350,9 @@ export default function FollowControl({
     [locked, canSave, botId, draft, onFollowChanged, onOptimisticFollow],
   );
 
-  // Unfollow arc: idle → removing → removed → close. Same shape as save.
+  // Unfollow arc: idle → removing (DELETE + verification read) →
+  // removed → close. Same shape as save so the "Removing…" copy stays
+  // on screen until the row is confirmed gone server-side.
   const onUnfollow = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -326,6 +361,11 @@ export default function FollowControl({
       setPhase('removing');
       try {
         await removeFollow(botId);
+        // Read-back so the next popover open (if the user reopens on
+        // the same trigger) starts from a fresh "not-followed" state.
+        await fetchMyFollows();
+        setSaved(null);
+        setDraft(DEFAULT_STATE);
         onOptimisticFollow?.(botId, false);
         onFollowChanged();
         setPhase('removed');
