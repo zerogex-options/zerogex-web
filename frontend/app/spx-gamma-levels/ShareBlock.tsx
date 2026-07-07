@@ -21,6 +21,8 @@ interface ShareBlockProps {
   hasData: boolean;
   /** Human-readable freshness stamp, e.g. "Jul 6, 2026, 9:41 AM EDT". */
   asOf?: string | null;
+  /** Page's primary ticker (SPX / SPY / QQQ) — leads the heading + subtext. */
+  symbol: string;
 }
 
 const SHARE_TITLE = "Today's SPX / SPY / QQQ gamma levels — ZeroGEX";
@@ -113,7 +115,7 @@ const outlineBtn: CSSProperties = {
 
 const outlineHover = 'transition-colors hover:!border-[var(--color-brand-primary)] hover:!text-[var(--color-brand-primary)]';
 
-export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBlockProps) {
+export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }: ShareBlockProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const [canNativeShare, setCanNativeShare] = useState(false);
 
@@ -166,11 +168,11 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBl
           id="share-levels-heading"
           style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--color-text-primary)' }}
         >
-          Share today&rsquo;s delayed levels
+          Share today&rsquo;s {symbol} gamma levels
         </h2>
       </div>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)', maxWidth: 660 }}>
-        Want to share this morning&rsquo;s SPX/SPY/QQQ gamma map? Copy the snapshot below.
+        Want to share this morning&rsquo;s {symbol} gamma map? Copy the snapshot below.
       </p>
 
       {hasData ? (
