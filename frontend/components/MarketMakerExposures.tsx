@@ -19,6 +19,7 @@ import {
 import {
   useApiData,
   useGEXSummary,
+  useMarketQuote,
   useSessionLevels,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
@@ -329,10 +330,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── Live snapshot hooks ──
   // useGEXSummary feeds the "Updated" label and supplies fallback values for
   // the key levels (gamma_flip / call_wall / put_wall) when the timeseries
-  // bucket has nulls on its first-emit cycle.  useMarketQuote is no longer
-  // needed for candle data — the price chart pulls OHLC from
-  // /api/market/historical below, which is the dedicated tape source.
+  // bucket has nulls on its first-emit cycle.  useMarketQuote is used ONLY
+  // to source the visible spot line (chartSpot below) so it moves in
+  // lockstep with the header price (which is also useMarketQuote-fed via
+  // the shared marketQuoteCache). Candle OHLC still comes from the
+  // dedicated tape source (/api/market/historical) below — useMarketQuote
+  // is not the source of truth for candle open/high/low.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
+  const { data: quoteData } = useMarketQuote(symbol, paused ? 0 : 1000);
 
   // ── Session levels: pre-market + previous-session high/low ──
   // Non-index symbols only (SPY/QQQ etc.) — cash indexes have no pre-market
@@ -929,17 +934,42 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return out;
   }, [visibleCandles, tf, LEFT_W]);
 
-  // The spot line is anchored to the latest visible candle's close so it
-  // always reads the same number as the rightmost candle paints.  Falls
-  // back to the bootstrap spot (gex summary's spot_price) when no candles
-  // have loaded yet.
+  // The visible spot line's price. Priority order:
+  //
+  //   1. WS-fed live quote (quoteData.close) — updates within milliseconds
+  //      of every ingested tick and shares the marketQuoteCache with the
+  //      header price, so the header and the spot line move in lockstep
+  //      on the same React commit.
+  //   2. The rightmost visible candle's close — HTTP-polled at 1Hz via
+  //      useMarketHistorical. Used during replay / rewind (where quoteData
+  //      is not the correct number) and as a fallback until the WS
+  //      delivers its first tick.
+  //   3. Bootstrap spot (gexSummary.spot_price) when no candles have
+  //      loaded yet — same fallback the ``spot`` memo above uses.
+  //
+  // Pre-WebSocket this was pinned to the candle close only (with the
+  // comment "always reads the same number as the rightmost candle
+  // paints") — which was correct then but produced a visible ~500 ms
+  // lag vs the header now that the header ticks on a live socket.
+  // Guard on ``quoteData?.session`` so we don't overlay a stale value
+  // when the market is closed (weekend, holiday) — the tip candle is
+  // authoritative in those states.
   const chartSpot = useMemo(() => {
+    const wsClose = quoteData?.close;
+    const session = quoteData?.session;
+    const isSessionLive =
+      session != null &&
+      session !== 'closed' &&
+      typeof wsClose === 'number' &&
+      Number.isFinite(wsClose) &&
+      wsClose > 0;
+    if (isSessionLive) return wsClose as number;
     if (visibleCandles.length > 0) {
       const last = visibleCandles[visibleCandles.length - 1];
       if (Number.isFinite(last.close)) return last.close;
     }
     return spot;
-  }, [visibleCandles, spot]);
+  }, [quoteData, visibleCandles, spot]);
 
   // Resolve the flip / call wall / put wall to draw.  While rewinding (and off
   // the right edge), read them from the scrubbed bucket directly — same

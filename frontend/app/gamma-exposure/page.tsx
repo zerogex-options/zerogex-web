@@ -539,7 +539,28 @@ export default function GammaExposurePage() {
       {/* Section 4: Call/Put Wall Map */}
       <section className="mb-8">
         <div className="grid grid-cols-1 gap-4">
-          <GexWallsChart openInterestData={normalizedOpenInterest} spotPrice={openInterestSpotPrice} byStrikeFallback={gexByStrike || []} />
+          {/*
+           * spotPrice priority: live WS quote (updates on every tick) first,
+           * then the open-interest endpoint's snapshot spot (HTTP polled,
+           * lags). Pre-WS this used openInterestSpotPrice exclusively which
+           * looked ~500ms behind the header price now that the header ticks
+           * on a live socket. Falls back to openInterestSpotPrice off-market
+           * hours when quoteData.close would stay flat and the OI snapshot is
+           * the more meaningful reference.
+           */}
+          <GexWallsChart
+            openInterestData={normalizedOpenInterest}
+            spotPrice={
+              quoteData?.close != null &&
+              Number.isFinite(quoteData.close) &&
+              quoteData.close > 0 &&
+              quoteData.session != null &&
+              quoteData.session !== 'closed'
+                ? quoteData.close
+                : openInterestSpotPrice
+            }
+            byStrikeFallback={gexByStrike || []}
+          />
         </div>
       </section>
 
