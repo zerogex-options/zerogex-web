@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, Newspaper, GraduationCap, LifeBuoy } from 'lucide-react';
 
 export const metadata = {
-  title: 'ZeroGEX Education: Articles & Guides for Options Flow',
+  title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
   description:
-    'ZeroGEX Education — long-form articles on gamma exposure, dealer hedging, vanna and charm, max pain, and reference guides for every ZeroGEX signal.',
+    'ZeroGEX options gamma education — GEX, the gamma flip, call walls, put walls, 0DTE dealer positioning, vanna and charm, and max pain. Plain-English explainers plus today’s live SPX / SPY / QQQ levels.',
   alternates: { canonical: '/education' },
 };
 
@@ -43,10 +43,20 @@ export default function EducationHubPage() {
           <BookOpen size={14} />
           Education
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Learning Hub</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
+          Options Gamma Education Hub
+        </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical market-structure education for options traders. Browse in-depth articles,
-          reference guides, and product help — all in one place.
+          Practical options market-structure education — gamma exposure (GEX), the gamma flip, call
+          walls, put walls, and 0DTE dealer positioning. Browse in-depth articles, reference guides,
+          and product help, then check{' '}
+          <Link
+            href="/spx-gamma-levels"
+            className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
+          >
+            today’s live SPX / SPY / QQQ gamma levels
+          </Link>
+          .
         </p>
       </div>
 
