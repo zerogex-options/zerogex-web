@@ -151,14 +151,24 @@ export default function FollowControl({
   // — the first Save creates the follow row.
   const [saved, setSaved] = useState<BotState | null>(null);
   const [draft, setDraft] = useState<BotState>(DEFAULT_STATE);
-  const [busy, setBusy] = useState(false);
-  // Transient states so a save round-trip is always visible: `error` is
-  // the message from an inline-surfaced fetch failure, cleared as soon
-  // as the user tweaks anything or reopens. `justSaved` flips true on
-  // success and drives the "Saved ✓" chip; a timeout clears it and
-  // closes the popover after ~600ms so the confirmation is readable.
+  // Transient states so a save / unfollow round-trip is always
+  // visible in the popover. `error` is the inline-surfaced fetch
+  // failure, cleared on any edit. `phase` drives the button copy
+  // through the four-step arc:
+  //   idle    → normal button state (Save enabled/disabled, Unfollow link)
+  //   saving  → HTTP request in flight after Save click
+  //   saved   → success confirmation; popover about to auto-close
+  //   removing→ HTTP request in flight after Unfollow click
+  //   removed → success confirmation for Unfollow
+  // The popover stays open through the whole arc; only `idle` allows
+  // further interaction, and the "removed"/"saved" phases lock the
+  // controls so a stray click can't fire a second request.
   const [error, setError] = useState<string | null>(null);
-  const [justSaved, setJustSaved] = useState(false);
+  type Phase = 'idle' | 'saving' | 'saved' | 'removing' | 'removed';
+  const [phase, setPhase] = useState<Phase>('idle');
+  const busy = phase === 'saving' || phase === 'removing';
+  const done = phase === 'saved' || phase === 'removed';
+  const locked = busy || done;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number }>({
@@ -178,7 +188,7 @@ export default function FollowControl({
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setJustSaved(false);
+    setPhase('idle');
     followsRes.refetch();
     const record = followsRes.data?.follows.find((f) => f.bot_id === botId);
     if (record) {
@@ -213,7 +223,7 @@ export default function FollowControl({
   }, [saved, draft]);
 
   const anyChannelOn = draft.in_app || draft.email || draft.webhook;
-  const canSave = !busy && !justSaved && hasChanges && anyChannelOn;
+  const canSave = !locked && hasChanges && anyChannelOn;
 
   // Any user edit clears a lingering error so the popover doesn't
   // pretend a stale failure still applies to the new draft.
@@ -257,6 +267,10 @@ export default function FollowControl({
   useEffect(() => {
     if (!open) return;
     const onMouse = (e: MouseEvent) => {
+      // Don't dismiss while a save / unfollow round-trip is in flight or
+      // its confirmation is still on screen — the user just watched the
+      // action arc start, we owe them the completion frame.
+      if (locked) return;
       const target = e.target as Node | null;
       if (!target) return;
       if (popoverRef.current?.contains(target)) return;
@@ -264,7 +278,7 @@ export default function FollowControl({
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape' && !locked) setOpen(false);
     };
     document.addEventListener('mousedown', onMouse);
     document.addEventListener('keydown', onKey);
@@ -272,60 +286,61 @@ export default function FollowControl({
       document.removeEventListener('mousedown', onMouse);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, locked]);
 
+  // Save arc: idle → saving (HTTP) → saved (~900ms confirmation) → close.
+  // The popover stays open the entire time; the button copy walks the
+  // phases so the user always sees what's happening.
   const onSave = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (busy || !canSave) return;
-      setBusy(true);
+      if (locked || !canSave) return;
       setError(null);
+      setPhase('saving');
       try {
         await upsertFollow(botId, draft);
-        // Snapshot the new saved state so an unchanged re-Save is a
-        // no-op (button re-greys). Show a visible "Saved ✓" tick for a
-        // beat before closing — the earlier flow closed instantly,
-        // which on a slow round-trip read as a dead click.
         setSaved({ ...draft });
-        setJustSaved(true);
-        // Flip parent state instantly if the parent wired the
-        // optimistic callback. That kills the "pill still says Follow
-        // after a successful save" lag which was the main cause of the
-        // "took two clicks" experience.
         onOptimisticFollow?.(botId, true);
         onFollowChanged();
-        setBusy(false);
-        setTimeout(() => setOpen(false), 500);
+        setPhase('saved');
+        setTimeout(() => {
+          setPhase('idle');
+          setOpen(false);
+        }, 900);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Unknown error saving';
         setError(message);
-        setBusy(false);
+        setPhase('idle');
       }
     },
-    [busy, canSave, botId, draft, onFollowChanged, onOptimisticFollow],
+    [locked, canSave, botId, draft, onFollowChanged, onOptimisticFollow],
   );
 
+  // Unfollow arc: idle → removing → removed → close. Same shape as save.
   const onUnfollow = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (busy) return;
-      setBusy(true);
+      if (locked) return;
       setError(null);
+      setPhase('removing');
       try {
         await removeFollow(botId);
         onOptimisticFollow?.(botId, false);
         onFollowChanged();
-        setBusy(false);
-        setOpen(false);
+        setPhase('removed');
+        setTimeout(() => {
+          setPhase('idle');
+          setOpen(false);
+        }, 900);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Unknown error';
         setError(message);
-        setBusy(false);
+        setPhase('idle');
       }
     },
-    [busy, botId, onFollowChanged, onOptimisticFollow],
+    [locked, botId, onFollowChanged, onOptimisticFollow],
   );
 
   // Two behaviors sharing the same trigger:
@@ -341,30 +356,29 @@ export default function FollowControl({
   const handleTriggerClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (busy) return;
+      if (locked) return;
       if (followed) {
         setOpen((v) => !v);
         return;
       }
-      setBusy(true);
+      setPhase('saving');
       setError(null);
       try {
         await upsertFollow(botId, DEFAULT_STATE);
         onOptimisticFollow?.(botId, true);
         onFollowChanged();
+        setPhase('idle');
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Unknown error following';
         setError(message);
-        // Escalate to the popover so the red banner is visible.
         setSaved(null);
         setDraft(DEFAULT_STATE);
         setOpen(true);
-      } finally {
-        setBusy(false);
+        setPhase('idle');
       }
     },
-    [busy, followed, botId, onFollowChanged, onOptimisticFollow],
+    [locked, followed, botId, onFollowChanged, onOptimisticFollow],
   );
 
   // triggerBusy tracks the one-click-follow round-trip specifically so
@@ -542,13 +556,20 @@ export default function FollowControl({
                 {followed ? (
                   <button
                     onClick={onUnfollow}
-                    disabled={busy}
+                    disabled={locked}
                     className="text-[11px] text-[var(--color-bear)] hover:underline inline-flex items-center gap-1"
+                    aria-live="polite"
+                    aria-busy={phase === 'removing'}
                   >
-                    {busy ? (
+                    {phase === 'removing' ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Working…
+                        Removing…
+                      </>
+                    ) : phase === 'removed' ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        Unfollowed
                       </>
                     ) : (
                       'Unfollow'
@@ -564,47 +585,65 @@ export default function FollowControl({
                       : 'Pick at least one channel'}
                   </span>
                 )}
-                <button
-                  onClick={onSave}
-                  disabled={!canSave && !justSaved}
-                  className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors inline-flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: justSaved
-                      ? 'var(--color-bull)'
-                      : canSave
-                        ? color
-                        : 'var(--color-surface-subtle)',
-                    color:
-                      justSaved || canSave
-                        ? 'var(--color-on-info, #ffffff)'
-                        : 'var(--color-text-secondary)',
-                    border: `1px solid ${
-                      justSaved
-                        ? 'var(--color-bull)'
-                        : canSave
-                          ? color
-                          : 'var(--color-border)'
-                    }`,
-                    opacity: canSave || justSaved ? 1 : 0.7,
-                    cursor: canSave ? 'pointer' : 'default',
-                  }}
-                  aria-live="polite"
-                  aria-busy={busy}
-                >
-                  {busy ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Saving…
-                    </>
-                  ) : justSaved ? (
-                    <>
-                      <Check className="w-3 h-3" />
-                      Saved
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </button>
+                {/*
+                  Save button is a four-state visual:
+                    idle + canSave  → colored, active
+                    idle + no-can   → surface-tinted, disabled
+                    saving           → colored, spinner + "Saving…"
+                    saved            → bull-green, check + "Saved"
+                  The button stays visible through every phase so the
+                  status is always in the same place the user just
+                  clicked, and the popover doesn't close until the
+                  confirmation has rendered for ~900ms.
+                */}
+                {(() => {
+                  const savingUi = phase === 'saving';
+                  const savedUi = phase === 'saved';
+                  const active = canSave || savingUi || savedUi;
+                  const bgColor = savedUi
+                    ? 'var(--color-bull)'
+                    : active
+                      ? color
+                      : 'var(--color-surface-subtle)';
+                  const fgColor = active
+                    ? 'var(--color-on-info, #ffffff)'
+                    : 'var(--color-text-secondary)';
+                  const borderColor = savedUi
+                    ? 'var(--color-bull)'
+                    : active
+                      ? color
+                      : 'var(--color-border)';
+                  return (
+                    <button
+                      onClick={onSave}
+                      disabled={!canSave}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors inline-flex items-center gap-1.5"
+                      style={{
+                        backgroundColor: bgColor,
+                        color: fgColor,
+                        border: `1px solid ${borderColor}`,
+                        opacity: active ? 1 : 0.7,
+                        cursor: canSave ? 'pointer' : 'default',
+                      }}
+                      aria-live="polite"
+                      aria-busy={savingUi}
+                    >
+                      {savingUi ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Saving…
+                        </>
+                      ) : savedUi ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          Saved
+                        </>
+                      ) : (
+                        'Save'
+                      )}
+                    </button>
+                  );
+                })()}
               </div>
             </div>,
             document.body,
