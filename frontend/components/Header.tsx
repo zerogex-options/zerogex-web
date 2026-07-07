@@ -226,7 +226,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // Session from the API is the authoritative source; fall back to locally
   // computed value only while the first quote response is still in-flight.
   const quoteSession = quoteData?.session ?? null;
-  const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
+  // The cash index is closed overnight (session='closed'), but when the
+  // futures display swap is active the badge should read FUTURES, not CLOSED.
+  const sessionForBadge: MarketSession =
+    quoteData?.display_source === 'futures'
+      ? 'futures'
+      : (quoteSession as MarketSession | null) ?? session;
 
   const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
   const extendedHoursIcon = quoteSession === "pre-market" ? "sun" : "moon";
@@ -244,7 +249,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     quoteClose: quoteData?.close,
     quoteSession,
     sessionCloses: sessionClosesData,
+    displaySource: quoteData?.display_source,
+    futuresClose: quoteData?.futures_close,
+    futuresReferenceClose: quoteData?.futures_reference_close,
   });
+
+  // Overnight index→future display swap: the header shows the future's
+  // price/change under the index symbol; this tag names the instrument.
+  const futuresTicker =
+    quoteData?.display_source === 'futures' ? quoteData?.data_symbol ?? null : null;
 
   // ── Row 2 (pre-market / after-hours only) ────────────────────────────────
   // pre/ah → icon + live quote close  vs  current_session_close
@@ -476,6 +489,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <div className="flex flex-col gap-0.5">
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
                       <span className="font-bold" style={{ fontSize: "1.5rem", lineHeight: 1.05 }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
+                      {futuresTicker && (
+                        <span
+                          className="px-1.5 py-0.5 rounded font-bold tracking-wide w-fit"
+                          title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                          style={{ backgroundColor: 'var(--color-brand-coral)1f', color: 'var(--color-brand-coral)', fontSize: '10px' }}
+                        >
+                          ◆ {futuresTicker} FUT
+                        </span>
+                      )}
                       {row1Change !== null && row1ChangePercent !== null && (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
@@ -881,6 +903,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   >
                     ${row1Price.toFixed(2)}
                   </span>
+                  {futuresTicker && (
+                    <span
+                      className="px-1.5 py-0.5 rounded font-bold tracking-wide w-fit"
+                      title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                      style={{ backgroundColor: 'var(--color-brand-coral)1f', color: 'var(--color-brand-coral)', fontSize: '10px' }}
+                    >
+                      ◆ {futuresTicker} FUT
+                    </span>
+                  )}
                   {row1Change !== null && row1ChangePercent !== null && (
                     <div
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"

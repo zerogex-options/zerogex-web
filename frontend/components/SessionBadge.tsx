@@ -65,6 +65,9 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
     'halted': { label: 'HALTED', color: 'var(--color-warning)', icon: '▲' },
     'closed-weekend': { label: 'CLOSED (WEEKEND)', color: 'var(--color-bear)', icon: '●' },
     'closed-holiday': { label: 'CLOSED (HOLIDAY)', color: 'var(--color-bear)', icon: '●' },
+    // Cash index is closed but its future is trading — quotes/charts show
+    // the future (see index→future display swap).
+    'futures': { label: 'FUTURES', color: 'var(--color-brand-coral)', icon: '◆' },
   };
 
   const badge = badges[session] || badges['closed'];

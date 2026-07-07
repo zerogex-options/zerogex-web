@@ -117,6 +117,9 @@ export const isSessionLive = (session: string | null | undefined): boolean => {
     case 'open':
     case 'pre-market':
     case 'after-hours':
+    // Overnight futures display: the future is actively trading, so live
+    // ticks should merge onto the chart tip candle just like a live session.
+    case 'futures':
       return true;
     default:
       return false;

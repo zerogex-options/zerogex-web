@@ -119,6 +119,17 @@ export interface MarketQuoteRow {
   up_volume?: number | null;
   down_volume?: number | null;
   session?: string | null;
+  // Index→future DISPLAY swap (outside cash session), ADDITIVE: the base
+  // OHLC/close/session stay the cash index (so GEX/greeks/spot consumers are
+  // unaffected). Only the header quote, quote card, and candle chart read
+  // these. display_source='futures' flags the swap; data_symbol is the
+  // future's badge ticker (e.g. 'ES'); futures_close is the future's last
+  // price; futures_reference_close is the futures session-open baseline for
+  // the overnight change. All absent on the normal index/ETF path.
+  display_source?: string | null;
+  data_symbol?: string | null;
+  futures_close?: number | null;
+  futures_reference_close?: number | null;
 }
 
 interface UseApiDataOptions<T = unknown> {

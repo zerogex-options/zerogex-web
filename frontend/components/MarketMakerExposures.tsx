@@ -397,15 +397,31 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // sticks out — the same intra-bar semantics a real candlestick chart
   // wants, with none of the analytics-engine-seeding quirks the strike-
   // profile timeseries exhibits.
-  const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf));
+  const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf), true);
+  // Outside the cash session the backend serves the cash index's FUTURE for
+  // this series (allow_futures opt-in). In that mode we render a clean futures
+  // price chart: keep the overnight bars (don't clip to equity hours) and drop
+  // the index-strike gamma overlay below (walls / flip / per-strike bars would
+  // sit offset from the futures candles by the index↔future basis).
+  const isFuturesMode = useMemo(
+    () => marketHistoricalAll.some((b) => b.display_source === 'futures'),
+    [marketHistoricalAll],
+  );
+  const futuresChartTicker = useMemo(
+    () => marketHistoricalAll.find((b) => b.display_source === 'futures')?.data_symbol ?? null,
+    [marketHistoricalAll],
+  );
   const candleBuckets = useMemo(() => {
-    return omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp)
+    const base = isFuturesMode
+      ? marketHistoricalAll
+      : omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp);
+    return base
       .filter((b) => {
         const o = toNumber(b.open ?? b.close);
         return o != null && o > 0;
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [marketHistoricalAll]);
+  }, [marketHistoricalAll, isFuturesMode]);
 
   // ── Strike-Profile bucket lookup by timestamp ──
   // Candles and GEX data come from different endpoints with different
@@ -854,9 +870,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
   const visibleStrikes = useMemo(() => {
+    // Futures mode: no gamma overlay — the index-strike bars don't line up
+    // with the future's price scale.
+    if (isFuturesMode) return [] as StrikeAggregation[];
     if (!yBounds) return [] as StrikeAggregation[];
     return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
-  }, [effStrikeAggregations, yBounds]);
+  }, [effStrikeAggregations, yBounds, isFuturesMode]);
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -1065,9 +1084,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // bucket has no recorded value (rare — typically when the analytics writer
   // hadn't resolved the flip yet on that cycle).
   const levelSourceBucket = rewoundBucket ?? liveGexBucket;
-  const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
-  const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
-  const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // Futures mode: suppress the index-strike levels (they'd draw offset from the
+  // futures candles); the spot line (candle close) still renders.
+  const effFlip = isFuturesMode ? null : (toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip));
+  const effCallWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall));
+  const effPutWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall));
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
@@ -1472,6 +1493,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <Clock size={12} />
           <span>{todayLabel}</span>
         </div>
+
+        {/* Futures display swap (outside cash session): the candle series is
+            the cash index's future; the gamma overlay is hidden. */}
+        {isFuturesMode && (
+          <div
+            className={toolbarBtnClass}
+            style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+            title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} (gamma levels hidden until the cash open)`}
+          >
+            <span>◆ {futuresChartTicker ?? 'FUTURES'}</span>
+          </div>
+        )}
 
         {/* Expiry dropdown */}
         <div ref={expiryRef} className="relative">
