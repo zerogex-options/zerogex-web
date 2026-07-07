@@ -151,7 +151,7 @@ export default function DashboardPage() {
                     }}
                   >
                     {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? ' vs session open' : ' vs previous'}`
+                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? ' vs 4pm close' : ' vs previous'}`
                       : 'Awaiting previous-close context'}
                   </span>
                   {!isIndexSymbol(symbol) && (

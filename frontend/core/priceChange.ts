@@ -34,9 +34,9 @@ export function getPrimaryPriceChangeSummary({
 }: PriceChangeParams): PriceChangeSummary {
   // Overnight futures display swap: the headline is the FUTURE's last price
   // (futures_close) and the change is measured futures-vs-futures (last minus
-  // tonight's 18:00 ET session-open print, futures_reference_close). We never
-  // fall back to the cash index's session close here — that would inject the
-  // index↔future basis into the change.
+  // the future's 16:00 ET cash-close print, futures_reference_close). Anchoring
+  // to the future's own 16:00 level — not the cash index's close — keeps the
+  // index↔future basis out of the change number.
   if (displaySource === 'futures' && futuresClose != null) {
     const displayPrice = futuresClose;
     const baseClose = futuresReferenceClose ?? null;
