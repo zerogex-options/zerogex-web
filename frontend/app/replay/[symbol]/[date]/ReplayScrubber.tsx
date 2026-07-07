@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link2, Pause, Play, Twitter } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -63,6 +63,21 @@ type PlaySpeed = (typeof PLAY_SPEEDS)[number];
 // portion of the tape reads as ghosted context that will light up as
 // the playhead sweeps into it.
 const FUTURE_CANDLE_OPACITY = 0.25;
+
+// Vertical (price/strike-axis) zoom bounds for the overlay chart. yZoom
+// multiplies the full padded price half-span around the candle center:
+// < 1 magnifies a tighter band of strikes (they spread apart), > 1 pulls
+// the axis wider so more of the ladder compresses into view. Mirrors the
+// GEX Strike Profile chart's strike-axis zoom (0.4–4.0 there); the range
+// is tighter here because the default already frames the whole session.
+const Y_ZOOM_MIN = 0.3;
+const Y_ZOOM_MAX = 2.0;
+const Y_ZOOM_STEP = 1.3;
+const Y_ZOOM_DEFAULT = 1.0;
+
+function clampZoom(v: number): number {
+  return Math.min(Y_ZOOM_MAX, Math.max(Y_ZOOM_MIN, v));
+}
 
 function formatTime(iso: string): string {
   try {
@@ -695,6 +710,53 @@ function ReplayOverlayChart({
     [candles],
   );
 
+  // ── Vertical zoom (price / strike axis) ──
+  // Mirrors the GEX Strike Profile chart's strike-axis zoom so a viewer's
+  // muscle memory transfers. yZoom multiplies the full padded half-span the
+  // parent computed; anchoring on the candles' price center keeps the
+  // tradeable zone framed as the band tightens.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  // useId keeps the clipPath unique if this chart ever mounts twice; strip
+  // the ':' React embeds so the id stays valid inside an SVG url(#…) ref.
+  const clipId = `replay-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
+  const [yZoom, setYZoom] = useState<number>(Y_ZOOM_DEFAULT);
+
+  const priceCenter = useMemo(() => {
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (const c of usableCandles) {
+      if (c.low != null && c.low < lo) lo = c.low;
+      if (c.high != null && c.high > hi) hi = c.high;
+    }
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) return (lo + hi) / 2;
+    return (yLo + yHi) / 2;
+  }, [usableCandles, yLo, yHi]);
+
+  // Effective visible price band after zoom. At yZoom = 1 it equals the
+  // parent's full padded [yLo, yHi]; smaller narrows it around the price
+  // center (strikes spread out), larger widens it (strikes compress in).
+  const { effLo, effHi } = useMemo(() => {
+    const fullHalf = (yHi - yLo) / 2;
+    const half = Math.max(1e-9, fullHalf * yZoom);
+    return { effLo: priceCenter - half, effHi: priceCenter + half };
+  }, [yLo, yHi, yZoom, priceCenter]);
+
+  // Mouse-wheel vertical zoom. Attached imperatively with { passive: false }
+  // so preventDefault suppresses page scroll while the cursor is over the
+  // chart — same pattern as the GEX Strike Profile chart.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? Y_ZOOM_STEP : 1 / Y_ZOOM_STEP;
+      setYZoom((v) => clampZoom(v * factor));
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, []);
+
   // Aggregate the per-minute payload into 5-min OHLC buckets — the
   // candlestick tape displays 5-min bars while the scrubber, the pins,
   // and the GEX ladder all stay at 1-min resolution. The bucket the
@@ -714,8 +776,8 @@ function ReplayOverlayChart({
 
   const yForPrice = useCallback(
     (price: number) =>
-      PLOT_TOP + (1 - (price - yLo) / Math.max(1e-9, yHi - yLo)) * PLOT_HEIGHT,
-    [yLo, yHi, PLOT_TOP, PLOT_HEIGHT],
+      PLOT_TOP + (1 - (price - effLo) / Math.max(1e-9, effHi - effLo)) * PLOT_HEIGHT,
+    [effLo, effHi, PLOT_TOP, PLOT_HEIGHT],
   );
 
   // Time-based x mapping so both the 5-min bucket candles and the
@@ -819,10 +881,18 @@ function ReplayOverlayChart({
   // uses more labels and a compact one uses fewer.
   const priceTickTarget = Math.max(6, Math.round(PLOT_HEIGHT / 34));
   const priceTicks = useMemo(
-    () => niceTicks(yLo, yHi, priceTickTarget),
-    [yLo, yHi, priceTickTarget],
+    () => niceTicks(effLo, effHi, priceTickTarget),
+    [effLo, effHi, priceTickTarget],
   );
   const priceStep = priceTicks.length >= 2 ? priceTicks[1] - priceTicks[0] : 1;
+
+  // Strikes that land inside the visible band drive the bar thickness so
+  // magnifying (fewer strikes on screen) fattens each rung instead of
+  // leaving hairline bars adrift on a sparse axis.
+  const visibleStrikeCount = useMemo(
+    () => strikes.filter((s) => s >= effLo && s <= effHi).length,
+    [strikes, effLo, effHi],
+  );
 
   // Bucket-to-bucket pixel spacing is what a 5-min step maps to on the
   // shared time axis — derived from timeline extents rather than
@@ -838,22 +908,59 @@ function ReplayOverlayChart({
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           {symbol} price · dealer net GEX · strike profile
         </div>
-        {currentBar && (
-          <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
-            O {currentBar.open?.toFixed(2)} · H {currentBar.high?.toFixed(2)} · L{' '}
-            {currentBar.low?.toFixed(2)} · C{' '}
-            <span className="text-[var(--color-text-primary)] font-bold">
-              {currentBar.close?.toFixed(2)}
-            </span>
+        <div className="flex items-center gap-3">
+          {currentBar && (
+            <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
+              O {currentBar.open?.toFixed(2)} · H {currentBar.high?.toFixed(2)} · L{' '}
+              {currentBar.low?.toFixed(2)} · C{' '}
+              <span className="text-[var(--color-text-primary)] font-bold">
+                {currentBar.close?.toFixed(2)}
+              </span>
+            </div>
+          )}
+          {/* Vertical strike-axis zoom — scroll to zoom, or use the buttons. */}
+          <div
+            className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)]"
+            role="group"
+            aria-label="Zoom the strike axis vertically"
+          >
+            <button
+              type="button"
+              onClick={() => setYZoom((v) => clampZoom(v * Y_ZOOM_STEP))}
+              disabled={yZoom >= Y_ZOOM_MAX - 1e-6}
+              title="Zoom out (compress more strikes into view)"
+              className="px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ZoomOut size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setYZoom((v) => clampZoom(v / Y_ZOOM_STEP))}
+              disabled={yZoom <= Y_ZOOM_MIN + 1e-6}
+              title="Zoom in (spread the strikes apart)"
+              className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ZoomIn size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setYZoom(Y_ZOOM_DEFAULT)}
+              disabled={Math.abs(yZoom - Y_ZOOM_DEFAULT) < 1e-6}
+              title="Reset zoom to full strike range"
+              className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <RotateCcw size={13} />
+            </button>
           </div>
-        )}
+        </div>
       </div>
       <div className="mt-3 w-full overflow-x-auto">
         <svg
+          ref={svgRef}
           role="img"
           aria-label={`${symbol} replay overlay: candles left, horizontal strike profile right, shared price axis`}
           width="100%"
@@ -862,6 +969,13 @@ function ReplayOverlayChart({
           className="block w-full"
           style={{ aspectRatio: `${CW} / ${CH}` }}
         >
+          {/* Clip price-dependent marks (candles, strike bars, flip line) to
+              the plot box so magnified content never spills past the axes. */}
+          <defs>
+            <clipPath id={clipId}>
+              <rect x={LEFT_X} y={PLOT_TOP} width={CW - LEFT_X} height={PLOT_HEIGHT} />
+            </clipPath>
+          </defs>
           {/* Shared horizontal grid lines + price labels on the round-
               number tick ladder. The label price is a chart-axis value
               — the strike bars still render at their actual strike
@@ -907,7 +1021,7 @@ function ReplayOverlayChart({
           {gammaFlip != null && (() => {
             const y = yForPrice(gammaFlip);
             return (
-              <g>
+              <g clipPath={`url(#${clipId})`}>
                 <line
                   x1={LEFT_X}
                   x2={MID_X + MID_W}
@@ -943,7 +1057,8 @@ function ReplayOverlayChart({
               No underlying candles available for this session.
             </text>
           ) : (
-            renderedBuckets.map((rb) => {
+            <g clipPath={`url(#${clipId})`}>
+            {renderedBuckets.map((rb) => {
               if (
                 rb.open == null ||
                 rb.high == null ||
@@ -1005,7 +1120,8 @@ function ReplayOverlayChart({
                   />
                 </g>
               );
-            })
+            })}
+            </g>
           )}
 
           {/* Time axis labels below the candles panel. Edge-anchor the
@@ -1041,6 +1157,7 @@ function ReplayOverlayChart({
             stroke="var(--color-border)"
             opacity={0.55}
           />
+          <g clipPath={`url(#${clipId})`}>
           {strikes.map((strike) => {
             const net = strikeGex.get(strike) ?? 0;
             if (net === 0) return null;
@@ -1049,7 +1166,7 @@ function ReplayOverlayChart({
             const positive = net >= 0;
             const barH = Math.max(
               2,
-              Math.min(9, (PLOT_HEIGHT / Math.max(1, strikes.length)) * 0.6),
+              Math.min(9, (PLOT_HEIGHT / Math.max(1, visibleStrikeCount)) * 0.6),
             );
             return (
               <rect
@@ -1063,6 +1180,7 @@ function ReplayOverlayChart({
               />
             );
           })}
+          </g>
           <text
             x={MID_X + 6}
             y={PLOT_BOTTOM + 20}

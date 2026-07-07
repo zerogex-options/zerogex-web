@@ -189,6 +189,8 @@ const DEFAULTS = {
   gexMode: 'split' as 'split' | 'net',
   showOiDots: true,
   showGrid: true,
+  showPmLevels: true,
+  showPrevLevels: true,
 };
 
 interface MarketMakerExposuresProps {
@@ -251,6 +253,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  // Pre-market and previous-session high/low overlays (non-index symbols).
+  // Optional so traders can declutter the chart when they don't need them.
+  const [showPmLevels, setShowPmLevels] = useState<boolean>(DEFAULTS.showPmLevels);
+  const [showPrevLevels, setShowPrevLevels] = useState<boolean>(DEFAULTS.showPrevLevels);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
@@ -293,6 +299,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
+    setShowPmLevels(DEFAULTS.showPmLevels);
+    setShowPrevLevels(DEFAULTS.showPrevLevels);
     setYAnchor(null);
     setYPanOffset(0);
   };
@@ -1086,21 +1094,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       const pmLow = toNumber(sessionLevels.premarket_low);
       const prevHigh = toNumber(sessionLevels.prev_session_high);
       const prevLow = toNumber(sessionLevels.prev_session_low);
-      if (pmHigh != null) {
+      if (showPmLevels && pmHigh != null) {
         items.push({ y: yFor(pmHigh), price: pmHigh, color: PM_LEVEL_LINE, label: 'PM High', dash: SESSION_LEVEL_DASH });
       }
-      if (pmLow != null) {
+      if (showPmLevels && pmLow != null) {
         items.push({ y: yFor(pmLow), price: pmLow, color: PM_LEVEL_LINE, label: 'PM Low', dash: SESSION_LEVEL_DASH });
       }
-      if (prevHigh != null) {
+      if (showPrevLevels && prevHigh != null) {
         items.push({ y: yFor(prevHigh), price: prevHigh, color: PREV_LEVEL_LINE, label: 'Prev High', dash: SESSION_LEVEL_DASH });
       }
-      if (prevLow != null) {
+      if (showPrevLevels && prevLow != null) {
         items.push({ y: yFor(prevLow), price: prevLow, color: PREV_LEVEL_LINE, label: 'Prev Low', dash: SESSION_LEVEL_DASH });
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT]);
+  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1683,6 +1691,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 />
                 <span>Show grid lines</span>
               </label>
+              {!symbolIsIndex && (
+                <>
+                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                    <input
+                      type="checkbox"
+                      checked={showPmLevels}
+                      onChange={(e) => setShowPmLevels(e.target.checked)}
+                    />
+                    <span>Show PM High/Low</span>
+                  </label>
+                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                    <input
+                      type="checkbox"
+                      checked={showPrevLevels}
+                      onChange={(e) => setShowPrevLevels(e.target.checked)}
+                    />
+                    <span>Show Prev High/Low</span>
+                  </label>
+                </>
+              )}
               <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
                 <button
                   type="button"
@@ -2481,21 +2509,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
-        {!symbolIsIndex && (
-          <>
-            <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
-              <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
-              </svg>
-              <span style={{ color: textPrimary }}>PM High/Low</span>
-            </span>
-            <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30–16:00 ET)">
-              <svg width="22" height="6" aria-hidden="true">
-                <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
-              </svg>
-              <span style={{ color: textPrimary }}>Prev High/Low</span>
-            </span>
-          </>
+        {!symbolIsIndex && showPmLevels && (
+          <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+            </svg>
+            <span style={{ color: textPrimary }}>PM High/Low</span>
+          </span>
+        )}
+        {!symbolIsIndex && showPrevLevels && (
+          <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30–16:00 ET)">
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+            </svg>
+            <span style={{ color: textPrimary }}>Prev High/Low</span>
+          </span>
         )}
         <span className="ml-auto">Hover any panel for details</span>
       </div>
