@@ -1,7 +1,7 @@
 # ZeroGEX Daily Gamma Levels — TradingView indicator
 
 A free, manual-entry Pine Script that plots the daily ZeroGEX dealer-positioning
-levels (Gamma Flip, Call Wall, Put Wall, Max Gamma / Pin) as horizontal lines on
+levels (Gamma Flip, Call Wall, Put Wall, Max Pain) as horizontal lines on
 any chart. It is a **discovery funnel**, not a data integration:
 
 > Google / TradingView search → free indicator → daily levels page → dashboard trial
@@ -26,7 +26,7 @@ any chart. It is a **discovery funnel**, not a data integration:
    these levels on TradingView" section — the CTA opens the script page and tells
    users to add it from the Indicators search. ✅ Done.
 4. **Post on X / StockTwits:** "I made a free TradingView script to plot today's
-   ZeroGEX gamma levels — Gamma Flip, Call Wall, Put Wall, Max Gamma." Link the
+   ZeroGEX gamma levels — Gamma Flip, Call Wall, Put Wall, Max Pain." Link the
    published script.
 
 > **House Rules note:** TradingView restricts advertising/external links in
@@ -47,8 +47,7 @@ ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ
 
 ```
 ZeroGEX Daily Gamma Levels lets traders manually plot key options-positioning
-levels on their chart, including Gamma Flip, Call Wall, Put Wall, and Max Gamma /
-Pin.
+levels on their chart, including Gamma Flip, Call Wall, Put Wall, and Max Pain.
 
 These levels are commonly used by SPY, SPX, QQQ, ES, and NQ traders to identify
 potential support, resistance, pinning zones, and volatility-regime shifts.
@@ -59,7 +58,7 @@ HOW TO USE
    • Gamma Flip
    • Call Wall
    • Put Wall
-   • Max Gamma / Pin
+   • Max Pain
 3. Each level draws as a horizontal line with a price label, plus an on-chart
    info box. Set any level to 0 to hide it. Optional cross-alerts are included.
 
@@ -94,7 +93,7 @@ the public library.
 ```
 I built a free TradingView script to plot today's gamma levels on your chart 📈
 
-Gamma Flip · Call Wall · Put Wall · Max Gamma / Pin
+Gamma Flip · Call Wall · Put Wall · Max Pain
 Works on SPY, SPX, QQQ, ES, NQ.
 
 Grab today's numbers free: https://zerogex.io/spx-gamma-levels

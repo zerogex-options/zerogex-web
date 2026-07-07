@@ -51,7 +51,7 @@ export default function PlotOnTradingView() {
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         Trade off your own chart? Add our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{SCRIPT_NAME}</strong> indicator, then enter today&apos;s
-        numbers from the cards above. It draws the Gamma Flip, Call Wall, Put Wall, and Max Gamma / Pin as horizontal
+        numbers from the cards above. It draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal
         lines on SPY, SPX, QQQ, ES, or NQ — with optional cross-alerts.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
@@ -101,7 +101,7 @@ export default function PlotOnTradingView() {
         </li>
         <li>
           Open the indicator&apos;s <strong style={{ color: 'var(--color-text-primary)' }}>Settings</strong> and enter
-          today&apos;s Gamma Flip, Call Wall, Put Wall, and Max Gamma / Pin from the cards above. Set any level to 0 to
+          today&apos;s Gamma Flip, Call Wall, Put Wall, and Max Pain from the cards above. Set any level to 0 to
           hide it.
         </li>
       </ol>

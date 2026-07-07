@@ -5,7 +5,7 @@
 //    • Gamma Flip   (regime line)
 //    • Call Wall    (upside cap)
 //    • Put Wall     (downside floor)
-//    • Max Gamma / Pin
+//    • Max Pain     (expiration magnet)
 //
 //  Free delayed levels (copy today's numbers from here):
 //    https://zerogex.io/spx-gamma-levels
@@ -34,7 +34,7 @@ GRP_LVL = "Levels   (set 0 to hide)"
 callWall  = input.float(0.0, "Call Wall",        group = GRP_LVL, tooltip = "Strike where call-side dealer gamma piles up — tends to cap upside.")
 gammaFlip = input.float(0.0, "Gamma Flip",       group = GRP_LVL, tooltip = "Regime line. Above = positive gamma (vol suppressed). Below = negative gamma (vol amplified).")
 putWall   = input.float(0.0, "Put Wall",         group = GRP_LVL, tooltip = "Strike where put-side dealer gamma piles up — tends to floor downside.")
-maxGamma  = input.float(0.0, "Max Gamma / Pin",  group = GRP_LVL, tooltip = "Peak-gamma / pin strike — the expiration magnet.")
+maxPain   = input.float(0.0, "Max Pain",         group = GRP_LVL, tooltip = "Strike where the most option value expires worthless — the expiration magnet. Matches the Max Pain shown on the ZeroGEX gamma-levels page.")
 
 // ----------------------------------------------------------------------------
 //  Line & label style
@@ -43,7 +43,7 @@ GRP_STYLE = "Line & label style"
 cCall = input.color(color.new(#f23645, 0), "Call Wall",       group = GRP_STYLE, inline = "c1")
 cFlip = input.color(color.new(#ff9800, 0), "Gamma Flip",      group = GRP_STYLE, inline = "c1")
 cPut  = input.color(color.new(#089981, 0), "Put Wall",        group = GRP_STYLE, inline = "c2")
-cPin  = input.color(color.new(#9c27b0, 0), "Max Gamma / Pin", group = GRP_STYLE, inline = "c2")
+cPain = input.color(color.new(#9c27b0, 0), "Max Pain",        group = GRP_STYLE, inline = "c2")
 lineWidthIn = input.int(2, "Line width", minval = 1, maxval = 5, group = GRP_STYLE)
 lineStyleIn = input.string("Solid", "Line style", options = ["Solid", "Dashed", "Dotted"], group = GRP_STYLE)
 extendIn    = input.string("Both",  "Extend",     options = ["Right", "Both"], group = GRP_STYLE)
@@ -110,7 +110,7 @@ f_drawLevel(float price, string txt, color col) =>
 f_drawLevel(callWall,  "Call Wall",       cCall)
 f_drawLevel(gammaFlip, "Gamma Flip",      cFlip)
 f_drawLevel(putWall,   "Put Wall",        cPut)
-f_drawLevel(maxGamma,  "Max Gamma / Pin", cPin)
+f_drawLevel(maxPain,   "Max Pain",        cPain)
 
 // ----------------------------------------------------------------------------
 //  Info box (rebuilt on the last bar so position/notes update live)
@@ -136,8 +136,8 @@ if showBox and barstate.islast
     if putWall != 0
         f_row(r, "Put Wall", str.tostring(putWall, format.mintick), cPut)
         r += 1
-    if maxGamma != 0
-        f_row(r, "Max Gamma / Pin", str.tostring(maxGamma, format.mintick), cPin)
+    if maxPain != 0
+        f_row(r, "Max Pain", str.tostring(maxPain, format.mintick), cPain)
         r += 1
     if notes != ""
         table.cell(infoBox, 0, r, notes, text_color = color.new(color.white, 30), text_size = size.tiny, text_halign = text.align_left)
@@ -156,9 +156,9 @@ if showBox and barstate.islast
 crossCall = alertsOn and callWall  != 0 and (ta.crossover(close, callWall)  or ta.crossunder(close, callWall))
 crossFlip = alertsOn and gammaFlip != 0 and (ta.crossover(close, gammaFlip) or ta.crossunder(close, gammaFlip))
 crossPut  = alertsOn and putWall   != 0 and (ta.crossover(close, putWall)   or ta.crossunder(close, putWall))
-crossPin  = alertsOn and maxGamma  != 0 and (ta.crossover(close, maxGamma)  or ta.crossunder(close, maxGamma))
+crossPain = alertsOn and maxPain   != 0 and (ta.crossover(close, maxPain)   or ta.crossunder(close, maxPain))
 
 alertcondition(crossCall, "Price crossed Call Wall",       "ZeroGEX: price crossed the Call Wall")
 alertcondition(crossFlip, "Price crossed Gamma Flip",      "ZeroGEX: price crossed the Gamma Flip — possible regime shift")
 alertcondition(crossPut,  "Price crossed Put Wall",        "ZeroGEX: price crossed the Put Wall")
-alertcondition(crossPin,  "Price crossed Max Gamma / Pin", "ZeroGEX: price crossed the Max Gamma / Pin")
+alertcondition(crossPain, "Price crossed Max Pain",        "ZeroGEX: price crossed Max Pain")
