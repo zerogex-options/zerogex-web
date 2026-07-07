@@ -645,6 +645,84 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return allCandles.slice(start, rightEdge + 1);
   }, [allCandles, rewindIndex]);
 
+  // ── Live tip overlay: WS quote → tip candle close/high/low ──
+  //
+  // Layers the WS-fed live tick onto the tip candle ONLY, so the chart's
+  // rightmost candle body moves in step with the header price / spot line
+  // instead of waiting for the next /api/market/historical poll. The prior
+  // attempt at this "created a mess" (bucket-rollover phantoms, drifting
+  // high/low, timestamp misalignment); the invariants below eliminate each
+  // failure mode:
+  //
+  //   1. HISTORY IS AUTHORITATIVE.  Every render starts from a fresh
+  //      ``visibleCandles`` (the useMarketHistorical poll's projection).
+  //      No accumulated state across renders — no drift.
+  //   2. BUCKET-SCOPED.  The WS tick's timestamp MUST lie inside the tip
+  //      bar's [start, start + intervalMs) window.  During bucket
+  //      rollover, the historical response can still show the previous
+  //      bucket as the rightmost bar while WS ticks are already inside
+  //      the next bucket — overlaying then would paint a "future" price
+  //      onto a "past" bar (the phantom).  Wait for historical to catch
+  //      up.
+  //   3. MONOTONIC-WIDENING H/L.  ``high = max(fresh tip.high, wsClose)``
+  //      and ``low = min(fresh tip.low, wsClose)``.  We compare against
+  //      the FRESH historical H/L, never a prior-render overlay, so an
+  //      earlier WS-widened H that historical later contradicts snaps
+  //      back on the next render — no upward drift.
+  //   4. VOLUME + TIMESTAMP + OPEN NEVER TOUCHED.  Volume aggregation
+  //      scope is per-timeframe (5min bar's volume ≠ 1min tick's), so
+  //      mixing would double-count.  Timestamp is the bucket start — if
+  //      we overwrote it, the x-axis would slide.  Open is the bucket-
+  //      start price and is a historical fact.
+  //   5. LIVE-ONLY.  Skipped during rewind (``rewindIndex != null``) —
+  //      overlaying a WS tick onto a historical bar the user is
+  //      inspecting would be catastrophically confusing.
+  //   6. SESSION GUARD.  Skipped when the market session is closed —
+  //      the WS quote goes flat and the historical tip is authoritative.
+  //   7. SAME-VALUE EARLY EXIT.  If ``wsClose === tip.close`` we return
+  //      the same array reference (React skips downstream memos).
+  //
+  // Used only in the candle body render loop below (search "candle
+  // body/wick"); volume bar loop, y-axis auto-scale, x-axis / date
+  // groups, and every other consumer keep reading the original
+  // ``visibleCandles`` so layout, axis anchoring, and per-bucket
+  // volume remain untouched.
+  const visibleCandlesForRender = useMemo(() => {
+    if (rewindIndex != null || visibleCandles.length === 0) return visibleCandles;
+    const wsClose = quoteData?.close;
+    const wsTsStr = quoteData?.timestamp;
+    const session = quoteData?.session;
+    if (
+      session == null ||
+      session === 'closed' ||
+      typeof wsClose !== 'number' ||
+      !Number.isFinite(wsClose) ||
+      wsClose <= 0
+    ) {
+      return visibleCandles;
+    }
+    const tip = visibleCandles[visibleCandles.length - 1];
+    const intervalMin = tf === '1m' ? 1 : tf === '5m' ? 5 : 15;
+    const bucketMs = intervalMin * 60_000;
+    const tipStartMs = new Date(tip.timestamp).getTime();
+    if (!Number.isFinite(tipStartMs)) return visibleCandles;
+    const tipEndMs = tipStartMs + bucketMs;
+    const wsTsMs = wsTsStr ? new Date(wsTsStr).getTime() : NaN;
+    if (!Number.isFinite(wsTsMs) || wsTsMs < tipStartMs || wsTsMs >= tipEndMs) {
+      return visibleCandles;
+    }
+    if (wsClose === tip.close) return visibleCandles;
+    const patched = visibleCandles.slice();
+    patched[patched.length - 1] = {
+      ...tip,
+      close: wsClose,
+      high: Math.max(tip.high, wsClose),
+      low: Math.min(tip.low, wsClose),
+      // timestamp, upVolume, downVolume — INTENTIONALLY UNTOUCHED.
+    };
+    return patched;
+  }, [visibleCandles, quoteData, tf, rewindIndex]);
+
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
   // place the y-axis nowhere near the new price.
@@ -1770,7 +1848,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               const closeBeforeFirstVisible = firstVisibleIdx > 0
                 ? allCandles[firstVisibleIdx - 1].close
                 : null;
-              return visibleCandles.map((c, i) => {
+              // ── Candle body/wick paint ──
+              // visibleCandlesForRender overlays the WS quote onto the tip
+              // bar's close (+ widens H/L). Only the last element is
+              // possibly modified — all earlier bars are identical to
+              // visibleCandles, so the prev-close lookup below is
+              // equivalent whichever array we read.
+              return visibleCandlesForRender.map((c, i) => {
                 const x = xForTime(new Date(c.timestamp).getTime());
                 const yO = yForPrice(c.open);
                 const yC = yForPrice(c.close);
@@ -1783,7 +1867,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 // The neutral colour tracks the theme so it stays visible
                 // in both light and dark modes.
                 const prevClose = i > 0
-                  ? visibleCandles[i - 1].close
+                  ? visibleCandlesForRender[i - 1].close
                   : closeBeforeFirstVisible;
                 let color: string;
                 if (prevClose == null || c.close === prevClose) {
