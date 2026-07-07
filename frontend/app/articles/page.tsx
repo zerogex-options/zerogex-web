@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
 
 export const metadata = {
-  title: 'ZeroGEX Articles: Gamma Exposure, Dealer Hedging & Flow',
+  title:
+    'Options Gamma Trading Articles: SPX / SPY / QQQ Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
   description:
-    'ZeroGEX articles — practical market-structure breakdowns for options traders. Gamma exposure, dealer hedging, vanna and charm, max pain, and signal deep-dives.',
+    'ZeroGEX options gamma trading articles — SPX, SPY and QQQ pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. Definitions, worked examples, and today’s live levels.',
   alternates: { canonical: '/articles' },
 };
 
@@ -17,6 +18,34 @@ type Article = {
 };
 
 const ARTICLES: Article[] = [
+  {
+    href: '/education/what-is-a-put-wall',
+    kind: 'Published • July 7, 2026 • 16:00 UTC',
+    title: 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support',
+    blurb:
+      'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, and QQQ put walls.',
+  },
+  {
+    href: '/education/what-is-a-call-wall',
+    kind: 'Published • July 7, 2026 • 16:00 UTC',
+    title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
+    blurb:
+      'The call wall is the strike where call-side dealer gamma concentrates — the level dealers defend on the way up. What it is, why it caps rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, and QQQ call walls.',
+  },
+  {
+    href: '/education/what-is-gex-in-trading',
+    kind: 'Published • July 7, 2026 • 16:00 UTC',
+    title: 'What Is GEX in Trading? Gamma Exposure Explained Simply',
+    blurb:
+      'GEX — gamma exposure — is the one number that explains why some days pin and others trend. A plain-English, beginner-first explainer: what GEX measures, how dealer gamma moves the tape, and what positive versus negative regimes mean for your trading.',
+  },
+  {
+    href: '/education/spx-net-gamma-exposure-today',
+    kind: 'Published • July 7, 2026 • 16:00 UTC',
+    title: 'SPX Net Gamma Exposure Today: How to Read Current Net GEX',
+    blurb:
+      '“What’s the current SPX net gamma exposure?” The answer changes every session. What net GEX is, how to read a positive versus negative reading, where the gamma-flip zero-cross sits, and how to pull up today’s live SPX net GEX in one click.',
+  },
   {
     href: '/education/spy-vs-spx-gamma-levels',
     kind: 'Published • July 6, 2026 • 16:00 UTC',
@@ -189,10 +218,21 @@ export default function ArticlesPage() {
           <Newspaper size={14} />
           Articles
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Articles</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
+          Options Gamma Trading Articles
+        </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical market-structure education for options traders. Start with our first article on
-          Gamma Exposure (GEX), then explore additional flow-focused ZeroGEX educational articles.
+          Practical, flow-focused breakdowns of options market structure for SPX, SPY, and QQQ
+          traders — gamma exposure (GEX), the gamma flip, call walls, put walls, pinning, and 0DTE
+          dealer positioning. Every piece pairs the concept with a worked example and links straight
+          to{' '}
+          <Link
+            href="/spx-gamma-levels"
+            className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
+          >
+            today’s live SPX / SPY / QQQ gamma levels
+          </Link>
+          .
         </p>
       </div>
 

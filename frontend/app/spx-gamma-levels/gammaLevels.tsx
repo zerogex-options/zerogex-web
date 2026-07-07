@@ -58,9 +58,9 @@ const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
   SPX: {
     path: '/spx-gamma-levels',
     shareUrl: `${SITE}/spx-gamma-levels`,
-    title: 'SPX Gamma Levels Today | Gamma Flip, Call Wall, Put Wall',
+    title: 'SPX / SPY / QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
     description:
-      'Free daily SPX gamma levels — the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX. Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
+      'Free daily SPX gamma levels — the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels for SPX, SPY and QQQ, refreshed every 15 minutes. No signup required.',
     h1: 'SPX Gamma Levels Today',
     intro:
       "Track today's SPX gamma levels, including the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPX and S&P 500 options traders identify key dealer-positioning zones before price gets there.",
@@ -68,9 +68,9 @@ const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
   SPY: {
     path: '/spy-gamma-levels',
     shareUrl: `${SITE}/spy-gamma-levels`,
-    title: 'SPY Gamma Levels Today | Gamma Flip, Call Wall, Put Wall',
+    title: 'SPY Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
     description:
-      'Free daily SPY gamma levels — the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX. Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
+      'Free daily SPY gamma levels — the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
     h1: 'SPY Gamma Levels Today',
     intro:
       "Track today's SPY gamma levels, including the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPY traders identify key dealer-positioning zones before price gets there.",
@@ -78,9 +78,9 @@ const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
   QQQ: {
     path: '/qqq-gamma-levels',
     shareUrl: `${SITE}/qqq-gamma-levels`,
-    title: 'QQQ Gamma Levels Today | Gamma Flip, Call Wall, Put Wall',
+    title: 'QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
     description:
-      'Free daily QQQ gamma levels — the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX. Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
+      'Free daily QQQ gamma levels — the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
     h1: 'QQQ Gamma Levels Today',
     intro:
       "Track today's QQQ gamma levels, including the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help Nasdaq and QQQ traders understand where options positioning may create support, resistance, pinning, or volatility expansion.",
@@ -155,8 +155,10 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
 // mirrors the question-style intents these pages also target.
 const LEARN_MORE_LINKS: { href: string; label: string }[] = [
   { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip?' },
-  { href: '/education/gamma-walls-explained', label: 'What Is a Call Wall?' },
-  { href: '/education/options-support-and-resistance', label: 'What Is a Put Wall?' },
+  { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
+  { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
+  { href: '/education/what-is-gex-in-trading', label: 'What Is GEX in Trading?' },
+  { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today: Reading Net GEX' },
   { href: '/education/how-to-trade-around-gamma-flip', label: 'How Traders Use Gamma Levels' },
   { href: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Options: Which Gamma Levels Matter?' },
 ];

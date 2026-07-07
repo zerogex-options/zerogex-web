@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
-import { ArrowRight, BarChart2 } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 
 export const metadata = articleMetadata('eod-pressure-explained');
 
@@ -28,25 +28,7 @@ export default function EodPressureExplainedPage() {
 
       <RelatedArticles slug="eod-pressure-explained" />
 
-      <div className="zg-feature-shell mt-8 p-6 md:p-8">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
-          <BarChart2 size={14} />
-          Free Gamma Levels
-        </div>
-        <h3 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">
-          See today&apos;s EOD Pressure read live
-        </h3>
-        <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-          The ZeroGEX dashboard surfaces EOD Pressure during the active window alongside the gamma flip, max pain, and the rest of the closing-window signal stack.
-        </p>
-        <Link
-          href="/spx-gamma-levels"
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
-        >
-          Open free gamma levels
-          <ArrowRight size={16} />
-        </Link>
-      </div>
+      <LiveLevelsCTA concept="dealer positioning" />
     </div>
   );
 }
