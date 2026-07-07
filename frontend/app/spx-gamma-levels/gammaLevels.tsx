@@ -532,6 +532,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         </header>
 
         <ShareBlock
+          symbol={primary}
           snippet={shareSnippet}
           shareUrl={content.shareUrl}
           hasData={shareHasData}
