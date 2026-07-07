@@ -328,47 +328,106 @@ export default function FollowControl({
     [busy, botId, onFollowChanged, onOptimisticFollow],
   );
 
-  const toggleOpen = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setOpen((v) => !v);
-  }, []);
+  // Two behaviors sharing the same trigger:
+  //   * NOT following → one-click POST /follow with default channels
+  //     (in_app on, email/webhook off, min_conf 0). No popover. The
+  //     pill / icon flips instantly via the optimistic overlay.
+  //   * ALREADY following → open the popover so the user can edit
+  //     channels, drag the threshold, or Unfollow.
+  //
+  // On a failed one-click follow we escalate into the popover with the
+  // error banner so the user sees the HTTP status instead of a silent
+  // failure — same failure surface as the Save-button path.
+  const handleTriggerClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (busy) return;
+      if (followed) {
+        setOpen((v) => !v);
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        await upsertFollow(botId, DEFAULT_STATE);
+        onOptimisticFollow?.(botId, true);
+        onFollowChanged();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Unknown error following';
+        setError(message);
+        // Escalate to the popover so the red banner is visible.
+        setSaved(null);
+        setDraft(DEFAULT_STATE);
+        setOpen(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, followed, botId, onFollowChanged, onOptimisticFollow],
+  );
 
+  // triggerBusy tracks the one-click-follow round-trip specifically so
+  // the icon / pill shows a spinner while the request is in flight —
+  // otherwise a slow POST looks like a dead click. Popover interactions
+  // (Save, Unfollow) set `busy` too, but those are painted inside the
+  // popover footer.
+  const triggerBusy = busy && !open;
   const trigger =
     variant === 'icon' ? (
       <button
         ref={triggerRef}
-        onClick={toggleOpen}
+        onClick={handleTriggerClick}
         disabled={busy}
-        aria-label={followed ? 'Manage notifications for this bot' : 'Follow this bot'}
-        aria-expanded={open}
-        aria-haspopup="menu"
+        aria-label={
+          followed
+            ? 'Manage notifications for this bot'
+            : 'Follow this bot'
+        }
+        aria-expanded={followed ? open : undefined}
+        aria-haspopup={followed ? 'menu' : undefined}
         title={followed ? 'Following — click to manage' : 'Follow this bot'}
         className="inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors"
         style={{
           backgroundColor: followed ? botColorSoft(botId, paletteIndex) : 'transparent',
           color: followed ? color : 'var(--color-text-secondary)',
           border: `1px solid ${followed ? color : 'var(--color-border)'}`,
-          opacity: busy ? 0.6 : 1,
+          opacity: busy ? 0.7 : 1,
         }}
       >
-        {followed ? <BellDot className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+        {triggerBusy ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : followed ? (
+          <BellDot className="w-3.5 h-3.5" />
+        ) : (
+          <Bell className="w-3.5 h-3.5" />
+        )}
       </button>
     ) : (
       <button
         ref={triggerRef}
-        onClick={toggleOpen}
+        onClick={handleTriggerClick}
         disabled={busy}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="text-xs px-3 py-1.5 rounded-full transition-colors whitespace-nowrap font-medium"
+        aria-expanded={followed ? open : undefined}
+        aria-haspopup={followed ? 'menu' : undefined}
+        className="text-xs px-3 py-1.5 rounded-full transition-colors whitespace-nowrap font-medium inline-flex items-center gap-1.5"
         style={{
           backgroundColor: followed ? botColorSoft(botId, paletteIndex) : 'var(--color-info)',
           color: followed ? color : 'var(--color-on-info, #ffffff)',
           border: `1px solid ${followed ? color : 'var(--color-info)'}`,
-          opacity: busy ? 0.6 : 1,
+          opacity: busy ? 0.7 : 1,
         }}
       >
-        {followed ? '✓ Following' : 'Follow'}
+        {triggerBusy ? (
+          <>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Following…
+          </>
+        ) : followed ? (
+          '✓ Following'
+        ) : (
+          'Follow'
+        )}
       </button>
     );
 
