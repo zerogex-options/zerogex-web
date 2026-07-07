@@ -207,6 +207,25 @@ export default async function Image({ params }: { params: { symbol: string; date
               >
                 {fmtPrice(morning?.projected_low)} – {fmtPrice(morning?.projected_high)}
               </div>
+              {(() => {
+                const spot = morning?.open_spot;
+                if (spot == null || !Number.isFinite(spot) || spot <= 0) return null;
+                if (morning?.projected_low == null || morning?.projected_high == null) return null;
+                const downPct = ((spot - morning.projected_low) / spot) * 100;
+                const upPct = ((morning.projected_high - spot) / spot) * 100;
+                return (
+                  <div
+                    style={{
+                      marginTop: 2,
+                      fontSize: 22,
+                      color: '#C8D8DF',
+                      display: 'flex',
+                    }}
+                  >
+                    −{downPct.toFixed(2)}% / +{upPct.toFixed(2)}%
+                  </div>
+                );
+              })()}
               {hasReceipt && (
                 <div
                   style={{

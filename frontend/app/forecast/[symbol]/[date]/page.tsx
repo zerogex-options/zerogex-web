@@ -229,11 +229,29 @@ export default async function ForecastPage({
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-warning)"
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
-          hint={
-            receipt
-              ? `Actual: ${fmtPrice(receipt.actual_low)} – ${fmtPrice(receipt.actual_high)}`
-              : 'Anchored on open spot, wall-bounded ×1.1'
-          }
+          hint={(() => {
+            const parts: string[] = [];
+            // Show the asymmetric ± % move so it's obvious how much
+            // room the model is claiming in each direction.  Spot is
+            // the anchor; bands are relative to it in either direction.
+            if (
+              morning.open_spot != null
+              && morning.projected_low != null
+              && morning.projected_high != null
+              && Number.isFinite(morning.open_spot)
+              && morning.open_spot > 0
+            ) {
+              const downPct = ((morning.open_spot - morning.projected_low) / morning.open_spot) * 100;
+              const upPct = ((morning.projected_high - morning.open_spot) / morning.open_spot) * 100;
+              parts.push(`−${downPct.toFixed(2)}% / +${upPct.toFixed(2)}%`);
+            }
+            if (receipt) {
+              parts.push(`Actual: ${fmtPrice(receipt.actual_low)} – ${fmtPrice(receipt.actual_high)}`);
+            } else {
+              parts.push('Walls · VIX/VXN · ATR blend · MSI-lean');
+            }
+            return parts.join(' · ');
+          })()}
         />
         <Stat
           label="Pin strike"
