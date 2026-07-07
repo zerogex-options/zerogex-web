@@ -22,6 +22,13 @@ import { serverApiGet } from '@/core/api/serverFetch';
 const REVALIDATE_SECONDS = 1800;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
 
+// A rolling hit rate over a handful of receipts is noise — with n=1 each claim
+// can only read 0% or 100%. Below this many *graded* receipts we show a
+// "building history" note instead of the percentage tiles, so a freshly-seeded
+// symbol (or one whose history was just pruned) doesn't advertise a hollow
+// track record.
+const MIN_SCORED_FOR_RATES = 5;
+
 interface ForecastMorning {
   ts: string | null;
   open_spot: number | null;
@@ -304,13 +311,24 @@ export default async function ForecastPage({
       {stats && stats.n_scored > 0 && (
         <section className="mb-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
           <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)] mb-3">
-            Rolling {stats.window}-day hit rate (n={stats.n_scored})
+            {stats.n_scored >= MIN_SCORED_FOR_RATES
+              ? `Rolling ${stats.window}-day hit rate (n=${stats.n_scored})`
+              : `Rolling ${stats.window}-day track record`}
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <HitRate label="Range respected" rate={stats.range_respected_rate} />
-            <HitRate label="Pin within $1" rate={stats.pin_hit_rate} />
-            <HitRate label="Regime correct" rate={stats.regime_correct_rate} />
-          </div>
+          {stats.n_scored >= MIN_SCORED_FOR_RATES ? (
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <HitRate label="Range respected" rate={stats.range_respected_rate} />
+              <HitRate label="Pin within $1" rate={stats.pin_hit_rate} />
+              <HitRate label="Regime correct" rate={stats.regime_correct_rate} />
+            </div>
+          ) : (
+            <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+              Building history — {stats.n_scored} graded{' '}
+              {stats.n_scored === 1 ? 'receipt' : 'receipts'} so far. A rolling hit rate needs at
+              least {MIN_SCORED_FOR_RATES} graded days to mean anything, so we hold it back until
+              then rather than show a rate a single session could swing to 0% or 100%.
+            </div>
+          )}
         </section>
       )}
 
