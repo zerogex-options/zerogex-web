@@ -41,6 +41,8 @@ interface ForecastMorning {
   projected_high: number | null;
   projected_close: number | null;
   pin_strike: number | null;
+  pin_tolerance: number | null;
+  regime_move_threshold: number | null;
   flagship_setup: Record<string, unknown> | null;
   range_model: string | null;
   content_hash: string | null;
@@ -276,8 +278,23 @@ export default async function ForecastPage({
               ? receipt.regime_correct ? 'held' : 'broken'
               : null
           }
-          hint={
-            receipt
+          hint={(() => {
+            const thresholdPct = morning.regime_move_threshold != null
+              ? `${(morning.regime_move_threshold * 100).toFixed(2)}%`
+              : null;
+            // Prefix the state-specific hint with the chop/trend bar so
+            // "grade against 0.76%" is visible whether the receipt is
+            // in yet or not.  This is what makes the regime forecast
+            // interpretable — v1.3 pinned it to VIX so a viewer can see
+            // "yes, we know today's threshold is stretched" vs 0.5%.
+            const barPart = thresholdPct
+              ? (morning.regime === 'long_gamma'
+                  ? `Chop bar: |Δ| ≤ ${thresholdPct}`
+                  : morning.regime === 'short_gamma'
+                    ? `Trend bar: |Δ| > ${thresholdPct}`
+                    : `Bar (if graded): ${thresholdPct}`)
+              : null;
+            const statePart = receipt
               ? receipt.regime_correct == null
                 ? 'Transition — not graded'
                 : receipt.regime_correct
@@ -285,8 +302,12 @@ export default async function ForecastPage({
                   : 'Realized vol contradicted regime call'
               : morning.open_msi != null
                 ? `Opening MSI ${morning.open_msi.toFixed(1)}`
-                : null
-          }
+                : null;
+            const parts: string[] = [];
+            if (barPart) parts.push(barPart);
+            if (statePart) parts.push(statePart);
+            return parts.join(' · ') || null;
+          })()}
         />
       </section>
 
