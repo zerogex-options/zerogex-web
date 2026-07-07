@@ -98,12 +98,22 @@ function normalizeChannels(
   };
 }
 
+// One-off cache-busted GET of the caller's follow list. Only used on
+// the VERY FIRST open of a followed bot to hydrate the popover with the
+// server state; after that, local `saved` is authoritative and every
+// mutation (Save / Unfollow / one-click Follow) uses the POST/DELETE
+// response as canonical. See onSave for why we don't verify-round-trip
+// via GET anymore.
 async function fetchMyFollows(): Promise<FollowsResponse | null> {
   try {
-    const res = await fetch('/api/tradeworkz/me/follows', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
+    const res = await fetch(
+      `/api/tradeworkz/me/follows?_=${Date.now()}`,
+      {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'cache-control': 'no-cache', pragma: 'no-cache' },
+      },
+    );
     if (!res.ok) return null;
     return (await res.json()) as FollowsResponse;
   } catch {
@@ -124,7 +134,11 @@ function stateFromRecord(
   };
 }
 
-async function upsertFollow(botId: string, state: BotState): Promise<void> {
+// POST /follow returns the exact channels + min_confidence that were
+// written, so upsertFollow surfaces that back to the caller as the
+// authoritative BotState — no separate verify GET, which used to race
+// with the write and paint a stale row on the next popover open.
+async function upsertFollow(botId: string, state: BotState): Promise<BotState> {
   const channels: Record<string, boolean> = {};
   if (state.in_app) channels.in_app = true;
   if (state.email) channels.email = true;
@@ -132,6 +146,7 @@ async function upsertFollow(botId: string, state: BotState): Promise<void> {
   const res = await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
     method: 'POST',
     credentials: 'include',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ channels, min_confidence: state.min_confidence }),
   });
@@ -146,6 +161,24 @@ async function upsertFollow(botId: string, state: BotState): Promise<void> {
     throw new Error(
       `Follow failed (HTTP ${res.status})${detail ? `: ${detail}` : ''}`,
     );
+  }
+  // The server echoes {channels, min_confidence} verbatim on success.
+  // Fall back to what we sent if the response body isn't parseable, so
+  // the local state still reflects the intended write.
+  try {
+    const json = (await res.json()) as {
+      channels?: Record<string, boolean> | string;
+      min_confidence?: number | string | null;
+    };
+    const ch = normalizeChannels(json.channels);
+    return {
+      in_app: ch.in_app,
+      email: ch.email,
+      webhook: ch.webhook,
+      min_confidence: Number(json.min_confidence ?? state.min_confidence),
+    };
+  } catch {
+    return { ...state };
   }
 }
 
@@ -202,18 +235,29 @@ export default function FollowControl({
   });
   const color = botColor(botId, paletteIndex);
 
-  // Pull the caller's existing follow record so the popover opens with
-  // the ACTUAL current channels + threshold pre-loaded, not the client
-  // default. We fetch directly (no cache) on every open so the state we
-  // paint always reflects the last write — including one that just
-  // closed the popover a moment ago.
+  // Hydration + loading state for the initial fetch. We hydrate from
+  // the server ONCE — on the first open with no local `saved` yet —
+  // and after that trust every mutation's own response as the source
+  // of truth. A refetch-on-every-open would race a fresh save: the
+  // GET can return a snapshot from before the INSERT is visible on
+  // its pooled connection, then overwrite the just-saved local state
+  // with the pre-save row, which is exactly the "stale on reopen"
+  // regression the user reported.
   const [loading, setLoading] = useState(false);
+  const hydratedForBotRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
     setError(null);
     setPhase('idle');
+    // If we've already hydrated for this bot (either by fetching once
+    // on a prior open, or because a mutation populated `saved`), the
+    // local state IS the source of truth — do not refetch.
+    if (hydratedForBotRef.current === botId && saved !== null) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
     (async () => {
       const body = await fetchMyFollows();
@@ -229,11 +273,16 @@ export default function FollowControl({
         setSaved(null);
         setDraft(DEFAULT_STATE);
       }
+      hydratedForBotRef.current = botId;
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
+    // Deliberately only depends on open/botId — `saved` changing must
+    // not re-trigger this effect (that would cause an infinite loop
+    // through setSaved).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, botId]);
 
   const hasChanges = useMemo(() => {
@@ -312,11 +361,11 @@ export default function FollowControl({
     };
   }, [open, locked]);
 
-  // Save arc: idle → saving (HTTP write + verification read) → saved
-  // (~900ms confirmation) → close. The popover stays open the entire
-  // time; "Saving…" now spans the full round-trip, including the GET
-  // that reads back the canonical row, so by the time "Saved" shows
-  // the state on the next open is already locked in.
+  // Save arc: idle → saving → saved (~900ms confirmation) → close.
+  // The POST response echoes the exact channels + min_confidence that
+  // were written, so we use it directly as canonical — no follow-up
+  // verify GET (a stale pooled connection could return a pre-write
+  // snapshot and stomp the local state we just saved).
   const onSave = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -324,15 +373,12 @@ export default function FollowControl({
       setError(null);
       setPhase('saving');
       try {
-        await upsertFollow(botId, draft);
-        // Read back the server-canonical row before flipping to
-        // "Saved". Without this, an immediate reopen would race the
-        // parent's follows.refetch() and read pre-save state.
-        const verify = await fetchMyFollows();
-        const record = verify?.follows.find((f) => f.bot_id === botId);
-        const canonical = stateFromRecord(record) ?? { ...draft };
+        const canonical = await upsertFollow(botId, draft);
         setSaved(canonical);
         setDraft(canonical);
+        // Mark the local state as authoritative so the next popover
+        // open skips the hydration fetch and paints from `saved`.
+        hydratedForBotRef.current = botId;
         onOptimisticFollow?.(botId, true);
         onFollowChanged();
         setPhase('saved');
@@ -350,9 +396,10 @@ export default function FollowControl({
     [locked, canSave, botId, draft, onFollowChanged, onOptimisticFollow],
   );
 
-  // Unfollow arc: idle → removing (DELETE + verification read) →
-  // removed → close. Same shape as save so the "Removing…" copy stays
-  // on screen until the row is confirmed gone server-side.
+  // Unfollow arc: idle → removing → removed → close. On a successful
+  // DELETE the row is gone, so local `saved` resets to null and the
+  // hydration marker clears — if the user immediately re-follows via
+  // the icon, the next popover open will re-hydrate cleanly.
   const onUnfollow = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -361,11 +408,9 @@ export default function FollowControl({
       setPhase('removing');
       try {
         await removeFollow(botId);
-        // Read-back so the next popover open (if the user reopens on
-        // the same trigger) starts from a fresh "not-followed" state.
-        await fetchMyFollows();
         setSaved(null);
         setDraft(DEFAULT_STATE);
+        hydratedForBotRef.current = null;
         onOptimisticFollow?.(botId, false);
         onFollowChanged();
         setPhase('removed');
@@ -404,7 +449,13 @@ export default function FollowControl({
       setPhase('saving');
       setError(null);
       try {
-        await upsertFollow(botId, DEFAULT_STATE);
+        const canonical = await upsertFollow(botId, DEFAULT_STATE);
+        // Prime local state from the POST response so the next popover
+        // open shows the fresh channels without waiting on a hydration
+        // fetch (that fetch used to race the write and paint stale).
+        setSaved(canonical);
+        setDraft(canonical);
+        hydratedForBotRef.current = botId;
         onOptimisticFollow?.(botId, true);
         onFollowChanged();
         setPhase('idle');
@@ -414,6 +465,7 @@ export default function FollowControl({
         setError(message);
         setSaved(null);
         setDraft(DEFAULT_STATE);
+        hydratedForBotRef.current = null;
         setOpen(true);
         setPhase('idle');
       }
