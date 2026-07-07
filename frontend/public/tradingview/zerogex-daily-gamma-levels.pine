@@ -101,7 +101,11 @@ f_drawLevel(float price, string txt, color col) =>
         if price != 0
             ln := line.new(bar_index - 1, price, bar_index, price, xloc = xloc.bar_index, extend = lExt, color = col, width = lineWidthIn, style = lStyle)
             if showLabels
-                lb := label.new(bar_index, price, text = txt + "  " + str.tostring(price, format.mintick), xloc = xloc.bar_index, style = label.style_label_left, color = color.new(col, 82), textcolor = col, size = lSize)
+                // Near-opaque chip: labels render above lines, so a solid
+                // background hides the line segment behind the text (a
+                // translucent bg lets the same-coloured line bleed through
+                // and makes the price unreadable).
+                lb := label.new(bar_index, price, text = txt + "  " + str.tostring(price, format.mintick), xloc = xloc.bar_index, style = label.style_label_left, color = color.new(color.black, 12), textcolor = col, size = lSize)
 
 f_drawLevel(callWall,  "Call Wall",       cCall)
 f_drawLevel(gammaFlip, "Gamma Flip",      cFlip)

@@ -6,31 +6,32 @@ any chart. It is a **discovery funnel**, not a data integration:
 
 > Google / TradingView search → free indicator → daily levels page → dashboard trial
 
+**Published (public, open-source):**
+<https://www.tradingview.com/script/FyyCXQwa-ZeroGEX-Daily-Gamma-Levels/>
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `frontend/public/tradingview/zerogex-daily-gamma-levels.pine` | The script itself. Single source of truth. Served at `https://zerogex.io/tradingview/zerogex-daily-gamma-levels.pine`. |
-| `frontend/components/PlotOnTradingView.tsx` | "Plot these levels on TradingView" section (copy / download / instructions) rendered on `/spx-gamma-levels`. |
-
-The Copy button on the site fetches the `.pine` file directly, so there is only
-one copy of the source to maintain — edit the `.pine` file and both the site and
-the download update.
+| `frontend/public/tradingview/zerogex-daily-gamma-levels.pine` | The source of record for the script. Kept in sync with the published TradingView version; edit here first, then *Update* the published script. Also served at `https://zerogex.io/tradingview/zerogex-daily-gamma-levels.pine`. |
+| `frontend/components/PlotOnTradingView.tsx` | "Plot these levels on TradingView" section rendered on all three gamma pages. Now that the script is public, it just links to the published script and tells users to add it from the indicator search — no copy/download. |
 
 ## Rollout order
 
-1. **Publish the script on TradingView.** (Manual — needs a TradingView account.)
-   Open Pine Editor → paste the script → *Add to chart* → *Publish script*.
-   Use the title, description, and tags below.
+1. **Publish the script on TradingView.** ✅ Done — live at the URL above
+   (public, open-source, so it appears in the indicator search).
 2. **The three free gamma pages are already linked** from the script header and
    the info box (`zerogex.io/spx-gamma-levels`).
-3. **`/spx-gamma-levels` already links back** to TradingView via the new "Plot
-   these levels on TradingView" section. Once the script is live on TradingView,
-   optionally swap the copy/download buttons for a direct link to the published
-   script URL.
+3. **All three gamma pages link back** to the published script via the "Plot
+   these levels on TradingView" section — the CTA opens the script page and tells
+   users to add it from the Indicators search. ✅ Done.
 4. **Post on X / StockTwits:** "I made a free TradingView script to plot today's
    ZeroGEX gamma levels — Gamma Flip, Call Wall, Put Wall, Max Gamma." Link the
    published script.
+
+> **House Rules note:** TradingView restricts advertising/external links in
+> public scripts. Keep the published description educational with at most a
+> single factual `zerogex.io` mention; heavy CTAs/links risk moderation removal.
 
 ---
 
