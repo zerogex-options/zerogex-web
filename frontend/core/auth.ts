@@ -34,6 +34,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/reset-password',
   '/unauthorized',
   '/spx-gamma-levels',
+  // /spy-gamma-levels and /qqq-gamma-levels are content clones of
+  // /spx-gamma-levels (same public, delayed view; canonical → spx-gamma-levels).
+  '/spy-gamma-levels',
+  '/qqq-gamma-levels',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
   // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
@@ -60,7 +64,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/admin/*', minimumTier: 'admin' },
   // Advanced Signals — Pro only.
   { pattern: '/signal-score', minimumTier: 'pro' },
-  { pattern: '/trading-signals', minimumTier: 'admin' },
+  { pattern: '/trading-signals', minimumTier: 'pro' },
   { pattern: '/advanced-signals', minimumTier: 'pro' },
   { pattern: '/eod-pressure', minimumTier: 'pro' },
   { pattern: '/squeeze-setup', minimumTier: 'pro' },
@@ -70,7 +74,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/range-break-imminence', minimumTier: 'pro' },
   { pattern: '/volatility-expansion', minimumTier: 'pro' },
   { pattern: '/market-pressure', minimumTier: 'pro' },
-  { pattern: '/backtesting', minimumTier: 'pro' },
+  { pattern: '/backtesting/*', minimumTier: 'pro' },
   // Basic dashboards & per-signal pages — included with Basic. Anonymous
   // visitors to /dashboard are redirected by proxy.ts to the free, 15-min
   // delayed /spx-gamma-levels preview instead of bouncing to /login.

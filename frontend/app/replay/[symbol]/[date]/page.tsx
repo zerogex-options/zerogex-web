@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import ReplayScrubber from './ReplayScrubber';
@@ -18,6 +19,17 @@ interface ReplayFrame {
   strikes: Array<{ strike: number | null; net_gex: number | null }>;
 }
 
+interface ReplayCandle {
+  timestamp: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  up_volume: number | null;
+  down_volume: number | null;
+  volume: number | null;
+}
+
 interface ReplayRangePayload {
   symbol: string;
   date: string;
@@ -25,6 +37,7 @@ interface ReplayRangePayload {
   is_today: boolean;
   count: number;
   frames: ReplayFrame[];
+  candles: ReplayCandle[];
 }
 
 function isValidDate(raw: string): boolean {
@@ -106,6 +119,8 @@ export default async function ReplayDatePage({
   }
   const human = formatHumanDate(date);
   const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}`);
+  const permalink = `${SITE_URL}/replay/${sym}/${date}`;
+  const tweetBody = `${sym} ${date} GEX replay — scrub the dealer gamma surface minute-by-minute.`;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -116,6 +131,12 @@ export default async function ReplayDatePage({
         >
           <ChevronLeft size={14} /> All sessions
         </Link>
+        <ShareCardButton
+          cardId={`replay:${sym}:${date}`}
+          tweetText={tweetBody}
+          cardUrl={permalink}
+          eventName="replay_share_clicked"
+        />
       </div>
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
@@ -134,14 +155,24 @@ export default async function ReplayDatePage({
         </div>
       </header>
 
-      <ReplayScrubber symbol={sym} sessionDate={date} initialFrames={data.frames} siteUrl={SITE_URL} />
+      <ReplayScrubber
+        symbol={sym}
+        sessionDate={date}
+        initialFrames={data.frames}
+        initialCandles={data.candles ?? []}
+        siteUrl={SITE_URL}
+      />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Drag the scrubber to any minute · use play/pause to auto-advance · drop pin A then pin B
-        to see the strike-by-strike delta between two moments · click <em>Snapshot this minute</em>
-        {' '}to generate a branded permalink with an OG image you can share. MP4 export of arbitrary
-        windows is on the roadmap; today you share branded stills of the moments that mattered.
+        Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
+        the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
+        the same price axis so a wick and a strike bar at the same level line up horizontally ·
+        candles past the cursor ghost out and light back to full opacity as the playhead sweeps
+        through them · drop pin A then pin B to see the strike-by-strike delta between two moments ·
+        click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you
+        can share. MP4 export of arbitrary windows is on the roadmap; today you share branded
+        stills of the moments that mattered.
       </section>
     </main>
   );

@@ -7,9 +7,8 @@ type Props = {
   /** Optional Tailwind className appended to the outer card wrapper. */
   className?: string;
   /**
-   * When true, renders a "See the full bulletin" link in the header that
-   * points to /live-bulletin. Off by default since the bulletin is a paid
-   * surface; turn it on for in-app uses where the visitor is already
+   * When true, the entire card becomes a link to /live-bulletin (the paid full-bulletin
+   * surface). Off by default; turn it on for in-app uses where the visitor is already
    * authenticated (the dashboard).
    */
   bulletinLink?: boolean;
@@ -42,22 +41,15 @@ const REGIME_TONE: Record<RegimeKey, {
   },
 };
 
-/**
- * Compact, read-only "Today's Read" card. Renders the auto-generated headline
- * + lead paragraph from the shared bulletinHelpers model, so a visitor lands on
- * a dashboard surface and sees a sentence-level regime read before any raw
- * numbers. Pure render — works in both server-component and client-component
- * pages, since buildReportModel is itself framework-free.
- */
 export default function TodaysReadCard({ model, className, bulletinLink = false }: Props) {
   const tone = REGIME_TONE[model.regime];
   const Icon = tone.icon;
 
-  return (
-    <section
-      className={`relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--bg-card)] p-5 shadow-[0_12px_40px_var(--color-info-soft)] md:p-7 ${className ?? ''}`}
-    >
-      {/* Brand stripe — matches the founder-section + tier-card visual treatment. */}
+  const baseClass = `relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--bg-card)] p-5 shadow-[0_12px_40px_var(--color-info-soft)] md:p-7 ${className ?? ''}`;
+  const linkedClass = `${baseClass} block cursor-pointer transition-colors hover:border-[var(--color-brand-primary)]`;
+
+  const inner = (
+    <>
       <div
         className="pointer-events-none absolute inset-y-0 left-0 w-1"
         style={{ background: 'linear-gradient(180deg, var(--color-brand-primary) 0%, var(--heat-mid) 100%)' }}
@@ -83,12 +75,9 @@ export default function TodaysReadCard({ model, className, bulletinLink = false 
           </span>
         </div>
         {bulletinLink && (
-          <Link
-            href="/live-bulletin"
-            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)] hover:text-[var(--heat-low)]"
-          >
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
             Full bulletin →
-          </Link>
+          </span>
         )}
       </div>
 
@@ -99,6 +88,16 @@ export default function TodaysReadCard({ model, className, bulletinLink = false 
       <p className="text-[14px] leading-7 text-[var(--color-text-secondary)] md:text-[15px]">
         {model.lead}
       </p>
-    </section>
+    </>
   );
+
+  if (bulletinLink) {
+    return (
+      <Link href="/live-bulletin" className={linkedClass} style={{ color: 'inherit', textDecoration: 'none' }}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return <section className={baseClass}>{inner}</section>;
 }

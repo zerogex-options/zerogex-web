@@ -19,9 +19,9 @@ export default function BetaBadge({ size = "sm", className = "" }: BetaBadgeProp
         isMd ? "px-2 py-0.5 text-[11px]" : "px-1.5 py-0.5 text-[9px]"
       } ${className}`}
       style={{
-        backgroundColor: `${colors.accent}1f`,
-        color: colors.accent,
-        border: `1px solid ${colors.accent}55`,
+        backgroundColor: `${'var(--color-brand-accent)'}1f`,
+        color: 'var(--color-brand-accent)',
+        border: `1px solid ${'var(--color-brand-accent)'}55`,
         lineHeight: 1.1,
       }}
     >

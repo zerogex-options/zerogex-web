@@ -146,7 +146,7 @@ export default function FoundingLockinModal({
             fontWeight: 700,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            color: colors.primary,
+            color: 'var(--color-brand-primary)',
             marginBottom: 10,
           }}
         >
@@ -247,7 +247,7 @@ export default function FoundingLockinModal({
               fontWeight: 600,
               letterSpacing: '0.02em',
               color: '#ffffff',
-              backgroundColor: colors.primary,
+              backgroundColor: 'var(--color-brand-primary)',
               border: 'none',
               borderRadius: 8,
               textAlign: 'center',

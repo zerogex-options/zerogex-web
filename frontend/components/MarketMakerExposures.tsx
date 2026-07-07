@@ -19,6 +19,8 @@ import {
 import {
   useApiData,
   useGEXSummary,
+  useMarketQuote,
+  useSessionLevels,
 } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
@@ -26,7 +28,7 @@ import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useS
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { etTodayDateKey, getMarketSession, omitClosedMarketTimes } from '@/core/utils';
+import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 
 interface StrikeAggregation {
   strike: number;
@@ -157,6 +159,17 @@ const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
 
+// Session level lines (pre-market + previous-session high/low) — non-index
+// symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
+// Deliberately distinct hues from the GEX levels above: violet for the
+// pre-market pair, pink for the previous-session pair. High and low of a
+// session share its hue — same convention as the walls sharing KEY_LEVEL —
+// and the on-line pills disambiguate. The fine-dotted dash keeps them
+// visually subordinate to the walls/flip/spot lines.
+const PM_LEVEL_LINE = '#C084FC';
+const PREV_LEVEL_LINE = '#F472B6';
+const SESSION_LEVEL_DASH = '2 3';
+
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
 const ZOOM_STEP = 1.43; // ≈ 1/0.7
@@ -176,6 +189,8 @@ const DEFAULTS = {
   gexMode: 'split' as 'split' | 'net',
   showOiDots: true,
   showGrid: true,
+  showPmLevels: true,
+  showPrevLevels: true,
 };
 
 interface MarketMakerExposuresProps {
@@ -205,10 +220,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const VOL_AREA_TOP = PLOT_BOTTOM - PLOT_HEIGHT * 0.2;
   const VOL_AREA_BOTTOM = PLOT_BOTTOM;
   const isDark = theme === 'dark';
-  const textPrimary = isDark ? colors.light : colors.dark;
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
-  const border = colors.muted;
-  const subtle = colors.muted;
+  const textPrimary = 'var(--text-primary)';
+  const cardBg = 'var(--bg-card)';
+  const border = 'var(--text-secondary)';
+  const subtle = 'var(--text-secondary)';
   const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
@@ -238,6 +253,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
   const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  // Pre-market and previous-session high/low overlays (non-index symbols).
+  // Optional so traders can declutter the chart when they don't need them.
+  const [showPmLevels, setShowPmLevels] = useState<boolean>(DEFAULTS.showPmLevels);
+  const [showPrevLevels, setShowPrevLevels] = useState<boolean>(DEFAULTS.showPrevLevels);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
@@ -280,6 +299,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setGexMode(DEFAULTS.gexMode);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
+    setShowPmLevels(DEFAULTS.showPmLevels);
+    setShowPrevLevels(DEFAULTS.showPrevLevels);
     setYAnchor(null);
     setYPanOffset(0);
   };
@@ -317,10 +338,22 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── Live snapshot hooks ──
   // useGEXSummary feeds the "Updated" label and supplies fallback values for
   // the key levels (gamma_flip / call_wall / put_wall) when the timeseries
-  // bucket has nulls on its first-emit cycle.  useMarketQuote is no longer
-  // needed for candle data — the price chart pulls OHLC from
-  // /api/market/historical below, which is the dedicated tape source.
+  // bucket has nulls on its first-emit cycle.  useMarketQuote is used ONLY
+  // to source the visible spot line (chartSpot below) so it moves in
+  // lockstep with the header price (which is also useMarketQuote-fed via
+  // the shared marketQuoteCache). Candle OHLC still comes from the
+  // dedicated tape source (/api/market/historical) below — useMarketQuote
+  // is not the source of truth for candle open/high/low.
   const { data: gexSummary } = useGEXSummary(symbol, summaryInterval);
+  const { data: quoteData } = useMarketQuote(symbol, paused ? 0 : 1000);
+
+  // ── Session levels: pre-market + previous-session high/low ──
+  // Non-index symbols only (SPY/QQQ etc.) — cash indexes have no pre-market
+  // session, so the fetch is skipped entirely and no lines are drawn.  The
+  // backend rolls these at 04:00 ET (pre-market start) and live-updates the
+  // pre-market pair while that session is in progress; a 60s poll is plenty.
+  const symbolIsIndex = isIndexSymbol(symbol);
+  const { data: sessionLevels } = useSessionLevels(symbol, 60000, !symbolIsIndex);
 
   // Expiry dropdown universe.  Sourced from a dedicated lightweight endpoint
   // that scans a TRAILING WINDOW of gex_by_strike — NOT just the latest
@@ -364,15 +397,31 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // sticks out — the same intra-bar semantics a real candlestick chart
   // wants, with none of the analytics-engine-seeding quirks the strike-
   // profile timeseries exhibits.
-  const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf));
+  const { rows: marketHistoricalAll } = useMarketHistorical(symbol, tfToApi(tf), true);
+  // Outside the cash session the backend serves the cash index's FUTURE for
+  // this series (allow_futures opt-in). In that mode we render a clean futures
+  // price chart: keep the overnight bars (don't clip to equity hours) and drop
+  // the index-strike gamma overlay below (walls / flip / per-strike bars would
+  // sit offset from the futures candles by the index↔future basis).
+  const isFuturesMode = useMemo(
+    () => marketHistoricalAll.some((b) => b.display_source === 'futures'),
+    [marketHistoricalAll],
+  );
+  const futuresChartTicker = useMemo(
+    () => marketHistoricalAll.find((b) => b.display_source === 'futures')?.data_symbol ?? null,
+    [marketHistoricalAll],
+  );
   const candleBuckets = useMemo(() => {
-    return omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp)
+    const base = isFuturesMode
+      ? marketHistoricalAll
+      : omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp);
+    return base
       .filter((b) => {
         const o = toNumber(b.open ?? b.close);
         return o != null && o > 0;
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [marketHistoricalAll]);
+  }, [marketHistoricalAll, isFuturesMode]);
 
   // ── Strike-Profile bucket lookup by timestamp ──
   // Candles and GEX data come from different endpoints with different
@@ -620,6 +669,84 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return allCandles.slice(start, rightEdge + 1);
   }, [allCandles, rewindIndex]);
 
+  // ── Live tip overlay: WS quote → tip candle close/high/low ──
+  //
+  // Layers the WS-fed live tick onto the tip candle ONLY, so the chart's
+  // rightmost candle body moves in step with the header price / spot line
+  // instead of waiting for the next /api/market/historical poll. The prior
+  // attempt at this "created a mess" (bucket-rollover phantoms, drifting
+  // high/low, timestamp misalignment); the invariants below eliminate each
+  // failure mode:
+  //
+  //   1. HISTORY IS AUTHORITATIVE.  Every render starts from a fresh
+  //      ``visibleCandles`` (the useMarketHistorical poll's projection).
+  //      No accumulated state across renders — no drift.
+  //   2. BUCKET-SCOPED.  The WS tick's timestamp MUST lie inside the tip
+  //      bar's [start, start + intervalMs) window.  During bucket
+  //      rollover, the historical response can still show the previous
+  //      bucket as the rightmost bar while WS ticks are already inside
+  //      the next bucket — overlaying then would paint a "future" price
+  //      onto a "past" bar (the phantom).  Wait for historical to catch
+  //      up.
+  //   3. MONOTONIC-WIDENING H/L.  ``high = max(fresh tip.high, wsClose)``
+  //      and ``low = min(fresh tip.low, wsClose)``.  We compare against
+  //      the FRESH historical H/L, never a prior-render overlay, so an
+  //      earlier WS-widened H that historical later contradicts snaps
+  //      back on the next render — no upward drift.
+  //   4. VOLUME + TIMESTAMP + OPEN NEVER TOUCHED.  Volume aggregation
+  //      scope is per-timeframe (5min bar's volume ≠ 1min tick's), so
+  //      mixing would double-count.  Timestamp is the bucket start — if
+  //      we overwrote it, the x-axis would slide.  Open is the bucket-
+  //      start price and is a historical fact.
+  //   5. LIVE-ONLY.  Skipped during rewind (``rewindIndex != null``) —
+  //      overlaying a WS tick onto a historical bar the user is
+  //      inspecting would be catastrophically confusing.
+  //   6. SESSION GUARD.  Skipped when the market session is closed —
+  //      the WS quote goes flat and the historical tip is authoritative.
+  //   7. SAME-VALUE EARLY EXIT.  If ``wsClose === tip.close`` we return
+  //      the same array reference (React skips downstream memos).
+  //
+  // Used only in the candle body render loop below (search "candle
+  // body/wick"); volume bar loop, y-axis auto-scale, x-axis / date
+  // groups, and every other consumer keep reading the original
+  // ``visibleCandles`` so layout, axis anchoring, and per-bucket
+  // volume remain untouched.
+  const visibleCandlesForRender = useMemo(() => {
+    if (rewindIndex != null || visibleCandles.length === 0) return visibleCandles;
+    const wsClose = quoteData?.close;
+    const wsTsStr = quoteData?.timestamp;
+    const session = quoteData?.session;
+    if (
+      session == null ||
+      session === 'closed' ||
+      typeof wsClose !== 'number' ||
+      !Number.isFinite(wsClose) ||
+      wsClose <= 0
+    ) {
+      return visibleCandles;
+    }
+    const tip = visibleCandles[visibleCandles.length - 1];
+    const intervalMin = tf === '1m' ? 1 : tf === '5m' ? 5 : 15;
+    const bucketMs = intervalMin * 60_000;
+    const tipStartMs = new Date(tip.timestamp).getTime();
+    if (!Number.isFinite(tipStartMs)) return visibleCandles;
+    const tipEndMs = tipStartMs + bucketMs;
+    const wsTsMs = wsTsStr ? new Date(wsTsStr).getTime() : NaN;
+    if (!Number.isFinite(wsTsMs) || wsTsMs < tipStartMs || wsTsMs >= tipEndMs) {
+      return visibleCandles;
+    }
+    if (wsClose === tip.close) return visibleCandles;
+    const patched = visibleCandles.slice();
+    patched[patched.length - 1] = {
+      ...tip,
+      close: wsClose,
+      high: Math.max(tip.high, wsClose),
+      low: Math.min(tip.low, wsClose),
+      // timestamp, upVolume, downVolume — INTENTIONALLY UNTOUCHED.
+    };
+    return patched;
+  }, [visibleCandles, quoteData, tf, rewindIndex]);
+
   // Track the symbol that produced the current anchor so we can clear it
   // when the user switches underlying (SPY → QQQ etc.) — the old spot would
   // place the y-axis nowhere near the new price.
@@ -743,9 +870,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
   const visibleStrikes = useMemo(() => {
+    // Futures mode: no gamma overlay — the index-strike bars don't line up
+    // with the future's price scale.
+    if (isFuturesMode) return [] as StrikeAggregation[];
     if (!yBounds) return [] as StrikeAggregation[];
     return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
-  }, [effStrikeAggregations, yBounds]);
+  }, [effStrikeAggregations, yBounds, isFuturesMode]);
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -909,17 +1039,42 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return out;
   }, [visibleCandles, tf, LEFT_W]);
 
-  // The spot line is anchored to the latest visible candle's close so it
-  // always reads the same number as the rightmost candle paints.  Falls
-  // back to the bootstrap spot (gex summary's spot_price) when no candles
-  // have loaded yet.
+  // The visible spot line's price. Priority order:
+  //
+  //   1. WS-fed live quote (quoteData.close) — updates within milliseconds
+  //      of every ingested tick and shares the marketQuoteCache with the
+  //      header price, so the header and the spot line move in lockstep
+  //      on the same React commit.
+  //   2. The rightmost visible candle's close — HTTP-polled at 1Hz via
+  //      useMarketHistorical. Used during replay / rewind (where quoteData
+  //      is not the correct number) and as a fallback until the WS
+  //      delivers its first tick.
+  //   3. Bootstrap spot (gexSummary.spot_price) when no candles have
+  //      loaded yet — same fallback the ``spot`` memo above uses.
+  //
+  // Pre-WebSocket this was pinned to the candle close only (with the
+  // comment "always reads the same number as the rightmost candle
+  // paints") — which was correct then but produced a visible ~500 ms
+  // lag vs the header now that the header ticks on a live socket.
+  // Guard on ``quoteData?.session`` so we don't overlay a stale value
+  // when the market is closed (weekend, holiday) — the tip candle is
+  // authoritative in those states.
   const chartSpot = useMemo(() => {
+    const wsClose = quoteData?.close;
+    const session = quoteData?.session;
+    const isSessionLive =
+      session != null &&
+      session !== 'closed' &&
+      typeof wsClose === 'number' &&
+      Number.isFinite(wsClose) &&
+      wsClose > 0;
+    if (isSessionLive) return wsClose as number;
     if (visibleCandles.length > 0) {
       const last = visibleCandles[visibleCandles.length - 1];
       if (Number.isFinite(last.close)) return last.close;
     }
     return spot;
-  }, [visibleCandles, spot]);
+  }, [quoteData, visibleCandles, spot]);
 
   // Resolve the flip / call wall / put wall to draw.  While rewinding (and off
   // the right edge), read them from the scrubbed bucket directly — same
@@ -929,15 +1084,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // bucket has no recorded value (rare — typically when the analytics writer
   // hadn't resolved the flip yet on that cycle).
   const levelSourceBucket = rewoundBucket ?? liveGexBucket;
-  const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
-  const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
-  const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // Futures mode: suppress the index-strike levels (they'd draw offset from the
+  // futures candles); the spot line (candle close) still renders.
+  const effFlip = isFuturesMode ? null : (toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip));
+  const effCallWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall));
+  const effPutWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall));
 
   const keyLevels = useMemo(() => {
-    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }>;
+    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
-    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean }> = [];
+    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }> = [];
     if (effFlip != null && Number.isFinite(effFlip)) {
       items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
@@ -950,8 +1107,29 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (effPutWall != null && Number.isFinite(effPutWall)) {
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
     }
+    // Session context levels — pre-market + previous-session high/low.
+    // Non-index symbols only; each pushes independently so partial data
+    // (e.g. no pre-market print yet at 04:01 ET) still draws what exists.
+    if (!symbolIsIndex && sessionLevels && !sessionLevels.is_index) {
+      const pmHigh = toNumber(sessionLevels.premarket_high);
+      const pmLow = toNumber(sessionLevels.premarket_low);
+      const prevHigh = toNumber(sessionLevels.prev_session_high);
+      const prevLow = toNumber(sessionLevels.prev_session_low);
+      if (showPmLevels && pmHigh != null) {
+        items.push({ y: yFor(pmHigh), price: pmHigh, color: PM_LEVEL_LINE, label: 'PM High', dash: SESSION_LEVEL_DASH });
+      }
+      if (showPmLevels && pmLow != null) {
+        items.push({ y: yFor(pmLow), price: pmLow, color: PM_LEVEL_LINE, label: 'PM Low', dash: SESSION_LEVEL_DASH });
+      }
+      if (showPrevLevels && prevHigh != null) {
+        items.push({ y: yFor(prevHigh), price: prevHigh, color: PREV_LEVEL_LINE, label: 'Prev High', dash: SESSION_LEVEL_DASH });
+      }
+      if (showPrevLevels && prevLow != null) {
+        items.push({ y: yFor(prevLow), price: prevLow, color: PREV_LEVEL_LINE, label: 'Prev Low', dash: SESSION_LEVEL_DASH });
+      }
+    }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, yBounds, PLOT_HEIGHT]);
+  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1316,6 +1494,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <span>{todayLabel}</span>
         </div>
 
+        {/* Futures display swap (outside cash session): the candle series is
+            the cash index's future; the gamma overlay is hidden. */}
+        {isFuturesMode && (
+          <div
+            className={toolbarBtnClass}
+            style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+            title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} (gamma levels hidden until the cash open)`}
+          >
+            <span>◆ {futuresChartTicker ?? 'FUTURES'}</span>
+          </div>
+        )}
+
         {/* Expiry dropdown */}
         <div ref={expiryRef} className="relative">
           <button
@@ -1534,6 +1724,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 />
                 <span>Show grid lines</span>
               </label>
+              {!symbolIsIndex && (
+                <>
+                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                    <input
+                      type="checkbox"
+                      checked={showPmLevels}
+                      onChange={(e) => setShowPmLevels(e.target.checked)}
+                    />
+                    <span>Show PM High/Low</span>
+                  </label>
+                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                    <input
+                      type="checkbox"
+                      checked={showPrevLevels}
+                      onChange={(e) => setShowPrevLevels(e.target.checked)}
+                    />
+                    <span>Show Prev High/Low</span>
+                  </label>
+                </>
+              )}
               <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
                 <button
                   type="button"
@@ -1565,7 +1775,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             paused && (
               <span
                 className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-                style={{ color: colors.warning, backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+                style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
               >
                 Paused
               </span>
@@ -1657,7 +1867,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={downY}
                       width={volBarW}
                       height={Math.max(0, downH)}
-                      fill={colors.bearish}
+                      fill={'var(--color-bear)'}
                     />
                   )}
                   {c.upVolume > 0 && (
@@ -1666,7 +1876,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={upY}
                       width={volBarW}
                       height={Math.max(0, upH)}
-                      fill={colors.bullish}
+                      fill={'var(--color-bull)'}
                     />
                   )}
                 </g>
@@ -1699,7 +1909,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               const closeBeforeFirstVisible = firstVisibleIdx > 0
                 ? allCandles[firstVisibleIdx - 1].close
                 : null;
-              return visibleCandles.map((c, i) => {
+              // ── Candle body/wick paint ──
+              // visibleCandlesForRender overlays the WS quote onto the tip
+              // bar's close (+ widens H/L). Only the last element is
+              // possibly modified — all earlier bars are identical to
+              // visibleCandles, so the prev-close lookup below is
+              // equivalent whichever array we read.
+              return visibleCandlesForRender.map((c, i) => {
                 const x = xForTime(new Date(c.timestamp).getTime());
                 const yO = yForPrice(c.open);
                 const yC = yForPrice(c.close);
@@ -1712,15 +1928,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 // The neutral colour tracks the theme so it stays visible
                 // in both light and dark modes.
                 const prevClose = i > 0
-                  ? visibleCandles[i - 1].close
+                  ? visibleCandlesForRender[i - 1].close
                   : closeBeforeFirstVisible;
                 let color: string;
                 if (prevClose == null || c.close === prevClose) {
                   color = textPrimary;
                 } else if (c.close > prevClose) {
-                  color = colors.bullish;
+                  color = 'var(--color-bull)';
                 } else {
-                  color = colors.bearish;
+                  color = 'var(--color-bear)';
                 }
 
                 // ── Fill: close vs OPEN ──
@@ -1846,7 +2062,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       y={y - barH / 2}
                       width={Math.max(0, w)}
                       height={barH}
-                      fill={positive ? colors.bullish : colors.bearish}
+                      fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
                       opacity={barOpacity}
                     />
                   )}
@@ -1866,7 +2082,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
-                    fill={colors.bullish}
+                    fill={'var(--color-bull)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1876,7 +2092,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
-                    fill={colors.bearish}
+                    fill={'var(--color-bear)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1933,7 +2149,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
-                    fill={colors.bullish}
+                    fill={'var(--color-bull)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -1943,7 +2159,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
-                    fill={colors.bearish}
+                    fill={'var(--color-bear)'}
                     opacity={barOpacity}
                   />
                 )}
@@ -2017,7 +2233,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y1={lvl.y}
                     y2={lvl.y}
                     stroke={lvl.color}
-                    strokeDasharray={lvl.emphasized ? '5 3' : '4 4'}
+                    strokeDasharray={lvl.dash ?? (lvl.emphasized ? '5 3' : '4 4')}
                     strokeWidth={lvl.emphasized ? 1.4 : 1}
                     opacity={0.85}
                   />
@@ -2132,7 +2348,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   <div
                     className="font-mono tabular-nums mt-1"
                     style={{
-                      color: hoveredCandle.close >= hoveredCandle.open ? colors.bullish : colors.bearish,
+                      color: hoveredCandle.close >= hoveredCandle.open ? 'var(--color-bull)' : 'var(--color-bear)',
                     }}
                   >
                     {hoveredCandle.close - hoveredCandle.open >= 0 ? '+' : ''}
@@ -2143,9 +2359,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
                       Vol {formatVolume(hoveredCandle.upVolume + hoveredCandle.downVolume)}
                       {' · '}
-                      <span style={{ color: colors.bullish }}>↑ {formatVolume(hoveredCandle.upVolume)}</span>
+                      <span style={{ color: 'var(--color-bull)' }}>↑ {formatVolume(hoveredCandle.upVolume)}</span>
                       {' / '}
-                      <span style={{ color: colors.bearish }}>↓ {formatVolume(hoveredCandle.downVolume)}</span>
+                      <span style={{ color: 'var(--color-bear)' }}>↓ {formatVolume(hoveredCandle.downVolume)}</span>
                     </div>
                   )}
                 </>
@@ -2155,10 +2371,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
                   {gexMode === 'split' ? (
                     <>
-                      <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
                       </div>
-                      <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                         Put GEX: {formatExposure(hoveredStrike.putGex)}
                       </div>
                       <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
@@ -2168,7 +2384,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   ) : (
                     <div
                       className="font-mono tabular-nums"
-                      style={{ color: hoveredStrike.netGex >= 0 ? colors.bullish : colors.bearish }}
+                      style={{ color: hoveredStrike.netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
                     >
                       Net GEX: {formatExposure(hoveredStrike.netGex)}
                     </div>
@@ -2178,10 +2394,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'right' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  <div className="font-mono tabular-nums" style={{ color: colors.bullish }}>
+                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                     Call OI: {hoveredStrike.callOi.toLocaleString()}
                   </div>
-                  <div className="font-mono tabular-nums" style={{ color: colors.bearish }}>
+                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                     Put OI: {hoveredStrike.putOi.toLocaleString()}
                   </div>
                   <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
@@ -2326,6 +2542,22 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
+        {!symbolIsIndex && showPmLevels && (
+          <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+            </svg>
+            <span style={{ color: textPrimary }}>PM High/Low</span>
+          </span>
+        )}
+        {!symbolIsIndex && showPrevLevels && (
+          <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30–16:00 ET)">
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
+            </svg>
+            <span style={{ color: textPrimary }}>Prev High/Low</span>
+          </span>
+        )}
         <span className="ml-auto">Hover any panel for details</span>
       </div>
       )}

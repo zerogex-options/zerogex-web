@@ -24,6 +24,8 @@ import type {
   BacktestSweep,
   BacktestSweepAxis,
   BacktestSweepCreated,
+  InsightsSource,
+  PatternInsight,
 } from '@/app/backtesting/types';
 
 /**
@@ -189,6 +191,25 @@ export const backtestAPI = {
   /** Fetch a sweep's header + per-cell status/metrics (used while polling). */
   getSweep: async (sweepId: number): Promise<BacktestSweep> => {
     return apiClient.get<BacktestSweep>(`/api/backtest/sweeps/${sweepId}`);
+  },
+
+  // ---- Pattern insights leaderboard -------------------------------------
+
+  /**
+   * Per-(pattern, underlying) measured stats for the /backtesting/insights
+   * page. Source defaults to 'option_pnl' (realized P&L); 'underlying_touch'
+   * returns the proxy rows without dollar economics. Optional underlying
+   * narrows to one symbol.
+   */
+  getPatternInsights: async (
+    source: InsightsSource = 'option_pnl',
+    underlying?: string,
+  ): Promise<PatternInsight[]> => {
+    const params = new URLSearchParams({ source });
+    if (underlying) params.set('underlying', underlying);
+    return apiClient.get<PatternInsight[]>(
+      `/api/backtest/insights/patterns?${params}`,
+    );
   },
 };
 

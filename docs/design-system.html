@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>ZeroGEX color and typography spec</title>
+<style>
+  :root {
+    --page-bg: #E5DED0;
+    --panel: #F2ECDC;
+    --ink: #1C2434;
+    --ink-2: #5A6478;
+    --ink-3: #8A93A5;
+    --rule: #C1B8A2;
+    --rule-soft: #D8D0B8;
+    --eyebrow: #7A1E2C;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  .page {
+    background: var(--page-bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    padding: 56px 32px 96px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .doc-head {
+    max-width: 780px;
+    margin: 0 auto 36px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--eyebrow);
+    font-weight: 700;
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    color: var(--ink-2);
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    max-width: 640px;
+  }
+
+  h2.section-title {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--eyebrow);
+    font-weight: 700;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 auto 28px;
+    max-width: 1720px;
+  }
+
+  .scroll {
+    overflow-x: auto;
+  }
+
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    width: 100%;
+  }
+
+  /* Header rows */
+  thead th {
+    background: var(--panel);
+    color: var(--ink);
+    text-align: left;
+    padding: 6px 10px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  thead tr.cat th {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--eyebrow);
+    padding: 14px 8px 6px;
+    text-align: center;
+    border-bottom: 1px solid rgba(122,30,44,0.22);
+    background: var(--panel);
+  }
+
+  thead tr.token th {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-2);
+    font-weight: 500;
+    letter-spacing: 0;
+    padding: 8px 6px 14px;
+    text-align: center;
+    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    text-transform: none;
+  }
+
+  /* Sticky first column */
+  th.label-col,
+  td.label-col {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--panel);
+    min-width: 176px;
+    max-width: 176px;
+    border-right: 1px solid var(--rule);
+    text-align: left;
+    padding: 14px 14px;
+  }
+
+  thead th.label-col {
+    z-index: 4;
+  }
+
+  .theme-name {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+
+  .mode-chip {
+    display: inline-block;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 2px 8px 3px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-2);
+    font-family: var(--font-sans);
+  }
+
+  .mode-chip.dark {
+    background: #1C2434;
+    color: #F0EADB;
+    border-color: transparent;
+  }
+
+  /* Data cells */
+  tbody td {
+    background: var(--row-bg);
+    color: var(--row-text);
+    padding: 14px 6px;
+    text-align: center;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* Row palette definitions — mirrors globals.css bg-main + text-primary */
+  tr.ws-l  { --row-bg: #F5F3EF; --row-text: #161A1D; --row-text-2: rgba(22,26,29,0.55);   --chip-outline: rgba(0,0,0,0.10); }
+  tr.ws-d  { --row-bg: #0E1116; --row-text: #ECE7DC; --row-text-2: rgba(236,231,220,0.60); --chip-outline: rgba(255,255,255,0.10); }
+  tr.ca-l  { --row-bg: #F4E3C1; --row-text: #2B2A28; --row-text-2: rgba(43,42,40,0.60);   --chip-outline: rgba(0,0,0,0.10); }
+  tr.ca-d  { --row-bg: #171B24; --row-text: #F6EAD2; --row-text-2: rgba(246,234,210,0.60); --chip-outline: rgba(255,255,255,0.10); }
+  tr.ky-l  { --row-bg: #EFE8D8; --row-text: #2F3329; --row-text-2: rgba(47,51,41,0.60);   --chip-outline: rgba(0,0,0,0.10); }
+  tr.ky-d  { --row-bg: #171B16; --row-text: #E8DDC7; --row-text-2: rgba(232,221,199,0.60); --chip-outline: rgba(255,255,255,0.10); }
+  tr.mi-l  { --row-bg: #F7F3E8; --row-text: #15151F; --row-text-2: rgba(21,21,31,0.60);   --chip-outline: rgba(0,0,0,0.10); }
+  tr.mi-d  { --row-bg: #0B1026; --row-text: #F8F4FF; --row-text-2: rgba(248,244,255,0.60); --chip-outline: rgba(255,255,255,0.10); }
+
+  tbody td.label-col {
+    color: var(--ink);
+    background: var(--panel);
+  }
+
+  /* Category separators — vertical rule between groups */
+  th.cat-sep,
+  td.cat-sep {
+    border-left: 1px solid var(--rule);
+  }
+  tbody td.cat-sep { border-left-color: color-mix(in srgb, var(--row-text) 18%, transparent); }
+
+  /* Cell content */
+  .cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 40px;
+  }
+
+  .chip {
+    width: 34px;
+    height: 30px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px var(--chip-outline);
+  }
+
+  .hex {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--row-text-2);
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+    text-align: center;
+    font-feature-settings: "tnum" on;
+    white-space: nowrap;
+  }
+
+  /* Fonts matrix — smaller, mode-agnostic (theme-level) */
+  .fonts-panel .scroll { padding: 0; }
+
+  table.fonts {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-family: var(--font-sans);
+  }
+
+  table.fonts thead th {
+    background: var(--panel);
+    padding: 12px 16px;
+    text-align: left;
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  table.fonts thead th.label-col {
+    color: var(--ink);
+  }
+  table.fonts thead th:first-child {
+    min-width: 200px;
+  }
+
+  table.fonts tbody td {
+    padding: 20px 18px;
+    background: var(--row-bg, var(--panel));
+    color: var(--row-text, var(--ink));
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    vertical-align: middle;
+  }
+  table.fonts tbody tr:last-child td { border-bottom: none; }
+
+  table.fonts tbody td.label-col {
+    background: var(--panel);
+    color: var(--ink);
+    position: sticky;
+    left: 0;
+    border-right: 1px solid var(--rule);
+    padding: 18px 16px;
+    min-width: 200px;
+  }
+
+  /* Font display styles — best-effort with local fallbacks */
+  .f-name {
+    font-size: 22px;
+    line-height: 1.05;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--row-text);
+    letter-spacing: -0.005em;
+  }
+  .f-role {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--row-text-2);
+    display: block;
+  }
+
+  .f-libre     { font-family: 'Libre Baskerville', 'Iowan Old Style', 'Georgia', serif; font-weight: 700; }
+  .f-playfair  { font-family: 'Playfair Display', 'Didot', 'Bodoni 72', 'Times New Roman', serif; font-weight: 700; letter-spacing: -0.01em; }
+  .f-cormorant { font-family: 'Cormorant Garamond', 'EB Garamond', 'Garamond', 'Book Antiqua', serif; font-weight: 600; letter-spacing: 0; font-size: 24px; }
+  .f-poppins   { font-family: 'Poppins', 'Futura', 'Trebuchet MS', 'Avenir Next', sans-serif; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase; font-size: 20px; }
+  .f-inter     { font-family: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif; font-weight: 500; }
+  .f-noto      { font-family: 'Noto Sans', -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif; font-weight: 500; }
+  .f-jb        { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 500; font-size: 18px; }
+
+  /* Legend */
+  .legend {
+    max-width: 780px;
+    margin: 24px auto 0;
+    color: var(--ink-2);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .legend h3 {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--eyebrow);
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  .legend code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    background: var(--panel);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  .legend ul { padding-left: 18px; margin: 6px 0 0; }
+  .legend li { margin: 3px 0; }
+
+  @media (max-width: 720px) {
+    .page { padding: 40px 16px 60px; }
+    h1 { font-size: 26px; }
+  }
+</style>
+
+</head>
+<body style="margin:0;padding:0;">
+<div class="page">
+  <header class="doc-head">
+    <p class="eyebrow">ZeroGEX Design System · v1</p>
+    <h1>Color and typography spec</h1>
+    <p class="lede">Four themes × two modes. Every row sits on its own <code style="font-family:var(--font-mono);font-size:12px">--bg-main</code>, so each swatch renders against the ground it actually appears against in-product. Semi-transparent tokens (border alphas, text alphas) show their true composite over that ground.</p>
+  </header>
+
+  <h2 class="section-title" style="max-width:1720px;margin-left:auto;margin-right:auto;">Color tokens · 8 combos × 30 tokens</h2>
+  <div class="panel">
+    <div class="scroll">
+      <table class="matrix" id="matrix"></table>
+    </div>
+  </div>
+
+  <h2 class="section-title" style="max-width:1720px;margin-left:auto;margin-right:auto;">Typography · 4 themes × 3 roles (mode-agnostic)</h2>
+  <div class="panel fonts-panel">
+    <div class="scroll">
+      <table class="fonts" id="fonts"></table>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h3>Reading this sheet</h3>
+    <ul>
+      <li>Each row's cell backgrounds are the theme's <code>--bg-main</code>. A <code>#RRRRRR</code> label alone is a solid value; <code>#RRRRRR · N%</code> is the base color at N% alpha, composited over the row ground.</li>
+      <li>Column groups follow the <code>globals.css</code> token names verbatim: <code>--color-bg-*</code>, <code>--text-*</code>, <code>--border-*</code>, <code>--color-accent*</code>, <code>--color-brand-*</code>, <code>--color-bull</code> / <code>--color-bear</code>, <code>--heat-*</code>, <code>--chart-1..5</code>.</li>
+      <li>Fonts are theme-level (not mode-level); font stacks fall through to system faces where the display face isn't installed locally.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  // ---------- token data ----------
+  function alpha(hex, pct) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return { css: `rgba(${r},${g},${b},${(pct/100).toFixed(2)})`, label: `${hex} · ${pct}%` };
+  }
+  function solid(hex) { return { css: hex, label: hex }; }
+
+  const GROUPS = [
+    { name:'Backgrounds', cols:['bg-main','bg-subtle','bg-card','bg-hover','bg-active'] },
+    { name:'Text',        cols:['text-primary','text-secondary','text-muted','text-inverse'] },
+    { name:'Borders',     cols:['border-subtle','border-default','border-strong'] },
+    { name:'Accents & brand', cols:['accent','accent-hot','brand-primary','brand-accent','brand-deep','gold'] },
+    { name:'Semantic',    cols:['bull','bear'] },
+    { name:'Heat ramp',   cols:['heat-low','heat-mid','heat-high'] },
+    { name:'Chart',       cols:['chart-1','chart-2','chart-3','chart-4','chart-5'] },
+  ];
+
+  const THEMES = [
+    {
+      id:'ws-l', name:'Wall Street', mode:'Light',
+      tokens: {
+        'bg-main': solid('#F5F3EF'), 'bg-subtle': solid('#EAE7DF'), 'bg-card': solid('#FAF8F4'),
+        'bg-hover': solid('#E1DDD1'), 'bg-active': solid('#D3CEBF'),
+        'text-primary': solid('#161A1D'), 'text-secondary': alpha('#161A1D', 75),
+        'text-muted': alpha('#161A1D', 50), 'text-inverse': solid('#F5F3EF'),
+        'border-subtle': alpha('#161A1D', 10), 'border-default': alpha('#161A1D', 22),
+        'border-strong': alpha('#161A1D', 40),
+        'accent': solid('#0E3A53'), 'accent-hot': solid('#C7213D'),
+        'brand-primary': solid('#0E3A53'), 'brand-accent': solid('#C7213D'),
+        'brand-deep': solid('#161A1D'), 'gold': solid('#B08D57'),
+        'bull': solid('#10B85E'), 'bear': solid('#E7213D'),
+        'heat-low': solid('#8B3550'), 'heat-mid': solid('#C7213D'), 'heat-high': solid('#7A1E2C'),
+        'chart-1': solid('#0E3A53'), 'chart-2': solid('#7A1E2C'), 'chart-3': solid('#B08D57'),
+        'chart-4': solid('#5B6670'), 'chart-5': solid('#161A1D'),
+      },
+    },
+    {
+      id:'ws-d', name:'Wall Street', mode:'Dark',
+      tokens: {
+        'bg-main': solid('#0E1116'), 'bg-subtle': solid('#13171F'), 'bg-card': solid('#191E28'),
+        'bg-hover': solid('#212633'), 'bg-active': solid('#2A3040'),
+        'text-primary': solid('#ECE7DC'), 'text-secondary': alpha('#ECE7DC', 78),
+        'text-muted': alpha('#ECE7DC', 52), 'text-inverse': solid('#0E1116'),
+        'border-subtle': alpha('#ECE7DC', 9), 'border-default': alpha('#ECE7DC', 22),
+        'border-strong': alpha('#ECE7DC', 34),
+        'accent': solid('#4A9BD1'), 'accent-hot': solid('#E93D5A'),
+        'brand-primary': solid('#4A9BD1'), 'brand-accent': solid('#E93D5A'),
+        'brand-deep': solid('#ECE7DC'), 'gold': solid('#C5A05A'),
+        'bull': solid('#22D982'), 'bear': solid('#FF3855'),
+        'heat-low': solid('#B45585'), 'heat-mid': solid('#E93D5A'), 'heat-high': solid('#7A1E2C'),
+        'chart-1': solid('#4A9BD1'), 'chart-2': solid('#9A2638'), 'chart-3': solid('#C5A05A'),
+        'chart-4': solid('#7B8790'), 'chart-5': solid('#ECE7DC'),
+      },
+    },
+    {
+      id:'ca-l', name:'California Sunset', mode:'Light',
+      tokens: {
+        'bg-main': solid('#F4E3C1'), 'bg-subtle': solid('#ECD8B0'), 'bg-card': solid('#FBF1D8'),
+        'bg-hover': solid('#E3CCA0'), 'bg-active': solid('#D5BB8A'),
+        'text-primary': solid('#2B2A28'), 'text-secondary': alpha('#2B2A28', 75),
+        'text-muted': alpha('#2B2A28', 50), 'text-inverse': solid('#F4E3C1'),
+        'border-subtle': alpha('#2B2A28', 10), 'border-default': alpha('#2B2A28', 22),
+        'border-strong': alpha('#2B2A28', 40),
+        'accent': solid('#D96C4A'), 'accent-hot': solid('#C7A05A'),
+        'brand-primary': solid('#D96C4A'), 'brand-accent': solid('#C7A05A'),
+        'brand-deep': solid('#7B4E3A'), 'gold': solid('#C7A05A'),
+        'bull': solid('#22B563'), 'bear': solid('#E63822'),
+        'heat-low': solid('#E7B378'), 'heat-mid': solid('#D96C4A'), 'heat-high': solid('#B04527'),
+        'chart-1': solid('#4F8C8B'), 'chart-2': solid('#D96C4A'), 'chart-3': solid('#C7A05A'),
+        'chart-4': solid('#7B4E3A'), 'chart-5': solid('#2B2A28'),
+      },
+    },
+    {
+      id:'ca-d', name:'California Sunset', mode:'Dark',
+      tokens: {
+        'bg-main': solid('#171B24'), 'bg-subtle': solid('#1D222D'), 'bg-card': solid('#232937'),
+        'bg-hover': solid('#2A3040'), 'bg-active': solid('#33394B'),
+        'text-primary': solid('#F6EAD2'), 'text-secondary': alpha('#F6EAD2', 78),
+        'text-muted': alpha('#F6EAD2', 52), 'text-inverse': solid('#171B24'),
+        'border-subtle': alpha('#F6EAD2', 9), 'border-default': alpha('#F6EAD2', 20),
+        'border-strong': alpha('#F6EAD2', 32),
+        'accent': solid('#E1785B'), 'accent-hot': solid('#D7A84B'),
+        'brand-primary': solid('#E1785B'), 'brand-accent': solid('#D7A84B'),
+        'brand-deep': solid('#8D5C42'), 'gold': solid('#D7A84B'),
+        'bull': solid('#35E082'), 'bear': solid('#FF4A2E'),
+        'heat-low': solid('#EEB874'), 'heat-mid': solid('#E1785B'), 'heat-high': solid('#B24E32'),
+        'chart-1': solid('#3E9C9B'), 'chart-2': solid('#E1785B'), 'chart-3': solid('#D7A84B'),
+        'chart-4': solid('#8D5C42'), 'chart-5': solid('#F6EAD2'),
+      },
+    },
+    {
+      id:'ky-l', name:'Kyoto Zen', mode:'Light',
+      tokens: {
+        'bg-main': solid('#EFE8D8'), 'bg-subtle': solid('#E4DCC8'), 'bg-card': solid('#F6F0E1'),
+        'bg-hover': solid('#DAD1B8'), 'bg-active': solid('#CDC3A5'),
+        'text-primary': solid('#2F3329'), 'text-secondary': alpha('#2F3329', 75),
+        'text-muted': alpha('#2F3329', 50), 'text-inverse': solid('#EFE8D8'),
+        'border-subtle': alpha('#2F3329', 10), 'border-default': alpha('#2F3329', 22),
+        'border-strong': alpha('#2F3329', 40),
+        'accent': solid('#8A9A5B'), 'accent-hot': solid('#B5483A'),
+        'brand-primary': solid('#8A9A5B'), 'brand-accent': solid('#B5483A'),
+        'brand-deep': solid('#2F3329'), 'gold': solid('#D8A7A1'),
+        'bull': solid('#2AB554'), 'bear': solid('#E22D2D'),
+        'heat-low': solid('#E0C084'), 'heat-mid': solid('#B5483A'), 'heat-high': solid('#8B2E1D'),
+        'chart-1': solid('#8A9A5B'), 'chart-2': solid('#B5483A'), 'chart-3': solid('#D8A7A1'),
+        'chart-4': solid('#6F8F8A'), 'chart-5': solid('#2F3329'),
+      },
+    },
+    {
+      id:'ky-d', name:'Kyoto Zen', mode:'Dark',
+      tokens: {
+        'bg-main': solid('#171B16'), 'bg-subtle': solid('#1D221C'), 'bg-card': solid('#232823'),
+        'bg-hover': solid('#2A302A'), 'bg-active': solid('#333A33'),
+        'text-primary': solid('#E8DDC7'), 'text-secondary': alpha('#E8DDC7', 78),
+        'text-muted': alpha('#E8DDC7', 52), 'text-inverse': solid('#171B16'),
+        'border-subtle': alpha('#E8DDC7', 9), 'border-default': alpha('#E8DDC7', 20),
+        'border-strong': alpha('#E8DDC7', 32),
+        'accent': solid('#A5B875'), 'accent-hot': solid('#C94B3F'),
+        'brand-primary': solid('#A5B875'), 'brand-accent': solid('#C94B3F'),
+        'brand-deep': solid('#E8DDC7'), 'gold': solid('#E0A7A0'),
+        'bull': solid('#3FE072'), 'bear': solid('#FF3F3F'),
+        'heat-low': solid('#E8D08A'), 'heat-mid': solid('#C94B3F'), 'heat-high': solid('#9E3A31'),
+        'chart-1': solid('#A5B875'), 'chart-2': solid('#C94B3F'), 'chart-3': solid('#E0A7A0'),
+        'chart-4': solid('#7CA5A0'), 'chart-5': solid('#E8DDC7'),
+      },
+    },
+    {
+      id:'mi-l', name:'Miami Beach', mode:'Light',
+      tokens: {
+        'bg-main': solid('#F7F3E8'), 'bg-subtle': solid('#EDE9DC'), 'bg-card': solid('#FBF8ED'),
+        'bg-hover': solid('#E4E0D2'), 'bg-active': solid('#D6D1C0'),
+        'text-primary': solid('#15151F'), 'text-secondary': alpha('#15151F', 75),
+        'text-muted': alpha('#15151F', 50), 'text-inverse': solid('#F7F3E8'),
+        'border-subtle': alpha('#15151F', 10), 'border-default': alpha('#15151F', 22),
+        'border-strong': alpha('#15151F', 40),
+        'accent': solid('#FF2FA2'), 'accent-hot': solid('#00BFD8'),
+        'brand-primary': solid('#FF2FA2'), 'brand-accent': solid('#00BFD8'),
+        'brand-deep': solid('#7B2CFF'), 'gold': solid('#FFD23F'),
+        'bull': solid('#10D960'), 'bear': solid('#FF2C4E'),
+        'heat-low': solid('#FFE066'), 'heat-mid': solid('#FFD23F'), 'heat-high': solid('#E5A500'),
+        'chart-1': solid('#00BFD8'), 'chart-2': solid('#FF2FA2'), 'chart-3': solid('#FFD23F'),
+        'chart-4': solid('#7B2CFF'), 'chart-5': solid('#15151F'),
+      },
+    },
+    {
+      id:'mi-d', name:'Miami Beach', mode:'Dark',
+      tokens: {
+        'bg-main': solid('#0B1026'), 'bg-subtle': solid('#101532'), 'bg-card': solid('#161C3E'),
+        'bg-hover': solid('#1D244D'), 'bg-active': solid('#262D5E'),
+        'text-primary': solid('#F8F4FF'), 'text-secondary': alpha('#F8F4FF', 80),
+        'text-muted': alpha('#F8F4FF', 54), 'text-inverse': solid('#0B1026'),
+        'border-subtle': alpha('#F8F4FF', 10), 'border-default': alpha('#F8F4FF', 22),
+        'border-strong': alpha('#F8F4FF', 34),
+        'accent': solid('#FF3CAC'), 'accent-hot': solid('#00E5FF'),
+        'brand-primary': solid('#FF3CAC'), 'brand-accent': solid('#00E5FF'),
+        'brand-deep': solid('#9B5CFF'), 'gold': solid('#FFE156'),
+        'bull': solid('#22FF6A'), 'bear': solid('#FF3062'),
+        'heat-low': solid('#FFEE7D'), 'heat-mid': solid('#FFE156'), 'heat-high': solid('#CFA500'),
+        'chart-1': solid('#00E5FF'), 'chart-2': solid('#FF3CAC'), 'chart-3': solid('#FFE156'),
+        'chart-4': solid('#9B5CFF'), 'chart-5': solid('#F8F4FF'),
+      },
+    },
+  ];
+
+  // ---------- render color matrix ----------
+  const matrix = document.getElementById('matrix');
+  const thead = document.createElement('thead');
+
+  // Category row
+  const catRow = document.createElement('tr');
+  catRow.className = 'cat';
+  catRow.appendChild(document.createElement('th')); // corner
+  catRow.firstChild.className = 'label-col';
+  GROUPS.forEach(g => {
+    const th = document.createElement('th');
+    th.colSpan = g.cols.length;
+    th.className = 'cat-sep';
+    th.textContent = g.name;
+    catRow.appendChild(th);
+  });
+  thead.appendChild(catRow);
+
+  // Token row
+  const tokRow = document.createElement('tr');
+  tokRow.className = 'token';
+  const cornerTh = document.createElement('th');
+  cornerTh.className = 'label-col';
+  cornerTh.textContent = 'Theme · Mode';
+  tokRow.appendChild(cornerTh);
+  GROUPS.forEach(g => {
+    g.cols.forEach((col, i) => {
+      const th = document.createElement('th');
+      if (i === 0) th.className = 'cat-sep';
+      th.textContent = col;
+      tokRow.appendChild(th);
+    });
+  });
+  thead.appendChild(tokRow);
+  matrix.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  THEMES.forEach(theme => {
+    const tr = document.createElement('tr');
+    tr.className = theme.id;
+
+    const label = document.createElement('td');
+    label.className = 'label-col';
+    label.innerHTML = `<span class="theme-name">${theme.name}</span><span class="mode-chip${theme.mode==='Dark'?' dark':''}">${theme.mode}</span>`;
+    tr.appendChild(label);
+
+    GROUPS.forEach(g => {
+      g.cols.forEach((col, i) => {
+        const td = document.createElement('td');
+        if (i === 0) td.className = 'cat-sep';
+        const t = theme.tokens[col];
+        td.innerHTML = `<div class="cell"><div class="chip" style="background:${t.css}"></div><span class="hex">${t.label}</span></div>`;
+        tr.appendChild(td);
+      });
+    });
+    tbody.appendChild(tr);
+  });
+  matrix.appendChild(tbody);
+
+  // ---------- render fonts matrix ----------
+  const FONT_THEMES = [
+    { id:'ws-l', name:'Wall Street',        subtitle:'Editorial serif · Bloomberg body sans',
+      display:{cls:'f-libre',    name:'Libre Baskerville'},
+      body:   {cls:'f-inter',    name:'Inter'},
+      mono:   {cls:'f-jb',       name:'JetBrains Mono'} },
+    { id:'ca-l', name:'California Sunset',  subtitle:'Hollywood display serif',
+      display:{cls:'f-playfair', name:'Playfair Display'},
+      body:   {cls:'f-inter',    name:'Inter'},
+      mono:   {cls:'f-jb',       name:'JetBrains Mono'} },
+    { id:'ky-l', name:'Kyoto Zen',          subtitle:'Classical serif · humanist sans',
+      display:{cls:'f-cormorant',name:'Cormorant Garamond'},
+      body:   {cls:'f-noto',     name:'Noto Sans'},
+      mono:   {cls:'f-jb',       name:'JetBrains Mono'} },
+    { id:'mi-l', name:'Miami Beach',        subtitle:'80s geometric marquee',
+      display:{cls:'f-poppins',  name:'Poppins'},
+      body:   {cls:'f-inter',    name:'Inter'},
+      mono:   {cls:'f-jb',       name:'JetBrains Mono'} },
+  ];
+
+  const fontsTable = document.getElementById('fonts');
+  const ftHead = document.createElement('thead');
+  ftHead.innerHTML = `
+    <tr>
+      <th class="label-col">Theme</th>
+      <th>--font-display</th>
+      <th>--font-body</th>
+      <th>--font-mono</th>
+    </tr>`;
+  fontsTable.appendChild(ftHead);
+
+  const ftBody = document.createElement('tbody');
+  FONT_THEMES.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.className = t.id;
+    tr.innerHTML = `
+      <td class="label-col">
+        <span class="theme-name">${t.name}</span>
+        <span class="f-role">${t.subtitle}</span>
+      </td>
+      <td><span class="f-name ${t.display.cls}">${t.display.name}</span><span class="f-role">Display · headlines</span></td>
+      <td><span class="f-name ${t.body.cls}">${t.body.name}</span><span class="f-role">Body · running text</span></td>
+      <td><span class="f-name ${t.mono.cls}">${t.mono.name}</span><span class="f-role">Mono · data, code</span></td>
+    `;
+    ftBody.appendChild(tr);
+  });
+  fontsTable.appendChild(ftBody);
+</script>
+</body>
+</html>

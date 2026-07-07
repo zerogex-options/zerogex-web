@@ -4,7 +4,14 @@ import {
   getFoundingIntroCouponId,
   getFoundingPromoCode,
 } from '@/core/stripe';
+import { isFoundingLockinOpen } from '@/core/foundingLockin';
 import FoundingClient from './Client';
+
+// Cache the page for at most 60s so the 404 cut-over at the deadline lands
+// quickly even if Next.js has the route statically cached from a build that
+// pre-dates the deadline crossing. (Default revalidate would be permanent for
+// a page with no other dynamic inputs.)
+export const revalidate = 60;
 
 export const metadata = {
   title: 'Founding Member Activation — ZeroGEX',
@@ -22,6 +29,16 @@ export const metadata = {
 // Hidden from sitemap and search engines (noindex,nofollow). 404s when
 // the founding flow isn't fully configured so the URL leaks no signal.
 export default function FoundingPage() {
+  // Hard cutoff: after FOUNDING_LOCKIN_DEADLINE_ISO the lock-in offer is
+  // gone (checkout API would no longer mint the deferred-July-1 trial), so
+  // the page should stop advertising "lock in your founding rate" and
+  // "first payment isn't until July 1, 2026". 404 rather than render a
+  // closed-state message — it matches the noindex/nofollow stance of this
+  // route (the URL was never meant to be discoverable) and bounces stale
+  // links cleanly to /pricing.
+  if (!isFoundingLockinOpen()) {
+    notFound();
+  }
   const foundingCode = getFoundingPromoCode();
   const basicMonthlyCoupon = getFoundingIntroCouponId('basic', 'monthly');
   const proMonthlyCoupon = getFoundingIntroCouponId('pro', 'monthly');

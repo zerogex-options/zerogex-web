@@ -69,7 +69,7 @@ const SECTIONS: Section[] = [
     rows: [
       { feature: 'Strategy Builder (options pricing & P&L)', basic: true, pro: true },
       { feature: 'Live Options Quotes', basic: true, pro: true },
-      { feature: 'Premium Heat Map (beta)', basic: true, pro: true },
+      { feature: 'Premium Surface (beta)', basic: true, pro: true },
       { feature: 'Backtesting (beta)', basic: false, pro: true },
     ],
   },

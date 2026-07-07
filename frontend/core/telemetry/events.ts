@@ -31,6 +31,13 @@ export const TelemetryEvent = {
   ForecastShareClicked: 'forecast_share_clicked',
   /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
   ReplayShareClicked: 'replay_share_clicked',
+  /** Free gamma-levels daily snapshot share/copy button clicked (client,
+   *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). The `channel`
+   *  property records the surface: copy | x | reddit | stocktwits | native. */
+  GammaLevelsShareClicked: 'gamma_levels_share_clicked',
+  /** Free TradingView Pine indicator copied / downloaded / opened (client,
+   *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
+  TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
 } as const;

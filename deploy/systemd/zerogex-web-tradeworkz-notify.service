@@ -1,0 +1,36 @@
+[Unit]
+Description=ZeroGEX TradeWorkz follower email delivery worker
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make tradeworkz-notify` shells through nvm to get Node 22 on PATH for
+# the .mts script (needs --experimental-strip-types). Same pattern as
+# zerogex-web-trial-reminders.service.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web tradeworkz-notify
+
+# Outbound legs: (1) TradeWorkz internal API on 127.0.0.1:8000, (2) Resend
+# HTTPS. Cap the run so a hung HTTPS connect can't pile up when the timer
+# fires every minute.
+TimeoutStartSec=180
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# The script only READS from the auth SQLite DB (users -> email lookup);
+# all writes go over HTTP to the TradeWorkz internal API on localhost.
+# Auth DB dir stays read-only from here — no ReadWritePaths line.
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-tradeworkz-notify

@@ -51,7 +51,7 @@ export default function PremiumSurfacePlot({
     let plotly: typeof import('plotly.js-dist-min').default | null = null;
 
     const isDark = theme === 'dark';
-    const fontColor = isDark ? colors.light : colors.dark;
+    const fontColor = 'var(--text-primary)';
     const gridColor = isDark ? 'rgba(255,211,128,0.16)' : 'rgba(0,0,0,0.12)';
 
     // 2D customdata mirroring z, carrying the expiration label for hover.

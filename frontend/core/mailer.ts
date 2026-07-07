@@ -354,6 +354,102 @@ export async function sendTrialReminderEmail(
   }
 }
 
+// Final-call email to a founding-eligible user who has not yet converted,
+// fired by scripts/send-founding-final-call.mts in the last ~36 hours before
+// FOUNDING_LOCKIN_DEADLINE_ISO. One-shot per account (idempotency latch on
+// users.founding_final_call_email_sent_at). Deliberately punchier and
+// shorter than sendCheckoutRecoveryEmail — by the time this fires the user
+// has already had the modal, a checkout-abandonment nudge, and weeks of
+// in-product reminders, so this is the urgency closer, not a soft pitch.
+export async function sendFoundingFinalCallEmail(
+  to: string,
+  opts: {
+    deadlineLabel: string;
+    foundingHref: string;
+  },
+) {
+  const subject = `Final reminder: ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}`;
+  const safeFoundingUrl = escapeHtml(opts.foundingHref);
+  const safeDeadline = escapeHtml(opts.deadlineLabel);
+
+  const text = [
+    'Hello,',
+    '',
+    `Just a final reminder that the ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}.`,
+    '',
+    'I wanted to send one last note because you were part of the early ZeroGEX cohort, and I do not want anyone who intended to lock in the founding rate to miss the deadline.',
+    '',
+    "Here's the offer:",
+    '',
+    '  • Basic: $12/mo for the first year, normally $39/mo',
+    '  • Pro: $19/mo for the first year, normally $59/mo',
+    '  • After the first year, you keep 25% off standard pricing for as long as your subscription stays active',
+    '  • No charge today. Your card will not be billed until July 1.',
+    '',
+    `After ${opts.deadlineLabel}, founding access ends and future access will be at standard pricing.`,
+    '',
+    'If ZeroGEX has been useful to you, this is the best pricing I expect to offer, and it is my way of saying thank you to the people who were here early.',
+    '',
+    'You can lock it in here:',
+    '',
+    opts.foundingHref,
+    '',
+    "If ZeroGEX is not for you right now, no worries at all. You can ignore this email and you won't hear from me again about the founding offer.",
+    '',
+    'Thanks again for being part of the early ZeroGEX group. I genuinely appreciate the support, feedback, and encouragement many of you have shared.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>Just a final reminder that the ZeroGEX founding rate closes tomorrow, <strong>${safeDeadline}</strong>.</p>
+
+      <p>I wanted to send one last note because you were part of the early ZeroGEX cohort, and I do not want anyone who intended to lock in the founding rate to miss the deadline.</p>
+
+      <p style="margin: 20px 0 8px;">Here&rsquo;s the offer:</p>
+      <ul style="padding-left: 22px; margin: 0 0 18px;">
+        <li><strong>Basic:</strong> $12/mo for the first year, normally $39/mo</li>
+        <li><strong>Pro:</strong> $19/mo for the first year, normally $59/mo</li>
+        <li>After the first year, you keep <strong>25% off standard pricing</strong> for as long as your subscription stays active</li>
+        <li><strong>No charge today.</strong> Your card will not be billed until July 1.</li>
+      </ul>
+
+      <p>After <strong>${safeDeadline}</strong>, founding access ends and future access will be at standard pricing.</p>
+
+      <p>If ZeroGEX has been useful to you, this is the best pricing I expect to offer, and it is my way of saying thank you to the people who were here early.</p>
+
+      <p>You can lock it in here:</p>
+
+      <p style="margin: 24px 0;">
+        <a href="${safeFoundingUrl}" style="display: inline-block; padding: 14px 24px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px; font-size: 15px;">Lock in my founding rate</a>
+      </p>
+
+      <p>If ZeroGEX is not for you right now, no worries at all. You can ignore this email and you won&rsquo;t hear from me again about the founding offer.</p>
+
+      <p>Thanks again for being part of the early ZeroGEX group. I genuinely appreciate the support, feedback, and encouragement many of you have shared.</p>
+
+      <p style="margin-top: 22px;">Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // One-shot nudge sent ~24h after a user starts checkout but doesn't finish
 // (no stripe_subscription_id stamped). foundingDeadlineLabel is set when the
 // user is founding_eligible AND the lock-in deadline is still in the future
@@ -574,6 +670,139 @@ export async function sendPaymentFailedEmail(
   }
 }
 
+// Sent when a customer clicks Cancel and Stripe flips cancel_at_period_end
+// from false → true. They still have full access until periodEndIso — this
+// is the retention window, not a farewell. Manual discount fulfillment
+// (customer replies "discount", Michael sets it up) is intentional: reading
+// the reply is worth more than automating the coupon.
+export async function sendCancellationEmail(
+  to: string,
+  opts: { periodEndIso: string | null },
+) {
+  const subject = 'Sorry to see you go — mind sharing why?';
+  const periodEndDate = opts.periodEndIso
+    ? formatTrialEndDate(opts.periodEndIso)
+    : 'the end of your current billing period';
+
+  const text = [
+    'Hello,',
+    '',
+    'I saw you just cancelled your ZeroGEX subscription — first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
+    '',
+    `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
+    '',
+    "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot — I read every reply. Common ones I hear:",
+    '',
+    "  - The data wasn't what I expected",
+    '  - Price is too high for how I trade',
+    "  - I'm not trading as much right now",
+    '  - Something specific was missing or broken',
+    '  - Just trying it out for a stretch',
+    '',
+    "Whatever the reason, I'd genuinely like to hear it.",
+    '',
+    'And if it\'s a matter of cost: I can offer you 25% off for a full year if you\'d like to stay. Just reply with "discount" and I\'ll set it up on your account — no need to re-subscribe or re-enter a card.',
+    '',
+    'Either way — thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I saw you just cancelled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
+      <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
+      <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot &mdash; I read every reply. Common ones I hear:</p>
+      <ul style="padding-left: 20px; margin: 12px 0;">
+        <li>The data wasn't what I expected</li>
+        <li>Price is too high for how I trade</li>
+        <li>I'm not trading as much right now</li>
+        <li>Something specific was missing or broken</li>
+        <li>Just trying it out for a stretch</li>
+      </ul>
+      <p>Whatever the reason, I'd genuinely like to hear it.</p>
+      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">
+        <strong>And if it's a matter of cost:</strong> I can offer you 25% off for a full year if you'd like to stay. Just reply with <strong>"discount"</strong> and I'll set it up on your account &mdash; no need to re-subscribe or re-enter a card.
+      </p>
+      <p>Either way &mdash; thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Founder-voice nudge to a user who signed up + verified their email but never
+// opened checkout. Fired ~2h after signup by scripts/send-verified-never-paid.mts.
+// One-shot per account (idempotency latch on users.verified_never_paid_email_sent_at).
+// Deliberately no discount — the pitch is that the free trial removes the
+// financial risk, so a coupon would just muddy the ask.
+export async function sendVerifiedNeverPaidEmail(to: string) {
+  const subject = 'Quick note from Michael at ZeroGEX';
+  const pricingUrl = `${getAppUrl()}/pricing`;
+  const safePricingUrl = escapeHtml(pricingUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet — wanted to reach out personally rather than route you through a generic marketing flow.",
+    '',
+    "If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.",
+    '',
+    "If you have a question, a hesitation, or feedback on what's missing — just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
+    '',
+    "If you're ready to start the trial:",
+    pricingUrl,
+    '',
+    'Either way, thanks for giving ZeroGEX a look.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet &mdash; wanted to reach out personally rather than route you through a generic marketing flow.</p>
+      <p>If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.</p>
+      <p>If you have a question, a hesitation, or feedback on what's missing &mdash; just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start the free trial</a>
+      </p>
+      <p>Either way, thanks for giving ZeroGEX a look.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';
@@ -611,6 +840,201 @@ export async function sendPasswordResetEmail(to: string, link: string) {
     html,
   });
 
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+/**
+ * Notification email for a TradeWorkz bot entering or exiting a position.
+ *
+ * Called by scripts/tradeworkz-notify-deliver.mts once per queued
+ * ``tw_notifications_log`` row with ``channel='email'``. The payload
+ * shape mirrors what the reconciler writes on entry / exit — see
+ * src/tradeworkz/reconciler.py. The email is intentionally short —
+ * followers ask for an alert, not a novel — and links back to
+ * /trading-signals for the full drilldown.
+ */
+export type TradeworkzEventType = 'entry' | 'exit' | 'add' | 'cut' | 'stopped' | 'target';
+
+export interface TradeworkzEmailPayload {
+  underlying?: string;
+  direction?: 'bullish' | 'bearish' | string;
+  strategy_type?: string;
+  outcome?: 'win' | 'loss' | 'scratch' | string;
+  realized_pnl?: number;
+  pnl_percent?: number;
+  reason?: string;
+  contracts?: number;
+  entry_price?: number;
+  exit_price?: number;
+  target_price?: number;
+  stop_price?: number;
+  conviction?: number;
+  rationale?: string;
+}
+
+function tw_fmtMoneySigned(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '-' : '+';
+  // Promote to M once the rounded K representation would hit 1000.00
+  // — same rounding-boundary rule as fmtMoney in app/trading-signals/
+  // format.ts, so a $999,999.99 amount reads "$1.00M" instead of the
+  // visually-indistinguishable "$1000.00K".
+  if (abs >= 999_995) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(2)}K`;
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
+function tw_fmtPct(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+}
+
+function tw_fmtPrice(v: number | undefined | null): string {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '—';
+  return `$${v.toFixed(2)}`;
+}
+
+function tw_outcomeChip(outcome: string | undefined): { label: string; color: string; bg: string } {
+  if (outcome === 'win') return { label: 'WIN', color: '#0F7A3A', bg: '#DBF3E4' };
+  if (outcome === 'loss') return { label: 'LOSS', color: '#A31226', bg: '#FBE1E5' };
+  return { label: 'SCRATCH', color: '#374151', bg: '#E5E7EB' };
+}
+
+export async function sendTradeworkzNotification(
+  to: string,
+  args: {
+    botId: string;
+    botDisplayName: string;
+    eventType: TradeworkzEventType | string;
+    payload: TradeworkzEmailPayload;
+    dashboardUrl?: string;
+  },
+) {
+  const { botDisplayName, eventType, payload } = args;
+  const dashboardUrl = args.dashboardUrl ?? `${getAppUrl()}/trading-signals`;
+  const isExit = eventType === 'exit' || eventType === 'stopped' || eventType === 'target';
+  const isEntry = eventType === 'entry';
+  const dirText =
+    payload.direction === 'bullish'
+      ? 'LONG'
+      : payload.direction === 'bearish'
+        ? 'SHORT'
+        : (payload.direction || 'NEUTRAL').toUpperCase();
+  const underlying = payload.underlying ?? 'SPY';
+
+  const subject = isExit
+    ? `${botDisplayName} closed ${dirText} ${underlying} ${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`
+    : isEntry
+      ? `${botDisplayName} opened ${dirText} ${underlying} · ${payload.contracts ?? '?'} contracts @ ${tw_fmtPrice(payload.entry_price ?? null)}`
+      : `${botDisplayName} — ${eventType.toUpperCase()} on ${underlying}`;
+
+  const textLines: string[] = [];
+  textLines.push(`${botDisplayName} · ${eventType.toUpperCase()}`);
+  textLines.push('');
+  textLines.push(`Underlying: ${underlying}`);
+  textLines.push(`Direction: ${dirText}`);
+  if (payload.strategy_type) textLines.push(`Structure: ${payload.strategy_type}`);
+  if (payload.contracts !== undefined) textLines.push(`Contracts: ${payload.contracts}`);
+  if (isEntry) {
+    if (payload.entry_price !== undefined) textLines.push(`Entry: ${tw_fmtPrice(payload.entry_price)}`);
+    if (payload.target_price !== undefined) textLines.push(`Target: ${tw_fmtPrice(payload.target_price)}`);
+    if (payload.stop_price !== undefined) textLines.push(`Stop: ${tw_fmtPrice(payload.stop_price)}`);
+    if (payload.conviction !== undefined) textLines.push(`Conviction: ${(payload.conviction * 100).toFixed(0)}%`);
+  }
+  if (isExit) {
+    if (payload.entry_price !== undefined) textLines.push(`Entry: ${tw_fmtPrice(payload.entry_price)}`);
+    if (payload.exit_price !== undefined) textLines.push(`Exit: ${tw_fmtPrice(payload.exit_price)}`);
+    textLines.push(`P&L: ${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`);
+    if (payload.outcome) textLines.push(`Outcome: ${payload.outcome.toUpperCase()}`);
+    if (payload.reason) textLines.push(`Reason: ${payload.reason}`);
+  }
+  if (payload.rationale) {
+    textLines.push('');
+    textLines.push(payload.rationale);
+  }
+  textLines.push('');
+  textLines.push(`Open the dashboard: ${dashboardUrl}`);
+  textLines.push('');
+  textLines.push('You are receiving this because you followed this bot on TradeWorkz™. Manage or unfollow from the dashboard.');
+
+  const outcome = tw_outcomeChip(payload.outcome);
+  const safeUrl = escapeHtml(dashboardUrl);
+  const safeBotName = escapeHtml(botDisplayName);
+  const safeReason = payload.reason ? escapeHtml(payload.reason) : null;
+  const safeStrategy = payload.strategy_type ? escapeHtml(payload.strategy_type) : null;
+  const safeRationale = payload.rationale ? escapeHtml(payload.rationale) : null;
+  const headline = isExit
+    ? `${safeBotName} closed a ${dirText} ${escapeHtml(underlying)} trade`
+    : isEntry
+      ? `${safeBotName} opened a ${dirText} ${escapeHtml(underlying)} trade`
+      : `${safeBotName} — ${eventType.toUpperCase()} on ${escapeHtml(underlying)}`;
+  const headerColor = isExit && payload.outcome
+    ? payload.outcome === 'win' ? '#0F7A3A' : payload.outcome === 'loss' ? '#A31226' : '#374151'
+    : '#003F5C';
+
+  const rows: Array<{ label: string; value: string; tone?: string }> = [];
+  if (payload.strategy_type) rows.push({ label: 'Structure', value: safeStrategy! });
+  if (payload.contracts !== undefined) rows.push({ label: 'Contracts', value: String(payload.contracts) });
+  if (isEntry) {
+    if (payload.entry_price !== undefined) rows.push({ label: 'Entry', value: tw_fmtPrice(payload.entry_price) });
+    if (payload.target_price !== undefined) rows.push({ label: 'Target', value: tw_fmtPrice(payload.target_price) });
+    if (payload.stop_price !== undefined) rows.push({ label: 'Stop', value: tw_fmtPrice(payload.stop_price) });
+    if (payload.conviction !== undefined) rows.push({ label: 'Conviction', value: `${(payload.conviction * 100).toFixed(0)}%` });
+  } else if (isExit) {
+    if (payload.entry_price !== undefined) rows.push({ label: 'Entry', value: tw_fmtPrice(payload.entry_price) });
+    if (payload.exit_price !== undefined) rows.push({ label: 'Exit', value: tw_fmtPrice(payload.exit_price) });
+    rows.push({
+      label: 'Realized P&L',
+      value: `${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`,
+      tone: (payload.realized_pnl ?? 0) >= 0 ? '#0F7A3A' : '#A31226',
+    });
+    if (safeReason) rows.push({ label: 'Reason', value: safeReason });
+  }
+
+  const rowsHtml = rows
+    .map(
+      (r) => `
+        <tr>
+          <td style="padding:6px 0; color:#6b7280; font-size:13px; width:120px;">${r.label}</td>
+          <td style="padding:6px 0; color:${r.tone ?? '#111827'}; font-size:13px; font-weight:500; text-align:right; font-variant-numeric: tabular-nums;">${r.value}</td>
+        </tr>`,
+    )
+    .join('');
+
+  const outcomeBadge = isExit && payload.outcome
+    ? `<span style="display:inline-block; margin-left:8px; padding:2px 8px; border-radius:9999px; background:${outcome.bg}; color:${outcome.color}; font-size:11px; font-weight:600; letter-spacing:0.03em;">${outcome.label}</span>`
+    : '';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <div style="border-top: 3px solid ${headerColor}; padding-top: 20px;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; margin-bottom: 6px;">
+          TradeWorkz&trade; ${eventType.toUpperCase()}${outcomeBadge}
+        </div>
+        <h1 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px;">${headline}</h1>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">${rowsHtml}</table>
+        ${safeRationale ? `<p style="font-size: 13px; color: #4b5563; border-left: 3px solid #e5e7eb; padding-left: 10px; margin: 16px 0;">${safeRationale}</p>` : ''}
+        <p style="margin: 24px 0;">
+          <a href="${safeUrl}" style="display: inline-block; padding: 10px 18px; background: ${headerColor}; color: #ffffff; font-weight: 600; text-decoration: none; border-radius: 8px; font-size: 14px;">Open dashboard</a>
+        </p>
+      </div>
+      <p style="font-size: 11px; color: #9ca3af; margin-top: 32px; line-height: 1.5;">
+        You are receiving this because you followed ${safeBotName} on TradeWorkz&trade;. Manage channels or unfollow from the bot card on the dashboard.
+      </p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text: textLines.join('\n'),
+    html,
+  });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
   }

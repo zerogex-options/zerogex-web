@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders checkout-recovery public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding clear-zombie-customers webhook-health trial-reminders verified-never-paid public-cohort diagnose-user grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -25,10 +25,11 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
-	@echo "  make checkout-recovery - Send one-shot recovery emails to users who started Stripe checkout but didn't subscribe (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> [PREVIEW_FOUNDING=1] for a sample, LAG_HOURS=<n>/LOOKBACK_HOURS=<n> to tune the window)"
+	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
+	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
@@ -164,6 +165,15 @@ clear-zombie-customers:
 webhook-health:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/webhook-health.mjs'
 
+# Drain queued TradeWorkz email notifications through Resend. Reads rows
+# from tw_notifications_log via /api/tradeworkz/internal/queued-notifications,
+# resolves each end_user -> email via the auth SQLite DB, sends the email,
+# and marks the row 'sent' / 'failed'. Scheduled every minute by
+# zerogex-web-tradeworkz-notify.timer. Pass DRY_RUN=1 to preview,
+# LIMIT=N to bound the batch size, PREVIEW_TO=<email> for a sample send.
+tradeworkz-notify:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/tradeworkz-notify-deliver.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
 # Send the ~48h-before-trial-end reminder email to every currently-trialing
 # user whose first charge lands in the next ~48h (windowed +/- 3h so a
 # multi-hour cron cadence still catches the cohort exactly once). Idempotent
@@ -173,16 +183,18 @@ webhook-health:
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
-# Send the one-shot abandoned-checkout recovery email to every user who has
-# a `billing_checkout_started` audit row but no stripe_subscription_id (and
-# isn't already latched by checkout_recovery_email_sent_at). Founding-eligible
-# users get founding-deadline copy while the lock-in window is still open;
-# everyone else gets the generic "pick up where you left off" nudge. The
-# default window catches starts that are 24h-7d old; tune with LAG_HOURS /
-# LOOKBACK_HOURS. Pass DRY_RUN=1 to preview, YES=1 to actually send, or
-# PREVIEW_TO=<email> [PREVIEW_FOUNDING=1] to render a sample.
-checkout-recovery:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-checkout-recovery.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_FOUNDING),--preview-founding,)'
+# Send the founder-voice trial-pitch nudge to every user in the verified-
+# never-paid cohort (public tier, verified email, no subscription, NOT
+# founding-eligible-not-redeemed, NOT churned) whose account is at least
+# LAG_HOURS old (default 2h). Idempotent via
+# users.verified_never_paid_email_sent_at — every account gets this at most
+# once for its lifetime. Pass DRY_RUN=1 to preview eligible users, YES=1 to
+# actually send. Pass PREVIEW_TO=<email> to render the email and send a
+# single sample copy to that address (no DB writes). Pass LAG_HOURS=<n>
+# to override the "wait N hours after signup" gate; LOOKBACK_HOURS=<n> to
+# override the "no older than N hours" upper bound.
+verified-never-paid:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),)'
 
 # Read-only deep dump of one user — DB row, last 20 audit events, live Stripe
 # customer/subscription/invoice state, and a short interpretation that flags
@@ -231,6 +243,13 @@ revoke-partner:
 # operators use to dry-run before the next scheduled tick.
 partner-grant-expiry:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Print the Creator Partner commission ledger. Read-only. Use at month-end
+# to see what you owe each partner; drill into one partner with EMAIL=,
+# see the whole row-by-row ledger with FULL=1, or filter to a status
+# (accrued / paid / reversed) with STATUS=.
+partner-commissions:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-partner-commissions.mjs $(if $(EMAIL),--email $(EMAIL),) $(if $(FULL),--full,) $(if $(STATUS),--status $(STATUS),)'
 
 # Segment the tier='public' cohort into the four reactivation buckets used
 # by the campaign (unverified / founding-eligible / churned / verified-
@@ -347,7 +366,6 @@ logo:
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.
-	cp assets/branding/folds-of-honor-logo.svg frontend/public/folds-of-honor-logo.svg
 	@echo "Logos copied successfully!"
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory

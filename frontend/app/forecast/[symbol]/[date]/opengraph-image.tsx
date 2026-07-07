@@ -43,11 +43,10 @@ function humanizeRegime(value: string | null): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function regimeAccent(value: string | null): string {
-  if (value === 'long_gamma') return '#10B981';
-  if (value === 'short_gamma') return '#F45854';
-  return '#FF8531';
-}
+// Neutral brand accent for the Projected range / Pin / Regime fields. Direction
+// (bull/bear green-red) is reserved for the ✓ HELD / ✗ BROKEN receipt marks, so
+// the forecast fields themselves stay on the ZeroGEX orange that brands the card.
+const CARD_ACCENT = '#FF8531';
 
 function fmtPrice(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
@@ -82,7 +81,7 @@ export default async function Image({ params }: { params: { symbol: string; date
   const morning = payload?.morning;
   const receipt = payload?.receipt;
   const hasReceipt = !!receipt;
-  const accent = regimeAccent(morning?.regime ?? null);
+  const accent = CARD_ACCENT;
   const regimeLabel = humanizeRegime(morning?.regime ?? null);
   const heroLabel = hasReceipt ? 'Forecast Receipt' : 'Morning Forecast';
 
@@ -250,7 +249,7 @@ export default async function Image({ params }: { params: { symbol: string; date
                   flex: 1,
                   background: '#0B3344',
                   borderRadius: 12,
-                  borderLeft: '4px solid #10B981',
+                  borderLeft: `4px solid ${accent}`,
                   padding: '20px 24px',
                 }}
               >
@@ -259,7 +258,7 @@ export default async function Image({ params }: { params: { symbol: string; date
                     fontSize: 16,
                     fontWeight: 800,
                     letterSpacing: '0.18em',
-                    color: '#10B981',
+                    color: accent,
                     textTransform: 'uppercase',
                     display: 'flex',
                   }}

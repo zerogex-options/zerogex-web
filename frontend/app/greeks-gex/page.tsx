@@ -16,6 +16,7 @@ import GexUnitToggle from '@/components/GexUnitToggle';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
+import { isIndexSymbol } from '@/core/utils';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -48,8 +49,20 @@ export default function GreeksGEXPage() {
   // reinterprets them as "per 1 point move" so the headline magnitude
   // lines up with point-convention dashboards.
   const { gexUnit } = useGexUnit();
+  // gexSpot MUST stay the cash index (never the future) — it scales the GEX
+  // "per 1 point" conversion. The futures display swap is additive, so
+  // quoteData.close is always the index; the futures price lives in
+  // futures_close and is only read for the headline price below.
   const gexSpot = quoteData?.close ?? gexData?.spot_price ?? 0;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
+
+  // Overnight index→future display swap for the headline price card only.
+  const isFuturesQuote = quoteData?.display_source === 'futures';
+  const quoteDisplayPrice =
+    isFuturesQuote && quoteData?.futures_close != null
+      ? quoteData.futures_close
+      : quoteData?.close;
+  const futuresTicker = isFuturesQuote ? quoteData?.data_symbol ?? 'FUT' : null;
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -94,9 +107,22 @@ export default function GreeksGEXPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricCard
             title={`${symbol} Price`}
-            value={quoteData ? `$${quoteData.close.toFixed(2)}` : '--'}
-            subtitle={quoteData ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M` : ''}
-            tooltip={`Current ${symbol} price and volume from the real-time quote feed.`}
+            value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
+            subtitle={
+              futuresTicker
+                ? `◆ ${futuresTicker} futures`
+                : quoteData && !isIndexSymbol(symbol)
+                  ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
+                  : ''
+            }
+            subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
+            tooltip={
+              futuresTicker
+                ? `${symbol} cash is closed — showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
+                : isIndexSymbol(symbol)
+                  ? `Current ${symbol} price from the real-time quote feed.`
+                  : `Current ${symbol} price and volume from the real-time quote feed.`
+            }
             theme={theme}
           />
           <MetricCard

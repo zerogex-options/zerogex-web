@@ -1,0 +1,164 @@
+//@version=6
+// ============================================================================
+//  ZeroGEX Daily Gamma Levels — SPY / SPX / QQQ
+//  Manually plot today's dealer-positioning levels on any chart:
+//    • Gamma Flip   (regime line)
+//    • Call Wall    (upside cap)
+//    • Put Wall     (downside floor)
+//    • Max Pain     (expiration magnet)
+//
+//  Free delayed levels (copy today's numbers from here):
+//    https://zerogex.io/spx-gamma-levels
+//
+//  Real-time auto-updating levels, live dealer positioning, option flow and
+//  the intraday dashboard:
+//    https://zerogex.io
+//
+//  This script is manual-entry only — it does not pull data from ZeroGEX.
+//  Informational and educational use only. Not financial advice. Options
+//  trading involves significant risk.
+// ============================================================================
+indicator("ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ", shorttitle="ZeroGEX Levels", overlay = true, max_lines_count = 20, max_labels_count = 20)
+
+// ----------------------------------------------------------------------------
+//  Instrument / session  (labels only — this script does not read live data)
+// ----------------------------------------------------------------------------
+GRP_META = "Instrument"
+instrument = input.string("SPX", "Levels are for", options = ["SPX", "SPY", "QQQ", "ES", "NQ", "NDX", "Other"], group = GRP_META, tooltip = "Cosmetic label shown in the info box. Set the numbers below to match whatever chart you are on.")
+levelsDate = input.string("", "Levels date (optional)", group = GRP_META, tooltip = "e.g. 2026-07-06 — shown in the info box so you remember which session the numbers are from.")
+
+// ----------------------------------------------------------------------------
+//  Levels  —  set any value to 0 to hide that level
+// ----------------------------------------------------------------------------
+GRP_LVL = "Levels   (set 0 to hide)"
+callWall  = input.float(0.0, "Call Wall",        group = GRP_LVL, tooltip = "Strike where call-side dealer gamma piles up — tends to cap upside.")
+gammaFlip = input.float(0.0, "Gamma Flip",       group = GRP_LVL, tooltip = "Regime line. Above = positive gamma (vol suppressed). Below = negative gamma (vol amplified).")
+putWall   = input.float(0.0, "Put Wall",         group = GRP_LVL, tooltip = "Strike where put-side dealer gamma piles up — tends to floor downside.")
+maxPain   = input.float(0.0, "Max Pain",         group = GRP_LVL, tooltip = "Strike where the most option value expires worthless — the expiration magnet. Matches the Max Pain shown on the ZeroGEX gamma-levels page.")
+
+// ----------------------------------------------------------------------------
+//  Line & label style
+// ----------------------------------------------------------------------------
+GRP_STYLE = "Line & label style"
+cCall = input.color(color.new(#f23645, 0), "Call Wall",       group = GRP_STYLE, inline = "c1")
+cFlip = input.color(color.new(#ff9800, 0), "Gamma Flip",      group = GRP_STYLE, inline = "c1")
+cPut  = input.color(color.new(#089981, 0), "Put Wall",        group = GRP_STYLE, inline = "c2")
+cPain = input.color(color.new(#9c27b0, 0), "Max Pain",        group = GRP_STYLE, inline = "c2")
+lineWidthIn = input.int(2, "Line width", minval = 1, maxval = 5, group = GRP_STYLE)
+lineStyleIn = input.string("Solid", "Line style", options = ["Solid", "Dashed", "Dotted"], group = GRP_STYLE)
+extendIn    = input.string("Both",  "Extend",     options = ["Right", "Both"], group = GRP_STYLE)
+showLabels  = input.bool(true, "Show price labels on lines", group = GRP_STYLE)
+labelSizeIn = input.string("Small", "Label size", options = ["Tiny", "Small", "Normal", "Large"], group = GRP_STYLE)
+
+// ----------------------------------------------------------------------------
+//  Info box
+// ----------------------------------------------------------------------------
+GRP_BOX = "Info box"
+showBox  = input.bool(true, "Show info box", group = GRP_BOX)
+boxPosIn = input.string("Top Right", "Position", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right"], group = GRP_BOX)
+notes    = input.string("", "Notes / source", group = GRP_BOX, tooltip = "Free text — e.g. a note to yourself or a source link like zerogex.io/spx-gamma-levels.")
+showSource = input.bool(true, "Show \"zerogex.io\" source line", group = GRP_BOX)
+
+// ----------------------------------------------------------------------------
+//  Enable price-cross alerts (create alerts from the Alerts panel afterwards)
+// ----------------------------------------------------------------------------
+GRP_ALERT = "Alerts"
+alertsOn = input.bool(true, "Enable level-cross alert conditions", group = GRP_ALERT, tooltip = "When on, this script exposes \"cross\" alert conditions in TradingView's Create Alert dialog.")
+
+// ----------------------------------------------------------------------------
+//  Helpers — map the string inputs to Pine constants
+// ----------------------------------------------------------------------------
+f_lineStyle(string s) => s == "Dashed" ? line.style_dashed : s == "Dotted" ? line.style_dotted : line.style_solid
+f_extend(string s)    => s == "Right"  ? extend.right : extend.both
+f_labelSize(string s) => s == "Tiny" ? size.tiny : s == "Normal" ? size.normal : s == "Large" ? size.large : size.small
+f_tablePos(string s) =>
+    out = position.top_right
+    if s == "Top Left"
+        out := position.top_left
+    else if s == "Bottom Right"
+        out := position.bottom_right
+    else if s == "Bottom Left"
+        out := position.bottom_left
+    else if s == "Middle Right"
+        out := position.middle_right
+    out
+
+lStyle = f_lineStyle(lineStyleIn)
+lExt   = f_extend(extendIn)
+lSize  = f_labelSize(labelSizeIn)
+
+// ----------------------------------------------------------------------------
+//  Draw one level: a horizontal line + optional price label.
+//  var-inside-function keeps one persistent line/label per call site, so we
+//  update in place on the last bar instead of leaking drawings every tick.
+// ----------------------------------------------------------------------------
+f_drawLevel(float price, string txt, color col) =>
+    var line  ln = na
+    var label lb = na
+    if barstate.islast
+        line.delete(ln)
+        label.delete(lb)
+        if price != 0
+            ln := line.new(bar_index - 1, price, bar_index, price, xloc = xloc.bar_index, extend = lExt, color = col, width = lineWidthIn, style = lStyle)
+            if showLabels
+                // Near-opaque chip: labels render above lines, so a solid
+                // background hides the line segment behind the text (a
+                // translucent bg lets the same-coloured line bleed through
+                // and makes the price unreadable).
+                lb := label.new(bar_index, price, text = txt + "  " + str.tostring(price, format.mintick), xloc = xloc.bar_index, style = label.style_label_left, color = color.new(color.black, 12), textcolor = col, size = lSize)
+
+f_drawLevel(callWall,  "Call Wall",       cCall)
+f_drawLevel(gammaFlip, "Gamma Flip",      cFlip)
+f_drawLevel(putWall,   "Put Wall",        cPut)
+f_drawLevel(maxPain,   "Max Pain",        cPain)
+
+// ----------------------------------------------------------------------------
+//  Info box (rebuilt on the last bar so position/notes update live)
+// ----------------------------------------------------------------------------
+var table infoBox = na
+f_row(int r, string name, string val, color col) =>
+    table.cell(infoBox, 0, r, name, text_color = col, text_size = size.small, text_halign = text.align_left)
+    table.cell(infoBox, 1, r, val, text_color = col, text_size = size.small, text_halign = text.align_right)
+
+if showBox and barstate.islast
+    table.delete(infoBox)
+    infoBox := table.new(f_tablePos(boxPosIn), 2, 10, bgcolor = color.new(color.black, 78), frame_color = color.new(color.gray, 50), frame_width = 1, border_color = color.new(color.gray, 70), border_width = 1)
+    int r = 0
+    table.cell(infoBox, 0, r, "ZeroGEX Gamma Levels", text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(infoBox, 1, r, instrument + (levelsDate == "" ? "" : "  " + levelsDate), text_color = color.new(color.white, 25), text_size = size.small, text_halign = text.align_right)
+    r += 1
+    if callWall != 0
+        f_row(r, "Call Wall", str.tostring(callWall, format.mintick), cCall)
+        r += 1
+    if gammaFlip != 0
+        f_row(r, "Gamma Flip", str.tostring(gammaFlip, format.mintick), cFlip)
+        r += 1
+    if putWall != 0
+        f_row(r, "Put Wall", str.tostring(putWall, format.mintick), cPut)
+        r += 1
+    if maxPain != 0
+        f_row(r, "Max Pain", str.tostring(maxPain, format.mintick), cPain)
+        r += 1
+    if notes != ""
+        table.cell(infoBox, 0, r, notes, text_color = color.new(color.white, 30), text_size = size.tiny, text_halign = text.align_left)
+        table.cell(infoBox, 1, r, "", text_size = size.tiny)
+        r += 1
+    if showSource
+        table.cell(infoBox, 0, r, "zerogex.io — free delayed levels", text_color = color.new(color.white, 35), text_size = size.tiny, text_halign = text.align_left)
+        table.cell(infoBox, 1, r, "", text_size = size.tiny)
+        r += 1
+    table.cell(infoBox, 0, r, "Informational only · not advice", text_color = color.new(color.white, 55), text_size = size.tiny, text_halign = text.align_left)
+    table.cell(infoBox, 1, r, "", text_size = size.tiny)
+
+// ----------------------------------------------------------------------------
+//  Alert conditions — price crossing a level (only meaningful when set)
+// ----------------------------------------------------------------------------
+crossCall = alertsOn and callWall  != 0 and (ta.crossover(close, callWall)  or ta.crossunder(close, callWall))
+crossFlip = alertsOn and gammaFlip != 0 and (ta.crossover(close, gammaFlip) or ta.crossunder(close, gammaFlip))
+crossPut  = alertsOn and putWall   != 0 and (ta.crossover(close, putWall)   or ta.crossunder(close, putWall))
+crossPain = alertsOn and maxPain   != 0 and (ta.crossover(close, maxPain)   or ta.crossunder(close, maxPain))
+
+alertcondition(crossCall, "Price crossed Call Wall",       "ZeroGEX: price crossed the Call Wall")
+alertcondition(crossFlip, "Price crossed Gamma Flip",      "ZeroGEX: price crossed the Gamma Flip — possible regime shift")
+alertcondition(crossPut,  "Price crossed Put Wall",        "ZeroGEX: price crossed the Put Wall")
+alertcondition(crossPain, "Price crossed Max Pain",        "ZeroGEX: price crossed Max Pain")

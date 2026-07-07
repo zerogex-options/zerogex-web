@@ -4,6 +4,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { TierId } from '@/core/auth';
 import {
+  sendCancellationEmail,
   sendFoundingWelcomeEmail,
   sendPaidWelcomeEmail,
   sendPaymentFailedEmail,
@@ -21,7 +22,13 @@ import {
   redeemBankedReferralCredit,
   rewardReferrerForConvertedReferee,
 } from '@/core/referrals';
-import { findCreatorByUserId, isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
+import {
+  accrueMissedInvoicesForReferee,
+  findCreatorByUserId,
+  isCreatorPartnerProgramEnabled,
+  maybeAccruePartnerCommission,
+  reversePartnerCommissionsForInvoice,
+} from '@/core/creatorPartners';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
 
@@ -39,6 +46,9 @@ type UserRow = {
   // Last-synced Stripe status, used to detect transitions (e.g. trialing →
   // active) so the funnel events fire exactly once on the actual change.
   subscription_status: string | null;
+  // Last-synced cancel_at_period_end flag (0/1). Read pre-UPDATE so the
+  // 0→1 transition fires the cancellation acknowledgement email once.
+  cancel_at_period_end: number;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -147,7 +157,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
     .prepare(
       `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              subscription_status
+              subscription_status, cancel_at_period_end
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -239,6 +249,8 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   // emit funnel events only on the actual transition (so trial_started and
   // subscription_paid each fire once, not on every poll/redelivery).
   const previousStatus = user.subscription_status;
+  const previousCancelAtPeriodEnd = user.cancel_at_period_end ? 1 : 0;
+  const nextCancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
   const item = subscription.items.data[0];
   const priceId = item?.price.id ?? null;
@@ -336,6 +348,69 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   if (isActive) {
     await maybeProcessReferral(user, subscription);
     await maybeSendPaidWelcomeEmail(user, subscription);
+  }
+
+  await maybeHandleCancelAckTransition(user, {
+    previous: previousCancelAtPeriodEnd,
+    next: nextCancelAtPeriodEnd,
+    periodEndIso,
+    subscriptionId: subscription.id,
+  });
+}
+
+// Fires the cancellation acknowledgement email on the 0→1 transition of
+// cancel_at_period_end (the moment the customer clicks Cancel), and clears
+// the send-latch on the reverse 1→0 (reactivation) so a future re-cancel
+// can re-fire. Idempotent via CAS-claim on cancel_ack_email_sent_at, so
+// webhook redeliveries can't double-send. Best-effort: failures never
+// unwind the tier sync.
+async function maybeHandleCancelAckTransition(
+  user: UserRow,
+  opts: {
+    previous: number;
+    next: number;
+    periodEndIso: string | null;
+    subscriptionId: string;
+  },
+): Promise<void> {
+  if (opts.previous === 0 && opts.next === 1) {
+    const stamp = nowIso();
+    const claim = getDb()
+      .prepare(
+        `UPDATE users SET cancel_ack_email_sent_at = ?, updated_at = ?
+         WHERE id = ? AND cancel_ack_email_sent_at IS NULL`,
+      )
+      .run(stamp, stamp, user.id) as { changes: number | bigint };
+
+    if (Number(claim.changes) === 0) return;
+
+    try {
+      await sendCancellationEmail(user.email, { periodEndIso: opts.periodEndIso });
+      logAudit({
+        type: 'cancellation_ack_email_sent',
+        userId: user.id,
+        email: user.email,
+        message: `Sent cancellation ack email for sub ${opts.subscriptionId}`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'cancellation ack email send failed';
+      logAudit({
+        type: 'cancellation_ack_email_error',
+        userId: user.id,
+        email: user.email,
+        message: `Cancellation ack email send failed for sub ${opts.subscriptionId}: ${message}`,
+      });
+    }
+    return;
+  }
+
+  if (opts.previous === 1 && opts.next === 0) {
+    getDb()
+      .prepare(
+        `UPDATE users SET cancel_ack_email_sent_at = NULL, updated_at = ?
+         WHERE id = ? AND cancel_ack_email_sent_at IS NOT NULL`,
+      )
+      .run(nowIso(), user.id);
   }
 }
 
@@ -597,6 +672,21 @@ async function maybeBackAttributeFromCheckoutSession(
           userId: refereeUserId,
           message: `Back-attributed to partner ${partner.id} via promo code ${promoCodeId} on session ${session.id}`,
         });
+        // Race defense: invoice.paid can arrive BEFORE checkout.session.completed
+        // (Stripe orders events best-effort). Any already-paid invoice for this
+        // referee was dropped as 'organic' at accrual time; now that
+        // referred_by_code is stamped, retroactively accrue anything we missed.
+        // Best-effort: a Stripe list failure just means the operator recovers
+        // via scripts/list-partner-commissions later, or we catch it on the next
+        // invoice.
+        const backfilled = await accrueMissedInvoicesForReferee(refereeUserId);
+        for (const inv of backfilled) {
+          logAudit({
+            type: 'partner_commission_accrued',
+            userId: refereeUserId,
+            message: `Backfilled accrual for invoice ${inv.id} after back-attribution (session ${session.id})`,
+          });
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'promo code lookup failed';
@@ -696,6 +786,74 @@ export async function POST(request: NextRequest) {
       }
       case 'customer.subscription.deleted': {
         await clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
+        break;
+      }
+      case 'invoice.paid': {
+        // Creator Partner commission accrual (Phase 3). Every paid invoice
+        // whose customer was referred by a creator partner earns a
+        // commission ledger row via UNIQUE(stripe_invoice_id) — retries
+        // and out-of-order deliveries are safe.
+        const invoice = event.data.object as Stripe.Invoice;
+        const outcome = await maybeAccruePartnerCommission(invoice);
+        if (outcome.kind === 'accrued') {
+          logAudit({
+            type: 'partner_commission_accrued',
+            message: `Invoice ${invoice.id}: accrued ${outcome.commissionAmount} on billed ${outcome.billedAmount} ${outcome.currency}`,
+          });
+        }
+        break;
+      }
+      case 'charge.refunded': {
+        // Any refund on a paid invoice reverses that invoice's accrued
+        // commission. Partial vs full refund is treated identically —
+        // the whole commission flips to 'reversed'. Anything already
+        // marked 'paid' (out the door) needs a manual clawback.
+        const charge = event.data.object as Stripe.Charge;
+        const invoiceId =
+          typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+        if (invoiceId) {
+          const reversed = reversePartnerCommissionsForInvoice(invoiceId);
+          if (reversed > 0) {
+            logAudit({
+              type: 'partner_commission_reversed',
+              message: `Charge ${charge.id} refunded on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+            });
+          }
+        }
+        break;
+      }
+      case 'charge.dispute.created': {
+        // A chargeback usually means Stripe pulls the money back. Reverse
+        // proactively so we don't pay out a commission we're about to lose.
+        // If the dispute is later WON (`charge.dispute.closed` with
+        // status=won), operator can restore via a manual UPDATE — most
+        // disputes on trading-tool subs are lost, so revert is the right
+        // default.
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId =
+          typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+        if (chargeId) {
+          try {
+            const charge = await getStripe().charges.retrieve(chargeId);
+            const invoiceId =
+              typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+            if (invoiceId) {
+              const reversed = reversePartnerCommissionsForInvoice(invoiceId);
+              if (reversed > 0) {
+                logAudit({
+                  type: 'partner_commission_reversed',
+                  message: `Dispute ${dispute.id} opened on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+                });
+              }
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'charge lookup failed';
+            logAudit({
+              type: 'partner_commission_reverse_error',
+              message: `Dispute ${dispute.id} charge lookup failed: ${message}`,
+            });
+          }
+        }
         break;
       }
       case 'invoice.payment_failed': {

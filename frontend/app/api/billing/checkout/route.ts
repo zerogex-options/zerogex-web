@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { appendAuditEvent, getClientIp, requireSession, validateCsrf } from '@/core/serverAuth';
-import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
+import { FOUNDING_LOCKIN_DEADLINE_ISO, isFoundingLockinOpen } from '@/core/foundingLockin';
 import {
   getActivePromoCouponId,
   getAppUrl,
@@ -291,6 +291,20 @@ function resolveDiscount(input: {
         ok: false,
         status: 403,
         error: 'This account is not eligible for the founding-member offer.',
+      };
+    }
+    // Hard cutoff. A stale tab whose user clicked "Activate" after the
+    // FOUNDING_LOCKIN_DEADLINE_ISO crossing would otherwise still get the
+    // intro coupon attached — but the deferred-July-1 trial branch below
+    // wouldn't fire (the deadline is in the past), so they'd be charged
+    // immediately at the founding rate without warning, contradicting the
+    // "no charge today" copy they clicked through. Refuse the code instead
+    // and let the next request route them to standard /pricing.
+    if (!isFoundingLockinOpen()) {
+      return {
+        ok: false,
+        status: 410,
+        error: 'The founding-member offer has closed. See /pricing for current plans.',
       };
     }
     // Founding intro is per-(tier, cadence). Monthly + annual coupons live in

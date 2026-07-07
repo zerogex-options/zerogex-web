@@ -1,13 +1,16 @@
 export type Theme = 'light' | 'dark';
 
-export type MarketSession = 
-  | 'open' 
-  | 'pre-market' 
-  | 'after-hours' 
-  | 'closed' 
-  | 'halted' 
+export type MarketSession =
+  | 'open'
+  | 'pre-market'
+  | 'after-hours'
+  | 'closed'
+  | 'halted'
   | 'closed-weekend'
-  | 'closed-holiday';
+  | 'closed-holiday'
+  // Overnight index→future display swap: the cash index is closed but its
+  // future is trading, so quote/chart surfaces show the future (badged).
+  | 'futures';
 
 export interface LivePrice {
   symbol: string;

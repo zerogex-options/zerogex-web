@@ -24,6 +24,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
+import { isIndexSymbol } from '@/core/utils';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -80,7 +81,14 @@ export default function DashboardPage() {
     quoteClose: quoteData?.close,
     quoteSession: quoteData?.session,
     sessionCloses: sessionClosesData,
+    displaySource: quoteData?.display_source,
+    futuresClose: quoteData?.futures_close,
+    futuresReferenceClose: quoteData?.futures_reference_close,
   });
+  // Overnight index→future display swap: headline price card only. The GEX
+  // spot, flip/max-pain distances, and Day Vol all stay on the cash index.
+  const dashFuturesTicker =
+    quoteData?.display_source === 'futures' ? quoteData?.data_symbol ?? 'FUT' : null;
 
   const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
@@ -130,6 +138,11 @@ export default function DashboardPage() {
               value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
               subtitle={(
                 <div className="flex flex-col gap-1">
+                  {dashFuturesTicker && (
+                    <span style={{ color: 'var(--color-brand-coral)', fontWeight: 600 }}>
+                      ◆ {dashFuturesTicker} futures
+                    </span>
+                  )}
                   <span
                     style={{
                       color: underlyingPrice.change != null
@@ -138,10 +151,12 @@ export default function DashboardPage() {
                     }}
                   >
                     {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}% vs previous`
+                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? ' vs session open' : ' vs previous'}`
                       : 'Awaiting previous-close context'}
                   </span>
-                  <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
+                  {!isIndexSymbol(symbol) && (
+                    <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
+                  )}
                 </div>
               )}
               tooltip={`Current ${symbol} closing price from the real-time quote feed.`}

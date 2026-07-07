@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   AlertTriangle,
   Download,
@@ -14,6 +15,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  TrendingUp,
   Trash2,
 } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -126,6 +128,83 @@ function buildInitialForm(meta: BacktestMeta): FormState {
     max_hold_minutes: '',
     profit_target_pct: '',
     stop_loss_pct: '',
+  };
+}
+
+// ---- Featured strategies -------------------------------------------------
+//
+// A small, hand-curated list of strategies with measured edge on the realized-
+// P&L calibration backtest. Clicking one hydrates the form with that spec so a
+// subscriber can run it in one click. New entries are appended here — datafied
+// so additions are a single object literal, not a UI change.
+
+/** One featured strategy entry. Patterns-mode only for v1. */
+interface FeaturedStrategy {
+  id: string;
+  name: string;
+  /** One-line subtitle shown under the name in the picker. */
+  blurb: string;
+  /** Subscriber-visible justification — measured backtest numbers. */
+  evidence: string;
+  underlying: string;
+  patterns: string[];
+  /** Date window: end = latest available, start = end − this many days. */
+  lookbackDays: number;
+}
+
+/**
+ * v1 features the single pattern with conclusive realized-P&L edge —
+ * gex_gradient_trend / QQQ (n=33, win 64%, PF 2.80, +$2,411 expectancy on the
+ * standardized single-long calibration backtest). Others are watched but not
+ * promoted: call_wall_fade/SPY is positive but smaller; put_wall_bounce/SPY/QQQ
+ * looks excellent but samples are still thin (n=14, n=5).
+ */
+const FEATURED_STRATEGIES: FeaturedStrategy[] = [
+  {
+    id: 'gex-gradient-trend-qqq',
+    name: 'GEX Gradient Trend · QQQ',
+    blurb: 'Long ATM calls/puts on QQQ when the gamma-gradient drift fires.',
+    evidence:
+      'Realized-P&L backtest, last 60 days: 64% win rate over 33 trades, ' +
+      'profit factor 2.80, expectancy +$2,411 per trade (net of fills, ' +
+      'slippage, and commission). Past performance does not guarantee future ' +
+      'returns.',
+    underlying: 'QQQ',
+    patterns: ['gex_gradient_trend'],
+    lookbackDays: 60,
+  },
+];
+
+/**
+ * Subtract `days` from an ISO date (YYYY-MM-DD), returning ISO. Stays in the
+ * local-date space (no timezone shifts) so calendar math is stable across DST.
+ */
+function subtractDaysISO(dateISO: string, days: number): string {
+  // Parse as a UTC date so .setUTCDate() doesn't get pushed across a DST
+  // boundary, then format back to YYYY-MM-DD.
+  const d = new Date(`${dateISO}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Build a FormState for a featured strategy. Falls back to the meta defaults
+ * for anything the entry doesn't override; clamps the start date to the
+ * available `data_window.earliest` so the API doesn't 409 on a window outside
+ * the archived range.
+ */
+function featuredToForm(s: FeaturedStrategy, meta: BacktestMeta): FormState {
+  const base = buildInitialForm(meta);
+  const end = meta.data_window.latest;
+  const wantStart = subtractDaysISO(end, s.lookbackDays);
+  const start = wantStart < meta.data_window.earliest ? meta.data_window.earliest : wantStart;
+  return {
+    ...base,
+    mode: 'patterns',
+    underlying: meta.underlyings.includes(s.underlying) ? s.underlying : base.underlying,
+    patterns: s.patterns.slice(),
+    start_date: start,
+    end_date: end,
   };
 }
 
@@ -365,6 +444,17 @@ export default function BacktestingPage() {
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
+        <Link
+          href="/backtesting/insights"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--color-accent)]/15"
+          style={{
+            borderColor: 'var(--color-accent)',
+            color: 'var(--color-accent)',
+          }}
+        >
+          <TrendingUp size={14} />
+          Pattern Insights
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-8">
@@ -585,6 +675,11 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     } catch {
       setConfigNotice(link);
     }
+  };
+
+  const onLoadFeatured = (s: FeaturedStrategy) => {
+    setForm(featuredToForm(s, meta));
+    setConfigNotice(`Loaded “${s.name}”. Review the date range, then run.`);
   };
 
   // ---- Parameter-sweep gating + actions ---------------------------------
@@ -1091,6 +1186,8 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         />
       </form>
 
+      <FeaturedStrategies onLoad={onLoadFeatured} />
+
       <SavedConfigs
         configs={savedConfigs}
         saveName={saveName}
@@ -1104,6 +1201,43 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         notice={configNotice}
       />
     </section>
+  );
+}
+
+// ---- Featured strategies UI ---------------------------------------------
+
+function FeaturedStrategies({ onLoad }: { onLoad: (s: FeaturedStrategy) => void }) {
+  if (FEATURED_STRATEGIES.length === 0) return null;
+  return (
+    <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+        Featured strategies
+      </div>
+      <ul className="flex flex-col gap-2">
+        {FEATURED_STRATEGIES.map((s) => (
+          <li
+            key={s.id}
+            className="rounded-lg border px-3 py-2.5"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            <button
+              type="button"
+              onClick={() => onLoad(s)}
+              className="block w-full text-left"
+              title="Load this strategy into the form"
+            >
+              <span className="block text-sm font-semibold">{s.name}</span>
+              <span className="block mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                {s.blurb}
+              </span>
+              <span className="block mt-1 text-[11px] leading-snug text-[var(--color-text-secondary)]">
+                {s.evidence}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

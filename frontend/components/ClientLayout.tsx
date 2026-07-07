@@ -36,7 +36,7 @@ const getFoundingLockinGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/trading-mistakes'];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/trading-mistakes'];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
@@ -150,7 +150,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       style={{
         minHeight: '100vh',
         backgroundColor: 'transparent',
-        color: theme === 'dark' ? colors.light : colors.dark,
+        color: 'var(--text-primary)',
         display: 'flex',
         flexDirection: 'column',
       }}

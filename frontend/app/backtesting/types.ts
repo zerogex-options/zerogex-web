@@ -292,3 +292,39 @@ export interface BacktestSweepCreated {
   n_cells: number;
   run_ids: number[];
 }
+
+// ---- Pattern insights (the leaderboard) ----------------------------------
+//
+// One row per (pattern, underlying) pair from the latest calibration window,
+// served by GET /api/backtest/insights/patterns. Includes the raw counts +
+// win rate from playbook_pattern_stats, plus dollar economics (gross
+// win/loss) and the derived PF / expectancy / avg win/loss so the page can
+// render straight from the payload without recomputing anything.
+//
+// Touch-source rows carry NULL for every economics field (the touch harness
+// is a proxy and has no real P&L).
+export type InsightsSource = 'option_pnl' | 'underlying_touch';
+
+export interface PatternInsight {
+  pattern: string;
+  underlying: string;
+  window_start: string | null;
+  window_end: string | null;
+  n_emitted: number;
+  n_resolved: number;
+  n_wins: number;
+  n_losses: number;
+  hit_rate: number | null;
+  proposed_base: number | null;
+  gross_win_pnl: number | null;
+  gross_loss_pnl: number | null;
+  net_pnl: number | null;
+  /** Sum of winning trade P&L over abs sum of losers. null when no losses (undefined). */
+  profit_factor: number | null;
+  /** Net P&L per resolved trade. null when n_resolved is 0. */
+  expectancy: number | null;
+  avg_win_pnl: number | null;
+  avg_loss_pnl: number | null;
+  source: InsightsSource;
+  computed_at: string | null;
+}

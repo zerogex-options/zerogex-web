@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, ExternalLink, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react';
 import SignalSparkline from './SignalSparkline';
 import {
   asObject,
@@ -81,80 +81,80 @@ export default function AdvancedSignalCard({
         background: cardBg,
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-          >
-            <Icon size={15} />
-          </span>
+      <Link
+        href={href}
+        className="flex flex-col gap-3 cursor-pointer transition-opacity hover:opacity-90"
+        style={{ color: 'inherit', textDecoration: 'none' }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+            >
+              <Icon size={15} />
+            </span>
+            <div>
+              <div className="text-sm font-semibold">{title}</div>
+              {inactiveLabel ? (
+                <div className="text-[11px] text-[var(--color-text-secondary)]">{inactiveLabel}</div>
+              ) : showSignalPill ? (
+                <div
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide mt-0.5"
+                  style={{ background: `${color}1f`, color }}
+                >
+                  {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
+                  {humanize(signalStr)}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">{title}</div>
-            {inactiveLabel ? (
-              <div className="text-[11px] text-[var(--color-text-secondary)]">{inactiveLabel}</div>
-            ) : showSignalPill ? (
-              <div
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide mt-0.5"
-                style={{ background: `${color}1f`, color }}
-              >
-                {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                {humanize(signalStr)}
-              </div>
-            ) : null}
+            <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
+              {loading && !payload.score ? '…' : score != null ? score.toFixed(1) : '—'}
+            </div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+              <span>Score −100 to +100</span>
+              {!inactiveLabel ? (
+                <span className="opacity-70">· activates at ±{triggerThreshold}</span>
+              ) : null}
+              {effectiveTriggered ? (
+                <span
+                  className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  style={{ background: `${color}1f`, color }}
+                >
+                  Triggered
+                </span>
+              ) : !inactiveLabel ? (
+                <span
+                  className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: 'var(--color-surface-subtle)',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  Stand by
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex-1 max-w-[55%]">
+            <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1a`} />
           </div>
         </div>
-        <Link
-          href={href}
-          className="text-[11px] inline-flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-        >
-          Open <ExternalLink size={12} />
-        </Link>
-      </div>
 
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
-            {loading && !payload.score ? '…' : score != null ? score.toFixed(1) : '—'}
-          </div>
-          <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
-            <span>Score −100 to +100</span>
-            {!inactiveLabel ? (
-              <span className="opacity-70">· activates at ±{triggerThreshold}</span>
-            ) : null}
-            {effectiveTriggered ? (
-              <span
-                className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                style={{ background: `${color}1f`, color }}
-              >
-                Triggered
-              </span>
-            ) : !inactiveLabel ? (
-              <span
-                className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: 'var(--color-surface-subtle)',
-                  color: 'var(--color-text-secondary)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                Stand by
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex-1 max-w-[55%]">
-          <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1a`} />
-        </div>
-      </div>
+        {description && (
+          <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{description}</p>
+        )}
 
-      {description && (
-        <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{description}</p>
-      )}
-
-      {error && (
-        <div className="text-[11px] text-[var(--color-bear)]">Failed to load: {error}</div>
-      )}
+        {error && (
+          <div className="text-[11px] text-[var(--color-bear)]">Failed to load: {error}</div>
+        )}
+      </Link>
 
       {contextRows.length > 0 && (
         <>

@@ -36,6 +36,11 @@ export interface PriceBar {
   volume?: number;
   up_volume?: number | null;
   down_volume?: number | null;
+  // 'futures' when this bar is the cash index's future (allow_futures opt-in,
+  // outside the cash session). Lets the candle chart switch to futures mode.
+  display_source?: string | null;
+  // The future's UI ticker (e.g. 'ES') for the chart badge.
+  data_symbol?: string | null;
 }
 
 interface CacheEntry {
@@ -63,12 +68,15 @@ const RETRY_MAX_DELAY_MS = 30_000;
 
 const caches = new Map<string, CacheEntry>();
 
-function getCacheKey(symbol: string, timeframe: string): string {
-  return `${symbol}:${timeframe}`;
+// allowFutures gets its own cache entry so a page that shows BOTH the index
+// series (gamma heatmap / max-pain) and the futures candle chart for the same
+// symbol:timeframe never crosses the two streams.
+function getCacheKey(symbol: string, timeframe: string, allowFutures = false): string {
+  return `${symbol}:${timeframe}${allowFutures ? ':fut' : ''}`;
 }
 
-function getOrCreateCache(symbol: string, timeframe: string): CacheEntry {
-  const key = getCacheKey(symbol, timeframe);
+function getOrCreateCache(symbol: string, timeframe: string, allowFutures = false): CacheEntry {
+  const key = getCacheKey(symbol, timeframe, allowFutures);
   let entry = caches.get(key);
   if (!entry) {
     entry = {
@@ -155,15 +163,18 @@ function normalizeNumbers(value: unknown): unknown {
   return value;
 }
 
-function buildUrl(symbol: string, timeframe: string, windowUnits: number): string {
+function buildUrl(symbol: string, timeframe: string, windowUnits: number, allowFutures = false): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const sym = encodeURIComponent(symbol);
   const tf = encodeURIComponent(timeframe);
-  return `${baseUrl}/api/market/historical?symbol=${sym}&underlying=${sym}&timeframe=${tf}&window_units=${windowUnits}`;
+  // allow_futures opts this series into the index→future display swap outside
+  // the cash session (the candle chart). Omitted for index-keyed overlays.
+  const futuresParam = allowFutures ? '&allow_futures=1' : '';
+  return `${baseUrl}/api/market/historical?symbol=${sym}&underlying=${sym}&timeframe=${tf}&window_units=${windowUnits}${futuresParam}`;
 }
 
-async function fetchBars(symbol: string, timeframe: string, windowUnits: number): Promise<PriceBar[]> {
-  const response = await fetch(buildUrl(symbol, timeframe, windowUnits));
+async function fetchBars(symbol: string, timeframe: string, windowUnits: number, allowFutures = false): Promise<PriceBar[]> {
+  const response = await fetch(buildUrl(symbol, timeframe, windowUnits, allowFutures));
   if (!response.ok) throw new Error(`API error: ${response.status}`);
   const raw = await response.json();
   const normalized = normalizeNumbers(raw);
@@ -179,24 +190,24 @@ function cancelRetry(entry: CacheEntry): void {
   entry.retryDelayMs = RETRY_INITIAL_DELAY_MS;
 }
 
-function scheduleRetry(symbol: string, timeframe: string, entry: CacheEntry): void {
+function scheduleRetry(symbol: string, timeframe: string, entry: CacheEntry, allowFutures = false): void {
   if (entry.retryTimer !== null) return;
   const delay = entry.retryDelayMs;
   entry.retryDelayMs = Math.min(entry.retryDelayMs * 2, RETRY_MAX_DELAY_MS);
   entry.retryTimer = setTimeout(() => {
     entry.retryTimer = null;
     if (entry.inflightSeed) return;
-    entry.inflightSeed = performFullReload(symbol, timeframe).finally(() => {
+    entry.inflightSeed = performFullReload(symbol, timeframe, allowFutures).finally(() => {
       entry.inflightSeed = null;
     });
   }, delay);
 }
 
-async function performFullReload(symbol: string, timeframe: string): Promise<void> {
-  const entry = caches.get(getCacheKey(symbol, timeframe));
+async function performFullReload(symbol: string, timeframe: string, allowFutures = false): Promise<void> {
+  const entry = caches.get(getCacheKey(symbol, timeframe, allowFutures));
   if (!entry) return;
   try {
-    const fetched = await fetchBars(symbol, timeframe, CACHE_BAR_LIMIT);
+    const fetched = await fetchBars(symbol, timeframe, CACHE_BAR_LIMIT, allowFutures);
     const sorted = [...fetched].sort((a, b) => rowTimestampMs(a) - rowTimestampMs(b));
     const lastFetchedMs = sorted.length ? rowTimestampMs(sorted[sorted.length - 1]) : -Infinity;
 
@@ -232,18 +243,18 @@ async function performFullReload(symbol: string, timeframe: string): Promise<voi
     // succeeded once, we trust the regular 5-min reload cadence and let
     // transient failures fall through silently.
     if (!entry.hadSuccessfulSeed) {
-      scheduleRetry(symbol, timeframe, entry);
+      scheduleRetry(symbol, timeframe, entry, allowFutures);
     }
   }
 }
 
-async function pollLatestBar(symbol: string, timeframe: string): Promise<void> {
-  const entry = caches.get(getCacheKey(symbol, timeframe));
+async function pollLatestBar(symbol: string, timeframe: string, allowFutures = false): Promise<void> {
+  const entry = caches.get(getCacheKey(symbol, timeframe, allowFutures));
   if (!entry) return;
   try {
     // Fetch a small tail (not just 1 bar) so that a bar boundary crossing
     // between polls doesn't cause us to skip the bar that just completed.
-    const fetched = await fetchBars(symbol, timeframe, 3);
+    const fetched = await fetchBars(symbol, timeframe, 3, allowFutures);
     if (fetched.length === 0) return;
     const sorted = [...fetched].sort((a, b) => rowTimestampMs(a) - rowTimestampMs(b));
 
@@ -279,21 +290,21 @@ async function pollLatestBar(symbol: string, timeframe: string): Promise<void> {
   }
 }
 
-function ensureSeed(symbol: string, timeframe: string, entry: CacheEntry): void {
+function ensureSeed(symbol: string, timeframe: string, entry: CacheEntry, allowFutures = false): void {
   if (entry.rows.length > 0 || entry.inflightSeed) return;
   entry.loading = true;
-  entry.inflightSeed = performFullReload(symbol, timeframe).finally(() => {
+  entry.inflightSeed = performFullReload(symbol, timeframe, allowFutures).finally(() => {
     entry.inflightSeed = null;
   });
 }
 
-function ensureBackgroundReload(symbol: string, timeframe: string, entry: CacheEntry): void {
+function ensureBackgroundReload(symbol: string, timeframe: string, entry: CacheEntry, allowFutures = false): void {
   if (entry.reloadTimer !== null) return;
   // Random 0–5 min initial offset so simultaneously-created caches don't all
   // hit the API at the same instant on every reload boundary.
   const initialDelay = Math.random() * RELOAD_INTERVAL_MS;
   const tick = () => {
-    performFullReload(symbol, timeframe);
+    performFullReload(symbol, timeframe, allowFutures);
     entry.reloadTimer = setTimeout(tick, RELOAD_INTERVAL_MS);
   };
   entry.reloadTimer = setTimeout(tick, initialDelay);
@@ -313,9 +324,13 @@ function snapshot(entry: CacheEntry): UseMarketHistoricalResult {
   };
 }
 
-export function useMarketHistorical(symbol: string, timeframe: string): UseMarketHistoricalResult {
-  const cacheKey = getCacheKey(symbol, timeframe);
-  const [state, setState] = useState<UseMarketHistoricalResult>(() => snapshot(getOrCreateCache(symbol, timeframe)));
+export function useMarketHistorical(
+  symbol: string,
+  timeframe: string,
+  allowFutures = false,
+): UseMarketHistoricalResult {
+  const cacheKey = getCacheKey(symbol, timeframe, allowFutures);
+  const [state, setState] = useState<UseMarketHistoricalResult>(() => snapshot(getOrCreateCache(symbol, timeframe, allowFutures)));
   const [trackedKey, setTrackedKey] = useState(cacheKey);
 
   // React-recommended "derived state" pattern: when the input key changes,
@@ -323,21 +338,21 @@ export function useMarketHistorical(symbol: string, timeframe: string): UseMarke
   // the previous cache's data.
   if (trackedKey !== cacheKey) {
     setTrackedKey(cacheKey);
-    setState(snapshot(getOrCreateCache(symbol, timeframe)));
+    setState(snapshot(getOrCreateCache(symbol, timeframe, allowFutures)));
   }
 
   useEffect(() => {
-    const entry = getOrCreateCache(symbol, timeframe);
+    const entry = getOrCreateCache(symbol, timeframe, allowFutures);
 
-    ensureSeed(symbol, timeframe, entry);
-    ensureBackgroundReload(symbol, timeframe, entry);
+    ensureSeed(symbol, timeframe, entry, allowFutures);
+    ensureBackgroundReload(symbol, timeframe, entry, allowFutures);
 
     const listener = () => setState(snapshot(entry));
     entry.subscribers.add(listener);
     listener();
 
     if (entry.pollTimer === null) {
-      entry.pollTimer = setInterval(() => pollLatestBar(symbol, timeframe), POLL_INTERVAL_MS);
+      entry.pollTimer = setInterval(() => pollLatestBar(symbol, timeframe, allowFutures), POLL_INTERVAL_MS);
     }
 
     return () => {
@@ -347,7 +362,7 @@ export function useMarketHistorical(symbol: string, timeframe: string): UseMarke
         entry.pollTimer = null;
       }
     };
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, allowFutures]);
 
   return state;
 }

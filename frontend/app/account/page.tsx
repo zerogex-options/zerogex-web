@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Bell, Copy, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -244,7 +244,12 @@ function AccountPageContent() {
   const email = authSession?.user?.email ?? '';
   const tierLabel = TIER_LABELS[tier] ?? 'Public';
   const canUpgrade = tier !== 'pro' && tier !== 'admin';
-  const canManageBilling = tier !== 'public' && tier !== 'admin';
+  const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Also allow anyone with a Stripe subscription on file — a customer whose
+  // first charge failed sits at tier=public but has stripe_subscription_id
+  // set, and the billing portal is precisely where they update the card that
+  // got declined. Gating on tier alone would lock them out of the fix.
+  const canManageBilling = tier !== 'admin' && (tier !== 'public' || hasActiveSubscription);
 
   const handleManageSubscription = async () => {
     setOpening(true);
@@ -466,6 +471,31 @@ function AccountPageContent() {
         </section>
 
         <section style={{ marginTop: 24 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Notifications</h2>
+          <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+            Manage the TradeWorkz™ bots you follow and the channels (in-app / email / webhook)
+            each subscription uses.
+          </p>
+          <Link
+            href="/account/notifications"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 16px',
+              borderRadius: 10,
+              background: 'var(--color-info)',
+              color: 'var(--color-on-info, #ffffff)',
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: 'none',
+            }}
+          >
+            <Bell size={14} /> Manage notifications
+          </Link>
+        </section>
+
+        <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Sign-in methods</h2>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
             Connect or disconnect the providers you use to sign in. You must keep at least one method active.
@@ -647,6 +677,15 @@ function AccountPageContent() {
           >
             <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
           </button>
+          {!canManageBilling && tier === 'public' && (
+            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
+              You don't have an active subscription yet. Choose a plan on the{' '}
+              <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
+                pricing page
+              </Link>{' '}
+              to get started.
+            </p>
+          )}
         </section>
 
         {referral?.enabled && referral.link && (

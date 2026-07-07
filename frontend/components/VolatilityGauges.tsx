@@ -284,9 +284,7 @@ export function SingleGauge({
         >
           <div
             style={{
-              background: isDark
-                ? "linear-gradient(135deg, var(--bg-card) 0%, var(--bg-active) 100%)"
-                : "var(--bg-card)",
+              background: "var(--bg-card)",
               border: `1px solid ${isDark ? "var(--border-strong)" : "var(--border-default)"}`,
               borderRadius: "8px",
               padding: "7px 12px",

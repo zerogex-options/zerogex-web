@@ -164,11 +164,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'real-time-gex-0dte': {
     slug: 'real-time-gex-0dte',
     href: '/real-time-gex-0dte',
-    title: 'Real-Time GEX for 0DTE Traders | ZeroGEX',
+    title: 'Real-Time 0DTE GEX: SPX / SPY / QQQ Gamma Flip, Call Walls & Dealer Positioning',
     blurb:
       'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
     description:
-      'Real-time GEX for 0DTE traders. Live gamma flip, call and put walls, dealer positioning, and composite signals built for SPX/0DTE intraday flow. Free dashboard.',
+      'Real-time 0DTE GEX for SPX, SPY and QQQ — live gamma flip, call and put walls, dealer positioning, and a 13-signal composite built for intraday 0DTE flow. Free dashboard, no signup required.',
     datePublished: '2026-06-11',
     readMinutes: 0,
     kind: 'landing',
@@ -305,6 +305,66 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 10,
     kind: 'tier1',
   },
+  'spy-vs-spx-gamma-levels': {
+    slug: 'spy-vs-spx-gamma-levels',
+    href: '/education/spy-vs-spx-gamma-levels',
+    title: 'SPY vs SPX Options: Which Gamma Levels Matter?',
+    blurb:
+      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and why the level that matters most is the one where they agree.',
+    description:
+      'SPY vs SPX options — which gamma levels matter? How the two dealer gamma books differ, translating levels with the ~10x ratio, which carries more weight, and why confluence between SPX and SPY is the strongest signal.',
+    datePublished: '2026-07-06',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
+  'what-is-a-put-wall': {
+    slug: 'what-is-a-put-wall',
+    href: '/education/what-is-a-put-wall',
+    title: 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support',
+    blurb:
+      'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, and QQQ put walls.',
+    description:
+      'What is a put wall? The strike where put gamma concentrates and dealer hedging defends the downside — why it acts as support, how it shifts intraday, and when it breaks. See today’s SPX / SPY / QQQ put walls.',
+    datePublished: '2026-07-07',
+    readMinutes: 8,
+    kind: 'tier1',
+  },
+  'what-is-a-call-wall': {
+    slug: 'what-is-a-call-wall',
+    href: '/education/what-is-a-call-wall',
+    title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
+    blurb:
+      'The call wall is the strike where call-side dealer gamma concentrates — the level dealers defend on the way up. What it is, why it caps rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, and QQQ call walls.',
+    description:
+      'What is a call wall? The strike where call gamma concentrates and dealers defend the upside — why it acts as resistance, how it migrates, and when price breaks through. See today’s SPX / SPY / QQQ call walls.',
+    datePublished: '2026-07-07',
+    readMinutes: 8,
+    kind: 'tier1',
+  },
+  'what-is-gex-in-trading': {
+    slug: 'what-is-gex-in-trading',
+    href: '/education/what-is-gex-in-trading',
+    title: 'What Is GEX in Trading? Gamma Exposure Explained Simply',
+    blurb:
+      'GEX — gamma exposure — is the one number that explains why some days pin and others trend. A plain-English, beginner-first explainer: what GEX measures, how dealer gamma moves the tape, and what positive versus negative regimes mean for your trading.',
+    description:
+      'What is GEX in trading? Gamma exposure explained simply — what GEX measures, why dealer gamma moves markets, and how to read positive vs negative regimes. A beginner’s guide with today’s live levels.',
+    datePublished: '2026-07-07',
+    readMinutes: 7,
+    kind: 'tier1',
+  },
+  'spx-net-gamma-exposure-today': {
+    slug: 'spx-net-gamma-exposure-today',
+    href: '/education/spx-net-gamma-exposure-today',
+    title: 'SPX Net Gamma Exposure Today: How to Read Current Net GEX',
+    blurb:
+      '“What’s the current SPX net gamma exposure?” The answer changes every session. What net GEX is, how to read a positive versus negative reading, where the gamma-flip zero-cross sits, and how to pull up today’s live SPX net GEX in one click.',
+    description:
+      'SPX net gamma exposure today — what current net GEX means, how to read a positive vs negative reading, where the zero-cross (gamma flip) sits, and how to see the live SPX net GEX value now.',
+    datePublished: '2026-07-07',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
 };
 
 /**
@@ -317,17 +377,17 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'gamma-exposure-explained': [
     'how-to-read-a-gamma-flip',
     'gamma-walls-explained',
-    '0dte-dealer-positioning-explained',
+    'what-is-gex-in-trading',
   ],
   'how-to-read-a-gamma-flip': [
     'gamma-exposure-explained',
     'gamma-walls-explained',
-    '0dte-dealer-positioning-explained',
+    'spx-net-gamma-exposure-today',
   ],
   'gamma-walls-explained': [
     'gamma-exposure-explained',
-    'how-to-read-a-gamma-flip',
-    '0dte-dealer-positioning-explained',
+    'what-is-a-put-wall',
+    'what-is-a-call-wall',
   ],
   '0dte-dealer-positioning-explained': [
     'gamma-exposure-explained',
@@ -391,8 +451,8 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'options-support-and-resistance': [
     'gamma-walls-explained',
+    'what-is-a-put-wall',
     'why-spy-reverses-at-levels',
-    'gamma-exposure-explained',
   ],
   'how-to-avoid-chasing-0dte': [
     '0dte-dealer-positioning-explained',
@@ -407,7 +467,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'what-is-negative-gamma': [
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
-    'how-to-trade-around-gamma-flip',
+    'spx-net-gamma-exposure-today',
   ],
   'why-spy-pins-near-strikes': [
     'how-to-know-if-spy-is-pinned',
@@ -418,6 +478,31 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'what-is-negative-gamma',
     'gamma-exposure-explained',
+  ],
+  'spy-vs-spx-gamma-levels': [
+    'gamma-walls-explained',
+    'options-support-and-resistance',
+    'how-to-read-a-gamma-flip',
+  ],
+  'what-is-a-put-wall': [
+    'gamma-walls-explained',
+    'what-is-a-call-wall',
+    'options-support-and-resistance',
+  ],
+  'what-is-a-call-wall': [
+    'gamma-walls-explained',
+    'what-is-a-put-wall',
+    'how-to-read-a-gamma-flip',
+  ],
+  'what-is-gex-in-trading': [
+    'gamma-exposure-explained',
+    'how-to-read-a-gamma-flip',
+    'gamma-walls-explained',
+  ],
+  'spx-net-gamma-exposure-today': [
+    'gamma-exposure-explained',
+    'how-to-read-a-gamma-flip',
+    'what-is-negative-gamma',
   ],
 };
 

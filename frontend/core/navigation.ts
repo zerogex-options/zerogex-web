@@ -32,7 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Signals',
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
-      { id: '/trading-signals', label: 'Signaled Trades', requiredTier: 'admin' },
+      { id: '/trading-signals', label: 'TradeWorkz™', requiredTier: 'pro', beta: true },
     ],
     subgroups: [
       {
@@ -83,8 +83,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
-      { id: '/premium-heatmap', label: 'Premium Heat Map', requiredTier: 'basic', beta: true },
+      { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
       { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
+      { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
+      { id: '/replay', label: 'Daily Replay' },
+      { id: '/forecast', label: 'Daily Forecast', beta: true },
     ],
   },
   {
@@ -126,8 +129,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', requiredTier: 'admin' },
-      { id: '/forecast', label: 'Forecast', requiredTier: 'admin' },
-      { id: '/replay', label: 'Replay', requiredTier: 'admin' },
     ],
   },
 ];

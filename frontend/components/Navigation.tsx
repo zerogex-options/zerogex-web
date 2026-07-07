@@ -82,12 +82,14 @@ export default function Navigation({ theme }: NavigationProps) {
     () =>
       navGroups
         .map((group) => {
-          // "Signals" is always shown to every tier so the marketing surface
-          // stays intact; unentitled clicks are routed to /pricing instead.
-          // Admin-only items are still gated so internal tools never leak.
-          const bypassTierCheck = group.label === "Signals";
+          // "Signals" stays as a marketing surface for signed-in Basic users
+          // (unentitled clicks route to /pricing), but drops entirely for
+          // public/unauthenticated visitors. Admin-only items are always gated.
+          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
+            // Premium Surface is a Basic entitlement — hide it from public.
+            if (isPublicUser && item.id === "/premium-heatmap") return false;
             if (item.requiredTier === "admin") return hasRequiredTier(item.id, currentTier);
             if (bypassTierCheck) return true;
             return hasRequiredTier(item.id, currentTier);
@@ -99,7 +101,7 @@ export default function Navigation({ theme }: NavigationProps) {
           return { ...group, items, subgroups };
         })
         .filter((group) => group.items.length + group.subgroups.length > 0),
-    [navGroups, currentTier],
+    [navGroups, currentTier, isPublicUser],
   );
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
@@ -182,7 +184,7 @@ export default function Navigation({ theme }: NavigationProps) {
             width: `${SIDEBAR_WIDTH}px`,
             top: "var(--zgx-header-height, 0px)",
             bottom: 0,
-            backgroundColor: theme === "dark" ? `${colors.bgDark}f2` : `${colors.bgLight}f2`,
+            backgroundColor: "color-mix(in srgb, var(--bg-main) 95%, transparent)",
             borderColor: border,
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
@@ -190,7 +192,7 @@ export default function Navigation({ theme }: NavigationProps) {
         >
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
-              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: theme === "dark" ? `${colors.cardDark}c9` : `${colors.cardLight}c9` }}>
+              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
                 <Link href="/" className="flex w-full items-center overflow-hidden">
                   <Image
                     src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
@@ -205,7 +207,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     <div className="flex flex-col gap-1">
                       <span className="font-bold text-lg">${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? colors.bullish : colors.bearish}1f`, color: row1Positive ? colors.bullish : colors.bearish }}>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -222,23 +224,23 @@ export default function Navigation({ theme }: NavigationProps) {
                 const isExternal = page.external === true;
                 const isActive = pathname === page.id;
                 const isHovered = hoveredPage === page.id;
+                const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+                // Only animate paint-only properties. Animating the `border`/
+                // `background` shorthands (or using `transition-all`) let the
+                // browser re-evaluate the whole box each frame, which shifted
+                // rows a couple of pixels on hover and made the mouse bounce
+                // in and out of the wrapper — the flicker in the recording.
                 const commonStyle = {
-                  color: isActive || isHovered
-                    ? (theme === "light" ? colors.coral : colors.primary)
-                    : theme === "dark"
-                      ? colors.light
-                      : colors.dark,
+                  color: isActive || isHovered ? accent : "var(--text-primary)",
                   opacity: isActive || isHovered ? 1 : 0.72,
-                  background: isHovered && !isActive
-                    ? `${theme === "light" ? colors.coral : colors.primary}18`
+                  backgroundColor: isHovered && !isActive
+                    ? `${accent}18`
                     : isActive
-                      ? `${theme === "light" ? colors.coral : colors.primary}14`
+                      ? `${accent}14`
                       : "transparent",
-                  border: `1px solid ${
-                    isActive || isHovered
-                      ? `${theme === "light" ? colors.coral : colors.primary}40`
-                      : "transparent"
-                  }`,
+                  borderColor: isActive || isHovered ? `${accent}40` : "transparent",
+                  transitionProperty: "color, background-color, border-color, opacity",
+                  transitionDuration: "200ms",
                 };
 
                 if (isExternal) {
@@ -251,7 +253,7 @@ export default function Navigation({ theme }: NavigationProps) {
                       rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
                       onMouseEnter={() => setHoveredPage(page.id)}
                       onMouseLeave={() => setHoveredPage(null)}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                      className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                       style={commonStyle}
                     >
                       <span>{page.label}</span>
@@ -266,7 +268,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     onClick={() => router.push(resolveNavTarget(page.id))}
                     onMouseEnter={() => setHoveredPage(page.id)}
                     onMouseLeave={() => setHoveredPage(null)}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200"
+                    className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                     style={commonStyle}
                     type="button"
                   >
@@ -283,8 +285,8 @@ export default function Navigation({ theme }: NavigationProps) {
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
                     className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
                     style={{
-                      color: theme === "light" ? colors.coral : colors.primary,
-                      background: `${theme === "light" ? colors.coral : colors.primary}0f`,
+                      color: theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)',
+                      background: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}0f`,
                     }}
                   >
                     {group.label}
@@ -302,35 +304,34 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subgroupId = subgroup.id;
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
                         const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
+                        const subgroupAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+                        const subgroupTransition = {
+                          transitionProperty: "color, background-color, border-color, opacity",
+                          transitionDuration: "200ms",
+                        };
                         const subgroupStyle = subgroupId != null
                           ? {
-                              color: subgroupActive || subgroupHovered
-                                ? (theme === "light" ? colors.coral : colors.primary)
-                                : theme === "dark"
-                                  ? colors.light
-                                  : colors.dark,
+                              color: subgroupActive || subgroupHovered ? subgroupAccent : "var(--text-primary)",
                               opacity: subgroupActive || subgroupHovered ? 1 : 0.72,
-                              background: subgroupHovered && !subgroupActive
-                                ? `${theme === "light" ? colors.coral : colors.primary}18`
+                              backgroundColor: subgroupHovered && !subgroupActive
+                                ? `${subgroupAccent}18`
                                 : subgroupActive
-                                  ? `${theme === "light" ? colors.coral : colors.primary}14`
+                                  ? `${subgroupAccent}14`
                                   : "transparent",
-                              border: `1px solid ${
-                                subgroupActive || subgroupHovered
-                                  ? `${theme === "light" ? colors.coral : colors.primary}40`
-                                  : "transparent"
-                              }`,
+                              borderColor: subgroupActive || subgroupHovered ? `${subgroupAccent}40` : "transparent",
+                              ...subgroupTransition,
                             }
                           : {
-                              color: theme === "dark" ? colors.light : colors.dark,
+                              color: 'var(--text-primary)',
                               opacity: 0.72,
-                              background: "transparent",
-                              border: "1px solid transparent",
+                              backgroundColor: "transparent",
+                              borderColor: "transparent",
+                              ...subgroupTransition,
                             };
                         return (
-                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${theme === "light" ? colors.coral : colors.primary}33` }}>
+                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${subgroupAccent}33` }}>
                             <div
-                              className="mb-1 flex w-full items-center rounded-xl text-sm font-semibold transition-all duration-200"
+                              className="mb-1 flex w-full items-center rounded-xl border border-solid text-sm font-semibold"
                               style={subgroupStyle}
                               onMouseEnter={() => subgroupId && setHoveredPage(subgroupId)}
                               onMouseLeave={() => setHoveredPage(null)}
@@ -387,9 +388,9 @@ export default function Navigation({ theme }: NavigationProps) {
             onClick={toggleSidebar}
             className="absolute -right-9 top-4 flex h-14 w-9 items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
             style={{
-              backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+              backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
               borderColor: border,
-              color: colors.muted,
+              color: 'var(--text-secondary)',
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
             }}
@@ -407,9 +408,9 @@ export default function Navigation({ theme }: NavigationProps) {
             left: 0,
             top: "calc(var(--zgx-header-height, 0px) + 18px)",
             height: "56px",
-            backgroundColor: theme === "dark" ? `${colors.cardDark}f2` : `${colors.cardLight}f2`,
+            backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
             borderColor: border,
-            color: colors.muted,
+            color: 'var(--text-secondary)',
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
           }}

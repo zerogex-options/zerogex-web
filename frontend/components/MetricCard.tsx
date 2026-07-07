@@ -2,9 +2,7 @@
 
 import { Info } from 'lucide-react';
 import { MetricCardProps } from '@/core/types';
-import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
-import ExpandableCard from './ExpandableCard';
 import { useTheme } from '@/core/ThemeContext';
 
 export default function MetricCard({
@@ -21,39 +19,28 @@ export default function MetricCard({
   const { theme: activeTheme } = useTheme();
   const resolvedTheme = activeTheme || theme;
   const trendColors = {
-    bullish: colors.bullish,
-    bearish: colors.bearish,
-    neutral: resolvedTheme === 'dark' ? colors.light : colors.dark,
+    bullish: 'var(--color-bull)',
+    bearish: 'var(--color-bear)',
+    neutral: "var(--text-primary)",
   };
 
   return (
-    <ExpandableCard className="h-full">
-      <div
-      className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
+    <div
+      className="h-full p-6 rounded-2xl flex flex-col"
       style={{
-        backgroundColor: resolvedTheme === 'dark' ? colors.cardDark : colors.cardLight,
-        border: `1px solid ${colors.muted}`,
-        boxShadow: resolvedTheme === 'dark' 
-          ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)' 
-          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
-          ? '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)'
-          : '0 8px 20px var(--color-info-soft), 0 2px 6px var(--color-info-soft)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = resolvedTheme === 'dark'
+        backgroundColor: "var(--bg-card)",
+        border: `1px solid ${'var(--text-secondary)'}`,
+        boxShadow: resolvedTheme === 'dark'
           ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
-          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)';
+          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
       }}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
-          {icon && <div style={{ color: colors.muted }}>{icon}</div>}
-          <h3 
-            className="text-xs font-semibold tracking-wider uppercase"
-            style={{ color: colors.muted }}
+          {icon && <div style={{ color: 'var(--text-secondary)' }}>{icon}</div>}
+          <h3
+            className="zg-small"
+            style={{ color: 'var(--text-secondary)', fontWeight: 600 }}
           >
             {title}
           </h3>
@@ -74,12 +61,11 @@ export default function MetricCard({
       {subtitle && (
         <div
           className="text-sm font-semibold break-words"
-          style={{ color: subtitleColor || colors.muted }}
+          style={{ color: subtitleColor || 'var(--text-secondary)' }}
         >
           {subtitle}
         </div>
       )}
-      </div>
-    </ExpandableCard>
+    </div>
   );
 }

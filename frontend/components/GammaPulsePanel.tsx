@@ -65,14 +65,14 @@ const REGIME_LABELS: Record<GEXHistoricalRegime, string> = {
 function regimeAccent(regime: GEXHistoricalRegime): string {
   switch (regime) {
     case 'extreme_high':
-      return colors.bullish;
+      return 'var(--color-bull)';
     case 'elevated':
     case 'low':
-      return colors.neutral;
+      return 'var(--color-warning)';
     case 'extreme_low':
-      return colors.bearish;
+      return 'var(--color-bear)';
     default:
-      return colors.muted;
+      return 'var(--text-secondary)';
   }
 }
 
@@ -163,7 +163,7 @@ function BandVisualization({ stats, current }: BandProps) {
           />
         )}
       </div>
-      <div className="flex justify-between text-[10px] font-mono" style={{ color: colors.muted }}>
+      <div className="flex justify-between text-[10px] font-mono" style={{ color: 'var(--text-secondary)' }}>
         <span>{formatGexCompact(min)}</span>
         <span>{formatGexCompact(p50)}</span>
         <span>{formatGexCompact(max)}</span>
@@ -184,10 +184,10 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
   if (!stats) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-        <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.muted }}>
+        <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
           {windowDisplay}
         </div>
-        <div className="text-sm" style={{ color: colors.muted }}>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           No historical distribution available yet. The nightly refresh seeds this once
           there are enough samples in <code>gex_summary</code>.
         </div>
@@ -213,7 +213,7 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+        <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
           {windowDisplay}
         </div>
         <span
@@ -241,44 +241,44 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
 
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div>
-          <div style={{ color: colors.muted }}>Percentile</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Percentile</div>
           <div className="font-mono text-lg" style={{ color: accent }}>
             {percentile != null ? `P${percentile.toFixed(1)}` : '—'}
           </div>
         </div>
         <div>
-          <div style={{ color: colors.muted }}>Z-score</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Z-score</div>
           <div className="font-mono text-lg">
             {zScore != null ? `${zScore.toFixed(2)}σ` : '—'}
           </div>
         </div>
         <div>
-          <div style={{ color: colors.muted }}>Samples</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Samples</div>
           <div className="font-mono text-lg">{stats.sample_size.toLocaleString()}</div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[var(--color-border)]">
         <div>
-          <div style={{ color: colors.muted }}>Mean</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Mean</div>
           <div className="font-mono">{formatGexCompact(stats.mean)}</div>
         </div>
         <div>
-          <div style={{ color: colors.muted }}>Std dev</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Std dev</div>
           <div className="font-mono">{formatGexCompact(stats.std)}</div>
         </div>
         <div>
-          <div style={{ color: colors.muted }}>Window min</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Window min</div>
           <div className="font-mono">{formatGexCompact(stats.min)}</div>
         </div>
         <div>
-          <div style={{ color: colors.muted }}>Window max</div>
+          <div style={{ color: 'var(--text-secondary)' }}>Window max</div>
           <div className="font-mono">{formatGexCompact(stats.max)}</div>
         </div>
       </div>
 
       {stats.tod_bucket_used === -1 && (
-        <div className="text-[10px] italic" style={{ color: colors.muted }}>
+        <div className="text-[10px] italic" style={{ color: 'var(--text-secondary)' }}>
           Using all-day (flat) distribution — the specific time-of-day bucket had too few samples.
         </div>
       )}
@@ -304,10 +304,10 @@ function MetricSection({ title, description, metric, trackingStartedAt }: Metric
       <div className="flex items-start gap-4 flex-wrap">
         <div className="flex-1 min-w-[240px]">
           <h3 className="text-xl font-semibold mb-1">{title}</h3>
-          <p className="text-sm italic" style={{ color: colors.muted }}>{description}</p>
+          <p className="text-sm italic" style={{ color: 'var(--text-secondary)' }}>{description}</p>
         </div>
         <div className="text-right">
-          <div className="text-xs uppercase tracking-wider" style={{ color: colors.muted }}>
+          <div className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             Current
           </div>
           <div className="text-3xl font-bold" style={{ color: accent }}>{currentLabel}</div>
@@ -346,16 +346,16 @@ export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: Gam
     <div className="space-y-4">
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-2xl font-semibold">Gamma Pulse</h2>
-        <span className="text-sm italic" style={{ color: colors.muted }}>
+        <span className="text-sm italic" style={{ color: 'var(--text-secondary)' }}>
           &ldquo;Is current dealer gamma irregular?&rdquo;
         </span>
         {data && !data.in_rth && (
-          <span className="text-xs italic" style={{ color: colors.muted }}>
+          <span className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>
             · outside RTH — flat distribution
           </span>
         )}
       </div>
-      <p className="text-sm" style={{ color: colors.muted }}>
+      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
         Compares the live headline GEX figures against historical distributions
         (rolling-30-day and all-time) so you can tell at a glance whether the
         current dealer-positioning reading is a record, an extreme, elevated,
@@ -376,7 +376,7 @@ export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: Gam
       ))}
 
       {!loading && !data && !error && (
-        <div className="text-sm" style={{ color: colors.muted }}>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           No historical context is available for {symbol} yet. The nightly
           refresh populates the distribution table once enough samples accumulate
           in <code>gex_summary</code>.

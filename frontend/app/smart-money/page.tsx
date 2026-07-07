@@ -675,7 +675,7 @@ export default function SmartMoneyPage() {
             <>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY BLOCKS VS UNDERLYING PRICE</h3>
+                  <h3 className="zg-h3" style={{ color: textColor }}>Smart-money blocks vs. underlying price</h3>
                   <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
@@ -737,7 +737,7 @@ export default function SmartMoneyPage() {
                 </MobileScrollableChart>
               </div>
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-sm font-bold tracking-wider uppercase" style={{ color: textColor }}>SMART MONEY FLOW TABLE</h3>
+                <h3 className="zg-h3" style={{ color: textColor }}>Smart-money flow</h3>
                 <TooltipWrapper text="Click the funnel icon on Strike, Expiration, or Type to pick a value to filter by. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">

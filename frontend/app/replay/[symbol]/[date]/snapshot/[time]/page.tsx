@@ -7,6 +7,7 @@ import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
+import StrikeProfileSnapshot from './StrikeProfileSnapshot';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
 // resolves the HHMM-in-ET token to an absolute UTC timestamp, fetches one
@@ -202,6 +203,16 @@ export default async function ReplaySnapshotPage({
           </div>
         </section>
       )}
+
+      <section className="mb-6">
+        <StrikeProfileSnapshot
+          strikes={frame.strikes}
+          spot={summary?.spot ?? null}
+          gammaFlip={summary?.gamma_flip ?? null}
+          callWall={summary?.call_wall ?? null}
+          putWall={summary?.put_wall ?? null}
+        />
+      </section>
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this snapshot</div>

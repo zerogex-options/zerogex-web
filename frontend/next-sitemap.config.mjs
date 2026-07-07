@@ -127,6 +127,46 @@ const config = {
 
   autoLastmod: true,
 
+  // The root layout reads cookies(), which opts every route into dynamic
+  // rendering — so only the force-static gamma-levels pages are prerendered
+  // and auto-discovered here. That silently dropped the homepage, /articles,
+  // /education, and every markdown-backed content page from the sitemap.
+  // Enumerate the public content routes explicitly so they are always
+  // included; each is run through the same transform() below for a consistent
+  // lastmod/priority/changefreq. Excluded/redirected slugs are filtered out.
+  additionalPaths: async (cfg) => {
+    const routes = ['/', '/pricing', '/articles', '/education', '/guides', '/help'];
+
+    const addDir = (dir, toRoute) => {
+      const abs = path.join(PROJECT_ROOT, dir);
+      if (!fs.existsSync(abs)) return;
+      for (const file of fs.readdirSync(abs)) {
+        if (file.endsWith('.md')) routes.push(toRoute(file.replace(/\.md$/, '')));
+      }
+    };
+    addDir('content/articles', (slug) => `/education/${slug}`);
+    addDir('content/guides', (slug) => `/guides/${slug}`);
+    addDir('content/help/platform', (slug) => `/help/platform/${slug}`);
+
+    // Paths already auto-emitted (the force-static gamma pages) or intentionally
+    // kept out of the sitemap. Skipping the gamma trio avoids a duplicate <url>.
+    const skip = new Set([
+      '/education/decoding-gamma-exposure',
+      '/spx-gamma-levels',
+      '/spy-gamma-levels',
+      '/qqq-gamma-levels',
+    ]);
+
+    const seen = new Set();
+    const out = [];
+    for (const route of routes) {
+      if (skip.has(route) || seen.has(route)) continue;
+      seen.add(route);
+      out.push(await cfg.transform(cfg, route));
+    }
+    return out;
+  },
+
   transform: async (config, urlPath) => {
     const lastmod = lastmodFor(urlPath);
 
@@ -136,10 +176,15 @@ const config = {
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
     }
-    if (urlPath === '/spx-gamma-levels') {
-      // Lead-magnet page is the SEO landing for "SPX gamma levels" intent
-      // searches — refreshed every market day, so daily changefreq matches
-      // reality and the priority sits just below the homepage.
+    if (
+      urlPath === '/spx-gamma-levels' ||
+      urlPath === '/spy-gamma-levels' ||
+      urlPath === '/qqq-gamma-levels'
+    ) {
+      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ
+      // gamma levels" intent searches. Each is self-canonical and refreshed
+      // every market day, so daily changefreq matches reality and the priority
+      // sits just below the homepage.
       return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };
     }
     if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {

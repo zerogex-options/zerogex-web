@@ -14,7 +14,7 @@ const border = 'var(--border-default)';
 
 const footerLinks = [
   { href: '/dashboard', label: 'Platform', external: false },
-  { href: '/spx-gamma-levels', label: 'Free SPX Levels', external: false },
+  { href: '/spx-gamma-levels', label: 'Free Gamma Levels', external: false },
   { href: '/about', label: 'About', external: false },
   { href: '/giving', label: 'Giving Back', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
@@ -79,7 +79,7 @@ function SocialLinks({
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: 'var(--color-brand-primary)',
     color: '#ffffff',
     textDecoration: 'none',
     transition: 'transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease',
@@ -158,15 +158,15 @@ function SocialLinks({
 
 export default function Footer({ theme }: FooterProps) {
   const isDark = theme === 'dark';
-  const subtext = isDark ? colors.muted : 'var(--text-muted)';
-  const textLight = isDark ? colors.light : 'var(--text-inverse)';
+  const subtext = isDark ? 'var(--text-secondary)' : 'var(--text-muted)';
+  const textLight = isDark ? "var(--text-primary)" : 'var(--text-inverse)';
 
   return (
     <footer
       className="border-t mt-16"
       style={{
         background: isDark
-          ? `linear-gradient(135deg, ${colors.cardDark}66 0%, var(--bg-active) 100%)`
+          ? 'linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 40%, transparent) 0%, var(--bg-active) 100%)'
           : 'var(--border-subtle)',
         borderColor: border,
       }}
@@ -174,7 +174,7 @@ export default function Footer({ theme }: FooterProps) {
       <div className="container mx-auto px-6 py-12">
         <div className="hidden md:flex" style={{ alignItems: 'center', gap: 32 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.primary, marginBottom: 14 }}>
+            <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 14 }}>
               Navigation
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
@@ -185,7 +185,8 @@ export default function Footer({ theme }: FooterProps) {
                       href={item.href}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
+                      className="zg-small"
+                      style={{ color: subtext, textDecoration: 'none' }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
                     >
@@ -194,7 +195,8 @@ export default function Footer({ theme }: FooterProps) {
                   ) : (
                     <Link
                       href={item.href}
-                      style={{ fontSize: 13, color: subtext, textDecoration: 'none' }}
+                      className="zg-small"
+                      style={{ color: subtext, textDecoration: 'none' }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
                     >
@@ -220,23 +222,25 @@ export default function Footer({ theme }: FooterProps) {
             <SocialLinks align="end" />
             <Link
               href="/giving"
+              className="zg-caption"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '5px 12px', borderRadius: 999,
-                background: `${colors.primary}18`,
-                border: `1px solid ${colors.primary}40`,
-                color: colors.primary, fontSize: 11, fontWeight: 700,
-                letterSpacing: '0.04em', textDecoration: 'none',
+                background: `${'var(--color-brand-primary)'}18`,
+                border: `1px solid ${'var(--color-brand-primary)'}40`,
+                color: 'var(--color-brand-primary)',
+                fontWeight: 700,
+                textDecoration: 'none',
                 marginTop: 4,
               }}
               title={VETERANS_BADGE_TEXT}
             >
               <Heart size={11} /> 3% supports veterans
             </Link>
-            <p style={{ fontSize: 12, color: subtext, margin: 0, textAlign: 'right' }}>
+            <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, All rights reserved.
             </p>
-            <p style={{ fontSize: 12, color: subtext, margin: 0, lineHeight: 1.6, textAlign: 'right', maxWidth: 360 }}>
+            <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right', maxWidth: 360 }}>
               ZeroGEX provides options-market analytics and educational content for informational
               purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
               registered investment adviser. Options trading involves significant risk and is not
@@ -247,17 +251,17 @@ export default function Footer({ theme }: FooterProps) {
 
         <div className="flex md:hidden" style={{ gap: 16 }}>
           <div style={{ flex: '0 0 62%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.primary, marginBottom: 4 }}>
+            <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 4 }}>
               Navigation
             </div>
             {footerLinks.map((item) => (
               <div key={item.href} style={{ marginBottom: 2 }}>
                 {item.external ? (
-                  <a href={item.href} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                  <a href={item.href} target="_blank" rel="noreferrer" className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
                     {item.label}
                   </a>
                 ) : (
-                  <Link href={item.href} style={{ fontSize: 13, color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                  <Link href={item.href} className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
                     {item.label}
                   </Link>
                 )}
@@ -269,26 +273,28 @@ export default function Footer({ theme }: FooterProps) {
             </div>
             <Link
               href="/giving"
+              className="zg-caption"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '5px 10px', borderRadius: 999,
-                background: `${colors.primary}18`,
-                border: `1px solid ${colors.primary}40`,
-                color: colors.primary, fontSize: 11, fontWeight: 700,
-                letterSpacing: '0.04em', textDecoration: 'none',
+                background: `${'var(--color-brand-primary)'}18`,
+                border: `1px solid ${'var(--color-brand-primary)'}40`,
+                color: 'var(--color-brand-primary)',
+                fontWeight: 700,
+                textDecoration: 'none',
                 width: 'fit-content', marginTop: 4,
               }}
               title={VETERANS_BADGE_TEXT}
             >
               <Heart size={11} /> 3% supports veterans
             </Link>
-            <p style={{ fontSize: 12, color: subtext, margin: '10px 0 0 0', lineHeight: 1.6 }}>
+            <p className="zg-caption" style={{ color: subtext, margin: '10px 0 0 0' }}>
               ZeroGEX provides options-market analytics and educational content for informational
               purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
               registered investment adviser. Options trading involves significant risk and is not
               suitable for all investors. Past performance is not indicative of future results.
             </p>
-            <p style={{ fontSize: 12, color: subtext, margin: 0 }}>
+            <p className="zg-caption" style={{ color: subtext, margin: 0 }}>
               © 2026 ZeroGEX All rights reserved.
             </p>
           </div>

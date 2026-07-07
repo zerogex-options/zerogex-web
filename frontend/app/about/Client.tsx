@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
+import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
 import {
   ArrowRight,
@@ -23,8 +23,6 @@ import {
   Database,
   Cpu,
   Globe,
-  Sun,
-  Moon,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -80,9 +78,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
 }) {
   return (
     <div style={{
-      background: isDark
-        ? `linear-gradient(135deg, ${C.card} 0%, var(--bg-active) 100%)`
-        : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%)',
+      background: 'var(--bg-card)',
       border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
     }}>
       <div style={{
@@ -173,7 +169,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AboutPage() {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === 'dark';
   const bg = 'transparent';
   const text = 'var(--color-text-primary)';
@@ -182,81 +178,7 @@ export default function AboutPage() {
   return (
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
 
-      {/* ── Sticky Nav ───────────────────────────────────────────────────────── */}
-      <nav
-        className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
-        style={{
-          background: `${isDark ? C.bgDark : 'var(--color-bg)'}ee`,
-          borderBottom: `1px solid ${C.border}`,
-          backdropFilter: 'blur(20px)',
-        }}
-      >
-        <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', padding: 0, margin: 0, lineHeight: 0 }}>
-          <Image
-            src='/title.svg'
-            alt="ZeroGEX"
-            width={300}
-            height={60}
-            priority
-            className="h-[130%] sm:h-[150%] w-auto block"
-            style={{ maxHeight: 'none', maxWidth: 'none', objectFit: 'contain', objectPosition: 'center', margin: 0, padding: 0 }}
-          />
-        </Link>
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          <button
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
-            style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              cursor: 'pointer', color: C.muted,
-            }}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              borderRadius: 10,
-              padding: '8px 14px',
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--color-text-primary)',
-              cursor: 'pointer',
-            }}>
-              Education
-            </button>
-          </Link>
-          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
-            <button style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-              border: `1px solid ${C.border}`,
-              borderRadius: 10,
-              padding: '8px 14px',
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--color-text-primary)',
-              cursor: 'pointer',
-            }}>
-              Pricing
-            </button>
-          </Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
-              style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                border: 'none',
-                color: 'var(--text-inverse)', cursor: 'pointer',
-                boxShadow: `0 4px 16px ${C.amber}50`,
-              }}
-            >
-              Launch App <ArrowRight size={14} />
-            </button>
-          </Link>
-        </div>
-      </nav>
+      <LandingHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section style={{
@@ -509,8 +431,8 @@ export default function AboutPage() {
             />
             <InfoCard isDark={isDark}
               icon={BarChart2}
-              title="Greeks Engine"
-              body="Our built-in Black-Scholes engine calculates theoretical option prices and all five Greeks — Delta, Gamma, Theta, Vega, and Charm — using live implied volatility surfaces. The Options Calculator lets you model any scenario in real time."
+              title="Greeks Pipeline"
+              body="Per-contract Greeks — Delta, Gamma, Theta, Vega — are calculated on every chain ingest using a Black-Scholes pipeline against our live implied-volatility surfaces, then aggregated into dealer-level vanna and charm exposures for the signals engine."
               color={C.green}
             />
           </div>
@@ -553,7 +475,7 @@ export default function AboutPage() {
             },
             {
               icon: Calculator, href: '/options-calculator', label: 'Options Calculator', color: C.amber,
-              desc: 'Price options in real time using Black-Scholes with live IV surfaces. Model P&L at expiry, calculate break-even prices, and analyze all five Greeks for any strike or expiration.',
+              desc: 'Pull a live entry price from the chain, then project intrinsic P&L across a configurable fan of underlying moves. Returns position cost, break-even, and per-step P&L for any strike or expiration.',
             },
             {
               icon: Layers, href: '/greeks-gex', label: 'GEX Summary', color: C.green,
@@ -724,7 +646,7 @@ export default function AboutPage() {
           />
           <FAQItem isDark={isDark}
             q="How does the Options Calculator work?"
-            a="The Options Calculator uses the Black-Scholes pricing model with live implied volatility surfaces fetched from our data pipeline. Enter any symbol, strike, expiration, and option type, and we calculate the theoretical price, Delta, Gamma, Theta, Vega, and Charm in real time. You can also model P&L scenarios at different price levels and time horizons to see how your position performs under various market conditions."
+            a="The Options Calculator pulls the live entry price from the chain (mid → last → bid/ask midpoint fallback) and then walks a configurable fan of underlying-price moves — up for calls, down for puts — at the step size you choose. For each step it returns the position's intrinsic value at expiration, the P&L net of your brokerage fees, and the exact break-even price. Use the per-contract Greeks shown on each option contract for Δ, Γ, Θ, V at the chosen strike."
           />
         </div>
       </section>

@@ -130,7 +130,13 @@ export default function UnderlyingCandlesChart() {
   const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
   const data = useMemo(() => dataAll.slice(-fetchWindowUnits), [dataAll, fetchWindowUnits]);
 
-  const bars = useMemo(() => {
+  // Stage 1 — aggregate the historical rows. Expensive
+  // (omitClosedMarketTimes walks all bars, aggregateBars does bucket
+  // sort + slice + map) and depends only on the historical response
+  // + timeframe, not on the live tick. Keeping this in its own memo
+  // means a 1Hz WS push doesn't re-sort N minutes of history every
+  // second.
+  const historicalBars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
@@ -165,6 +171,92 @@ export default function UnderlyingCandlesChart() {
 
     return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
   }, [data, intervalMinutes, maxPoints]);
+
+  // Stage 2 — reconcile the live WS tick with the historical tip bar.
+  //
+  // This is the merge point that a previous attempt got wrong. The
+  // rules below are strict and each one prevents a specific failure
+  // mode we've hit before:
+  //
+  //   1. HISTORY IS AUTHORITATIVE. Every render starts from a fresh
+  //      `historicalBars` (the useMarketHistorical poll's own memo).
+  //      We never accumulate state across renders — no chance for
+  //      H/L to drift monotonically upward because the frontend
+  //      "remembered" an old high.
+  //
+  //   2. BUCKET-SCOPED OVERLAY. The tip is patched only when the WS
+  //      tick's timestamp falls inside the tip's bucket window
+  //      [tipStart, tipStart + intervalMinutes). During the seconds
+  //      of a bucket rollover — say the 5-minute chart's 15:35 bar
+  //      still tops the historical response, but the WS has already
+  //      delivered ticks for the 15:40:00 bar — we do NOT patch the
+  //      15:35 bar with a 15:40 price. The overlay just waits for
+  //      the next historical response to add the new tip bar.
+  //
+  //   3. MONOTONIC-WIDENING OVERLAY. We use max/min against the
+  //      FRESH historical H/L, never against a prior render's
+  //      patched H/L. So when historical eventually catches up with
+  //      its own true H/L for the bucket, our overlay converges
+  //      cleanly.
+  //
+  //   4. VOLUME NEVER TOUCHED. The WS payload carries per-1-minute
+  //      up/down volume; the tip bar might be a 5-minute or 1-day
+  //      aggregation. Mixing scopes would double-count. Historical
+  //      wins for volume; freshness is bounded by the 5s heartbeat
+  //      poll (LIVE_MODE_HEARTBEAT_MS in useApiData.ts).
+  //
+  //   5. TIMESTAMP NEVER TOUCHED. The tip's timestamp is the bucket
+  //      start; the WS timestamp is a 1-minute floor. Rewriting the
+  //      tip's timestamp would slide the x-axis under the user.
+  //
+  //   6. SESSION GUARD. Skipped when the market is closed (indexes
+  //      after 16:00 ET, weekends, holidays). Extended hours for
+  //      equities still overlays — pre-market/AH ticks are real.
+  //
+  // Note: no separate "staleness guard" is needed. Guard (2) already
+  // subsumes it — if the WS tick's timestamp lies inside the tip's
+  // bucket window, then by definition the tip is CURRENT (someone
+  // just traded inside its bucket). If historical is far behind, the
+  // WS tick will be past `tipEndMs` and guard (2) skips overlay.
+  //
+  // The overlay is a pure function of (freshHistorical, currentQuote):
+  // deterministic, idempotent, and self-correcting on every render.
+  const bars = useMemo(() => {
+    if (historicalBars.length === 0) return historicalBars;
+    const liveClose = quote?.close ?? null;
+    if (liveClose == null || !quote?.session || quote.session === 'closed') {
+      return historicalBars;
+    }
+    const tip = historicalBars[historicalBars.length - 1];
+    const bucketMs = intervalMinutes * 60 * 1000;
+    const tipStartMs = new Date(tip.timestamp).getTime();
+    if (!Number.isFinite(tipStartMs)) return historicalBars;
+    const tipEndMs = tipStartMs + bucketMs;
+
+    // (2) Bucket-scoped: the WS tick must fall inside [tipStart, tipEnd).
+    // Also handles the staleness case — a WS tick past tipEndMs
+    // means historical hasn't caught up and we shouldn't paint a
+    // fresh price onto an old bucket.
+    const quoteTsMs = quote.timestamp ? new Date(quote.timestamp).getTime() : NaN;
+    if (!Number.isFinite(quoteTsMs) || quoteTsMs < tipStartMs || quoteTsMs >= tipEndMs) {
+      return historicalBars;
+    }
+
+    // (3) Same-value early exit — avoids allocating a new array
+    // when nothing has changed, cutting wasted renders during
+    // quiet-market minutes where the live tick pins the tip close.
+    if (liveClose === tip.close) return historicalBars;
+
+    const patched = historicalBars.slice();
+    patched[patched.length - 1] = {
+      ...tip,
+      close: liveClose,
+      high: Math.max(tip.high, liveClose),
+      low: Math.min(tip.low, liveClose),
+      // Volume, upVolume, downVolume, timestamp — untouched.
+    };
+    return patched;
+  }, [historicalBars, quote, intervalMinutes]);
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];
@@ -222,7 +314,7 @@ export default function UnderlyingCandlesChart() {
   if (error) return <ErrorMessage message={error} />;
   if (bars.length === 0)
     return (
-      <div className="rounded-lg p-6 text-center text-[var(--color-text-secondary)]" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight }}>
+      <div className="rounded-lg p-6 text-center text-[var(--color-text-secondary)]" style={{ backgroundColor: 'var(--bg-card)' }}>
         No underlying timeseries data available
       </div>
     );
@@ -268,7 +360,7 @@ export default function UnderlyingCandlesChart() {
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
-      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: theme === 'dark' ? colors.cardDark : colors.cardLight, border: `1px solid ${colors.muted}` }}>
+      <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold">
@@ -302,7 +394,7 @@ export default function UnderlyingCandlesChart() {
               y={(padTop + priceAreaBottom) / 2}
               transform={`rotate(-90, 18, ${(padTop + priceAreaBottom) / 2})`}
               fontSize="12"
-              fill={colors.muted}
+              fill={'var(--text-secondary)'}
             >
               Price
             </text>
@@ -317,7 +409,7 @@ export default function UnderlyingCandlesChart() {
                     x2={width - padRight}
                     y1={y}
                     y2={y}
-                    stroke={colors.muted}
+                    stroke={'var(--text-secondary)'}
                     opacity={0.2}
                   />
                   <text
@@ -325,7 +417,7 @@ export default function UnderlyingCandlesChart() {
                     y={y + 4}
                     textAnchor="end"
                     fontSize="10"
-                    fill={colors.muted}
+                    fill={'var(--text-secondary)'}
                   >
                     {priceLabel(price, priceAxis.step)}
                   </text>
@@ -338,7 +430,7 @@ export default function UnderlyingCandlesChart() {
               y={(volumeAreaTop + volumeAreaBottom) / 2}
               transform={`rotate(-90, 18, ${(volumeAreaTop + volumeAreaBottom) / 2})`}
               fontSize="12"
-              fill={colors.muted}
+              fill={'var(--text-secondary)'}
             >
               Volume
             </text>
@@ -348,8 +440,8 @@ export default function UnderlyingCandlesChart() {
               if (y < volumeAreaTop - 0.5 || y > volumeAreaBottom + 0.5) return null;
               return (
                 <g key={`v-${vol}`}>
-                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={colors.muted} opacity={0.12} />
-                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={colors.muted}>
+                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={'var(--text-secondary)'} opacity={0.12} />
+                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={'var(--text-secondary)'}>
                     {volumeLabel(vol)}
                   </text>
                 </g>
@@ -361,7 +453,7 @@ export default function UnderlyingCandlesChart() {
               const prevClose = i > 0 ? bars[i - 1].close : b.open;
               const isUp = b.close > prevClose;
               const isHollow = b.close > b.open;
-              const c = isUp ? colors.bullish : colors.bearish;
+              const c = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
               const openY = yPrice(b.open);
               const closeY = yPrice(b.close);
               const highY = yPrice(b.high);
@@ -417,7 +509,7 @@ export default function UnderlyingCandlesChart() {
                       y={downTopY}
                       width={candleWidth}
                       height={Math.max(1, downBottomY - downTopY)}
-                      fill={colors.bearish}
+                      fill={'var(--color-bear)'}
                       opacity={0.75}
                     />
                   )}
@@ -427,7 +519,7 @@ export default function UnderlyingCandlesChart() {
                       y={upTopY}
                       width={candleWidth}
                       height={Math.max(1, upBottomY - upTopY)}
-                      fill={colors.bullish}
+                      fill={'var(--color-bull)'}
                       opacity={0.75}
                     />
                   )}
@@ -437,7 +529,7 @@ export default function UnderlyingCandlesChart() {
                       y={volumeAreaBottom + 18}
                       fontSize={isMobile ? "8" : "10"}
                       textAnchor="middle"
-                      fill={theme === "dark" ? colors.light : colors.dark}
+                      fill={'var(--text-primary)'}
                     >
                       {new Date(b.timestamp).toLocaleTimeString("en-US", {
                         hour: "2-digit",
@@ -454,7 +546,7 @@ export default function UnderlyingCandlesChart() {
               const showLabel = labeledDateMarkerKeys.has(marker.key);
               return (
                 <g key={`date-marker-${marker.key}`}>
-                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={colors.muted} opacity={0.22} />
+                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={'var(--text-secondary)'} opacity={0.22} />
                   {showLabel ? (
                     timeframe === "1day" ? (
                       <text
@@ -462,13 +554,13 @@ export default function UnderlyingCandlesChart() {
                         y={volumeAreaBottom + 44}
                         fontSize="10"
                         textAnchor="start"
-                        fill={colors.muted}
+                        fill={'var(--text-secondary)'}
                         transform={`rotate(-90, ${x + 6}, ${volumeAreaBottom + 44})`}
                       >
                         {marker.label}
                       </text>
                     ) : (
-                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={colors.muted}>
+                      <text x={x + 4} y={volumeAreaBottom + 30} fontSize="10" textAnchor="start" fill={'var(--text-secondary)'}>
                         {marker.label}
                       </text>
                     )
@@ -481,7 +573,7 @@ export default function UnderlyingCandlesChart() {
               x2={width - padRight}
               y1={priceAreaBottom}
               y2={priceAreaBottom}
-              stroke={colors.muted}
+              stroke={'var(--text-secondary)'}
               opacity={0.35}
             />
             <line
@@ -489,7 +581,7 @@ export default function UnderlyingCandlesChart() {
               x2={width - padRight}
               y1={volumeAreaBottom}
               y2={volumeAreaBottom}
-              stroke={colors.muted}
+              stroke={'var(--text-secondary)'}
               opacity={0.6}
             />
           </svg>

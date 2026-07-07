@@ -58,13 +58,16 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
   }, [session, showCountdown]);
 
   const badges = {
-    'open': { label: 'MARKET OPEN', color: colors.bullish, icon: '●' },
-    'pre-market': { label: 'PRE-MARKET', color: colors.coral, icon: '○' },
-    'after-hours': { label: 'AFTER HOURS', color: colors.coral, icon: '○' },
-    'closed': { label: 'CLOSED', color: colors.bearish, icon: '●' },
-    'halted': { label: 'HALTED', color: colors.warning, icon: '▲' },
-    'closed-weekend': { label: 'CLOSED (WEEKEND)', color: colors.bearish, icon: '●' },
-    'closed-holiday': { label: 'CLOSED (HOLIDAY)', color: colors.bearish, icon: '●' },
+    'open': { label: 'MARKET OPEN', color: 'var(--color-bull)', icon: '●' },
+    'pre-market': { label: 'PRE-MARKET', color: 'var(--color-brand-coral)', icon: '○' },
+    'after-hours': { label: 'AFTER HOURS', color: 'var(--color-brand-coral)', icon: '○' },
+    'closed': { label: 'CLOSED', color: 'var(--color-bear)', icon: '●' },
+    'halted': { label: 'HALTED', color: 'var(--color-warning)', icon: '▲' },
+    'closed-weekend': { label: 'CLOSED (WEEKEND)', color: 'var(--color-bear)', icon: '●' },
+    'closed-holiday': { label: 'CLOSED (HOLIDAY)', color: 'var(--color-bear)', icon: '●' },
+    // Cash index is closed but its future is trading — quotes/charts show
+    // the future (see index→future display swap).
+    'futures': { label: 'FUTURES', color: 'var(--color-brand-coral)', icon: '◆' },
   };
 
   const badge = badges[session] || badges['closed'];
@@ -76,8 +79,8 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
         className="px-2 py-2 rounded-lg flex items-center justify-center"
         title={badge.label}
         style={{
-          backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
-          border: `1px solid ${colors.muted}40`,
+          backgroundColor: theme === 'dark' ? `${'var(--text-secondary)'}15` : `${'var(--text-secondary)'}10`,
+          border: `1px solid ${'var(--text-secondary)'}40`,
           boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
           width: '40px',
           height: '40px',
@@ -99,9 +102,9 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
       <div
         className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider flex items-center gap-2"
         style={{
-          backgroundColor: theme === 'dark' ? `${colors.muted}15` : `${colors.muted}10`,
-          color: theme === 'dark' ? colors.light : colors.dark,
-          border: `1px solid ${colors.muted}40`,
+          backgroundColor: theme === 'dark' ? `${'var(--text-secondary)'}15` : `${'var(--text-secondary)'}10`,
+          color: 'var(--text-primary)',
+          border: `1px solid ${'var(--text-secondary)'}40`,
           boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
         }}
       >

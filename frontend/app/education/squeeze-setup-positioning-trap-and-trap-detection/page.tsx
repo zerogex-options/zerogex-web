@@ -6,6 +6,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 
 export const metadata = articleMetadata('squeeze-setup-positioning-trap-and-trap-detection');
 
@@ -50,6 +51,7 @@ export default function SqueezeSetupPositioningTrapAndTrapDetectionPage() {
           <ArrowRight size={16} />
         </Link>
       </div>
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }

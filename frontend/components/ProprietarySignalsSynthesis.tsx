@@ -39,7 +39,7 @@ interface CardShellProps {
 function CardShell({ title, tooltip, children }: CardShellProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const cardBg = isDark ? colors.cardDark : colors.cardLight;
+  const cardBg = 'var(--bg-card)';
   const shadowBase = isDark
     ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
     : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)';
@@ -50,14 +50,14 @@ function CardShell({ title, tooltip, children }: CardShellProps) {
       className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
       style={{
         backgroundColor: cardBg,
-        border: `1px solid ${colors.muted}`,
+        border: `1px solid ${'var(--text-secondary)'}`,
         boxShadow: shadowBase,
       }}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = shadowBase; }}
     >
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-xs font-semibold tracking-wider uppercase" style={{ color: colors.muted }}>
+        <h3 className="zg-label" style={{ color: 'var(--text-secondary)' }}>
           {title}
         </h3>
         <TooltipWrapper text={tooltip}>
@@ -122,7 +122,7 @@ function CompositeMsiCard({ score }: CompositeMsiCardProps) {
               {regime.label}
             </div>
           </div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+          <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             Score · 0 to 100 · regime gauge
           </div>
         </div>
@@ -256,7 +256,7 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="text-2xl sm:text-3xl md:text-4xl font-bold break-words" style={{ color }}>
           {allMissing ? '—' : `${net >= 0 ? '+' : ''}${net}`}
-          <span className="text-xs sm:text-sm font-semibold ml-2 tracking-wide" style={{ color: colors.muted }}>
+          <span className="text-xs sm:text-sm font-semibold ml-2 tracking-wide" style={{ color: 'var(--text-secondary)' }}>
             NET
           </span>
         </div>
@@ -265,10 +265,10 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
             {renderTiltIcon(t, color)}
             <div className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
               {active}
-              <span className="text-sm font-semibold" style={{ color: colors.muted }}>/{total}</span>
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>/{total}</span>
             </div>
           </div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.muted }}>
+          <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             Active · across signals
           </div>
         </div>
@@ -283,32 +283,32 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: 'var(--color-bull)' }} />
           <span style={{ color: 'var(--color-text-primary)' }} className="font-semibold">{bullish}</span>
-          <span style={{ color: colors.muted }}>Bullish</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Bullish</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: 'var(--color-warning)' }} />
           <span style={{ color: 'var(--color-text-primary)' }} className="font-semibold">{neutral}</span>
-          <span style={{ color: colors.muted }}>Neutral</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Neutral</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full" style={{ background: 'var(--color-bear)' }} />
           <span style={{ color: 'var(--color-text-primary)' }} className="font-semibold">{bearish}</span>
-          <span style={{ color: colors.muted }}>Bearish</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Bearish</span>
         </div>
       </div>
 
       <div className="mt-4 space-y-1.5 text-xs">
         <div className="flex items-center justify-between gap-2">
-          <span style={{ color: colors.muted }}>Top bull</span>
-          <span className="font-semibold truncate" style={{ color: topBull ? 'var(--color-bull)' : colors.muted }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Top bull</span>
+          <span className="font-semibold truncate" style={{ color: topBull ? 'var(--color-bull)' : 'var(--text-secondary)' }}>
             {topBull
               ? `${topBull.label} +${topBull.score!.toFixed(1)}`
               : '—'}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span style={{ color: colors.muted }}>Top bear</span>
-          <span className="font-semibold truncate" style={{ color: topBear ? 'var(--color-bear)' : colors.muted }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Top bear</span>
+          <span className="font-semibold truncate" style={{ color: topBear ? 'var(--color-bear)' : 'var(--text-secondary)' }}>
             {topBear
               ? `${topBear.label} ${topBear.score!.toFixed(1)}`
               : '—'}
@@ -316,7 +316,7 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
         </div>
       </div>
 
-      <div className="mt-auto pt-3 flex items-center justify-between text-[11px]" style={{ color: colors.muted }}>
+      <div className="mt-auto pt-3 flex items-center justify-between text-[11px]" style={{ color: 'var(--text-secondary)' }}>
         <span>{basicSignals.length} Basic</span>
         <span>·</span>
         <span>{advancedSignals.length} Advanced</span>
@@ -418,7 +418,7 @@ function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
                   >
                     {trigger.magnitude != null ? trigger.magnitude.toFixed(0) : '—'}
                   </span>
-                  <span className="text-[10px]" style={{ color: colors.muted }}>/100</span>
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>/100</span>
                 </span>
               </div>
               <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
@@ -428,7 +428,7 @@ function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
                 />
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <span style={{ color: colors.muted }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
                   {trigger.state ?? (trigger.magnitude == null ? 'awaiting data' : '—')}
                 </span>
               </div>
