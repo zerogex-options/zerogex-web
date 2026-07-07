@@ -93,12 +93,6 @@ function humanizeRegime(value: string | null): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function regimeColor(value: string | null): string {
-  if (value === 'long_gamma') return 'var(--color-bull)';
-  if (value === 'short_gamma') return 'var(--color-bear)';
-  return 'var(--color-warning)';
-}
-
 function fmtPrice(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `$${value.toFixed(2)}`;
@@ -180,7 +174,6 @@ export default async function ForecastPage({
   const receipt = data.receipt;
   const human = formatHumanDate(date);
   const regimeLabel = humanizeRegime(morning.regime);
-  const regimeAccent = regimeColor(morning.regime);
   const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
   const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
@@ -227,7 +220,7 @@ export default async function ForecastPage({
         <Stat
           label="Projected range"
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
-          accent="var(--color-warning)"
+          accent="var(--color-accent)"
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={
             receipt
@@ -238,7 +231,7 @@ export default async function ForecastPage({
         <Stat
           label="Pin strike"
           value={fmtPrice(morning.pin_strike)}
-          accent="var(--color-bull)"
+          accent="var(--color-accent)"
           icon={Magnet}
           verdict={receipt && morning.pin_strike != null ? (receipt.pin_hit ? 'held' : 'broken') : null}
           hint={
@@ -252,7 +245,7 @@ export default async function ForecastPage({
         <Stat
           label="Regime"
           value={regimeLabel}
-          accent={regimeAccent}
+          accent="var(--color-accent)"
           verdict={
             receipt && receipt.regime_correct != null
               ? receipt.regime_correct ? 'held' : 'broken'

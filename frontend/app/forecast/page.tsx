@@ -62,12 +62,6 @@ function humanizeRegime(raw: string | null): string {
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function regimeAccent(raw: string | null): string {
-  if (raw === 'long_gamma') return 'var(--color-bull)';
-  if (raw === 'short_gamma') return 'var(--color-bear)';
-  return 'var(--color-warning)';
-}
-
 // The receipt landed but at least one verdict came back false — flag it
 // so the picker can lead with the days we called wrong (they're the most
 // interesting).
@@ -148,7 +142,7 @@ export default async function ForecastLanding({
                     </div>
                     <div
                       className="mt-1 font-mono text-[11px]"
-                      style={{ color: regimeAccent(entry.regime) }}
+                      style={{ color: 'var(--color-accent)' }}
                     >
                       {humanizeRegime(entry.regime)}
                     </div>
