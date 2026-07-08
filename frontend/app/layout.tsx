@@ -82,9 +82,9 @@ const FONT_VARIABLES = [
   poppins.variable,
 ].join(' ');
 
-type PaletteId = 'wallstreet' | 'california' | 'kyoto' | 'miami';
-const PALETTES: PaletteId[] = ['wallstreet', 'california', 'kyoto', 'miami'];
-const DEFAULT_PALETTE: PaletteId = 'wallstreet';
+type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami';
+const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami'];
+const DEFAULT_PALETTE: PaletteId = 'california';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
   pacific: 'miami',

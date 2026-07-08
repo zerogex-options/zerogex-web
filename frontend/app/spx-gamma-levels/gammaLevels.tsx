@@ -59,37 +59,33 @@ interface SymbolContent {
   intro: string;
 }
 
+// The one place a symbol's copy actually differs: the index/ETF it tracks, woven
+// into the intro's audience clause. Everything else (title, description, H1,
+// intro shape) is generated from a single template below so all three pages are
+// byte-for-byte identical except the ticker — no drift, and each page stays
+// focused on its own symbol instead of cannibalizing its siblings' keywords.
+const SYMBOL_AUDIENCE: Record<Symbol, string> = {
+  SPX: 'SPX and S&P 500 options traders',
+  SPY: 'SPY and S&P 500 options traders',
+  QQQ: 'QQQ and Nasdaq-100 options traders',
+};
+
+function buildSymbolContent(primary: Symbol): SymbolContent {
+  const path = `/${primary.toLowerCase()}-gamma-levels`;
+  return {
+    path,
+    shareUrl: `${SITE}${path}`,
+    title: `${primary} Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX`,
+    description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
+    h1: `${primary} Gamma Levels Today`,
+    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.`,
+  };
+}
+
 const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
-  SPX: {
-    path: '/spx-gamma-levels',
-    shareUrl: `${SITE}/spx-gamma-levels`,
-    title: 'SPX / SPY / QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily SPX gamma levels — the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels for SPX, SPY and QQQ, refreshed every 15 minutes. No signup required.',
-    h1: 'SPX Gamma Levels Today',
-    intro:
-      "Track today's SPX gamma levels, including the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPX and S&P 500 options traders identify key dealer-positioning zones before price gets there.",
-  },
-  SPY: {
-    path: '/spy-gamma-levels',
-    shareUrl: `${SITE}/spy-gamma-levels`,
-    title: 'SPY Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily SPY gamma levels — the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
-    h1: 'SPY Gamma Levels Today',
-    intro:
-      "Track today's SPY gamma levels, including the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPY traders identify key dealer-positioning zones before price gets there.",
-  },
-  QQQ: {
-    path: '/qqq-gamma-levels',
-    shareUrl: `${SITE}/qqq-gamma-levels`,
-    title: 'QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily QQQ gamma levels — the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
-    h1: 'QQQ Gamma Levels Today',
-    intro:
-      "Track today's QQQ gamma levels, including the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help Nasdaq and QQQ traders understand where options positioning may create support, resistance, pinning, or volatility expansion.",
-  },
+  SPX: buildSymbolContent('SPX'),
+  SPY: buildSymbolContent('SPY'),
+  QQQ: buildSymbolContent('QQQ'),
 };
 
 // Individual dedicated page for a ticker — used to cross-link the sibling cards.

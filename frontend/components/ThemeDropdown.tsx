@@ -12,16 +12,16 @@ interface PaletteMeta {
 
 const PALETTES: PaletteMeta[] = [
   {
-    id: 'wallstreet',
-    name: 'Wall Street',
-    subtitle: 'Banker navy, old gold, burgundy tie',
-    swatch: ['#0E1116', '#164E6B', '#C5A05A', '#9A2638'],
-  },
-  {
     id: 'california',
     name: 'California Sunset',
     subtitle: 'Sunset coral, pacific teal, vintage gold',
     swatch: ['#171B24', '#E1785B', '#3E9C9B', '#D7A84B'],
+  },
+  {
+    id: 'wallstreet',
+    name: 'Wall Street',
+    subtitle: 'Banker navy, old gold, burgundy tie',
+    swatch: ['#0E1116', '#164E6B', '#C5A05A', '#9A2638'],
   },
   {
     id: 'kyoto',
