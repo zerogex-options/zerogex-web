@@ -62,23 +62,25 @@ export type SignupPoint = {
   disclaimer: number;
 };
 
-// Per-day membership flow, sourced from the audit_events log. Additions are new
-// signups (public self-serve accounts + paid Stripe conversions); cancellations
-// are Stripe subscription cancellations. Values are per tier: additions positive,
-// cancellations negative. This lets the dashboard render a diverging column
-// (signups above the axis, cancellations below) with a per-tier tooltip. `net` =
-// additions + cancellations for the day. Public users have no Stripe
-// subscription, so publicCancel is always 0.
+// Per-day, per-tier net headcount change, sourced from the audit_events log and
+// counting each person once (a signup and its later conversion are not two
+// people). Movements:
+//   • new self-serve account        → +1 Public
+//   • paid conversion (Stripe)       → +1 Pro/Basic AND -1 Public
+//   • subscription cancellation      → -1 Pro/Basic AND +1 Public
+// Each tier's value is the signed sum of those movements for the day: positive
+// means the tier grew, negative means it shrank. The dashboard stacks positives
+// above the x-axis and negatives below, with `net` (the day's total headcount
+// change) overlaid on top. Because conversions/cancellations move a user between
+// tiers, they net to zero in `net` — so `net` reduces to the count of genuinely
+// new accounts, and its running sum tracks total user growth.
 export type SignupFlowPoint = {
   day: string;
-  basicAdd: number;
-  proAdd: number;
-  publicAdd: number;
-  // Cancellations are stored as negative numbers so the chart can stack them
-  // straight below the x-axis without a client-side sign flip.
-  basicCancel: number;
-  proCancel: number;
-  publicCancel: number;
+  basicNet: number;
+  proNet: number;
+  publicNet: number;
+  // Sum of the positive tier nets (tiers that grew) and negative tier nets
+  // (tiers that shrank) for the day — used for the diverging chart's y-scale.
   additions: number;
   cancellations: number;
   net: number;
@@ -699,17 +701,10 @@ function buildSignupSeries(now: Date): SignupPoint[] {
 
 type PaidTier = 'basic' | 'pro';
 
-type FlowCounts = {
-  basicAdd: number;
-  proAdd: number;
-  publicAdd: number;
-  basicCancel: number;
-  proCancel: number;
-  publicCancel: number;
-};
+type TierNet = { basicNet: number; proNet: number; publicNet: number };
 
-function emptyFlowCounts(): FlowCounts {
-  return { basicAdd: 0, proAdd: 0, publicAdd: 0, basicCancel: 0, proCancel: 0, publicCancel: 0 };
+function emptyTierNet(): TierNet {
+  return { basicNet: 0, proNet: 0, publicNet: 0 };
 }
 
 // Stripe subscription ids are always `sub_...`; the audit messages embed exactly
@@ -729,27 +724,33 @@ function parseSyncTier(message: string): PaidTier | null {
   return null;
 }
 
-// Per-day signups (additions) and cancellations (losses) by tier, sourced from
-// the audit_events log (the true event trail), spanning the same MAX_DAILY
-// window as the other daily charts. Three inputs:
+// Per-day, per-tier net headcount change, sourced from the audit_events log and
+// counting each person once. Spans the same MAX_DAILY window as the other daily
+// charts. Three inputs drive the movements:
 //
-//   • Public signups  — `register` + `oauth_login` rows. Each fires exactly once
-//     per new self-serve account (returning OAuth logins log `login_success`,
-//     so they're never miscounted). Public users have no Stripe subscription, so
-//     they can only ever appear as additions, never cancellations.
-//   • Paid signups     — the FIRST `stripe_subscription_sync` that saw a given
-//     subscription in a paid tier (pro/basic): the day it converted. A later
-//     upgrade/downgrade is not a new signup.
+//   • New accounts     — `register` + `oauth_login` rows (each fires once per new
+//     self-serve account; returning OAuth logins log `login_success`, so they're
+//     never miscounted). Each is +1 Public.
+//   • Paid conversions — the FIRST `stripe_subscription_sync` that saw a given
+//     subscription in a paid tier (pro/basic): the day it converted. Modeled as
+//     the user leaving Public for that tier: +1 Pro/Basic, -1 Public.
 //   • Cancellations    — `stripe_subscription_deleted` rows (the sub actually
 //     ended), with the lost tier recovered from that subscription's most recent
-//     paid sync.
+//     paid sync: -1 Pro/Basic, +1 Public (the user reverts to the free tier).
 //
-// Rows are bucketed onto the ET day axis (etBucketKeys) to line up with the
-// other charts, since created_at is stored in UTC.
+// Each tier's net is the signed sum of those movements for the day, so the
+// running sum of `net` tracks real user growth (moves cancel out) and each tier
+// reconciles with its live headcount. Rows are bucketed onto the ET day axis
+// (etBucketKeys) to line up with the other charts, since created_at is UTC.
+//
+// Not modeled (rare, and untrackable from events): mid-tier upgrades/downgrades
+// (basic↔pro) aren't a first-conversion, so they don't move the tier nets; and
+// hard account deletions purge their own audit rows, so a deleted account simply
+// stops contributing rather than showing a -1.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   const dailyKeys = generateDailyKeys(now);
-  const acc: Record<string, FlowCounts> = {};
-  for (const day of dailyKeys) acc[day] = emptyFlowCounts();
+  const acc: Record<string, TierNet> = {};
+  for (const day of dailyKeys) acc[day] = emptyTierNet();
 
   const etDay = (createdAt: string): string | null => {
     const d = new Date(createdAt);
@@ -761,7 +762,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const db = getDb();
 
     // Subscription tier history from sync events, oldest first so a single pass
-    // yields both the first paid observation (the signup) and the latest paid
+    // yields both the first paid observation (the conversion) and the latest paid
     // tier (for cancellation attribution). Bounded to ~2.2y: long enough to
     // cover a cancelling sub's lifetime, capped so the scan can't grow forever.
     const syncRows = db
@@ -784,15 +785,17 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       lastPaidTier.set(subId, tier);
     }
 
-    // Paid signups: one per subscription, on the day it first went paid.
+    // Paid conversions: user leaves Public for the paid tier on the day it first
+    // went paid.
     for (const { day, tier } of firstPaid.values()) {
       const bucket = acc[day];
-      if (!bucket) continue; // first paid day predates the window
-      if (tier === 'pro') bucket.proAdd += 1;
-      else bucket.basicAdd += 1;
+      if (!bucket) continue; // conversion day predates the window
+      if (tier === 'pro') bucket.proNet += 1;
+      else bucket.basicNet += 1;
+      bucket.publicNet -= 1;
     }
 
-    // Cancellations: one per deleted subscription, tier from its last paid sync.
+    // Cancellations: user leaves the paid tier and reverts to Public.
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
@@ -805,13 +808,14 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       const subId = parseSubIdFromMessage(row.message);
       // Fall back to Basic when the tier can't be recovered (e.g. a sub whose
       // sync history predates audit logging) so a real cancellation is never
-      // dropped and the stacked bars still sum to the cancellation total.
+      // dropped.
       const tier = (subId ? lastPaidTier.get(subId) : null) ?? 'basic';
-      if (tier === 'pro') acc[day].proCancel -= 1;
-      else acc[day].basicCancel -= 1;
+      if (tier === 'pro') acc[day].proNet -= 1;
+      else acc[day].basicNet -= 1;
+      acc[day].publicNet += 1;
     }
 
-    // Public signups: new self-serve accounts (no Stripe subscription).
+    // New accounts: every self-serve signup lands in Public.
     const publicRows = db
       .prepare(
         `SELECT created_at FROM audit_events
@@ -820,7 +824,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       .all() as Array<{ created_at: string }>;
     for (const row of publicRows) {
       const day = etDay(row.created_at);
-      if (day && acc[day]) acc[day].publicAdd += 1;
+      if (day && acc[day]) acc[day].publicNet += 1;
     }
   } catch {
     // On any query/parse failure, fall through with the zero-filled window so
@@ -828,20 +832,18 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   }
 
   return dailyKeys.map((day) => {
-    const c = acc[day];
-    const additions = c.basicAdd + c.proAdd + c.publicAdd;
-    const cancellations = c.basicCancel + c.proCancel + c.publicCancel;
+    const { basicNet, proNet, publicNet } = acc[day];
+    const nets = [basicNet, proNet, publicNet];
+    const additions = nets.reduce((s, n) => s + Math.max(0, n), 0);
+    const cancellations = nets.reduce((s, n) => s + Math.min(0, n), 0);
     return {
       day,
-      basicAdd: c.basicAdd,
-      proAdd: c.proAdd,
-      publicAdd: c.publicAdd,
-      basicCancel: c.basicCancel,
-      proCancel: c.proCancel,
-      publicCancel: c.publicCancel,
+      basicNet,
+      proNet,
+      publicNet,
       additions,
       cancellations,
-      net: additions + cancellations,
+      net: basicNet + proNet + publicNet,
     };
   });
 }

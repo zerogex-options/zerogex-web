@@ -26,16 +26,15 @@ type SignupPoint = {
   disclaimer: number;
 };
 
-// Mirrors SignupFlowPoint in core/monitoring.ts. Additions are positive,
-// cancellations negative (already sign-flipped server-side).
+// Mirrors SignupFlowPoint in core/monitoring.ts. Each tier carries a signed net
+// headcount change for the day (positive = grew, negative = shrank); `net` is
+// the day's total change. additions/cancellations are the positive/negative
+// tier sums, kept for the diverging chart's y-scale.
 type SignupFlowPoint = {
   day: string;
-  basicAdd: number;
-  proAdd: number;
-  publicAdd: number;
-  basicCancel: number;
-  proCancel: number;
-  publicCancel: number;
+  basicNet: number;
+  proNet: number;
+  publicNet: number;
   additions: number;
   cancellations: number;
   net: number;
@@ -290,7 +289,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; signups vs. cancellations are counted per day from account and Stripe audit events.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; signups vs. cancellations shows each tier&apos;s net daily headcount change from account and Stripe audit events (each person counted once), so its running total reconciles with the tier headcounts.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -1386,28 +1385,29 @@ type SignupFlowChartCardProps = {
   brandColor: string;
 };
 
-// Per-day membership flow: signups (additions) stack up above the x-axis,
-// cancellations (losses) stack down below it, each split by tier, with a Net
-// Change line overlaid on top. Cancellations arrive pre-negated from the API.
+// Per-day net headcount change by tier. Each tier's signed daily net stacks
+// above the x-axis when it grew and below when it shrank (a paid conversion
+// lifts Pro/Basic and dips Public; a cancellation does the reverse), with a Net
+// Change line — the day's total user growth — overlaid on top. Running totals
+// reconcile with the live tier headcounts.
 function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SignupFlowChartCardProps) {
-  // Additions share the signups brand (blue) family; cancellations share a
-  // bear-red family. Same hue ordering per tier so the tooltip stays legible.
-  const proAddColor = brandColor;
-  const basicAddColor = lighten(brandColor, 0.45);
-  const publicAddColor = lighten(brandColor, 0.7);
-  const cancelBase = '#c1435b';
-  const proCancelColor = cancelBase;
-  const basicCancelColor = lighten(cancelBase, 0.35);
+  // Reuse the tier palette from the Tier Breakdown card so the two read as one
+  // system. Direction (above/below the axis) carries growth vs. shrink.
+  const proColor = brandColor;
+  const basicColor = lighten(brandColor, 0.45);
+  const publicColor = lighten(brandColor, 0.7);
   const netColor = ROW_COLORS.mrr;
 
   const totals = useMemo(() => {
-    let add = 0;
-    let cancel = 0;
+    let pro = 0;
+    let basic = 0;
+    let pub = 0;
     for (const p of data) {
-      add += p.additions;
-      cancel += p.cancellations;
+      pro += p.proNet;
+      basic += p.basicNet;
+      pub += p.publicNet;
     }
-    return { add, cancel, net: add + cancel };
+    return { pro, basic, pub, net: pro + basic + pub };
   }, [data]);
 
   // Symmetric axis so the zero baseline sits at a consistent spot and the
@@ -1421,15 +1421,17 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
   }, [data]);
 
   const hasFlow = useMemo(() => data.some((p) => p.additions !== 0 || p.cancellations !== 0), [data]);
+  const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>Signups &amp; Cancellations</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
-          <span><span style={{ color: proAddColor }}>▲</span> Signups: {totals.add.toLocaleString()}</span>
-          <span><span style={{ color: cancelBase }}>▼</span> Cancellations: {Math.abs(totals.cancel).toLocaleString()}</span>
-          <span><span style={{ color: netColor }}>●</span> Net Change: {totals.net > 0 ? '+' : ''}{totals.net.toLocaleString()}</span>
+          <span><span style={{ color: proColor }}>●</span> Pro: {signed(totals.pro)}</span>
+          <span><span style={{ color: basicColor }}>●</span> Basic: {signed(totals.basic)}</span>
+          <span><span style={{ color: publicColor }}>●</span> Public: {signed(totals.pub)}</span>
+          <span><span style={{ color: netColor }}>●</span> Net Change: {signed(totals.net)}</span>
         </div>
       </div>
       {!hasFlow ? (
@@ -1462,38 +1464,27 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                 content={({ active, label, payload }) => {
                   if (!active || !payload?.length) return null;
                   const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
-                  const proAdd = num('proAdd');
-                  const basicAdd = num('basicAdd');
-                  const publicAdd = num('publicAdd');
-                  const proCancel = num('proCancel');
-                  const basicCancel = num('basicCancel');
-                  const additions = proAdd + basicAdd + publicAdd;
-                  const cancellations = proCancel + basicCancel;
-                  const net = additions + cancellations;
-                  const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
+                  const proNet = num('proNet');
+                  const basicNet = num('basicNet');
+                  const publicNet = num('publicNet');
+                  const net = proNet + basicNet + publicNet;
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div style={{ color: proAddColor }}>Signups: {signed(additions)}</div>
-                      <div className="pl-2">Pro: {signed(proAdd)}</div>
-                      <div className="pl-2">Basic: {signed(basicAdd)}</div>
-                      <div className="pl-2">Public: {signed(publicAdd)}</div>
-                      <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(cancellations)}</div>
-                      <div className="pl-2">Pro: {signed(proCancel)}</div>
-                      <div className="pl-2">Basic: {signed(basicCancel)}</div>
+                      <div><span style={{ color: proColor }}>●</span> Pro: {signed(proNet)}</div>
+                      <div><span style={{ color: basicColor }}>●</span> Basic: {signed(basicNet)}</div>
+                      <div><span style={{ color: publicColor }}>●</span> Public: {signed(publicNet)}</div>
                       <div className="mt-1 font-semibold">Net Change: {signed(net)}</div>
                     </div>
                   );
                 }}
               />
-              <Bar dataKey="publicAdd" name="Public signups" stackId="flow" fill={publicAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="basicAdd" name="Basic signups" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="proAdd" name="Pro signups" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="publicNet" name="Public" stackId="flow" fill={publicColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="basicNet" name="Basic" stackId="flow" fill={basicColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="proNet" name="Pro" stackId="flow" fill={proColor} maxBarSize={28} isAnimationActive={false} />
               <Line
                 type="monotone"
                 dataKey="net"
