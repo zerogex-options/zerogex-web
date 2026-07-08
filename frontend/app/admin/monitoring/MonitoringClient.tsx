@@ -290,7 +290,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of subscribers (full + free-trial), tier headcount (Basic, Pro, Public), per-day signups vs. cancellations, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; signups vs. cancellations are counted per day from account and Stripe audit events.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -1398,7 +1398,6 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
   const cancelBase = '#c1435b';
   const proCancelColor = cancelBase;
   const basicCancelColor = lighten(cancelBase, 0.35);
-  const publicCancelColor = lighten(cancelBase, 0.6);
   const netColor = ROW_COLORS.mrr;
 
   const totals = useMemo(() => {
@@ -1468,9 +1467,8 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                   const publicAdd = num('publicAdd');
                   const proCancel = num('proCancel');
                   const basicCancel = num('basicCancel');
-                  const publicCancel = num('publicCancel');
                   const additions = proAdd + basicAdd + publicAdd;
-                  const cancellations = proCancel + basicCancel + publicCancel;
+                  const cancellations = proCancel + basicCancel;
                   const net = additions + cancellations;
                   const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
                   return (
@@ -1486,7 +1484,6 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                       <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(cancellations)}</div>
                       <div className="pl-2">Pro: {signed(proCancel)}</div>
                       <div className="pl-2">Basic: {signed(basicCancel)}</div>
-                      <div className="pl-2">Public: {signed(publicCancel)}</div>
                       <div className="mt-1 font-semibold">Net Change: {signed(net)}</div>
                     </div>
                   );
@@ -1495,7 +1492,6 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
               <Bar dataKey="publicAdd" name="Public signups" stackId="flow" fill={publicAddColor} maxBarSize={28} isAnimationActive={false} />
               <Bar dataKey="basicAdd" name="Basic signups" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
               <Bar dataKey="proAdd" name="Pro signups" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="publicCancel" name="Public cancellations" stackId="flow" fill={publicCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Line
