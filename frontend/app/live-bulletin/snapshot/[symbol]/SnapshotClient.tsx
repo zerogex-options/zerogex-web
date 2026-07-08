@@ -40,8 +40,12 @@ interface SnapshotClientProps {
   volIndex: 'VIX' | 'VXN';
   /** SSR-fetched GEX summary — becomes the card's level fields. */
   summary: GexSummaryInput | null;
-  /** SSR-computed spot: quote.close ?? summary.spot_price ?? null. */
+  /** SSR-computed spot: futures-implied projection ?? quote.close ?? summary.spot_price. */
   spot: number | null;
+  /** True when `spot` is a futures-implied projection (cash index off-session). */
+  spotIsProjected?: boolean;
+  /** Future ticker the spot was projected from (e.g. "ES"), else null. */
+  spotSourceLabel?: string | null;
   /** SSR-computed prior close for the change % chip. */
   priorClose: number | null;
   /** SSR-fetched VIX / VXN level for the expected-range band. */
@@ -64,6 +68,8 @@ export default function SnapshotClient({
   volIndex,
   summary,
   spot,
+  spotIsProjected = false,
+  spotSourceLabel = null,
   priorClose,
   vix,
   timestamp,
@@ -78,8 +84,10 @@ export default function SnapshotClient({
         vix,
         volIndex,
         horizon,
+        spotIsProjected,
+        spotSourceLabel,
       }),
-    [symbol, spot, priorClose, summary, vix, volIndex, horizon],
+    [symbol, spot, priorClose, summary, vix, volIndex, horizon, spotIsProjected, spotSourceLabel],
   );
 
   const asOf = useMemo(() => {

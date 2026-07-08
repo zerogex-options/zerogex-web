@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { resolveSymbol } from '@/core/symbols';
-import type { HorizonKey } from '../../bulletinHelpers';
+import { projectedIndexSpot, type HorizonKey } from '../../bulletinHelpers';
 import SnapshotClient from './SnapshotClient';
 
 // Public snapshot of the Live Bulletin card, sized for a headless-browser
@@ -59,6 +59,12 @@ interface MarketQuoteResponse {
   symbol?: string;
   close?: number | null;
   session?: string | null;
+  // Index->future display swap fields (present when INDEX_FUTURES_DISPLAY_ENABLED
+  // and the symbol is a cash index outside the cash session).
+  display_source?: string | null;
+  data_symbol?: string | null; // future ticker for the badge, e.g. "ES"
+  futures_close?: number | null; // @ES now
+  futures_reference_close?: number | null; // @ES at the session's 16:00 print
 }
 
 interface SessionClosesResponse {
@@ -107,8 +113,13 @@ export default async function SnapshotPage({
     serverApiGet<VolatilityGaugeResponse>(`/api/market/volatility?ticker=${volIndex}`, 0),
   ]);
 
-  const spot = quote?.close ?? summary?.spot_price ?? null;
   const priorClose = sessionCloses?.current_session_close ?? null;
+  // For a cash index outside the cash session, project the implied spot from
+  // the future (matches the daily-forecast + bulletin-tweet projection) so
+  // the screenshot never shows a frozen cash close labelled as a live SPX
+  // quote.  Falls back to the cash close when not a futures swap.
+  const projection = projectedIndexSpot(quote, priorClose);
+  const spot = projection?.spot ?? quote?.close ?? summary?.spot_price ?? null;
   const vix = volGauge?.index ?? null;
 
   return (
@@ -120,6 +131,8 @@ export default async function SnapshotPage({
       volIndex={volIndex}
       summary={summary ?? null}
       spot={spot}
+      spotIsProjected={projection != null}
+      spotSourceLabel={projection?.sourceLabel ?? null}
       priorClose={priorClose}
       vix={vix}
       timestamp={summary?.timestamp ?? null}

@@ -44,6 +44,14 @@ export interface ReportInputs {
   /** Which implied-vol index `vix` came from — VIX for SPX/SPY, VXN for QQQ. Label only. */
   volIndex: 'VIX' | 'VXN';
   horizon: HorizonKey;
+  /**
+   * True when `spot` is a futures-implied projection (a cash index like SPX
+   * outside the cash session) rather than a live cash print. Drives the
+   * "futures-implied via ES" indicator on the card so it never reads as a
+   * live SPX quote. `spotSourceLabel` is the future's ticker, e.g. "ES".
+   */
+  spotIsProjected?: boolean;
+  spotSourceLabel?: string | null;
 }
 
 // The IV-derived expected-move band plus how the dealer-gamma walls sit
@@ -81,6 +89,10 @@ export interface ReportModel {
   regimeLabel: string;
   /** Null when VIX or spot is unavailable, in which case the card hides the band. */
   expectedRange: ExpectedRange | null;
+  /** True when `spot` is a futures-implied projection (see ReportInputs). */
+  spotIsProjected: boolean;
+  /** Future ticker the spot was projected from (e.g. "ES"), else null. */
+  spotSourceLabel: string | null;
 }
 
 // Spot within this fraction of the flip is genuinely "at the flip" — mirrors
@@ -234,6 +246,41 @@ export function fmtTimeET(iso?: string): string {
 // Build the derived report model from raw inputs, including the auto-generated
 // headline and lead paragraph. The operator can override the prose afterwards;
 // this just gives a sane, on-brand starting point keyed off the live numbers.
+/** A market quote's optional index->future display-swap fields (attached by
+ * /api/market/quote when INDEX_FUTURES_DISPLAY_ENABLED and the symbol is a
+ * cash index outside the cash session). */
+export interface FuturesSwapFields {
+  display_source?: string | null;
+  data_symbol?: string | null;
+  futures_close?: number | null; // the future now (e.g. @ES)
+  futures_reference_close?: number | null; // the future's own 16:00 print
+}
+
+/**
+ * Futures-implied cash-index spot for the card, mirroring the backend
+ * `implied_index_spot`: `cashRefClose + (future_now − future_ref)`. The
+ * index↔future basis at the close cancels, so this tracks the future's
+ * overnight *move* applied to the cash close.
+ *
+ * Returns null (caller keeps the live/cash spot) when the quote isn't a
+ * futures swap or any input is missing — so an ETF or an in-session cash
+ * index is never projected.
+ */
+export function projectedIndexSpot(
+  quote: FuturesSwapFields | null | undefined,
+  cashRefClose: number | null | undefined,
+): { spot: number; sourceLabel: string } | null {
+  if (!quote || quote.display_source !== 'futures') return null;
+  const now = quote.futures_close;
+  const ref = quote.futures_reference_close;
+  if (now == null || ref == null || cashRefClose == null) return null;
+  if (!Number.isFinite(now) || !Number.isFinite(ref) || !Number.isFinite(cashRefClose)) return null;
+  return {
+    spot: cashRefClose + (now - ref),
+    sourceLabel: (quote.data_symbol ?? '').trim() || 'futures',
+  };
+}
+
 export function buildReportModel(inputs: ReportInputs): ReportModel {
   const { symbol, summary } = inputs;
   const spot = pickNumber(inputs.spot, summary?.spot_price);
@@ -294,6 +341,8 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
     regimeBadge: copy.badge,
     regimeLabel: copy.label,
     expectedRange,
+    spotIsProjected: inputs.spotIsProjected === true && spot != null,
+    spotSourceLabel: inputs.spotSourceLabel ?? null,
   };
 }
 

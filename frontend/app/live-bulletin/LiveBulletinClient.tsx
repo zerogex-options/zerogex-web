@@ -9,7 +9,14 @@ import {
   useVolatilityGauge,
 } from '@/hooks/useApiData';
 import GammaReportCard from './GammaReportCard';
-import { buildReportModel, fmtDateET, fmtTimeET, HORIZONS, type HorizonKey } from './bulletinHelpers';
+import {
+  buildReportModel,
+  fmtDateET,
+  fmtTimeET,
+  HORIZONS,
+  projectedIndexSpot,
+  type HorizonKey,
+} from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
@@ -58,7 +65,13 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   // vs current_session_close yields today's intraday change; after the close it
   // naturally collapses to ~0 against today's own close.
   const priorClose = sessionCloses?.current_session_close ?? null;
-  const spot = quote?.close ?? summary?.spot_price ?? null;
+  // For a cash index outside the cash session, project the implied spot from
+  // the future (same basis math as the daily-forecast + bulletin-tweet), so
+  // the live card and the tweet agree.  Falls back to the cash close.
+  const projection = projectedIndexSpot(quote, priorClose);
+  const spot = projection?.spot ?? quote?.close ?? summary?.spot_price ?? null;
+  const spotIsProjected = projection != null;
+  const spotSourceLabel = projection?.sourceLabel ?? null;
   const vix = volGauge?.index ?? null;
 
   const model = useMemo(
@@ -71,8 +84,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         vix,
         volIndex,
         horizon,
+        spotIsProjected,
+        spotSourceLabel,
       }),
-    [symbol, spot, priorClose, summary, vix, volIndex, horizon],
+    [symbol, spot, priorClose, summary, vix, volIndex, horizon, spotIsProjected, spotSourceLabel],
   );
 
   const headline = edited.headline ?? model.headline;

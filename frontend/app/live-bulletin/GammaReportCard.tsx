@@ -318,6 +318,14 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.5 }}>
               {fmtPrice(model.spot)}
             </div>
+            {model.spotIsProjected && (
+              // Cash index outside the session: spot is projected from the
+              // future, not a live print. Flag it so the card (and the tweet
+              // PNG that screenshots it) never reads as a live SPX quote.
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.amber, marginTop: 3 }}>
+                futures-implied via {model.spotSourceLabel ?? 'futures'} · cash closed
+              </div>
+            )}
           </div>
           <div style={{ color: changeColor, fontSize: 17, fontWeight: 700, paddingBottom: 4 }}>
             {fmtSignedPts(model.changeAbs)}{' '}
