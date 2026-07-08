@@ -23,6 +23,7 @@ import EmptyState from './EmptyState';
 import FleetOverviewChart from './FleetOverviewChart';
 import LeaderboardTable from './LeaderboardTable';
 import NotificationBell from './NotificationBell';
+import TradesAuditPanel from './TradesAuditPanel';
 import { RosterSkeleton, SummarySkeleton } from './Skeleton';
 import { botColor } from './palette';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
@@ -234,23 +235,48 @@ export default function TradeWorkzClient() {
 
   const runClear = useCallback(async () => {
     if (simBusy) return;
+    // Explicit confirm — the button says "Reset fleet" but the operator
+    // needs to know this wipes REAL live trades too, not just seeded
+    // history. Cheap safety on a destructive-and-irreversible action.
+    if (
+      !window.confirm(
+        'Reset the entire fleet? This wipes every trade, position, ' +
+          'notification, equity row, and ML state — for BOTH simulated ' +
+          'and real live-engine data — and resets every bot to its ' +
+          'starting capital. This cannot be undone.',
+      )
+    ) {
+      return;
+    }
     setSimBusy(true);
     setSimMessage(null);
     try {
-      const res = await fetch('/api/tradeworkz/admin/simulate/clear', {
+      const res = await fetch('/api/tradeworkz/admin/reset-fleet', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSimMessage('Cleared simulated history. Fleet reset to starting capital.');
+      const body = (await res.json().catch(() => ({}))) as {
+        deleted_rows?: Record<string, number>;
+        sleeves_reset?: number;
+      };
+      const totalRows = Object.values(body.deleted_rows ?? {}).reduce(
+        (a, b) => a + (b ?? 0),
+        0,
+      );
+      setSimMessage(
+        `Fleet reset: ${totalRows.toLocaleString()} rows deleted across ` +
+          `${Object.keys(body.deleted_rows ?? {}).length} tables, ` +
+          `${body.sleeves_reset ?? 0} sleeves reset to starting capital.`,
+      );
       summary.refetch();
       botsData.refetch();
       leaderboard.refetch();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage(`Clear failed: ${message}`);
+      setSimMessage(`Reset failed: ${message}`);
     } finally {
       setSimBusy(false);
     }
@@ -314,19 +340,19 @@ export default function TradeWorkzClient() {
                       Test event
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text="Wipe every bot's trade / equity / metrics / ml_state back to the pre-trade baseline. Admin only.">
+                  <TooltipWrapper text="Wipe EVERY bot's trades (sim + live), positions, notifications, equity, metrics, and ML state, then reset each sleeve to starting capital. Cannot be undone. Admin only.">
                     <button
                       onClick={runClear}
                       disabled={simBusy}
                       className="text-xs font-medium px-3 py-2 rounded-full transition-colors"
                       style={{
                         backgroundColor: 'transparent',
-                        color: 'var(--color-text-secondary)',
-                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-bear)',
+                        border: '1px solid var(--color-bear)',
                         opacity: simBusy ? 0.6 : 1,
                       }}
                     >
-                      Clear
+                      Reset fleet
                     </button>
                   </TooltipWrapper>
                 </>
@@ -335,7 +361,7 @@ export default function TradeWorkzClient() {
             {simMessage ? (
               <div
                 className="text-[11px] max-w-xs md:text-right"
-                style={{ color: simMessage.startsWith('Cleared') || simMessage.startsWith('Seeded') ? 'var(--color-bull)' : 'var(--color-bear)' }}
+                style={{ color: simMessage.startsWith('Cleared') || simMessage.startsWith('Seeded') || simMessage.startsWith('Fleet reset') ? 'var(--color-bull)' : 'var(--color-bear)' }}
               >
                 {simMessage}
               </div>
@@ -512,6 +538,8 @@ export default function TradeWorkzClient() {
             </div>
           )}
         </section>
+
+        {isAdmin ? <TradesAuditPanel bots={bots} /> : null}
 
         {selectedBotId ? (
           <BotDetailPanel
