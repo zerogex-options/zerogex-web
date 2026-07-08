@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, CheckCircle2, Clock, History, Lock, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, History, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
@@ -8,6 +8,11 @@ import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
+import PaidFunnelAnalytics from './PaidFunnelAnalytics';
+import LiveReadConversion from './LiveReadConversion';
+import DashboardPreview from './DashboardPreview';
+import PricingTrialCta from './PricingTrialCta';
+import StickyTrialBar from './StickyTrialBar';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders three routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels
@@ -489,6 +494,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       <LandingHeader />
 
       <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
+        {/* Marks the top of the paid-traffic funnel (renders nothing). */}
+        <PaidFunnelAnalytics symbol={primary} />
+
         <header style={{ marginBottom: 36 }}>
           <div
             style={{
@@ -507,7 +515,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               marginBottom: 18,
             }}
           >
-            <Clock size={12} /> Free · Delayed ~15 minutes
+            <Clock size={12} /> Free preview · Delayed ~15 minutes
           </div>
           <h1
             style={{
@@ -532,14 +540,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             {content.intro}
           </p>
         </header>
-
-        <ShareBlock
-          symbol={primary}
-          snippet={shareSnippet}
-          shareUrl={content.shareUrl}
-          hasData={shareHasData}
-          asOf={latestTimestamp ? fmtTimestampET(latestTimestamp) : null}
-        />
 
         {!anyData && (
           <div
@@ -582,6 +582,46 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           </div>
         )}
 
+        {/* Delayed-vs-live clarity strip (requirement #2): keep it unmistakable
+            that these cards are the free, delayed preview and that the live
+            read lives in the dashboard — placed directly against the levels so
+            the distinction reads at a glance. */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px 14px',
+            marginBottom: 18,
+            padding: '12px 16px',
+            borderRadius: 12,
+            border: '1px solid var(--border-default)',
+            background: 'var(--color-surface)',
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <Clock size={13} style={{ color: 'var(--color-brand-primary)' }} />
+            Free preview · delayed approximately 15 minutes
+          </span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>
+            Live real-time levels are available inside the{' '}
+            <Link href="/register" style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
+              ZeroGEX dashboard
+            </Link>
+            .
+          </span>
+        </div>
+
         <section
           style={{
             display: 'grid',
@@ -595,68 +635,36 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           ))}
         </section>
 
+        {/* Conversion block (requirement #1): directly after the free delayed
+            levels, before the product preview and educational content. */}
+        <LiveReadConversion symbol={primary} />
+
+        {/* Product preview + benefits (requirement #5). */}
+        <DashboardPreview symbol={primary} />
+
+        {/* Pricing/trial CTA (requirement #6/#7 copy standard). */}
+        <PricingTrialCta symbol={primary} />
+
+        {/* Share block (requirement #4): moved down here, below the conversion
+            path, so it stays useful for organic/social visitors without
+            distracting paid visitors from the signup step. */}
+        <ShareBlock
+          symbol={primary}
+          snippet={shareSnippet}
+          shareUrl={content.shareUrl}
+          hasData={shareHasData}
+          asOf={latestTimestamp ? fmtTimestampET(latestTimestamp) : null}
+        />
+
+        {/* ── Education & reference ─────────────────────────────────────────
+            Everything below is the indexable, evergreen content that keeps this
+            page ranking as a free levels / informational page (requirement
+            #10). It sits under the conversion path, not instead of it. */}
+
         {/* Free-indicator funnel: hand the trader a way to plot today's numbers
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
         <PlotOnTradingView />
-
-        <section
-          style={{
-            border: '1px solid var(--color-brand-primary)44',
-            background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
-            borderRadius: 18,
-            padding: '28px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-            marginBottom: 48,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Want the live, sub-second version?
-          </h2>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-            Levels above are intentionally delayed and refresh roughly every 15 minutes. The full ZeroGEX dashboard
-            updates in real time, adds the GEX profile, strike-level heatmaps, options-flow classification, and the
-            13-signal composite Market State Index. Free 7-day trial, no card required for the first session.
-          </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
-            <Link
-              href="/register"
-              style={{
-                background: 'var(--color-brand-primary)',
-                color: '#ffffff',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 800,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Start free trial <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/pricing"
-              style={{
-                border: '1px solid var(--border-default)',
-                color: 'var(--color-text-primary)',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <Lock size={14} /> See what&apos;s behind the paywall
-            </Link>
-          </div>
-        </section>
 
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-0.3px' }}>
@@ -840,65 +848,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           </div>
         </section>
 
-        <section
-          style={{
-            border: '1px solid var(--color-brand-primary)44',
-            background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
-            borderRadius: 18,
-            padding: '32px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-            marginBottom: 32,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Ready to trade the live read?
-          </h2>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-            You&apos;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the
-            full GEX profile, the strike-by-DTE heatmap, options-flow classification, and the 13-signal
-            Market State Index — the context that turns these levels into a tradeable read. 7-day free
-            trial, no card to get started.
-          </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
-            <Link
-              href="/register"
-              style={{
-                background: 'var(--color-brand-primary)',
-                color: '#ffffff',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 800,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Start 7-day free trial <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/pricing"
-              style={{
-                border: '1px solid var(--border-default)',
-                color: 'var(--color-text-primary)',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Compare plans
-            </Link>
-          </div>
-        </section>
-
         <section style={{ marginBottom: 8 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-0.3px' }}>
             Frequently asked questions
@@ -942,6 +891,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       </main>
 
       <Footer />
+
+      {/* Sticky mobile-first trial CTA (requirement #3). Appears after the
+          visitor scrolls past the first screen; dismissible for the session. */}
+      <StickyTrialBar symbol={primary} />
     </div>
   );
 }

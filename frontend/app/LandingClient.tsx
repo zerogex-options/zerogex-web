@@ -6,6 +6,11 @@ import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { normalizeTier } from '@/core/auth';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { readUtmParams } from '@/core/telemetry/utm';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +23,6 @@ import {
   Calculator,
   Layers,
   ArrowRight,
-  ChevronDown,
   Shield,
   Clock,
 } from 'lucide-react';
@@ -211,6 +215,16 @@ export default function LandingPage() {
   const text   = isDark ? C.light  : 'var(--color-text-primary)';
   const subtext = 'var(--color-text-secondary)';
 
+  // Auth-aware hero CTA (requirement #7). Cold/logged-out visitors get a clear
+  // "Start 7-Day Free Trial" primary; existing subscribers get "View Live
+  // Dashboard" so we don't push a trial at someone who already pays. Signed-in-
+  // but-unpaid users start the trial from /pricing (account already exists).
+  const { data: authSession } = useAuthSession();
+  const isAuthed = !!authSession?.authenticated;
+  const tier = normalizeTier(authSession?.user?.tier);
+  const canLaunchApp = isAuthed && (tier === 'basic' || tier === 'pro' || tier === 'admin');
+  const heroTrialHref = isAuthed ? '/pricing' : '/register';
+
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
   const { data: qqqQuote } = useMarketQuote('QQQ', 60000);
@@ -365,9 +379,18 @@ export default function LandingPage() {
             ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
           </p>
 
-          {/* CTAs */}
+          {/* CTAs (requirement #7): primary = trial for cold visitors (dashboard
+              for existing subscribers); secondary = the free levels page. */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link
+              href={canLaunchApp ? '/dashboard' : heroTrialHref}
+              style={{ textDecoration: 'none' }}
+              onClick={
+                canLaunchApp
+                  ? undefined
+                  : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_hero', ...readUtmParams() })
+              }
+            >
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -388,10 +411,10 @@ export default function LandingPage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${C.amber}55`;
                 }}
               >
-                View Live Dashboard <ArrowRight size={18} />
+                {canLaunchApp ? 'View Live Dashboard' : 'Start 7-Day Free Trial'} <ArrowRight size={18} />
               </button>
             </Link>
-            <Link href="/pricing" style={{ textDecoration: 'none' }}>
+            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: 'transparent',
@@ -414,7 +437,7 @@ export default function LandingPage() {
                   (e.currentTarget as HTMLElement).style.background = 'transparent';
                 }}
               >
-                Learn More <ChevronDown size={16} />
+                View Free Levels <ArrowRight size={16} />
               </button>
             </Link>
           </div>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
+import { readUtmParams } from '@/core/telemetry/utm';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -61,6 +62,15 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
 
   // Only promise a discount when the program is actually live.
   const showReferralBanner = referralPresent && referralEnabled;
+
+  // Funnel step: the signup page was viewed. Fires once on mount, carrying any
+  // UTM campaign string so paid traffic that reaches signup is attributable
+  // (pairs with the account_created = `signup` event fired on successful submit).
+  useEffect(() => {
+    capture(TelemetryEvent.SignupPageView, { tier: selectedTier, ...readUtmParams() });
+    // Intentionally once-per-mount; selectedTier is stable for the visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Where to send the user after successful register. /pricing is the default
   // because (post-cutover) new accounts are created at tier=public — they have
