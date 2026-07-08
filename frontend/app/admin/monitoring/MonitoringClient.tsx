@@ -26,18 +26,16 @@ type SignupPoint = {
   disclaimer: number;
 };
 
-// Mirrors SignupFlowPoint in core/monitoring.ts. Each tier carries a signed net
-// headcount change for the day (positive = grew, negative = shrank); `net` is
-// the day's total change. additions/cancellations are the positive/negative
-// tier sums, kept for the diverging chart's y-scale.
+// Mirrors SignupFlowPoint in core/monitoring.ts. Paid adds are positive, paid
+// cancellations negative (pre-negated server-side); registrations is the daily
+// count of new self-serve accounts (any tier).
 type SignupFlowPoint = {
   day: string;
-  basicNet: number;
-  proNet: number;
-  publicNet: number;
-  additions: number;
-  cancellations: number;
-  net: number;
+  basicAdd: number;
+  proAdd: number;
+  basicCancel: number;
+  proCancel: number;
+  registrations: number;
 };
 
 // Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
@@ -289,7 +287,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; signups vs. cancellations shows each tier&apos;s net daily headcount change from account and Stripe audit events (each person counted once), so its running total reconciles with the tier headcounts.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; Signups &amp; Cancellations counts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, and Account Registrations is the daily count of new self-serve signups.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -308,6 +306,13 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             yScale={tierYScale}
           />
           <SignupFlowChartCard
+            data={data.signupFlow}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            brandColor={ROW_COLORS.signups}
+          />
+          <RegistrationsChartCard
             data={data.signupFlow}
             cardBg={cardBg}
             axisStroke={axisStroke}
@@ -1385,42 +1390,48 @@ type SignupFlowChartCardProps = {
   brandColor: string;
 };
 
-// Per-day net headcount change by tier. Each tier's signed daily net stacks
-// above the x-axis when it grew and below when it shrank (a paid conversion
-// lifts Pro/Basic and dips Public; a cancellation does the reverse), with a Net
-// Change line — the day's total user growth — overlaid on top. Running totals
-// reconcile with the live tier headcounts.
+// Per-day paid-subscription flow: Basic/Pro conversions stack above the x-axis,
+// cancellations stack below it. Each user's own Stripe signup/cancel — no public
+// tier. Adds share the signups brand (blue) family; cancellations a bear-red
+// family, so joins vs. losses read at a glance and tier is the shade within.
 function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SignupFlowChartCardProps) {
-  // Reuse the tier palette from the Tier Breakdown card so the two read as one
-  // system. Direction (above/below the axis) carries growth vs. shrink.
-  const proColor = brandColor;
-  const basicColor = lighten(brandColor, 0.45);
-  const publicColor = lighten(brandColor, 0.7);
-  const netColor = ROW_COLORS.mrr;
+  const proAddColor = brandColor;
+  const basicAddColor = lighten(brandColor, 0.45);
+  const cancelBase = '#c1435b';
+  const proCancelColor = cancelBase;
+  const basicCancelColor = lighten(cancelBase, 0.35);
 
   const totals = useMemo(() => {
-    let pro = 0;
-    let basic = 0;
-    let pub = 0;
+    let proAdd = 0;
+    let basicAdd = 0;
+    let proCancel = 0;
+    let basicCancel = 0;
     for (const p of data) {
-      pro += p.proNet;
-      basic += p.basicNet;
-      pub += p.publicNet;
+      proAdd += p.proAdd;
+      basicAdd += p.basicAdd;
+      proCancel += p.proCancel;
+      basicCancel += p.basicCancel;
     }
-    return { pro, basic, pub, net: pro + basic + pub };
+    return { proAdd, basicAdd, proCancel, basicCancel };
   }, [data]);
 
   // Symmetric axis so the zero baseline sits at a consistent spot and the
   // grid spacing matches above and below.
   const yScale = useMemo(() => {
-    const bound = data.reduce((m, p) => Math.max(m, p.additions, -p.cancellations), 0);
+    const bound = data.reduce(
+      (m, p) => Math.max(m, p.proAdd + p.basicAdd, -(p.proCancel + p.basicCancel)),
+      0,
+    );
     const s = niceYScale(bound);
     const posTicks = s.ticks.filter((t) => t > 0);
     const ticks = [...posTicks.map((t) => -t).reverse(), 0, ...posTicks];
     return { max: s.max, ticks };
   }, [data]);
 
-  const hasFlow = useMemo(() => data.some((p) => p.additions !== 0 || p.cancellations !== 0), [data]);
+  const hasFlow = useMemo(
+    () => data.some((p) => p.proAdd !== 0 || p.basicAdd !== 0 || p.proCancel !== 0 || p.basicCancel !== 0),
+    [data],
+  );
   const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
 
   return (
@@ -1428,14 +1439,14 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>Signups &amp; Cancellations</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
-          <span><span style={{ color: proColor }}>●</span> Pro: {signed(totals.pro)}</span>
-          <span><span style={{ color: basicColor }}>●</span> Basic: {signed(totals.basic)}</span>
-          <span><span style={{ color: publicColor }}>●</span> Public: {signed(totals.pub)}</span>
-          <span><span style={{ color: netColor }}>●</span> Net Change: {signed(totals.net)}</span>
+          <span><span style={{ color: proAddColor }}>●</span> Pro adds: {totals.proAdd.toLocaleString()}</span>
+          <span><span style={{ color: basicAddColor }}>●</span> Basic adds: {totals.basicAdd.toLocaleString()}</span>
+          <span><span style={{ color: proCancelColor }}>●</span> Pro cancels: {Math.abs(totals.proCancel).toLocaleString()}</span>
+          <span><span style={{ color: basicCancelColor }}>●</span> Basic cancels: {Math.abs(totals.basicCancel).toLocaleString()}</span>
         </div>
       </div>
       {!hasFlow ? (
-        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No signup or cancellation activity captured yet.</div>
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No paid signup or cancellation activity captured yet.</div>
       ) : (
         <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={280}>
@@ -1464,34 +1475,110 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                 content={({ active, label, payload }) => {
                   if (!active || !payload?.length) return null;
                   const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
-                  const proNet = num('proNet');
-                  const basicNet = num('basicNet');
-                  const publicNet = num('publicNet');
-                  const net = proNet + basicNet + publicNet;
+                  const proAdd = num('proAdd');
+                  const basicAdd = num('basicAdd');
+                  const proCancel = num('proCancel');
+                  const basicCancel = num('basicCancel');
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div><span style={{ color: proColor }}>●</span> Pro: {signed(proNet)}</div>
-                      <div><span style={{ color: basicColor }}>●</span> Basic: {signed(basicNet)}</div>
-                      <div><span style={{ color: publicColor }}>●</span> Public: {signed(publicNet)}</div>
-                      <div className="mt-1 font-semibold">Net Change: {signed(net)}</div>
+                      <div style={{ color: proAddColor }}>Signups: {signed(proAdd + basicAdd)}</div>
+                      <div className="pl-2">Pro: {signed(proAdd)}</div>
+                      <div className="pl-2">Basic: {signed(basicAdd)}</div>
+                      <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(proCancel + basicCancel)}</div>
+                      <div className="pl-2">Pro: {signed(proCancel)}</div>
+                      <div className="pl-2">Basic: {signed(basicCancel)}</div>
                     </div>
                   );
                 }}
               />
-              <Bar dataKey="publicNet" name="Public" stackId="flow" fill={publicColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="basicNet" name="Basic" stackId="flow" fill={basicColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="proNet" name="Pro" stackId="flow" fill={proColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type RegistrationsChartCardProps = {
+  data: SignupFlowPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  brandColor: string;
+};
+
+// New-account registrations per day (any tier — everyone starts on Public at
+// email signup). A simple line: the top of the funnel that the paid flow above
+// converts from.
+function RegistrationsChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: RegistrationsChartCardProps) {
+  const total = useMemo(() => data.reduce((s, p) => s + p.registrations, 0), [data]);
+  const peak = useMemo(() => data.reduce((m, p) => Math.max(m, p.registrations), 0), [data]);
+  const yScale = useMemo(() => niceYScale(peak), [peak]);
+  const hasData = peak > 0;
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Account Registrations</h3>
+        <div className="text-xs" style={{ color: mutedText }}>
+          Total: {total.toLocaleString()} · Peak/day: {peak.toLocaleString()}
+        </div>
+      </div>
+      {!hasData ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No registrations captured yet.</div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                interval={0}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const registrations = Number(payload.find((p) => p.dataKey === 'registrations')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div>Registrations: {registrations.toLocaleString()}</div>
+                    </div>
+                  );
+                }}
+              />
               <Line
                 type="monotone"
-                dataKey="net"
-                name="Net Change"
-                stroke={netColor}
+                dataKey="registrations"
+                name="Registrations"
+                stroke={brandColor}
                 strokeWidth={2}
-                dot={{ r: 2, fill: netColor, strokeWidth: 0 }}
+                dot={false}
                 isAnimationActive={false}
               />
             </ComposedChart>
