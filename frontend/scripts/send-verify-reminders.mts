@@ -1,57 +1,65 @@
 #!/usr/bin/env node
 // Run from the frontend/ directory:
-//   node --experimental-strip-types scripts/send-verified-never-paid.mts \
+//   node --experimental-strip-types scripts/send-verify-reminders.mts \
 //     [--dry-run | --yes] [--lag-hours N] [--lookback-hours N] [--preview-to <email>]
 //
-// Finds every user in the "verified-never-paid" reactivation cohort (see
-// scripts/list-public-cohort.mjs) whose account is at least LAG_HOURS old but
-// no older than LOOKBACK_HOURS, and sends a one-shot founder-voice nudge
-// pitching the 7-day free trial.
+// Finds every user who registered but never confirmed their email — the
+// "unverified" cohort in scripts/list-public-cohort.mjs — whose account is at
+// least LAG_HOURS old but no older than LOOKBACK_HOURS, mints a FRESH 24h
+// single-use verification link, and sends a one-shot founder-voice nudge
+// asking them to finish verifying (which is what unlocks checkout + the free
+// trial). This is the unverified-cohort counterpart to
+// send-verified-never-paid.mts: that script pitches the trial to people who
+// already verified; this one gets people TO verify in the first place.
 //
-// Intended to be scheduled (cron or systemd timer) every 2 hours; the
-// systemd unit (zerogex-web-verified-never-paid.timer) fires every 2h on the
-// :30 minute so it doesn't collide with the hourly auth backup at :00, the
-// trial-reminder timer at :15, or the checkout-recovery timer at :45.
+// Intended to be scheduled (systemd timer) every 2 hours; the unit
+// (zerogex-web-verify-reminders.timer) fires every 2h on the :20 minute so it
+// doesn't collide with the hourly auth backup at :00, the trial-reminder timer
+// at :15, the verified-never-paid timer at :30, or checkout-recovery at :45.
 //
-// Eligibility mirrors list-public-cohort.mjs's `verified-never-paid` bucket
-// exactly, so a user only ever falls into this queue if none of the higher-
-// priority cohorts already own them (unverified / founding-eligible /
-// churned all get their own targeted messages):
+// Eligibility (unverified users can't be churned — churn requires a past
+// subscription, which requires verification first — and pitching the founding
+// rate to someone who can't reach checkout is pointless, so there is no
+// founding/churned carve-out here; verification is the single gate):
 //   - users.tier = 'public'
-//   - users.email_verified_at IS NOT NULL (proved ownership; won't bounce)
-//   - NOT founding-eligible-not-redeemed *while the founding lock-in window is
-//     still open* (send-founding-final-call owns them then). Once
-//     FOUNDING_LOCKIN_DEADLINE_ISO passes, that campaign hard-refuses to send
-//     and this carve-out LIFTS: a founding-eligible-never-redeemed user is now
-//     just a verified-never-paid signup (the founding rate is gone, so the
-//     trial is the only ask). Keeping the carve-out post-deadline is what
-//     stranded the launch cohort with zero automated email.
-//   - NOT churned (subscription_lapsed=1 would want a discount pitch instead)
-//   - users.stripe_subscription_id IS NULL (belt-and-suspenders for tier=public)
-//   - users.verified_never_paid_email_sent_at IS NULL (one-shot dedupe)
+//   - users.email_verified_at IS NULL            (never confirmed)
+//   - users.stripe_subscription_id IS NULL       (belt-and-suspenders)
+//   - users.verify_reminder_email_sent_at IS NULL (one-shot dedupe)
 //   - users.created_at in [now - LOOKBACK_HOURS, now - LAG_HOURS]
 //
-// Side effects on send:
-//   - Resend email via core/mailer.ts sendVerifiedNeverPaidEmail().
-//   - Stamps users.verified_never_paid_email_sent_at = now (permanent latch).
-//   - Writes a `verified_never_paid_email_sent` row into audit_events.
+// Side effects on send (per user, in this order):
+//   - INSERT a fresh row into email_verifications (same shape as
+//     core/serverAuth.ts issueEmailVerification) so GET /api/auth/verify-email
+//     consumes it identically.
+//   - Resend email via core/mailer.ts sendVerifyReminderEmail().
+//   - Stamps users.verify_reminder_email_sent_at = now (permanent latch).
+//   - Writes a `verify_reminder_email_sent` row into audit_events.
+//
+// Deliberately ONE reminder per account: these addresses never confirmed, so a
+// second nag risks bouncing into a cold or mistyped mailbox and hurting the
+// sending domain's reputation. The 7-day lookback also keeps us from ever
+// nagging a long-dead signup.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-import { sendVerifiedNeverPaidEmail } from '../core/mailer.ts';
-import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
+import { sendVerifyReminderEmail } from '../core/mailer.ts';
 
-// 2h lag matches the user-facing intent: give someone a chance to click
-// through the verification link, browse a bit, and either bounce or start
-// checkout on their own before we interrupt with a founder email. 7d
-// lookback bounds the mass-email risk on first deploy (only accounts
-// signed up in the last week ever qualify), and >> the 2h cron cadence
+// 2h lag mirrors send-verified-never-paid.mts: give someone a chance to click
+// the original signup verification link on their own before we interrupt with
+// a second email. 7d lookback bounds the mass-email risk on first deploy (only
+// accounts signed up in the last week ever qualify) and is >> the 2h cadence
 // so nobody slips through a tick.
 const DEFAULT_LAG_HOURS = 2;
 const DEFAULT_LOOKBACK_HOURS = 24 * 7;
+
+// Matches AUTH_EMAIL_VERIFICATION_TTL_SECONDS' default in core/serverAuth.ts
+// (24h). The freshly-minted token has to outlive the time it takes the user to
+// open the email, so we re-derive the same window rather than reuse whatever
+// the expired signup token had.
+const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 
 type Args = {
   dryRun: boolean;
@@ -119,39 +127,36 @@ function parseArgs(argv: string[]): Args {
 
 function usage() {
   console.log(`Usage:
-  node --experimental-strip-types scripts/send-verified-never-paid.mts \\
+  node --experimental-strip-types scripts/send-verify-reminders.mts \\
     [--dry-run | --yes] [--lag-hours N] [--lookback-hours N] \\
     [--preview-to <email>]
 
-Finds users in the verified-never-paid reactivation cohort (public tier,
-verified email, no subscription, not founding-eligible, not churned) whose
-account is between LAG_HOURS and LOOKBACK_HOURS old, and sends a one-shot
-founder-voice nudge pitching the 7-day free trial. Idempotent via
-users.verified_never_paid_email_sent_at.
+Finds users who registered but never confirmed their email (public tier,
+email_verified_at NULL, no subscription) whose account is between LAG_HOURS
+and LOOKBACK_HOURS old, mints a fresh 24h verification link, and sends a
+one-shot founder-voice nudge to finish verifying. Idempotent via
+users.verify_reminder_email_sent_at.
 
-Eligibility mirrors list-public-cohort.mjs's verified-never-paid bucket:
+Eligibility mirrors list-public-cohort.mjs's unverified bucket:
   - users.tier='public'
-  - users.email_verified_at IS NOT NULL
-  - NOT (founding_eligible=1 AND founding_member_started_at IS NULL)
-    — only while the founding lock-in window is open; the carve-out lifts
-    automatically once FOUNDING_LOCKIN_DEADLINE_ISO passes
-  - NOT subscription_lapsed=1
+  - users.email_verified_at IS NULL
   - users.stripe_subscription_id IS NULL
-  - users.verified_never_paid_email_sent_at IS NULL
+  - users.verify_reminder_email_sent_at IS NULL
   - users.created_at in [now - LOOKBACK, now - LAG] (defaults ${DEFAULT_LOOKBACK_HOURS}h / ${DEFAULT_LAG_HOURS}h)
 
 Options:
       --dry-run              Print eligible users; no email, no DB writes.
-  -y, --yes                  Send emails and stamp users.
+  -y, --yes                  Send emails, mint tokens, and stamp users.
       --lag-hours N          Hours to wait after signup before we'll email
                              (default ${DEFAULT_LAG_HOURS}).
       --lookback-hours N     Oldest signup we'll act on (default ${DEFAULT_LOOKBACK_HOURS}).
-      --preview-to <email>   Render the email and send ONE copy to <email>.
-                             No DB writes.
+      --preview-to <email>   Render the email with a sample link and send ONE
+                             copy to <email>. No token minted, no DB writes.
   -h, --help                 Show this help.
 
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or
-.env.local. Set AUTH_DB_PATH to override the default DB path.`);
+.env.local. NEXT_PUBLIC_APP_URL is REQUIRED to send (the verify link must be
+absolute and point at production). Set AUTH_DB_PATH to override the DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -219,14 +224,27 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
   process.exit(1);
 }
 
+// Unlike the pricing-link emails, a verify link that falls back to localhost is
+// useless — the whole email is the link. Refuse to send without an absolute
+// app URL rather than mail out dead links.
+if ((cliArgs.yes || cliArgs.previewTo) && !NEXT_PUBLIC_APP_URL) {
+  console.error('Error: NEXT_PUBLIC_APP_URL must be set to send (the verify link must be absolute).');
+  process.exit(1);
+}
+
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
 
+const appUrl = NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+
 if (cliArgs.previewTo) {
+  // Sample (deliberately non-valid) token: preview renders copy + layout
+  // without touching the DB. A real send mints a per-user token below.
+  const sampleUrl = `${appUrl}/api/auth/verify-email?token=preview-sample-token-not-valid`;
   console.log(`Sending preview to ${cliArgs.previewTo}...`);
-  await sendVerifiedNeverPaidEmail(cliArgs.previewTo);
-  console.log('Preview sent.');
+  await sendVerifyReminderEmail(cliArgs.previewTo, sampleUrl);
+  console.log('Preview sent (sample link is not a working token).');
   process.exit(0);
 }
 
@@ -251,44 +269,22 @@ type UserRow = {
   created_at: string;
 };
 
-// Classification matches list-public-cohort.mjs's classify(): a user is in
-// the verified-never-paid bucket iff they're NOT unverified, NOT
-// founding-eligible-not-redeemed, and NOT churned. Encoded here as SQL so
-// the whole segmentation runs against SQLite instead of pulling every
-// public user across the boundary.
-//
-// The founding-eligible carve-out is gated on the founding lock-in window:
-// while it's open, send-founding-final-call owns those users; once the
-// deadline passes it lifts (see the header note) so they flow here instead
-// of being stranded. Empty string when lifted keeps the SQL valid.
-const foundingOpen = isFoundingLockinOpen();
-const foundingCarveOut = foundingOpen
-  ? 'AND NOT (COALESCE(founding_eligible, 0) = 1 AND founding_member_started_at IS NULL)'
-  : '';
 const eligible = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, created_at
    FROM users
    WHERE tier = 'public'
-     AND email_verified_at IS NOT NULL
-     ${foundingCarveOut}
-     AND COALESCE(subscription_lapsed, 0) != 1
+     AND email_verified_at IS NULL
      AND stripe_subscription_id IS NULL
-     AND verified_never_paid_email_sent_at IS NULL
+     AND verify_reminder_email_sent_at IS NULL
      AND created_at >= '${escapeSqlLiteral(lowIso)}'
      AND created_at <= '${escapeSqlLiteral(highIso)}'
    ORDER BY created_at ASC;`,
 );
 
 console.log(`Auth DB:          ${dbPath}`);
+console.log(`App URL:          ${appUrl || '(unset)'}`);
 console.log(`Signup window:    ${lowIso}  →  ${highIso}`);
-console.log(
-  `Founding carve-out: ${
-    foundingOpen
-      ? 'ACTIVE (founding-eligible-never-redeemed still owned by send-founding-final-call)'
-      : 'LIFTED (deadline passed; founding-eligible-never-redeemed now eligible here)'
-  }`,
-);
 console.log(`Eligible users:   ${eligible.length}`);
 
 if (eligible.length === 0) {
@@ -305,7 +301,7 @@ if (eligible.length > sample.length) {
 }
 
 if (cliArgs.dryRun) {
-  console.log('\n[dry-run] No emails sent, no audit rows written.');
+  console.log('\n[dry-run] No emails sent, no tokens minted, no audit rows written.');
   process.exit(0);
 }
 
@@ -321,16 +317,41 @@ let failCount = 0;
 
 for (const user of eligible) {
   try {
-    await sendVerifiedNeverPaidEmail(user.email);
+    // Mint a fresh 24h single-use verification token, written with the same
+    // shape core/serverAuth.ts issueEmailVerification uses (base64url token,
+    // sha256 hex at rest) so GET /api/auth/verify-email consumes it. Done
+    // BEFORE the send because the token IS the email's payload; if the send
+    // then fails, the row is an unused token that self-expires in 24h.
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenId = `emailv_${crypto.randomBytes(12).toString('hex')}`;
     const nowIso = new Date().toISOString();
-    // Stamp the latch FIRST so a partial run that crashes after some sends
-    // doesn't re-send to anyone who already received. Audit row is best-
-    // effort; the column on `users` is the source of truth for idempotency.
+    const expiresIso = new Date(Date.now() + VERIFY_TTL_MS).toISOString();
+
+    execSqlite(
+      dbPath,
+      `INSERT INTO email_verifications (id, user_id, token_hash, created_at, expires_at, consumed_at)
+       VALUES (
+         '${escapeSqlLiteral(tokenId)}',
+         '${escapeSqlLiteral(user.id)}',
+         '${escapeSqlLiteral(tokenHash)}',
+         '${escapeSqlLiteral(nowIso)}',
+         '${escapeSqlLiteral(expiresIso)}',
+         NULL
+       );`,
+    );
+
+    const verifyUrl = `${appUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+    await sendVerifyReminderEmail(user.email, verifyUrl);
+
+    // Stamp the latch (source of truth for idempotency) before the best-effort
+    // audit row, mirroring send-verified-never-paid.mts.
+    const stampIso = new Date().toISOString();
     execSqlite(
       dbPath,
       `UPDATE users
-       SET verified_never_paid_email_sent_at = '${escapeSqlLiteral(nowIso)}',
-           updated_at = '${escapeSqlLiteral(nowIso)}'
+       SET verify_reminder_email_sent_at = '${escapeSqlLiteral(stampIso)}',
+           updated_at = '${escapeSqlLiteral(stampIso)}'
        WHERE id = '${escapeSqlLiteral(user.id)}';`,
     );
 
@@ -340,13 +361,13 @@ for (const user of eligible) {
       `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
        VALUES (
          '${escapeSqlLiteral(auditId)}',
-         'verified_never_paid_email_sent',
+         'verify_reminder_email_sent',
          '${escapeSqlLiteral(user.id)}',
          NULL,
          '${escapeSqlLiteral(user.email)}',
          'cron-script',
-         '${escapeSqlLiteral(`Verified-never-paid trial nudge sent; signup=${user.created_at}`)}',
-         '${escapeSqlLiteral(nowIso)}'
+         '${escapeSqlLiteral(`Verify-email reminder sent; signup=${user.created_at}`)}',
+         '${escapeSqlLiteral(stampIso)}'
        );`,
     );
     successCount++;

@@ -803,6 +803,64 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
   }
 }
 
+// Nudge for a user who registered but never clicked the verification link.
+// Copy is deliberately about VERIFICATION, not a discount or a hard trial
+// pitch: an unverified account is procedurally blocked from checkout (see
+// app/api/billing/checkout/route.ts), so the single next step that unlocks
+// everything — including the free trial — is confirming the email. `verifyUrl`
+// is a freshly-minted, 24h single-use verify link (the original signup token
+// has almost certainly expired by the time this fires). Sent at most once per
+// account; see scripts/send-verify-reminders.mts.
+export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
+  const safeLink = escapeHtml(verifyUrl);
+  const subject = 'Finish setting up your ZeroGEX account';
+
+  const text = [
+    'Hello,',
+    '',
+    "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up — and right now that's the one thing standing between you and the product.",
+    '',
+    'Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.',
+    '',
+    'Confirm your email with this link (it expires in 24 hours):',
+    verifyUrl,
+    '',
+    "If you didn't create a ZeroGEX account, you can safely ignore this — nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up &mdash; and right now that's the one thing standing between you and the product.</p>
+      <p>Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm email &amp; unlock the trial</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
+      <p style="font-size: 13px; color: #555;">This link expires in 24 hours.</p>
+      <p>If you didn't create a ZeroGEX account, you can safely ignore this &mdash; nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';

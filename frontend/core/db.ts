@@ -316,6 +316,16 @@ function initDb(): DatabaseSync {
   // welcome-mat email, and re-firing after any state churn would spam.
   ensureColumn('users', 'verified_never_paid_email_sent_at', 'TEXT');
 
+  // One-shot latch for the "finish verifying to unlock your free trial" nudge
+  // sent ~2h after signup to users who registered but never clicked the
+  // verification link (see scripts/send-verify-reminders.mts). NULL =
+  // eligible, set to the ISO timestamp on send. Never cleared: a single
+  // reminder is deliberate — these addresses never confirmed, so nagging a
+  // second time risks bouncing into a cold/typo'd mailbox and hurting the
+  // sending domain's reputation. The one-shot verified-never-paid nudge takes
+  // over once (if) they verify.
+  ensureColumn('users', 'verify_reminder_email_sent_at', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when
