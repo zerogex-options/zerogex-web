@@ -18,7 +18,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BellOff, Check } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BellOff, Check } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -121,10 +121,14 @@ async function upsertFollow(botId: string, state: BotState): Promise<void> {
 }
 
 async function removeFollow(botId: string): Promise<void> {
-  await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
+  const res = await fetch(`/api/tradeworkz/bots/${botId}/follow`, {
     method: 'DELETE',
     credentials: 'include',
+    cache: 'no-store',
   });
+  if (!res.ok) {
+    throw new Error(`Unfollow failed (HTTP ${res.status})`);
+  }
 }
 
 export default function NotificationsClient() {
@@ -137,6 +141,17 @@ export default function NotificationsClient() {
   const [state, setState] = useState<Map<string, BotState>>(new Map());
   const [savedTick, setSavedTick] = useState<Map<string, number>>(new Map());
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Bots the user just unfollowed. The card is hidden optimistically the
+  // instant Unfollow is clicked — the previous version waited on
+  // follows.refetch() and, if that GET served a stale (pre-DELETE) body, the
+  // card appeared to "stay up". Held in a ref too so the debounced save
+  // callback can bail for a removed bot instead of re-POSTing (which would
+  // resurrect the follow row a click just deleted).
+  const [pendingRemoval, setPendingRemoval] = useState<Set<string>>(() => new Set());
+  const pendingRemovalRef = useRef(pendingRemoval);
+  pendingRemovalRef.current = pendingRemoval;
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!follows.data) return;
@@ -159,12 +174,37 @@ export default function NotificationsClient() {
     });
   }, [follows.data]);
 
+  // Once a fresh follows payload no longer lists a bot we optimistically
+  // removed, the delete is confirmed on the server — drop it from the
+  // pending set. If a stale payload still lists it, keep hiding until a
+  // subsequent refresh reflects the delete; the set converges either way.
+  useEffect(() => {
+    if (!follows.data) return;
+    setPendingRemoval((prev) => {
+      if (prev.size === 0) return prev;
+      const present = new Set(follows.data!.follows.map((f) => f.bot_id));
+      let changed = false;
+      const next = new Set(prev);
+      for (const botId of prev) {
+        if (!present.has(botId)) {
+          next.delete(botId);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [follows.data]);
+
   const scheduleSave = useCallback((botId: string, newState: BotState) => {
     const timers = saveTimers.current;
     const existing = timers.get(botId);
     if (existing) clearTimeout(existing);
     const handle = setTimeout(async () => {
       timers.delete(botId);
+      // A save that fires after the bot was unfollowed would re-create the
+      // follow row (upsert) — exactly the "I unfollowed but it came back"
+      // failure. Skip it.
+      if (pendingRemovalRef.current.has(botId)) return;
       try {
         await upsertFollow(botId, newState);
         setSavedTick((prev) => {
@@ -204,35 +244,63 @@ export default function NotificationsClient() {
       const existing = timers.get(botId);
       if (existing) clearTimeout(existing);
       timers.delete(botId);
-      await removeFollow(botId);
-      follows.refetch();
+      setRemoveError(null);
+      // Hide the card immediately; don't wait on the refetch (which can
+      // serve a stale, pre-DELETE follows body).
+      setPendingRemoval((prev) => {
+        const next = new Set(prev);
+        next.add(botId);
+        return next;
+      });
+      try {
+        await removeFollow(botId);
+        follows.refetch();
+      } catch (err) {
+        // Roll the card back into view and surface why it couldn't be removed.
+        setPendingRemoval((prev) => {
+          const next = new Set(prev);
+          next.delete(botId);
+          return next;
+        });
+        setRemoveError(
+          err instanceof Error ? err.message : 'Could not unfollow — please try again.',
+        );
+      }
     },
     [follows],
   );
 
+  // Rows still shown = followed rows minus the ones being unfollowed.
+  const visibleRows = useMemo(() => {
+    const all = follows.data?.follows ?? [];
+    return pendingRemoval.size === 0
+      ? all
+      : all.filter((r) => !pendingRemoval.has(r.bot_id));
+  }, [follows.data, pendingRemoval]);
+
   const anyEmailOn = useMemo(() => {
-    for (const s of state.values()) if (s.email) return true;
+    for (const rec of visibleRows) {
+      const s = state.get(rec.bot_id) ?? normalizeChannels(rec.channels);
+      if (s.email) return true;
+    }
     return false;
-  }, [state]);
+  }, [visibleRows, state]);
 
   const bulkToggle = useCallback(
     (channel: 'in_app' | 'email' | 'webhook', enable: boolean) => {
-      const rows = follows.data?.follows ?? [];
-      for (const rec of rows) {
+      for (const rec of visibleRows) {
         const cur = state.get(rec.bot_id) ?? normalizeChannels(rec.channels);
         if (Boolean(cur[channel]) === enable) continue;
         updateBotState(rec.bot_id, { [channel]: enable } as Partial<BotState>);
       }
     },
-    [follows.data, state, updateBotState],
+    [visibleRows, state, updateBotState],
   );
 
   if (follows.loading && !follows.data) return <LoadingSpinner />;
   if (follows.error && !follows.data) {
     return <ErrorMessage message={follows.error} onRetry={follows.refetch} />;
   }
-
-  const rows = follows.data?.follows ?? [];
 
   return (
     <main className="min-h-screen">
@@ -250,11 +318,27 @@ export default function NotificationsClient() {
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)] max-w-2xl mt-2 leading-relaxed">
             Manage the TradeWorkz™ bots you follow and the channels each subscription uses.
-            Changes save automatically.
+            Changes save automatically. Turning a channel off or unfollowing also cancels any
+            not-yet-delivered notifications on that channel.
           </p>
         </div>
 
-        {rows.length > 0 ? (
+        {removeError ? (
+          <div
+            className="rounded-xl p-3 mb-4 flex items-start gap-2 text-xs"
+            style={{
+              backgroundColor: 'var(--color-bear-soft)',
+              color: 'var(--color-bear)',
+              border: '1px solid var(--color-bear)',
+            }}
+            role="alert"
+          >
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span className="leading-snug">{removeError}</span>
+          </div>
+        ) : null}
+
+        {visibleRows.length > 0 ? (
           <section
             className="rounded-2xl p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
             style={{
@@ -286,7 +370,7 @@ export default function NotificationsClient() {
           </section>
         ) : null}
 
-        {rows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <div
             className="p-8 rounded-2xl text-center"
             style={{
@@ -317,7 +401,7 @@ export default function NotificationsClient() {
           </div>
         ) : (
           <div className="space-y-4">
-            {rows.map((rec) => {
+            {visibleRows.map((rec) => {
               const s =
                 state.get(rec.bot_id) ??
                 (() => {
