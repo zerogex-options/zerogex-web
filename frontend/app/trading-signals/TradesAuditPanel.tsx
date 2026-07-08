@@ -99,6 +99,36 @@ interface AuditResponse {
   };
 }
 
+interface OpenPositionRow {
+  id: number;
+  bot_id: string;
+  bot_display_name: string | null;
+  underlying: string;
+  opened_at: string | null;
+  updated_at: string | null;
+  direction: string;
+  strategy_type: string;
+  legs: Leg[] | null;
+  entry_price: number | null;
+  current_price: number | null;
+  quantity_open: number | null;
+  unrealized_pnl: number | null;
+  stop_price: number | null;
+  target_price: number | null;
+  time_stop_at: string | null;
+  min_hold_until: string | null;
+  entry_conviction: number | null;
+  origin: 'live' | 'simulate';
+}
+
+interface OpenPositionsResponse {
+  entries: OpenPositionRow[];
+  summary: {
+    n_open: number;
+    total_unrealized_pnl: number;
+  };
+}
+
 interface Props {
   bots: BotRow[];
 }
@@ -113,6 +143,8 @@ export default function TradesAuditPanel({ bots }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [openPositions, setOpenPositions] =
+    useState<OpenPositionsResponse | null>(null);
 
   const queryParams = useMemo(() => {
     const p = new URLSearchParams();
@@ -153,6 +185,33 @@ export default function TradesAuditPanel({ bots }: Props) {
     setOffset(0);
   }, [origin, botId]);
 
+  // Open positions — polls every 15 s so mark-to-market and time-stop
+  // countdown refresh without a page reload. Failures are swallowed
+  // (the section just doesn't render); the closed-trades table below
+  // is authoritative if the open-positions endpoint hiccups.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchOpen = async () => {
+      try {
+        const res = await fetch('/api/tradeworkz/admin/positions', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as OpenPositionsResponse;
+        if (!cancelled) setOpenPositions(body);
+      } catch {
+        /* keep the last-known good snapshot */
+      }
+    };
+    void fetchOpen();
+    const timer = setInterval(fetchOpen, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
   const downloadCsv = useCallback(() => {
     const p = new URLSearchParams();
     p.set('origin', origin);
@@ -184,7 +243,9 @@ export default function TradesAuditPanel({ bots }: Props) {
             Trade audit
           </h2>
           <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-            Every closed trade with an explicit{' '}
+            Currently-open positions on top; every{' '}
+            <span className="font-medium text-[var(--color-text-primary)]">closed</span>{' '}
+            trade below with an explicit{' '}
             <span className="font-medium text-[var(--color-text-primary)]">SIM</span> or{' '}
             <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
             tag. Prices are <span className="font-medium">per share</span>; each
@@ -225,6 +286,8 @@ export default function TradesAuditPanel({ bots }: Props) {
           </button>
         </div>
       </div>
+
+      <OpenPositionsSection data={openPositions} />
 
       {data ? (
         <div
@@ -451,6 +514,160 @@ export default function TradesAuditPanel({ bots }: Props) {
       ) : null}
     </section>
   );
+}
+
+function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) {
+  if (!data) return null;
+  const now = Date.now();
+  return (
+    <div
+      className="px-5 py-4 border-b"
+      style={{
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'var(--color-surface-subtle)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-2 gap-4 flex-wrap">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
+            Open positions
+          </div>
+          <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
+            Currently held — updates every 15s. Closed trades appear below
+            once they exit.
+          </div>
+        </div>
+        <div className="flex items-center gap-6 text-xs">
+          <SummaryCell label="Open" value={data.summary.n_open.toLocaleString()} />
+          <SummaryCell
+            label="Unrealized P&L"
+            value={fmtSignedMoney(data.summary.total_unrealized_pnl)}
+            tone={
+              data.summary.total_unrealized_pnl >= 0
+                ? 'var(--color-bull)'
+                : 'var(--color-bear)'
+            }
+          />
+        </div>
+      </div>
+
+      {data.entries.length === 0 ? (
+        <div className="text-[11px] text-[var(--color-text-secondary)] mt-2 italic">
+          No positions currently held. The engine opens on the next
+          qualifying tick.
+        </div>
+      ) : (
+        <div className="overflow-x-auto mt-3">
+          <table className="w-full text-xs">
+            <thead>
+              <tr
+                className="border-b text-[10px] uppercase tracking-wider"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <Th>Bot</Th>
+                <Th>Contract</Th>
+                <Th>Dir.</Th>
+                <Th align="right">Entry / sh</Th>
+                <Th align="right">Mark / sh</Th>
+                <Th align="right">Qty</Th>
+                <Th align="right">Cost basis</Th>
+                <Th align="right">Unrealized</Th>
+                <Th align="right">Target</Th>
+                <Th align="right">Stop</Th>
+                <Th>Held</Th>
+                <Th>Time stop</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.entries.map((pos) => {
+                const positive = (pos.unrealized_pnl ?? 0) >= 0;
+                const qty = pos.quantity_open ?? 0;
+                const costBasis =
+                  pos.entry_price != null && qty > 0
+                    ? pos.entry_price * qty * 100
+                    : null;
+                const openedMs = pos.opened_at
+                  ? Date.parse(pos.opened_at)
+                  : null;
+                const heldSec = openedMs ? Math.max(0, (now - openedMs) / 1000) : null;
+                const heldLabel = fmtDuration(heldSec);
+                const timeStopMs = pos.time_stop_at
+                  ? Date.parse(pos.time_stop_at)
+                  : null;
+                const untilTimeStopSec = timeStopMs
+                  ? Math.max(0, (timeStopMs - now) / 1000)
+                  : null;
+                const timeStopLabel = untilTimeStopSec != null
+                  ? `in ${fmtDuration(untilTimeStopSec) ?? '—'}`
+                  : '—';
+                return (
+                  <tr
+                    key={pos.id}
+                    className="border-b last:border-b-0"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    <td className="px-3 py-2 text-[var(--color-text-primary)]">
+                      {pos.bot_display_name ?? pos.bot_id}
+                    </td>
+                    <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
+                      {contractLabel(pos.underlying, pos.legs)}
+                    </td>
+                    <td className="px-3 py-2 text-[var(--color-text-secondary)]">
+                      {pos.direction}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {pos.entry_price != null ? `$${pos.entry_price.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {pos.current_price != null ? `$${pos.current_price.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {qty > 0 ? qty.toLocaleString() : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-secondary)]">
+                      {fmtCurrency(costBasis)}
+                    </td>
+                    <td
+                      className="px-3 py-2 text-right tabular-nums font-medium"
+                      style={{ color: positive ? 'var(--color-bull)' : 'var(--color-bear)' }}
+                    >
+                      {pos.unrealized_pnl != null
+                        ? fmtSignedMoney(pos.unrealized_pnl)
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-secondary)]">
+                      {pos.target_price != null ? pos.target_price.toFixed(2) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-secondary)]">
+                      {pos.stop_price != null ? pos.stop_price.toFixed(2) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
+                      {heldLabel ?? '—'}
+                    </td>
+                    <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
+                      {timeStopLabel}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null || !Number.isFinite(seconds)) return null;
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function OriginTabs({
