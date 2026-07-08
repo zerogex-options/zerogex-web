@@ -218,6 +218,18 @@ const rows = sinceMs == null
       return Number.isFinite(parsed) && parsed >= sinceMs;
     });
 
+// Mirror of core/foundingLockin.ts — this plain `.mjs` (run under `node
+// --no-warnings`, no --experimental-strip-types) can't import that .ts
+// module the way the .mts senders do. KEEP THIS ISO IN SYNC with
+// FOUNDING_LOCKIN_DEADLINE_ISO there; they intentionally encode the same
+// instant so this diagnostic and send-verified-never-paid.mts agree on who
+// is "founding-eligible" vs "verified-never-paid".
+const FOUNDING_LOCKIN_DEADLINE_ISO = '2026-07-01T13:30:00.000Z';
+function isFoundingLockinOpen(now = Date.now()) {
+  const deadlineMs = Date.parse(FOUNDING_LOCKIN_DEADLINE_ISO);
+  return Number.isFinite(deadlineMs) && now < deadlineMs;
+}
+
 function classify(u) {
   if (!u.email_verified_at) return 'unverified';
   // Founding-eligible only meaningful while they haven't redeemed yet —
@@ -225,7 +237,19 @@ function classify(u) {
   // app/api/webhooks/stripe/route.ts:226 stampFoundingStart), so a former
   // founding member who churned falls through to the 'churned' bucket
   // instead of being pitched a discount they've already burned.
-  if (Number(u.founding_eligible) === 1 && !u.founding_member_started_at) {
+  //
+  // AND only while the lock-in offer is still open. send-founding-final-call
+  // hard-refuses to send past FOUNDING_LOCKIN_DEADLINE_ISO, so after the
+  // deadline a founding-eligible-never-redeemed user has no campaign that
+  // targets them here — they're reclassified down-priority (almost always
+  // verified-never-paid, which now includes them too). Without this gate the
+  // report shows a large 'founding-eligible' bucket that no automated email
+  // reaches, which is exactly how the launch cohort went dark.
+  if (
+    isFoundingLockinOpen() &&
+    Number(u.founding_eligible) === 1 &&
+    !u.founding_member_started_at
+  ) {
     return 'founding-eligible';
   }
   if (Number(u.subscription_lapsed) === 1) return 'churned';
