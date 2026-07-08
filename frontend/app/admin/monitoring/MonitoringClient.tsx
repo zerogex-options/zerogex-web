@@ -26,6 +26,21 @@ type SignupPoint = {
   disclaimer: number;
 };
 
+// Mirrors SignupFlowPoint in core/monitoring.ts. Additions are positive,
+// cancellations negative (already sign-flipped server-side).
+type SignupFlowPoint = {
+  day: string;
+  basicAdd: number;
+  proAdd: number;
+  publicAdd: number;
+  basicCancel: number;
+  proCancel: number;
+  publicCancel: number;
+  additions: number;
+  cancellations: number;
+  net: number;
+};
+
 // Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
@@ -108,6 +123,7 @@ type Snapshot = {
   mrrSeries: MrrPoint[];
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
+  signupFlow: SignupFlowPoint[];
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -262,8 +278,11 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
-  const signupYScale = niceYScale(
+  const tierYScale = niceYScale(
     data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0),
+  );
+  const subscriberYScale = niceYScale(
+    data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0),
   );
 
   return (
@@ -271,16 +290,30 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of total Basic, Pro, and Public users, full subscribers, free-trial users, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Daily snapshot of subscribers (full + free-trial), tier headcount (Basic, Pro, Public), per-day signups vs. cancellations, and disclaimer acceptance; the latest sample overwrites today&apos;s point.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <SignupChartCard
+          <TotalSubscribersChartCard
+            data={data.signups}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            yScale={subscriberYScale}
+          />
+          <TierBreakdownChartCard
             data={data.signups}
             cardBg={cardBg}
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
-            yScale={signupYScale}
+            yScale={tierYScale}
+          />
+          <SignupFlowChartCard
+            data={data.signupFlow}
+            cardBg={cardBg}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            brandColor={ROW_COLORS.signups}
           />
           <DisclaimerChartCard
             data={data.signups}
@@ -288,7 +321,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             axisStroke={axisStroke}
             mutedText={mutedText}
             brandColor={ROW_COLORS.signups}
-            yScale={signupYScale}
+            yScale={tierYScale}
           />
         </div>
       </section>
@@ -1138,7 +1171,7 @@ function ChartCard({ title, data, metricKey, color, cardBg, axisStroke, mutedTex
   );
 }
 
-type SignupChartCardProps = {
+type TierBreakdownChartCardProps = {
   data: SignupPoint[];
   cardBg: string;
   axisStroke: string;
@@ -1147,30 +1180,23 @@ type SignupChartCardProps = {
   yScale: { max: number; ticks: number[] };
 };
 
-function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yScale }: SignupChartCardProps) {
+// Tier headcount (Pro / Basic / Public) as a stacked area. One total —
+// Total Users — is surfaced in the header.
+function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColor, yScale }: TierBreakdownChartCardProps) {
   const proColor = brandColor;
   const basicColor = lighten(brandColor, 0.45);
   const publicColor = lighten(brandColor, 0.7);
-  const payingColor = '#ff8531';
-  const trialingColor = '#ffa600';
-  const latest =
-    data.length > 0
-      ? data[data.length - 1]
-      : { basic: 0, pro: 0, public: 0, paying: 0, trialing: 0 };
+  const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0, public: 0 };
   const totalUsers = latest.basic + latest.pro + latest.public;
-  const totalSubscribers = latest.paying + latest.trialing;
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="zg-h3" style={{ color: axisStroke }}>Daily Total</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Tier Breakdown</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: proColor }}>●</span> Pro: {latest.pro.toLocaleString()}</span>
           <span><span style={{ color: basicColor }}>●</span> Basic: {latest.basic.toLocaleString()}</span>
           <span><span style={{ color: publicColor }}>●</span> Public: {latest.public.toLocaleString()}</span>
-          <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
-          <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
           <span>Total Users: {totalUsers.toLocaleString()}</span>
-          <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
         </div>
       </div>
       {data.length === 0 ? (
@@ -1204,8 +1230,6 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                   const basic = Number(payload.find((p) => p.dataKey === 'basic')?.value ?? 0);
                   const pro = Number(payload.find((p) => p.dataKey === 'pro')?.value ?? 0);
                   const pub = Number(payload.find((p) => p.dataKey === 'public')?.value ?? 0);
-                  const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
-                  const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -1215,10 +1239,7 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                       <div>Pro: {pro.toLocaleString()}</div>
                       <div>Basic: {basic.toLocaleString()}</div>
                       <div>Public: {pub.toLocaleString()}</div>
-                      <div>Full Subscriber: {paying.toLocaleString()}</div>
-                      <div>Free Trial: {trialing.toLocaleString()}</div>
                       <div className="mt-1">Total Users: {(basic + pro + pub).toLocaleString()}</div>
-                      <div>Total Subscribers: {(paying + trialing).toLocaleString()}</div>
                     </div>
                   );
                 }}
@@ -1253,6 +1274,82 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type TotalSubscribersChartCardProps = {
+  data: SignupPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  yScale: { max: number; ticks: number[] };
+};
+
+// Paying subscribers split into Full Subscriber (active) and Free Trial
+// (trialing) as a stacked area. One total — Total Subscribers — in the header.
+function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
+  const payingColor = '#ff8531';
+  const trialingColor = '#ffa600';
+  const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0 };
+  const totalSubscribers = latest.paying + latest.trialing;
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Total Subscribers</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
+          <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
+          <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No subscriber data captured yet.</div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[0, yScale.max]}
+                ticks={yScale.ticks}
+                interval={0}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
+                  const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div>Full Subscriber: {paying.toLocaleString()}</div>
+                      <div>Free Trial: {trialing.toLocaleString()}</div>
+                      <div className="mt-1">Total Subscribers: {(paying + trialing).toLocaleString()}</div>
+                    </div>
+                  );
+                }}
+              />
               <Area
                 type="monotone"
                 dataKey="paying"
@@ -1271,6 +1368,143 @@ function SignupChartCard({ data, cardBg, axisStroke, mutedText, brandColor, ySca
                 stroke={trialingColor}
                 fill={trialingColor}
                 fillOpacity={0.5}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type SignupFlowChartCardProps = {
+  data: SignupFlowPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  brandColor: string;
+};
+
+// Per-day membership flow: signups (additions) stack up above the x-axis,
+// cancellations (losses) stack down below it, each split by tier, with a Net
+// Change line overlaid on top. Cancellations arrive pre-negated from the API.
+function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SignupFlowChartCardProps) {
+  // Additions share the signups brand (blue) family; cancellations share a
+  // bear-red family. Same hue ordering per tier so the tooltip stays legible.
+  const proAddColor = brandColor;
+  const basicAddColor = lighten(brandColor, 0.45);
+  const publicAddColor = lighten(brandColor, 0.7);
+  const cancelBase = '#c1435b';
+  const proCancelColor = cancelBase;
+  const basicCancelColor = lighten(cancelBase, 0.35);
+  const publicCancelColor = lighten(cancelBase, 0.6);
+  const netColor = ROW_COLORS.mrr;
+
+  const totals = useMemo(() => {
+    let add = 0;
+    let cancel = 0;
+    for (const p of data) {
+      add += p.additions;
+      cancel += p.cancellations;
+    }
+    return { add, cancel, net: add + cancel };
+  }, [data]);
+
+  // Symmetric axis so the zero baseline sits at a consistent spot and the
+  // grid spacing matches above and below.
+  const yScale = useMemo(() => {
+    const bound = data.reduce((m, p) => Math.max(m, p.additions, -p.cancellations), 0);
+    const s = niceYScale(bound);
+    const posTicks = s.ticks.filter((t) => t > 0);
+    const ticks = [...posTicks.map((t) => -t).reverse(), 0, ...posTicks];
+    return { max: s.max, ticks };
+  }, [data]);
+
+  const hasFlow = useMemo(() => data.some((p) => p.additions !== 0 || p.cancellations !== 0), [data]);
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Signups &amp; Cancellations</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: proAddColor }}>▲</span> Signups: {totals.add.toLocaleString()}</span>
+          <span><span style={{ color: cancelBase }}>▼</span> Cancellations: {Math.abs(totals.cancel).toLocaleString()}</span>
+          <span><span style={{ color: netColor }}>●</span> Net Change: {totals.net > 0 ? '+' : ''}{totals.net.toLocaleString()}</span>
+        </div>
+      </div>
+      {!hasFlow ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No signup or cancellation activity captured yet.</div>
+      ) : (
+        <MobileScrollableChart>
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }} stackOffset="sign">
+              <CartesianGrid strokeOpacity={0.1} vertical={false} />
+              <XAxis
+                dataKey="day"
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                minTickGap={40}
+                tickFormatter={formatDayLabel}
+              />
+              <YAxis
+                stroke={axisStroke}
+                tick={{ fill: axisStroke, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[-yScale.max, yScale.max]}
+                ticks={yScale.ticks}
+                interval={0}
+              />
+              <ReferenceLine y={0} stroke={axisStroke} strokeOpacity={0.35} />
+              <Tooltip
+                cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
+                content={({ active, label, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
+                  const proAdd = num('proAdd');
+                  const basicAdd = num('basicAdd');
+                  const publicAdd = num('publicAdd');
+                  const proCancel = num('proCancel');
+                  const basicCancel = num('basicCancel');
+                  const publicCancel = num('publicCancel');
+                  const additions = proAdd + basicAdd + publicAdd;
+                  const cancellations = proCancel + basicCancel + publicCancel;
+                  const net = additions + cancellations;
+                  const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
+                  return (
+                    <div
+                      className="rounded-lg border px-3 py-2 text-xs"
+                      style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                    >
+                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div style={{ color: proAddColor }}>Signups: {signed(additions)}</div>
+                      <div className="pl-2">Pro: {signed(proAdd)}</div>
+                      <div className="pl-2">Basic: {signed(basicAdd)}</div>
+                      <div className="pl-2">Public: {signed(publicAdd)}</div>
+                      <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(cancellations)}</div>
+                      <div className="pl-2">Pro: {signed(proCancel)}</div>
+                      <div className="pl-2">Basic: {signed(basicCancel)}</div>
+                      <div className="pl-2">Public: {signed(publicCancel)}</div>
+                      <div className="mt-1 font-semibold">Net Change: {signed(net)}</div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="publicAdd" name="Public signups" stackId="flow" fill={publicAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="basicAdd" name="Basic signups" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="proAdd" name="Pro signups" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="publicCancel" name="Public cancellations" stackId="flow" fill={publicCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey="net"
+                name="Net Change"
+                stroke={netColor}
+                strokeWidth={2}
+                dot={{ r: 2, fill: netColor, strokeWidth: 0 }}
                 isAnimationActive={false}
               />
             </ComposedChart>

@@ -62,6 +62,27 @@ export type SignupPoint = {
   disclaimer: number;
 };
 
+// Per-day membership flow, derived from day-over-day deltas of the tier
+// headcount snapshots. Additions (a tier grew) are positive; cancellations
+// (a tier shrank — a paid sub ended, an account was deleted, a downgrade) are
+// negative. Splitting each tier's signed delta into an add/cancel pair lets the
+// dashboard render a diverging column (joins above the axis, losses below) with
+// a per-tier tooltip. `net` = additions + cancellations for the day.
+export type SignupFlowPoint = {
+  day: string;
+  basicAdd: number;
+  proAdd: number;
+  publicAdd: number;
+  // Cancellations are stored as negative numbers so the chart can stack them
+  // straight below the x-axis without a client-side sign flip.
+  basicCancel: number;
+  proCancel: number;
+  publicCancel: number;
+  additions: number;
+  cancellations: number;
+  net: number;
+};
+
 export type WebhookHealth = {
   // Counters of audit_events rows in two trailing windows. Errors are real
   // handler failures (5xx-returning); orphans are events for unknown
@@ -109,6 +130,7 @@ export type MonitoringSnapshot = {
   mrrSeries: MrrPoint[];
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
+  signupFlow: SignupFlowPoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -674,6 +696,99 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
+type TierHeadcount = { basic: number; pro: number; public: number };
+
+function zeroFlow(day: string): SignupFlowPoint {
+  return {
+    day,
+    basicAdd: 0,
+    proAdd: 0,
+    publicAdd: 0,
+    basicCancel: 0,
+    proCancel: 0,
+    publicCancel: 0,
+    additions: 0,
+    cancellations: 0,
+    net: 0,
+  };
+}
+
+function flowFromDelta(day: string, prev: TierHeadcount, curr: TierHeadcount): SignupFlowPoint {
+  const dBasic = curr.basic - prev.basic;
+  const dPro = curr.pro - prev.pro;
+  const dPublic = curr.public - prev.public;
+  const basicAdd = Math.max(0, dBasic);
+  const proAdd = Math.max(0, dPro);
+  const publicAdd = Math.max(0, dPublic);
+  const basicCancel = Math.min(0, dBasic);
+  const proCancel = Math.min(0, dPro);
+  const publicCancel = Math.min(0, dPublic);
+  const additions = basicAdd + proAdd + publicAdd;
+  const cancellations = basicCancel + proCancel + publicCancel;
+  return {
+    day,
+    basicAdd,
+    proAdd,
+    publicAdd,
+    basicCancel,
+    proCancel,
+    publicCancel,
+    additions,
+    cancellations,
+    net: additions + cancellations,
+  };
+}
+
+// Per-day signups (additions) and cancellations (losses) by tier, derived from
+// the day-over-day change in the tier headcount snapshots that buildSignupSeries
+// persists. Spans the same MAX_DAILY window as the other daily charts.
+//
+// Because the snapshots are cumulative headcounts, the delta between two
+// consecutive sampled days is the net membership change for that tier. A brand
+// new registration lifts `public`; a subscription cancellation moves the user
+// off `pro`/`basic` (shown as a loss there) and back onto `public`; an account
+// deletion drops `public`. Days with no fresh sample carry the prior headcount
+// forward, so their delta is correctly zero.
+//
+// The first sampled day in (or before) the window has no earlier reference, so
+// it is emitted as zero flow rather than reporting the entire starting headcount
+// as one day of signups. When history exists before the window starts, that
+// pre-window sample seeds the baseline so the first in-window day shows a real
+// delta.
+function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
+  const store = readSignupStore();
+  const sampleDays = Object.keys(store.days).sort();
+  const dailyKeys = generateDailyKeys(now);
+  const windowStart = dailyKeys[0] ?? '';
+
+  // Seed the baseline from the latest sample strictly before the window, if any.
+  let carried: TierHeadcount | null = null;
+  for (const d of sampleDays) {
+    if (d >= windowStart) break;
+    const s = store.days[d];
+    carried = { basic: s.basic, pro: s.pro, public: s.public };
+  }
+
+  const series: SignupFlowPoint[] = [];
+  for (const day of dailyKeys) {
+    const sample = store.days[day];
+    if (!sample) {
+      // Headcount unchanged this day → no flow. Baseline unchanged.
+      series.push(zeroFlow(day));
+      continue;
+    }
+    const curr: TierHeadcount = { basic: sample.basic, pro: sample.pro, public: sample.public };
+    if (carried === null) {
+      // First-ever sample: origin point, nothing to diff against.
+      series.push(zeroFlow(day));
+    } else {
+      series.push(flowFromDelta(day, carried, curr));
+    }
+    carried = curr;
+  }
+  return series;
+}
+
 // Counts audit_events rows of `type` whose created_at is newer than
 // `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
 // table is treated as zero so this never throws back to the API route.
@@ -813,11 +928,15 @@ export function getSnapshot(): MonitoringSnapshot {
   const dailyKeys = generateDailyKeys(now);
   const mrr = buildMrr();
   const mrrSeries = buildMrrSeries(now, mrr);
+  // buildSignupSeries persists today's headcount sample; run it before
+  // buildSignupFlowSeries so the flow deltas see the freshest snapshot.
+  const signups = buildSignupSeries(now);
   return {
     mrr,
     mrrSeries,
     mrrTrend: computeMrrTrend(mrrSeries, mrr.targetMrr),
-    signups: buildSignupSeries(now),
+    signups,
+    signupFlow: buildSignupFlowSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),
