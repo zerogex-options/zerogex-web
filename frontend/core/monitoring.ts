@@ -730,13 +730,17 @@ function parseSyncTier(message: string): PaidTier | null {
 //   • Paid cancellations — `stripe_subscription_deleted` rows (the sub actually
 //     ended), tier recovered from that subscription's most recent paid sync,
 //     stored negative so they stack below the axis.
-//   • Registrations    — `register` + `oauth_login` rows (each fires once per new
-//     self-serve account; returning OAuth logins log `login_success`, so they're
-//     never miscounted). Tier-agnostic: everyone starts on Public at signup.
+//   • Registrations    — new rows in the `users` table, counted by `created_at`
+//     (one per account, matching `make users`). Deliberately NOT sourced from
+//     `register`/`oauth_login` audit events: before 2026-06-18, `oauth_login`
+//     fired on every OAuth login (not just signup), so returning logins inflated
+//     the count and produced day spikes. The users table has exactly one row per
+//     account, so it can't double-count.
 //
-// Rows are bucketed onto the ET day axis (etBucketKeys) to line up with the other
-// charts, since created_at is stored in UTC. Mid-tier upgrades/downgrades
-// (basic↔pro) aren't a first-conversion, so they don't count as an add.
+// Subscription rows are bucketed onto the ET day axis (etBucketKeys) to line up
+// with the other charts, since created_at is stored in UTC. Mid-tier
+// upgrades/downgrades (basic↔pro) aren't a first-conversion, so they don't count
+// as an add.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   const dailyKeys = generateDailyKeys(now);
   const acc: Record<string, FlowAcc> = {};
@@ -800,14 +804,15 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       else acc[day].basicCancel -= 1;
     }
 
-    // Registrations: every new self-serve account (tier-agnostic).
-    const registrationRows = db
+    // Registrations: authoritative new-account count from the users table (one
+    // row per account), by the day the row was created.
+    const userRows = db
       .prepare(
-        `SELECT created_at FROM audit_events
-         WHERE type IN ('register', 'oauth_login') AND created_at > datetime('now', '-100 days')`,
+        `SELECT created_at FROM users
+         WHERE created_at > datetime('now', '-100 days')`,
       )
       .all() as Array<{ created_at: string }>;
-    for (const row of registrationRows) {
+    for (const row of userRows) {
       const day = etDay(row.created_at);
       if (day && acc[day]) acc[day].registrations += 1;
     }
