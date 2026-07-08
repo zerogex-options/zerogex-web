@@ -26,6 +26,14 @@ import type { BotRow } from './types';
 
 type Origin = 'all' | 'live' | 'simulate';
 
+interface Leg {
+  option_symbol?: string | null;
+  side?: string | null;
+  option_type?: string | null;
+  strike?: number | null;
+  expiration?: string | null;
+}
+
 interface TradeRow {
   id: number;
   bot_id: string;
@@ -43,8 +51,41 @@ interface TradeRow {
   outcome: 'win' | 'loss' | 'scratch' | string | null;
   close_reason: string | null;
   entry_conviction: number | null;
+  legs: Leg[] | null;
   components_at_entry: Record<string, unknown> | null;
   components_at_exit: Record<string, unknown> | null;
+}
+
+/**
+ * Compact contract label from the trade's legs.
+ * "SPY 7/8 P746" for a single-leg long put; "SPY 7/8 C750 / SPY 7/8 P740"
+ * for a two-leg structure. Falls back to the raw option_symbol if the
+ * component fields are missing.
+ */
+function contractLabel(underlying: string, legs: Leg[] | null | undefined): string {
+  if (!legs || legs.length === 0) return '—';
+  return legs
+    .map((leg) => {
+      const exp = String(leg.expiration ?? '');
+      // ISO expiration is YYYY-MM-DD; render as M/D so the table doesn't get too wide.
+      let expShort = exp;
+      if (exp.length >= 10) {
+        const [, m, d] = exp.split('-');
+        if (m && d) expShort = `${parseInt(m, 10)}/${parseInt(d, 10)}`;
+      }
+      const right = (leg.option_type ?? '').slice(0, 1).toUpperCase();
+      const strike = leg.strike ?? '';
+      return `${underlying} ${expShort} ${right}${strike}`;
+    })
+    .join(' / ');
+}
+
+function fmtCurrency(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${n < 0 ? '−' : ''}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1000) return `${n < 0 ? '−' : ''}$${(abs / 1000).toFixed(2)}K`;
+  return `${n < 0 ? '−' : ''}$${abs.toFixed(2)}`;
 }
 
 interface AuditResponse {
@@ -146,7 +187,8 @@ export default function TradesAuditPanel({ bots }: Props) {
             Every closed trade with an explicit{' '}
             <span className="font-medium text-[var(--color-text-primary)]">SIM</span> or{' '}
             <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
-            tag. Admin only.
+            tag. Prices are <span className="font-medium">per share</span>; each
+            contract = 100 shares. Admin only.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -250,12 +292,16 @@ export default function TradesAuditPanel({ bots }: Props) {
                 }}
               >
                 <Th>Origin</Th>
+                <Th>Opened</Th>
                 <Th>Closed</Th>
                 <Th>Bot</Th>
+                <Th>Contract</Th>
                 <Th>Direction</Th>
-                <Th align="right">Entry</Th>
-                <Th align="right">Exit</Th>
+                <Th align="right">Entry / sh</Th>
+                <Th align="right">Exit / sh</Th>
                 <Th align="right">Qty</Th>
+                <Th align="right">Cost basis</Th>
+                <Th align="right">Proceeds</Th>
                 <Th align="right">P&amp;L $</Th>
                 <Th align="right">P&amp;L %</Th>
                 <Th>Reason</Th>
@@ -266,6 +312,17 @@ export default function TradesAuditPanel({ bots }: Props) {
               {(data?.entries ?? []).map((row) => {
                 const positive = (row.realized_pnl ?? 0) >= 0;
                 const isOpen = expandedId === row.id;
+                const qty = row.quantity ?? 0;
+                // Per-share × contracts × 100-share multiplier — same shape
+                // the backend csv writes so the UI and export always agree.
+                const costBasis =
+                  row.entry_price != null && qty > 0
+                    ? row.entry_price * qty * 100
+                    : null;
+                const proceeds =
+                  row.exit_price != null && qty > 0
+                    ? row.exit_price * qty * 100
+                    : null;
                 return (
                   <>
                     <tr
@@ -286,12 +343,20 @@ export default function TradesAuditPanel({ bots }: Props) {
                         <OriginBadge origin={row.origin} />
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
+                        {row.opened_at
+                          ? new Date(row.opened_at).toLocaleString()
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
                         {row.closed_at
                           ? new Date(row.closed_at).toLocaleString()
                           : '—'}
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-primary)]">
                         {row.bot_id}
+                      </td>
+                      <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
+                        {contractLabel(row.underlying, row.legs)}
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-secondary)]">
                         {row.direction}
@@ -304,6 +369,12 @@ export default function TradesAuditPanel({ bots }: Props) {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.quantity != null ? row.quantity.toLocaleString() : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-secondary)]">
+                        {fmtCurrency(costBasis)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-secondary)]">
+                        {fmtCurrency(proceeds)}
                       </td>
                       <td
                         className="px-3 py-2 text-right tabular-nums font-medium"
@@ -326,7 +397,7 @@ export default function TradesAuditPanel({ bots }: Props) {
                     </tr>
                     {isOpen ? (
                       <tr>
-                        <td colSpan={11} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
+                        <td colSpan={15} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
                           <ExpandedDetail row={row} />
                         </td>
                       </tr>
