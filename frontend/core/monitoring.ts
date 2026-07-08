@@ -62,12 +62,13 @@ export type SignupPoint = {
   disclaimer: number;
 };
 
-// Per-day membership flow, derived from day-over-day deltas of the tier
-// headcount snapshots. Additions (a tier grew) are positive; cancellations
-// (a tier shrank — a paid sub ended, an account was deleted, a downgrade) are
-// negative. Splitting each tier's signed delta into an add/cancel pair lets the
-// dashboard render a diverging column (joins above the axis, losses below) with
-// a per-tier tooltip. `net` = additions + cancellations for the day.
+// Per-day membership flow, sourced from the audit_events log. Additions are new
+// signups (public self-serve accounts + paid Stripe conversions); cancellations
+// are Stripe subscription cancellations. Values are per tier: additions positive,
+// cancellations negative. This lets the dashboard render a diverging column
+// (signups above the axis, cancellations below) with a per-tier tooltip. `net` =
+// additions + cancellations for the day. Public users have no Stripe
+// subscription, so publicCancel is always 0.
 export type SignupFlowPoint = {
   day: string;
   basicAdd: number;
@@ -696,97 +697,153 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
-type TierHeadcount = { basic: number; pro: number; public: number };
+type PaidTier = 'basic' | 'pro';
 
-function zeroFlow(day: string): SignupFlowPoint {
-  return {
-    day,
-    basicAdd: 0,
-    proAdd: 0,
-    publicAdd: 0,
-    basicCancel: 0,
-    proCancel: 0,
-    publicCancel: 0,
-    additions: 0,
-    cancellations: 0,
-    net: 0,
-  };
+type FlowCounts = {
+  basicAdd: number;
+  proAdd: number;
+  publicAdd: number;
+  basicCancel: number;
+  proCancel: number;
+  publicCancel: number;
+};
+
+function emptyFlowCounts(): FlowCounts {
+  return { basicAdd: 0, proAdd: 0, publicAdd: 0, basicCancel: 0, proCancel: 0, publicCancel: 0 };
 }
 
-function flowFromDelta(day: string, prev: TierHeadcount, curr: TierHeadcount): SignupFlowPoint {
-  const dBasic = curr.basic - prev.basic;
-  const dPro = curr.pro - prev.pro;
-  const dPublic = curr.public - prev.public;
-  const basicAdd = Math.max(0, dBasic);
-  const proAdd = Math.max(0, dPro);
-  const publicAdd = Math.max(0, dPublic);
-  const basicCancel = Math.min(0, dBasic);
-  const proCancel = Math.min(0, dPro);
-  const publicCancel = Math.min(0, dPublic);
-  const additions = basicAdd + proAdd + publicAdd;
-  const cancellations = basicCancel + proCancel + publicCancel;
-  return {
-    day,
-    basicAdd,
-    proAdd,
-    publicAdd,
-    basicCancel,
-    proCancel,
-    publicCancel,
-    additions,
-    cancellations,
-    net: additions + cancellations,
-  };
+// Stripe subscription ids are always `sub_...`; the audit messages embed exactly
+// one. Mirrors the pattern parseStaleSkippedMessage already relies on.
+function parseSubIdFromMessage(message: string): string | null {
+  const m = message.match(/sub_[A-Za-z0-9]+/);
+  return m ? m[0] : null;
 }
 
-// Per-day signups (additions) and cancellations (losses) by tier, derived from
-// the day-over-day change in the tier headcount snapshots that buildSignupSeries
-// persists. Spans the same MAX_DAILY window as the other daily charts.
+// stripe_subscription_sync messages read "... tier=<pro|basic|public> ...". Only
+// pro/basic count as a paid state; public (an inactive/lapsed sub) returns null
+// so it neither starts a paid signup nor overwrites the last-known paid tier.
+function parseSyncTier(message: string): PaidTier | null {
+  const m = message.match(/\btier=(\w+)/);
+  if (m?.[1] === 'pro') return 'pro';
+  if (m?.[1] === 'basic') return 'basic';
+  return null;
+}
+
+// Per-day signups (additions) and cancellations (losses) by tier, sourced from
+// the audit_events log (the true event trail), spanning the same MAX_DAILY
+// window as the other daily charts. Three inputs:
 //
-// Because the snapshots are cumulative headcounts, the delta between two
-// consecutive sampled days is the net membership change for that tier. A brand
-// new registration lifts `public`; a subscription cancellation moves the user
-// off `pro`/`basic` (shown as a loss there) and back onto `public`; an account
-// deletion drops `public`. Days with no fresh sample carry the prior headcount
-// forward, so their delta is correctly zero.
+//   • Public signups  — `register` + `oauth_login` rows. Each fires exactly once
+//     per new self-serve account (returning OAuth logins log `login_success`,
+//     so they're never miscounted). Public users have no Stripe subscription, so
+//     they can only ever appear as additions, never cancellations.
+//   • Paid signups     — the FIRST `stripe_subscription_sync` that saw a given
+//     subscription in a paid tier (pro/basic): the day it converted. A later
+//     upgrade/downgrade is not a new signup.
+//   • Cancellations    — `stripe_subscription_deleted` rows (the sub actually
+//     ended), with the lost tier recovered from that subscription's most recent
+//     paid sync.
 //
-// The first sampled day in (or before) the window has no earlier reference, so
-// it is emitted as zero flow rather than reporting the entire starting headcount
-// as one day of signups. When history exists before the window starts, that
-// pre-window sample seeds the baseline so the first in-window day shows a real
-// delta.
+// Rows are bucketed onto the ET day axis (etBucketKeys) to line up with the
+// other charts, since created_at is stored in UTC.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
-  const store = readSignupStore();
-  const sampleDays = Object.keys(store.days).sort();
   const dailyKeys = generateDailyKeys(now);
-  const windowStart = dailyKeys[0] ?? '';
+  const acc: Record<string, FlowCounts> = {};
+  for (const day of dailyKeys) acc[day] = emptyFlowCounts();
 
-  // Seed the baseline from the latest sample strictly before the window, if any.
-  let carried: TierHeadcount | null = null;
-  for (const d of sampleDays) {
-    if (d >= windowStart) break;
-    const s = store.days[d];
-    carried = { basic: s.basic, pro: s.pro, public: s.public };
+  const etDay = (createdAt: string): string | null => {
+    const d = new Date(createdAt);
+    if (Number.isNaN(d.getTime())) return null;
+    return etBucketKeys(d).day;
+  };
+
+  try {
+    const db = getDb();
+
+    // Subscription tier history from sync events, oldest first so a single pass
+    // yields both the first paid observation (the signup) and the latest paid
+    // tier (for cancellation attribution). Bounded to ~2.2y: long enough to
+    // cover a cancelling sub's lifetime, capped so the scan can't grow forever.
+    const syncRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-800 days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    const firstPaid = new Map<string, { day: string; tier: PaidTier }>();
+    const lastPaidTier = new Map<string, PaidTier>();
+    for (const row of syncRows) {
+      const tier = parseSyncTier(row.message);
+      if (!tier) continue;
+      const subId = parseSubIdFromMessage(row.message);
+      if (!subId) continue;
+      const day = etDay(row.created_at);
+      if (!day) continue;
+      if (!firstPaid.has(subId)) firstPaid.set(subId, { day, tier });
+      lastPaidTier.set(subId, tier);
+    }
+
+    // Paid signups: one per subscription, on the day it first went paid.
+    for (const { day, tier } of firstPaid.values()) {
+      const bucket = acc[day];
+      if (!bucket) continue; // first paid day predates the window
+      if (tier === 'pro') bucket.proAdd += 1;
+      else bucket.basicAdd += 1;
+    }
+
+    // Cancellations: one per deleted subscription, tier from its last paid sync.
+    const deletedRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-100 days')`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    for (const row of deletedRows) {
+      const day = etDay(row.created_at);
+      if (!day || !acc[day]) continue;
+      const subId = parseSubIdFromMessage(row.message);
+      // Fall back to Basic when the tier can't be recovered (e.g. a sub whose
+      // sync history predates audit logging) so a real cancellation is never
+      // dropped and the stacked bars still sum to the cancellation total.
+      const tier = (subId ? lastPaidTier.get(subId) : null) ?? 'basic';
+      if (tier === 'pro') acc[day].proCancel -= 1;
+      else acc[day].basicCancel -= 1;
+    }
+
+    // Public signups: new self-serve accounts (no Stripe subscription).
+    const publicRows = db
+      .prepare(
+        `SELECT created_at FROM audit_events
+         WHERE type IN ('register', 'oauth_login') AND created_at > datetime('now', '-100 days')`,
+      )
+      .all() as Array<{ created_at: string }>;
+    for (const row of publicRows) {
+      const day = etDay(row.created_at);
+      if (day && acc[day]) acc[day].publicAdd += 1;
+    }
+  } catch {
+    // On any query/parse failure, fall through with the zero-filled window so
+    // the chart renders empty rather than 500-ing the admin page.
   }
 
-  const series: SignupFlowPoint[] = [];
-  for (const day of dailyKeys) {
-    const sample = store.days[day];
-    if (!sample) {
-      // Headcount unchanged this day → no flow. Baseline unchanged.
-      series.push(zeroFlow(day));
-      continue;
-    }
-    const curr: TierHeadcount = { basic: sample.basic, pro: sample.pro, public: sample.public };
-    if (carried === null) {
-      // First-ever sample: origin point, nothing to diff against.
-      series.push(zeroFlow(day));
-    } else {
-      series.push(flowFromDelta(day, carried, curr));
-    }
-    carried = curr;
-  }
-  return series;
+  return dailyKeys.map((day) => {
+    const c = acc[day];
+    const additions = c.basicAdd + c.proAdd + c.publicAdd;
+    const cancellations = c.basicCancel + c.proCancel + c.publicCancel;
+    return {
+      day,
+      basicAdd: c.basicAdd,
+      proAdd: c.proAdd,
+      publicAdd: c.publicAdd,
+      basicCancel: c.basicCancel,
+      proCancel: c.proCancel,
+      publicCancel: c.publicCancel,
+      additions,
+      cancellations,
+      net: additions + cancellations,
+    };
+  });
 }
 
 // Counts audit_events rows of `type` whose created_at is newer than
@@ -928,14 +985,11 @@ export function getSnapshot(): MonitoringSnapshot {
   const dailyKeys = generateDailyKeys(now);
   const mrr = buildMrr();
   const mrrSeries = buildMrrSeries(now, mrr);
-  // buildSignupSeries persists today's headcount sample; run it before
-  // buildSignupFlowSeries so the flow deltas see the freshest snapshot.
-  const signups = buildSignupSeries(now);
   return {
     mrr,
     mrrSeries,
     mrrTrend: computeMrrTrend(mrrSeries, mrr.targetMrr),
-    signups,
+    signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
