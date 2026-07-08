@@ -287,7 +287,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; Registrations &amp; Subscriptions charts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, with a daily new-account registrations line overlaid.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point) plus disclaimer acceptance; Registrations &amp; Subscriptions charts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, with a daily new-account registrations line on a secondary axis sharing the same zero baseline.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -1416,20 +1416,30 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
     return { proAdd, basicAdd, proCancel, basicCancel, registrations };
   }, [data]);
 
-  // Single shared axis for both the bars and the registrations line. The
-  // positive side must also clear the registrations line (which typically towers
-  // over the paid columns), so the two are scaled independently around zero:
-  // positive fits the taller of the add-stack and the registrations peak, the
-  // negative side fits the cancel-stack.
-  const yScale = useMemo(() => {
-    const posBound = data.reduce((m, p) => Math.max(m, p.proAdd + p.basicAdd, p.registrations), 0);
-    const negBound = data.reduce((m, p) => Math.max(m, -(p.proCancel + p.basicCancel)), 0);
-    const posS = niceYScale(posBound);
-    const posTicks = posS.ticks.filter((t) => t > 0);
-    const negMax = negBound > 0 ? niceYScale(negBound).max : 0;
-    const negTicks = negBound > 0 ? niceYScale(negBound).ticks.filter((t) => t > 0) : [];
-    const ticks = [...negTicks.map((t) => -t).reverse(), 0, ...posTicks];
-    return { min: -negMax, max: posS.max, ticks };
+  // Two axes sharing one zero baseline. The diverging bars own the primary
+  // (left) axis, scaled just to the paid add/cancel stacks so the columns stay
+  // legible. The registrations line owns the secondary (right) axis, scaled to
+  // its own (much larger) values. To land value 0 at the same pixel on both, the
+  // registrations axis is given a proportional negative pad: r = the bars' own
+  // negative:positive ratio, so both axes put zero at the same fraction of the
+  // height.
+  const { barScale, regScale } = useMemo(() => {
+    const barPosBound = data.reduce((m, p) => Math.max(m, p.proAdd + p.basicAdd), 0);
+    const barNegBound = data.reduce((m, p) => Math.max(m, -(p.proCancel + p.basicCancel)), 0);
+    const barPos = niceYScale(barPosBound);
+    const barNegMax = barNegBound > 0 ? niceYScale(barNegBound).max : 0;
+    const barNegTicks = barNegBound > 0 ? niceYScale(barNegBound).ticks.filter((t) => t > 0) : [];
+    const barTicks = [...barNegTicks.map((t) => -t).reverse(), 0, ...barPos.ticks.filter((t) => t > 0)];
+    const r = barPos.max > 0 ? barNegMax / barPos.max : 0;
+
+    const reg = niceYScale(data.reduce((m, p) => Math.max(m, p.registrations), 0));
+
+    return {
+      barScale: { min: -barNegMax, max: barPos.max, ticks: barTicks },
+      // Only positive ticks for registrations; the negative pad is empty space
+      // that exists solely to align zero with the bar axis.
+      regScale: { min: -r * reg.max, max: reg.max, ticks: reg.ticks.filter((t) => t >= 0) },
+    };
   }, [data]);
 
   const hasData = useMemo(
@@ -1469,15 +1479,27 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                 tickFormatter={formatDayLabel}
               />
               <YAxis
+                yAxisId="flow"
                 stroke={axisStroke}
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 allowDecimals={false}
-                domain={[yScale.min, yScale.max]}
-                ticks={yScale.ticks}
+                domain={[barScale.min, barScale.max]}
+                ticks={barScale.ticks}
                 interval={0}
               />
-              <ReferenceLine y={0} stroke={axisStroke} strokeOpacity={0.35} />
+              <YAxis
+                yAxisId="reg"
+                orientation="right"
+                stroke={registrationsColor}
+                tick={{ fill: registrationsColor, fontSize: 10 }}
+                tickLine={false}
+                allowDecimals={false}
+                domain={[regScale.min, regScale.max]}
+                ticks={regScale.ticks}
+                interval={0}
+              />
+              <ReferenceLine yAxisId="flow" y={0} stroke={axisStroke} strokeOpacity={0.35} />
               <Tooltip
                 cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
                 content={({ active, label, payload }) => {
@@ -1505,11 +1527,12 @@ function SignupFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }
                   );
                 }}
               />
-              <Bar dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
-              <Bar dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Line
+                yAxisId="reg"
                 type="monotone"
                 dataKey="registrations"
                 name="Registrations"
