@@ -108,7 +108,7 @@ export default function AdvancedSignalsPage() {
       { label: 'Expansion (0–100)', value: formatSigned(getNumber(volPayload.expansion), 1) },
       { label: 'Direction score', value: formatSigned(getNumber(volPayload.direction_score), 1), tone: toTrend(volPayload.direction) },
       { label: 'Expected 5m move', value: `${(getNumber(volPayload.expected_5min_move_bps) ?? 0).toFixed(1)} bps` },
-      { label: 'Net GEX', value: formatGexCompact(getNumber(asObject(volPayload.context_values)?.net_gex)) },
+      { label: 'Net GEX (chain-wide)', value: formatGexCompact(getNumber(asObject(volPayload.context_values)?.net_gex)) },
     ];
 
     const eodCtx = asObject(eodPayload.context_values) ?? {};

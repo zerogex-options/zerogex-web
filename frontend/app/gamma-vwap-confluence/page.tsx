@@ -197,7 +197,7 @@ export default function GammaVwapConfluencePage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Regime</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX" value={formatGexCompact(ctx.netGex)} />
+              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
               <Row label="Direction" value={humanize(ctx.regimeDirection)} />
               <Row label="Close vs level" value={ctx.close != null && confluenceLevel != null ? (ctx.close > confluenceLevel ? 'Above' : 'Below') : '—'} />
             </div>
