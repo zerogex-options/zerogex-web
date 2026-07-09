@@ -20,6 +20,7 @@ import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
 import SignalsGuide from '@/components/SignalsGuide';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import TrialStartedBanner from './TrialStartedBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
@@ -109,6 +110,7 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <TrialStartedBanner />
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
       {/* Today's Read — at-a-glance regime summary above everything else, so a

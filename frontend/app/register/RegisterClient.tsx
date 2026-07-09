@@ -147,12 +147,14 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
         ...readUtmParams(),
       });
 
-      // Step two of the trial flow: greet the fresh account on /pricing with the
-      // "your 7-day trial starts today" header. Only mark the pricing
-      // destination — a custom ?next= target is left untouched.
-      const welcomeHref = successHref.startsWith('/pricing')
-        ? successHref + (successHref.includes('?') ? '&' : '?') + 'welcome=1'
-        : successHref;
+      // Step two of the trial flow: continue on /pricing with the trial-context
+      // hero. Build /pricing?trial=1&source=registration and carry any UTM that
+      // drove the signup so campaign attribution survives the hop. A custom
+      // non-pricing ?next= target (e.g. a deep link) is honored instead.
+      const pricingParams = new URLSearchParams({ trial: '1', source: 'registration' });
+      for (const [key, value] of Object.entries(readUtmParams())) pricingParams.set(key, value);
+      const trialHref = `/pricing?${pricingParams.toString()}`;
+      const base = successHref.startsWith('/pricing') ? trialHref : successHref;
 
       // If the verification mail couldn't be dispatched on signup, append a
       // hint to the destination so /pricing (or whatever next= points at)
@@ -161,8 +163,8 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
       // the Resend button.
       const target =
         payload.emailVerificationSent === false
-          ? welcomeHref + (welcomeHref.includes('?') ? '&' : '?') + 'email_send_failed=1'
-          : welcomeHref;
+          ? base + (base.includes('?') ? '&' : '?') + 'email_send_failed=1'
+          : base;
 
       // /api/auth/register now sets the session cookie itself; skip the
       // /login bounce and go straight to the next destination.

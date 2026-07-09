@@ -94,7 +94,16 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  if (!hasTierAccess(session.user.tier, requiredTier)) {
+  // Post-checkout grace. Stripe's success_url (/dashboard?trial_started=1) can
+  // load a beat before the subscription webhook grants the trialing tier. Let a
+  // logged-in visitor into the dashboard during that window instead of bouncing
+  // them to the unlock screen the instant after they paid. The gamma/flow APIs
+  // stay tier-gated server-side, so no paid data leaks while the tier settles;
+  // once the webhook lands the normal gate applies again on the next navigation.
+  const justStartedTrial =
+    pathname === '/dashboard' && request.nextUrl.searchParams.get('trial_started') === '1';
+
+  if (!justStartedTrial && !hasTierAccess(session.user.tier, requiredTier)) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
     unauthorizedUrl.searchParams.set('required', requiredTier ?? 'basic');
     unauthorizedUrl.searchParams.set('current', session.user.tier);

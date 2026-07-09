@@ -753,7 +753,10 @@ export async function sendCancellationEmail(
 // financial risk, so a coupon would just muddy the ask.
 export async function sendVerifiedNeverPaidEmail(to: string) {
   const subject = 'Quick note from Michael at ZeroGEX';
-  const pricingUrl = `${getAppUrl()}/pricing`;
+  // Land them on the trial-continuation pricing hero ("You're almost done…")
+  // rather than the generic pricing intro, so the email and the page tell one
+  // consistent "start your trial" story.
+  const pricingUrl = `${getAppUrl()}/pricing?trial=1`;
   const safePricingUrl = escapeHtml(pricingUrl);
 
   const text = [
