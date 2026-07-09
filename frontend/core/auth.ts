@@ -57,6 +57,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   // with shareable per-moment snapshot OG cards. Anonymous-accessible
   // for the same crawler + non-member reasons.
   '/replay/*',
+  // Shared backtest reports (/backtesting/shared/{token}) — the public
+  // "prove it" artifact for a completed run. Anonymous-accessible so a shared
+  // link is the receipt (net-of-cost result + equity curve), not a paywall,
+  // while the rest of /backtesting/* stays Pro-gated (public check wins first).
+  '/backtesting/shared/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
