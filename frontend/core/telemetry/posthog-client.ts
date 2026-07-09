@@ -36,6 +36,13 @@ export function initAnalytics(): void {
       autocapture: false,
       disable_session_recording: true,
       persistence: 'localStorage+cookie',
+      // Create person profiles for anonymous visitors too, so first-touch UTM
+      // (utm_source/campaign/…) is recorded as a person property on every paid
+      // click — not just the ones that sign up. That lets the whole paid funnel,
+      // including the anonymous top, break down by campaign in PostHog. Trade-
+      // off: more person-profile events (PostHog is billed per event); switch to
+      // 'identified_only' if the person-event volume becomes a cost concern.
+      person_profiles: 'always',
     });
     initialized = true;
   } catch {
