@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
@@ -42,17 +42,58 @@ const C = {
 };
 
 // ── Stat value ────────────────────────────────────────────────────────────────
-// Renders the real stat value from the very first paint — server-side,
+// Renders the real stat value as text from the very first paint — server-side,
 // pre-hydration, and with JS disabled — so crawlers, link unfurlers, and
-// slow-JS visitors never read a misleading "0+ Supported Symbols" / "0s". The
-// previous count-from-zero flashed a false zero both in the fetched HTML and
-// again on scroll-into-view, which reads as "we support 0 symbols" for a beat —
-// credibility poison on a trading product. Static, correct numbers win here.
+// slow-JS visitors never read a misleading "0+ Supported Symbols" / "0s". (The
+// old count-from-zero flashed a false zero in the fetched HTML and again on
+// scroll-into-view.) As pure progressive enhancement, when JS is present and
+// motion is allowed the real number fades and rises in once it scrolls into
+// view — opacity/transform only, so a "0" is never shown and no-JS / reduced-
+// motion visitors just see the plain, already-visible number.
 function AnimatedNumber({ target, prefix = '', suffix = '', decimals = 0 }: {
   target: number; prefix?: string; suffix?: string; decimals?: number;
 }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  // `shown` (set async, only from the observer callback) drives the reveal.
+  // First paint has no opacity styling at all → the number is plainly visible
+  // server-side, pre-hydration, and with JS disabled.
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Reduced-motion users keep the plain, already-visible number.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    // Arm imperatively — hide instantly via the ref rather than React state, so
+    // we don't setState synchronously in the effect. On no-JS this never runs,
+    // so the number stays visible. The observer then reveals it on scroll-in.
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <span>
+    <span
+      ref={ref}
+      style={{
+        display: 'inline-block',
+        // Only the reveal is animated; the imperative arm above hid it instantly
+        // so the number never fades *out*. No-JS/reduced-motion never sets these.
+        ...(shown
+          ? { opacity: 1, transform: 'none', transition: 'opacity 0.6s ease, transform 0.6s ease' }
+          : null),
+      }}
+    >
       {prefix}{decimals > 0 ? target.toFixed(decimals) : Math.round(target)}{suffix}
     </span>
   );
