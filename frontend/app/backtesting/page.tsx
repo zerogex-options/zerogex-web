@@ -4,16 +4,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
+  Activity,
   AlertTriangle,
   Download,
+  Gauge,
   History,
   LayoutGrid,
+  Layers,
   LineChart as LineChartIcon,
   ListOrdered,
   Play,
   Save,
   Search,
   Share2,
+  Shuffle,
   SlidersHorizontal,
   TrendingUp,
   Trash2,
@@ -26,6 +30,7 @@ import type {
   BacktestCondition,
   BacktestConfigSummary,
   BacktestMeta,
+  BacktestRegimeBreakdown,
   BacktestSpec,
   BacktestStrategyField,
   BacktestSummary,
@@ -49,6 +54,11 @@ function isNeutral(id: StrategyStructureId): boolean {
 const EquityChart = dynamic(() => import('./EquityChart'), {
   ssr: false,
   loading: () => <Skeleton height={320} label="Loading chart…" />,
+});
+
+const MonteCarloChart = dynamic(() => import('./MonteCarloChart'), {
+  ssr: false,
+  loading: () => <Skeleton height={280} label="Loading simulation…" />,
 });
 
 const TITLE_TOOLTIP =
@@ -1620,6 +1630,8 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
       <div className="flex flex-col gap-8">
         {summary ? <StatsCards summary={summary} /> : null}
 
+        {summary ? <TearsheetPanel summary={summary} /> : null}
+
         {summary?.diagnostics ? (
           <DiagnosticsPanel diagnostics={summary.diagnostics} nTrades={summary.n_trades} />
         ) : null}
@@ -1631,6 +1643,12 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           </h2>
           <EquityChart equity={equity} startingCapital={run.spec.sizing.capital} />
         </section>
+
+        {summary ? (
+          <MonteCarloPanel summary={summary} capital={run.spec.sizing.capital} />
+        ) : null}
+
+        {summary ? <RegimeBreakdown summary={summary} /> : null}
 
         {summary && summary.by_pattern.length > 0 ? <ByPatternTable summary={summary} /> : null}
 
@@ -2068,6 +2086,264 @@ function StatsCards({ summary }: { summary: BacktestSummary }) {
           </div>
         </div>
       ))}
+    </section>
+  );
+}
+
+// A compact metric tile shared by the tearsheet and Monte Carlo panels.
+function Metric({
+  label,
+  value,
+  color,
+  hint,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+  hint?: string;
+}) {
+  return (
+    <div
+      className="rounded-lg border p-3"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
+    >
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+        {label}
+      </div>
+      <div
+        className="mt-1 text-lg font-bold font-mono"
+        style={{ color: color ?? 'var(--color-text-primary)', fontVariantNumeric: 'tabular-nums' }}
+      >
+        {value}
+      </div>
+      {hint ? (
+        <div className="mt-0.5 text-[10px] text-[var(--color-text-secondary)] leading-snug">
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Risk-adjusted tearsheet — the metrics a skeptic checks before believing a
+ * headline win rate. Only rendered once a run has trades.
+ */
+function TearsheetPanel({ summary }: { summary: BacktestSummary }) {
+  if (!summary.n_trades) return null;
+  const tstat = summary.expectancy_tstat;
+  const bench = summary.benchmark;
+  const metrics: { label: string; value: string; color?: string; hint?: string }[] = [
+    { label: 'Sharpe', value: fmtNumber(summary.sharpe) },
+    { label: 'Sortino', value: fmtNumber(summary.sortino) },
+    { label: 'Calmar', value: fmtNumber(summary.calmar) },
+    {
+      label: 'CAGR',
+      value: fmtPct(summary.cagr_pct),
+      color: summary.cagr_pct != null ? pnlColor(summary.cagr_pct) : undefined,
+    },
+    { label: 'Ann. volatility', value: fmtPct(summary.annual_volatility_pct) },
+    {
+      label: 'Expectancy / trade',
+      value: fmtCurrency(summary.expectancy),
+      color: summary.expectancy != null ? pnlColor(summary.expectancy) : undefined,
+    },
+    { label: 'Payoff ratio', value: fmtNumber(summary.payoff_ratio) },
+    { label: 'Exposure', value: fmtPct(summary.exposure_pct, 1) },
+    { label: 'Avg win', value: fmtCurrency(summary.avg_win), color: 'var(--color-bull)' },
+    { label: 'Avg loss', value: fmtCurrency(summary.avg_loss), color: 'var(--color-bear)' },
+    { label: 'Max loss streak', value: fmtNumber(summary.max_consecutive_losses, 0) },
+    {
+      label: 'Edge t-stat',
+      value: fmtNumber(tstat),
+      hint:
+        tstat != null
+          ? Math.abs(tstat) >= 2
+            ? 'significant (|t| ≥ 2)'
+            : 'not yet significant'
+          : undefined,
+    },
+  ];
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+        <Gauge size={20} /> Performance tearsheet
+      </h2>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+        Risk-adjusted, net of modeled fills, slippage, and commission.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {metrics.map((m) => (
+          <Metric key={m.label} {...m} />
+        ))}
+      </div>
+      {bench ? (
+        <div
+          className="mt-4 rounded-lg border p-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <span className="text-[var(--color-text-secondary)] flex items-center gap-1.5">
+            <Activity size={15} /> Strategy vs. benchmark:
+          </span>
+          <span>
+            Strategy{' '}
+            <b className="font-mono" style={{ color: pnlColor(summary.total_return_pct) }}>
+              {fmtPct(summary.total_return_pct)}
+            </b>
+          </span>
+          <span>
+            Buy &amp; hold {bench.underlying}{' '}
+            <b className="font-mono" style={{ color: pnlColor(bench.buy_hold_return_pct) }}>
+              {fmtPct(bench.buy_hold_return_pct)}
+            </b>
+          </span>
+          <span>
+            Excess{' '}
+            <b
+              className="font-mono"
+              style={{ color: pnlColor(summary.total_return_pct - bench.buy_hold_return_pct) }}
+            >
+              {fmtPct(summary.total_return_pct - bench.buy_hold_return_pct)}
+            </b>
+          </span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function gammaRegimeLabel(regime: string): string {
+  if (regime === 'positive') return 'Positive γ (suppressive)';
+  if (regime === 'negative') return 'Negative γ (amplifying)';
+  if (regime === 'flat') return 'Flat γ';
+  return 'Unknown';
+}
+
+function msiRegimeLabel(regime: string): string {
+  return regime === 'unknown' ? 'Unknown' : regime.replace(/_/g, ' ');
+}
+
+function RegimeTable({
+  title,
+  rows,
+  labeler,
+}: {
+  title: string;
+  rows: BacktestRegimeBreakdown[];
+  labeler: (r: string) => string;
+}) {
+  if (rows.length === 0) {
+    return <div className="text-sm text-[var(--color-text-secondary)]">{title}: no data.</div>;
+  }
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
+        {title}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr
+              className="text-[var(--color-text-secondary)] text-left border-b"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <th className="py-1.5 pr-3 font-medium">Regime</th>
+              <th className="py-1.5 pr-3 font-medium text-right">Trades</th>
+              <th className="py-1.5 pr-3 font-medium text-right">Win %</th>
+              <th className="py-1.5 pr-3 font-medium text-right">Net P&amp;L</th>
+              <th className="py-1.5 font-medium text-right">Exp/trade</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.regime}
+                className="border-b last:border-0"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <td className="py-1.5 pr-3">{labeler(r.regime)}</td>
+                <td className="py-1.5 pr-3 text-right font-mono">{r.n}</td>
+                <td className="py-1.5 pr-3 text-right font-mono">
+                  {r.win_rate != null ? fmtPct(r.win_rate * 100, 0) : '—'}
+                </td>
+                <td
+                  className="py-1.5 pr-3 text-right font-mono"
+                  style={{ color: pnlColor(r.net_pnl) }}
+                >
+                  {fmtCurrency(r.net_pnl)}
+                </td>
+                <td
+                  className="py-1.5 text-right font-mono"
+                  style={{ color: r.expectancy != null ? pnlColor(r.expectancy) : undefined }}
+                >
+                  {fmtCurrency(r.expectancy)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Win rate / net / expectancy split by the gamma & MSI regime at entry. */
+function RegimeBreakdown({ summary }: { summary: BacktestSummary }) {
+  const byRegime = summary.by_regime;
+  if (!byRegime || (byRegime.gamma.length === 0 && byRegime.msi.length === 0)) return null;
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+        <Layers size={20} /> Results by market regime
+      </h2>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+        The ZeroGEX edge: how the same rules performed under different dealer-gamma backdrops.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <RegimeTable title="Gamma regime" rows={byRegime.gamma} labeler={gammaRegimeLabel} />
+        <RegimeTable title="MSI regime" rows={byRegime.msi} labeler={msiRegimeLabel} />
+      </div>
+    </section>
+  );
+}
+
+/** Monte Carlo: the distribution of outcomes, not a single lucky equity line. */
+function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capital: number }) {
+  const mc = summary.monte_carlo;
+  if (!mc) return null;
+  const tr = mc.terminal_return_pct;
+  const stats: { label: string; value: string; color?: string; hint?: string }[] = [
+    { label: 'Prob. profitable', value: fmtPct(mc.prob_profit * 100, 0) },
+    {
+      label: 'Risk of ruin',
+      value: fmtPct(mc.risk_of_ruin_50pct * 100, 1),
+      color: mc.risk_of_ruin_50pct > 0 ? 'var(--color-bear)' : undefined,
+      hint: '≥50% drawdown',
+    },
+    { label: 'Median return', value: fmtPct(tr.p50), color: pnlColor(tr.p50) },
+    { label: 'Range (p5–p95)', value: `${fmtPct(tr.p5)} … ${fmtPct(tr.p95)}` },
+    { label: 'Median max DD', value: fmtPct(mc.max_drawdown_pct.p50), color: 'var(--color-bear)' },
+    {
+      label: 'Worst max DD (p95)',
+      value: fmtPct(mc.max_drawdown_pct.p95),
+      color: 'var(--color-bear)',
+    },
+  ];
+  return (
+    <section className="zg-feature-shell p-6">
+      <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+        <Shuffle size={20} /> Monte Carlo outcomes
+      </h2>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+        {mc.iterations.toLocaleString()} resampled paths of your trade sequence — the realistic
+        range of results, not one backtest&apos;s luck.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        {stats.map((s) => (
+          <Metric key={s.label} {...s} />
+        ))}
+      </div>
+      <MonteCarloChart cone={mc.cone} startingCapital={capital} />
     </section>
   );
 }

@@ -129,6 +129,44 @@ export interface BacktestPatternBreakdown {
   net_pnl: number;
 }
 
+/** Per-regime slice of the results (gamma sign or MSI regime). */
+export interface BacktestRegimeBreakdown {
+  regime: string;
+  n: number;
+  win_rate: number | null;
+  net_pnl: number;
+  expectancy: number | null;
+  avg_return_pct: number | null;
+}
+
+/** A p5/p50/p95 point of the Monte Carlo equity cone, at trade index `i`. */
+export interface BacktestConePoint {
+  i: number;
+  p5: number;
+  p50: number;
+  p95: number;
+}
+
+/**
+ * Bootstrap Monte Carlo over the realized trade sequence: the range of
+ * outcomes, not a single equity line. `null` when there are too few trades.
+ */
+export interface BacktestMonteCarlo {
+  iterations: number;
+  terminal_return_pct: { p5: number; p50: number; p95: number };
+  max_drawdown_pct: { p50: number; p95: number };
+  prob_profit: number;
+  prob_drawdown_gt_20pct: number;
+  risk_of_ruin_50pct: number;
+  cone: BacktestConePoint[];
+}
+
+/** Buy-and-hold return of the underlying over the same window. */
+export interface BacktestBenchmark {
+  underlying: string;
+  buy_hold_return_pct: number;
+}
+
 /**
  * Funnel diagnostics emitted by the engine so a low/zero-trade run is
  * explainable: how many cards were loaded, survived the pattern filter and
@@ -156,6 +194,32 @@ export interface BacktestSummary {
   avg_hold_minutes: number;
   by_pattern: BacktestPatternBreakdown[];
   diagnostics?: BacktestDiagnostics;
+
+  // Risk-adjusted tearsheet (nullable when undefined for the sample).
+  sharpe?: number | null;
+  sortino?: number | null;
+  calmar?: number | null;
+  cagr_pct?: number | null;
+  annual_volatility_pct?: number | null;
+  expectancy?: number | null;
+  expectancy_pct?: number | null;
+  expectancy_tstat?: number | null;
+  avg_win?: number | null;
+  avg_loss?: number | null;
+  payoff_ratio?: number | null;
+  largest_win?: number | null;
+  largest_loss?: number | null;
+  max_consecutive_wins?: number;
+  max_consecutive_losses?: number;
+  exposure_pct?: number | null;
+  total_commission?: number;
+  trading_days?: number;
+  daily_equity?: { d: string; equity: number }[];
+
+  // Distribution, regime cuts, and the honest yardstick.
+  monte_carlo?: BacktestMonteCarlo | null;
+  by_regime?: { gamma: BacktestRegimeBreakdown[]; msi: BacktestRegimeBreakdown[] };
+  benchmark?: BacktestBenchmark | null;
 }
 
 export interface BacktestRun {
@@ -199,6 +263,8 @@ export interface BacktestTrade {
   hold_minutes: number;
   net_delta?: number;
   net_vega?: number;
+  gamma_regime?: string | null;
+  msi_regime?: string | null;
   structure?: string;
   legs?: {
     option_symbol: string;
