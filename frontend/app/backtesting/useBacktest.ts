@@ -14,6 +14,10 @@ import type {
 } from './types';
 
 const POLL_INTERVAL_MS = 1_500;
+// Stop polling a run after this long, or after this many consecutive fetch
+// failures, so a stuck/lost run surfaces an error instead of spinning forever.
+const POLL_MAX_MS = 10 * 60_000;
+const POLL_MAX_ERRORS = 8;
 export const TRADES_PAGE_SIZE = 25;
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
@@ -39,6 +43,7 @@ export interface UseBacktestResult {
   run: BacktestRun | null;
   running: boolean;
   submitError: string | null;
+  pollError: string | null;
 
   // Results (loaded once a run completes)
   equity: BacktestEquityPoint[];
@@ -68,6 +73,7 @@ export function useBacktest(): UseBacktestResult {
   const [run, setRun] = useState<BacktestRun | null>(null);
   const [running, setRunning] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
 
   const [equity, setEquity] = useState<BacktestEquityPoint[]>([]);
   const [trades, setTrades] = useState<BacktestTradesPage | null>(null);
@@ -82,6 +88,8 @@ export function useBacktest(): UseBacktestResult {
   // run the user navigated away from) don't clobber fresh state.
   const activeRunRef = useRef<number | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const pollStartRef = useRef<number>(0);
+  const pollErrorsRef = useRef<number>(0);
   const activeSweepRef = useRef<number | null>(null);
   const sweepTimerRef = useRef<number | null>(null);
 
@@ -154,16 +162,37 @@ export function useBacktest(): UseBacktestResult {
   }, []);
 
   // ---- Polling ------------------------------------------------------------
+  const giveUpPolling = useCallback(
+    (message: string) => {
+      clearPoll();
+      setRunning(false);
+      setPollError(message);
+    },
+    [clearPoll],
+  );
+
   const pollOnce = useCallback(
     async (runId: number) => {
+      // Bound total polling time so a run stuck in 'running' can't spin forever.
+      if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
+        if (activeRunRef.current === runId) {
+          giveUpPolling('Stopped waiting after 10 minutes — reopen the run to check its status.');
+        }
+        return;
+      }
       let next: BacktestRun;
       try {
         next = await backtestAPI.getRun(runId);
+        pollErrorsRef.current = 0;
       } catch {
-        // Transient error — retry on the next tick if still the active run.
-        if (activeRunRef.current === runId) {
-          pollTimerRef.current = window.setTimeout(() => void pollOnce(runId), POLL_INTERVAL_MS);
+        if (activeRunRef.current !== runId) return;
+        pollErrorsRef.current += 1;
+        if (pollErrorsRef.current >= POLL_MAX_ERRORS) {
+          giveUpPolling('Lost connection to the run. Check your network and reopen it.');
+          return;
         }
+        // Transient error — retry on the next tick.
+        pollTimerRef.current = window.setTimeout(() => void pollOnce(runId), POLL_INTERVAL_MS);
         return;
       }
       if (activeRunRef.current !== runId) return;
@@ -177,7 +206,7 @@ export function useBacktest(): UseBacktestResult {
       }
       pollTimerRef.current = window.setTimeout(() => void pollOnce(runId), POLL_INTERVAL_MS);
     },
-    [clearPoll, loadResults, refreshRecentRuns],
+    [clearPoll, giveUpPolling, loadResults, refreshRecentRuns],
   );
 
   const beginRun = useCallback(
@@ -191,6 +220,9 @@ export function useBacktest(): UseBacktestResult {
       setView('run');
       activeRunRef.current = runId;
       setRunning(true);
+      setPollError(null);
+      pollStartRef.current = Date.now();
+      pollErrorsRef.current = 0;
       setEquity([]);
       setTrades(null);
       setTradesPageState(0);
@@ -308,6 +340,7 @@ export function useBacktest(): UseBacktestResult {
     run,
     running,
     submitError,
+    pollError,
     equity,
     trades,
     tradesPage,

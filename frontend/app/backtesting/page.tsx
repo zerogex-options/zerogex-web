@@ -1595,11 +1595,16 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     );
   }
 
-  // In-progress: show a progress bar driven by `progress`.
+  // In-progress: show a progress bar driven by `progress`, or a surfaced poll
+  // error if we stopped waiting (stuck run / lost connection).
   if (run && (run.status === 'queued' || run.status === 'running')) {
     return (
       <section className="zg-feature-shell p-6">
-        <ProgressView status={run.status} progress={run.progress} runId={run.run_id} />
+        {bt.pollError ? (
+          <ErrorBox title="Run status unavailable" message={bt.pollError} />
+        ) : (
+          <ProgressView status={run.status} progress={run.progress} runId={run.run_id} />
+        )}
       </section>
     );
   }
