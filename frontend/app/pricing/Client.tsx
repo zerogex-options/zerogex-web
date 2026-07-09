@@ -307,6 +307,7 @@ function TierCard({
   highlights,
   features,
   accent,
+  highlighted,
   action,
   busy,
   onSubscribe,
@@ -319,6 +320,7 @@ function TierCard({
   highlights: string[];
   features: string[];
   accent: string;
+  highlighted: boolean;
   action: TierAction;
   busy: boolean;
   onSubscribe: (tier: BillableTier) => void;
@@ -328,18 +330,21 @@ function TierCard({
     <article
       style={{
         background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${accent}66`,
+        border: highlighted ? `2px solid ${accent}` : `1px solid ${accent}66`,
         borderRadius: 18,
         padding: 28,
-        boxShadow: `0 12px 40px ${accent}20`,
+        boxShadow: highlighted
+          ? `0 0 0 3px ${accent}33, 0 16px 48px ${accent}45`
+          : `0 12px 40px ${accent}20`,
         display: 'flex',
         flexDirection: 'column',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
-        {highlights.length > 0 && (
+        {(highlighted || highlights.length > 0) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            {highlighted && <Badge accent={accent}>Your pick</Badge>}
             {highlights.map((h) => (
               <Badge key={h} accent={accent}>
                 {h}
@@ -587,6 +592,12 @@ function PricingClientInner({
   const cameFromRegistration = searchParams.get('source') === 'registration';
   const checkoutCancelled =
     searchParams.get('checkout_cancelled') === '1' || searchParams.get('checkout') === 'cancelled';
+  // Plan the visitor pre-picked upstream (e.g. "Start Pro Trial" on the unlock
+  // screen → /pricing?plan=pro). Highlights that card so the choice carries
+  // through instead of dropping them onto an undifferentiated two-card page.
+  const rawPlan = searchParams.get('plan');
+  const preselectedPlan: BillableTier | null =
+    rawPlan === 'basic' || rawPlan === 'pro' ? rawPlan : null;
 
   // Funnel: pricing / trial page viewed. Fires once on mount with any UTM still
   // on the URL. When the visitor just registered we ALSO fire the dedicated
@@ -594,7 +605,7 @@ function PricingClientInner({
   // own; a bounced checkout fires checkout_cancelled.
   useEffect(() => {
     const utm = readUtmParams();
-    capture(TelemetryEvent.PricingPageView, { ...utm });
+    capture(TelemetryEvent.PricingPageView, { ...utm, preselected_plan: preselectedPlan });
     if (cameFromRegistration) capture(TelemetryEvent.PricingPageViewAfterRegister, { ...utm });
     if (checkoutCancelled) capture(TelemetryEvent.CheckoutCancelled, { ...utm });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -930,6 +941,7 @@ function PricingClientInner({
               cadence={cadence}
               promoActive={promoActive}
               highlights={basicHighlights}
+              highlighted={preselectedPlan === 'basic'}
               accent="var(--color-brand-primary)"
               features={[
                 'Real-time metrics and full strategy tools.',
@@ -947,6 +959,7 @@ function PricingClientInner({
               cadence={cadence}
               promoActive={promoActive}
               highlights={proHighlights}
+              highlighted={preselectedPlan === 'pro'}
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',
