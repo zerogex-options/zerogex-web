@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { TierId } from '@/core/auth';
 
 type SessionUser = {
@@ -32,37 +32,94 @@ type SessionResponse = {
   expiresAt?: string;
 };
 
-export function useAuthSession() {
-  const [data, setData] = useState<SessionResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+// ── Shared session store ─────────────────────────────────────────────────────
+// One module-level cache backs every useAuthSession() consumer. A page that
+// renders the header, nav, layout, and a gated body used to fire one
+// /api/auth/session request PER hook instance (3–4 identical requests on every
+// load); now they share a SINGLE request. And because state is shared, a
+// refresh() after an auth transition (login, logout, checkout return)
+// propagates to every consumer at once instead of updating one component's
+// private copy.
+//
+// SSR-safe via useSyncExternalStore (server snapshot is a stable "loading"
+// value) so there's no hydration mismatch and no synchronous setState-in-effect.
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+type SessionSnapshot = { data: SessionResponse | null; loading: boolean };
+
+// Live snapshot (reassigned to a NEW object on every change so useSyncExternalStore's
+// Object.is check re-renders subscribers) and a stable server snapshot.
+let snapshot: SessionSnapshot = { data: null, loading: true };
+const SERVER_SNAPSHOT: SessionSnapshot = { data: null, loading: true };
+let inflight: AbortController | null = null;
+const listeners = new Set<() => void>();
+
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
+async function runFetch(): Promise<void> {
+  const controller = new AbortController();
+  inflight = controller;
+  try {
     // Don't short-circuit on NEXT_PUBLIC_AUTH_ENABLED here: that env var is
     // inlined into the client bundle at build time, so it can drift from the
-    // server's runtime value. If a build is made without the flag set but the
-    // server runs with it enabled, OAuth will create real sessions while the
-    // browser would otherwise insist the user is signed out. Always ask the
-    // server; if auth is disabled at runtime, the proxy 404s /api/auth/* and
-    // we fall through to the unauthenticated branch below.
-    try {
-      const response = await fetch('/api/auth/session', { credentials: 'include' });
-      if (!response.ok) {
-        setData({ authenticated: false });
-        return;
-      }
-      const payload = (await response.json()) as SessionResponse;
-      setData(payload);
-    } catch {
-      setData({ authenticated: false });
-    } finally {
-      setLoading(false);
+    // server's runtime value. Always ask the server; if auth is disabled at
+    // runtime the proxy 404s /api/auth/* and we fall through to unauthenticated.
+    const response = await fetch('/api/auth/session', {
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    if (controller.signal.aborted) return;
+    const next: SessionResponse = response.ok
+      ? ((await response.json()) as SessionResponse)
+      : { authenticated: false };
+    if (controller.signal.aborted) return;
+    snapshot = { data: next, loading: false };
+    emit();
+  } catch (err) {
+    if (controller.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+      return;
     }
-  }, []);
+    snapshot = { data: { authenticated: false }, loading: false };
+    emit();
+  } finally {
+    if (inflight === controller) inflight = null;
+  }
+}
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+// Deduped fetch: concurrent callers (header/nav/layout/page all mounting
+// together) share one in-flight request instead of each firing their own.
+// Intentionally does NOT flip `loading` back to true on a background refetch,
+// so re-reads on navigation update `data` silently without a spinner flash.
+function fetchDeduped(): void {
+  if (inflight) return;
+  void runFetch();
+}
 
-  return { data, loading, refresh };
+// Forced refresh: abort any in-flight request and fetch fresh. Used after an
+// auth transition (login/logout) and the post-checkout poll, where piggybacking
+// a request that started before the change would return stale state.
+async function forceRefresh(): Promise<void> {
+  if (inflight) inflight.abort();
+  inflight = null;
+  await runFetch();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  // (Re)mount triggers a deduped refresh so navigation still reflects the
+  // current session — matching the old per-instance fetch-on-mount, but shared.
+  fetchDeduped();
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+const getSnapshot = (): SessionSnapshot => snapshot;
+const getServerSnapshot = (): SessionSnapshot => SERVER_SNAPSHOT;
+
+export function useAuthSession() {
+  const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const refresh = useCallback(() => forceRefresh(), []);
+  return { data: current.data, loading: current.loading, refresh };
 }

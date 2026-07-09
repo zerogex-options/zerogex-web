@@ -86,6 +86,31 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [authSession]);
 
+  // Post-checkout: Stripe returns to /dashboard?trial_started=1, but the
+  // subscription webhook may grant the trialing tier a beat later. Re-poll the
+  // shared session a few times so the header/nav (and this layout) reflect the
+  // new subscription within a few seconds instead of the stale public state
+  // until the next navigation. useAuthSession is now a shared store, so this one
+  // refresh updates every consumer. Bounded and self-cleaning; the dashboard's
+  // data hooks fetch the tier-gated API independently, so they self-heal too.
+  useEffect(() => {
+    if (pathname !== '/dashboard') return;
+    let trialStarted = false;
+    try {
+      trialStarted = new URLSearchParams(window.location.search).get('trial_started') === '1';
+    } catch {
+      // A malformed query string must never break the layout.
+    }
+    if (!trialStarted) return;
+    let tries = 0;
+    const id = window.setInterval(() => {
+      tries += 1;
+      void refreshAuth();
+      if (tries >= 3) window.clearInterval(id);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [pathname, refreshAuth]);
+
   const shouldShowDisclaimer =
     !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
     authSession?.authenticated === true &&
