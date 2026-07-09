@@ -131,12 +131,21 @@ interface OpenPositionsResponse {
 
 interface Props {
   bots: BotRow[];
+  /**
+   * When true, the panel shows the origin (LIVE/SIM/all) tab, the CSV
+   * export, and does not force live-only filtering. Non-admin viewers
+   * only ever see live trades — they never need to know sim exists.
+   */
+  isAdmin?: boolean;
 }
 
 const PAGE_SIZE = 100;
 
-export default function TradesAuditPanel({ bots }: Props) {
-  const [origin, setOrigin] = useState<Origin>('all');
+export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
+  // Non-admin viewers are locked to origin='live' — they never see sim
+  // rows or the origin toggle. The backend endpoint respects this filter
+  // regardless of whether the tab is present in the DOM.
+  const [origin, setOrigin] = useState<Origin>(isAdmin ? 'all' : 'live');
   const [botId, setBotId] = useState<string>('');
   const [offset, setOffset] = useState<number>(0);
   const [data, setData] = useState<AuditResponse | null>(null);
@@ -243,17 +252,23 @@ export default function TradesAuditPanel({ bots }: Props) {
             Trade audit
           </h2>
           <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-            Currently-open positions on top; every{' '}
-            <span className="font-medium text-[var(--color-text-primary)]">closed</span>{' '}
-            trade below with an explicit{' '}
-            <span className="font-medium text-[var(--color-text-primary)]">SIM</span> or{' '}
-            <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
-            tag. Prices are <span className="font-medium">per share</span>; each
-            contract = 100 shares. Admin only.
+            Every position the fleet holds right now, and every trade it has
+            closed. Prices are{' '}
+            <span className="font-medium text-[var(--color-text-primary)]">per share</span>
+            ; each contract = 100 shares.
+            {isAdmin ? (
+              <>
+                {' '}Origin tags:{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">SIM</span>{' '}
+                = seed data,{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
+                = real engine entries.
+              </>
+            ) : null}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <OriginTabs current={origin} onChange={setOrigin} />
+          {isAdmin ? <OriginTabs current={origin} onChange={setOrigin} /> : null}
           <select
             value={botId}
             onChange={(e) => setBotId(e.target.value)}
@@ -271,59 +286,78 @@ export default function TradesAuditPanel({ bots }: Props) {
               </option>
             ))}
           </select>
-          <button
-            onClick={downloadCsv}
-            className="text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition-colors"
-            style={{
-              backgroundColor: 'var(--color-surface-subtle)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-primary)',
-            }}
-            title="Download the currently-filtered trades as CSV"
-          >
-            <FileSpreadsheet className="w-3 h-3" />
-            CSV
-          </button>
+          {isAdmin ? (
+            <button
+              onClick={downloadCsv}
+              className="text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 transition-colors"
+              style={{
+                backgroundColor: 'var(--color-surface-subtle)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+              title="Download the currently-filtered trades as CSV"
+            >
+              <FileSpreadsheet className="w-3 h-3" />
+              CSV
+            </button>
+          ) : null}
         </div>
       </div>
 
       <OpenPositionsSection data={openPositions} />
 
-      {data ? (
-        <div
-          className="px-5 py-3 border-b text-xs flex items-center gap-6 flex-wrap"
-          style={{
-            borderColor: 'var(--color-border)',
-            backgroundColor: 'var(--color-surface-subtle)',
-          }}
-        >
-          <SummaryCell
-            label="Trades"
-            value={data.summary.n_trades.toLocaleString()}
-          />
-          <SummaryCell
-            label="Realized P&L"
-            value={fmtSignedMoney(data.summary.sum_realized_pnl)}
-            tone={
-              data.summary.sum_realized_pnl >= 0
-                ? 'var(--color-bull)'
-                : 'var(--color-bear)'
-            }
-          />
-          <SummaryCell
-            label="Wins"
-            value={data.summary.n_wins.toLocaleString()}
-          />
-          <SummaryCell
-            label="Losses"
-            value={data.summary.n_losses.toLocaleString()}
-          />
-          <SummaryCell
-            label="Scratches"
-            value={data.summary.n_scratches.toLocaleString()}
-          />
+      {/*
+        Closed-trades section header. Matches OpenPositionsSection layout:
+        section title + one-line description on the left, five-column stat
+        rail on the right. The stat rail always shows the same five slots
+        (count, P&L, wins, losses, scratches) so the eye can align them
+        between open and closed at a glance.
+      */}
+      <div
+        className="px-5 py-4 border-b flex items-center justify-between gap-4 flex-wrap"
+        style={{
+          borderColor: 'var(--color-border)',
+          backgroundColor: 'var(--color-surface-subtle)',
+        }}
+      >
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
+            Closed trades
+          </div>
+          <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
+            Every trade that has already exited, newest first.
+          </div>
         </div>
-      ) : null}
+        {data ? (
+          <div className="flex items-center gap-6 text-xs">
+            <SummaryCell
+              label="Trades"
+              value={data.summary.n_trades.toLocaleString()}
+            />
+            <SummaryCell
+              label="Realized P&L"
+              value={fmtSignedMoney(data.summary.sum_realized_pnl)}
+              tone={
+                data.summary.sum_realized_pnl >= 0
+                  ? 'var(--color-bull)'
+                  : 'var(--color-bear)'
+              }
+            />
+            <SummaryCell
+              label="Wins"
+              value={data.summary.n_wins.toLocaleString()}
+            />
+            <SummaryCell
+              label="Losses"
+              value={data.summary.n_losses.toLocaleString()}
+            />
+            <SummaryCell
+              label="Scratches"
+              value={data.summary.n_scratches.toLocaleString()}
+            />
+          </div>
+        ) : null}
+      </div>
 
       {loading && !data ? (
         <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">
@@ -519,6 +553,20 @@ export default function TradesAuditPanel({ bots }: Props) {
 function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) {
   if (!data) return null;
   const now = Date.now();
+  // Per-position winning/losing/scratch counts derived from the sign of
+  // each row's unrealized_pnl. Mirrors the wins/losses/scratches columns
+  // on the closed-trades stat rail so the two sections read as a matched
+  // pair — Positions/Unrealized/Winning/Losing/Scratch above,
+  // Trades/Realized/Wins/Losses/Scratches below.
+  let winning = 0;
+  let losing = 0;
+  let scratch = 0;
+  for (const p of data.entries) {
+    const pnl = p.unrealized_pnl ?? 0;
+    if (pnl > 0) winning += 1;
+    else if (pnl < 0) losing += 1;
+    else scratch += 1;
+  }
   return (
     <div
       className="px-5 py-4 border-b"
@@ -538,7 +586,10 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
           </div>
         </div>
         <div className="flex items-center gap-6 text-xs">
-          <SummaryCell label="Open" value={data.summary.n_open.toLocaleString()} />
+          <SummaryCell
+            label="Positions"
+            value={data.summary.n_open.toLocaleString()}
+          />
           <SummaryCell
             label="Unrealized P&L"
             value={fmtSignedMoney(data.summary.total_unrealized_pnl)}
@@ -548,6 +599,9 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                 : 'var(--color-bear)'
             }
           />
+          <SummaryCell label="Winning" value={winning.toLocaleString()} />
+          <SummaryCell label="Losing" value={losing.toLocaleString()} />
+          <SummaryCell label="Scratch" value={scratch.toLocaleString()} />
         </div>
       </div>
 

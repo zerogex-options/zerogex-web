@@ -539,7 +539,7 @@ export default function TradeWorkzClient() {
           )}
         </section>
 
-        {isAdmin ? <TradesAuditPanel bots={bots} /> : null}
+        <TradesAuditPanel bots={bots} isAdmin={isAdmin} />
 
         {selectedBotId ? (
           <BotDetailPanel
