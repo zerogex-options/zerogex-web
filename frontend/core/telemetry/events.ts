@@ -49,8 +49,9 @@ export const TelemetryEvent = {
   //
   // Funnel: paid_landing_view → trial_cta_click / compare_plans_click /
   //         dashboard_preview_cta_click → signup_page_view →
-  //         [account_created = `signup`] → checkout_started →
-  //         [trial_started = `trial_started`] → subscription_paid.
+  //         [account_created = `signup`] → pricing_page_view →
+  //         checkout_started → [trial_started = `trial_started`] →
+  //         subscription_paid.
   // Note: account_created is the existing `signup` event (fired on register)
   // and trial_started is the existing server-side `trial_started` event, so we
   // don't duplicate them here.
@@ -67,8 +68,13 @@ export const TelemetryEvent = {
   /** The CTA inside the live-dashboard product preview was clicked (client). */
   DashboardPreviewCtaClick: 'dashboard_preview_cta_click',
   /** The signup/register page was viewed (client, /register). Fires alongside
-   *  the pageview so the funnel step is explicit and UTM-attributable. */
+   *  the pageview so the funnel step is explicit and UTM-attributable. This is
+   *  the funnel's `register_page_view` step. */
   SignupPageView: 'signup_page_view',
+  /** The pricing / trial plan-selection page was viewed (client, /pricing).
+   *  Fires on mount with any UTM still on the URL, so the paid funnel has an
+   *  explicit pricing step between signup and checkout_started. */
+  PricingPageView: 'pricing_page_view',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

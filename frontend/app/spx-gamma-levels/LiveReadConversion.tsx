@@ -46,13 +46,13 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
         id="live-read-heading"
         style={{ margin: 0, fontSize: 'clamp(24px, 3.2vw, 30px)', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.15 }}
       >
-        These are the delayed free levels. Want the live read?
+        Want the live, sub-second version?
       </h2>
 
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        ZeroGEX updates in real time and adds the full GEX profile, strike-by-strike heatmaps, option flow, dealer
-        positioning, and Market State signals for SPY, SPX, and QQQ &mdash; so you know the levels that matter before
-        price gets there.
+        These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, and QQQ levels update in real time with
+        the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
+        signals &mdash; so you know the levels that matter before price gets there.
       </p>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>

@@ -73,8 +73,9 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
   }, []);
 
   // Where to send the user after successful register. /pricing is the default
-  // because (post-cutover) new accounts are created at tier=public — they have
-  // no premium access until they subscribe, and /pricing is the conversion path.
+  // because it's step two of the trial flow: the new account picks a plan there
+  // and the 7-day Stripe trial starts at checkout. A ?next= target (e.g. from a
+  // deep link) overrides it.
   const successHref = nextPath ?? '/pricing';
 
   const loginHref = useMemo(() => {
@@ -138,11 +139,20 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
 
       // Top of the funnel: account created. (Identity is attached on the next
       // page load by ClientLayout once the session resolves; PostHog stitches
-      // this anonymous event to that identity automatically.)
+      // this anonymous event to that identity automatically.) Carry any UTM
+      // still on the URL so a directly-attributed signup keeps its campaign.
       capture(TelemetryEvent.Signup, {
         tier: selectedTier,
         referred: Boolean(refCode),
+        ...readUtmParams(),
       });
+
+      // Step two of the trial flow: greet the fresh account on /pricing with the
+      // "your 7-day trial starts today" header. Only mark the pricing
+      // destination — a custom ?next= target is left untouched.
+      const welcomeHref = successHref.startsWith('/pricing')
+        ? successHref + (successHref.includes('?') ? '&' : '?') + 'welcome=1'
+        : successHref;
 
       // If the verification mail couldn't be dispatched on signup, append a
       // hint to the destination so /pricing (or whatever next= points at)
@@ -151,8 +161,8 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
       // the Resend button.
       const target =
         payload.emailVerificationSent === false
-          ? successHref + (successHref.includes('?') ? '&' : '?') + 'email_send_failed=1'
-          : successHref;
+          ? welcomeHref + (welcomeHref.includes('?') ? '&' : '?') + 'email_send_failed=1'
+          : welcomeHref;
 
       // /api/auth/register now sets the session cookie itself; skip the
       // /login bounce and go straight to the next destination.
@@ -165,18 +175,18 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">Create account</h1>
+        <h1 className="text-3xl font-bold">Create your ZeroGEX account</h1>
         {showReferralBanner && (
           <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
             🎉 A friend referred you — your discount is applied at checkout.
           </div>
         )}
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          New accounts have no premium access until they subscribe — you&rsquo;ll be sent to
-          the pricing page after sign-up. Use a strong password (12+ characters).
+          Start your 7-day free trial after account creation. No charge until day 7. Cancel anytime.
         </p>
         <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
-          ZeroGEX helps traders understand where the market may react before price gets there.
+          ZeroGEX helps SPY, SPX, and QQQ traders track live gamma levels, dealer positioning, flow
+          pressure, and market state signals before price gets there.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -201,6 +211,9 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
               onChange={(event) => setPassword(event.target.value)}
               required
             />
+            <span className="mt-1 block text-xs text-[var(--color-text-secondary)] opacity-80">
+              Use a strong password — 12 or more characters.
+            </span>
           </label>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -210,7 +223,7 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
             className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black disabled:opacity-60"
             type="submit"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? 'Creating account…' : 'Create Account & Continue to Trial'}
           </button>
         </form>
 
