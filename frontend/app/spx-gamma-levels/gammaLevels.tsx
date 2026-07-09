@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, CheckCircle2, Clock, History, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { buildReportModel } from '../live-bulletin/bulletinHelpers';
+import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
@@ -28,6 +28,13 @@ import StickyTrialBar from './StickyTrialBar';
 // licensing-clean by construction.
 
 const SITE = 'https://zerogex.io';
+
+// A ticker whose snapshot is this far behind the freshest of the three is
+// surfaced as "temporarily delayed" — so a stale SPX card (e.g. an afternoon
+// index snapshot) never sits silently next to fresh SPY/QQQ cards as if they
+// were the same moment. Measured relative to the freshest snapshot in the set
+// (never wall-clock), so it stays deterministic inside the ISR HTML.
+const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -214,21 +221,30 @@ function fmtShareGex(value: number | null | undefined): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-function shareLine(symbol: Symbol, data: GexSummary | null): string {
+function shareLine(symbol: Symbol, data: GexSummary | null, delayed = false): string {
   return (
     `${symbol}: spot ${fmtShareLevel(data?.spot_price)} | ` +
     `Call Wall ${fmtShareStrike(data?.call_wall)} | ` +
     `Put Wall ${fmtShareStrike(data?.put_wall)} | ` +
     `Gamma Flip ${fmtShareLevel(data?.gamma_flip)} | ` +
-    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}`
+    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}` +
+    (delayed ? ' (delayed)' : '')
   );
 }
 
-function buildShareSnippet(snapshots: Record<Symbol, GexSummary | null>, primary: Symbol): string {
+// The share snippet is built from the same snapshots that feed the visible
+// cards, so it can never drift from them. Any ticker flagged stale relative to
+// the freshest is tagged "(delayed)" in its line so the pasted snapshot doesn't
+// present an old ticker as current alongside fresh ones.
+function buildShareSnippet(
+  snapshots: Record<Symbol, GexSummary | null>,
+  primary: Symbol,
+  staleSymbols?: ReadonlySet<Symbol>,
+): string {
   const order = symbolOrder(primary);
   return [
     `${order.join(' / ')} gamma levels from ZeroGEX:`,
-    ...order.map((s) => shareLine(s, snapshots[s])),
+    ...order.map((s) => shareLine(s, snapshots[s], staleSymbols?.has(s) ?? false)),
     'Free delayed levels:',
     SYMBOL_CONTENT[primary].shareUrl,
   ].join('\n');
@@ -253,27 +269,41 @@ function fmtTimestampET(iso: string | undefined): string {
   }
 }
 
-function gexRegimeLabel(netGex: number | null | undefined): {
-  label: string;
-  tone: 'bull' | 'bear' | 'neutral';
-  body: string;
-} {
-  if (netGex == null || !Number.isFinite(netGex)) {
-    return { label: 'No regime read', tone: 'neutral', body: 'Gamma data unavailable for this session.' };
-  }
-  if (netGex > 0) {
-    return {
-      label: 'Positive gamma (suppressed vol)',
-      tone: 'bull',
-      body: 'Dealers are net long gamma at spot — mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
-    };
-  }
-  return {
+// Regime shown on each ticker card. Determined the same way as the live app
+// (GexRegimeHeader) and the Today's Read (buildReportModel → detectRegime):
+// purely by where spot sits relative to the gamma flip, with a ±0.25% "at the
+// flip" band — NOT by the sign of a net-GEX total. One shared methodology means
+// the card badge, the Today's Read badge, and the dashboard header can never
+// disagree for the same snapshot.
+const REGIME_DISPLAY: Record<
+  RegimeKey,
+  { label: string; color: string; icon: 'up' | 'down' | 'flat' | 'none'; body: string }
+> = {
+  positive: {
+    label: 'Positive gamma (suppressed vol)',
+    color: 'var(--color-positive)',
+    icon: 'up',
+    body: 'Dealers are net long gamma at spot — mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
+  },
+  negative: {
     label: 'Negative gamma (amplified vol)',
-    tone: 'bear',
+    color: 'var(--color-negative)',
+    icon: 'down',
     body: 'Dealers are net short gamma at spot — moves can accelerate, walls are more brittle, trend extension is the higher-probability path.',
-  };
-}
+  },
+  neutral: {
+    label: 'At the gamma flip',
+    color: 'var(--color-warning)',
+    icon: 'flat',
+    body: 'Spot is sitting on the gamma flip — the sign of dealer hedging is unstable here, and a small move tips the tape into the next regime.',
+  },
+  unresolved: {
+    label: 'Gamma flip unresolved',
+    color: 'var(--color-text-secondary)',
+    icon: 'none',
+    body: 'The dealer gamma flip couldn’t be resolved from this snapshot — read these levels as provisional.',
+  },
+};
 
 // Pull all three symbols in parallel. Each call is cached in the Next.js fetch
 // cache at 900s, so the page itself is effectively ISR'd at the same cadence.
@@ -327,14 +357,20 @@ function LevelRow({
 // The primary ticker's card links deeper to its live dashboard (the conversion
 // path); the other two tickers link to their own dedicated gamma-levels pages so
 // the three pages cross-link into a cluster.
-function SymbolCard({ symbol, data, isPrimary }: { symbol: Symbol; data: GexSummary | null; isPrimary: boolean }) {
-  const regime = gexRegimeLabel(data?.net_gex_at_spot ?? data?.net_gex);
-  const regimeColor =
-    regime.tone === 'bull'
-      ? 'var(--color-positive)'
-      : regime.tone === 'bear'
-        ? 'var(--color-negative)'
-        : 'var(--color-text-secondary)';
+function SymbolCard({
+  symbol,
+  data,
+  isPrimary,
+  status = 'ok',
+}: {
+  symbol: Symbol;
+  data: GexSummary | null;
+  isPrimary: boolean;
+  /** Freshness of this ticker relative to the freshest of the three. */
+  status?: 'ok' | 'stale' | 'missing';
+}) {
+  const regime = REGIME_DISPLAY[detectRegime(data?.gamma_flip, data?.spot_price)];
+  const regimeColor = regime.color;
   const href = isPrimary ? `/gamma-exposure?symbol=${symbol}` : gammaPath(symbol);
   const ctaLabel = isPrimary ? `Live ${symbol} dashboard` : `${symbol} gamma levels`;
   return (
@@ -376,13 +412,39 @@ function SymbolCard({ symbol, data, isPrimary }: { symbol: Symbol; data: GexSumm
               gap: 6,
             }}
           >
-            {regime.tone === 'bull' ? <TrendingUp size={12} /> : regime.tone === 'bear' ? <TrendingDown size={12} /> : null}
+            {regime.icon === 'up' ? (
+              <TrendingUp size={12} />
+            ) : regime.icon === 'down' ? (
+              <TrendingDown size={12} />
+            ) : regime.icon === 'flat' ? (
+              <Minus size={12} />
+            ) : null}
             {regime.label}
           </span>
         </div>
         <p style={{ margin: '10px 0 0 0', fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
           {regime.body}
         </p>
+        {status !== 'ok' && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 10,
+              padding: '4px 10px',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'var(--color-warning)',
+              border: '1px solid var(--color-warning)55',
+              background: 'var(--color-warning)14',
+            }}
+          >
+            <Clock size={11} />
+            {symbol} data temporarily {status === 'missing' ? 'unavailable' : 'delayed'}
+          </div>
+        )}
       </header>
 
       <div>
@@ -423,9 +485,33 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
+  // Per-ticker freshness. `freshestMs` is the newest snapshot across the three;
+  // any ticker more than STALE_THRESHOLD_MS behind it is flagged so its card and
+  // its share line read "temporarily delayed" instead of being mixed in as
+  // though it were captured at the same moment as the others. Relative to the
+  // freshest snapshot (not the wall clock), so it's deterministic in ISR.
+  const snapshotMs = (s: Symbol): number | null => {
+    const t = snapshots[s]?.timestamp;
+    if (!t) return null;
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? ms : null;
+  };
+  const freshestMs = SYMBOLS.map(snapshotMs).reduce<number | null>(
+    (max, ms) => (ms != null && (max == null || ms > max) ? ms : max),
+    null,
+  );
+  const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
+    if (snapshots[s] == null) return 'missing';
+    const ms = snapshotMs(s);
+    if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
+    return 'ok';
+  };
+  const staleSymbols = new Set<Symbol>(SYMBOLS.filter((s) => cardStatus(s) === 'stale'));
+
   // Daily copy/paste share snapshot — built here so it ships in the ISR HTML and
-  // is passed to the interactive ShareBlock as a ready-to-post string.
-  const shareSnippet = buildShareSnippet(snapshots, primary);
+  // is passed to the interactive ShareBlock as a ready-to-post string. Stale
+  // tickers are tagged in the snippet from the same freshness read as the cards.
+  const shareSnippet = buildShareSnippet(snapshots, primary, staleSymbols);
   const shareHasData = SYMBOLS.some((s) => {
     const spot = snapshots[s]?.spot_price;
     return typeof spot === 'number' && Number.isFinite(spot);
@@ -571,10 +657,27 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 priorClose: null,
                 summary: primaryData,
                 vix: null,
-                volIndex: 'VIX',
+                volIndex: primary === 'QQQ' ? 'VXN' : 'VIX',
                 horizon: 'daily',
               })}
             />
+            {cardStatus(primary) === 'stale' && (
+              <p
+                style={{
+                  margin: '10px 2px 0',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--color-warning)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Clock size={12} />
+                {primary} data is temporarily delayed — this read reflects the last available {primary} snapshot,
+                not the current session.
+              </p>
+            )}
           </div>
         )}
 
@@ -627,7 +730,13 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           }}
         >
           {order.map((symbol) => (
-            <SymbolCard key={symbol} symbol={symbol} data={snapshots[symbol]} isPrimary={symbol === primary} />
+            <SymbolCard
+              key={symbol}
+              symbol={symbol}
+              data={snapshots[symbol]}
+              isPrimary={symbol === primary}
+              status={cardStatus(symbol)}
+            />
           ))}
         </section>
 

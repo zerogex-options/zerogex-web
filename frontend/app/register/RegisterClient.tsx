@@ -225,6 +225,10 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
           >
             {loading ? 'Creating account…' : 'Create Account & Continue to Trial'}
           </button>
+
+          <p className="text-center text-xs text-[var(--color-text-secondary)]">
+            Next step: choose your plan. No charge until day 7.
+          </p>
         </form>
 
         <div className="mt-6 text-sm">

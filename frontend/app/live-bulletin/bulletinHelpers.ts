@@ -288,7 +288,13 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const callWall = pickNumber(summary?.call_wall);
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
-  const netGex = pickNumber(summary?.net_gex, summary?.net_gex_at_spot);
+  // Prefer net GEX evaluated AT SPOT (fall back to the chain-wide total only
+  // when at-spot is unavailable). This is the value every other Net-GEX surface
+  // on the site shows (dashboard, gamma-exposure, greeks-gex, the free
+  // gamma-levels cards), and its sign agrees with the spot-vs-flip regime — so
+  // the auto-lead's "dealers are long/short gamma" can never contradict the
+  // regime badge or the metric card the way the chain-wide total could.
+  const netGex = pickNumber(summary?.net_gex_at_spot, summary?.net_gex);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 
   const priorClose = pickNumber(inputs.priorClose);
