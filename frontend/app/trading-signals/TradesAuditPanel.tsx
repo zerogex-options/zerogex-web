@@ -37,6 +37,7 @@ interface Leg {
 interface TradeRow {
   id: number;
   bot_id: string;
+  bot_display_name: string | null;
   underlying: string;
   origin: 'live' | 'simulate';
   opened_at: string | null;
@@ -388,7 +389,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                   color: 'var(--color-text-secondary)',
                 }}
               >
-                <Th>Origin</Th>
+                {isAdmin ? <Th>Origin</Th> : null}
                 <Th>Opened</Th>
                 <Th>Closed</Th>
                 <Th>Bot</Th>
@@ -436,9 +437,11 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                       }}
                       onClick={() => setExpandedId(isOpen ? null : row.id)}
                     >
-                      <td className="px-3 py-2">
-                        <OriginBadge origin={row.origin} />
-                      </td>
+                      {isAdmin ? (
+                        <td className="px-3 py-2">
+                          <OriginBadge origin={row.origin} />
+                        </td>
+                      ) : null}
                       <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
                         {row.opened_at
                           ? new Date(row.opened_at).toLocaleString()
@@ -450,7 +453,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                           : '—'}
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-primary)]">
-                        {row.bot_id}
+                        {row.bot_display_name ?? row.bot_id}
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
                         {contractLabel(row.underlying, row.legs)}
@@ -494,7 +497,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                     </tr>
                     {isOpen ? (
                       <tr>
-                        <td colSpan={15} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
+                        <td colSpan={isAdmin ? 15 : 14} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
                           <ExpandedDetail row={row} />
                         </td>
                       </tr>
