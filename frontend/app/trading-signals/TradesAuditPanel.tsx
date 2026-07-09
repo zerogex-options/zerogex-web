@@ -817,40 +817,132 @@ function Th({
   );
 }
 
+function LegsTable({
+  legs,
+  emptyLabel,
+}: {
+  legs: Leg[] | null | undefined;
+  emptyLabel: string;
+}) {
+  if (!legs || legs.length === 0) {
+    return (
+      <div className="text-[11px] text-[var(--color-text-secondary)] italic">
+        {emptyLabel}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="rounded overflow-hidden"
+      style={{ border: '1px solid var(--color-border)' }}
+    >
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr
+            className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]"
+            style={{ backgroundColor: 'var(--color-surface)' }}
+          >
+            <th className="px-2 py-1.5 text-left font-semibold">#</th>
+            <th className="px-2 py-1.5 text-left font-semibold">Side</th>
+            <th className="px-2 py-1.5 text-left font-semibold">Type</th>
+            <th className="px-2 py-1.5 text-right font-semibold">Strike</th>
+            <th className="px-2 py-1.5 text-left font-semibold">Expires</th>
+            <th className="px-2 py-1.5 text-left font-semibold">Symbol</th>
+          </tr>
+        </thead>
+        <tbody>
+          {legs.map((leg, i) => {
+            const isLong = (leg.side ?? '').toLowerCase() === 'long';
+            const sideTone = isLong ? 'var(--color-bull)' : 'var(--color-bear)';
+            const type = (leg.option_type ?? '').toLowerCase();
+            const typeLabel = type
+              ? type.charAt(0).toUpperCase() + type.slice(1)
+              : '—';
+            return (
+              <tr
+                key={`${leg.option_symbol ?? i}-${i}`}
+                className="border-t"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <td className="px-2 py-1.5 text-[var(--color-text-secondary)] tabular-nums">
+                  {i + 1}
+                </td>
+                <td
+                  className="px-2 py-1.5 font-semibold uppercase tracking-wider text-[10px]"
+                  style={{ color: sideTone }}
+                >
+                  {leg.side ?? '—'}
+                </td>
+                <td className="px-2 py-1.5 text-[var(--color-text-primary)]">
+                  {typeLabel}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-[var(--color-text-primary)]">
+                  {leg.strike ?? '—'}
+                </td>
+                <td className="px-2 py-1.5 text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
+                  {leg.expiration ?? '—'}
+                </td>
+                <td className="px-2 py-1.5 text-[var(--color-text-secondary)] font-mono">
+                  {leg.option_symbol ?? '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ExpandedDetail({ row }: { row: TradeRow }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+    <div className="space-y-4 py-2">
+      {/*
+        Legs first: for a multi-leg structure (iron condor, straddle,
+        vertical) the operator needs to see every leg — long/short,
+        strike, expiration — to understand what was actually traded
+        without decoding the option_symbol themselves.
+      */}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-          Components at entry
+          Legs ({row.legs?.length ?? 0})
         </div>
-        <pre
-          className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
-          style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-primary)',
-            maxHeight: 260,
-          }}
-        >
-          {JSON.stringify(row.components_at_entry ?? {}, null, 2)}
-        </pre>
+        <LegsTable legs={row.legs} emptyLabel="No legs recorded for this trade." />
       </div>
-      <div>
-        <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-          Components at exit
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
+            Components at entry
+          </div>
+          <pre
+            className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+              maxHeight: 260,
+            }}
+          >
+            {JSON.stringify(row.components_at_entry ?? {}, null, 2)}
+          </pre>
         </div>
-        <pre
-          className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
-          style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-primary)',
-            maxHeight: 260,
-          }}
-        >
-          {JSON.stringify(row.components_at_exit ?? {}, null, 2)}
-        </pre>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
+            Components at exit
+          </div>
+          <pre
+            className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+              maxHeight: 260,
+            }}
+          >
+            {JSON.stringify(row.components_at_exit ?? {}, null, 2)}
+          </pre>
+        </div>
       </div>
     </div>
   );
