@@ -1633,6 +1633,15 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     const summary = run.summary;
     return (
       <div className="flex flex-col gap-8">
+        {summary && summary.n_trades > 0 ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-[var(--color-text-secondary)]">
+              Run #{run.run_id} — share a public, read-only report of this result.
+            </div>
+            <ShareButton runId={run.run_id} />
+          </div>
+        ) : null}
+
         {summary ? <StatsCards summary={summary} /> : null}
 
         {summary ? <TearsheetPanel summary={summary} /> : null}
@@ -2051,6 +2060,59 @@ function EmptyState() {
         Configure a run on the left and press <span className="font-semibold">Run Backtest</span>, or re-open a
         recent run.
       </div>
+    </div>
+  );
+}
+
+/** Mint a public share link for a completed run and copy it to the clipboard. */
+function ShareButton({ runId }: { runId: number }) {
+  const [link, setLink] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const onShare = async () => {
+    setBusy(true);
+    try {
+      const res = await backtestAPI.shareRun(runId);
+      const url =
+        typeof window !== 'undefined' ? `${window.location.origin}${res.path}` : res.path;
+      setLink(url);
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Clipboard may be blocked; the link is shown for manual copy.
+      }
+    } catch {
+      setLink(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        onClick={onShare}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 text-sm rounded-md border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-surface-subtle)] disabled:opacity-60"
+      >
+        <Share2 size={15} />
+        {busy ? 'Creating link…' : 'Share result'}
+      </button>
+      {link ? (
+        <div className="flex items-center gap-2 text-xs">
+          <input
+            readOnly
+            value={link}
+            onFocus={(e) => e.currentTarget.select()}
+            className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1 font-mono w-[240px] max-w-full"
+          />
+          {copied ? <span className="text-[var(--color-bull)]">Copied!</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

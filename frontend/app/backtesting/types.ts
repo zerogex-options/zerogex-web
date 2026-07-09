@@ -168,6 +168,33 @@ export interface BacktestBenchmark {
 }
 
 /**
+ * Public, sanitized view of a shared run (the "prove it" report). Carries the
+ * headline result and what kind of thing was tested, but never the owner or a
+ * custom strategy's exact conditions.
+ */
+export interface SharedBacktestRun {
+  underlying: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  summary: BacktestSummary;
+  strategy_label: string;
+  is_custom: boolean;
+  structure: string | null;
+  direction: string | null;
+  patterns: string[];
+  capital: number | null;
+  fill_model: { slippage_pct: number; commission_per_contract: number } | null;
+  exit: { max_hold_minutes: number | null; profit_target_pct: number | null; stop_loss_pct: number | null } | null;
+}
+
+/** Response from minting a share token for a run. */
+export interface BacktestShareResult {
+  share_token: string;
+  path: string;
+}
+
+/**
  * Funnel diagnostics emitted by the engine so a low/zero-trade run is
  * explainable: how many cards were loaded, survived the pattern filter and
  * cooldown, got priced, and where the rest were dropped.

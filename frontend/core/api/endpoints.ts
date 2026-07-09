@@ -21,6 +21,8 @@ import type {
   BacktestConfig,
   BacktestConfigSummary,
   BacktestSharedConfig,
+  BacktestShareResult,
+  SharedBacktestRun,
   BacktestSweep,
   BacktestSweepAxis,
   BacktestSweepCreated,
@@ -149,6 +151,23 @@ export const backtestAPI = {
    */
   getEquity: async (runId: number): Promise<BacktestEquityPoint[]> => {
     return apiClient.get<BacktestEquityPoint[]>(`/api/backtest/runs/${runId}/equity`);
+  },
+
+  // ---- Shareable run reports ("prove it" links) -------------------------
+
+  /** Mint (or return) a public share token for a completed run. */
+  shareRun: async (runId: number): Promise<BacktestShareResult> => {
+    return apiClient.post<BacktestShareResult>(`/api/backtest/runs/${runId}/share`, {});
+  },
+
+  /** Public read of a shared run's result by token (no auth needed). */
+  getSharedRun: async (token: string): Promise<SharedBacktestRun> => {
+    return apiClient.get<SharedBacktestRun>(`/api/backtest/runs/shared/${token}`);
+  },
+
+  /** Public equity curve for a shared run. */
+  getSharedEquity: async (token: string): Promise<BacktestEquityPoint[]> => {
+    return apiClient.get<BacktestEquityPoint[]>(`/api/backtest/runs/shared/${token}/equity`);
   },
 
   // ---- Saved & shareable configs (Phase 6) ------------------------------
