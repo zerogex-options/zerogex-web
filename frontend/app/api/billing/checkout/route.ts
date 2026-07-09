@@ -201,8 +201,14 @@ export async function POST(request: NextRequest) {
     customer: customerId,
     client_reference_id: actor.user.id,
     line_items: [{ price: skuToPriceId({ tier, cadence }), quantity: 1 }],
-    success_url: `${appUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/pricing?checkout=cancelled`,
+    // Land the just-converted trialer straight in the product they unlocked.
+    // The webhook grants the (trialing) tier; ?trial_started=1 both marks the
+    // funnel step and tells the middleware to let them through during the brief
+    // window before the webhook syncs (see proxy.ts). Cancels return to the
+    // trial-context pricing page — never the free gamma page — with a friendly
+    // "trial hasn't started yet" notice.
+    success_url: `${appUrl}/dashboard?trial_started=1`,
+    cancel_url: `${appUrl}/pricing?trial=1&checkout_cancelled=1`,
     // Stripe Tax: enabled so the Tax engine evaluates every session. Today
     // we have no tax registrations, so Stripe calculates $0 tax for every
     // jurisdiction and nothing changes on the customer's bill. When we
