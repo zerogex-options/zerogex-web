@@ -288,7 +288,14 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const callWall = pickNumber(summary?.call_wall);
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
-  const netGex = pickNumber(summary?.net_gex, summary?.net_gex_at_spot);
+  // Prefer net_gex_at_spot — the "regime-correct headline figure" the main
+  // dashboard and the gamma-exposure page already show — so the bulletin's
+  // Net GEX can't disagree with the rest of the site (the chain-wide net_gex
+  // can differ in magnitude and even sign when far-OTM strikes dominate the
+  // tail). This also keeps the number sign-consistent with the regime badge,
+  // which is derived from the same gamma flip net_gex_at_spot agrees with.
+  // Fall back to the chain-wide net_gex only until net_gex_at_spot is written.
+  const netGex = pickNumber(summary?.net_gex_at_spot, summary?.net_gex);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 
   const priorClose = pickNumber(inputs.priorClose);
