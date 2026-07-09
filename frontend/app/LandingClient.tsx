@@ -246,10 +246,10 @@ export default function LandingPage() {
   const isAuthed = !!authSession?.authenticated;
   const tier = normalizeTier(authSession?.user?.tier);
   const canLaunchApp = isAuthed && (tier === 'basic' || tier === 'pro' || tier === 'admin');
-  // Signed-in-but-unpaid visitors start the trial on /pricing; ?welcome=1 makes
-  // that page greet them with the "your 7-day trial starts today" header, same
+  // Signed-in-but-unpaid visitors start the trial on /pricing; ?trial=1 makes
+  // that page show the "You're almost done — choose your plan" trial hero, same
   // as a visitor arriving straight from registration.
-  const heroTrialHref = isAuthed ? '/pricing?welcome=1' : '/register';
+  const heroTrialHref = isAuthed ? '/pricing?trial=1' : '/register';
   // Secondary "Explore GEX Dashboard" CTA. Signed-in paid users go straight to
   // the live dashboard; everyone else is routed into the trial flow with the
   // dashboard as the post-signup destination — rather than silently bouncing to

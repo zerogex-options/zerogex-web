@@ -23,6 +23,53 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   const needsUpgrade = current === 'basic' && required === 'pro';
   const tierLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
+  // Logged-in, no subscription: the post-registration "account exists but no
+  // trial started" case — the biggest funnel leak. Show a dedicated trial-start
+  // unlock screen rather than the generic access-denied layout, and never bounce
+  // to the free levels page.
+  if (needsSubscription) {
+    return (
+      <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+        <div className="w-full max-w-xl">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
+              <Sparkles size={13} /> Start your trial
+            </div>
+            <h1 className="text-3xl font-bold">Start your ZeroGEX trial</h1>
+            <p className="mt-3 text-[var(--color-text-secondary)]">
+              Your account is ready. Choose a plan to unlock the live dashboard.
+            </p>
+            <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
+              7-day free trial. No charge until day 7. Cancel anytime.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href="/pricing?trial=1&plan=basic"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
+              >
+                Start Basic Trial <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/pricing?trial=1&plan=pro"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
+              >
+                Start Pro Trial <ArrowRight size={16} />
+              </Link>
+            </div>
+            <p className="mt-5">
+              <Link
+                href="/spx-gamma-levels"
+                className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-brand-primary)] hover:underline"
+              >
+                View Free Delayed Levels
+              </Link>
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   let heading: string;
   let message: string;
   if (needsSubscription) {

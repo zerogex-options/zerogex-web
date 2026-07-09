@@ -75,6 +75,17 @@ export const TelemetryEvent = {
    *  Fires on mount with any UTM still on the URL, so the paid funnel has an
    *  explicit pricing step between signup and checkout_started. */
   PricingPageView: 'pricing_page_view',
+  /** Pricing viewed immediately after registration — the visitor arrived with
+   *  ?trial=1&source=registration (client, /pricing). Isolates the exact
+   *  register→pricing hop so drop-off there is measurable on its own. */
+  PricingPageViewAfterRegister: 'pricing_page_view_after_register',
+  /** A plan's "Start Basic/Pro Trial" button was clicked on /pricing, just
+   *  before checkout is created (client). Carries `selected_plan`. Distinct
+   *  from checkout_started so we can see clicks that never reach Stripe. */
+  PlanTrialCtaClick: 'plan_trial_cta_click',
+  /** The visitor returned from Stripe Checkout without paying — bounced back to
+   *  /pricing?trial=1&checkout_cancelled=1 (client). The trial has not started. */
+  CheckoutCancelled: 'checkout_cancelled',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];

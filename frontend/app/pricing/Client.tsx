@@ -88,12 +88,14 @@ function CtaButton({
   action,
   busy,
   accent,
+  tier,
   onSubscribe,
   onPortal,
 }: {
   action: TierAction;
   busy: boolean;
   accent: string;
+  tier: BillableTier;
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
@@ -133,8 +135,15 @@ function CtaButton({
   }
 
   if (action.kind === 'link') {
+    // Logged-out visitor: the trial CTA routes through /register. Record the
+    // plan-trial click before we navigate so the funnel captures intent even
+    // when the visitor never reaches Stripe.
     return (
-      <Link href={action.href} style={{ textDecoration: 'none', display: 'block' }}>
+      <Link
+        href={action.href}
+        style={{ textDecoration: 'none', display: 'block' }}
+        onClick={() => capture(TelemetryEvent.PlanTrialCtaClick, { selected_plan: tier, ...readUtmParams() })}
+      >
         <span style={baseStyle as React.CSSProperties}>
           {action.label} <ArrowRight size={16} />
         </span>
@@ -144,8 +153,11 @@ function CtaButton({
 
   const handleClick = () => {
     if (busy) return;
-    if (action.kind === 'subscribe') onSubscribe(action.tier);
-    else onPortal();
+    if (action.kind === 'subscribe') {
+      // Funnel: plan trial CTA clicked, just before checkout is created.
+      capture(TelemetryEvent.PlanTrialCtaClick, { selected_plan: action.tier, ...readUtmParams() });
+      onSubscribe(action.tier);
+    } else onPortal();
   };
 
   return (
@@ -365,7 +377,12 @@ function TierCard({
         ))}
       </ul>
 
-      <CtaButton action={action} busy={busy} accent={accent} onSubscribe={onSubscribe} onPortal={onPortal} />
+      <CtaButton action={action} busy={busy} accent={accent} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
+      {(action.kind === 'subscribe' || action.kind === 'link') && (
+        <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
+          No charge today.
+        </p>
+      )}
     </article>
   );
 }
@@ -561,19 +578,27 @@ function PricingClientInner({
     if (verifyNotice?.kind === 'success') void refreshSession();
   }, [verifyNotice, refreshSession]);
 
-  // Funnel: pricing / trial plan-selection page viewed. Fires once on mount
-  // with any UTM still on the URL, so the paid funnel has an explicit pricing
-  // step between account_created and checkout_started.
-  useEffect(() => {
-    capture(TelemetryEvent.PricingPageView, { ...readUtmParams() });
-  }, []);
+  // Trial-continuation context. ?trial=1 is set after registration and by every
+  // signed-in trial CTA (header / home hero / unlock screen), so pricing can
+  // greet the visitor mid-flow with the "You're almost done" hero. ?source=
+  // registration marks the immediate register→pricing hop; ?checkout_cancelled=1
+  // (or the legacy checkout=cancelled) comes back from an abandoned Stripe session.
+  const cameFromTrialCta = searchParams.get('trial') === '1';
+  const cameFromRegistration = searchParams.get('source') === 'registration';
+  const checkoutCancelled =
+    searchParams.get('checkout_cancelled') === '1' || searchParams.get('checkout') === 'cancelled';
 
-  // True when the visitor arrived here to start a trial with ?welcome=1 — set
-  // both by RegisterClient right after signup AND by the signed-in trial CTAs
-  // (site header / home hero). Drives the "your trial starts today" header so
-  // the next step is unmistakable. Gated on !hasActiveSubscription at render so
-  // an existing subscriber who lands on a stale ?welcome=1 link never sees it.
-  const cameFromTrialCta = searchParams.get('welcome') === '1';
+  // Funnel: pricing / trial page viewed. Fires once on mount with any UTM still
+  // on the URL. When the visitor just registered we ALSO fire the dedicated
+  // after-register step so the register→pricing drop-off is measurable on its
+  // own; a bounced checkout fires checkout_cancelled.
+  useEffect(() => {
+    const utm = readUtmParams();
+    capture(TelemetryEvent.PricingPageView, { ...utm });
+    if (cameFromRegistration) capture(TelemetryEvent.PricingPageViewAfterRegister, { ...utm });
+    if (checkoutCancelled) capture(TelemetryEvent.CheckoutCancelled, { ...utm });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentTier: TierId = useMemo(
     () => normalizeTier(authSession?.user?.tier),
@@ -585,6 +610,10 @@ function PricingClientInner({
   // to checkout (which works) instead of portal (which 400s on missing
   // stripe_customer_id).
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Show the trial-continuation hero only to visitors who can actually start a
+  // trial. An existing subscriber who lands on a stale ?trial=1 link keeps the
+  // normal pricing hero.
+  const showTrialHero = cameFromTrialCta && !hasActiveSubscription;
   // Banner only shows when we have a definitive false. While the session is
   // loading, emailVerified is undefined; rendering the banner then would
   // flash it for everyone on every pricing-page visit.
@@ -649,7 +678,13 @@ function PricingClientInner({
           await callBilling('/api/billing/portal');
         } else {
           // Funnel: intent to subscribe, just before redirect to Stripe.
-          capture(TelemetryEvent.CheckoutStarted, { tier, cadence, ...readUtmParams() });
+          capture(TelemetryEvent.CheckoutStarted, {
+            tier,
+            selected_plan: tier,
+            cadence,
+            user_id: authSession?.user?.id,
+            ...readUtmParams(),
+          });
           await callBilling('/api/billing/checkout', { tier, cadence });
         }
       } catch (err) {
@@ -665,7 +700,7 @@ function PricingClientInner({
         setBusyTier(null);
       }
     },
-    [callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
+    [authSession?.user?.id, callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -682,7 +717,10 @@ function PricingClientInner({
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
       const label = tier === 'basic' ? 'Basic' : 'Pro';
-      const trialLabel = `Start ${TRIAL_DAYS}-day free trial`;
+      // Keep the word "trial" the moment they click through from "Start free
+      // trial" — tier-specific so the button reads "Start Basic Trial" /
+      // "Start Pro Trial", never "Subscribe" / "Choose plan".
+      const trialLabel = `Start ${label} Trial`;
       if (authLoading) return { kind: 'link', href: registerHref, label: trialLabel };
       if (!isAuthed) {
         return { kind: 'link', href: registerHref, label: trialLabel };
@@ -763,48 +801,58 @@ function PricingClientInner({
                 textTransform: 'uppercase',
               }}
             >
-              <Sparkles size={14} /> Pricing
+              <Sparkles size={14} /> {showTrialHero ? 'Almost done' : 'Pricing'}
             </div>
-            <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-              Trade with a live map of the options levels that matter.
-            </h1>
-            <p style={{ margin: '0 auto 18px', maxWidth: 760, color: C.light, fontSize: 18, lineHeight: 1.7, fontWeight: 500 }}>
-              ZeroGEX helps SPY/SPX/QQQ traders track gamma exposure, call/put walls, gamma flip,
-              dealer positioning, and flow pressure in real time.
-            </p>
-            <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              {TRIAL_DAYS}-day free trial. Full access now. No charge until day {TRIAL_DAYS}. Cancel anytime —
-              no email or support request required.
-            </p>
+            {showTrialHero ? (
+              <>
+                <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
+                  You&rsquo;re almost done.
+                </h1>
+                <p style={{ margin: '0 auto 12px', maxWidth: 760, color: C.light, fontSize: 20, lineHeight: 1.6, fontWeight: 600 }}>
+                  Choose your plan to start your {TRIAL_DAYS}-day free trial.
+                </p>
+                <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.amber, fontSize: 15, lineHeight: 1.7, fontWeight: 700 }}>
+                  No charge until day {TRIAL_DAYS}. Cancel anytime.
+                </p>
+                <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
+                  Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, and QQQ gamma
+                  levels, dealer positioning, flow pressure, and market state signals.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
+                  Trade with a live map of the options levels that matter.
+                </h1>
+                <p style={{ margin: '0 auto 18px', maxWidth: 760, color: C.light, fontSize: 18, lineHeight: 1.7, fontWeight: 500 }}>
+                  ZeroGEX helps SPY/SPX/QQQ traders track gamma exposure, call/put walls, gamma flip,
+                  dealer positioning, and flow pressure in real time.
+                </p>
+                <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
+                  {TRIAL_DAYS}-day free trial. Full access now. No charge until day {TRIAL_DAYS}. Cancel anytime —
+                  no email or support request required.
+                </p>
+              </>
+            )}
           </div>
 
-          {cameFromTrialCta && !hasActiveSubscription && (
+          {checkoutCancelled && !hasActiveSubscription && (
             <div
               role="status"
               style={{
                 maxWidth: 760,
                 margin: '0 auto 28px',
-                padding: '18px 22px',
-                borderRadius: 16,
-                border: '1px solid var(--color-brand-primary)',
-                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.10))',
+                padding: '14px 18px',
+                borderRadius: 12,
+                border: `1px solid ${C.border}`,
+                background: 'var(--color-surface)',
                 textAlign: 'center',
+                color: C.light,
+                fontSize: 14,
+                fontWeight: 600,
               }}
             >
-              <div
-                style={{
-                  fontSize: 'clamp(18px, 2.4vw, 22px)',
-                  fontWeight: 800,
-                  color: C.light,
-                  letterSpacing: '-0.3px',
-                  lineHeight: 1.25,
-                }}
-              >
-                Choose your plan — your {TRIAL_DAYS}-day trial starts today.
-              </div>
-              <div style={{ marginTop: 6, fontSize: 14, fontWeight: 600, color: C.muted }}>
-                No charge until day {TRIAL_DAYS}. Cancel anytime.
-              </div>
+              No problem — your trial has not started yet. Choose a plan whenever you&rsquo;re ready.
             </div>
           )}
 
