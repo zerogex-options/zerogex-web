@@ -568,10 +568,12 @@ function PricingClientInner({
     capture(TelemetryEvent.PricingPageView, { ...readUtmParams() });
   }, []);
 
-  // True when the visitor just landed here straight from registration
-  // (RegisterClient appends ?welcome=1). Drives the "your trial starts today"
-  // header so the next step after signup is unmistakable.
-  const justRegistered = searchParams.get('welcome') === '1';
+  // True when the visitor arrived here to start a trial with ?welcome=1 — set
+  // both by RegisterClient right after signup AND by the signed-in trial CTAs
+  // (site header / home hero). Drives the "your trial starts today" header so
+  // the next step is unmistakable. Gated on !hasActiveSubscription at render so
+  // an existing subscriber who lands on a stale ?welcome=1 link never sees it.
+  const cameFromTrialCta = searchParams.get('welcome') === '1';
 
   const currentTier: TierId = useMemo(
     () => normalizeTier(authSession?.user?.tier),
@@ -778,7 +780,7 @@ function PricingClientInner({
             </p>
           </div>
 
-          {justRegistered && (
+          {cameFromTrialCta && !hasActiveSubscription && (
             <div
               role="status"
               style={{

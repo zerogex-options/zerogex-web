@@ -223,7 +223,10 @@ export default function LandingPage() {
   const isAuthed = !!authSession?.authenticated;
   const tier = normalizeTier(authSession?.user?.tier);
   const canLaunchApp = isAuthed && (tier === 'basic' || tier === 'pro' || tier === 'admin');
-  const heroTrialHref = isAuthed ? '/pricing' : '/register';
+  // Signed-in-but-unpaid visitors start the trial on /pricing; ?welcome=1 makes
+  // that page greet them with the "your 7-day trial starts today" header, same
+  // as a visitor arriving straight from registration.
+  const heroTrialHref = isAuthed ? '/pricing?welcome=1' : '/register';
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);

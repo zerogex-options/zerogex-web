@@ -44,7 +44,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
   // in-but-unpaid users go to /pricing (account exists → start trial at
   // checkout); logged-out visitors go to /register.
   const canLaunchApp = isAuthed && (hasPaidTier || tier === 'admin');
-  const trialHref = isAuthed ? '/pricing' : '/register';
+  // Signed-in-but-unpaid visitors go to /pricing to start the trial; mark it
+  // with ?welcome=1 so pricing greets them with the "your 7-day trial starts
+  // today" header, the same as a visitor arriving fresh from registration.
+  const trialHref = isAuthed ? '/pricing?welcome=1' : '/register';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
