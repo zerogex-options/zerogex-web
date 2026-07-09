@@ -12,6 +12,7 @@ import { normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
+import { readUtmParams } from '@/core/telemetry/utm';
 import { ArrowRight, CheckCircle2, Heart, Loader2, Sparkles } from 'lucide-react';
 
 const C = {
@@ -560,6 +561,20 @@ function PricingClientInner({
     if (verifyNotice?.kind === 'success') void refreshSession();
   }, [verifyNotice, refreshSession]);
 
+  // Funnel: pricing / trial plan-selection page viewed. Fires once on mount
+  // with any UTM still on the URL, so the paid funnel has an explicit pricing
+  // step between account_created and checkout_started.
+  useEffect(() => {
+    capture(TelemetryEvent.PricingPageView, { ...readUtmParams() });
+  }, []);
+
+  // True when the visitor arrived here to start a trial with ?welcome=1 — set
+  // both by RegisterClient right after signup AND by the signed-in trial CTAs
+  // (site header / home hero). Drives the "your trial starts today" header so
+  // the next step is unmistakable. Gated on !hasActiveSubscription at render so
+  // an existing subscriber who lands on a stale ?welcome=1 link never sees it.
+  const cameFromTrialCta = searchParams.get('welcome') === '1';
+
   const currentTier: TierId = useMemo(
     () => normalizeTier(authSession?.user?.tier),
     [authSession?.user?.tier],
@@ -634,7 +649,7 @@ function PricingClientInner({
           await callBilling('/api/billing/portal');
         } else {
           // Funnel: intent to subscribe, just before redirect to Stripe.
-          capture(TelemetryEvent.CheckoutStarted, { tier, cadence });
+          capture(TelemetryEvent.CheckoutStarted, { tier, cadence, ...readUtmParams() });
           await callBilling('/api/billing/checkout', { tier, cadence });
         }
       } catch (err) {
@@ -758,12 +773,40 @@ function PricingClientInner({
               dealer positioning, and flow pressure in real time.
             </p>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
-              On paid plans, upgrades and downgrades are pro-rated automatically through the Stripe-hosted billing portal.
-              Switching plans during your trial ends the trial and starts billing immediately.
-              Cancel anytime — no email or support request required.
+              {TRIAL_DAYS}-day free trial. Full access now. No charge until day {TRIAL_DAYS}. Cancel anytime —
+              no email or support request required.
             </p>
           </div>
+
+          {cameFromTrialCta && !hasActiveSubscription && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 760,
+                margin: '0 auto 28px',
+                padding: '18px 22px',
+                borderRadius: 16,
+                border: '1px solid var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.10))',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 'clamp(18px, 2.4vw, 22px)',
+                  fontWeight: 800,
+                  color: C.light,
+                  letterSpacing: '-0.3px',
+                  lineHeight: 1.25,
+                }}
+              >
+                Choose your plan — your {TRIAL_DAYS}-day trial starts today.
+              </div>
+              <div style={{ marginTop: 6, fontSize: 14, fontWeight: 600, color: C.muted }}>
+                No charge until day {TRIAL_DAYS}. Cancel anytime.
+              </div>
+            </div>
+          )}
 
           {anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />}
 
@@ -919,6 +962,10 @@ function PricingClientInner({
                   <strong>Plan switches during trial.</strong> Changing plans while on the free
                   trial ends the trial early and charges you for the new plan immediately. To keep
                   the trial, wait until it ends before switching plans.
+                </li>
+                <li>
+                  <strong>Upgrades &amp; downgrades on paid plans.</strong> After the trial, switching
+                  tiers is pro-rated automatically through the Stripe-hosted billing portal.
                 </li>
                 <li>
                   <strong>No prorated refunds.</strong> Except where required by law, payments are

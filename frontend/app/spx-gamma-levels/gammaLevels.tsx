@@ -1,13 +1,18 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, CheckCircle2, Clock, History, Lock, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { buildReportModel } from '../live-bulletin/bulletinHelpers';
+import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
+import PaidFunnelAnalytics from './PaidFunnelAnalytics';
+import LiveReadConversion from './LiveReadConversion';
+import DashboardPreview from './DashboardPreview';
+import PricingTrialCta from './PricingTrialCta';
+import StickyTrialBar from './StickyTrialBar';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders three routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels
@@ -23,6 +28,13 @@ import ShareBlock from './ShareBlock';
 // licensing-clean by construction.
 
 const SITE = 'https://zerogex.io';
+
+// A ticker whose snapshot is this far behind the freshest of the three is
+// surfaced as "temporarily delayed" — so a stale SPX card (e.g. an afternoon
+// index snapshot) never sits silently next to fresh SPY/QQQ cards as if they
+// were the same moment. Measured relative to the freshest snapshot in the set
+// (never wall-clock), so it stays deterministic inside the ISR HTML.
+const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -54,37 +66,33 @@ interface SymbolContent {
   intro: string;
 }
 
+// The one place a symbol's copy actually differs: the index/ETF it tracks, woven
+// into the intro's audience clause. Everything else (title, description, H1,
+// intro shape) is generated from a single template below so all three pages are
+// byte-for-byte identical except the ticker — no drift, and each page stays
+// focused on its own symbol instead of cannibalizing its siblings' keywords.
+const SYMBOL_AUDIENCE: Record<Symbol, string> = {
+  SPX: 'SPX and S&P 500 options traders',
+  SPY: 'SPY and S&P 500 options traders',
+  QQQ: 'QQQ and Nasdaq-100 options traders',
+};
+
+function buildSymbolContent(primary: Symbol): SymbolContent {
+  const path = `/${primary.toLowerCase()}-gamma-levels`;
+  return {
+    path,
+    shareUrl: `${SITE}${path}`,
+    title: `${primary} Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX`,
+    description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
+    h1: `${primary} Gamma Levels Today`,
+    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.`,
+  };
+}
+
 const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
-  SPX: {
-    path: '/spx-gamma-levels',
-    shareUrl: `${SITE}/spx-gamma-levels`,
-    title: 'SPX / SPY / QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily SPX gamma levels — the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels for SPX, SPY and QQQ, refreshed every 15 minutes. No signup required.',
-    h1: 'SPX Gamma Levels Today',
-    intro:
-      "Track today's SPX gamma levels, including the SPX gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPX and S&P 500 options traders identify key dealer-positioning zones before price gets there.",
-  },
-  SPY: {
-    path: '/spy-gamma-levels',
-    shareUrl: `${SITE}/spy-gamma-levels`,
-    title: 'SPY Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily SPY gamma levels — the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
-    h1: 'SPY Gamma Levels Today',
-    intro:
-      "Track today's SPY gamma levels, including the SPY gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help SPY traders identify key dealer-positioning zones before price gets there.",
-  },
-  QQQ: {
-    path: '/qqq-gamma-levels',
-    shareUrl: `${SITE}/qqq-gamma-levels`,
-    title: 'QQQ Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX',
-    description:
-      'Free daily QQQ gamma levels — the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.',
-    h1: 'QQQ Gamma Levels Today',
-    intro:
-      "Track today's QQQ gamma levels, including the QQQ gamma flip, call wall, put wall, max pain, and net dealer GEX. These delayed levels help Nasdaq and QQQ traders understand where options positioning may create support, resistance, pinning, or volatility expansion.",
-  },
+  SPX: buildSymbolContent('SPX'),
+  SPY: buildSymbolContent('SPY'),
+  QQQ: buildSymbolContent('QQQ'),
 };
 
 // Individual dedicated page for a ticker — used to cross-link the sibling cards.
@@ -213,21 +221,30 @@ function fmtShareGex(value: number | null | undefined): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-function shareLine(symbol: Symbol, data: GexSummary | null): string {
+function shareLine(symbol: Symbol, data: GexSummary | null, delayed = false): string {
   return (
     `${symbol}: spot ${fmtShareLevel(data?.spot_price)} | ` +
     `Call Wall ${fmtShareStrike(data?.call_wall)} | ` +
     `Put Wall ${fmtShareStrike(data?.put_wall)} | ` +
     `Gamma Flip ${fmtShareLevel(data?.gamma_flip)} | ` +
-    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}`
+    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}` +
+    (delayed ? ' (delayed)' : '')
   );
 }
 
-function buildShareSnippet(snapshots: Record<Symbol, GexSummary | null>, primary: Symbol): string {
+// The share snippet is built from the same snapshots that feed the visible
+// cards, so it can never drift from them. Any ticker flagged stale relative to
+// the freshest is tagged "(delayed)" in its line so the pasted snapshot doesn't
+// present an old ticker as current alongside fresh ones.
+function buildShareSnippet(
+  snapshots: Record<Symbol, GexSummary | null>,
+  primary: Symbol,
+  staleSymbols?: ReadonlySet<Symbol>,
+): string {
   const order = symbolOrder(primary);
   return [
     `${order.join(' / ')} gamma levels from ZeroGEX:`,
-    ...order.map((s) => shareLine(s, snapshots[s])),
+    ...order.map((s) => shareLine(s, snapshots[s], staleSymbols?.has(s) ?? false)),
     'Free delayed levels:',
     SYMBOL_CONTENT[primary].shareUrl,
   ].join('\n');
@@ -252,27 +269,41 @@ function fmtTimestampET(iso: string | undefined): string {
   }
 }
 
-function gexRegimeLabel(netGex: number | null | undefined): {
-  label: string;
-  tone: 'bull' | 'bear' | 'neutral';
-  body: string;
-} {
-  if (netGex == null || !Number.isFinite(netGex)) {
-    return { label: 'No regime read', tone: 'neutral', body: 'Gamma data unavailable for this session.' };
-  }
-  if (netGex > 0) {
-    return {
-      label: 'Positive gamma (suppressed vol)',
-      tone: 'bull',
-      body: 'Dealers are net long gamma at spot — mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
-    };
-  }
-  return {
+// Regime shown on each ticker card. Determined the same way as the live app
+// (GexRegimeHeader) and the Today's Read (buildReportModel → detectRegime):
+// purely by where spot sits relative to the gamma flip, with a ±0.25% "at the
+// flip" band — NOT by the sign of a net-GEX total. One shared methodology means
+// the card badge, the Today's Read badge, and the dashboard header can never
+// disagree for the same snapshot.
+const REGIME_DISPLAY: Record<
+  RegimeKey,
+  { label: string; color: string; icon: 'up' | 'down' | 'flat' | 'none'; body: string }
+> = {
+  positive: {
+    label: 'Positive gamma (suppressed vol)',
+    color: 'var(--color-positive)',
+    icon: 'up',
+    body: 'Dealers are net long gamma at spot — mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
+  },
+  negative: {
     label: 'Negative gamma (amplified vol)',
-    tone: 'bear',
+    color: 'var(--color-negative)',
+    icon: 'down',
     body: 'Dealers are net short gamma at spot — moves can accelerate, walls are more brittle, trend extension is the higher-probability path.',
-  };
-}
+  },
+  neutral: {
+    label: 'At the gamma flip',
+    color: 'var(--color-warning)',
+    icon: 'flat',
+    body: 'Spot is sitting on the gamma flip — the sign of dealer hedging is unstable here, and a small move tips the tape into the next regime.',
+  },
+  unresolved: {
+    label: 'Gamma flip unresolved',
+    color: 'var(--color-text-secondary)',
+    icon: 'none',
+    body: 'The dealer gamma flip couldn’t be resolved from this snapshot — read these levels as provisional.',
+  },
+};
 
 // Pull all three symbols in parallel. Each call is cached in the Next.js fetch
 // cache at 900s, so the page itself is effectively ISR'd at the same cadence.
@@ -326,14 +357,20 @@ function LevelRow({
 // The primary ticker's card links deeper to its live dashboard (the conversion
 // path); the other two tickers link to their own dedicated gamma-levels pages so
 // the three pages cross-link into a cluster.
-function SymbolCard({ symbol, data, isPrimary }: { symbol: Symbol; data: GexSummary | null; isPrimary: boolean }) {
-  const regime = gexRegimeLabel(data?.net_gex_at_spot ?? data?.net_gex);
-  const regimeColor =
-    regime.tone === 'bull'
-      ? 'var(--color-positive)'
-      : regime.tone === 'bear'
-        ? 'var(--color-negative)'
-        : 'var(--color-text-secondary)';
+function SymbolCard({
+  symbol,
+  data,
+  isPrimary,
+  status = 'ok',
+}: {
+  symbol: Symbol;
+  data: GexSummary | null;
+  isPrimary: boolean;
+  /** Freshness of this ticker relative to the freshest of the three. */
+  status?: 'ok' | 'stale' | 'missing';
+}) {
+  const regime = REGIME_DISPLAY[detectRegime(data?.gamma_flip, data?.spot_price)];
+  const regimeColor = regime.color;
   const href = isPrimary ? `/gamma-exposure?symbol=${symbol}` : gammaPath(symbol);
   const ctaLabel = isPrimary ? `Live ${symbol} dashboard` : `${symbol} gamma levels`;
   return (
@@ -375,13 +412,39 @@ function SymbolCard({ symbol, data, isPrimary }: { symbol: Symbol; data: GexSumm
               gap: 6,
             }}
           >
-            {regime.tone === 'bull' ? <TrendingUp size={12} /> : regime.tone === 'bear' ? <TrendingDown size={12} /> : null}
+            {regime.icon === 'up' ? (
+              <TrendingUp size={12} />
+            ) : regime.icon === 'down' ? (
+              <TrendingDown size={12} />
+            ) : regime.icon === 'flat' ? (
+              <Minus size={12} />
+            ) : null}
             {regime.label}
           </span>
         </div>
         <p style={{ margin: '10px 0 0 0', fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
           {regime.body}
         </p>
+        {status !== 'ok' && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 10,
+              padding: '4px 10px',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'var(--color-warning)',
+              border: '1px solid var(--color-warning)55',
+              background: 'var(--color-warning)14',
+            }}
+          >
+            <Clock size={11} />
+            {symbol} data temporarily {status === 'missing' ? 'unavailable' : 'delayed'}
+          </div>
+        )}
       </header>
 
       <div>
@@ -422,9 +485,33 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
+  // Per-ticker freshness. `freshestMs` is the newest snapshot across the three;
+  // any ticker more than STALE_THRESHOLD_MS behind it is flagged so its card and
+  // its share line read "temporarily delayed" instead of being mixed in as
+  // though it were captured at the same moment as the others. Relative to the
+  // freshest snapshot (not the wall clock), so it's deterministic in ISR.
+  const snapshotMs = (s: Symbol): number | null => {
+    const t = snapshots[s]?.timestamp;
+    if (!t) return null;
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? ms : null;
+  };
+  const freshestMs = SYMBOLS.map(snapshotMs).reduce<number | null>(
+    (max, ms) => (ms != null && (max == null || ms > max) ? ms : max),
+    null,
+  );
+  const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
+    if (snapshots[s] == null) return 'missing';
+    const ms = snapshotMs(s);
+    if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
+    return 'ok';
+  };
+  const staleSymbols = new Set<Symbol>(SYMBOLS.filter((s) => cardStatus(s) === 'stale'));
+
   // Daily copy/paste share snapshot — built here so it ships in the ISR HTML and
-  // is passed to the interactive ShareBlock as a ready-to-post string.
-  const shareSnippet = buildShareSnippet(snapshots, primary);
+  // is passed to the interactive ShareBlock as a ready-to-post string. Stale
+  // tickers are tagged in the snippet from the same freshness read as the cards.
+  const shareSnippet = buildShareSnippet(snapshots, primary, staleSymbols);
   const shareHasData = SYMBOLS.some((s) => {
     const spot = snapshots[s]?.spot_price;
     return typeof spot === 'number' && Number.isFinite(spot);
@@ -489,6 +576,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       <LandingHeader />
 
       <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
+        {/* Marks the top of the paid-traffic funnel (renders nothing). */}
+        <PaidFunnelAnalytics symbol={primary} />
+
         <header style={{ marginBottom: 36 }}>
           <div
             style={{
@@ -507,7 +597,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               marginBottom: 18,
             }}
           >
-            <Clock size={12} /> Free · Delayed ~15 minutes
+            <Clock size={12} /> Free preview · Delayed ~15 minutes
           </div>
           <h1
             style={{
@@ -532,14 +622,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             {content.intro}
           </p>
         </header>
-
-        <ShareBlock
-          symbol={primary}
-          snippet={shareSnippet}
-          shareUrl={content.shareUrl}
-          hasData={shareHasData}
-          asOf={latestTimestamp ? fmtTimestampET(latestTimestamp) : null}
-        />
 
         {!anyData && (
           <div
@@ -575,12 +657,69 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 priorClose: null,
                 summary: primaryData,
                 vix: null,
-                volIndex: 'VIX',
+                volIndex: primary === 'QQQ' ? 'VXN' : 'VIX',
                 horizon: 'daily',
               })}
             />
+            {cardStatus(primary) === 'stale' && (
+              <p
+                style={{
+                  margin: '10px 2px 0',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--color-warning)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Clock size={12} />
+                {primary} data is temporarily delayed — this read reflects the last available {primary} snapshot,
+                not the current session.
+              </p>
+            )}
           </div>
         )}
+
+        {/* Delayed-vs-live clarity strip (requirement #2): keep it unmistakable
+            that these cards are the free, delayed preview and that the live
+            read lives in the dashboard — placed directly against the levels so
+            the distinction reads at a glance. */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px 14px',
+            marginBottom: 18,
+            padding: '12px 16px',
+            borderRadius: 12,
+            border: '1px solid var(--border-default)',
+            background: 'var(--color-surface)',
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <Clock size={13} style={{ color: 'var(--color-brand-primary)' }} />
+            Free preview · delayed approximately 15 minutes
+          </span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>
+            Live real-time levels are available inside the{' '}
+            <Link href="/register" style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
+              ZeroGEX dashboard
+            </Link>
+            .
+          </span>
+        </div>
 
         <section
           style={{
@@ -591,72 +730,46 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           }}
         >
           {order.map((symbol) => (
-            <SymbolCard key={symbol} symbol={symbol} data={snapshots[symbol]} isPrimary={symbol === primary} />
+            <SymbolCard
+              key={symbol}
+              symbol={symbol}
+              data={snapshots[symbol]}
+              isPrimary={symbol === primary}
+              status={cardStatus(symbol)}
+            />
           ))}
         </section>
+
+        {/* Conversion block (requirement #1): directly after the free delayed
+            levels, before the product preview and educational content. */}
+        <LiveReadConversion symbol={primary} />
+
+        {/* Product preview + benefits (requirement #5). */}
+        <DashboardPreview symbol={primary} />
+
+        {/* Pricing/trial CTA (requirement #6/#7 copy standard). */}
+        <PricingTrialCta symbol={primary} />
+
+        {/* Share block (requirement #4): moved down here, below the conversion
+            path, so it stays useful for organic/social visitors without
+            distracting paid visitors from the signup step. */}
+        <ShareBlock
+          symbol={primary}
+          snippet={shareSnippet}
+          shareUrl={content.shareUrl}
+          hasData={shareHasData}
+          asOf={latestTimestamp ? fmtTimestampET(latestTimestamp) : null}
+        />
+
+        {/* ── Education & reference ─────────────────────────────────────────
+            Everything below is the indexable, evergreen content that keeps this
+            page ranking as a free levels / informational page (requirement
+            #10). It sits under the conversion path, not instead of it. */}
 
         {/* Free-indicator funnel: hand the trader a way to plot today's numbers
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
         <PlotOnTradingView />
-
-        <section
-          style={{
-            border: '1px solid var(--color-brand-primary)44',
-            background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
-            borderRadius: 18,
-            padding: '28px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-            marginBottom: 48,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Want the live, sub-second version?
-          </h2>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-            Levels above are intentionally delayed and refresh roughly every 15 minutes. The full ZeroGEX dashboard
-            updates in real time, adds the GEX profile, strike-level heatmaps, options-flow classification, and the
-            13-signal composite Market State Index. Free 7-day trial, no card required for the first session.
-          </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
-            <Link
-              href="/register"
-              style={{
-                background: 'var(--color-brand-primary)',
-                color: '#ffffff',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 800,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Start free trial <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/pricing"
-              style={{
-                border: '1px solid var(--border-default)',
-                color: 'var(--color-text-primary)',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <Lock size={14} /> See what&apos;s behind the paywall
-            </Link>
-          </div>
-        </section>
 
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-0.3px' }}>
@@ -840,65 +953,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           </div>
         </section>
 
-        <section
-          style={{
-            border: '1px solid var(--color-brand-primary)44',
-            background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
-            borderRadius: 18,
-            padding: '32px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-            marginBottom: 32,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Ready to trade the live read?
-          </h2>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-            You&apos;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the
-            full GEX profile, the strike-by-DTE heatmap, options-flow classification, and the 13-signal
-            Market State Index — the context that turns these levels into a tradeable read. 7-day free
-            trial, no card to get started.
-          </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
-            <Link
-              href="/register"
-              style={{
-                background: 'var(--color-brand-primary)',
-                color: '#ffffff',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 800,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Start 7-day free trial <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/pricing"
-              style={{
-                border: '1px solid var(--border-default)',
-                color: 'var(--color-text-primary)',
-                padding: '12px 22px',
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Compare plans
-            </Link>
-          </div>
-        </section>
-
         <section style={{ marginBottom: 8 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-0.3px' }}>
             Frequently asked questions
@@ -942,6 +996,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       </main>
 
       <Footer />
+
+      {/* Sticky mobile-first trial CTA (requirement #3). Appears after the
+          visitor scrolls past the first screen; dismissible for the session. */}
+      <StickyTrialBar symbol={primary} />
     </div>
   );
 }

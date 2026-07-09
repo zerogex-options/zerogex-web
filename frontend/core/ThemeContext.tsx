@@ -5,8 +5,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 type Theme = 'light' | 'dark';
 export type Palette = 'california' | 'kyoto' | 'miami' | 'wallstreet';
 
-const PALETTES: Palette[] = ['wallstreet', 'california', 'kyoto', 'miami'];
-const DEFAULT_PALETTE: Palette = 'wallstreet';
+const PALETTES: Palette[] = ['california', 'wallstreet', 'kyoto', 'miami'];
+const DEFAULT_PALETTE: Palette = 'california';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 function readCookie(name: string): string | null {

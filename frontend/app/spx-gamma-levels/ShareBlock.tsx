@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { Check, Copy, MessageSquare, Share2 } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
 
@@ -115,13 +115,21 @@ const outlineBtn: CSSProperties = {
 
 const outlineHover = 'transition-colors hover:!border-[var(--color-brand-primary)] hover:!text-[var(--color-brand-primary)]';
 
+// navigator.share availability is a static client capability, so read it via
+// useSyncExternalStore (server snapshot = false) rather than a mount effect —
+// SSR-safe, no synchronous setState-in-effect.
+const subscribeNoop = () => () => {};
+const getCanNativeShareClient = () =>
+  typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+const getCanNativeShareServer = () => false;
+
 export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }: ShareBlockProps) {
   const [copied, setCopied] = useState<string | null>(null);
-  const [canNativeShare, setCanNativeShare] = useState(false);
-
-  useEffect(() => {
-    setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
-  }, []);
+  const canNativeShare = useSyncExternalStore(
+    subscribeNoop,
+    getCanNativeShareClient,
+    getCanNativeShareServer,
+  );
 
   const flash = (key: string) => {
     setCopied(key);

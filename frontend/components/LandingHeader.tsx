@@ -7,6 +7,9 @@ import { ArrowRight, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { readUtmParams } from '@/core/telemetry/utm';
 import ThemeDropdown from './ThemeDropdown';
 
 const C = {
@@ -33,6 +36,18 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
   const tier = normalizeTier(authSession?.user?.tier);
   const hasPaidTier = tier === 'basic' || tier === 'pro';
   const showPricing = !hidePricingButton && !hasPaidTier;
+
+  // Auth-aware primary CTA (requirement #8): only users who can actually reach
+  // the dashboard get "Launch App" → /dashboard. Everyone else gets a clear
+  // trial step instead of a button that bounces logged-out visitors back to the
+  // free preview (the /dashboard→/spx-gamma-levels middleware redirect). Signed-
+  // in-but-unpaid users go to /pricing (account exists → start trial at
+  // checkout); logged-out visitors go to /register.
+  const canLaunchApp = isAuthed && (hasPaidTier || tier === 'admin');
+  // Signed-in-but-unpaid visitors go to /pricing to start the trial; mark it
+  // with ?welcome=1 so pricing greets them with the "your 7-day trial starts
+  // today" header, the same as a visitor arriving fresh from registration.
+  const trialHref = isAuthed ? '/pricing?welcome=1' : '/register';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -148,7 +163,15 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           </button>
         </Link>
 
-        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+        <Link
+          href={canLaunchApp ? '/dashboard' : trialHref}
+          style={{ textDecoration: 'none' }}
+          onClick={
+            canLaunchApp
+              ? undefined
+              : () => capture(TelemetryEvent.TrialCtaClick, { location: 'site_header', ...readUtmParams() })
+          }
+        >
           <button
             className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
             style={{
@@ -159,7 +182,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               boxShadow: `0 4px 16px ${C.amber}50`,
             }}
           >
-            Launch App <ArrowRight size={14} />
+            {canLaunchApp ? 'Launch App' : 'Start Free Trial'} <ArrowRight size={14} />
           </button>
         </Link>
       </div>

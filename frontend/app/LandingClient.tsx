@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { normalizeTier } from '@/core/auth';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { readUtmParams } from '@/core/telemetry/utm';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +23,6 @@ import {
   Calculator,
   Layers,
   ArrowRight,
-  ChevronDown,
   Shield,
   Clock,
 } from 'lucide-react';
@@ -37,37 +41,19 @@ const C = {
   glow:     'var(--color-warning-soft)',
 };
 
-// ── Animated counter ──────────────────────────────────────────────────────────
+// ── Stat value ────────────────────────────────────────────────────────────────
+// Renders the real stat value from the very first paint — server-side,
+// pre-hydration, and with JS disabled — so crawlers, link unfurlers, and
+// slow-JS visitors never read a misleading "0+ Supported Symbols" / "0s". The
+// previous count-from-zero flashed a false zero both in the fetched HTML and
+// again on scroll-into-view, which reads as "we support 0 symbols" for a beat —
+// credibility poison on a trading product. Static, correct numbers win here.
 function AnimatedNumber({ target, prefix = '', suffix = '', decimals = 0 }: {
   target: number; prefix?: string; suffix?: string; decimals?: number;
 }) {
-  const [value, setValue] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        const start = performance.now();
-        const duration = 1400;
-        const tick = (now: number) => {
-          const t = Math.min((now - start) / duration, 1);
-          const ease = 1 - Math.pow(1 - t, 3);
-          setValue(parseFloat((ease * target).toFixed(decimals)));
-          if (t < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      },
-      { threshold: 0.4 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target, decimals]);
-
   return (
-    <span ref={ref}>
-      {prefix}{decimals > 0 ? value.toFixed(decimals) : Math.round(value)}{suffix}
+    <span>
+      {prefix}{decimals > 0 ? target.toFixed(decimals) : Math.round(target)}{suffix}
     </span>
   );
 }
@@ -210,6 +196,24 @@ export default function LandingPage() {
   const bg     = 'transparent';
   const text   = isDark ? C.light  : 'var(--color-text-primary)';
   const subtext = 'var(--color-text-secondary)';
+
+  // Auth-aware hero CTA (requirement #7). Cold/logged-out visitors get a clear
+  // "Start 7-Day Free Trial" primary; existing subscribers get "View Live
+  // Dashboard" so we don't push a trial at someone who already pays. Signed-in-
+  // but-unpaid users start the trial from /pricing (account already exists).
+  const { data: authSession } = useAuthSession();
+  const isAuthed = !!authSession?.authenticated;
+  const tier = normalizeTier(authSession?.user?.tier);
+  const canLaunchApp = isAuthed && (tier === 'basic' || tier === 'pro' || tier === 'admin');
+  // Signed-in-but-unpaid visitors start the trial on /pricing; ?welcome=1 makes
+  // that page greet them with the "your 7-day trial starts today" header, same
+  // as a visitor arriving straight from registration.
+  const heroTrialHref = isAuthed ? '/pricing?welcome=1' : '/register';
+  // Secondary "Explore GEX Dashboard" CTA. Signed-in paid users go straight to
+  // the live dashboard; everyone else is routed into the trial flow with the
+  // dashboard as the post-signup destination — rather than silently bouncing to
+  // the free delayed-levels page, which mismatches the "dashboard" label.
+  const exploreDashboardHref = canLaunchApp ? '/dashboard' : '/register?next=/dashboard';
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
@@ -365,9 +369,18 @@ export default function LandingPage() {
             ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
           </p>
 
-          {/* CTAs */}
+          {/* CTAs (requirement #7): primary = trial for cold visitors (dashboard
+              for existing subscribers); secondary = the free levels page. */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link
+              href={canLaunchApp ? '/dashboard' : heroTrialHref}
+              style={{ textDecoration: 'none' }}
+              onClick={
+                canLaunchApp
+                  ? undefined
+                  : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_hero', ...readUtmParams() })
+              }
+            >
               <button
                 style={{
                   background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -388,10 +401,10 @@ export default function LandingPage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 32px ${C.amber}55`;
                 }}
               >
-                View Live Dashboard <ArrowRight size={18} />
+                {canLaunchApp ? 'View Live Dashboard' : 'Start 7-Day Free Trial'} <ArrowRight size={18} />
               </button>
             </Link>
-            <Link href="/pricing" style={{ textDecoration: 'none' }}>
+            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
                 style={{
                   background: 'transparent',
@@ -414,7 +427,7 @@ export default function LandingPage() {
                   (e.currentTarget as HTMLElement).style.background = 'transparent';
                 }}
               >
-                Learn More <ChevronDown size={16} />
+                View Free Levels <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -712,7 +725,15 @@ export default function LandingPage() {
               ZeroGEX surfaces these forces in real-time so you can anticipate institutional hedging flows,
               identify gamma flip levels, and time your entries with precision.
             </p>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link
+              href={exploreDashboardHref}
+              onClick={
+                canLaunchApp
+                  ? undefined
+                  : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_dashboard_explore', ...readUtmParams() })
+              }
+              style={{ textDecoration: 'none' }}
+            >
               <button
                 style={{
                   background: `${C.amber}20`, border: `1px solid ${C.amber}60`,

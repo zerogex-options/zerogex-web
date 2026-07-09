@@ -182,7 +182,7 @@ export default function TrapDetectionPage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Dealer</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX" value={formatGexCompact(ctx.netGex)} />
+              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
               <Row label="Net GEX Δ" value={formatGexCompact(netGexDelta)} />
               <Row label="Net GEX Δ%" value={formatPct(netGexDeltaPct, 2)} />
               <Row label="Call wall" value={formatPrice(ctx.callWall)} />

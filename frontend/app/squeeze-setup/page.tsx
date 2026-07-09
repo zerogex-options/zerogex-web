@@ -156,7 +156,7 @@ export default function SqueezeSetupPage() {
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
             <div className="font-semibold mb-2 flex items-center gap-2"><Rocket size={16} /> Gamma context</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX" value={formatGexCompact(ctx.netGex)} />
+              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
               <Row label="Gamma flip" value={ctx.gammaFlip != null ? ctx.gammaFlip.toFixed(2) : '—'} />
               <Row label="Close" value={ctx.close != null ? ctx.close.toFixed(2) : '—'} />
               <Row label="Above flip" value={ctx.close != null && ctx.gammaFlip != null ? (ctx.close > ctx.gammaFlip ? 'Yes' : 'No') : '—'} />

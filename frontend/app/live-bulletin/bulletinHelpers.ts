@@ -288,13 +288,12 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const callWall = pickNumber(summary?.call_wall);
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
-  // Prefer net_gex_at_spot — the "regime-correct headline figure" the main
-  // dashboard and the gamma-exposure page already show — so the bulletin's
-  // Net GEX can't disagree with the rest of the site (the chain-wide net_gex
-  // can differ in magnitude and even sign when far-OTM strikes dominate the
-  // tail). This also keeps the number sign-consistent with the regime badge,
-  // which is derived from the same gamma flip net_gex_at_spot agrees with.
-  // Fall back to the chain-wide net_gex only until net_gex_at_spot is written.
+  // Prefer net GEX evaluated AT SPOT (fall back to the chain-wide total only
+  // when at-spot is unavailable). This is the value every other Net-GEX surface
+  // on the site shows (dashboard, gamma-exposure, greeks-gex, the free
+  // gamma-levels cards), and its sign agrees with the spot-vs-flip regime — so
+  // the auto-lead's "dealers are long/short gamma" can never contradict the
+  // regime badge or the metric card the way the chain-wide total could.
   const netGex = pickNumber(summary?.net_gex_at_spot, summary?.net_gex);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 

@@ -132,7 +132,7 @@ export default function PositioningTrapPage() {
                 </div>
               </div>
               <div>
-                <div className="uppercase tracking-wide">Net GEX</div>
+                <div className="uppercase tracking-wide">Net GEX (chain-wide)</div>
                 <div className="font-mono text-[var(--color-text-primary)] text-sm">{formatGexCompact(netGex)}</div>
               </div>
             </div>

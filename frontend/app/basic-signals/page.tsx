@@ -127,7 +127,7 @@ export default function BasicSignalsPage() {
       { label: 'Put/Call ratio', value: (getNumber(trapCtx.put_call_ratio) ?? 0).toFixed(2) },
       { label: 'Close', value: formatPrice(getNumber(trapCtx.close)) },
       { label: 'Gamma flip', value: formatPrice(getNumber(trapCtx.gamma_flip)) },
-      { label: 'Net GEX', value: formatGexCompact(getNumber(trapCtx.net_gex)) },
+      { label: 'Net GEX (chain-wide)', value: formatGexCompact(getNumber(trapCtx.net_gex)) },
     ];
 
     return [
