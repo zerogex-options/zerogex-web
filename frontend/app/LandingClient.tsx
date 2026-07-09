@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
@@ -41,37 +41,19 @@ const C = {
   glow:     'var(--color-warning-soft)',
 };
 
-// ── Animated counter ──────────────────────────────────────────────────────────
+// ── Stat value ────────────────────────────────────────────────────────────────
+// Renders the real stat value from the very first paint — server-side,
+// pre-hydration, and with JS disabled — so crawlers, link unfurlers, and
+// slow-JS visitors never read a misleading "0+ Supported Symbols" / "0s". The
+// previous count-from-zero flashed a false zero both in the fetched HTML and
+// again on scroll-into-view, which reads as "we support 0 symbols" for a beat —
+// credibility poison on a trading product. Static, correct numbers win here.
 function AnimatedNumber({ target, prefix = '', suffix = '', decimals = 0 }: {
   target: number; prefix?: string; suffix?: string; decimals?: number;
 }) {
-  const [value, setValue] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        const start = performance.now();
-        const duration = 1400;
-        const tick = (now: number) => {
-          const t = Math.min((now - start) / duration, 1);
-          const ease = 1 - Math.pow(1 - t, 3);
-          setValue(parseFloat((ease * target).toFixed(decimals)));
-          if (t < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      },
-      { threshold: 0.4 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target, decimals]);
-
   return (
-    <span ref={ref}>
-      {prefix}{decimals > 0 ? value.toFixed(decimals) : Math.round(value)}{suffix}
+    <span>
+      {prefix}{decimals > 0 ? target.toFixed(decimals) : Math.round(target)}{suffix}
     </span>
   );
 }
@@ -227,6 +209,11 @@ export default function LandingPage() {
   // that page greet them with the "your 7-day trial starts today" header, same
   // as a visitor arriving straight from registration.
   const heroTrialHref = isAuthed ? '/pricing?welcome=1' : '/register';
+  // Secondary "Explore GEX Dashboard" CTA. Signed-in paid users go straight to
+  // the live dashboard; everyone else is routed into the trial flow with the
+  // dashboard as the post-signup destination — rather than silently bouncing to
+  // the free delayed-levels page, which mismatches the "dashboard" label.
+  const exploreDashboardHref = canLaunchApp ? '/dashboard' : '/register?next=/dashboard';
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
@@ -738,7 +725,15 @@ export default function LandingPage() {
               ZeroGEX surfaces these forces in real-time so you can anticipate institutional hedging flows,
               identify gamma flip levels, and time your entries with precision.
             </p>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link
+              href={exploreDashboardHref}
+              onClick={
+                canLaunchApp
+                  ? undefined
+                  : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_dashboard_explore', ...readUtmParams() })
+              }
+              style={{ textDecoration: 'none' }}
+            >
               <button
                 style={{
                   background: `${C.amber}20`, border: `1px solid ${C.amber}60`,

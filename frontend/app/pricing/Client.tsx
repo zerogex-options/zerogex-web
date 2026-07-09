@@ -773,10 +773,8 @@ function PricingClientInner({
               dealer positioning, and flow pressure in real time.
             </p>
             <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Every plan starts with a {TRIAL_DAYS}-day free trial — full access now, no charge until day {TRIAL_DAYS}.
-              On paid plans, upgrades and downgrades are pro-rated automatically through the Stripe-hosted billing portal.
-              Switching plans during your trial ends the trial and starts billing immediately.
-              Cancel anytime — no email or support request required.
+              {TRIAL_DAYS}-day free trial. Full access now. No charge until day {TRIAL_DAYS}. Cancel anytime —
+              no email or support request required.
             </p>
           </div>
 
@@ -964,6 +962,10 @@ function PricingClientInner({
                   <strong>Plan switches during trial.</strong> Changing plans while on the free
                   trial ends the trial early and charges you for the new plan immediately. To keep
                   the trial, wait until it ends before switching plans.
+                </li>
+                <li>
+                  <strong>Upgrades &amp; downgrades on paid plans.</strong> After the trial, switching
+                  tiers is pro-rated automatically through the Stripe-hosted billing portal.
                 </li>
                 <li>
                   <strong>No prorated refunds.</strong> Except where required by law, payments are
