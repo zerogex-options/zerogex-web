@@ -250,11 +250,16 @@ export default function LandingPage() {
   // that page show the "You're almost done — choose your plan" trial hero, same
   // as a visitor arriving straight from registration.
   const heroTrialHref = isAuthed ? '/pricing?trial=1' : '/register';
-  // Secondary "Explore GEX Dashboard" CTA. Signed-in paid users go straight to
-  // the live dashboard; everyone else is routed into the trial flow with the
-  // dashboard as the post-signup destination — rather than silently bouncing to
-  // the free delayed-levels page, which mismatches the "dashboard" label.
-  const exploreDashboardHref = canLaunchApp ? '/dashboard' : '/register?next=/dashboard';
+  // "Explore/Launch dashboard" CTAs (mid-page + final). Route by auth so the
+  // label never mismatches the destination: paid users open the live dashboard;
+  // signed-in-but-unpaid users start the trial on /pricing (their account
+  // already exists); logged-out users register with the dashboard as the
+  // post-signup target — never a silent bounce to the free delayed-levels page.
+  const exploreDashboardHref = canLaunchApp
+    ? '/dashboard'
+    : isAuthed
+      ? '/pricing?trial=1'
+      : '/register?next=/dashboard';
 
   const { data: spyQuote } = useMarketQuote('SPY', 60000);
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
@@ -1122,9 +1127,19 @@ export default function LandingPage() {
             </span>
           </h2>
           <p className="zg-lead" style={{ color: subtext, margin: '0 auto 40px', maxWidth: 520 }}>
-            Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.
+            {canLaunchApp
+              ? 'Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.'
+              : 'Start your 7-day free trial and trade with institutional gamma intelligence — live SPY, SPX, and QQQ.'}
           </p>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+          <Link
+            href={exploreDashboardHref}
+            onClick={
+              canLaunchApp
+                ? undefined
+                : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_footer', ...readUtmParams() })
+            }
+            style={{ textDecoration: 'none' }}
+          >
             <button
               style={{
                 background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
@@ -1146,9 +1161,14 @@ export default function LandingPage() {
                 (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 48px ${C.amber}55`;
               }}
             >
-              Launch ZeroGEX Free <ArrowRight size={20} />
+              {canLaunchApp ? 'Launch ZeroGEX Dashboard' : 'Start 7-Day Free Trial'} <ArrowRight size={20} />
             </button>
           </Link>
+          {!canLaunchApp && (
+            <p className="zg-small" style={{ color: subtext, margin: '16px 0 0', fontWeight: 600 }}>
+              7-day free trial. No charge until day 7. Cancel anytime.
+            </p>
+          )}
         </div>
       </section>
 
