@@ -308,6 +308,7 @@ function TierCard({
   features,
   accent,
   highlighted,
+  startsTrial,
   action,
   busy,
   onSubscribe,
@@ -321,6 +322,9 @@ function TierCard({
   features: string[];
   accent: string;
   highlighted: boolean;
+  // False for a returning member whose free trial is already spent — the card
+  // then drops the "free trial" / "No charge today" copy (they're billed now).
+  startsTrial: boolean;
   action: TierAction;
   busy: boolean;
   onSubscribe: (tier: BillableTier) => void;
@@ -356,9 +360,11 @@ function TierCard({
 
       <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} />
 
-      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-        {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&rsquo;t be charged.
-      </p>
+      {startsTrial && (
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+          {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&rsquo;t be charged.
+        </p>
+      )}
 
       <Link
         href="/giving"
@@ -383,7 +389,7 @@ function TierCard({
       </ul>
 
       <CtaButton action={action} busy={busy} accent={accent} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
-      {(action.kind === 'subscribe' || action.kind === 'link') && (
+      {startsTrial && (action.kind === 'subscribe' || action.kind === 'link') && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
           No charge today.
         </p>
@@ -621,10 +627,14 @@ function PricingClientInner({
   // to checkout (which works) instead of portal (which 400s on missing
   // stripe_customer_id).
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
+  // Returning member with prior paid history but no active sub. Checkout
+  // suppresses the free trial for them (immediate charge), so the UI must not
+  // promise "trial" / "no charge today" — it shows resubscribe copy instead.
+  const isResubscribe = isAuthed && !hasActiveSubscription && !!authSession?.user?.hasPriorPaid;
   // Show the trial-continuation hero only to visitors who can actually start a
-  // trial. An existing subscriber who lands on a stale ?trial=1 link keeps the
-  // normal pricing hero.
-  const showTrialHero = cameFromTrialCta && !hasActiveSubscription;
+  // trial: not existing subscribers (stale ?trial=1 link) and not returning
+  // members whose trial is already spent.
+  const showTrialHero = cameFromTrialCta && !hasActiveSubscription && !isResubscribe;
   // Banner only shows when we have a definitive false. While the session is
   // loading, emailVerified is undefined; rendering the banner then would
   // flash it for everyone on every pricing-page visit.
@@ -732,9 +742,12 @@ function PricingClientInner({
       // trial" — tier-specific so the button reads "Start Basic Trial" /
       // "Start Pro Trial", never "Subscribe" / "Choose plan".
       const trialLabel = `Start ${label} Trial`;
-      if (authLoading) return { kind: 'link', href: registerHref, label: trialLabel };
+      // Tier-specific register link so a logged-out plan click returns to the
+      // trial hero with THIS plan preselected (register carries the plan through).
+      const registerTrialHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}`)}`;
+      if (authLoading) return { kind: 'link', href: registerTrialHref, label: trialLabel };
       if (!isAuthed) {
-        return { kind: 'link', href: registerHref, label: trialLabel };
+        return { kind: 'link', href: registerTrialHref, label: trialLabel };
       }
       if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
 
@@ -744,13 +757,13 @@ function PricingClientInner({
         return { kind: 'portal', label: `Switch to ${label}` };
       }
 
-      // No active Stripe sub — public OR grandfathered. Either way, "Start
-      // trial" is the only action that makes sense; portal would 400. The
-      // server suppresses the trial for grandfathered users with prior paid
-      // history, but they're rare enough that the label still reads true.
+      // No active Stripe sub. First-timers get the free trial; a returning
+      // member with prior paid history is charged immediately (checkout
+      // suppresses the trial), so label it a subscribe, not a trial.
+      if (isResubscribe) return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
       return { kind: 'subscribe', tier, label: trialLabel };
     },
-    [authLoading, currentTier, hasActiveSubscription, isAuthed],
+    [authLoading, currentTier, hasActiveSubscription, isAuthed, isResubscribe],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global
@@ -942,6 +955,7 @@ function PricingClientInner({
               promoActive={promoActive}
               highlights={basicHighlights}
               highlighted={preselectedPlan === 'basic'}
+              startsTrial={!isResubscribe}
               accent="var(--color-brand-primary)"
               features={[
                 'Real-time metrics and full strategy tools.',
@@ -960,6 +974,7 @@ function PricingClientInner({
               promoActive={promoActive}
               highlights={proHighlights}
               highlighted={preselectedPlan === 'pro'}
+              startsTrial={!isResubscribe}
               accent="var(--color-brand-accent)"
               features={[
                 'Everything included in Basic.',

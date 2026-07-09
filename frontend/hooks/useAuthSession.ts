@@ -12,6 +12,10 @@ type SessionUser = {
   // (tier=basic|pro without a Stripe sub) apart from real subscribers; only
   // real subscribers can use the billing portal.
   hasActiveSubscription?: boolean;
+  // True iff the account has ever held a paid subscription. Checkout suppresses
+  // the free trial for these users, so the pricing UI shows "Subscribe" copy
+  // rather than promising a trial they won't get.
+  hasPriorPaid?: boolean;
   // True iff users.email_verified_at is set. Gates /api/billing/checkout
   // server-side; the pricing/founding clients show a "verify your email"
   // banner when false so the user can resend the link.

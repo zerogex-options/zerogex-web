@@ -35,6 +35,10 @@ type SessionWithUser = {
     email: string;
     tier: TierId;
     hasActiveSubscription: boolean;
+    // True iff this account has ever held a paid subscription (a stamped paid
+    // welcome, or the lapsed flag set on churn). Checkout suppresses the 7-day
+    // trial for these users, so the UI must not promise them a free trial.
+    hasPriorPaid: boolean;
     emailVerified: boolean;
     disclaimerAcknowledgedAt: string | null;
     disclaimerVersionAcknowledged: string | null;
@@ -177,7 +181,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
-              u.email_verified_at,
+              u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at
        FROM sessions s
@@ -198,6 +202,12 @@ function getSessionByToken(token: string): SessionWithUser | null {
       // Stripe sub) returns false here so the client knows to route to
       // checkout, not the portal (which would 400 on missing stripe_customer_id).
       hasActiveSubscription: !!row.stripe_subscription_id,
+      // Ever-paid: a stamped paid welcome, or the churn flag. Drives the
+      // pricing UI's "trial vs resubscribe" copy so returning members aren't
+      // promised a free trial that checkout will suppress.
+      hasPriorPaid:
+        row.paid_welcome_email_sent_at != null ||
+        (row.subscription_lapsed as number | null) === 1,
       // Mirrors the same shape: source of truth is the column, not the tier.
       // Gated on /api/billing/checkout so unverified users can't subscribe;
       // surfaced in the session so the pricing UI can prompt for resend.

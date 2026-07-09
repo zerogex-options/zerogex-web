@@ -153,6 +153,13 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
       // non-pricing ?next= target (e.g. a deep link) is honored instead.
       const pricingParams = new URLSearchParams({ trial: '1', source: 'registration' });
       for (const [key, value] of Object.entries(readUtmParams())) pricingParams.set(key, value);
+      // Carry a plan preselection through if the pricing-bound next= carried one
+      // (e.g. a logged-out "Start Pro Trial" click → /register?next=/pricing?…plan=pro),
+      // so the chosen card lands highlighted instead of making them re-pick.
+      if (nextPath?.startsWith('/pricing')) {
+        const nextPlan = new URLSearchParams(nextPath.split('?')[1] ?? '').get('plan');
+        if (nextPlan === 'basic' || nextPlan === 'pro') pricingParams.set('plan', nextPlan);
+      }
       const trialHref = `/pricing?${pricingParams.toString()}`;
       const base = successHref.startsWith('/pricing') ? trialHref : successHref;
 
