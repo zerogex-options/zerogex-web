@@ -404,7 +404,6 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                 <Th align="right">Proceeds</Th>
                 <Th align="right">P&amp;L $</Th>
                 <Th align="right">P&amp;L %</Th>
-                <Th>Reason</Th>
                 <Th>&nbsp;</Th>
               </tr>
             </thead>
@@ -477,19 +476,16 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                         {fmtCurrency(proceeds)}
                       </td>
                       <td
-                        className="px-3 py-2 text-right tabular-nums font-medium"
+                        className="px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap"
                         style={{ color: positive ? 'var(--color-bull)' : 'var(--color-bear)' }}
                       >
                         {row.realized_pnl != null ? fmtSignedMoney(row.realized_pnl) : '—'}
                       </td>
                       <td
-                        className="px-3 py-2 text-right tabular-nums"
+                        className="px-3 py-2 text-right tabular-nums whitespace-nowrap"
                         style={{ color: positive ? 'var(--color-bull)' : 'var(--color-bear)' }}
                       >
                         {row.pnl_percent != null ? fmtSignedPct(row.pnl_percent, 1) : '—'}
-                      </td>
-                      <td className="px-3 py-2 text-[var(--color-text-secondary)]">
-                        {row.close_reason ?? '—'}
                       </td>
                       <td className="px-3 py-2 text-[var(--color-text-secondary)]">
                         {isOpen ? '▲' : '▼'}
@@ -497,7 +493,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                     </tr>
                     {isOpen ? (
                       <tr>
-                        <td colSpan={isAdmin ? 15 : 14} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
+                        <td colSpan={isAdmin ? 14 : 13} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
                           <ExpandedDetail row={row} />
                         </td>
                       </tr>
@@ -952,7 +948,7 @@ function Th({
         : 'text-left';
   return (
     <th
-      className={`px-3 py-2 ${alignClass} font-semibold`}
+      className={`px-3 py-2 ${alignClass} font-semibold whitespace-nowrap`}
       style={width ? { width } : undefined}
     >
       {children}
