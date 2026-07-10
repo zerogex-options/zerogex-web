@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>ZeroGEX — X / Twitter Ad Campaign Creative Board</title>
+</head>
+<body>
+<title>ZeroGEX — X Ad Campaign Creative Board</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:        #00202E;
+    --bg-deep:   #001A26;
+    --card-a:    #00202E;
+    --card-b:    #042C3E;
+    --panel:     #003F5C;
+    --coral:     #FF6361;
+    --orange:    #FF8531;
+    --gold:      #FFD380;
+    --cream:     #FFF1E6;
+    --tan:       #D1B8A6;
+    --green:     #1BC47D;
+    --red:       #FF4D5A;
+    --cyan:      #22C7D6;
+    --hairline:  rgba(255,211,128,0.20);
+    --hairline-soft: rgba(255,211,130,0.10);
+    --grid:      rgba(255,241,230,0.045);
+    --font-sans: system-ui, -apple-system, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+  /* This board deliberately commits to ZeroGEX's dark trading-terminal identity in
+     both theme settings — the product ships dark and every brand asset is dark teal. */
+  :root[data-theme="light"], :root[data-theme="dark"] { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+
+  .board {
+    background:
+      radial-gradient(1200px 620px at 82% -8%, rgba(255,133,49,0.10), transparent 60%),
+      radial-gradient(900px 520px at 0% 4%, rgba(34,199,214,0.07), transparent 55%),
+      var(--bg);
+    color: var(--cream);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 56px) 88px;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+  .mast { display: flex; align-items: center; gap: clamp(18px, 3vw, 34px); flex-wrap: wrap; }
+  .mast__reticle { color: var(--coral); flex: none; filter: drop-shadow(0 0 10px rgba(255,99,97,0.55)); }
+  .mast__reticle svg { width: clamp(58px, 8vw, 84px); height: auto; display: block; }
+  .mast__text { flex: 1 1 460px; min-width: 280px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--tan); margin: 0 0 12px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .eyebrow .live { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2.4s ease-in-out infinite; }
+  h1 {
+    font-family: var(--font-sans); font-weight: 800;
+    font-size: clamp(30px, 5.6vw, 56px); line-height: 1.0; letter-spacing: -0.025em;
+    margin: 0 0 14px; text-wrap: balance; color: var(--cream);
+  }
+  h1 .arrow { color: var(--coral); font-weight: 600; padding: 0 0.12em; }
+  h1 .zero { color: var(--coral); }
+  .lede { color: var(--tan); font-size: clamp(14px, 1.1vw + 8px, 17px); margin: 0; max-width: 60ch; }
+  .lede b { color: var(--cream); font-weight: 600; }
+
+  /* ---------- strategy strip ---------- */
+  .strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--hairline-soft); border: 1px solid var(--hairline-soft);
+    border-radius: 12px; overflow: hidden; margin: clamp(28px, 4vw, 44px) 0 0;
+  }
+  .tile { background: linear-gradient(180deg, rgba(0,63,92,0.30), rgba(0,26,38,0.30)); padding: 16px 18px; min-width: 0; }
+  .tile dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tan); margin: 0 0 8px; }
+  .tile dd { margin: 0; font-family: var(--font-mono); font-size: clamp(13px, 1vw + 6px, 16px); font-weight: 600; color: var(--cream); letter-spacing: -0.01em; }
+  .tile dd .u { color: var(--gold); }
+  .tile dd .c { color: var(--coral); }
+  @media (max-width: 720px) { .strip { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---------- stages ---------- */
+  .stage { margin-top: clamp(40px, 6vw, 68px); }
+  .stage__head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--hairline-soft); }
+  .tag {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 100px; border: 1px solid currentColor; flex: none;
+  }
+  .tag--cold { color: var(--cyan); }
+  .tag--warm { color: var(--gold); }
+  .tag--convert { color: var(--coral); }
+  .stage__head h2 { font-size: clamp(18px, 2vw + 6px, 24px); font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--cream); }
+  .stage__head p { margin: 0; color: var(--tan); font-size: 14px; flex: 1 1 260px; min-width: 220px; }
+  .stage__head code { font-family: var(--font-mono); font-size: 12px; color: var(--gold); }
+
+  .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: clamp(20px, 2.4vw, 30px); align-items: start; }
+  .ad-item { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+  .ad-item--hero { grid-column: 1 / -1; }
+  @media (min-width: 860px) {
+    .ad-item--hero { display: grid; grid-template-columns: minmax(0, 420px) 1fr; gap: 30px; align-items: center; }
+    .ad-item--wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.6fr) 1fr; gap: 30px; align-items: center; }
+  }
+
+  /* ---------- ad frame ---------- */
+  .adframe {
+    position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; gap: 10px;
+    padding: 16px 18px 14px; border-radius: 14px; overflow: hidden; isolation: isolate;
+    background: linear-gradient(158deg, var(--card-a), var(--card-b) 88%);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 22px 44px -26px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,241,230,0.05);
+  }
+  .adframe--wide { aspect-ratio: 1.91 / 1; }
+  .adframe__stripe { position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--orange), var(--gold)); z-index: 3; }
+  .adframe__grid {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 27px 27px;
+    -webkit-mask-image: radial-gradient(120% 100% at 70% 30%, #000 55%, transparent 100%);
+            mask-image: radial-gradient(120% 100% at 70% 30%, #000 55%, transparent 100%);
+  }
+  .adframe > .lyr { position: relative; z-index: 2; }
+  .adframe__wm { display: flex; align-items: baseline; gap: 8px; }
+  .adframe__wm b { font-family: var(--font-sans); font-weight: 800; font-size: 13px; letter-spacing: 0.02em; color: var(--coral); }
+  .adframe__wm span { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--tan); }
+  .adframe__scene { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .adframe__scene svg { width: 100%; height: 100%; display: block; }
+  .adframe__scene text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .adframe__headline { font-family: var(--font-sans); font-weight: 800; text-transform: uppercase; font-size: clamp(15px, 1.1vw + 9px, 21px); line-height: 1.04; letter-spacing: 0.004em; color: var(--cream); text-wrap: balance; margin: 0; }
+  .adframe__headline .hl { color: var(--gold); }
+  .adframe__chip { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 4px; border-top: 1px solid var(--hairline-soft); }
+  .adframe__chip .cash { color: var(--gold); }
+  .adframe__chip .cta { color: var(--coral); font-weight: 600; white-space: nowrap; }
+
+  /* offer frame — quieter, offer-forward */
+  .adframe--offer .adframe__scene { flex: 1; }
+  .offer-val { font-family: var(--font-mono); color: var(--cream); text-align: center; }
+  .offer-val .big { display: block; font-family: var(--font-sans); font-weight: 800; font-size: clamp(30px, 4.6vw, 46px); letter-spacing: -0.02em; color: var(--cream); line-height: 1; }
+  .offer-val .sub { display: block; margin-top: 10px; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+  .offer-val .price { display: block; margin-top: 14px; font-size: 12px; letter-spacing: 0.04em; color: var(--tan); }
+  .offer-val .price b { color: var(--cream); }
+  .trust-chip { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; padding: 6px 11px; border-radius: 100px; border: 1px solid var(--hairline); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tan); }
+  .trust-chip .heart { color: var(--coral); }
+
+  /* ---------- ad copy ---------- */
+  .ad-copy { margin: 0; }
+  .ad-copy__id { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--coral); display: inline-block; margin-bottom: 10px; }
+  .tweet { margin: 0 0 14px; font-size: 14.5px; line-height: 1.5; color: var(--cream); white-space: pre-line; }
+  .tweet .cash { color: var(--gold); }
+  .meta { margin: 0; display: flex; flex-direction: column; gap: 7px; }
+  .meta > div { display: flex; gap: 10px; align-items: baseline; }
+  .meta dt { flex: none; width: 42px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tan); }
+  .meta dd { margin: 0; font-size: 12.5px; color: var(--tan); }
+  .meta dd b { color: var(--cream); font-weight: 600; }
+  .meta dd .mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--gold); }
+
+  /* ---------- style tile ---------- */
+  .spec { margin-top: clamp(44px, 6vw, 72px); padding-top: 28px; border-top: 1px solid var(--hairline-soft); display: grid; gap: 26px; grid-template-columns: 1.3fr 1fr; }
+  @media (max-width: 720px) { .spec { grid-template-columns: 1fr; } }
+  .spec h2 { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--tan); margin: 0; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .sw { border: 1px solid var(--hairline-soft); border-radius: 9px; overflow: hidden; }
+  .sw__chip { height: 44px; }
+  .sw__meta { padding: 7px 9px; }
+  .sw__meta b { display: block; font-size: 11px; color: var(--cream); }
+  .sw__meta code { font-family: var(--font-mono); font-size: 10px; color: var(--tan); }
+  .type-roles { display: flex; flex-direction: column; gap: 14px; }
+  .role { border: 1px solid var(--hairline-soft); border-radius: 10px; padding: 12px 14px; }
+  .role small { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tan); }
+  .role .d { font-family: var(--font-sans); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: var(--cream); margin-top: 4px; }
+  .role .b { font-family: var(--font-sans); font-size: 15px; color: var(--cream); margin-top: 4px; }
+  .role .m { font-family: var(--font-mono); font-size: 15px; color: var(--gold); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- footer ---------- */
+  .foot { margin-top: clamp(40px, 5vw, 60px); padding-top: 22px; border-top: 1px solid var(--hairline-soft); display: flex; flex-wrap: wrap; gap: 12px 26px; align-items: baseline; }
+  .foot p { margin: 0; font-size: 12.5px; color: var(--tan); }
+  .foot code { font-family: var(--font-mono); font-size: 12px; color: var(--gold); }
+  .foot .sep { color: var(--coral); }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none !important; } }
+</style>
+
+<main class="board">
+<div class="wrap">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <header class="mast">
+    <div class="mast__reticle" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <g fill="none" stroke="currentColor" stroke-width="2.4">
+          <circle cx="50" cy="50" r="45"/>
+          <circle cx="50" cy="50" r="27" stroke-dasharray="3 5" stroke-width="1.6"/>
+          <path d="M50 4 V27 M50 73 V96 M4 50 H27 M73 50 H96"/>
+        </g>
+        <circle cx="50" cy="50" r="4" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="mast__text">
+      <p class="eyebrow">
+        <span>Creative Board</span> · <span>X / Twitter Ads</span>
+        <span class="live"><span class="dot"></span>Zero In</span>
+      </p>
+      <h1>Stop Trading Blind <span class="arrow">→</span> Zer<span class="zero">o</span> In</h1>
+      <p class="lede">Paid ad creative for <b>ZeroGEX</b> — real-time gamma exposure, dealer positioning and the gamma flip for <b>SPY · SPX · QQQ</b>. Frames render in the product's own terminal identity. Screenshot at 2× (1080×1080 / 1200×628) for X.</p>
+    </div>
+  </header>
+
+  <!-- ===================== STRATEGY STRIP ===================== -->
+  <dl class="strip">
+    <div class="tile"><dt>Objective</dt><dd>Full-funnel <span class="c">→</span> trials</dd></div>
+    <div class="tile"><dt>Funnel</dt><dd>Cold · Warm · <span class="c">Convert</span></dd></div>
+    <div class="tile"><dt>Budget</dt><dd><span class="u">$17–50</span> / day</dd></div>
+    <div class="tile"><dt>North star</dt><dd>Cost / <span class="c">TrialStart</span></dd></div>
+  </dl>
+
+  <!-- ===================== STAGE 01 · COLD ===================== -->
+  <section class="stage">
+    <div class="stage__head">
+      <span class="tag tag--cold">01 · Cold</span>
+      <h2>Free-levels traffic</h2>
+      <p>Cheap clicks to the free daily gamma levels — seeds the retargeting pool and the pixel. Destination: <code>/spx-gamma-levels</code></p>
+    </div>
+
+    <div class="frames">
+
+      <!-- HERO · C1 Blind → Zeroed -->
+      <figure class="ad-item ad-item--hero">
+        <div class="adframe">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr" aria-hidden="true">
+            <svg viewBox="0 0 360 196" preserveAspectRatio="xMidYMid meet" fill="none">
+              <text x="14" y="18" fill="#D1B8A6" font-size="9" letter-spacing="2">BLIND</text>
+              <text x="214" y="18" fill="#22C7D6" font-size="9" letter-spacing="2">ZEROED IN</text>
+              <line x1="180" y1="28" x2="180" y2="188" stroke="rgba(255,211,128,0.20)" stroke-dasharray="2 6"/>
+              <polyline points="20,150 44,140 68,152 92,120 116,132 140,96 164,112" stroke="#D1B8A6" stroke-opacity="0.42" stroke-width="2" stroke-dasharray="4 4" stroke-linejoin="round" stroke-linecap="round"/>
+              <rect x="196" y="52" width="150" height="12" fill="#FF4D5A" fill-opacity="0.18"/>
+              <text x="200" y="48" fill="#FF4D5A" font-size="8" letter-spacing="1.5">CALL WALL 5950</text>
+              <rect x="196" y="150" width="150" height="12" fill="#1BC47D" fill-opacity="0.18"/>
+              <text x="200" y="176" fill="#1BC47D" font-size="8" letter-spacing="1.5">PUT WALL 5850</text>
+              <line x1="196" y1="108" x2="346" y2="108" stroke="#22C7D6" stroke-width="1.4" stroke-dasharray="5 4"/>
+              <text x="284" y="103" fill="#22C7D6" font-size="8" letter-spacing="1.5">&#915; FLIP 5875</text>
+              <polyline points="200,150 224,140 248,152 272,120 296,132 320,96 336,112" stroke="#FFD380" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+              <g transform="translate(336,112)" stroke="#FF6361" fill="none" stroke-width="1.6">
+                <circle r="12"/><circle r="6"/>
+                <path d="M0 -16 V-9 M0 16 V9 M-16 0 H-9 M16 0 H9"/>
+              </g>
+              <circle cx="336" cy="112" r="2.4" fill="#FF6361"/>
+            </svg>
+          </div>
+          <h3 class="adframe__headline lyr">Stop trading <span class="hl">SPY blind.</span></h3>
+          <div class="adframe__chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">View free levels →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C1 · Blind → Zeroed · hero</span>
+          <p class="tweet">Stop trading SPY blind.
+
+Live call walls, put walls, and the gamma flip for <span class="cash">$SPX $SPY $QQQ</span> — refreshed every second.
+
+Today's levels, free. No signup.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Free daily gamma levels — SPX, SPY, QQQ</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/spx-gamma-levels</span></dd></div>
+            <div><dt>CTA</dt><dd>See more</dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+
+      <!-- C2 · The flip line -->
+      <figure class="ad-item">
+        <div class="adframe">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr" aria-hidden="true">
+            <svg viewBox="0 0 320 190" preserveAspectRatio="xMidYMid meet" fill="none">
+              <rect x="0" y="20" width="320" height="66" fill="#1BC47D" fill-opacity="0.06"/>
+              <rect x="0" y="98" width="320" height="74" fill="#FF4D5A" fill-opacity="0.07"/>
+              <text x="12" y="40" fill="#1BC47D" font-size="8.5" letter-spacing="1.5">DEALERS CALM THE MOVE</text>
+              <text x="12" y="166" fill="#FF4D5A" font-size="8.5" letter-spacing="1.5">DEALERS ACCELERATE IT</text>
+              <line x1="0" y1="92" x2="320" y2="92" stroke="#22C7D6" stroke-width="2" stroke-dasharray="7 5"/>
+              <text x="232" y="86" fill="#22C7D6" font-size="9" letter-spacing="1.5">&#915; FLIP 5875</text>
+              <polyline points="14,58 44,50 74,70 104,84 134,104 164,96 194,110 224,88 254,78 300,64" stroke="#FFD380" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+              <circle cx="134" cy="104" r="3.4" fill="#FF4D5A"/>
+              <circle cx="300" cy="64" r="3.4" fill="#1BC47D"/>
+              <g transform="translate(287,168)" stroke="#FF6361" fill="none" stroke-width="1.4" opacity="0.85"><circle r="8"/><path d="M0 -11 V-6 M0 11 V6 M-11 0 H-6 M11 0 H6"/></g>
+            </svg>
+          </div>
+          <h3 class="adframe__headline lyr">One line flips the market.</h3>
+          <div class="adframe__chip lyr"><span class="cash">$SPX</span><span class="cta">See today's flip →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C2 · The flip line</span>
+          <p class="tweet">Same dip. Opposite outcome — depending on the gamma regime.
+
+Above the flip, dealers cushion the move. Below it, they accelerate it.
+
+See today's flip level for <span class="cash">$SPX</span>, free.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Where does dealer hedging flip today?</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/spx-gamma-levels</span></dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+
+      <!-- C3 · Walls -->
+      <figure class="ad-item">
+        <div class="adframe">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr" aria-hidden="true">
+            <svg viewBox="0 0 320 190" preserveAspectRatio="xMidYMid meet" fill="none">
+              <line x1="160" y1="14" x2="160" y2="178" stroke="rgba(255,211,130,0.10)"/>
+              <g font-size="8" letter-spacing="1">
+                <rect x="160" y="26" width="86" height="9" rx="1" fill="#FF4D5A" fill-opacity="0.85"/>
+                <text x="252" y="34" fill="#FF4D5A">CALL WALL 5950</text>
+                <rect x="160" y="44" width="40" height="9" rx="1" fill="#FF4D5A" fill-opacity="0.5"/>
+                <rect x="132" y="62" width="28" height="9" rx="1" fill="#1BC47D" fill-opacity="0.5"/>
+                <rect x="110" y="80" width="50" height="9" rx="1" fill="#1BC47D" fill-opacity="0.6"/>
+                <rect x="96"  y="98" width="64" height="9" rx="1" fill="#1BC47D" fill-opacity="0.75"/>
+                <rect x="120" y="116" width="40" height="9" rx="1" fill="#1BC47D" fill-opacity="0.5"/>
+                <rect x="150" y="134" width="10" height="9" rx="1" fill="#FF4D5A" fill-opacity="0.4"/>
+                <rect x="74"  y="152" width="86" height="9" rx="1" fill="#1BC47D" fill-opacity="0.9"/>
+                <text x="4" y="160" fill="#1BC47D">PUT WALL 5850</text>
+              </g>
+              <line x1="20" y1="90" x2="300" y2="90" stroke="#FFD380" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>
+              <text x="266" y="88" fill="#FFD380" font-size="8">SPOT 5900</text>
+            </svg>
+          </div>
+          <h3 class="adframe__headline lyr">Support &amp; resistance that aren't guesses.</h3>
+          <div class="adframe__chip lyr"><span class="cash">SPY · SPX · QQQ</span><span class="cta">Free walls →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C3 · Walls</span>
+          <p class="tweet">Call walls and put walls aren't psychological levels. They're where dealer gamma actually concentrates.
+
+ZeroGEX maps them live for SPY, SPX and QQQ.
+
+Today's walls, free.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Live call &amp; put walls — no signup</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/spx-gamma-levels</span></dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ===================== STAGE 02 · WARM ===================== -->
+  <section class="stage">
+    <div class="stage__head">
+      <span class="tag tag--warm">02 · Warm</span>
+      <h2>Retarget the live desk</h2>
+      <p>Retarget free-levels visitors, video viewers and @ZeroGEXOptions engagers. Turns on once pools ≥ ~500.</p>
+    </div>
+
+    <div class="frames">
+      <!-- C4 · See what the market makers see (wide 1.91:1) -->
+      <figure class="ad-item ad-item--wide">
+        <div class="adframe adframe--wide">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr" aria-hidden="true">
+            <svg viewBox="0 0 520 150" preserveAspectRatio="xMidYMid meet" fill="none">
+              <g transform="translate(6,10)">
+                <rect width="120" height="52" rx="6" fill="#003F5C" fill-opacity="0.28" stroke="rgba(255,211,130,0.10)"/>
+                <text x="12" y="20" fill="#D1B8A6" font-size="7.5" letter-spacing="1.5">GAMMA FLIP</text>
+                <text x="12" y="40" fill="#FFF1E6" font-size="18" font-weight="700">5875</text>
+              </g>
+              <g transform="translate(134,10)">
+                <rect width="120" height="52" rx="6" fill="#003F5C" fill-opacity="0.28" stroke="rgba(255,211,130,0.10)"/>
+                <text x="12" y="20" fill="#D1B8A6" font-size="7.5" letter-spacing="1.5">CALL WALL</text>
+                <text x="12" y="40" fill="#FF4D5A" font-size="18" font-weight="700">5950</text>
+              </g>
+              <g transform="translate(262,10)">
+                <rect width="120" height="52" rx="6" fill="#003F5C" fill-opacity="0.28" stroke="rgba(255,211,130,0.10)"/>
+                <text x="12" y="20" fill="#D1B8A6" font-size="7.5" letter-spacing="1.5">PUT WALL</text>
+                <text x="12" y="40" fill="#1BC47D" font-size="18" font-weight="700">5850</text>
+              </g>
+              <g transform="translate(390,10)">
+                <rect width="124" height="52" rx="6" fill="#003F5C" fill-opacity="0.28" stroke="rgba(255,211,130,0.10)"/>
+                <text x="12" y="20" fill="#D1B8A6" font-size="7.5" letter-spacing="1.5">NET GEX</text>
+                <text x="12" y="40" fill="#1BC47D" font-size="18" font-weight="700">+$2.5B</text>
+              </g>
+              <polyline points="6,124 60,116 114,128 168,96 222,108 276,78 330,92 384,70 438,84 514,60" stroke="#FFD380" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <line x1="6" y1="100" x2="514" y2="100" stroke="#22C7D6" stroke-width="1.2" stroke-dasharray="6 5"/>
+              <g transform="translate(500,60)" stroke="#FF6361" fill="none" stroke-width="1.5"><circle r="9"/><circle r="4"/><path d="M0 -13 V-7 M0 13 V7 M-13 0 H-7 M13 0 H7"/></g>
+              <circle cx="500" cy="60" r="2" fill="#FF6361"/>
+            </svg>
+          </div>
+          <h3 class="adframe__headline lyr">See what the <span class="hl">market makers</span> see.</h3>
+          <div class="adframe__chip lyr"><span class="cash">1S REFRESH · SPY · SPX · QQQ</span><span class="cta">Start free trial →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C4 · See what the market makers see</span>
+          <p class="tweet">Gamma exposure data used to live on six-figure Bloomberg terminals.
+
+ZeroGEX puts the same dealer-positioning map on your screen — real-time, for SPY / SPX / QQQ.
+
+Start free for 7 days.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Institutional gamma, minus the terminal</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/pricing</span></dd></div>
+            <div><dt>Also</dt><dd>WARM-1 · WARM-3 reuse this frame</dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== STAGE 03 · CONVERT ===================== -->
+  <section class="stage">
+    <div class="stage__head">
+      <span class="tag tag--convert">03 · Convert</span>
+      <h2>Start the free trial</h2>
+      <p>Optimize the <code>TrialStart</code> conversion. Offer-forward, risk-reversal. Destination: <code>/pricing</code></p>
+    </div>
+
+    <div class="frames">
+
+      <!-- C6 · The offer -->
+      <figure class="ad-item">
+        <div class="adframe adframe--offer">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr">
+            <div class="offer-val">
+              <span class="big">7 days free</span>
+              <span class="sub">No charge until day 7</span>
+              <span class="price">Basic from <b>$19/mo</b> · Pro from <b>$29/mo</b></span>
+            </div>
+          </div>
+          <h3 class="adframe__headline lyr">Trade positioning, not guesswork.</h3>
+          <div class="adframe__chip lyr"><span class="cash">CANCEL ANYTIME</span><span class="cta">Start 7-day trial →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C6 · The offer</span>
+          <p class="tweet">Trade with dealer positioning — not guesswork.
+
+8 modules, 13 live signals, 1-second refresh. Built for 0DTE on SPY, SPX and QQQ.
+
+Start your 7-day free trial. No charge today.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Trade positioning, not guesswork</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/pricing</span></dd></div>
+            <div><dt>CTA</dt><dd>Get started</dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+
+      <!-- C6-trust · Folds of Honor -->
+      <figure class="ad-item">
+        <div class="adframe adframe--offer">
+          <span class="adframe__stripe"></span>
+          <div class="adframe__grid"></div>
+          <div class="adframe__wm lyr"><b>ZEROGEX</b><span>Options&nbsp;Analytics</span></div>
+          <div class="adframe__scene lyr">
+            <div class="offer-val">
+              <span class="big" style="color:var(--gold)">3%</span>
+              <span class="sub">Of every subscription →</span>
+              <span class="price" style="color:var(--cream);font-weight:600;letter-spacing:0.02em">Folds of Honor scholarships</span>
+              <span class="trust-chip"><span class="heart">&#9829;</span> Real numbers · published quarterly</span>
+            </div>
+          </div>
+          <h3 class="adframe__headline lyr">Institutional gamma. A cause behind it.</h3>
+          <div class="adframe__chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">7-day free trial →</span></div>
+        </div>
+        <figcaption class="ad-copy">
+          <span class="ad-copy__id">C6 · Folds of Honor (trust)</span>
+          <p class="tweet">3% of every ZeroGEX subscription funds Folds of Honor scholarships for the families of fallen and disabled service members.
+
+Real-time gamma intelligence for <span class="cash">$SPX $SPY $QQQ</span>, and a cause behind it.
+
+7-day free trial.</p>
+          <dl class="meta">
+            <div><dt>Card</dt><dd><b>Institutional gamma. A cause behind it.</b></dd></div>
+            <div><dt>To</dt><dd><span class="mono">/pricing</span> · <span class="mono">/giving</span></dd></div>
+          </dl>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ===================== STYLE TILE ===================== -->
+  <section class="spec">
+    <h2>Brand tokens — for the finals</h2>
+    <div>
+      <div class="swatches">
+        <div class="sw"><div class="sw__chip" style="background:#00202E"></div><div class="sw__meta"><b>Ground</b><code>#00202E</code></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#FF6361"></div><div class="sw__meta"><b>Coral</b><code>#FF6361</code></div></div>
+        <div class="sw"><div class="sw__chip" style="background:linear-gradient(90deg,#FF8531,#FFD380)"></div><div class="sw__meta"><b>Sunset</b><code>#FF8531→80</code></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#1BC47D"></div><div class="sw__meta"><b>+GEX</b><code>#1BC47D</code></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#FF4D5A"></div><div class="sw__meta"><b>−GEX</b><code>#FF4D5A</code></div></div>
+        <div class="sw"><div class="sw__chip" style="background:#FFF1E6"></div><div class="sw__meta"><b>Cream</b><code>#FFF1E6</code></div></div>
+      </div>
+    </div>
+    <div class="type-roles">
+      <div class="role"><small>Display · heavy grotesk</small><div class="d">STOP TRADING SPY BLIND.</div></div>
+      <div class="role"><small>Body · Inter / system</small><div class="b">See what the market makers see.</div></div>
+      <div class="role"><small>Numerics · JetBrains Mono</small><div class="m">Γ FLIP 5875 · NET GEX +$2.5B</div></div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="foot">
+    <p>Full plan &amp; copy library <span class="sep">·</span> <code>docs/twitter-ad-campaign.md</code></p>
+    <p>Handle <span class="sep">·</span> <code>@ZeroGEXOptions</code></p>
+    <p>Claims: features only <span class="sep">·</span> no win-rates <span class="sep">·</span> SPY/SPX/QQQ <span class="sep">·</span> match live promo</p>
+  </footer>
+
+</div>
+</main>
+</body>
+</html>
