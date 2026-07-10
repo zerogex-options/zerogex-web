@@ -755,24 +755,43 @@ export async function sendCancellationEmail(
 // users.winback_email_sent_at (cleared on re-subscribe so a future re-churn can
 // re-fire, mirroring cancel_ack_email_sent_at).
 //
-// Two discount variants, mirroring sendCheckoutRecoveryEmail:
-//   - promoDeadlineLabel set → point at the live limited-time public promo
-//     (auto-applies at /pricing) with a time-boxed deadline.
-//   - promoDeadlineLabel null → the evergreen offer the cancellation email
-//     already made: reply "discount" for 25% off the first year, fulfilled
-//     manually. This keeps a concrete offer in the email even when no public
-//     promo is running, and keeps the reply-to-a-human loop the founder values.
+// Three discount variants, resolved by the caller and ranked auto > promo >
+// manual so the email always carries the best redeemable offer:
+//   - winbackAutoApply → the fully-automated one-click coupon. The CTA links to
+//     /pricing?winback=1 and the checkout route attaches STRIPE_COUPON_WINBACK_*
+//     for this eligible churner (verified server-side). No code, no reply.
+//   - promoDeadlineLabel → the live limited-time public promo (auto-applies at
+//     /pricing) with a time-boxed deadline. Fallback when no win-back coupon is
+//     configured but a public promo happens to be running.
+//   - neither → the evergreen manual offer: reply "discount" and it's set up by
+//     hand. Last-resort fallback so the email still makes a concrete offer even
+//     with no coupon plumbing configured at all.
+// discountLabel (e.g. "25% off your first year") is shown in the auto + manual
+// copy and MUST match the actual STRIPE_COUPON_WINBACK_* value.
 export async function sendWinbackEmail(
   to: string,
-  opts?: { promoDeadlineLabel?: string | null },
+  opts?: {
+    winbackAutoApply?: boolean;
+    discountLabel?: string;
+    promoDeadlineLabel?: string | null;
+  },
 ) {
-  const promo = opts?.promoDeadlineLabel ?? null;
-  const pricingUrl = `${getAppUrl()}/pricing`;
-  const safePricingUrl = escapeHtml(pricingUrl);
+  const auto = opts?.winbackAutoApply === true;
+  // Promo copy is a fallback only — the automated win-back coupon always wins
+  // when it's configured, since it's the targeted per-user offer.
+  const promo = !auto ? opts?.promoDeadlineLabel ?? null : null;
+  const label = opts?.discountLabel?.trim() || '25% off your first year';
 
-  const subject = promo
-    ? `Your ZeroGEX intro rate is open again — through ${promo}`
-    : 'A lot has changed at ZeroGEX since you left';
+  // Auto variant sends them through the ?winback=1 link so the coupon attaches
+  // at checkout; the other variants land on plain /pricing.
+  const ctaHref = auto ? `${getAppUrl()}/pricing?winback=1` : `${getAppUrl()}/pricing`;
+  const safeCtaHref = escapeHtml(ctaHref);
+
+  const subject = auto
+    ? `A lot has changed at ZeroGEX — and your discount's ready`
+    : promo
+      ? `Your ZeroGEX intro rate is open again — through ${promo}`
+      : 'A lot has changed at ZeroGEX since you left';
 
   // "What's new since you left." Kept concrete and current — these are the
   // marquee additions shipped since the launch cohort churned. Refresh this
@@ -795,15 +814,23 @@ export async function sendWinbackEmail(
     },
   ];
 
-  const discountLineText = promo
-    ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
-    : "And if price was part of why you left, that offer still stands: reply with the word \"discount\" and I'll put 25% off your first year right back on your account — no need to re-enter a card or resubscribe first.";
+  const discountLineText = auto
+    ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
+    : promo
+      ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
+      : `And if price was part of why you left, that offer still stands: just reply with the word "discount" and I'll get you set up with ${label}. I'll take care of the coupon on my end — you won't have to sort out anything fiddly.`;
 
-  const discountLineHtml = promo
-    ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
-    : `And if price was part of why you left, that offer still stands: reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll put <strong>25% off your first year</strong> right back on your account &mdash; no need to re-enter a card or resubscribe first.`;
+  const discountLineHtml = auto
+    ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you &mdash; it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
+    : promo
+      ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
+      : `And if price was part of why you left, that offer still stands: just reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll get you set up with <strong>${escapeHtml(label)}</strong>. I'll take care of the coupon on my end &mdash; you won't have to sort out anything fiddly.`;
 
-  const ctaLabel = promo ? 'Come back — see the new pricing' : 'See what you\'ve missed';
+  const ctaLabel = auto
+    ? 'Come back at a discount'
+    : promo
+      ? 'Come back — see the new pricing'
+      : 'See what you\'ve missed';
 
   const text = [
     'Hello,',
@@ -822,7 +849,7 @@ export async function sendWinbackEmail(
     '',
     'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
     '',
-    `Come back whenever you're ready: ${pricingUrl}`,
+    `Come back whenever you're ready: ${ctaHref}`,
     '',
     'Best,',
     'Michael',
@@ -845,7 +872,7 @@ export async function sendWinbackEmail(
       <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
       <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>
       <p style="margin: 24px 0;">
-        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
+        <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
       </p>
       <p>No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.</p>
       <p>If anything specific pushed you away &mdash; a missing feature, a bug, a pricing thing &mdash; just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>

@@ -157,4 +157,4 @@ log "  • cd $APP_DIR && make winback DRY_RUN=1                        - previe
 log "  • sudo systemctl start ${UNIT}.service                         - fire the send loop now"
 log "  • journalctl -u ${UNIT} -n 50                                  - recent send logs"
 log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com       - render + send one sample"
-log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_PROMO=1 - sample the promo variant"
+log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_MODE=auto - sample a specific variant (auto|promo|manual)"

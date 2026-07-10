@@ -38,11 +38,16 @@
 //     that stops a first deploy from mass-emailing every ancient churn — only
 //     departures in the last two months ever qualify.
 //
+// Discount variant is resolved per run (ranked auto > promo > manual):
+//   - auto:   STRIPE_COUPON_WINBACK_* fully configured → the email's one-click
+//     coupon that auto-applies at /pricing?winback=1 (the checkout route attaches
+//     it for this eligible churner, verified server-side). No code, no reply.
+//   - promo:  no win-back coupon, but PROMO_END_AT is live → the time-boxed
+//     public-promo copy (also auto-applies at /pricing).
+//   - manual: neither → the evergreen "reply 'discount'" offer, set up by hand.
+//
 // Side effects on send:
-//   - Resend email via core/mailer.ts sendWinbackEmail(). When the public
-//     limited-time promo (PROMO_END_AT) is live the email uses the promo-
-//     deadline variant (auto-applied discount at /pricing); otherwise it makes
-//     the evergreen "reply 'discount' for 25% off your first year" offer.
+//   - Resend email via core/mailer.ts sendWinbackEmail() in the resolved variant.
 //   - Stamps users.winback_email_sent_at = now (dedupe latch).
 //   - Writes a `winback_email_sent` row into audit_events.
 
@@ -79,6 +84,8 @@ function getActivePromoDeadlineLabelLocal(): string | null {
 const DEFAULT_LAG_DAYS = 30;
 const DEFAULT_LOOKBACK_DAYS = 60;
 
+type WinbackMode = 'auto' | 'promo' | 'manual';
+
 type Args = {
   dryRun: boolean;
   yes: boolean;
@@ -86,7 +93,7 @@ type Args = {
   lagDays: number;
   lookbackDays: number;
   previewTo: string | null;
-  previewPromo: boolean;
+  previewMode: WinbackMode | null;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -119,7 +126,7 @@ function parseArgs(argv: string[]): Args {
     lagDays: DEFAULT_LAG_DAYS,
     lookbackDays: DEFAULT_LOOKBACK_DAYS,
     previewTo: null,
-    previewPromo: false,
+    previewMode: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -140,8 +147,14 @@ function parseArgs(argv: string[]): Args {
       }
       args.lookbackDays = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
-    else if (arg === '--preview-promo') args.previewPromo = true;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--preview-mode') {
+      const value = argv[++i] ?? '';
+      if (value !== 'auto' && value !== 'promo' && value !== 'manual') {
+        console.error(`Error: --preview-mode expects auto|promo|manual, got "${value}".`);
+        process.exit(1);
+      }
+      args.previewMode = value;
+    } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
@@ -150,15 +163,18 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-winback.mts \\
     [--dry-run | --yes] [--lag-days N] [--lookback-days N] \\
-    [--preview-to <email>] [--preview-promo]
+    [--preview-to <email>] [--preview-mode auto|promo|manual]
 
 Finds churned users (subscription actually lapsed) whose most-recent departure
 was roughly a month ago, and sends a one-shot founder-voice win-back with a
-link back to /pricing. When the public limited-time promo (PROMO_END_AT) is
-live the email uses the promo-deadline copy; otherwise it makes the evergreen
-"reply 'discount' for 25% off your first year" offer. Idempotent via
-users.winback_email_sent_at (cleared by the Stripe webhook on re-subscribe so a
-future re-churn re-qualifies).
+link back to /pricing. The discount copy is chosen automatically:
+  auto   - STRIPE_COUPON_WINBACK_* all configured → one-click coupon that
+           auto-applies at /pricing?winback=1 (no code, no reply).
+  promo  - no win-back coupon, but the public promo (PROMO_END_AT) is live →
+           the time-boxed promo copy.
+  manual - neither → the evergreen "reply 'discount'" offer, fulfilled by hand.
+Idempotent via users.winback_email_sent_at (cleared by the Stripe webhook on
+re-subscribe so a future re-churn re-qualifies).
 
 Eligibility mirrors list-public-cohort.mjs's churned bucket:
   - users.subscription_lapsed = 1
@@ -176,14 +192,14 @@ Options:
                                (default ${DEFAULT_LAG_DAYS}).
       --lookback-days N        Oldest churn we'll act on (default ${DEFAULT_LOOKBACK_DAYS}).
       --preview-to <email>     Render the email and send ONE copy to <email>.
-                               No DB writes. Defaults to the evergreen copy;
-                               pass --preview-promo to preview the promo-
-                               deadline variant instead (needs PROMO_END_AT).
-      --preview-promo          Use the promo-deadline copy when previewing.
+                               No DB writes. Defaults to the env-resolved mode;
+                               override with --preview-mode.
+      --preview-mode <mode>    Force the preview variant: auto | promo | manual.
   -h, --help                   Show this help.
 
-Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL, PROMO_END_AT from
-env or .env.local. Set AUTH_DB_PATH to override the default DB path.`);
+Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL, PROMO_END_AT,
+STRIPE_COUPON_WINBACK_* and WINBACK_DISCOUNT_LABEL from env or .env.local. Set
+AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -260,23 +276,57 @@ if (envLocal.PROMO_END_AT && !process.env.PROMO_END_AT) {
   process.env.PROMO_END_AT = envLocal.PROMO_END_AT;
 }
 
-// Public limited-time promo. When live, the email uses the promo-deadline copy
-// (auto-applied discount at /pricing) instead of the evergreen reply-for-
-// discount offer.
+const envValue = (key: string): string =>
+  (process.env[key] || envLocal[key] || '').trim();
+
+// Copy label for the discount, shown in the auto + manual email variants. MUST
+// match the actual STRIPE_COUPON_WINBACK_* value the checkout route applies.
+const WINBACK_DISCOUNT_LABEL = envValue('WINBACK_DISCOUNT_LABEL') || '25% off your first year';
+
+// The automated one-click path is "available" only when ALL FOUR win-back
+// coupons are configured — the churner can pick any (tier, cadence), so the
+// email's "it's already applied" promise must hold whatever they choose. If any
+// is missing we fall back to promo/manual rather than risk promising a coupon
+// the checkout route can't attach for their pick.
+const winbackAutoAvailable =
+  !!envValue('STRIPE_COUPON_WINBACK_BASIC_MONTHLY') &&
+  !!envValue('STRIPE_COUPON_WINBACK_PRO_MONTHLY') &&
+  !!envValue('STRIPE_COUPON_WINBACK_BASIC_ANNUAL') &&
+  !!envValue('STRIPE_COUPON_WINBACK_PRO_ANNUAL');
+
+// Public limited-time promo, used only as a fallback when the automated
+// win-back coupon isn't configured.
 const promoDeadlineLabel = getActivePromoDeadlineLabelLocal();
 
+// Ranked auto > promo > manual.
+const resolvedMode: WinbackMode = winbackAutoAvailable
+  ? 'auto'
+  : promoDeadlineLabel
+    ? 'promo'
+    : 'manual';
+
+// Map a mode to the sendWinbackEmail opts. Promo mode needs a live deadline
+// label; if it's somehow requested without one (a forced preview), the mailer
+// degrades to the manual copy on its own.
+function optsForMode(mode: WinbackMode) {
+  if (mode === 'auto') {
+    return { winbackAutoApply: true, discountLabel: WINBACK_DISCOUNT_LABEL };
+  }
+  if (mode === 'promo') {
+    return { promoDeadlineLabel, discountLabel: WINBACK_DISCOUNT_LABEL };
+  }
+  return { discountLabel: WINBACK_DISCOUNT_LABEL };
+}
+
 if (cliArgs.previewTo) {
-  const usePromo = cliArgs.previewPromo && !!promoDeadlineLabel;
-  if (cliArgs.previewPromo && !promoDeadlineLabel) {
+  const mode = cliArgs.previewMode ?? resolvedMode;
+  if (mode === 'promo' && !promoDeadlineLabel) {
     console.log(
-      'Note: --preview-promo ignored (PROMO_END_AT is unset or in the past); previewing evergreen copy.',
+      'Note: promo preview requested but PROMO_END_AT is unset or past; the email will render the manual copy.',
     );
   }
-  const variantLabel = usePromo ? 'promo-deadline' : 'evergreen';
-  console.log(`Sending preview to ${cliArgs.previewTo} (variant: ${variantLabel})...`);
-  await sendWinbackEmail(cliArgs.previewTo, {
-    promoDeadlineLabel: usePromo ? promoDeadlineLabel : null,
-  });
+  console.log(`Sending preview to ${cliArgs.previewTo} (variant: ${mode})...`);
+  await sendWinbackEmail(cliArgs.previewTo, optsForMode(mode));
   console.log('Preview sent.');
   process.exit(0);
 }
@@ -329,9 +379,16 @@ const eligible = querySqlite<UserRow>(
    ORDER BY churned_at ASC;`,
 );
 
+const modeDescription =
+  resolvedMode === 'auto'
+    ? `auto (one-click ${WINBACK_DISCOUNT_LABEL} via /pricing?winback=1)`
+    : resolvedMode === 'promo'
+      ? `promo (public promo open until ${promoDeadlineLabel})`
+      : `manual (evergreen reply-for-discount, ${WINBACK_DISCOUNT_LABEL})`;
+
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Churn window:     ${lowIso}  →  ${highIso}`);
-console.log(`Promo offer:      ${promoDeadlineLabel ? `open until ${promoDeadlineLabel}` : 'closed (evergreen reply-for-discount copy)'}`);
+console.log(`Discount variant: ${modeDescription}`);
 console.log(`Eligible users:   ${eligible.length}`);
 
 if (eligible.length === 0) {
@@ -362,9 +419,11 @@ if (!cliArgs.yes) {
 let successCount = 0;
 let failCount = 0;
 
+const sendOpts = optsForMode(resolvedMode);
+
 for (const user of eligible) {
   try {
-    await sendWinbackEmail(user.email, { promoDeadlineLabel });
+    await sendWinbackEmail(user.email, sendOpts);
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
     // doesn't re-send to anyone who already received. Audit row is best-effort;
@@ -378,7 +437,7 @@ for (const user of eligible) {
     );
 
     const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    const variant = promoDeadlineLabel ? 'promo' : 'evergreen';
+    const variant = resolvedMode;
     execSqlite(
       dbPath,
       `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)

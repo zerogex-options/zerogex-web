@@ -9,6 +9,7 @@ import {
   getFoundingIntroCouponId,
   getFoundingPromoCode,
   getStripe,
+  getWinbackCouponId,
   isBillableTier,
   isBillingCadence,
   isPaidSignupDisabled,
@@ -43,6 +44,7 @@ type UserBillingRow = {
   referred_by_code: string | null;
   paid_welcome_email_sent_at: string | null;
   subscription_lapsed: number;
+  winback_email_sent_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
     tier?: unknown;
     cadence?: unknown;
     foundingCode?: unknown;
+    winback?: unknown;
   };
 
   if (!isBillableTier(body.tier)) {
@@ -84,11 +87,16 @@ export async function POST(request: NextRequest) {
     typeof body.foundingCode === 'string' && body.foundingCode.length > 0
       ? body.foundingCode
       : null;
+  // Intent flag from the ?winback=1 link in the win-back email. It only signals
+  // "the user came back through the win-back offer" — the actual entitlement is
+  // re-derived server-side below from the account's churn state, never trusted
+  // from the client.
+  const winbackRequested = body.winback === true || body.winback === '1';
 
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -115,6 +123,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Win-back entitlement is server-authoritative: the discount only attaches to
+  // an account that actually churned (subscription_lapsed=1) AND was sent a
+  // win-back email (winback_email_sent_at set by scripts/send-winback.mts).
+  // Both conditions together mean this is a genuine ~1-month churner we invited
+  // back — not someone who appended ?winback=1 to farm a discount. Once they
+  // resubscribe, the webhook flips subscription_lapsed→0 and clears the stamp,
+  // so the offer naturally closes after one use.
+  const winbackEligible =
+    winbackRequested &&
+    (row?.subscription_lapsed ?? 0) === 1 &&
+    row?.winback_email_sent_at != null;
+
   // Resolve any discount before talking to Stripe so we can fail fast on
   // misconfiguration (e.g. founding code accepted but coupon env unset)
   // without leaving a half-created customer behind on retries.
@@ -124,6 +144,7 @@ export async function POST(request: NextRequest) {
     foundingCode,
     foundingEligible: (row?.founding_eligible ?? 0) === 1,
     referredByCode: row?.referred_by_code ?? null,
+    winbackEligible,
   });
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
@@ -229,6 +250,7 @@ export async function POST(request: NextRequest) {
         cadence,
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
         ...(discountResult.partnerApplied ? { partner_referred: '1' } : {}),
+        ...(discountResult.winbackApplied ? { winback: '1' } : {}),
       },
       // Stripe accepts only one of trial_end / trial_period_days. Founding
       // members get the absolute July-1 trial_end; everyone else (first-time
@@ -264,7 +286,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -277,6 +299,7 @@ type DiscountResolution =
       foundingApplied: boolean;
       referralApplied: boolean;
       partnerApplied: boolean;
+      winbackApplied: boolean;
     }
   | { ok: false; status: number; error: string };
 
@@ -286,6 +309,7 @@ function resolveDiscount(input: {
   foundingCode: string | null;
   foundingEligible: boolean;
   referredByCode: string | null;
+  winbackEligible: boolean;
 }): DiscountResolution {
   if (input.foundingCode) {
     const expected = getFoundingPromoCode();
@@ -331,7 +355,28 @@ function resolveDiscount(input: {
       foundingApplied: true,
       referralApplied: false,
       partnerApplied: false,
+      winbackApplied: false,
     };
+  }
+
+  // Win-back beats the generic public promo: it's the targeted, per-user offer
+  // we invited this specific churner back with, and eligibility was already
+  // proven server-side (subscription_lapsed=1 + a win-back email on record) at
+  // the call site. If the coupon env for this (tier, cadence) isn't configured,
+  // fall through to promo/none so a returning user is never blocked — they just
+  // don't get the win-back rate.
+  if (input.winbackEligible) {
+    const winbackCouponId = getWinbackCouponId({ tier: input.tier, cadence: input.cadence });
+    if (winbackCouponId) {
+      return {
+        ok: true,
+        couponId: winbackCouponId,
+        foundingApplied: false,
+        referralApplied: false,
+        partnerApplied: false,
+        winbackApplied: true,
+      };
+    }
   }
 
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
@@ -342,6 +387,7 @@ function resolveDiscount(input: {
       foundingApplied: false,
       referralApplied: false,
       partnerApplied: false,
+      winbackApplied: false,
     };
   }
 
@@ -363,6 +409,7 @@ function resolveDiscount(input: {
             foundingApplied: false,
             referralApplied: false,
             partnerApplied: true,
+            winbackApplied: false,
           };
         }
         // Partner resolved but no monthly coupon configured / annual cadence.
@@ -389,6 +436,7 @@ function resolveDiscount(input: {
             foundingApplied: false,
             referralApplied: false,
             partnerApplied: false,
+            winbackApplied: false,
           };
         }
         return {
@@ -397,6 +445,7 @@ function resolveDiscount(input: {
           foundingApplied: false,
           referralApplied: true,
           partnerApplied: false,
+          winbackApplied: false,
         };
       }
     }
@@ -408,5 +457,6 @@ function resolveDiscount(input: {
     foundingApplied: false,
     referralApplied: false,
     partnerApplied: false,
+    winbackApplied: false,
   };
 }
