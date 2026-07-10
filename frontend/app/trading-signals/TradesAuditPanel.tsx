@@ -1037,10 +1037,25 @@ function ExpandedDetail({ row }: { row: TradeRow }) {
   return (
     <div className="space-y-4 py-2">
       {/*
-        Legs first: for a multi-leg structure (iron condor, straddle,
-        vertical) the operator needs to see every leg — long/short,
-        strike, expiration — to understand what was actually traded
-        without decoding the option_symbol themselves.
+        Close reason lives here, in the drilldown, rather than as its own
+        table column — the operator can still see why the engine exited
+        without a Reason column widening the main table. Underscores are
+        humanized ("time_stop" → "Time Stop") for readability.
+      */}
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
+          Close reason
+        </div>
+        <div className="text-xs text-[var(--color-text-primary)] capitalize">
+          {row.close_reason ? row.close_reason.replace(/[_-]+/g, ' ') : '—'}
+        </div>
+      </div>
+
+      {/*
+        Legs: for a multi-leg structure (iron condor, straddle, vertical) the
+        operator needs to see every leg — long/short, strike, expiration — to
+        understand what was actually traded without decoding the option_symbol
+        themselves.
       */}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
