@@ -458,8 +458,8 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                       <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
                         {contractLabel(row.underlying, row.legs)}
                       </td>
-                      <td className="px-3 py-2 text-[var(--color-text-secondary)]">
-                        {row.direction}
+                      <td className="px-3 py-2">
+                        <DirectionCell direction={row.direction} />
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.entry_price != null ? `$${row.entry_price.toFixed(2)}` : '—'}
@@ -672,8 +672,8 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                     <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
                       {contractLabel(pos.underlying, pos.legs)}
                     </td>
-                    <td className="px-3 py-2 text-[var(--color-text-secondary)]">
-                      {pos.direction}
+                    <td className="px-3 py-2">
+                      <DirectionCell direction={pos.direction} />
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {pos.entry_price != null ? `$${pos.entry_price.toFixed(2)}` : '—'}
@@ -780,6 +780,89 @@ function OriginBadge({ origin }: { origin: 'live' | 'simulate' }) {
       }}
     >
       {isSim ? 'SIM' : 'LIVE'}
+    </span>
+  );
+}
+
+/**
+ * Bull / bear glyphs used for the trade Direction column — a horned bull
+ * head for bullish, an eared bear head for bearish. Both are drawn with
+ * fill="currentColor" so the caller tints them with the same
+ * --color-bull / --color-bear tokens the rest of the panel uses; that
+ * keeps them theme-aware (they brighten in dark mode) for free.
+ * viewBox 0 0 24 24 to match the lucide icons used elsewhere.
+ */
+function BullIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* horns sweeping outward and up to sharp tips */}
+      <path d="M8.6 9.6C6 8.6 3.7 7.7 2.4 3.6c-.2-.7.7-1.1 1.1-.5 1.6 2.2 3.4 3.7 5.9 4.6.7.3.5 1.4-.1 1.9-.3.2-.6.2-.7 0Z" />
+      <path d="M15.4 9.6c2.6-1 4.9-1.9 6.2-6 .2-.7-.7-1.1-1.1-.5-1.6 2.2-3.4 3.7-5.9 4.6-.7.3-.5 1.4.1 1.9.3.2.6.2.7 0Z" />
+      {/* ears */}
+      <path d="M6.8 11c-1.3-.5-2.6-.3-3.5.6-.3.3-.1.9.4.8 1-.1 2 .1 2.9.8L6.8 11ZM17.2 11c1.3-.5 2.6-.3 3.5.6.3.3.1.9-.4.8-1-.1-2 .1-2.9.8L17.2 11Z" />
+      {/* head with knocked-out eyes and muzzle ring */}
+      <path
+        fillRule="evenodd"
+        d="M12 8.4c-3.3 0-5.6 2.3-5.6 5.6 0 3 2.5 5.9 5.6 5.9s5.6-2.9 5.6-5.9c0-3.3-2.3-5.6-5.6-5.6Zm-2.4 4.1a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1Zm4.8 0a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1ZM12 15.4c1.4 0 2.4.8 2.4 1.8s-1 1.5-2.4 1.5-2.4-.5-2.4-1.5 1-1.8 2.4-1.8Zm0 1.1c-.7 0-1.2.3-1.2.7s.5.5 1.2.5 1.2-.1 1.2-.5-.5-.7-1.2-.7Z"
+      />
+    </svg>
+  );
+}
+
+function BearIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* round ears + head with knocked-out eyes and snout */}
+      <path
+        fillRule="evenodd"
+        d="M6 3a3 3 0 0 0-3 3 3 3 0 0 0 1.2 2.4A7.5 7.5 0 0 0 4 12c0 4.4 3.4 8 8 8s8-3.6 8-8c0-1.3-.3-2.5-.8-3.6A3 3 0 0 0 21 6a3 3 0 0 0-5.3-1.9A7.9 7.9 0 0 0 12 4c-1.3 0-2.5.2-3.6.6A3 3 0 0 0 6 3Zm3.3 8a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2Zm5.4 0a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 14.5c1.4 0 2.5.8 2.5 1.9 0 1-.9 1.6-2.5 1.6s-2.5-.6-2.5-1.6c0-1.1 1.1-1.9 2.5-1.9Z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Direction rendered as a glyph rather than a word: a green bull for a
+ * bullish trade, a red bear for a bearish one. The word is preserved for
+ * hover (title) and assistive tech (aria-label) so no information is lost,
+ * and any value that isn't bullish/bearish (e.g. a neutral/market-neutral
+ * structure) falls back to its raw text so nothing silently vanishes.
+ */
+function DirectionCell({ direction }: { direction: string }) {
+  const dir = (direction ?? '').toLowerCase();
+  const isBull = dir === 'bullish';
+  const isBear = dir === 'bearish';
+  if (!isBull && !isBear) {
+    return (
+      <span className="text-[var(--color-text-secondary)] capitalize">
+        {direction || '—'}
+      </span>
+    );
+  }
+  const label = isBull ? 'Bullish' : 'Bearish';
+  return (
+    <span
+      className="inline-flex items-center"
+      style={{ color: isBull ? 'var(--color-bull)' : 'var(--color-bear)' }}
+      role="img"
+      aria-label={label}
+      title={label}
+    >
+      {isBull ? <BullIcon /> : <BearIcon />}
     </span>
   );
 }
