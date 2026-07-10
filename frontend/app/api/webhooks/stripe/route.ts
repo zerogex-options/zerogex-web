@@ -30,7 +30,9 @@ import {
   reversePartnerCommissionsForInvoice,
 } from '@/core/creatorPartners';
 import { captureServer } from '@/core/telemetry/posthog-server';
+import { captureTwitterConversion } from '@/core/telemetry/twitter-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
+import { TwitterEvent } from '@/core/telemetry/twitter-events';
 
 export const runtime = 'nodejs';
 
@@ -324,6 +326,13 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       founding,
       trial_end: trialEndIso,
     });
+    // Report the trial start to X via the Conversions API (server-side truth,
+    // survives ad-blockers). Keyed to the subscription id for dedup.
+    await captureTwitterConversion({
+      eventId: TwitterEvent.trialStart,
+      conversionId: subscription.id,
+      email: user.email,
+    });
     // Re-arm the ~48h reminder for this new trial window. Without this,
     // a user who cancels mid-trial and resubscribes never gets the nudge
     // because the latch stays set from their first trial.
@@ -340,6 +349,11 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       founding,
       subscription_id: subscription.id,
       period_end: periodEndIso,
+    });
+    await captureTwitterConversion({
+      eventId: TwitterEvent.purchase,
+      conversionId: subscription.id,
+      email: user.email,
     });
   }
 
