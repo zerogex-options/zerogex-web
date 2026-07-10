@@ -58,27 +58,29 @@ interface TradeRow {
 }
 
 /**
- * Compact contract label from the trade's legs.
- * "SPY 7/8 P746" for a single-leg long put; "SPY 7/8 C750 / SPY 7/8 P740"
- * for a two-leg structure. Falls back to the raw option_symbol if the
- * component fields are missing.
+ * Per-leg contract labels from a trade's legs.
+ * ["SPY 7/8 P746"] for a single-leg long put; ["SPY 7/8 C750", "SPY 7/8 P740"]
+ * for a two-leg structure. Returns a single em dash when the component fields
+ * are missing. Rendered one leg per line by {@link ContractCell} so a
+ * multi-leg structure spills onto a second line instead of widening the column.
  */
-function contractLabel(underlying: string, legs: Leg[] | null | undefined): string {
-  if (!legs || legs.length === 0) return '—';
-  return legs
-    .map((leg) => {
-      const exp = String(leg.expiration ?? '');
-      // ISO expiration is YYYY-MM-DD; render as M/D so the table doesn't get too wide.
-      let expShort = exp;
-      if (exp.length >= 10) {
-        const [, m, d] = exp.split('-');
-        if (m && d) expShort = `${parseInt(m, 10)}/${parseInt(d, 10)}`;
-      }
-      const right = (leg.option_type ?? '').slice(0, 1).toUpperCase();
-      const strike = leg.strike ?? '';
-      return `${underlying} ${expShort} ${right}${strike}`;
-    })
-    .join(' / ');
+function contractLegLabels(
+  underlying: string,
+  legs: Leg[] | null | undefined,
+): string[] {
+  if (!legs || legs.length === 0) return ['—'];
+  return legs.map((leg) => {
+    const exp = String(leg.expiration ?? '');
+    // ISO expiration is YYYY-MM-DD; render as M/D so the table doesn't get too wide.
+    let expShort = exp;
+    if (exp.length >= 10) {
+      const [, m, d] = exp.split('-');
+      if (m && d) expShort = `${parseInt(m, 10)}/${parseInt(d, 10)}`;
+    }
+    const right = (leg.option_type ?? '').slice(0, 1).toUpperCase();
+    const strike = leg.strike ?? '';
+    return `${underlying} ${expShort} ${right}${strike}`;
+  });
 }
 
 function fmtCurrency(n: number | null | undefined): string {
@@ -390,11 +392,11 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                 }}
               >
                 {isAdmin ? <Th>Origin</Th> : null}
-                <Th>Opened</Th>
-                <Th>Closed</Th>
-                <Th>Bot</Th>
-                <Th>Contract</Th>
-                <Th>Direction</Th>
+                <Th width="6.5rem">Opened</Th>
+                <Th width="6.5rem">Closed</Th>
+                <Th width="9.5rem">Bot</Th>
+                <Th width="8.5rem">Contract</Th>
+                <Th align="center" width="3.25rem">Dir.</Th>
                 <Th align="right">Entry / sh</Th>
                 <Th align="right">Exit / sh</Th>
                 <Th align="right">Qty</Th>
@@ -442,23 +444,21 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                           <OriginBadge origin={row.origin} />
                         </td>
                       ) : null}
-                      <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
-                        {row.opened_at
-                          ? new Date(row.opened_at).toLocaleString()
-                          : '—'}
+                      <td className="px-3 py-2 align-top">
+                        <DateTimeCell iso={row.opened_at} />
                       </td>
-                      <td className="px-3 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
-                        {row.closed_at
-                          ? new Date(row.closed_at).toLocaleString()
-                          : '—'}
+                      <td className="px-3 py-2 align-top">
+                        <DateTimeCell iso={row.closed_at} />
                       </td>
-                      <td className="px-3 py-2 text-[var(--color-text-primary)]">
-                        {row.bot_display_name ?? row.bot_id}
+                      <td className="px-3 py-2 text-[var(--color-text-primary)] align-top">
+                        <div className="line-clamp-2">
+                          {row.bot_display_name ?? row.bot_id}
+                        </div>
                       </td>
-                      <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
-                        {contractLabel(row.underlying, row.legs)}
+                      <td className="px-3 py-2 text-[var(--color-text-primary)] align-top">
+                        <ContractCell underlying={row.underlying} legs={row.legs} />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2 text-center align-middle">
                         <DirectionCell direction={row.direction} />
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
@@ -624,9 +624,9 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                   color: 'var(--color-text-secondary)',
                 }}
               >
-                <Th>Bot</Th>
-                <Th>Contract</Th>
-                <Th>Dir.</Th>
+                <Th width="9.5rem">Bot</Th>
+                <Th width="8.5rem">Contract</Th>
+                <Th align="center" width="3.25rem">Dir.</Th>
                 <Th align="right">Entry / sh</Th>
                 <Th align="right">Mark / sh</Th>
                 <Th align="right">Qty</Th>
@@ -666,13 +666,15 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                     className="border-b last:border-b-0"
                     style={{ borderColor: 'var(--color-border)' }}
                   >
-                    <td className="px-3 py-2 text-[var(--color-text-primary)]">
-                      {pos.bot_display_name ?? pos.bot_id}
+                    <td className="px-3 py-2 text-[var(--color-text-primary)] align-top">
+                      <div className="line-clamp-2">
+                        {pos.bot_display_name ?? pos.bot_id}
+                      </div>
                     </td>
-                    <td className="px-3 py-2 text-[var(--color-text-primary)] whitespace-nowrap font-mono text-[11px]">
-                      {contractLabel(pos.underlying, pos.legs)}
+                    <td className="px-3 py-2 text-[var(--color-text-primary)] align-top">
+                      <ContractCell underlying={pos.underlying} legs={pos.legs} />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 text-center align-middle">
                       <DirectionCell direction={pos.direction} />
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
@@ -827,8 +829,59 @@ function BearIcon({ size = 24 }: { size?: number }) {
 }
 
 /**
- * Direction rendered as a glyph rather than a word: a green bull for a
- * bullish trade, a red bear for a bearish one. The word is preserved for
+ * Opened / closed timestamp split across two lines — date above, time below —
+ * so the column stays narrow instead of forcing one wide
+ * "M/D/YYYY, h:mm:ss AM" line. Two lines by construction.
+ */
+function DateTimeCell({ iso }: { iso: string | null }) {
+  if (!iso) {
+    return <span className="text-[var(--color-text-secondary)]">—</span>;
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return <span className="text-[var(--color-text-secondary)]">{iso}</span>;
+  }
+  return (
+    <div className="leading-tight text-[var(--color-text-secondary)]">
+      <div className="whitespace-nowrap">{d.toLocaleDateString()}</div>
+      <div className="whitespace-nowrap tabular-nums">{d.toLocaleTimeString()}</div>
+    </div>
+  );
+}
+
+/**
+ * Contract label rendered one leg per line, so a two-leg structure spills its
+ * second leg onto a second line rather than widening the column. Anything past
+ * two legs (e.g. an iron condor) is capped at two lines with a "+N" marker; the
+ * full leg list is always available in the expanded row detail.
+ */
+function ContractCell({
+  underlying,
+  legs,
+}: {
+  underlying: string;
+  legs: Leg[] | null | undefined;
+}) {
+  const labels = contractLegLabels(underlying, legs);
+  const shown = labels.slice(0, 2);
+  const extra = labels.length - shown.length;
+  return (
+    <div className="leading-tight font-mono text-[11px]">
+      {shown.map((label, i) => (
+        <div key={i} className="whitespace-nowrap">
+          {label}
+          {i === shown.length - 1 && extra > 0 ? (
+            <span className="text-[var(--color-text-secondary)]"> +{extra}</span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Direction rendered as a glyph rather than a word: a charging bull for a
+ * bullish trade, a snarling bear for a bearish one. The word is preserved for
  * hover (title) and assistive tech (aria-label) so no information is lost,
  * and any value that isn't bullish/bearish (e.g. a neutral/market-neutral
  * structure) falls back to its raw text so nothing silently vanishes.
@@ -847,13 +900,13 @@ function DirectionCell({ direction }: { direction: string }) {
   const label = isBull ? 'Bullish' : 'Bearish';
   return (
     <span
-      className="inline-flex items-center"
+      className="inline-flex items-center justify-center"
       style={{ color: isBull ? 'var(--color-bull)' : 'var(--color-bear)' }}
       role="img"
       aria-label={label}
       title={label}
     >
-      {isBull ? <BullIcon /> : <BearIcon />}
+      {isBull ? <BullIcon size={28} /> : <BearIcon size={28} />}
     </span>
   );
 }
@@ -885,12 +938,25 @@ function SummaryCell({
 function Th({
   children,
   align = 'left',
+  width,
 }: {
   children: React.ReactNode;
-  align?: 'left' | 'right';
+  align?: 'left' | 'right' | 'center';
+  width?: string;
 }) {
+  const alignClass =
+    align === 'right'
+      ? 'text-right'
+      : align === 'center'
+        ? 'text-center'
+        : 'text-left';
   return (
-    <th className={`px-3 py-2 text-${align} font-semibold`}>{children}</th>
+    <th
+      className={`px-3 py-2 ${alignClass} font-semibold`}
+      style={width ? { width } : undefined}
+    >
+      {children}
+    </th>
   );
 }
 
