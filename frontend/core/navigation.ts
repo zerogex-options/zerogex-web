@@ -32,7 +32,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Signals',
     items: [
       { id: '/signal-score', label: 'Composite Score', requiredTier: 'pro' },
-      { id: '/trading-signals', label: 'TradeWorkz™', requiredTier: 'pro', beta: true },
     ],
     subgroups: [
       {
@@ -66,6 +65,17 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // The unified "simulate a strategy" product: watch bots trade a strategy
+    // live (paper), and backtest one over history. Same idea, two time
+    // directions — forward (Bot Trading) and backward (Backtesting).
+    label: 'TradeWorkz™',
+    items: [
+      { id: '/trading-signals', label: 'Bot Trading', requiredTier: 'pro', beta: true },
+      { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
+      { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
+    ],
+  },
+  {
     label: 'Metrics',
     items: [
       { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
@@ -84,8 +94,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/options-calculator', label: 'Strategy Builder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
-      { id: '/backtesting', label: 'Backtesting', requiredTier: 'pro', beta: true },
-      { id: '/backtesting/insights', label: 'Pattern Insights', requiredTier: 'pro', beta: true },
       { id: '/replay', label: 'Daily Replay' },
       { id: '/forecast', label: 'Daily Forecast', beta: true },
     ],
