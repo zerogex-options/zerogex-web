@@ -1,0 +1,160 @@
+#!/bin/bash
+
+# ==============================================
+# Step 092: ~1-Month-After-Churn Win-Back Timer (systemd)
+# ==============================================
+#
+# Installs and enables the win-back email timer (see
+# deploy/systemd/zerogex-web-winback.{service,timer}). The timer fires daily on
+# :35 and triggers `make winback YES=1`, which sends a one-shot founder-voice
+# win-back to every churned user (subscription_lapsed=1, verified, no active
+# sub) whose subscription actually lapsed roughly a month ago — leading with
+# what's new since they left, then a discount offer (the live public promo when
+# one is running, otherwise the evergreen reply-'discount'-for-25%-off offer),
+# and a no-pressure closer. Idempotent via users.winback_email_sent_at, which
+# the Stripe webhook clears on re-subscribe so a future re-churn re-qualifies.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the repo
+# (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No config
+# file is written (the script reads RESEND_API_KEY, RESEND_FROM_EMAIL,
+# NEXT_PUBLIC_APP_URL, and the optional PROMO_END_AT from frontend/.env.local,
+# which step 030 / 036 already manage).
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to rotate
+# units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "~1-Month-After-Churn Win-Back Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
+# re-points HOME to the SUDO_USER but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-winback"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough — we don't need node
+# on PATH for this step itself.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The script needs Resend creds to actually send mail; warn (don't fail) if
+# they're empty, because step 036 seeds the keys with empty placeholders and the
+# operator may not have filled them in yet. The timer still installs — if the
+# keys land later, the next scheduled tick just works. PROMO_END_AT is optional:
+# unset just means the evergreen reply-for-discount copy instead of the promo
+# variant, so we don't warn on it.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed but the
+# SQLite UPDATE actually lands wherever the operator points the DB. Without this,
+# ProtectSystem=strict silently blocks the latch write whenever AUTH_DB_PATH
+# lives outside the repo (e.g. /var/lib/zerogex): the Resend HTTPS call succeeds,
+# the UPDATE errors as readonly, and the next tick re-sends. Drop-in (vs. editing
+# the version-controlled .service file) keeps the repo defaults clean and lets
+# each environment carry its own ReadWritePaths addition.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    # Stale drop-in removal: if a past deploy wrote one and the operator later
+    # cleared AUTH_DB_PATH (or pointed it to a relative path), don't leave a
+    # now-misleading whitelist behind.
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily on :35, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1 send path.
+# A dry-run smoke test would need a different ExecStart, so we let the first
+# scheduled tick be the validation. journalctl shows the result.
+
+log ""
+log "Win-back timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 16:35 UTC, Persistent=true catches missed runs)"
+log "  ✓ Eligibility: subscription_lapsed=1 + verified email + no active sub + non-admin + churned 30-60d ago + no prior win-back"
+log "  ✓ Idempotent: users.winback_email_sent_at latches per send; the Stripe webhook clears it on re-subscribe so a re-churn re-qualifies"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                          - next/last run"
+log "  • cd $APP_DIR && make winback DRY_RUN=1                        - preview eligible users (no send)"
+log "  • sudo systemctl start ${UNIT}.service                         - fire the send loop now"
+log "  • journalctl -u ${UNIT} -n 50                                  - recent send logs"
+log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com       - render + send one sample"
+log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_PROMO=1 - sample the promo variant"
