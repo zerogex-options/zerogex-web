@@ -13,6 +13,8 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { trackTwitter } from '@/core/telemetry/twitter-client';
+import { TwitterEvent } from '@/core/telemetry/twitter-events';
 import { ArrowRight, CheckCircle2, Heart, Loader2, Sparkles } from 'lucide-react';
 
 const C = {
@@ -617,6 +619,7 @@ function PricingClientInner({
   useEffect(() => {
     const utm = readUtmParams();
     capture(TelemetryEvent.PricingPageView, { ...utm, preselected_plan: preselectedPlan });
+    trackTwitter(TwitterEvent.pricingView);
     if (cameFromRegistration) capture(TelemetryEvent.PricingPageViewAfterRegister, { ...utm });
     if (checkoutCancelled) capture(TelemetryEvent.CheckoutCancelled, { ...utm });
     // eslint-disable-next-line react-hooks/exhaustive-deps
