@@ -596,6 +596,11 @@ function PricingClientInner({
   // (or the legacy checkout=cancelled) comes back from an abandoned Stripe session.
   const cameFromTrialCta = searchParams.get('trial') === '1';
   const cameFromRegistration = searchParams.get('source') === 'registration';
+  // ?winback=1 is the link in the ~1-month win-back email. It tells checkout to
+  // attempt the automated win-back coupon; the server re-verifies the account is
+  // actually a churned, emailed member before attaching it, so this flag alone
+  // grants nothing.
+  const cameFromWinback = searchParams.get('winback') === '1';
   const checkoutCancelled =
     searchParams.get('checkout_cancelled') === '1' || searchParams.get('checkout') === 'cancelled';
   // Plan the visitor pre-picked upstream (e.g. "Start Pro Trial" on the unlock
@@ -648,7 +653,13 @@ function PricingClientInner({
   // independent of the current toggle so it doesn't flicker on cadence change.
   const anyPromoActive = promoMonthlyActive || promoAnnualActive;
 
-  const registerHref = '/register?next=/pricing';
+  // Preserve the win-back intent across the auth round-trip: a churned member
+  // who clicks the email link while logged out would otherwise land back on a
+  // bare /pricing (no ?winback=1) after registering/logging in and silently
+  // lose the reactivation discount.
+  const registerHref = cameFromWinback
+    ? `/register?next=${encodeURIComponent('/pricing?winback=1')}`
+    : '/register?next=/pricing';
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
@@ -706,7 +717,13 @@ function PricingClientInner({
             user_id: authSession?.user?.id,
             ...readUtmParams(),
           });
-          await callBilling('/api/billing/checkout', { tier, cadence });
+          await callBilling('/api/billing/checkout', {
+            tier,
+            cadence,
+            // Carry the win-back intent through so the server attaches the
+            // reactivation coupon for eligible churners (verified server-side).
+            ...(cameFromWinback ? { winback: true } : {}),
+          });
         }
       } catch (err) {
         const code = (err as Error & { code?: string })?.code;
@@ -721,7 +738,7 @@ function PricingClientInner({
         setBusyTier(null);
       }
     },
-    [authSession?.user?.id, callBilling, cadence, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
+    [authSession?.user?.id, callBilling, cadence, cameFromWinback, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
   );
 
   const handlePortal = useCallback(async () => {
@@ -902,6 +919,25 @@ function PricingClientInner({
               }}
             >
               🎉 A friend referred you — your discount is applied automatically at checkout.
+            </div>
+          )}
+
+          {cameFromWinback && isResubscribe && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--color-brand-primary)',
+                color: 'var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              👋 Welcome back — your win-back discount is applied automatically at checkout.
             </div>
           )}
 

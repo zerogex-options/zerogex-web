@@ -27,7 +27,7 @@ help:
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
-	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, PREVIEW_PROMO=1 for the promo variant, LAG_DAYS=<n>/LOOKBACK_DAYS=<n> to override the 30d/60d window)"
+	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, PREVIEW_MODE=auto|promo|manual to force a variant, LAG_DAYS=<n>/LOOKBACK_DAYS=<n> to override the 30d/60d window)"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
@@ -219,10 +219,10 @@ verify-reminders:
 # users.winback_email_sent_at (the Stripe webhook clears it on re-subscribe so a
 # future re-churn re-qualifies). Pass DRY_RUN=1 to preview eligible users, YES=1
 # to actually send. PREVIEW_TO=<email> renders one sample (PREVIEW_PROMO=1 for
-# the promo variant; no DB writes). LAG_DAYS=<n>/LOOKBACK_DAYS=<n> override the
-# window.
+# a forced variant via PREVIEW_MODE=auto|promo|manual; no DB writes).
+# LAG_DAYS=<n>/LOOKBACK_DAYS=<n> override the window.
 winback:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-winback.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_PROMO),--preview-promo,) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(LOOKBACK_DAYS),--lookback-days $(LOOKBACK_DAYS),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-winback.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_MODE),--preview-mode $(PREVIEW_MODE),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(LOOKBACK_DAYS),--lookback-days $(LOOKBACK_DAYS),)'
 
 # Read-only deep dump of one user — DB row, last 20 audit events, live Stripe
 # customer/subscription/invoice state, and a short interpretation that flags

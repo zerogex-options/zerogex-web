@@ -128,6 +128,30 @@ export function getActivePromoDeadlineLabel(): string | null {
   }).format(new Date(endTs));
 }
 
+// Always-on win-back coupon, applied at checkout when a churned member returns
+// through the ?winback=1 link in the ~1-month win-back email (see
+// scripts/send-winback.mts and the winback branch of resolveDiscount in
+// app/api/billing/checkout/route.ts). Deliberately NOT gated by PROMO_END_AT:
+// the public promo is a time-boxed acquisition offer for everyone, whereas the
+// win-back is a standing, per-user reactivation offer that only reaches an
+// eligible churner (subscription_lapsed=1 AND a win-back email on record). One
+// coupon per (tier, cadence), same env structure as the promo coupons above.
+// Returns null when the matching coupon env isn't set, which makes the whole
+// automated path degrade to the email's evergreen reply-'discount' offer.
+export function getWinbackCouponId(sku: Sku): string | null {
+  const envKey = (() => {
+    if (sku.cadence === 'monthly') {
+      return sku.tier === 'basic'
+        ? 'STRIPE_COUPON_WINBACK_BASIC_MONTHLY'
+        : 'STRIPE_COUPON_WINBACK_PRO_MONTHLY';
+    }
+    return sku.tier === 'basic'
+      ? 'STRIPE_COUPON_WINBACK_BASIC_ANNUAL'
+      : 'STRIPE_COUPON_WINBACK_PRO_ANNUAL';
+  })();
+  return process.env[envKey] ?? null;
+}
+
 // Founding intro coupon for the locked rate during the first 12 months.
 // Stripe has 4 distinct coupons here, one per (tier, cadence) combo:
 //   basic monthly: $27 off (locks $39 -> $12/mo, applies for 12 invoices)
