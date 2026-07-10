@@ -746,6 +746,127 @@ export async function sendCancellationEmail(
   }
 }
 
+// Win-back email sent ~a month AFTER a subscription actually lapsed (not the
+// click-cancel moment — sendCancellationEmail already owns that). This is the
+// churned-cohort reactivation pitch: "here's what you've missed, you're missing
+// out, come back at a discount — no pressure." Fired by scripts/send-winback.mts,
+// which anchors the ~1-month timing on the user's most-recent
+// stripe_subscription_deleted audit event and dedupes via
+// users.winback_email_sent_at (cleared on re-subscribe so a future re-churn can
+// re-fire, mirroring cancel_ack_email_sent_at).
+//
+// Two discount variants, mirroring sendCheckoutRecoveryEmail:
+//   - promoDeadlineLabel set → point at the live limited-time public promo
+//     (auto-applies at /pricing) with a time-boxed deadline.
+//   - promoDeadlineLabel null → the evergreen offer the cancellation email
+//     already made: reply "discount" for 25% off the first year, fulfilled
+//     manually. This keeps a concrete offer in the email even when no public
+//     promo is running, and keeps the reply-to-a-human loop the founder values.
+export async function sendWinbackEmail(
+  to: string,
+  opts?: { promoDeadlineLabel?: string | null },
+) {
+  const promo = opts?.promoDeadlineLabel ?? null;
+  const pricingUrl = `${getAppUrl()}/pricing`;
+  const safePricingUrl = escapeHtml(pricingUrl);
+
+  const subject = promo
+    ? `Your ZeroGEX intro rate is open again — through ${promo}`
+    : 'A lot has changed at ZeroGEX since you left';
+
+  // "What's new since you left." Kept concrete and current — these are the
+  // marquee additions shipped since the launch cohort churned. Refresh this
+  // list when the headline features change so the email never goes stale.
+  const highlights: Array<{ title: string; body: string }> = [
+    {
+      title: 'Backtesting',
+      body:
+        'test any options strategy against years of real market history, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
+    },
+    {
+      title: 'TradeWorkz automated bots',
+      body:
+        'a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
+    },
+    {
+      title: 'Sharper gamma levels & Live Bulletin',
+      body:
+        'a rebuilt net-GEX methodology so the levels, cards, and daily reads all agree, plus a faster dashboard across the board.',
+    },
+  ];
+
+  const discountLineText = promo
+    ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
+    : "And if price was part of why you left, that offer still stands: reply with the word \"discount\" and I'll put 25% off your first year right back on your account — no need to re-enter a card or resubscribe first.";
+
+  const discountLineHtml = promo
+    ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
+    : `And if price was part of why you left, that offer still stands: reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll put <strong>25% off your first year</strong> right back on your account &mdash; no need to re-enter a card or resubscribe first.`;
+
+  const ctaLabel = promo ? 'Come back — see the new pricing' : 'See what you\'ve missed';
+
+  const text = [
+    'Hello,',
+    '',
+    "It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally — no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.",
+    '',
+    "A fair amount has changed since you left. A few of the bigger ones:",
+    '',
+    ...highlights.map((h) => `  • ${h.title} — ${h.body}`),
+    '',
+    "I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.",
+    '',
+    discountLineText,
+    '',
+    "No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.",
+    '',
+    'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
+    '',
+    `Come back whenever you're ready: ${pricingUrl}`,
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const highlightsHtml = highlights
+    .map(
+      (h) =>
+        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong> &mdash; ${escapeHtml(h.body)}</li>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally &mdash; no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.</p>
+      <p>A fair amount has changed since you left. A few of the bigger ones:</p>
+      <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
+      <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
+      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
+      </p>
+      <p>No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.</p>
+      <p>If anything specific pushed you away &mdash; a missing feature, a bug, a pricing thing &mdash; just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Founder-voice nudge to a user who signed up + verified their email but never
 // opened checkout. Fired ~2h after signup by scripts/send-verified-never-paid.mts.
 // One-shot per account (idempotency latch on users.verified_never_paid_email_sent_at).

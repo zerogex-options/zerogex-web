@@ -355,6 +355,16 @@ function initDb(): DatabaseSync {
   // transition (reactivation) so a future re-cancel can re-fire.
   ensureColumn('users', 'cancel_ack_email_sent_at', 'TEXT');
 
+  // Idempotency latch for the ~1-month-after-churn win-back email sent by
+  // scripts/send-winback.mts (the "here's what you've missed, come back at a
+  // discount" pitch to the churned cohort). NULL = eligible; set to the ISO
+  // timestamp on send. Distinct from cancel_ack above: that fires the instant
+  // a customer clicks Cancel (still has access); this fires ~30 days after the
+  // subscription actually lapsed. Cleared back to NULL on the welcome-back
+  // transition (subscription_lapsed 1 → 0) in the Stripe webhook so a customer
+  // who returns and later churns a second time can receive a fresh win-back.
+  ensureColumn('users', 'winback_email_sent_at', 'TEXT');
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).

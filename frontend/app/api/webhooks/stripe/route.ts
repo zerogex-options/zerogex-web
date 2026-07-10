@@ -553,7 +553,11 @@ async function maybeSendPaidWelcomeEmail(
 
   const welcomeBackClaim = getDb()
     .prepare(
-      `UPDATE users SET subscription_lapsed = 0, updated_at = ?
+      // Clearing winback_email_sent_at on the same 1 → 0 transition re-arms the
+      // ~1-month win-back campaign (scripts/send-winback.mts) for this account:
+      // if the returning customer churns again later, they qualify for a fresh
+      // win-back instead of being permanently latched out by their first one.
+      `UPDATE users SET subscription_lapsed = 0, winback_email_sent_at = NULL, updated_at = ?
        WHERE id = ? AND subscription_lapsed = 1`,
     )
     .run(stamp, user.id) as { changes: number | bigint };

@@ -44,7 +44,7 @@ const COHORTS = [
     id: 'churned',
     label: 'Churned',
     hint:
-      'subscription_lapsed=1. Pitch: "we\'ve added X since you left" + a time-boxed coupon via PROMO_END_AT. Skip if the cohort is small — they\'ve already made an informed no.',
+      'subscription_lapsed=1. Automated ~1-month-after-churn win-back email owns this cohort (scripts/send-winback.mts): "what\'s new since you left" + a discount (live PROMO_END_AT promo, else reply-\'discount\'-for-25%-off). Latched via users.winback_email_sent_at.',
   },
   {
     id: 'verified-never-paid',
