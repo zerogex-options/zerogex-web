@@ -27,9 +27,9 @@
             mask-image:radial-gradient(130% 108% at 72% 26%,#000 50%,transparent 100%);}
   .lyr{position:relative;z-index:2;}
   .top{display:flex;align-items:center;justify-content:space-between;gap:20px;}
-  .logo{height:60px;width:auto;display:block;}
-  .pill{font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--tan);
-    border:1px solid rgba(255,211,128,.24);border-radius:100px;padding:9px 18px;white-space:nowrap;}
+  .logo{height:88px;width:auto;display:block;}
+  .pill{font-family:var(--mono);font-size:17px;letter-spacing:.14em;text-transform:uppercase;color:var(--tan);
+    border:1px solid rgba(255,211,128,.24);border-radius:100px;padding:10px 20px;white-space:nowrap;}
   .chart{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
   .chart img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
     border-radius:16px;border:1px solid rgba(255,211,128,.14);box-shadow:0 30px 60px -30px rgba(0,0,0,.7);}
@@ -40,7 +40,7 @@
     padding-top:22px;border-top:1px solid rgba(255,211,130,.16);}
   .chip .cash{color:var(--gold);} .chip .cta{color:var(--coral);font-weight:700;white-space:nowrap;}
 
-  /* wide 1.91:1 -> two columns: text left, chart right */
+  /* wide 1.91:1 */
   .frame.wide{flex-direction:row;align-items:center;gap:48px;}
   .frame.wide .left{flex:0 0 40%;display:flex;flex-direction:column;gap:26px;}
   .frame.wide .chart{flex:1;height:100%;align-items:center;}
@@ -53,50 +53,44 @@
   .offer .sub{margin-top:26px;font-family:var(--mono);font-size:25px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);}
   .offer .price{margin-top:36px;font-family:var(--mono);font-size:31px;color:var(--tan);}
   .offer .price b{color:var(--cream);}
-  .offer .trust{margin-top:30px;display:inline-flex;gap:14px;align-items:center;padding:14px 28px;
-    border:1px solid rgba(255,211,128,.24);border-radius:100px;font-family:var(--mono);font-size:19px;letter-spacing:.1em;text-transform:uppercase;color:var(--tan);}
-  .offer .trust .h{color:var(--coral);}
+
+  /* folds of honor */
+  .foh .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;}
+  .foh .pct{font-family:var(--sans);font-weight:800;font-size:96px;line-height:.9;letter-spacing:-.02em;color:var(--gold);}
+  .foh .lead{font-family:var(--mono);font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:var(--cream);}
+  .foh .badge{width:min(74%,540px);border-radius:18px;display:block;box-shadow:0 30px 60px -28px rgba(0,0,0,.75);}
 </style>
 </head>
 <body>
 
-<!-- COLD 1 : 4-metric dashboard + hero line (1:1) -->
+<!-- COLD 1 : dashboard -->
 <section class="frame sq" id="cold1">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr">
-    <img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX">
-    <span class="pill">Free &middot; no signup</span>
-  </div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-dashboard-overview.png" alt=""></div>
   <h3 class="headline lyr">Stop trading <span class="hl">SPY blind.</span></h3>
   <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">View free levels &rarr;</span></div>
 </section>
 
-<!-- COLD 2 : GEX heatmap + levels line (1:1) -->
+<!-- COLD 2 : heatmap -->
 <section class="frame sq" id="cold2">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr">
-    <img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX">
-    <span class="pill">Free &middot; no signup</span>
-  </div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-dte-heatmap.png" alt=""></div>
   <h3 class="headline lyr">Know the levels <span class="hl">that matter.</span></h3>
   <div class="chip lyr"><span class="cash">SPY &middot; SPX &middot; QQQ</span><span class="cta">See today's levels &rarr;</span></div>
 </section>
 
-<!-- COLD 3 : strike profile w/ flip + walls line (1:1) -->
+<!-- COLD 3 : strike profile -->
 <section class="frame sq" id="cold3">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr">
-    <img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX">
-    <span class="pill">Free &middot; no signup</span>
-  </div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-profile-flip.png" alt=""></div>
   <h3 class="headline lyr">Support &amp; resistance <span class="hl">that aren't guesses.</span></h3>
   <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">Free walls &rarr;</span></div>
 </section>
 
-<!-- WARM 4 : market makers (1.91:1, text left / chart right) -->
+<!-- WARM 4 : market makers (wide) -->
 <section class="frame wide" id="warm4">
   <span class="stripe"></span><div class="grid"></div>
   <div class="left lyr">
@@ -107,13 +101,19 @@
   <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-profile-flip.png" alt=""></div>
 </section>
 
-<!-- CONVERT 5 : the offer (1:1) -->
-<section class="frame sq offer" id="convert5">
+<!-- WARM 5 : vanna & charm (NEW feature) -->
+<section class="frame sq" id="warm5">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr">
-    <img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX">
-    <span class="pill">7-day free trial</span>
-  </div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Advanced signals</span></div>
+  <div class="chart lyr"><img src="../../assets/blog/zerogex-vanna-charm-flows.png" alt=""></div>
+  <h3 class="headline lyr">Even the <span class="hl">second-order Greeks.</span></h3>
+  <div class="chip lyr"><span class="cash">Vanna &middot; Charm &middot; live</span><span class="cta">Start free trial &rarr;</span></div>
+</section>
+
+<!-- CONVERT 6 : offer -->
+<section class="frame sq offer" id="convert6">
+  <span class="stripe"></span><div class="grid"></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">7-day free trial</span></div>
   <div class="body lyr">
     <div class="big">7 days free</div>
     <div class="sub">No charge until day 7</div>
@@ -123,27 +123,23 @@
   <div class="chip lyr"><span class="cash">Cancel anytime</span><span class="cta">Start 7-day trial &rarr;</span></div>
 </section>
 
-<!-- CONVERT 6 : Folds of Honor (1:1) -->
-<section class="frame sq offer" id="convert6">
+<!-- CONVERT 7 : Folds of Honor (redesigned) -->
+<section class="frame sq foh" id="convert7">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr">
-    <img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX">
-    <span class="pill">7-day free trial</span>
-  </div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Supporting veterans</span></div>
   <div class="body lyr">
-    <div class="big" style="color:var(--gold)">3%</div>
-    <div class="sub">Of every subscription &rarr;</div>
-    <div class="price" style="color:var(--cream);font-weight:600">Folds of Honor scholarships</div>
-    <div class="trust"><span class="h">&#9829;</span> Real numbers &middot; published quarterly</div>
+    <div class="pct">3%</div>
+    <div class="lead">of every subscription funds</div>
+    <img class="badge" src="../../assets/branding/folds-of-honor-logo.svg" alt="Folds of Honor — ZeroGEX charity partner">
   </div>
   <h3 class="headline lyr">Institutional gamma. <span class="hl">A cause behind it.</span></h3>
-  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">7-day free trial &rarr;</span></div>
+  <div class="chip lyr"><span class="cash">Receipts &middot; /giving</span><span class="cta">7-day free trial &rarr;</span></div>
 </section>
 
 <script>
   var f = (location.hash || '#cold1').slice(1);
   var el = document.getElementById(f);
-  if (el) el.style.display = (el.classList.contains('wide') ? 'flex' : 'flex');
+  if (el) el.style.display = 'flex';
 </script>
 </body>
 </html>
