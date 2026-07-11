@@ -169,7 +169,7 @@ grant-founding:
 #   make activate-late-founder EMAIL=foo@example.com TRIAL_END=2026-08-01T13:30:00Z YES=1
 activate-late-founder:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make activate-late-founder EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/activate-late-founder.mts --email $(EMAIL) $(if $(TIER),--tier $(TIER),) $(if $(CADENCE),--cadence $(CADENCE),) $(if $(TRIAL_DAYS),--trial-days $(TRIAL_DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(EXPIRES_DAYS),--expires-days $(EXPIRES_DAYS),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/activate-late-founder.mts --email $(EMAIL) $(if $(TIER),--tier $(TIER),) $(if $(CADENCE),--cadence $(CADENCE),) $(if $(TRIAL_DAYS),--trial-days $(TRIAL_DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Clear stripe_customer_id on rows that never produced a subscription —
 # pre-cutover beta artifacts that would cause "No such customer" 400s the

@@ -2,8 +2,7 @@
 // Run from the frontend/ directory (nvm 22):
 //   node --experimental-strip-types --no-warnings scripts/activate-late-founder.mts \
 //     --email <addr> [--tier basic|pro] [--cadence monthly|annual] \
-//     [--trial-days N | --trial-end <ISO>] [--expires-days N] \
-//     [--dry-run | --yes]
+//     [--trial-days N | --trial-end <ISO>] [--dry-run | --yes]
 //
 // One-off: honor a founding member who missed the July-1 lock-in deadline.
 //
@@ -72,7 +71,6 @@ type Args = {
   cadence: Cadence | null;
   trialDays: number | null;
   trialEndIso: string | null;
-  expiresDays: number;
   dryRun: boolean;
   yes: boolean;
   help: boolean;
@@ -107,7 +105,6 @@ function parseArgs(argv: string[]): Args {
     cadence: null,
     trialDays: null,
     trialEndIso: null,
-    expiresDays: 7,
     dryRun: false,
     yes: false,
     help: false,
@@ -138,13 +135,6 @@ function parseArgs(argv: string[]): Args {
       args.trialDays = n;
     } else if (arg === '--trial-end') {
       args.trialEndIso = argv[++i] ?? null;
-    } else if (arg === '--expires-days') {
-      const n = Number(argv[++i]);
-      if (!Number.isInteger(n) || n < 1 || n > 30) {
-        console.error('Error: --expires-days must be an integer 1..30 (Stripe checkout link lifetime).');
-        process.exit(1);
-      }
-      args.expiresDays = n;
     } else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -160,7 +150,7 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types --no-warnings scripts/activate-late-founder.mts \\
     --email <addr> [--tier basic|pro] [--cadence monthly|annual] \\
-    [--trial-days N | --trial-end <ISO>] [--expires-days N] [--dry-run | --yes]
+    [--trial-days N | --trial-end <ISO>] [--dry-run | --yes]
 
 Mints a founding-rate Stripe Checkout link for one member who missed the
 July-1 lock-in deadline. The member enters their own card at the link. The
@@ -180,13 +170,14 @@ First charge (optional deferral; card is always collected up front):
                               Mutually exclusive with --trial-days.
 
 Other:
-      --expires-days N        Checkout link lifetime, 1..30 days. Default 7.
       --dry-run               Print the plan; no Stripe or DB writes.
   -y, --yes                   Create the customer + links and write audit rows.
   -h, --help                  Show this help.
 
-Refuses if the user already has a subscription. Sets founding_eligible=1 on the
-user row (reflects reality; harmless — the deadline gate is closed regardless).
+Each Checkout link is valid for 24h (Stripe's maximum for a session) — re-run
+to mint a fresh one if it lapses. Refuses if the user already has a
+subscription. Sets founding_eligible=1 on the user row (reflects reality;
+harmless — the deadline gate is closed regardless).
 
 Reads STRIPE_SECRET_KEY, STRIPE_PRICE_* / STRIPE_COUPON_FOUNDING_* and
 NEXT_PUBLIC_APP_URL from env or .env.local. Set AUTH_DB_PATH to override the
@@ -367,7 +358,7 @@ console.log(
       : 'at checkout, discounted intro rate'
   }`,
 );
-console.log(`Link lifetime:  ${cliArgs.expiresDays} day(s)`);
+console.log('Link lifetime:  24h (Stripe max for a checkout session)');
 console.log(`Plans:          ${resolvedPlans.map((p) => `${p.tier}/${p.cadence} (${p.introLabel})`).join(', ')}`);
 if (unconfigured.length > 0) console.log(`Skipped (unconfigured): ${unconfigured.join('; ')}`);
 if (!user.email_verified_at) {
@@ -431,42 +422,47 @@ if (!user.founding_eligible) {
   );
 }
 
-const expiresAtUnix = Math.floor((Date.now() + cliArgs.expiresDays * 24 * 60 * 60 * 1000) / 1000);
-
 console.log('\nFounding activation link(s):');
 const minted: string[] = [];
 for (const plan of resolvedPlans) {
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    client_reference_id: user.id,
-    line_items: [{ price: plan.priceId, quantity: 1 }],
-    success_url: `${APP_URL}/dashboard?trial_started=1`,
-    cancel_url: `${APP_URL}/pricing?founding=1&checkout_cancelled=1`,
-    automatic_tax: { enabled: true },
-    customer_update: { address: 'auto', name: 'auto' },
-    expires_at: expiresAtUnix,
-    // Server-applied founding intro coupon. Setting discounts disallows Stripe's
-    // promo-code field, so no second discount can stack on the founding rate.
-    discounts: [{ coupon: plan.couponId }],
-    subscription_data: {
-      metadata: {
-        user_id: user.id,
-        tier: plan.tier,
-        cadence: plan.cadence,
-        founding: '1',
-        late_activation: '1',
+  // Each plan is isolated: a bad coupon/price for one plan logs a FAIL and the
+  // remaining plans still mint (Stripe's default 24h session expiry applies —
+  // expires_at is capped at 24h for Checkout Sessions, so we leave it default).
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      client_reference_id: user.id,
+      line_items: [{ price: plan.priceId, quantity: 1 }],
+      success_url: `${APP_URL}/dashboard?trial_started=1`,
+      cancel_url: `${APP_URL}/pricing?founding=1&checkout_cancelled=1`,
+      automatic_tax: { enabled: true },
+      customer_update: { address: 'auto', name: 'auto' },
+      // Server-applied founding intro coupon. Setting discounts disallows
+      // Stripe's promo-code field, so no second discount can stack on top.
+      discounts: [{ coupon: plan.couponId }],
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+          tier: plan.tier,
+          cadence: plan.cadence,
+          founding: '1',
+          late_activation: '1',
+        },
+        ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
       },
-      ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
-    },
-  });
-  if (!session.url) {
-    console.error(`  FAIL ${plan.tier}/${plan.cadence}: Stripe returned no checkout URL.`);
-    continue;
+    });
+    if (!session.url) {
+      console.error(`  FAIL ${plan.tier}/${plan.cadence}: Stripe returned no checkout URL.`);
+      continue;
+    }
+    console.log(`  ${plan.tier}/${plan.cadence} — ${plan.introLabel}:`);
+    console.log(`    ${session.url}`);
+    minted.push(`${plan.tier}/${plan.cadence}=${session.id}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  FAIL ${plan.tier}/${plan.cadence}: ${message}`);
   }
-  console.log(`  ${plan.tier}/${plan.cadence} — ${plan.introLabel}:`);
-  console.log(`    ${session.url}`);
-  minted.push(`${plan.tier}/${plan.cadence}=${session.id}`);
 }
 
 if (minted.length === 0) {
@@ -492,5 +488,5 @@ execSqlite(
 );
 
 console.log(
-  `\nDone. ${minted.length} link(s) minted (expire in ${cliArgs.expiresDays} day(s)). Send the member whichever plan(s) apply — the webhook grants the tier, emails the founding welcome, and schedules the lifetime 25% coupon once they complete checkout.`,
+  `\nDone. ${minted.length} link(s) minted (valid ~24h; re-run to refresh if they lapse). Send the member whichever plan(s) apply — the webhook grants the tier, emails the founding welcome, and schedules the lifetime 25% coupon once they complete checkout.`,
 );
