@@ -6,6 +6,7 @@ import ForcedFlowCurveChart from '@/components/ForcedFlowCurveChart';
 import CharmIntoCloseChart from '@/components/CharmIntoCloseChart';
 import VannaLadderChart from '@/components/VannaLadderChart';
 import ForcedFlowSurfaceChart from '@/components/ForcedFlowSurfaceChart';
+import ForcedFlowTrackRecord from '@/components/ForcedFlowTrackRecord';
 
 // The on-page selector drives the shared TimeframeContext symbol (same source
 // of truth as the global header picker), so switching here stays in lockstep
@@ -61,7 +62,12 @@ export default function ForcedFlowPage() {
       </div>
 
       {/* Full-width spot × time surface. */}
-      <ForcedFlowSurfaceChart symbol={symbol} />
+      <div className="mb-6">
+        <ForcedFlowSurfaceChart symbol={symbol} />
+      </div>
+
+      {/* Track record: does the charm-into-close forecast actually work? */}
+      <ForcedFlowTrackRecord symbol={symbol} />
     </div>
   );
 }

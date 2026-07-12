@@ -1753,3 +1753,48 @@ export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.05, refres
     { refreshInterval },
   );
 }
+
+export interface ForcedFlowBacktestRecord {
+  date: string;
+  charm_flow: number;
+  // Noon → close return as a fraction (0.004 = +0.4%).
+  return_pct: number;
+  // Morning charm-flow sign: +1 dealers must buy, −1 must sell.
+  predicted_dir: number;
+  // Realized noon → close direction: +1 up, −1 down.
+  realized_dir: number;
+  hit: boolean;
+}
+
+export interface ForcedFlowBacktestResponse {
+  symbol: string;
+  lookback_days: number;
+  // Sessions with usable data. `evaluated_sessions` drops the flat/undecided
+  // ones — it's the denominator behind `hit_rate`.
+  total_sessions: number;
+  evaluated_sessions: number;
+  hits: number;
+  hit_rate: number | null;
+  // Naive "always guess the more common direction" accuracy — the honesty
+  // yardstick. hit_rate at or below this is worth nothing.
+  baseline_rate: number | null;
+  edge: number | null;
+  // Mean of predicted_dir × noon→close return — the signal's average P&L
+  // before costs. Can be negative.
+  signal_mean_return: number | null;
+  records: ForcedFlowBacktestRecord[];
+}
+
+// The Charm-into-Close track record: does the morning charm-flow sign lean the
+// same way as the actual noon → close return? Honest hit rate vs. a naive
+// directional baseline. Refreshes slowly — the newest row lands once a session.
+export function useForcedFlowBacktest(
+  symbol = 'SPY',
+  lookbackDays = 180,
+  refreshInterval = 300000,
+) {
+  return useApiData<ForcedFlowBacktestResponse>(
+    `/api/forced-flow/backtest?${symbolQuery(symbol, { lookback_days: lookbackDays })}`,
+    { refreshInterval },
+  );
+}
