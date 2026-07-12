@@ -60,11 +60,8 @@ function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
 }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <div style={{
-        display: 'inline-block', fontSize: 11, fontWeight: 700,
-        letterSpacing: '0.18em', textTransform: 'uppercase',
-        color, background: `${color}18`, border: `1px solid ${color}40`,
-        borderRadius: 100, padding: '4px 14px', marginBottom: 16,
+      <div className="zg-eyebrow" style={{
+        display: 'inline-block', color, marginBottom: 16,
       }}>
         {eyebrow}
       </div>
@@ -91,17 +88,8 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
   icon: React.ElementType; title: string; body: string; color?: string; isDark?: boolean;
 }) {
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
-    }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: 12,
-        background: `${color}20`, border: `1px solid ${color}40`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-      }}>
-        <Icon size={22} style={{ color }} />
-      </div>
+    <div className="zg-panel" style={{ padding: '28px 24px' }}>
+      <Icon size={24} strokeWidth={1.75} style={{ color, marginBottom: 16 }} />
       <div style={{ fontSize: 16, fontWeight: 700, color: C.light, marginBottom: 8 }}>{title}</div>
       <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.65 }}>{body}</div>
     </div>
@@ -177,12 +165,9 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
         }} />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 820 }}>
-          <div style={{
+          <div className="zg-eyebrow" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.15em',
-            textTransform: 'uppercase', color: C.amber,
-            background: `${C.amber}18`, border: `1px solid ${C.amber}40`,
-            borderRadius: 100, padding: '5px 16px', marginBottom: 24,
+            color: C.amber, marginBottom: 24,
           }}>
             <Heart size={12} /> Giving Back
           </div>
@@ -207,22 +192,15 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                border: 'none', borderRadius: 12, padding: '14px 28px',
-                fontSize: 15, fontWeight: 700, color: 'var(--text-inverse)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 8,
-                boxShadow: `0 8px 28px ${C.amber}50`,
+              <button className="zg-btn zg-btn--primary" style={{
+                padding: '14px 28px', fontSize: 15,
               }}>
                 Visit Folds of Honor <ExternalLink size={14} />
               </button>
             </a>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: 'transparent', border: `1px solid ${C.border}`,
-                borderRadius: 12, padding: '14px 28px',
-                fontSize: 15, fontWeight: 600, color: C.light,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+              <button className="zg-btn zg-btn--secondary" style={{
+                padding: '14px 28px', fontSize: 15,
               }}>
                 See Pricing <ArrowRight size={14} />
               </button>
@@ -234,12 +212,9 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       {/* ── Foundation spotlight ─────────────────────────────────────────────── */}
       <section style={{ padding: '40px 32px 0', maxWidth: 980, margin: '0 auto' }}>
         <div
+          className="zg-panel"
           style={{
-            background: isDark ? `${C.card}aa` : 'var(--bg-card)',
-            border: `1px solid ${C.border}`,
-            borderRadius: 20,
             padding: 'clamp(28px, 4vw, 44px)',
-            backdropFilter: 'blur(12px)',
             position: 'relative',
             overflow: 'hidden',
             display: 'grid',
@@ -274,13 +249,8 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
 
           <div>
             <div
-              style={{
-                display: 'inline-block', fontSize: 11, fontWeight: 700,
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                color: C.amber, background: `${C.amber}18`,
-                border: `1px solid ${C.amber}40`, borderRadius: 100,
-                padding: '4px 14px', marginBottom: 18,
-              }}
+              className="zg-eyebrow"
+              style={{ display: 'inline-block', color: C.amber, marginBottom: 18 }}
             >
               Our Charity Partner
             </div>
@@ -342,12 +312,8 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       }}>
         <div style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 40, alignItems: 'center' }}>
           <div>
-            <div style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700,
-              letterSpacing: '0.18em', textTransform: 'uppercase',
-              color: C.amber, background: `${C.amber}18`,
-              border: `1px solid ${C.amber}40`, borderRadius: 100,
-              padding: '4px 14px', marginBottom: 20,
+            <div className="zg-eyebrow" style={{
+              display: 'inline-block', color: C.amber, marginBottom: 20,
             }}>
               Why Education
             </div>
@@ -369,10 +335,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             </p>
           </div>
 
-          <div style={{
-            background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
-            borderRadius: 20, padding: 28, backdropFilter: 'blur(12px)',
-          }}>
+          <div className="zg-panel" style={{ padding: 28 }}>
             <div style={{
               fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
               color: C.green, marginBottom: 6,
@@ -396,13 +359,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             </div>
 
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '18px 0', borderBottom: `1px solid ${C.border}` }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10,
-                background: `${C.green}20`, border: `1px solid ${C.green}40`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <HandHeart size={17} style={{ color: C.green }} />
-              </div>
+              <HandHeart size={24} strokeWidth={1.75} style={{ color: C.green, flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
                   {hasDonations ? 'Last donation' : 'First donation pending'}
@@ -416,13 +373,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             </div>
 
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '18px 0 4px' }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10,
-                background: `${C.amber}20`, border: `1px solid ${C.amber}40`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <CalendarCheck size={17} style={{ color: C.amber }} />
-              </div>
+              <CalendarCheck size={24} strokeWidth={1.75} style={{ color: C.amber, flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
                   Next donation
@@ -500,22 +451,15 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                border: 'none', borderRadius: 14,
-                padding: '16px 40px', fontSize: 17, fontWeight: 800, color: 'var(--text-inverse)',
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
-                boxShadow: `0 12px 40px ${C.amber}55`,
+              <button className="zg-btn zg-btn--primary" style={{
+                padding: '16px 40px', fontSize: 15,
               }}>
                 See Pricing <ArrowRight size={18} />
               </button>
             </Link>
             <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: 'transparent', border: `1px solid ${C.border}`,
-                borderRadius: 14, padding: '16px 32px',
-                fontSize: 16, fontWeight: 600, color: C.light,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+              <button className="zg-btn zg-btn--secondary" style={{
+                padding: '16px 32px', fontSize: 16,
               }}>
                 <ExternalLink size={16} /> Learn about Folds of Honor
               </button>
