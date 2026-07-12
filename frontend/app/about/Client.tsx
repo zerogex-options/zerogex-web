@@ -255,16 +255,35 @@ export default function AboutPage() {
             </Link>
           </div>
 
-          <div style={{ marginTop: 26, textAlign: 'left', maxWidth: 700, marginInline: 'auto', background: isDark ? `${C.card}bf` : 'var(--bg-card)', border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.amber, marginBottom: 12 }}>
+          <div style={{ marginTop: 48, maxWidth: 560, marginInline: 'auto' }}>
+            <div className="zg-eyebrow" style={{ color: C.amber, textAlign: 'center', marginBottom: 18, fontSize: 12 }}>
               Why Traders Use ZeroGEX
             </div>
-            <ul style={{ margin: 0, paddingLeft: 20, color: subtext, lineHeight: 1.7 }}>
-              <li>Identify support/resistance before it happens.</li>
-              <li>Know when volatility will expand or compress.</li>
-              <li>Spot dealer hedging flows in real time.</li>
-              <li>Avoid getting trapped on the wrong side.</li>
-            </ul>
+            <div className="zg-panel" style={{ overflow: 'hidden', textAlign: 'left' }}>
+              {[
+                { icon: Target, text: 'Identify support and resistance before price gets there.' },
+                { icon: Activity, text: 'Know when volatility is likely to expand or compress.' },
+                { icon: Eye, text: 'See dealer hedging flows as they happen, in real time.' },
+                { icon: Shield, text: 'Avoid getting trapped on the wrong side of a move.' },
+              ].map((w, i) => {
+                const Icon = w.icon;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 16,
+                      alignItems: 'center',
+                      padding: '16px 22px',
+                      borderTop: i > 0 ? `1px solid ${C.border}` : undefined,
+                    }}
+                  >
+                    <Icon size={18} strokeWidth={1.75} style={{ color: C.amber, flexShrink: 0 }} />
+                    <span style={{ color: text, fontSize: 15.5, lineHeight: 1.5 }}>{w.text}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>

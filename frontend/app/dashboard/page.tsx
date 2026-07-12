@@ -11,7 +11,6 @@ import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
 import PageShell from '@/components/layout/PageShell';
 import SectionHead from '@/components/layout/SectionHead';
-import RegistrationCorners from '@/components/marketing/RegistrationCorners';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -96,14 +95,6 @@ export default function DashboardPage() {
 
   const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
-  // Desk-readout masthead values — the dashboard's focal point.
-  const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
-  const longGamma = (netGexAtSpot ?? 0) >= 0;
-  const flipLevel = gexData?.gamma_flip ?? null;
-  const spotForFlip = underlyingPrice.displayPrice ?? quoteData?.close ?? gexData?.spot_price ?? null;
-  const flipDist = flipLevel != null && spotForFlip != null ? spotForFlip - flipLevel : null;
-  const flipPct = flipLevel != null && spotForFlip != null && flipLevel !== 0 ? ((spotForFlip - flipLevel) / flipLevel) * 100 : null;
-
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
     return (
@@ -122,55 +113,6 @@ export default function DashboardPage() {
   return (
     <PageShell>
       <TrialStartedBanner />
-      {/* Desk readout — the dashboard's focal point: an oversized signed Net
-          GEX with the regime word, flanked by spot and the gamma flip. */}
-      <div className="zg-panel mb-8" style={{ position: 'relative' }}>
-        <RegistrationCorners color="var(--border-strong)" />
-        <div className="flex flex-col md:flex-row">
-          <div className="p-5 md:w-60 shrink-0">
-            <div className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>{symbol} · Spot</div>
-            <div className="zg-metric" style={{ fontSize: 30, marginTop: 6 }}>
-              {underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
-            </div>
-            <div
-              className="zg-mono"
-              style={{ fontSize: 12, marginTop: 4, color: underlyingPrice.change != null ? (underlyingPrice.isPositive ? 'var(--color-bull)' : 'var(--color-bear)') : 'var(--text-secondary)' }}
-            >
-              {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} · ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%`
-                : '—'}
-            </div>
-          </div>
-          <div className="p-5 flex-1 md:border-l" style={{ borderColor: 'var(--border-default)' }}>
-            <div className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>Net GEX at spot</div>
-            <div
-              className="zg-metric"
-              style={{ fontSize: 'clamp(40px, 5.5vw, 66px)', lineHeight: 1.02, marginTop: 4, color: netGexAtSpot == null ? 'var(--text-primary)' : longGamma ? 'var(--color-bull)' : 'var(--color-bear)' }}
-            >
-              {formatCompactUsd(netGexAtSpot, true)}
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <span className="zg-label" style={{ color: netGexAtSpot == null ? 'var(--text-secondary)' : longGamma ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                {netGexAtSpot == null ? 'Standby' : longGamma ? 'Long gamma' : 'Short gamma'}
-              </span>
-              <span className="zg-small" style={{ color: 'var(--text-secondary)', marginLeft: 8 }}>
-                {netGexAtSpot == null ? 'awaiting live GEX snapshot' : longGamma ? 'dealers dampen — pinning, mean-reversion' : 'dealers accelerate — trending, vol expansion'}
-              </span>
-            </div>
-          </div>
-          <div className="p-5 md:w-60 shrink-0 md:border-l" style={{ borderColor: 'var(--border-default)' }}>
-            <div className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>Gamma Flip</div>
-            <div className="zg-metric" style={{ fontSize: 30, marginTop: 6 }}>
-              {flipLevel != null ? `$${flipLevel.toFixed(2)}` : '--'}
-            </div>
-            <div className="zg-mono" style={{ fontSize: 12, marginTop: 4, color: 'var(--text-secondary)' }}>
-              {flipDist != null && flipPct != null
-                ? `spot ${flipDist >= 0 ? '+' : ''}${flipDist.toFixed(2)} · ${flipPct >= 0 ? '+' : ''}${flipPct.toFixed(2)}%`
-                : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Today's Read — at-a-glance regime summary above everything else, so a
           visitor lands on the dashboard and gets the structural read before
