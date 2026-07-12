@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { ArrowDown, ArrowUp, Info, Minus, ShieldCheck, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -63,7 +64,7 @@ export default function VolatilityExpansionPage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-6">
         <h1 className="text-3xl font-bold">Volatility Expansion</h1>
         <span className="text-sm italic text-[var(--color-text-secondary)]">{'"Is volatility about to break out?"'}</span>
@@ -209,7 +210,7 @@ export default function VolatilityExpansionPage() {
       </section>
 
       <SignalEventsPanel signalName="vol_expansion" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

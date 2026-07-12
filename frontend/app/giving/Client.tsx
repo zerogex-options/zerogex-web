@@ -192,8 +192,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           }}>
             {DONATION_PCT}% of every subscription supports{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              color: 'var(--color-accent-hot)',
             }}>
               military families
             </span>
@@ -491,8 +490,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           }}>
             Subscribe, trade,{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber}, var(--heat-low))`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              color: 'var(--color-accent-hot)',
             }}>
               and give back
             </span>

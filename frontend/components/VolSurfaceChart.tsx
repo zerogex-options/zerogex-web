@@ -303,7 +303,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
         className="rounded-2xl p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
       <div className="flex items-center gap-2 mb-4">
@@ -338,7 +338,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
                 <stop offset="100%" stopColor="var(--color-neutral)" stopOpacity={0.12} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.45} />
+            <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
             <XAxis
               dataKey="xLabel"
               stroke={axisStroke}

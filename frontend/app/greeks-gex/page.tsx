@@ -5,6 +5,7 @@
 
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import { LoadingCard } from '@/components/LoadingSpinner';
@@ -67,7 +68,7 @@ export default function GreeksGEXPage() {
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <PageShell>
         <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <LoadingCard />
@@ -82,12 +83,12 @@ export default function GreeksGEXPage() {
           <LoadingCard />
           <LoadingCard />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
 
       {/* Error Messages */}
@@ -224,6 +225,6 @@ export default function GreeksGEXPage() {
           Last updated: {new Date(gexData.timestamp).toLocaleTimeString()}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

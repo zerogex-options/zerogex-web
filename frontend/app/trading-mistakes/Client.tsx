@@ -389,10 +389,7 @@ export default function TradingMistakesClient() {
             5 trading mistakes{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               ZeroGEX helps you avoid.
@@ -434,10 +431,7 @@ export default function TradingMistakesClient() {
             See the structural map{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               before your next trade.

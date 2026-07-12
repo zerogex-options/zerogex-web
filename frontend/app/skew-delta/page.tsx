@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Scale, ShieldAlert } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -50,7 +51,7 @@ export default function SkewDeltaPage() {
   const needlePct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Skew Delta"
         subtitle={'"How much is fear bid into puts?"'}
@@ -130,6 +131,6 @@ export default function SkewDeltaPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="skew_delta" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }

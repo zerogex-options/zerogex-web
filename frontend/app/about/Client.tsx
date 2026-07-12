@@ -220,8 +220,7 @@ export default function AboutPage() {
           }}>
             Trade With Dealer Positioning —{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-low) 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              color: 'var(--color-accent-hot)',
             }}>
               Not Guesswork
             </span>
@@ -669,8 +668,7 @@ export default function AboutPage() {
           }}>
             Start Trading with{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.amber}, var(--heat-low))`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              color: 'var(--color-accent-hot)',
             }}>
               Institutional Intelligence
             </span>

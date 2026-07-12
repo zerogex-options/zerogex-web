@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { AlertTriangle, Gauge, Radar, TrendingDown, TrendingUp } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -85,7 +86,7 @@ export default function TrapDetectionPage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Trap Detection"
         subtitle={'"Did this breakout just fail?"'}
@@ -262,7 +263,7 @@ export default function TrapDetectionPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

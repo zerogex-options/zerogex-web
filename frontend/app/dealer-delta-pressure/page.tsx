@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Compass } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -47,7 +48,7 @@ export default function DealerDeltaPressurePage() {
   const needlePct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Dealer Delta Pressure"
         subtitle={'"Are dealers forced to chase this move?"'}
@@ -114,6 +115,6 @@ export default function DealerDeltaPressurePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="dealer_delta_pressure" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }

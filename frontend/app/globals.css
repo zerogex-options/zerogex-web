@@ -30,6 +30,12 @@
   --accent-3: #2563EB;
   --accent-4: #E0527E;
 
+  /* Live-now cursor accent. Defined in every named palette; this is the
+     base-root fallback (was missing, leaving --color-accent-hot undefined
+     in the default theme). Distinct from --heat-mid amber (the flip). */
+  --color-accent-hot: var(--accent-4);
+  --color-accent-soft: rgba(224, 82, 126, 0.14);
+
   --color-bull: #10B85E;
   --color-bull-soft: rgba(16, 184, 94, 0.22);
   --color-bear: #E7213D;
@@ -85,6 +91,29 @@
   --color-chart-tooltip-muted: var(--text-secondary);
   --color-grid-line: rgba(148, 163, 184, 0.18);
   --color-grid-overlay: rgba(245, 247, 250, 0.60);
+
+  /* ── Structural scales — palette-independent. ─────────────────
+     Radius: square by default, three values only. Spacing: geometric,
+     so gap size encodes importance. Motion: one curve, three durations.
+     These are the vocabulary the primitives and pages draw from. */
+  --radius-control: 2px;
+  --radius-panel: 2px;
+  --radius-pill: 999px;
+
+  --space-tight: 8px;
+  --space-row: 16px;
+  --space-block: 40px;
+  --space-section: 96px;
+
+  --tracking-label: 0.14em;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+
+  --hairline: 1px solid var(--border-default);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 :root.dark {
@@ -715,15 +744,14 @@ html {
   overscroll-behavior: none;
 }
 
+/* One bordered surface per zone. Depth is now tone + hairline, not
+   outline + glow: no radius bulge, no colored shadow. This class
+   cascades across ~57 pages/components, so the whole site flattens
+   at once. */
 .zg-feature-shell {
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  background: var(--color-surface);
-  box-shadow: 0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle);
-}
-
-:root.dark .zg-feature-shell {
-  box-shadow: 0 4px 12px var(--color-info-soft), 0 1px 3px rgba(255, 211, 128, 0.12);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--bg-card);
 }
 
 /* ============================================================
@@ -867,7 +895,142 @@ html {
   font-size: 13px;
   background: var(--bg-hover);
   padding: 0.1em 0.35em;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
+}
+
+/* ============================================================
+   PRIMITIVES — the READOUT register.
+   Flat, hairline, mono-numeric. These carry the design so pages
+   stay thin: depth is tone + rule, never outline + glow + gradient.
+   ============================================================ */
+
+/* Panel — the ONE bordered surface per zone. Never nest a Panel inside
+   a Panel; group leaf tiles inside a single Panel separated by rules. */
+.zg-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+}
+
+/* Metric — every live or columnar number. Mono, tabular, slashed-zero,
+   so digits stop shimmying on tick and columns align. Magnitude reads
+   from size + weight, never a tinted box. */
+.zg-metric {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "zero" 1, "tnum" 1;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+
+/* Datum — a numeric table cell in the ladder/ledger. Mono, tabular,
+   slashed-zero, right-aligned so columns of numbers line up exactly. */
+.zg-datum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "zero" 1, "tnum" 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Eyebrow — the ONE sanctioned label unit: tracked mono, no pill, no
+   background. Replaces the centered eyebrow-pill everywhere. */
+.zg-eyebrow {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Mark — the ONE emphasis device: ink on a solid highlight. Reserve for
+   the flip / key signal, not arbitrary "this text is important". */
+.zg-mark {
+  background: var(--heat-mid);
+  color: var(--text-inverse);
+  padding: 0 0.14em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Chip — one data-toned status chip folds every badge/pill. Square,
+   hairline, no soft fill; tone via --chip-color. */
+.zg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--chip-color, var(--border-default));
+  color: var(--chip-color, var(--text-secondary));
+  background: transparent;
+}
+
+/* Button family — CSS states, flat fills, no gradient/glow/lift.
+   Hover shifts edge or ground; :active nudges 1px. */
+.zg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 10px 18px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-standard),
+              border-color var(--dur-2) var(--ease-standard),
+              color var(--dur-2) var(--ease-standard);
+}
+.zg-btn:active { transform: translateY(1px); }
+.zg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.zg-btn--primary {
+  background: var(--color-accent-hot);
+  color: var(--text-inverse);
+}
+.zg-btn--primary:hover { background: color-mix(in srgb, var(--color-accent-hot) 86%, #000); }
+
+.zg-btn--secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.zg-btn--secondary:hover { border-color: var(--color-accent-hot); color: var(--color-accent-hot); }
+
+.zg-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.zg-btn--ghost:hover { color: var(--text-primary); }
+
+/* ── Craft floor: shipped once, invisible. ────────────────────
+   A global focus ring for keyboard users, and a reduced-motion guard
+   that quiets every animation/transition for users who ask for it. */
+:where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

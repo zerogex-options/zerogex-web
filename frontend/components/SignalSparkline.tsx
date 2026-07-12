@@ -213,7 +213,7 @@ function ExpandedSparkline({
     <div style={{ width: '100%', height: 'min(70vh, 520px)', minHeight: 360 }}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+          <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
           <XAxis
             type="number"
             dataKey="timeMs"

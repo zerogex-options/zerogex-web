@@ -387,7 +387,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
           <MobileScrollableChart>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={visibleRows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
               <XAxis
                 type="number"
                 dataKey="timeMs"

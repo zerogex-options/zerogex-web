@@ -50,7 +50,7 @@ function CardShell({ title, tooltip, children }: CardShellProps) {
       className="h-full p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col"
       style={{
         backgroundColor: cardBg,
-        border: `1px solid ${'var(--text-secondary)'}`,
+        border: `1px solid var(--border-default)`,
         boxShadow: shadowBase,
       }}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadowHover; }}

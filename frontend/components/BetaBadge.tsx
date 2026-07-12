@@ -1,5 +1,3 @@
-import { colors } from "@/core/colors";
-
 interface BetaBadgeProps {
   /** Visual scale. "sm" suits inline nav labels; "md" suits page headings. */
   size?: "sm" | "md";
@@ -15,13 +13,16 @@ export default function BetaBadge({ size = "sm", className = "" }: BetaBadgeProp
   const isMd = size === "md";
   return (
     <span
-      className={`inline-flex items-center rounded font-bold uppercase tracking-wider ${
+      className={`inline-flex items-center uppercase ${
         isMd ? "px-2 py-0.5 text-[11px]" : "px-1.5 py-0.5 text-[9px]"
       } ${className}`}
       style={{
-        backgroundColor: `${'var(--color-brand-accent)'}1f`,
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 600,
+        letterSpacing: '0.1em',
         color: 'var(--color-brand-accent)',
-        border: `1px solid ${'var(--color-brand-accent)'}55`,
+        border: '1px solid var(--color-brand-accent)',
+        borderRadius: 'var(--radius-control)',
         lineHeight: 1.1,
       }}
     >

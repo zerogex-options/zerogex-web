@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Activity, Info, LayoutGrid, LineChart as LineChartIcon } from 'lucide-react';
@@ -266,7 +267,7 @@ export default function CompositeScorePage() {
   const noData = !loading && composite == null && history.length === 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Composite Score</h1>
         <span className="text-[var(--color-text-secondary)] text-base">·</span>
@@ -403,6 +404,6 @@ export default function CompositeScorePage() {
           <IntradayChart history={history} currentScore={composite} />
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }

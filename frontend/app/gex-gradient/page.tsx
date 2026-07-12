@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { ScatterChart } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -59,7 +60,7 @@ export default function GexGradientPage() {
   const asymmetryNeedlePct = asymmetry != null ? Math.max(0, Math.min(100, (asymmetry + 1) * 50)) : 50;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="GEX Gradient"
         subtitle={'"Is gamma stacked on one side?"'}
@@ -162,6 +163,6 @@ export default function GexGradientPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gex_gradient" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }

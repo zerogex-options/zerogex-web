@@ -308,10 +308,7 @@ export default function RealTimeGexLandingClient() {
             Read the dealer book before the move,{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               not after it.
@@ -710,10 +707,7 @@ export default function RealTimeGexLandingClient() {
             See the dealer book.{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               Decide for yourself.

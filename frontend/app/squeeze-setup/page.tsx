@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { ArrowRightLeft, Gauge, Rocket, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -76,7 +77,7 @@ export default function SqueezeSetupPage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Squeeze Setup"
         subtitle={'"Is the market coiled?"'}
@@ -194,7 +195,7 @@ export default function SqueezeSetupPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="squeeze_setup" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

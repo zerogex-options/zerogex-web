@@ -435,7 +435,7 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
           opacity: 0.92,
         }}
       >
-        ★ Limited Time Offer ★
+        [ LIMITED-TIME OFFER ]
       </div>
       <div
         style={{
@@ -921,7 +921,7 @@ function PricingClientInner({
                 fontWeight: 600,
               }}
             >
-              🎉 A friend referred you — your discount is applied automatically at checkout.
+              [ REFERRAL APPLIED ] &nbsp;A friend referred you — your discount is applied automatically at checkout.
             </div>
           )}
 

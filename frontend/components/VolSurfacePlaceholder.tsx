@@ -13,7 +13,7 @@ export default function VolSurfacePlaceholder() {
       className="rounded-2xl p-6 flex flex-col h-full"
       style={{
         backgroundColor: 'var(--bg-card)',
-        border: `1px solid ${'var(--text-secondary)'}`,
+        border: `1px solid var(--border-default)`,
       }}
     >
       <h3

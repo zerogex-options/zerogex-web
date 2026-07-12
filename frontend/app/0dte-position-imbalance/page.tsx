@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Activity, AlertCircle, Brain, Clock, Gauge } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -76,7 +77,7 @@ export default function ZeroDtePositionImbalancePage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="0DTE Position Imbalance"
         subtitle={'"Are 0DTE traders leaning one way?"'}
@@ -205,7 +206,7 @@ export default function ZeroDtePositionImbalancePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="zero_dte_position_imbalance" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

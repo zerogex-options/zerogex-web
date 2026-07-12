@@ -1,6 +1,7 @@
 "use client";
 
-import { Info } from "lucide-react";
+import PageShell from '@/components/layout/PageShell';
+import SectionHead from "@/components/layout/SectionHead";
 import { useCallback, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -531,16 +532,6 @@ function buildThirtyMinGridlines<T extends { timestamp: string }>(
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-2xl font-semibold">{title}</h2>
-      <TooltipWrapper text={tooltip}>
-        <Info size={14} />
-      </TooltipWrapper>
-    </div>
-  );
-}
 
 function FilterRow({
   label,
@@ -1147,7 +1138,7 @@ export default function FlowAnalysisPage() {
   const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
       {flowError && !flowSeriesUnfiltered && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
@@ -1191,7 +1182,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
       <section className="mb-8">
-        <SectionTitle
+        <SectionHead
           title="Flow Snapshot"
           tooltip="Cumulative snapshot from the most recent data point in the selected trading session."
         />
@@ -1243,7 +1234,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Options Flow ──────────────────────────────────────────────── */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
+        <SectionHead
           title="Options Flow"
           tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration."
         />
@@ -1269,7 +1260,7 @@ export default function FlowAnalysisPage() {
       {/* ── Net Directional Premium ───────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
+        <SectionHead
           title="Net Directional Premium"
           tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
         />
@@ -1377,7 +1368,7 @@ export default function FlowAnalysisPage() {
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
+        <SectionHead
           title="Put/Call Ratio"
           tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
         />
@@ -1488,7 +1479,7 @@ export default function FlowAnalysisPage() {
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionTitle
+        <SectionHead
           title="Net Position (Buys vs. Sells)"
           tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
         />
@@ -1596,6 +1587,6 @@ export default function FlowAnalysisPage() {
       </div>
       </ExpandableCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -620,7 +620,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               onClick={toggleCollapsed}
               className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute"
               style={{ color: 'var(--text-secondary)', backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)", right: "12px" }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--text-secondary)'}20`; }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
               aria-label={isCollapsed ? "Expand header" : "Collapse header"}
             >

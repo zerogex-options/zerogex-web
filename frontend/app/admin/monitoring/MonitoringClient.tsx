@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -214,7 +215,7 @@ export default function MonitoringClient() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <h1 className="text-2xl font-semibold">Admin Monitoring</h1>
       </div>
@@ -253,7 +254,7 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
-    </div>
+    </PageShell>
   );
 }
 

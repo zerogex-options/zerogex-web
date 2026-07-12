@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { CalendarClock, Pin, Timer, Gauge, Hourglass } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -57,7 +58,7 @@ export default function EodPressurePage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="EOD Pressure"
         subtitle={'"Is the close getting pinned?"'}
@@ -144,6 +145,6 @@ export default function EodPressurePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="eod_pressure" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }

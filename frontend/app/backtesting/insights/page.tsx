@@ -14,6 +14,7 @@
  * would create cherry-picked-looking marketing.
  */
 
+import PageShell from '@/components/layout/PageShell';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, ArrowDown, ArrowUp, Info, RefreshCw } from 'lucide-react';
@@ -231,7 +232,7 @@ export default function InsightsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex flex-wrap items-center gap-3 mb-2">
         <Link
           href="/backtesting"
@@ -463,6 +464,6 @@ export default function InsightsPage() {
           Run your own backtest →
         </Link>
       </p>
-    </div>
+    </PageShell>
   );
 }

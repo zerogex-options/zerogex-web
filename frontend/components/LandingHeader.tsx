@@ -116,7 +116,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             style={{
               background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
-              borderRadius: 10,
+              borderRadius: 'var(--radius-control)',
               padding: '8px 14px',
               fontWeight: 700,
               color: 'var(--color-text-primary)',
@@ -134,7 +134,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               style={{
                 background: 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
-                borderRadius: 10,
+                borderRadius: 'var(--radius-control)',
                 padding: '8px 14px',
                 fontWeight: 700,
                 color: 'var(--color-text-primary)',
@@ -152,7 +152,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             style={{
               background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
-              borderRadius: 10,
+              borderRadius: 'var(--radius-control)',
               padding: '8px 14px',
               fontWeight: 700,
               color: 'var(--color-text-primary)',
@@ -172,16 +172,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               : () => capture(TelemetryEvent.TrialCtaClick, { location: 'site_header', ...readUtmParams() })
           }
         >
-          <button
-            className="flex items-center gap-1.5 px-3 py-2 sm:px-[18px] sm:py-2 text-xs sm:text-[13px] font-bold rounded-[10px]"
-            style={{
-              background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-              border: 'none',
-              color: 'var(--text-inverse)',
-              cursor: 'pointer',
-              boxShadow: `0 4px 16px ${C.amber}50`,
-            }}
-          >
+          <button className="zg-btn zg-btn--primary" style={{ padding: '8px 16px', fontSize: 13 }}>
             {canLaunchApp ? 'Launch App' : 'Start Free Trial'} <ArrowRight size={14} />
           </button>
         </Link>

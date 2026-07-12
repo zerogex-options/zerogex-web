@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Activity, Clock } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -51,7 +52,7 @@ export default function VannaCharmFlowPage() {
   const vcMax = Math.max(Math.abs(vannaTotal ?? 0), Math.abs(charmWeighted ?? 0), 1);
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Vanna/Charm Flow"
         subtitle={'"Will vol or time force dealers to re-hedge?"'}
@@ -114,7 +115,7 @@ export default function VannaCharmFlowPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="vanna_charm_flow" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

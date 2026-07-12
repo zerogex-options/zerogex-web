@@ -1,7 +1,8 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Info } from 'lucide-react';
+import SectionHead from "@/components/layout/SectionHead";
 import {
   useGEXSummary,
   useGEXByStrike,
@@ -25,20 +26,10 @@ import GexUnitToggle from '@/components/GexUnitToggle';
 import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
-
-function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-2xl font-semibold">{title}</h2>
-      <TooltipWrapper text={tooltip}><Info size={14} /></TooltipWrapper>
-    </div>
-  );
-}
 
 // Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
 // expanded-card state — collapsed view fits ~20 rows, expanded view fills the
@@ -435,6 +426,29 @@ export default function GammaExposurePage() {
     return best;
   }, [sortedRows, quoteData?.close]);
 
+  // Strikes to flag in the ladder: the gamma-flip crossing and the call/put
+  // walls. Walls/flip are reported as prices at strikes; snap each to the
+  // nearest visible strike so the row still highlights if the value is a
+  // hair off the strike grid.
+  const ladderMarks = useMemo(() => {
+    const nearest = (target: number | null | undefined): number | null => {
+      const t = Number(target);
+      if (!Number.isFinite(t) || sortedRows.length === 0) return null;
+      let best = sortedRows[0].strike;
+      let bestDist = Math.abs(best - t);
+      for (const row of sortedRows) {
+        const d = Math.abs(row.strike - t);
+        if (d < bestDist) { best = row.strike; bestDist = d; }
+      }
+      return best;
+    };
+    return {
+      flip: nearest(gexData?.gamma_flip),
+      callWall: nearest(gexData?.call_wall),
+      putWall: nearest(gexData?.put_wall),
+    };
+  }, [sortedRows, gexData?.gamma_flip, gexData?.call_wall, gexData?.put_wall]);
+
   // Center the scroll on the closest-to-spot row whenever the row set
   // changes meaningfully (initial load, sort change, expiration filter
   // change, or spot crossing a strike midpoint). useLayoutEffect runs
@@ -456,17 +470,17 @@ export default function GammaExposurePage() {
 
   if (gexLoading && !gexData) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <PageShell>
         <h1 className="text-3xl font-bold mb-8">Dealer Positioning Analysis</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <h1 className="text-3xl font-bold mb-6">Dealer Positioning Analysis</h1>
       <div className="mb-4">
         <GexUnitToggle />
@@ -587,7 +601,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
-            <SectionTitle title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+            <SectionHead title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : expirationOptions.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
             ) : (
@@ -658,19 +672,26 @@ export default function GammaExposurePage() {
                   })}
                 </div>
 
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 2, background: 'var(--color-accent-hot)', display: 'inline-block' }} />Spot</span>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 2, background: 'var(--heat-mid)', display: 'inline-block' }} />Gamma&nbsp;Flip</span>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 2, background: 'var(--color-bull)', display: 'inline-block' }} />Call&nbsp;Wall</span>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 2, background: 'var(--color-bear)', display: 'inline-block' }} />Put&nbsp;Wall</span>
+                </div>
+
                 <StrikeTableScroll ref={tableScrollRef}>
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10" style={{ backgroundColor: cardBg }}>
                       <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('strike')}>Strike</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('netGexM')}>Net GEX</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('vannaM')}>Vanna</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('charmM')}>Charm</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callOi')}>Call OI</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putOi')}>Put OI</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('callVolume')}>Call Vol</th>
-                        <th className="text-right py-2 px-2 cursor-pointer" onClick={() => toggleSort('putVolume')}>Put Vol</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('strike')}>Strike</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('netGexM')}>Net GEX</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('vannaM')}>Vanna</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('charmM')}>Charm</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('callOi')}>Call OI</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('putOi')}>Put OI</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('callVolume')}>Call Vol</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('putVolume')}>Put Vol</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -681,27 +702,51 @@ export default function GammaExposurePage() {
                           </td>
                         </tr>
                       ) : (
-                        sortedRows.map((row) => (
-                          <tr
-                            key={row.strike}
-                            data-strike={row.strike}
-                            className="border-b"
-                            style={{
-                              borderColor: borderColor,
-                              backgroundColor: row.strike === closestStrikeToSpot ? 'var(--color-info-soft)' : undefined,
-                            }}
-                          >
-                            <td className="text-right py-2 px-2 font-mono">${row.strike.toFixed(2)}</td>
-                            <td className="text-right py-2 px-2">{row.distanceFromSpot.toFixed(2)}</td>
-                            <td className={`text-right py-2 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
-                            <td className={`text-right py-2 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>
-                            <td className={`text-right py-2 px-2 font-semibold ${row.charmM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.charmM.toFixed(2)}M</td>
-                            <td className="text-right py-2 px-2">{row.callOi.toLocaleString()}</td>
-                            <td className="text-right py-2 px-2">{row.putOi.toLocaleString()}</td>
-                            <td className="text-right py-2 px-2">{row.callVolume.toLocaleString()}</td>
-                            <td className="text-right py-2 px-2">{row.putVolume.toLocaleString()}</td>
-                          </tr>
-                        ))
+                        sortedRows.map((row) => {
+                          // The single live cursor (spot), the flip crossing, and the
+                          // walls — each flagged with a left rule in its own theme token;
+                          // the flip and spot rows also get a faint band.
+                          const isSpot = row.strike === closestStrikeToSpot;
+                          const isFlip = row.strike === ladderMarks.flip;
+                          const isCallWall = row.strike === ladderMarks.callWall;
+                          const isPutWall = row.strike === ladderMarks.putWall;
+                          const edge = isSpot
+                            ? 'var(--color-accent-hot)'
+                            : isFlip
+                              ? 'var(--heat-mid)'
+                              : isCallWall
+                                ? 'var(--color-bull)'
+                                : isPutWall
+                                  ? 'var(--color-bear)'
+                                  : null;
+                          const band = isFlip
+                            ? 'color-mix(in srgb, var(--heat-mid) 14%, transparent)'
+                            : isSpot
+                              ? 'color-mix(in srgb, var(--color-accent-hot) 10%, transparent)'
+                              : undefined;
+                          return (
+                            <tr
+                              key={row.strike}
+                              data-strike={row.strike}
+                              className="border-b"
+                              style={{
+                                borderColor: borderColor,
+                                backgroundColor: band,
+                                boxShadow: edge ? `inset 3px 0 0 0 ${edge}` : undefined,
+                              }}
+                            >
+                              <td className="zg-datum py-1.5 px-2" style={{ color: 'var(--text-primary)' }}>${row.strike.toFixed(2)}</td>
+                              <td className="zg-datum py-1.5 px-2">{row.distanceFromSpot.toFixed(2)}</td>
+                              <td className={`zg-datum py-1.5 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
+                              <td className={`zg-datum py-1.5 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>
+                              <td className={`zg-datum py-1.5 px-2 font-semibold ${row.charmM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.charmM.toFixed(2)}M</td>
+                              <td className="zg-datum py-1.5 px-2">{row.callOi.toLocaleString()}</td>
+                              <td className="zg-datum py-1.5 px-2">{row.putOi.toLocaleString()}</td>
+                              <td className="zg-datum py-1.5 px-2">{row.callVolume.toLocaleString()}</td>
+                              <td className="zg-datum py-1.5 px-2">{row.putVolume.toLocaleString()}</td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -711,6 +756,6 @@ export default function GammaExposurePage() {
           </div>
         </ExpandableCard>
       </section>
-    </div>
+    </PageShell>
   );
 }
