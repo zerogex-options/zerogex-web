@@ -88,9 +88,9 @@ export function loadChartSettings<T extends object>(chartId: string, defaults: T
 }
 
 /**
- * Persist `settings` as the auto-load default for `chartId`. Returns true on
- * success, or false if storage was unavailable (SSR, private mode, quota) so a
- * caller can avoid implying the save stuck when it didn't.
+ * Persist `settings` as the auto-load state for `chartId`. Called on every
+ * change so a chart reopens exactly as the user left it. Returns true on
+ * success, or false if storage was unavailable (SSR, private mode, quota).
  */
 export function saveChartSettings<T extends object>(chartId: string, settings: T): boolean {
   const storage = getStorage();
@@ -98,29 +98,6 @@ export function saveChartSettings<T extends object>(chartId: string, settings: T
   try {
     storage.setItem(storageKey(chartId), JSON.stringify(settings));
     return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Forget any saved settings for `chartId` (used by "Reset all settings"). */
-export function clearChartSettings(chartId: string): boolean {
-  const storage = getStorage();
-  if (!storage) return false;
-  try {
-    storage.removeItem(storageKey(chartId));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Whether a saved entry currently exists for `chartId`. */
-export function hasSavedChartSettings(chartId: string): boolean {
-  const storage = getStorage();
-  if (!storage) return false;
-  try {
-    return storage.getItem(storageKey(chartId)) !== null;
   } catch {
     return false;
   }

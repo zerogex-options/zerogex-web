@@ -35,8 +35,7 @@ const memory = new MemoryStorage();
 (globalThis as { window?: unknown }).window = { localStorage: memory };
 
 // Imported AFTER the window stub so any module-level evaluation still sees it.
-const { loadChartSettings, saveChartSettings, clearChartSettings, hasSavedChartSettings } =
-  await import('../core/chartSettings.ts');
+const { loadChartSettings, saveChartSettings } = await import('../core/chartSettings.ts');
 
 const CHART_ID = 'unit-test-chart';
 const DEFAULTS = {
@@ -67,14 +66,11 @@ test('save then load round-trips every field', () => {
   assert.deepEqual(loadChartSettings(CHART_ID, DEFAULTS), chosen);
 });
 
-test('hasSavedChartSettings reflects presence, and clear removes it', () => {
-  assert.equal(hasSavedChartSettings(CHART_ID), false);
-  saveChartSettings(CHART_ID, DEFAULTS);
-  assert.equal(hasSavedChartSettings(CHART_ID), true);
-  assert.equal(clearChartSettings(CHART_ID), true);
-  assert.equal(hasSavedChartSettings(CHART_ID), false);
-  // After clearing, load falls back to defaults again.
-  assert.deepEqual(loadChartSettings(CHART_ID, DEFAULTS), DEFAULTS);
+test('saving again overwrites the previous save (auto-save fires on each change)', () => {
+  saveChartSettings(CHART_ID, { ...DEFAULTS, tf: '1m' });
+  assert.equal(loadChartSettings(CHART_ID, DEFAULTS).tf, '1m');
+  saveChartSettings(CHART_ID, { ...DEFAULTS, tf: '15m' });
+  assert.equal(loadChartSettings(CHART_ID, DEFAULTS).tf, '15m');
 });
 
 test('load merges a partial blob over defaults (missing keys keep their default)', () => {

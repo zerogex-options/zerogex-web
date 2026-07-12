@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Check,
   ChevronDown,
   Clock,
   Info,
@@ -10,7 +9,6 @@ import {
   Pause,
   Play,
   RotateCcw,
-  Save,
   Settings2,
   ZoomIn,
   ZoomOut,
@@ -22,12 +20,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
-import {
-  clearChartSettings,
-  hasSavedChartSettings,
-  loadChartSettings,
-  saveChartSettings,
-} from '@/core/chartSettings';
+import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
@@ -185,11 +178,6 @@ export default function GammaHeatmapCanvas() {
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
-  // Saved-settings UI state: whether a saved default currently exists (drives
-  // the settings-panel hint) and a transient "Saved ✓" confirmation flash.
-  const [hasSaved, setHasSaved] = useState<boolean>(() => hasSavedChartSettings(CHART_SETTINGS_ID));
-  const [justSaved, setJustSaved] = useState<boolean>(false);
-  const saveConfirmTimer = useRef<number | null>(null);
 
   const resetAll = () => {
     setTf(DEFAULTS.tf);
@@ -198,35 +186,26 @@ export default function GammaHeatmapCanvas() {
     setZoomMul(DEFAULTS.zoomMul);
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
-    // "Reset all settings" also forgets the saved default, so a fresh visit
-    // returns to the factory defaults rather than silently reapplying the
-    // previously saved preferences.
-    clearChartSettings(CHART_SETTINGS_ID);
-    setHasSaved(false);
-    setJustSaved(false);
+    // The auto-save effect below persists this reset-to-defaults state, so a
+    // fresh visit reopens on the factory defaults.
   };
 
-  // Clear any pending "Saved ✓" flash timer on unmount.
-  useEffect(
-    () => () => {
-      if (saveConfirmTimer.current != null) window.clearTimeout(saveConfirmTimer.current);
-    },
-    [],
-  );
-
-  // Persist the current display preferences as this chart's auto-load default.
-  const saveCurrentSettings = () => {
-    const ok = saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
+  // Auto-save: silently persist the display preferences whenever the user
+  // changes them, so the chart reopens exactly as they left it — no explicit
+  // "save" step. The first run (right after the lazy-init restore above) is
+  // skipped so a visitor who never touches the settings gets nothing written.
+  const settingsHydrated = useRef(false);
+  useEffect(() => {
+    if (!settingsHydrated.current) {
+      settingsHydrated.current = true;
+      return;
+    }
+    saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
       tf,
       withPrev,
       showGrid,
     });
-    if (!ok) return; // Storage blocked (private mode / quota) — don't imply success.
-    setHasSaved(true);
-    setJustSaved(true);
-    if (saveConfirmTimer.current != null) window.clearTimeout(saveConfirmTimer.current);
-    saveConfirmTimer.current = window.setTimeout(() => setJustSaved(false), 1600);
-  };
+  }, [tf, withPrev, showGrid]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -1216,21 +1195,6 @@ export default function GammaHeatmapCanvas() {
                 <span>Show grid lines</span>
               </label>
               <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
-                <button
-                  type="button"
-                  onClick={saveCurrentSettings}
-                  title="Remember these settings and load them automatically next time"
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
-                  style={{ color: justSaved ? 'var(--color-positive)' : textPrimary }}
-                >
-                  {justSaved ? <Check size={12} /> : <Save size={12} />}
-                  <span>{justSaved ? 'Saved — loads automatically' : 'Save these settings'}</span>
-                </button>
-                <p className="px-3 pt-0.5 pb-1 text-[10px] leading-snug" style={{ color: subtle }}>
-                  {hasSaved
-                    ? 'Your saved settings load automatically on this chart.'
-                    : 'Save your current view to auto-load it on every visit.'}
-                </p>
                 <button
                   type="button"
                   onClick={() => {
