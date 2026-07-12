@@ -938,6 +938,18 @@ html {
   color: var(--text-primary);
 }
 
+/* Skeleton line — a ruled placeholder bar for loading states, so a data-less
+   panel reads as an instrument warming up rather than a blank/spinner. */
+.zg-skeleton-line {
+  background: var(--bg-hover);
+  border-radius: var(--radius-control);
+  animation: zg-skeleton 1.5s ease-in-out infinite;
+}
+@keyframes zg-skeleton {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
 /* Datum — a numeric table cell in the ladder/ledger. Mono, tabular,
    slashed-zero, right-aligned so columns of numbers line up exactly. */
 .zg-datum {
