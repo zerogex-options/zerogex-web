@@ -89,14 +89,12 @@ function formatMoney(amount: number): string {
 function CtaButton({
   action,
   busy,
-  accent,
   tier,
   onSubscribe,
   onPortal,
 }: {
   action: TierAction;
   busy: boolean;
-  accent: string;
   tier: BillableTier;
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
@@ -104,18 +102,8 @@ function CtaButton({
   const baseStyle = {
     marginTop: 22,
     width: '100%',
-    border: 'none',
-    borderRadius: 12,
     padding: '12px 18px',
     fontSize: 14,
-    fontWeight: 800,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    color: 'var(--text-inverse)',
-    background: `linear-gradient(135deg, ${accent} 0%, var(--heat-mid) 100%)`,
   } as const;
 
   if (action.kind === 'current') {
@@ -123,13 +111,8 @@ function CtaButton({
       <button
         type="button"
         disabled
-        style={{
-          ...baseStyle,
-          background: 'transparent',
-          color: C.muted,
-          border: `1px solid ${C.border}`,
-          cursor: 'default',
-        }}
+        className="zg-btn zg-btn--secondary"
+        style={{ ...baseStyle, cursor: 'default' }}
       >
         {action.label}
       </button>
@@ -146,7 +129,7 @@ function CtaButton({
         style={{ textDecoration: 'none', display: 'block' }}
         onClick={() => capture(TelemetryEvent.PlanTrialCtaClick, { selected_plan: tier, ...readUtmParams() })}
       >
-        <span style={baseStyle as React.CSSProperties}>
+        <span className="zg-btn zg-btn--primary" style={baseStyle as React.CSSProperties}>
           {action.label} <ArrowRight size={16} />
         </span>
       </Link>
@@ -167,6 +150,7 @@ function CtaButton({
       type="button"
       onClick={handleClick}
       disabled={busy}
+      className="zg-btn zg-btn--primary"
       style={{ ...baseStyle, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}
     >
       {busy ? <Loader2 size={16} className="animate-spin" /> : action.label}
@@ -334,14 +318,11 @@ function TierCard({
 }) {
   return (
     <article
+      className="zg-panel"
       style={{
-        background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: highlighted ? `2px solid ${accent}` : `1px solid ${accent}66`,
-        borderRadius: 18,
+        borderColor: accent,
+        borderWidth: highlighted ? 2 : undefined,
         padding: 28,
-        boxShadow: highlighted
-          ? `0 0 0 3px ${accent}33, 0 16px 48px ${accent}45`
-          : `0 12px 40px ${accent}20`,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -390,7 +371,7 @@ function TierCard({
         ))}
       </ul>
 
-      <CtaButton action={action} busy={busy} accent={accent} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
+      <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
       {startsTrial && (action.kind === 'subscribe' || action.kind === 'link') && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
           No charge today.
@@ -830,19 +811,12 @@ function PricingClientInner({
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div
+              className="zg-eyebrow"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
                 color: C.amber,
-                border: `1px solid ${C.amber}55`,
-                borderRadius: 999,
-                background: `${C.amber}12`,
-                padding: '5px 14px',
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
               }}
             >
               <Sparkles size={14} /> {showTrialHero ? 'Almost done' : 'Pricing'}
@@ -887,7 +861,7 @@ function PricingClientInner({
                 maxWidth: 760,
                 margin: '0 auto 28px',
                 padding: '14px 18px',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-panel)',
                 border: `1px solid ${C.border}`,
                 background: 'var(--color-surface)',
                 textAlign: 'center',
@@ -913,7 +887,7 @@ function PricingClientInner({
                 maxWidth: 720,
                 margin: '0 auto 24px',
                 padding: '12px 16px',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-panel)',
                 border: '1px solid var(--color-brand-primary)',
                 color: 'var(--color-brand-primary)',
                 background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
@@ -932,7 +906,7 @@ function PricingClientInner({
                 maxWidth: 720,
                 margin: '0 auto 24px',
                 padding: '12px 16px',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-panel)',
                 border: '1px solid var(--color-brand-primary)',
                 color: 'var(--color-brand-primary)',
                 background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
@@ -951,7 +925,7 @@ function PricingClientInner({
                 maxWidth: 720,
                 margin: '0 auto 24px',
                 padding: '12px 16px',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-panel)',
                 border: `1px solid var(${verifyNotice.kind === 'success' ? '--color-bull' : '--color-bear'})`,
                 color: `var(${verifyNotice.kind === 'success' ? '--color-bull' : '--color-bear'})`,
                 background: `var(${verifyNotice.kind === 'success' ? '--color-bull-soft' : '--color-bear-soft'})`,
@@ -974,7 +948,7 @@ function PricingClientInner({
                 maxWidth: 720,
                 margin: '0 auto 24px',
                 padding: '12px 16px',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-panel)',
                 border: '1px solid var(--color-bear)',
                 color: 'var(--color-bear)',
                 background: 'var(--color-bear-soft)',
@@ -1031,14 +1005,12 @@ function PricingClientInner({
           <PlanComparison />
 
           <section
+            className="zg-panel"
             style={{
               marginTop: 36,
               maxWidth: 820,
               marginLeft: 'auto',
               marginRight: 'auto',
-              background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-              border: `1px solid ${C.border}`,
-              borderRadius: 18,
               padding: 28,
             }}
           >
