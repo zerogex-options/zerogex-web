@@ -107,7 +107,7 @@ function StatCard({ label, value, sub, isDark = true }: { label: string; value: 
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${C.border}`,
-        borderRadius: 16,
+        borderRadius: 'var(--radius-panel)',
         padding: '28px 24px',
         textAlign: 'center',
       }}
@@ -518,31 +518,15 @@ export default function LandingPage() {
           ].map((item) => (
             <div
               key={item.title}
+              className="zg-panel"
               style={{
-                background: 'var(--bg-card)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 16,
                 padding: '24px 22px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
               }}
             >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: `${item.color}20`,
-                  border: `1px solid ${item.color}40`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 4,
-                }}
-              >
-                <item.icon size={18} style={{ color: item.color }} />
-              </div>
+              <item.icon size={24} strokeWidth={1.75} style={{ color: item.color, marginBottom: 4 }} />
               <div className="zg-h4" style={{ color: text }}>
                 {item.title}
               </div>
@@ -604,13 +588,8 @@ export default function LandingPage() {
         >
           <div>
             <div
-              className="zg-label"
-              style={{
-                display: 'inline-block',
-                color: C.green, background: `${C.green}18`,
-                border: `1px solid ${C.green}40`, borderRadius: 100,
-                padding: '4px 14px', marginBottom: 20,
-              }}
+              className="zg-eyebrow"
+              style={{ display: 'inline-block', color: C.green, marginBottom: 20 }}
             >
               What is ZeroGEX?
             </div>
@@ -636,31 +615,14 @@ export default function LandingPage() {
               }
               style={{ textDecoration: 'none' }}
             >
-              <button
-                style={{
-                  background: `${C.amber}20`, border: `1px solid ${C.amber}60`,
-                  borderRadius: 12, padding: '12px 24px',
-                  fontSize: 14, fontWeight: 700, color: C.amber, cursor: 'pointer',
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.amber}30`; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `${C.amber}20`; }}
-              >
+              <button className="zg-btn zg-btn--secondary" style={{ fontSize: 14, padding: '12px 24px' }}>
                 Explore GEX Dashboard <ArrowRight size={15} />
               </button>
             </Link>
           </div>
 
           {/* Visual explanation */}
-          <div
-            style={{
-              background: 'var(--bg-card)',
-              border: `1px solid ${C.border}`,
-              borderRadius: 20,
-              padding: 28,
-            }}
-          >
+          <div className="zg-panel" style={{ padding: 28 }}>
             {[
               { label: 'Gamma Flip Level', desc: 'Price where dealer hedging reverses direction', color: C.amber, icon: Target },
               { label: 'Call Wall',        desc: 'Resistance level from heavy call open interest', color: C.green, icon: TrendingUp },
@@ -676,16 +638,7 @@ export default function LandingPage() {
                   borderBottom: `1px solid ${C.border}`,
                 }}
               >
-                <div
-                  style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: `${item.color}20`, border: `1px solid ${item.color}40`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <item.icon size={16} style={{ color: item.color }} />
-                </div>
+                <item.icon size={20} strokeWidth={1.75} style={{ color: item.color, flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div className="zg-h4" style={{ color: text, marginBottom: 3 }}>{item.label}</div>
                   <div className="zg-small" style={{ color: subtext }}>{item.desc}</div>
@@ -800,22 +753,10 @@ export default function LandingPage() {
           ].map((item) => (
             <div
               key={item.title}
-              style={{
-                background: 'var(--bg-card)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 16, padding: '24px 22px',
-              }}
+              className="zg-panel"
+              style={{ padding: '24px 22px' }}
             >
-              <div
-                style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: `${item.color}20`, border: `1px solid ${item.color}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 16,
-                }}
-              >
-                <item.icon size={20} style={{ color: item.color }} />
-              </div>
+              <item.icon size={24} strokeWidth={1.75} style={{ color: item.color, marginBottom: 16 }} />
               <div className="zg-h4" style={{ color: text, marginBottom: 8 }}>{item.title}</div>
               <div className="zg-small" style={{ color: subtext }}>{item.body}</div>
             </div>
@@ -870,7 +811,7 @@ export default function LandingPage() {
           }}
         >
           <div>
-            <div className="zg-label" style={{ color: C.amber, marginBottom: 8 }}>
+            <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 8 }}>
               Education Hub
             </div>
             <div className="zg-h2" style={{ color: C.light }}>
@@ -878,21 +819,7 @@ export default function LandingPage() {
             </div>
           </div>
           <Link href="/articles" style={{ textDecoration: 'none' }}>
-            <button
-              style={{
-                borderRadius: 10,
-                border: `1px solid ${C.border}`,
-                background: 'transparent',
-                color: C.light,
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
+            <button className="zg-btn zg-btn--secondary" style={{ fontSize: 13, padding: '10px 16px' }}>
               See all articles <ArrowRight size={14} />
             </button>
           </Link>
@@ -927,20 +854,18 @@ export default function LandingPage() {
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div
+                className="zg-panel"
                 style={{
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 16,
                   padding: '22px 22px 20px',
-                  background: 'var(--bg-card)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
                   height: '100%',
                   cursor: 'pointer',
-                  transition: 'border-color 0.18s ease, transform 0.18s ease',
+                  transition: 'border-color 0.18s ease',
                 }}
               >
-                <div className="zg-label" style={{ color: C.amber }}>
+                <div className="zg-eyebrow" style={{ color: C.amber }}>
                   {item.eyebrow}
                 </div>
                 <div className="zg-h3" style={{ color: C.light }}>
