@@ -91,8 +91,8 @@ export function TradeCard({ data }: { data: SignalActionResponse }) {
 
   return (
     <article
-      className="rounded-xl border-2 p-6 shadow-sm"
-      style={{ borderColor: dirColor, background: `linear-gradient(135deg, ${dirColor}0d 0%, transparent 55%)` }}
+      className="rounded-[var(--radius-panel)] border-2 p-6"
+      style={{ borderColor: dirColor, background: 'var(--color-surface)' }}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8">
@@ -186,8 +186,8 @@ export function StandDownCard({ data }: { data: SignalActionResponse }) {
 
   return (
     <article
-      className="rounded-xl border-2 p-6 shadow-sm"
-      style={{ borderColor: 'var(--color-warning)', background: 'linear-gradient(135deg, var(--color-warning-soft) 0%, transparent 55%)' }}
+      className="rounded-[var(--radius-panel)] border-2 p-6"
+      style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
         <span style={{ color: 'var(--color-warning)' }}>● {data.underlying || 'SPY'}</span>
