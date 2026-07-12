@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Check,
   ChevronDown,
   Clock,
   Info,
@@ -9,6 +10,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Save,
   Settings2,
   ZoomIn,
   ZoomOut,
@@ -20,6 +22,12 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
+import {
+  clearChartSettings,
+  hasSavedChartSettings,
+  loadChartSettings,
+  saveChartSettings,
+} from '@/core/chartSettings';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
@@ -120,6 +128,26 @@ const DEFAULTS = {
   showGrid: true,
 };
 
+// ── Saved chart settings ──
+// Durable display *preferences* a user can save so they auto-load on every
+// visit to the gamma heatmap (/gex-heatmap). A subset of DEFAULTS: transient
+// view state (paused / zoom) is never persisted, and `selectedExpiry` is
+// excluded because it holds a concrete expiry date that rolls off and would
+// restore stale.
+const CHART_SETTINGS_ID = 'gamma-heatmap';
+
+type PersistedSettings = {
+  tf: ChartTf;
+  withPrev: boolean;
+  showGrid: boolean;
+};
+
+const PERSISTED_DEFAULTS: PersistedSettings = {
+  tf: DEFAULTS.tf,
+  withPrev: DEFAULTS.withPrev,
+  showGrid: DEFAULTS.showGrid,
+};
+
 // Padding in CSS pixels
 const PAD_L = 56;
 // Right padding holds the vertical color legend plus its value labels.
@@ -140,16 +168,28 @@ export default function GammaHeatmapCanvas() {
   const subtle = 'var(--text-secondary)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
+  // Saved display preferences (or factory defaults on the server / when the user
+  // hasn't saved any), read once to seed the controls below. Reading in the lazy
+  // useState initializer — rather than a mount effect — mirrors how the app's
+  // other persisted prefs (symbol, GEX unit) hydrate, and keeps restore free of
+  // an extra render pass.
+  const [savedSettings] = useState(() => loadChartSettings(CHART_SETTINGS_ID, PERSISTED_DEFAULTS));
+
   // ── User-controlled view state ──
-  const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
-  const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
+  const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
+  const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
-  const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  // Saved-settings UI state: whether a saved default currently exists (drives
+  // the settings-panel hint) and a transient "Saved ✓" confirmation flash.
+  const [hasSaved, setHasSaved] = useState<boolean>(() => hasSavedChartSettings(CHART_SETTINGS_ID));
+  const [justSaved, setJustSaved] = useState<boolean>(false);
+  const saveConfirmTimer = useRef<number | null>(null);
 
   const resetAll = () => {
     setTf(DEFAULTS.tf);
@@ -158,6 +198,34 @@ export default function GammaHeatmapCanvas() {
     setZoomMul(DEFAULTS.zoomMul);
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
+    // "Reset all settings" also forgets the saved default, so a fresh visit
+    // returns to the factory defaults rather than silently reapplying the
+    // previously saved preferences.
+    clearChartSettings(CHART_SETTINGS_ID);
+    setHasSaved(false);
+    setJustSaved(false);
+  };
+
+  // Clear any pending "Saved ✓" flash timer on unmount.
+  useEffect(
+    () => () => {
+      if (saveConfirmTimer.current != null) window.clearTimeout(saveConfirmTimer.current);
+    },
+    [],
+  );
+
+  // Persist the current display preferences as this chart's auto-load default.
+  const saveCurrentSettings = () => {
+    const ok = saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
+      tf,
+      withPrev,
+      showGrid,
+    });
+    if (!ok) return; // Storage blocked (private mode / quota) — don't imply success.
+    setHasSaved(true);
+    setJustSaved(true);
+    if (saveConfirmTimer.current != null) window.clearTimeout(saveConfirmTimer.current);
+    saveConfirmTimer.current = window.setTimeout(() => setJustSaved(false), 1600);
   };
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
@@ -1148,6 +1216,21 @@ export default function GammaHeatmapCanvas() {
                 <span>Show grid lines</span>
               </label>
               <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
+                <button
+                  type="button"
+                  onClick={saveCurrentSettings}
+                  title="Remember these settings and load them automatically next time"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+                  style={{ color: justSaved ? 'var(--color-positive)' : textPrimary }}
+                >
+                  {justSaved ? <Check size={12} /> : <Save size={12} />}
+                  <span>{justSaved ? 'Saved — loads automatically' : 'Save these settings'}</span>
+                </button>
+                <p className="px-3 pt-0.5 pb-1 text-[10px] leading-snug" style={{ color: subtle }}>
+                  {hasSaved
+                    ? 'Your saved settings load automatically on this chart.'
+                    : 'Save your current view to auto-load it on every visit.'}
+                </p>
                 <button
                   type="button"
                   onClick={() => {
