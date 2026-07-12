@@ -20,31 +20,13 @@ const TRIAL_HREF = '/register';
 const PRICING_HREF = '/pricing';
 
 const primaryStyle: CSSProperties = {
-  background: 'var(--color-brand-primary)',
-  color: '#ffffff',
   padding: '12px 22px',
-  borderRadius: 999,
   fontSize: 14,
-  fontWeight: 800,
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  cursor: 'pointer',
 };
 
 const secondaryStyle: CSSProperties = {
-  border: '1px solid var(--border-default)',
-  color: 'var(--color-text-primary)',
   padding: '12px 22px',
-  borderRadius: 999,
   fontSize: 14,
-  fontWeight: 700,
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  cursor: 'pointer',
 };
 
 export function TrialButton({
@@ -69,7 +51,7 @@ export function TrialButton({
       href={TRIAL_HREF}
       onClick={() => capture(event, { location, symbol, ...readUtmParams() })}
       style={{ ...primaryStyle, ...style }}
-      className="transition-opacity hover:opacity-90"
+      className="zg-btn zg-btn--primary"
     >
       {label} {showArrow && <ArrowRight size={16} />}
     </Link>
@@ -92,7 +74,7 @@ export function ComparePlansButton({
       href={PRICING_HREF}
       onClick={() => capture(TelemetryEvent.ComparePlansClick, { location, symbol, ...readUtmParams() })}
       style={{ ...secondaryStyle, ...style }}
-      className="transition-colors hover:!border-[var(--color-brand-primary)] hover:!text-[var(--color-brand-primary)]"
+      className="zg-btn zg-btn--secondary"
     >
       {label}
     </Link>

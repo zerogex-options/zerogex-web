@@ -71,9 +71,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 const cardStyle: CSSProperties = {
-  border: '1px solid var(--color-brand-primary)55',
-  background: 'linear-gradient(135deg, var(--color-brand-primary)12 0%, var(--color-surface) 100%)',
-  borderRadius: 18,
   padding: '26px',
   marginBottom: 28,
   display: 'flex',
@@ -82,35 +79,13 @@ const cardStyle: CSSProperties = {
 };
 
 const primaryBtn: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  background: 'var(--color-brand-primary)',
-  color: '#ffffff',
-  border: '1px solid var(--color-brand-primary)',
   padding: '10px 18px',
-  borderRadius: 999,
   fontSize: 14,
-  fontWeight: 800,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  fontFamily: 'inherit',
 };
 
 const outlineBtn: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  background: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-  border: '1px solid var(--border-default)',
   padding: '10px 16px',
-  borderRadius: 999,
   fontSize: 14,
-  fontWeight: 700,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  fontFamily: 'inherit',
 };
 
 const outlineHover = 'transition-colors hover:!border-[var(--color-brand-primary)] hover:!text-[var(--color-brand-primary)]';
@@ -169,7 +144,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
   )}&text=${encodeURIComponent(snippet)}`;
 
   return (
-    <section aria-labelledby="share-levels-heading" style={cardStyle}>
+    <section aria-labelledby="share-levels-heading" className="zg-panel" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Share2 size={18} style={{ color: 'var(--color-brand-primary)' }} />
         <h2
@@ -194,7 +169,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               color: 'var(--color-text-primary)',
               background: 'var(--color-bg)',
               border: '1px solid var(--border-default)',
-              borderRadius: 12,
+              borderRadius: 'var(--radius-panel)',
               padding: '16px 18px',
               overflowX: 'auto',
               whiteSpace: 'pre-wrap',
@@ -211,7 +186,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
           )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <button type="button" onClick={handleCopy} style={primaryBtn} className="transition-opacity hover:opacity-90">
+            <button type="button" onClick={handleCopy} style={primaryBtn} className="zg-btn zg-btn--primary">
               {copied === 'copy' ? <Check size={16} /> : <Copy size={16} />}
               {copied === 'copy' ? 'Copied!' : 'Copy snapshot'}
             </button>
@@ -221,7 +196,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               rel="noopener noreferrer"
               onClick={() => capture('gamma_levels_share_clicked', { channel: 'x' })}
               style={outlineBtn}
-              className={outlineHover}
+              className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
               <XIcon /> Post to X
             </a>
@@ -231,7 +206,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               rel="noopener noreferrer"
               onClick={() => capture('gamma_levels_share_clicked', { channel: 'reddit' })}
               style={outlineBtn}
-              className={outlineHover}
+              className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
               <RedditIcon /> Post to Reddit
             </a>
@@ -241,12 +216,12 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               rel="noopener noreferrer"
               onClick={handleStockTwits}
               style={outlineBtn}
-              className={outlineHover}
+              className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
               <MessageSquare size={16} /> {copied === 'stocktwits' ? 'Copied — paste in' : 'StockTwits'}
             </a>
             {canNativeShare && (
-              <button type="button" onClick={handleNativeShare} style={outlineBtn} className={outlineHover}>
+              <button type="button" onClick={handleNativeShare} style={outlineBtn} className={`zg-btn zg-btn--secondary ${outlineHover}`}>
                 <Share2 size={16} /> Share&hellip;
               </button>
             )}

@@ -11,10 +11,8 @@ export default function PricingTrialCta({ symbol }: { symbol: string }) {
   return (
     <section
       aria-labelledby="pricing-trial-heading"
+      className="zg-panel"
       style={{
-        border: '1px solid var(--color-brand-primary)44',
-        background: 'linear-gradient(135deg, var(--color-brand-primary)10 0%, var(--color-surface) 100%)',
-        borderRadius: 18,
         padding: '32px',
         display: 'flex',
         flexDirection: 'column',

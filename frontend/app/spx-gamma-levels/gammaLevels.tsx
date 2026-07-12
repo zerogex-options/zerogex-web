@@ -376,10 +376,8 @@ function SymbolCard({
   return (
     <Link
       href={href}
+      className="zg-panel hover:!border-[var(--color-brand-primary)]"
       style={{
-        background: 'linear-gradient(145deg, var(--color-surface) 0%, var(--bg-active) 100%)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 18,
         padding: '28px 26px',
         display: 'flex',
         flexDirection: 'column',
@@ -389,7 +387,6 @@ function SymbolCard({
         cursor: 'pointer',
         transition: 'border-color 150ms, transform 150ms',
       }}
-      className="hover:!border-[var(--color-brand-primary)]"
     >
       <header>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
@@ -581,19 +578,12 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
         <header style={{ marginBottom: 36 }}>
           <div
+            className="zg-eyebrow"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
               color: 'var(--color-brand-primary)',
-              border: '1px solid var(--color-brand-primary)44',
-              background: 'var(--color-brand-primary)14',
-              borderRadius: 999,
-              padding: '5px 14px',
               marginBottom: 18,
             }}
           >
@@ -625,12 +615,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
         {!anyData && (
           <div
+            className="zg-panel"
             style={{
-              border: '1px solid var(--border-default)',
-              borderRadius: 14,
               padding: '24px',
               marginBottom: 24,
-              background: 'var(--color-surface)',
               color: 'var(--color-text-secondary)',
             }}
           >
@@ -686,6 +674,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             read lives in the dashboard — placed directly against the levels so
             the distinction reads at a glance. */}
         <div
+          className="zg-panel"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -693,9 +682,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             gap: '8px 14px',
             marginBottom: 18,
             padding: '12px 16px',
-            borderRadius: 12,
-            border: '1px solid var(--border-default)',
-            background: 'var(--color-surface)',
             fontSize: 13,
             lineHeight: 1.5,
           }}
@@ -782,7 +768,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               gap: 16,
             }}
           >
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Call wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The strike where call-side dealer gamma piles up. Above a positive-gamma regime, price tends to
@@ -790,7 +776,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 itself is flipping.
               </p>
             </div>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Put wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The strike where put-side dealer gamma piles up — typically the strongest dealer-hedged support
@@ -798,7 +784,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 bear-trend setups in the playbook.
               </p>
             </div>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Gamma flip</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The level where the cumulative dealer-gamma curve crosses zero. Above the flip, dealers are net
@@ -806,7 +792,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 regime line on the dealer book.
               </p>
             </div>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Max pain</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The strike that maximizes the dollar value of options expiring worthless. Useful as an
@@ -814,7 +800,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 writer-payout arithmetic.
               </p>
             </div>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Net dealer GEX (at spot)</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The cumulative dealer-gamma curve evaluated at the current price. Sign-consistent with the
@@ -822,7 +808,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 regime we are.
               </p>
             </div>
-            <div style={{ border: '1px solid var(--border-default)', borderRadius: 14, padding: 22, background: 'var(--color-surface)' }}>
+            <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>One catch</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 These are derived analytics, intentionally delayed. They&apos;re great for context and for the daily
@@ -864,14 +850,12 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           >
             <Link
               href="/forecast"
+              className="zg-panel"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
                 padding: 20,
-                borderRadius: 14,
-                border: '1px solid var(--border-default)',
-                background: 'var(--color-surface)',
                 color: 'var(--color-text-primary)',
                 textDecoration: 'none',
                 position: 'relative',
@@ -918,14 +902,12 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
             <Link
               href="/replay"
+              className="zg-panel"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 10,
                 padding: 20,
-                borderRadius: 14,
-                border: '1px solid var(--border-default)',
-                background: 'var(--color-surface)',
                 color: 'var(--color-text-primary)',
                 textDecoration: 'none',
                 position: 'relative',
@@ -961,12 +943,8 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             {faqs.map((f) => (
               <div
                 key={f.q}
-                style={{
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 14,
-                  padding: 22,
-                  background: 'var(--color-surface)',
-                }}
+                className="zg-panel"
+                style={{ padding: 22 }}
               >
                 <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800, color: 'var(--color-text-primary)' }}>
                   {f.q}
