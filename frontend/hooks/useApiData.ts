@@ -1730,3 +1730,26 @@ export function useForcedFlowLevels(symbol = 'SPY', refreshInterval = 15000) {
     { refreshInterval },
   );
 }
+
+export interface ForcedFlowSurfaceResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  // Ascending spot levels — the rows of `z` (the heatmap's X axis).
+  spots: number[];
+  // Time from now (0) to the close (session_days) — the columns of `z`
+  // (the heatmap's Y axis).
+  times_days: number[];
+  // z[i][j] = net dealer forced flow ($) at spots[i], times_days[j].
+  // Positive = dealers must BUY, negative = SELL.
+  z: number[][];
+}
+
+// The forced-flow surface: net dealer forced flow over a spot × time-of-day
+// grid, driving the diverging heatmap (time_steps left at the server default).
+export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.05, refreshInterval = 15000) {
+  return useApiData<ForcedFlowSurfaceResponse>(
+    `/api/forced-flow/surface?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
+    { refreshInterval },
+  );
+}
