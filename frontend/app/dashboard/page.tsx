@@ -11,6 +11,7 @@ import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
 import PageShell from '@/components/layout/PageShell';
 import SectionHead from '@/components/layout/SectionHead';
+import RegistrationCorners from '@/components/marketing/RegistrationCorners';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -123,7 +124,8 @@ export default function DashboardPage() {
       <TrialStartedBanner />
       {/* Desk readout — the dashboard's focal point: an oversized signed Net
           GEX with the regime word, flanked by spot and the gamma flip. */}
-      <div className="zg-panel mb-8">
+      <div className="zg-panel mb-8" style={{ position: 'relative' }}>
+        <RegistrationCorners color="var(--border-strong)" />
         <div className="flex flex-col md:flex-row">
           <div className="p-5 md:w-60 shrink-0">
             <div className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>{symbol} · Spot</div>
@@ -149,10 +151,10 @@ export default function DashboardPage() {
             </div>
             <div style={{ marginTop: 10 }}>
               <span className="zg-label" style={{ color: netGexAtSpot == null ? 'var(--text-secondary)' : longGamma ? 'var(--color-bull)' : 'var(--color-bear)' }}>
-                {netGexAtSpot == null ? 'Regime —' : longGamma ? 'Long gamma' : 'Short gamma'}
+                {netGexAtSpot == null ? 'Standby' : longGamma ? 'Long gamma' : 'Short gamma'}
               </span>
               <span className="zg-small" style={{ color: 'var(--text-secondary)', marginLeft: 8 }}>
-                {netGexAtSpot == null ? '' : longGamma ? 'dealers dampen — pinning, mean-reversion' : 'dealers accelerate — trending, vol expansion'}
+                {netGexAtSpot == null ? 'awaiting live GEX snapshot' : longGamma ? 'dealers dampen — pinning, mean-reversion' : 'dealers accelerate — trending, vol expansion'}
               </span>
             </div>
           </div>

@@ -722,6 +722,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Faceplate — a subtle instrument grid on the app content ground. Shows only
+   in the negative space between flat panels, so every page reads as a screen
+   even with no live data. Themed via --border-subtle. */
+.zg-faceplate {
+  background-image:
+    linear-gradient(var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+  background-size: 52px 52px;
+  background-attachment: local;
+}
+
 html, body {
   margin: 0;
   padding: 0;
