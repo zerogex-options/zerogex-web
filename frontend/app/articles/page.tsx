@@ -19,6 +19,41 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/why-market-makers-trade-stock',
+    kind: 'Published • July 12, 2026 • 16:00 UTC',
+    title: 'Why Market Makers Are Forced to Trade Stock',
+    blurb:
+      'Dealers don’t trade stock because they have a view — they trade it because the delta of the options they hold keeps moving on its own, and every move mechanically forces a hedge. The foundation of forced dealer flow, and why it’s the most predictable order flow in the market.',
+  },
+  {
+    href: '/education/delta-and-its-three-children',
+    kind: 'Published • July 12, 2026 • 16:00 UTC',
+    title: 'Delta and Its Three Children: Gamma, Charm, and Vanna',
+    blurb:
+      'Delta tells a dealer how much stock to hold, but it never sits still — and it can only move three ways: with price (gamma), with time (charm), and with volatility (vanna). Why a dealer hedges the change in delta, and why you reprice the book instead of summing the greeks.',
+  },
+  {
+    href: '/education/charm-the-clock-is-a-trader',
+    kind: 'Published • July 12, 2026 • 16:00 UTC',
+    title: 'Charm: The Clock Is a Trader',
+    blurb:
+      'Charm is the rate an option’s delta changes as time passes. It forces dealers to trade stock on a dead-flat tape — and because the clock is perfectly predictable, it’s the rare dealer flow you can forecast hours before it prints. A forecast with a deadline.',
+  },
+  {
+    href: '/education/vanna-when-fear-fades',
+    kind: 'Published • July 12, 2026 • 16:00 UTC',
+    title: 'Vanna: When Fear Fades, Dealers Buy',
+    blurb:
+      'Vanna is the rate an option’s delta changes when implied vol changes. When priced fear drains out after an event that never delivered, vanna forces dealers into a steady bid — the “up on no news” grind that hides in the slope, not the volume.',
+  },
+  {
+    href: '/education/why-we-dont-publish-dex',
+    kind: 'Published • July 12, 2026 • 16:00 UTC',
+    title: 'Why We Don’t Publish DEX',
+    blurb:
+      'Delta Exposure looks like the natural sibling of gamma exposure. We refuse to publish it — it measures the one greek dealers have already hedged to zero, weights the dirtiest strikes in the chain, and is loudest exactly where forced flow is weakest. What we publish instead.',
+  },
+  {
     href: '/education/what-is-a-put-wall',
     kind: 'Published • July 7, 2026 • 16:00 UTC',
     title: 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support',

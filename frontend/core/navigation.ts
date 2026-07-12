@@ -118,6 +118,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Articles',
         items: [
           { id: '/education/gamma-exposure-explained', label: 'Gamma Exposure Explained' },
+          { id: '/education/why-market-makers-trade-stock', label: 'Why Dealers Are Forced to Trade' },
           { id: '/education/net-volume-vs-directional-flow', label: 'Options Flow Explained' },
           { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
           { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },

@@ -365,6 +365,66 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 9,
     kind: 'tier1',
   },
+  'why-market-makers-trade-stock': {
+    slug: 'why-market-makers-trade-stock',
+    href: '/education/why-market-makers-trade-stock',
+    title: 'Why Market Makers Are Forced to Trade Stock',
+    blurb:
+      'Dealers don’t trade stock because they have a view — they trade it because the delta of the options they hold keeps moving on its own, and every move mechanically forces a hedge. The foundation of forced dealer flow.',
+    description:
+      'Why market makers are forced to trade stock — delta-hedging, why the option book’s delta never sits still, and how spot, time, and vol force compelled dealer flow with no view attached.',
+    datePublished: '2026-07-12',
+    readMinutes: 8,
+    kind: 'tier1',
+  },
+  'delta-and-its-three-children': {
+    slug: 'delta-and-its-three-children',
+    href: '/education/delta-and-its-three-children',
+    title: 'Delta and Its Three Children: Gamma, Charm, and Vanna',
+    blurb:
+      'Delta tells a dealer how much stock to hold, but it never sits still — and it can only move three ways: with price, with time, and with volatility. Those sensitivities are gamma, charm, and vanna, and together they are forced flow.',
+    description:
+      'Delta and its three children — gamma (delta vs price), charm (delta vs time), and vanna (delta vs vol). Why a dealer hedges the change in delta, and why you reprice the book instead of summing the greeks.',
+    datePublished: '2026-07-12',
+    readMinutes: 7,
+    kind: 'tier2',
+  },
+  'charm-the-clock-is-a-trader': {
+    slug: 'charm-the-clock-is-a-trader',
+    href: '/education/charm-the-clock-is-a-trader',
+    title: 'Charm: The Clock Is a Trader',
+    blurb:
+      'Charm is the rate an option’s delta changes as time passes. It forces dealers to trade stock on a dead-flat tape — and because the clock is perfectly predictable, it’s the rare dealer flow you can forecast hours before it prints.',
+    description:
+      'Charm explained — how time decay alone forces dealer hedging into the close, why the flow accelerates in the final hour, and why charm is a forecast with a deadline you can compute at the open.',
+    datePublished: '2026-07-12',
+    readMinutes: 8,
+    kind: 'tier2',
+  },
+  'vanna-when-fear-fades': {
+    slug: 'vanna-when-fear-fades',
+    href: '/education/vanna-when-fear-fades',
+    title: 'Vanna: When Fear Fades, Dealers Buy',
+    blurb:
+      'Vanna is the rate an option’s delta changes when implied vol changes. When priced fear drains out after an event that never delivered, vanna forces dealers into a steady bid — the “up on no news” grind that hides in the slope, not the volume.',
+    description:
+      'Vanna explained — why a falling IV print forces dealers to buy stock, how the vol-compression grind works, and why the flow shows up in price drift but never in the volume bars.',
+    datePublished: '2026-07-12',
+    readMinutes: 8,
+    kind: 'tier2',
+  },
+  'why-we-dont-publish-dex': {
+    slug: 'why-we-dont-publish-dex',
+    href: '/education/why-we-dont-publish-dex',
+    title: 'Why We Don’t Publish DEX',
+    blurb:
+      'Delta Exposure looks like the natural sibling of gamma exposure. We refuse to publish it: it measures the one greek dealers have already hedged to zero, weights the dirtiest strikes in the chain, and is loudest exactly where forced flow is weakest.',
+    description:
+      'Why we don’t publish DEX (delta exposure = ΣΔ·OI) — dealers hedge delta flat with stock, delta’s weight sits in the illiquid deep-ITM wings, and DEX is loudest where forced flow is weakest. What we publish instead: Forced Flow.',
+    datePublished: '2026-07-12',
+    readMinutes: 9,
+    kind: 'article',
+  },
 };
 
 /**
@@ -391,8 +451,8 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   '0dte-dealer-positioning-explained': [
     'gamma-exposure-explained',
-    'how-to-read-a-gamma-flip',
     'vanna-and-charm-explained',
+    'charm-the-clock-is-a-trader',
   ],
   'max-pain-explained': [
     'gamma-exposure-explained',
@@ -400,9 +460,9 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
   ],
   'vanna-and-charm-explained': [
-    'gamma-exposure-explained',
-    '0dte-dealer-positioning-explained',
-    'how-to-read-a-gamma-flip',
+    'charm-the-clock-is-a-trader',
+    'vanna-when-fear-fades',
+    'why-we-dont-publish-dex',
   ],
   'best-gex-tools': [
     'gamma-exposure-explained',
@@ -503,6 +563,31 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
     'what-is-negative-gamma',
+  ],
+  'why-market-makers-trade-stock': [
+    'delta-and-its-three-children',
+    'why-we-dont-publish-dex',
+    'vanna-and-charm-explained',
+  ],
+  'delta-and-its-three-children': [
+    'why-market-makers-trade-stock',
+    'charm-the-clock-is-a-trader',
+    'vanna-when-fear-fades',
+  ],
+  'charm-the-clock-is-a-trader': [
+    'vanna-when-fear-fades',
+    'delta-and-its-three-children',
+    'eod-pressure-explained',
+  ],
+  'vanna-when-fear-fades': [
+    'charm-the-clock-is-a-trader',
+    'delta-and-its-three-children',
+    'vanna-and-charm-explained',
+  ],
+  'why-we-dont-publish-dex': [
+    'why-market-makers-trade-stock',
+    'delta-and-its-three-children',
+    'gamma-exposure-explained',
   ],
 };
 
