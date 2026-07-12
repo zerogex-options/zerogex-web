@@ -33,19 +33,12 @@ const TRIAL_DAYS = 7;
 function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span
+      className="zg-eyebrow"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         color: C.amber,
-        border: `1px solid ${C.amber}55`,
-        borderRadius: 999,
-        background: `${C.amber}12`,
-        padding: '5px 14px',
-        fontSize: 12,
-        fontWeight: 800,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
       }}
     >
       {children}
@@ -58,37 +51,21 @@ function FeatureCard({
   title,
   body,
 }: {
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+  icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }>;
   title: string;
   body: string;
 }) {
   return (
     <div
+      className="zg-panel"
       style={{
-        background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${C.border}`,
-        borderRadius: 18,
         padding: 28,
         display: 'flex',
         flexDirection: 'column',
         gap: 12,
       }}
     >
-      <div
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          background: `${C.amber}18`,
-          border: `1px solid ${C.amber}44`,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: C.amber,
-        }}
-      >
-        <Icon size={22} color={C.amber} />
-      </div>
+      <Icon size={24} strokeWidth={1.75} style={{ color: C.amber, flexShrink: 0, marginTop: 2 }} />
       <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light, letterSpacing: '-0.2px' }}>{title}</h3>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: C.muted }}>{body}</p>
     </div>
@@ -98,10 +75,8 @@ function FeatureCard({
 function PainPoint({ title, body }: { title: string; body: string }) {
   return (
     <div
+      className="zg-panel"
       style={{
-        background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${C.border}`,
-        borderRadius: 16,
         padding: 24,
       }}
     >
@@ -130,15 +105,12 @@ function TierCard({
 }) {
   return (
     <article
+      className="zg-panel"
       style={{
-        background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${highlight ? `${C.amber}88` : C.border}`,
-        borderRadius: 18,
         padding: 28,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        boxShadow: highlight ? `0 18px 48px ${C.amber}25` : `0 8px 24px var(--color-info-soft)`,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
@@ -181,18 +153,11 @@ function TierCard({
 
       <Link href={ctaHref} style={{ textDecoration: 'none', marginTop: 22 }}>
         <span
+          className="zg-btn zg-btn--primary"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
             width: '100%',
             padding: '12px 18px',
-            borderRadius: 12,
-            background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-            color: 'var(--text-inverse)',
             fontSize: 14,
-            fontWeight: 800,
           }}
         >
           {ctaLabel} <ArrowRight size={16} />
@@ -214,7 +179,6 @@ export default function RealTimeGexLandingClient() {
         style={{
           background: `${C.bg}ee`,
           borderBottom: `1px solid ${C.border}`,
-          backdropFilter: 'blur(20px)',
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
@@ -238,15 +202,10 @@ export default function RealTimeGexLandingClient() {
           </button>
           <Link href="/pricing" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-btn zg-btn--secondary"
               style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
                 padding: '8px 14px',
                 fontSize: 13,
-                fontWeight: 700,
-                color: C.light,
-                cursor: 'pointer',
               }}
             >
               Pricing
@@ -254,19 +213,10 @@ export default function RealTimeGexLandingClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-btn zg-btn--primary"
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                border: 'none',
-                borderRadius: 10,
                 padding: '8px 14px',
                 fontSize: 13,
-                fontWeight: 800,
-                color: 'var(--text-inverse)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                boxShadow: `0 4px 16px ${C.amber}50`,
               }}
             >
               Free Gamma Levels <ArrowRight size={14} />
@@ -325,19 +275,10 @@ export default function RealTimeGexLandingClient() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--primary"
                 style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                  border: 'none',
-                  borderRadius: 14,
                   padding: '15px 28px',
                   fontSize: 15,
-                  fontWeight: 800,
-                  color: 'var(--text-inverse)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  boxShadow: `0 12px 36px ${C.amber}45`,
                 }}
               >
                 Open free gamma levels <ArrowRight size={16} />
@@ -345,18 +286,10 @@ export default function RealTimeGexLandingClient() {
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--secondary"
                 style={{
-                  background: 'transparent',
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 14,
                   padding: '15px 28px',
                   fontSize: 15,
-                  fontWeight: 800,
-                  color: C.light,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
                 }}
               >
                 Start {TRIAL_DAYS}-day free trial <ArrowRight size={16} />
@@ -482,14 +415,11 @@ export default function RealTimeGexLandingClient() {
       {/* Proof / free gamma levels */}
       <section style={{ padding: '70px 24px', borderTop: `1px solid ${C.border}` }}>
         <div
+          className="zg-panel"
           style={{
             maxWidth: 980,
             margin: '0 auto',
-            background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-            border: `1px solid ${C.amber}55`,
-            borderRadius: 22,
             padding: '36px 28px',
-            boxShadow: `0 18px 60px ${C.amber}20`,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center', textAlign: 'center' }}>
@@ -529,7 +459,7 @@ export default function RealTimeGexLandingClient() {
                     alignItems: 'center',
                     gap: 8,
                     padding: '10px 14px',
-                    borderRadius: 12,
+                    borderRadius: 'var(--radius-panel)',
                     border: `1px solid ${C.border}`,
                     background: 'var(--bg-hover)',
                     fontSize: 13,
@@ -546,19 +476,10 @@ export default function RealTimeGexLandingClient() {
 
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none', marginTop: 8 }}>
               <button
+                className="zg-btn zg-btn--primary"
                 style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                  border: 'none',
-                  borderRadius: 14,
                   padding: '15px 28px',
                   fontSize: 15,
-                  fontWeight: 800,
-                  color: 'var(--text-inverse)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  boxShadow: `0 12px 36px ${C.amber}45`,
                 }}
               >
                 Open free gamma levels <ArrowRight size={16} />
@@ -667,10 +588,8 @@ export default function RealTimeGexLandingClient() {
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
                 <div
+                  className="zg-panel"
                   style={{
-                    background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 14,
                     padding: 18,
                     display: 'flex',
                     flexDirection: 'column',
@@ -720,19 +639,10 @@ export default function RealTimeGexLandingClient() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--primary"
                 style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                  border: 'none',
-                  borderRadius: 16,
                   padding: '18px 36px',
-                  fontSize: 17,
-                  fontWeight: 800,
-                  color: 'var(--text-inverse)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  boxShadow: `0 14px 48px ${C.amber}50`,
+                  fontSize: 15,
                 }}
               >
                 Open free gamma levels <ArrowRight size={18} />
@@ -740,18 +650,10 @@ export default function RealTimeGexLandingClient() {
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--secondary"
                 style={{
-                  background: 'transparent',
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 16,
                   padding: '18px 36px',
-                  fontSize: 17,
-                  fontWeight: 800,
-                  color: C.light,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
+                  fontSize: 15,
                 }}
               >
                 See pricing <ArrowRight size={18} />
