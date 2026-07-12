@@ -1775,13 +1775,22 @@ export interface ForcedFlowBacktestResponse {
   evaluated_sessions: number;
   hits: number;
   hit_rate: number | null;
+  // 95% Wilson confidence band on the hit rate — the honest width of the read.
+  hit_rate_ci_low: number | null;
+  hit_rate_ci_high: number | null;
   // Naive "always guess the more common direction" accuracy — the honesty
   // yardstick. hit_rate at or below this is worth nothing.
   baseline_rate: number | null;
   edge: number | null;
+  // One-sided p-value that the accuracy beats the baseline by luck. Small = real.
+  edge_p_value: number | null;
+  // True only when the edge clears 95% on a sample of ≥30 decisive sessions.
+  significant: boolean;
   // Mean of predicted_dir × noon→close return — the signal's average P&L
   // before costs. Can be negative.
   signal_mean_return: number | null;
+  // t-stat of the per-session P&L against zero. |t| ≳ 2 ≈ distinguishable.
+  signal_t_stat: number | null;
   records: ForcedFlowBacktestRecord[];
 }
 

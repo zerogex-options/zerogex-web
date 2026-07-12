@@ -55,7 +55,7 @@ This is precisely the number the [Charm-into-Close bulletin](/forced-flow) surfa
 
 ## Putting a number on it
 
-Suppose it is a Friday with heavy 0DTE positioning in SPY, spot at 560, and the dealer book is short the near-the-money calls that customers bought for the day. As those calls decay, their deltas fall, the dealer's short-delta exposure shrinks, and the dealer sells stock to stay hedged. The engine reprices the book at 4pm with spot held at 560 and finds dealer delta lower by 6 million shares versus now. That is 6,000,000 × $560 ≈ **$34 million** of forced selling between now and the bell, most of it landing after 2:30pm — computable at 9:35 that morning.
+Suppose it is a Friday with heavy 0DTE positioning in SPY, spot at 560, and the dealer book is short the near-the-money calls that customers bought for the day. As those calls decay, their deltas fall, the dealer's short-delta exposure shrinks, and the dealer sells stock to stay hedged. The engine reprices the book at 4pm with spot held at 560 and finds dealer delta about 60,000 shares lower than now. The forced trade is that share change times the price: 60,000 × $560 ≈ **$34 million** of forced selling between now and the bell, most of it landing after 2:30pm — computable at 9:35 that morning.
 
 Flip the book's sign and the same clock forces buying instead. Charm does not have an inherent direction the way gravity has "down"; the direction is set by which strikes the dealers are short and long. What is invariant is the *timing*: whatever the sign, the flow concentrates into the close and you can see it coming.
 

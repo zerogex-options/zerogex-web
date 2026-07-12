@@ -36,6 +36,21 @@ export default function ForcedFlowTrackRecord({
   const edgeColor =
     edge == null ? 'var(--text-secondary)' : edge > 0.005 ? chart.bull : edge < -0.005 ? chart.bear : chart.warning;
 
+  // Significance verdict — the institutional gate. Only a green "significant"
+  // badge counts; everything else is explicitly "not yet proven".
+  const significant = data?.significant ?? false;
+  const pValue = data?.edge_p_value ?? null;
+  const verdictColor = significant ? chart.bull : chart.warning;
+  const verdictLabel = significant
+    ? 'Significant at 95%'
+    : evaluated < 30
+      ? 'Sample too small'
+      : 'Not yet significant';
+  const ciLabel =
+    data?.hit_rate_ci_low != null && data?.hit_rate_ci_high != null
+      ? `95% CI ${formatPct(data.hit_rate_ci_low, 0)}–${formatPct(data.hit_rate_ci_high, 0)}`
+      : null;
+
   return (
     <div
       className="rounded-2xl p-6"
@@ -78,9 +93,33 @@ export default function ForcedFlowTrackRecord({
         </div>
       ) : (
         <>
+          {/* Significance verdict — the first thing an institutional reader
+              should see, so a lucky point estimate can't be mistaken for edge. */}
+          <div
+            className="mb-4 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold"
+            style={{ background: 'var(--bg-elevated, rgba(127,127,127,0.08))', color: verdictColor }}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: verdictColor }}
+            />
+            {verdictLabel}
+            {pValue != null && evaluated >= 30 && (
+              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+                p = {pValue < 0.001 ? '<0.001' : pValue.toFixed(3)}
+              </span>
+            )}
+          </div>
+
           {/* Headline stat row. */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-            <Stat label="Hit rate" value={formatPct(data!.hit_rate, 1)} valueColor={textColor} big />
+            <Stat
+              label="Hit rate"
+              value={formatPct(data!.hit_rate, 1)}
+              valueColor={textColor}
+              sub={ciLabel}
+              big
+            />
             <Stat label="Baseline" value={formatPct(data!.baseline_rate, 1)} valueColor="var(--text-secondary)" />
             <Stat
               label="Edge vs. baseline"
@@ -97,6 +136,7 @@ export default function ForcedFlowTrackRecord({
                     ? chart.bull
                     : chart.bear
               }
+              sub={data!.signal_t_stat == null ? null : `t = ${data!.signal_t_stat.toFixed(2)}`}
             />
           </div>
 
@@ -147,9 +187,11 @@ export default function ForcedFlowTrackRecord({
           </div>
 
           <p className="mt-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Signal / session is the mean of (charm direction × noon → close return) — the pre-cost
-            drift of taking the charm sign at noon and closing at the bell. Educational only; not a
-            trade recommendation.
+            Hit rate carries a 95% Wilson confidence band; the verdict runs a one-sided test that the
+            accuracy beats the baseline, and only certifies an edge at 95% once at least 30 decisive
+            sessions have accrued. Signal / session is the mean of (charm direction × noon → close
+            return) — the pre-cost drift of taking the charm sign at noon and closing at the bell,
+            with its t-stat against zero. Educational only; not a trade recommendation.
           </p>
         </>
       )}
@@ -161,11 +203,13 @@ function Stat({
   label,
   value,
   valueColor,
+  sub = null,
   big = false,
 }: {
   label: string;
   value: string;
   valueColor: string;
+  sub?: string | null;
   big?: boolean;
 }) {
   return (
@@ -176,6 +220,11 @@ function Stat({
       <div className={big ? 'text-3xl font-bold' : 'text-xl font-bold'} style={{ color: valueColor }}>
         {value}
       </div>
+      {sub && (
+        <div className="mt-0.5 text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
