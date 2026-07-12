@@ -46,12 +46,7 @@ function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
 }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 56 }}>
-      <div style={{
-        display: 'inline-block', fontSize: 11, fontWeight: 700,
-        letterSpacing: '0.18em', textTransform: 'uppercase',
-        color, background: `${color}18`, border: `1px solid ${color}40`,
-        borderRadius: 100, padding: '4px 14px', marginBottom: 16,
-      }}>
+      <div className="zg-eyebrow" style={{ color, marginBottom: 16, fontSize: 12 }}>
         {eyebrow}
       </div>
       <h2 style={{
@@ -77,16 +72,9 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
   icon: React.ElementType; title: string; body: string; color?: string; isDark?: boolean;
 }) {
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: `1px solid ${C.border}`, borderRadius: 16, padding: '28px 24px',
-    }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: 12,
-        background: `${color}20`, border: `1px solid ${color}40`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-      }}>
-        <Icon size={22} style={{ color }} />
+    <div className="zg-panel" style={{ padding: '28px 24px' }}>
+      <div style={{ marginBottom: 16 }}>
+        <Icon size={24} strokeWidth={1.75} style={{ color }} />
       </div>
       <div style={{ fontSize: 16, fontWeight: 700, color: C.light, marginBottom: 8 }}>{title}</div>
       <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.65 }}>{body}</div>
@@ -100,7 +88,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
   return (
     <div style={{
       border: `1px solid ${open ? C.amber + '40' : C.border}`,
-      borderRadius: 14, overflow: 'hidden',
+      borderRadius: 'var(--radius-panel)', overflow: 'hidden',
       transition: 'border-color 0.2s',
     }}>
       <button
@@ -137,26 +125,18 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
     >
       <div style={{
         display: 'flex', alignItems: 'center', gap: 16,
-        padding: '18px 22px', borderRadius: 14,
-        background: isDark ? `${C.card}cc` : 'var(--bg-card)', border: `1px solid ${C.border}`,
+        padding: '18px 22px', borderRadius: 'var(--radius-panel)',
+        background: 'var(--bg-card)', border: `1px solid ${C.border}`,
         transition: 'all 0.2s', cursor: 'pointer',
       }}
         onMouseEnter={e => {
           (e.currentTarget as HTMLElement).style.borderColor = C.amber + '50';
-          (e.currentTarget as HTMLElement).style.background = `${C.amber}10`;
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.borderColor = C.border;
-          (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}cc` : 'var(--bg-card)';
         }}
       >
-        <div style={{
-          width: 40, height: 40, borderRadius: 10,
-          background: `${C.amber}20`, border: `1px solid ${C.amber}40`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <ExternalLink size={18} style={{ color: C.amber }} />
-        </div>
+        <ExternalLink size={20} strokeWidth={1.75} style={{ color: C.amber, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.light, marginBottom: 3 }}>{label}</div>
           <div style={{ fontSize: 12, color: C.muted }}>{desc}</div>
@@ -205,13 +185,7 @@ export default function AboutPage() {
         }} />
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 800 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.15em',
-            textTransform: 'uppercase', color: C.green,
-            background: `${C.green}18`, border: `1px solid ${C.green}40`,
-            borderRadius: 100, padding: '5px 16px', marginBottom: 24,
-          }}>
+          <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 24, fontSize: 12 }}>
             About ZeroGEX
           </div>
           <h1 style={{
@@ -233,23 +207,12 @@ export default function AboutPage() {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                border: 'none', borderRadius: 12, padding: '14px 28px',
-                fontSize: 15, fontWeight: 700, color: 'var(--text-inverse)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 8,
-                boxShadow: `0 8px 28px ${C.amber}50`,
-              }}>
+              <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '14px 28px' }}>
                 Open Dashboard <ArrowRight size={16} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: 'transparent', border: `1px solid ${C.border}`,
-                borderRadius: 12, padding: '14px 28px',
-                fontSize: 15, fontWeight: 600, color: C.light,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-              }}>
+              <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '14px 28px' }}>
                 View Price Tiers <ArrowRight size={14} />
               </button>
             </Link>
@@ -291,12 +254,9 @@ export default function AboutPage() {
       {/* ── Founder Intro ────────────────────────────────────────────────────── */}
       <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto' }}>
         <div
+          className="zg-panel"
           style={{
-            background: isDark ? `${C.card}aa` : 'var(--bg-card)',
-            border: `1px solid ${C.border}`,
-            borderRadius: 20,
             padding: 'clamp(28px, 4vw, 44px)',
-            backdropFilter: 'blur(12px)',
             position: 'relative',
             overflow: 'hidden',
           }}
@@ -305,19 +265,11 @@ export default function AboutPage() {
             style={{
               position: 'absolute',
               top: 0, left: 0, bottom: 0,
-              width: 4,
-              background: `linear-gradient(180deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
+              width: 3,
+              background: C.amber,
             }}
           />
-          <div
-            style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700,
-              letterSpacing: '0.18em', textTransform: 'uppercase',
-              color: C.amber, background: `${C.amber}18`,
-              border: `1px solid ${C.amber}40`, borderRadius: 100,
-              padding: '4px 14px', marginBottom: 18,
-            }}
-          >
+          <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 18, fontSize: 12 }}>
             About ZeroGEX
           </div>
           <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
@@ -337,13 +289,7 @@ export default function AboutPage() {
           gap: 40, alignItems: 'center',
         }}>
           <div>
-            <div style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700,
-              letterSpacing: '0.18em', textTransform: 'uppercase',
-              color: C.amber, background: `${C.amber}18`,
-              border: `1px solid ${C.amber}40`, borderRadius: 100,
-              padding: '4px 14px', marginBottom: 20,
-            }}>
+            <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 20, fontSize: 12 }}>
               Our Mission
             </div>
             <h2 style={{
@@ -370,10 +316,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div style={{
-            background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
-            borderRadius: 20, padding: 28, backdropFilter: 'blur(12px)',
-          }}>
+          <div className="zg-panel" style={{ padding: '28px 28px 12px' }}>
             {[
               { icon: Shield, label: 'Institutional Grade', desc: 'Same metrics tracked by major banks and market makers, without the Bloomberg subscription', color: C.amber },
               { icon: Clock,  label: '1-Second Refresh',   desc: 'Real-time data pipeline refreshing GEX, flow, and positioning every second markets are open', color: C.green },
@@ -381,16 +324,10 @@ export default function AboutPage() {
               { icon: Cpu,    label: 'Purpose-Built Engine', desc: 'Proprietary gamma calculation engine built from the ground up for speed and accuracy', color: C.green },
             ].map((item) => (
               <div key={item.label} style={{
-                display: 'flex', gap: 14, alignItems: 'flex-start',
+                display: 'flex', gap: 16, alignItems: 'flex-start',
                 padding: '16px 0', borderBottom: `1px solid ${C.border}`,
               }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  background: `${item.color}20`, border: `1px solid ${item.color}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <item.icon size={17} style={{ color: item.color }} />
-                </div>
+                <item.icon size={20} strokeWidth={1.75} style={{ color: item.color, flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>{item.label}</div>
                   <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>{item.desc}</div>
@@ -501,28 +438,19 @@ export default function AboutPage() {
             },
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-              <div style={{
-                background: isDark ? `${C.card}99` : 'var(--bg-card)', border: `1px solid ${C.border}`,
-                borderRadius: 16, padding: '22px 20px',
+              <div className="zg-panel" style={{
+                padding: '22px 20px',
                 display: 'flex', gap: 16, alignItems: 'flex-start',
-                transition: 'all 0.2s', cursor: 'pointer',
+                transition: 'border-color 0.2s', cursor: 'pointer',
               }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = item.color + '50';
-                  (e.currentTarget as HTMLElement).style.background = `${item.color}0a`;
+                  (e.currentTarget as HTMLElement).style.borderColor = item.color + '80';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = C.border;
-                  (e.currentTarget as HTMLElement).style.background = isDark ? `${C.card}99` : 'var(--bg-card)';
+                  (e.currentTarget as HTMLElement).style.borderColor = '';
                 }}
               >
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: `${item.color}20`, border: `1px solid ${item.color}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <item.icon size={20} style={{ color: item.color }} />
-                </div>
+                <item.icon size={24} strokeWidth={1.75} style={{ color: item.color, flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: C.light, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     {item.label}
@@ -569,18 +497,9 @@ export default function AboutPage() {
             />
           </div>
 
-          <div style={{
-            background: isDark ? `${C.card}aa` : 'var(--bg-card)', border: `1px solid ${C.border}`,
-            borderRadius: 20, padding: '32px 36px',
-          }}>
+          <div className="zg-panel" style={{ padding: '32px 36px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 12,
-                background: `${C.green}20`, border: `1px solid ${C.green}40`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Code2 size={20} style={{ color: C.green }} />
-              </div>
+              <Code2 size={24} strokeWidth={1.75} style={{ color: C.green, flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.light }}>Sample of available endpoints</div>
                 <div style={{ fontSize: 13, color: C.muted }}>A selection of the most-used endpoints — full catalog at the docs links above. All endpoints require a Bearer API key.</div>
@@ -605,13 +524,13 @@ export default function AboutPage() {
               ].map((ep) => (
                 <div key={ep.path} style={{
                   background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
-                  borderRadius: 10, padding: '12px 14px',
+                  borderRadius: 'var(--radius-panel)', padding: '12px 14px',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{
                       fontSize: 10, fontWeight: 800, color: C.green,
                       background: `${C.green}20`, border: `1px solid ${C.green}30`,
-                      borderRadius: 5, padding: '2px 7px', letterSpacing: '0.05em',
+                      borderRadius: 'var(--radius-panel)', padding: '2px 7px', letterSpacing: '0.05em',
                     }}>
                       {ep.method}
                     </span>
@@ -697,23 +616,12 @@ export default function AboutPage() {
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                border: 'none', borderRadius: 14,
-                padding: '16px 40px', fontSize: 17, fontWeight: 800, color: 'var(--text-inverse)',
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
-                boxShadow: `0 12px 40px ${C.amber}55`,
-              }}>
+              <button className="zg-btn zg-btn--primary" style={{ padding: '16px 40px', fontSize: 15 }}>
                 Launch Dashboard <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
-              <button style={{
-                background: 'transparent', border: `1px solid ${C.border}`,
-                borderRadius: 14, padding: '16px 32px',
-                fontSize: 16, fontWeight: 600, color: C.light,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
-              }}>
+              <button className="zg-btn zg-btn--secondary" style={{ padding: '16px 32px', fontSize: 14 }}>
                 <BookOpen size={16} /> Review Tier Access
               </button>
             </Link>
