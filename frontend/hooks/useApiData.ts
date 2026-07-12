@@ -1630,3 +1630,103 @@ export function useBasicConfluenceMatrix(symbol = 'SPY', lookback = 120, refresh
     { refreshInterval },
   );
 }
+
+// ── Forced Flow (dealer forced-hedging attribution) — Phase 4 ──
+// The "Forced Flow" endpoints model the dollars of stock dealers are
+// mechanically forced to buy (+) or sell (−) to stay delta-hedged as the
+// underlying moves (gamma), time decays (charm), or implied vol shifts
+// (vanna). Backed by the /api/forced-flow/* API surface.
+
+export interface ForcedFlowCurvePoint {
+  price: number;
+  total: number;
+  gamma: number;
+  charm: number;
+  vanna: number;
+}
+
+export interface ForcedFlowCurveResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  horizon_days: number;
+  // Spot level at which the total forced flow crosses zero (dealers flip from
+  // net buyers to net sellers). Null when the curve is one-signed across the
+  // scanned range.
+  zero_flow_level: number | null;
+  curve: ForcedFlowCurvePoint[];
+}
+
+// Forced-flow reprice curve: total dealer hedging flow (and its gamma / charm /
+// vanna attribution) as a function of a hypothetical spot, spanning
+// spot_range_pct either side of the live spot.
+export function useForcedFlowCurve(symbol = 'SPY', spotRangePct = 0.05, refreshInterval = 15000) {
+  return useApiData<ForcedFlowCurveResponse>(
+    `/api/forced-flow/curve?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowCharmDecayPoint {
+  days_elapsed: number;
+  flow: number;
+}
+
+export interface ForcedFlowCharmDecayResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  session_days: number;
+  // Cumulative charm-driven forced flow ($) realised by the close if spot holds.
+  close_flow_usd: number;
+  curve: ForcedFlowCharmDecayPoint[];
+}
+
+// Cumulative charm-decay flow into the close — how time decay alone forces
+// dealer hedging as the session runs down to 4 PM.
+export function useForcedFlowCharmDecay(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowCharmDecayResponse>(
+    `/api/forced-flow/charm-decay?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowVannaLadderPoint {
+  vol_change_pts: number;
+  flow: number;
+}
+
+export interface ForcedFlowVannaLadderResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  curve: ForcedFlowVannaLadderPoint[];
+}
+
+// Vanna ladder: dealer forced flow ($) as a function of a VIX/implied-vol
+// change in points (−3 … +3), spot held.
+export function useForcedFlowVannaLadder(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowVannaLadderResponse>(
+    `/api/forced-flow/vanna-ladder?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowLevelsResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  gamma_flip: number | null;
+  charm_flip: number | null;
+  vanna_flip: number | null;
+  zero_flow_level: number | null;
+}
+
+// The forced-flow regime map: the key spot levels (gamma / charm / vanna flip
+// and the aggregate zero-flow level) that bound the dealer-hedging regime.
+export function useForcedFlowLevels(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowLevelsResponse>(
+    `/api/forced-flow/levels?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
