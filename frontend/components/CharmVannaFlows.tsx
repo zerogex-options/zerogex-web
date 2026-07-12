@@ -132,7 +132,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
         className="rounded-2xl p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
       <div className="flex items-center gap-2 mb-5">

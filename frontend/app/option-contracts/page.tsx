@@ -1,5 +1,6 @@
 "use client";
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo, useState } from "react";
 import {
   Bar,
@@ -708,7 +709,7 @@ export default function OptionContractsPage() {
         : null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <h1 className="text-3xl font-bold mb-6">Live Options Quotes</h1>
 
       {dropdownLoadError && (
@@ -809,6 +810,6 @@ export default function OptionContractsPage() {
           />
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }

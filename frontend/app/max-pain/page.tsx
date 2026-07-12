@@ -16,6 +16,8 @@ import {
 import { useApiData, useGEXSummary } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import MetricCard from "@/components/MetricCard";
+import PageShell from "@/components/layout/PageShell";
+import SectionHead from "@/components/layout/SectionHead";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
@@ -60,17 +62,6 @@ interface MarketHistoryRow {
   low?: number;
   close?: number;
   price?: number;
-}
-
-function SectionTitle({ title, tooltip }: { title: string; tooltip: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-2xl font-semibold">{title}</h2>
-      <TooltipWrapper text={tooltip}>
-        <Info size={14} />
-      </TooltipWrapper>
-    </div>
-  );
 }
 
 function safeNum(v: unknown) {
@@ -398,8 +389,8 @@ export default function MaxPainPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Max Pain</h1>
+    <PageShell>
+      <h1 className="zg-h1 mb-8">Max Pain</h1>
       <RegimeSummaryBanner
         title="Max Pain Regime"
         badge={maxPainBadge}
@@ -408,7 +399,7 @@ export default function MaxPainPage() {
       />
 
       <section className="mb-8">
-        <SectionTitle title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
+        <SectionHead title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)' }}>
             <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
@@ -446,7 +437,7 @@ export default function MaxPainPage() {
       </section>
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
-        <SectionTitle title="Notional Open Interest by Strike" tooltip="Select expiration and view call/put notional by strike with max pain and underlying reference lines." />
+        <SectionHead title="Notional Open Interest by Strike" tooltip="Select expiration and view call/put notional by strike with max pain and underlying reference lines." />
 
         {expirationOptions.length > 0 ? (
           <div className="mb-4">
@@ -539,7 +530,7 @@ export default function MaxPainPage() {
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
         <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-          <SectionTitle title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
+          <SectionHead title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
           <div className="flex items-center gap-3 flex-wrap">
             <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} className="mb-0" />
           </div>
@@ -647,6 +638,6 @@ export default function MaxPainPage() {
           </div>
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }

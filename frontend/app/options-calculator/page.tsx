@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
@@ -532,7 +533,7 @@ export default function OptionsCalculatorPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-6 mb-6">
@@ -796,6 +797,6 @@ export default function OptionsCalculatorPage() {
         </>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

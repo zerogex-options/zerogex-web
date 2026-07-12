@@ -3,7 +3,6 @@
 import { Info } from 'lucide-react';
 import { MetricCardProps } from '@/core/types';
 import TooltipWrapper from './TooltipWrapper';
-import { useTheme } from '@/core/ThemeContext';
 
 export default function MetricCard({
   title,
@@ -13,44 +12,29 @@ export default function MetricCard({
   trend = 'neutral',
   tooltip,
   icon,
-  theme,
   contextBadge,
 }: MetricCardProps) {
-  const { theme: activeTheme } = useTheme();
-  const resolvedTheme = activeTheme || theme;
+  // Trend keys the value color to direction — bull/bear on data, neutral
+  // otherwise. This is the one sanctioned use of semantic color here.
   const trendColors = {
     bullish: 'var(--color-bull)',
     bearish: 'var(--color-bear)',
-    neutral: "var(--text-primary)",
+    neutral: 'var(--text-primary)',
   };
 
   return (
-    <div
-      className="h-full p-6 rounded-2xl flex flex-col"
-      style={{
-        backgroundColor: "var(--bg-card)",
-        border: `1px solid ${'var(--text-secondary)'}`,
-        boxShadow: resolvedTheme === 'dark'
-          ? '0 4px 12px var(--color-info-soft), 0 1px 3px var(--color-info-soft)'
-          : '0 4px 12px var(--color-info-soft), 0 1px 3px var(--border-subtle)',
-      }}
-    >
+    <div className="zg-panel h-full p-5 flex flex-col">
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           {icon && <div style={{ color: 'var(--text-secondary)' }}>{icon}</div>}
-          <h3
-            className="zg-small"
-            style={{ color: 'var(--text-secondary)', fontWeight: 600 }}
-          >
-            {title}
-          </h3>
+          <h3 className="zg-eyebrow">{title}</h3>
         </div>
         <TooltipWrapper text={tooltip}>
           <Info size={14} />
         </TooltipWrapper>
       </div>
       <div
-        className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 break-words"
+        className="zg-metric text-3xl sm:text-4xl mb-2 break-words"
         style={{
           color: trendColors[trend],
         }}

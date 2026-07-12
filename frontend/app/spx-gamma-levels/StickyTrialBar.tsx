@@ -91,7 +91,6 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
         padding: '10px max(16px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom))',
         background: 'color-mix(in srgb, var(--color-surface) 92%, transparent)',
         borderTop: '1px solid var(--color-brand-primary)44',
-        backdropFilter: 'blur(16px)',
         boxShadow: '0 -8px 32px rgba(0,0,0,0.28)',
       }}
     >
@@ -115,21 +114,13 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
       <Link
         href="/register"
         onClick={() => capture(TelemetryEvent.TrialCtaClick, { location: 'sticky_bar', symbol, ...readUtmParams() })}
+        className="zg-btn zg-btn--primary"
         style={{
           flexShrink: 0,
-          background: 'var(--color-brand-primary)',
-          color: '#ffffff',
           padding: '10px 16px',
-          borderRadius: 999,
           fontSize: 13.5,
-          fontWeight: 800,
-          textDecoration: 'none',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
           whiteSpace: 'nowrap',
         }}
-        className="transition-opacity hover:opacity-90"
       >
         Start Free Trial <ArrowRight size={15} />
       </Link>

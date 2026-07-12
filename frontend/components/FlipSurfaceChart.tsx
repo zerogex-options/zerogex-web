@@ -501,7 +501,7 @@ export default function FlipSurfaceChart({
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
         <div className="flex items-start justify-between gap-3 mb-4 flex-wrap shrink-0">

@@ -2,8 +2,6 @@
  * Loading spinner component
  */
 
-import { useTheme } from '@/core/ThemeContext';
-
 export default function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
     sm: 'h-6 w-6',
@@ -19,12 +17,14 @@ export default function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | '
 }
 
 export function LoadingCard() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  // Ruled skeleton in the flat-panel language: a kicker line, an oversized
+  // value line, and a caption line — reads as an instrument warming up, not a
+  // spinner in a box.
   return (
-    <div className="rounded-lg p-6 animate-pulse" style={{ backgroundColor: isDark ? 'var(--color-surface)' : 'var(--color-surface-subtle)' }}>
-      <div className="h-4 rounded w-1/2 mb-4" style={{ backgroundColor: isDark ? 'var(--color-text-secondary)' : 'var(--color-border)' }}></div>
-      <div className="h-8 rounded w-3/4" style={{ backgroundColor: isDark ? 'var(--color-text-secondary)' : 'var(--color-border)' }}></div>
+    <div className="zg-panel p-5 h-full">
+      <div className="zg-skeleton-line" style={{ width: '42%', height: 10, marginBottom: 18 }} />
+      <div className="zg-skeleton-line" style={{ width: '68%', height: 26, marginBottom: 12 }} />
+      <div className="zg-skeleton-line" style={{ width: '52%', height: 10 }} />
     </div>
   );
 }

@@ -286,7 +286,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
         className="rounded-2xl p-6 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
         <div className="flex items-center gap-2 mb-4">
@@ -397,7 +397,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                     data={chartData}
                     margin={{ top: 12, right: 24, left: 16, bottom: 24 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.5} />
+                    <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                     <XAxis
                       type="number"
                       domain={priceDomain ?? ['dataMin', 'dataMax']}

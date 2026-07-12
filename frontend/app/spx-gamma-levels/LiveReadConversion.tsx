@@ -11,10 +11,8 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
   return (
     <section
       aria-labelledby="live-read-heading"
+      className="zg-panel"
       style={{
-        border: '1px solid var(--color-brand-primary)55',
-        background: 'linear-gradient(135deg, var(--color-brand-primary)14 0%, var(--color-surface) 100%)',
-        borderRadius: 18,
         padding: '32px',
         display: 'flex',
         flexDirection: 'column',
@@ -23,20 +21,13 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       }}
     >
       <div
+        className="zg-eyebrow"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 8,
           alignSelf: 'flex-start',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
-          borderRadius: 999,
-          padding: '5px 14px',
         }}
       >
         <Zap size={12} /> Live dashboard

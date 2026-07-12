@@ -29,6 +29,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
+import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 
 interface StrikeAggregation {
   strike: number;
@@ -193,6 +194,34 @@ const DEFAULTS = {
   showPrevLevels: true,
 };
 
+// ── Saved chart settings ──
+// The durable display *preferences* a user can save so they auto-load on every
+// visit to this chart (the Strike Profile — dashboard tile + /gex-strike-profile).
+// Deliberately a subset of DEFAULTS: transient view state (paused / rewind /
+// zoom / pan / fullscreen) is never persisted, and `selectedExpiry` is excluded
+// because it holds a concrete expiry date that rolls off and would restore stale.
+const CHART_SETTINGS_ID = 'strike-profile';
+
+type PersistedSettings = {
+  tf: ChartTf;
+  gexMode: 'split' | 'net';
+  withPrev: boolean;
+  showOiDots: boolean;
+  showGrid: boolean;
+  showPmLevels: boolean;
+  showPrevLevels: boolean;
+};
+
+const PERSISTED_DEFAULTS: PersistedSettings = {
+  tf: DEFAULTS.tf,
+  gexMode: DEFAULTS.gexMode,
+  withPrev: DEFAULTS.withPrev,
+  showOiDots: DEFAULTS.showOiDots,
+  showGrid: DEFAULTS.showGrid,
+  showPmLevels: DEFAULTS.showPmLevels,
+  showPrevLevels: DEFAULTS.showPrevLevels,
+};
+
 interface MarketMakerExposuresProps {
   /**
    * When true, hides the middle "Gamma (Call / Put)" panel and the right
@@ -229,9 +258,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const defaultZoomMul = compact ? ZOOM_FIT_RANGE : DEFAULTS.zoomMul;
 
+  // Saved display preferences (or factory defaults on the server / when the user
+  // hasn't saved any), read once to seed the controls below. Reading in the lazy
+  // useState initializer — rather than a mount effect — mirrors how the app's
+  // other persisted prefs (symbol, GEX unit) hydrate, and keeps restore free of
+  // an extra render pass.
+  const [savedSettings] = useState(() => loadChartSettings(CHART_SETTINGS_ID, PERSISTED_DEFAULTS));
+
   // ── User-controlled view state ──
-  const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
-  const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
+  const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
+  const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
@@ -250,13 +286,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [playbackActive, setPlaybackActive] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
   const [playbackLoop, setPlaybackLoop] = useState<boolean>(false);
-  const [gexMode, setGexMode] = useState<'split' | 'net'>(DEFAULTS.gexMode);
-  const [showOiDots, setShowOiDots] = useState<boolean>(DEFAULTS.showOiDots);
-  const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  const [gexMode, setGexMode] = useState<'split' | 'net'>(savedSettings.gexMode);
+  const [showOiDots, setShowOiDots] = useState<boolean>(savedSettings.showOiDots);
+  const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   // Pre-market and previous-session high/low overlays (non-index symbols).
   // Optional so traders can declutter the chart when they don't need them.
-  const [showPmLevels, setShowPmLevels] = useState<boolean>(DEFAULTS.showPmLevels);
-  const [showPrevLevels, setShowPrevLevels] = useState<boolean>(DEFAULTS.showPrevLevels);
+  const [showPmLevels, setShowPmLevels] = useState<boolean>(savedSettings.showPmLevels);
+  const [showPrevLevels, setShowPrevLevels] = useState<boolean>(savedSettings.showPrevLevels);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
@@ -303,7 +339,30 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setShowPrevLevels(DEFAULTS.showPrevLevels);
     setYAnchor(null);
     setYPanOffset(0);
+    // The auto-save effect below persists this reset-to-defaults state, so a
+    // fresh visit reopens on the factory defaults.
   };
+
+  // Auto-save: silently persist the display preferences whenever the user
+  // changes them, so the chart reopens exactly as they left it — no explicit
+  // "save" step. The first run (right after the lazy-init restore above) is
+  // skipped so a visitor who never touches the settings gets nothing written.
+  const settingsHydrated = useRef(false);
+  useEffect(() => {
+    if (!settingsHydrated.current) {
+      settingsHydrated.current = true;
+      return;
+    }
+    saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
+      tf,
+      gexMode,
+      withPrev,
+      showOiDots,
+      showGrid,
+      showPmLevels,
+      showPrevLevels,
+    });
+  }, [tf, gexMode, withPrev, showOiDots, showGrid, showPmLevels, showPrevLevels]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);

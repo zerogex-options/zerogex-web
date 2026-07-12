@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Compass, Gauge, Magnet, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -110,7 +111,7 @@ export default function GammaVwapConfluencePage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Gamma / VWAP Confluence"
         subtitle={'"Are key levels stacking up here?"'}
@@ -218,7 +219,7 @@ export default function GammaVwapConfluencePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

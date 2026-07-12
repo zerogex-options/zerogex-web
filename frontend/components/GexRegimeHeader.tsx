@@ -130,29 +130,43 @@ export default function GexRegimeHeader({
 
   return (
     <div
-      className="rounded-2xl p-4 mb-6"
-      style={{ backgroundColor: cardBg, border: `1px solid ${'var(--text-secondary)'}` }}
+      className="p-4 mb-6"
+      style={{ backgroundColor: cardBg, border: `1px solid var(--border-default)`, borderRadius: 'var(--radius-panel)' }}
     >
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         {/* Left: Regime badge */}
         <div className="flex items-center gap-2">
           <div
-            className="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap"
+            className="whitespace-nowrap"
             style={{
-              backgroundColor: config.bgColor,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              fontSize: 13,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
               color: config.color,
-              border: `1px solid ${config.borderColor}`,
+              borderLeft: `3px solid ${config.color}`,
+              paddingLeft: 12,
+              paddingTop: 4,
+              paddingBottom: 4,
             }}
           >
             {config.badge}
           </div>
           {postureTag && (
             <div
-              className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap uppercase tracking-wide"
+              className="whitespace-nowrap"
               style={{
-                backgroundColor: postureConfig[postureTag].bgColor,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 600,
+                fontSize: 11,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
                 color: postureConfig[postureTag].color,
-                border: `1px solid ${postureConfig[postureTag].borderColor}`,
+                borderLeft: `3px solid ${postureConfig[postureTag].color}`,
+                paddingLeft: 10,
+                paddingTop: 3,
+                paddingBottom: 3,
               }}
             >
               {postureTag}
@@ -185,11 +199,17 @@ export default function GexRegimeHeader({
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Scenario:</span>
           <div
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
+            className="whitespace-nowrap"
             style={{
-              backgroundColor: config.bgColor,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              fontSize: 11,
+              letterSpacing: '0.06em',
               color: config.color,
-              border: `1px solid ${config.borderColor}`,
+              borderLeft: `3px solid ${config.color}`,
+              paddingLeft: 10,
+              paddingTop: 3,
+              paddingBottom: 3,
             }}
           >
             {config.label}

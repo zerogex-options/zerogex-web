@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -64,7 +65,7 @@ export default function PositioningTrapPage() {
   const shortGamma = netGex != null && netGex < 0 ? 1 : 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Positioning Trap"
         subtitle={'"Is the crowd offside?"'}
@@ -156,7 +157,7 @@ export default function PositioningTrapPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="positioning_trap" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

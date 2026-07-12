@@ -165,9 +165,7 @@ export default function Footer({ theme }: FooterProps) {
     <footer
       className="border-t mt-16"
       style={{
-        background: isDark
-          ? 'linear-gradient(135deg, color-mix(in srgb, var(--bg-card) 40%, transparent) 0%, var(--bg-active) 100%)'
-          : 'var(--border-subtle)',
+        background: isDark ? 'var(--bg-active)' : 'var(--border-subtle)',
         borderColor: border,
       }}
     >

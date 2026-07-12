@@ -8,6 +8,7 @@
 
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -343,7 +344,7 @@ export default function IntradayToolsPage() {
   const showInitialError = error && bars.length === 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       {lastUpdatedLabel ? (
         <div className="text-right text-sm text-[var(--text-muted)] mb-4">
           Last updated: {lastUpdatedLabel}
@@ -679,6 +680,6 @@ export default function IntradayToolsPage() {
           </div>
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }

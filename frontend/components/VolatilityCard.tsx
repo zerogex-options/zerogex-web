@@ -206,7 +206,7 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
       className="h-full p-6 rounded-2xl flex flex-col"
       style={{
         backgroundColor: cardBg,
-        border: `1px solid ${'var(--text-secondary)'}`,
+        border: `1px solid var(--border-default)`,
         boxShadow: shadowBase,
       }}
     >

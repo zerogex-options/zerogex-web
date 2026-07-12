@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePremiumSurface } from '@/hooks/useApiData';
@@ -199,7 +200,7 @@ export default function PremiumHeatmapPage() {
   const showError = error && error !== 'No data available yet';
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h1 className="text-3xl font-bold">Premium Surface</h1>
         <BetaBadge size="md" />
@@ -336,6 +337,6 @@ export default function PremiumHeatmapPage() {
           />
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

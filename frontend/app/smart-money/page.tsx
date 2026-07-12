@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Info } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -638,7 +639,7 @@ export default function SmartMoneyPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <RegimeSummaryBanner
         title="Smart Money Regime"
         badge={smartMoneyBadge}
@@ -826,6 +827,6 @@ export default function SmartMoneyPage() {
           )}
         </div>
       </section>
-    </div>
+    </PageShell>
   );
 }

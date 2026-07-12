@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -447,7 +448,7 @@ export default function BacktestingPage() {
   const bt = useBacktest();
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Backtesting</h1>
         <BetaBadge size="md" />
@@ -476,7 +477,7 @@ export default function BacktestingPage() {
           <Results bt={bt} />
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

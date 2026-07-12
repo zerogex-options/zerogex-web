@@ -9,6 +9,8 @@ import { useMemo } from 'react';
 import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useVolatilityGauge } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
+import PageShell from '@/components/layout/PageShell';
+import SectionHead from '@/components/layout/SectionHead';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
@@ -96,22 +98,21 @@ export default function DashboardPage() {
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+      <PageShell>
+        <h1 className="zg-h1 mb-8">Dashboard</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <TrialStartedBanner />
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
       {/* Today's Read — at-a-glance regime summary above everything else, so a
           visitor lands on the dashboard and gets the structural read before
@@ -131,7 +132,7 @@ export default function DashboardPage() {
 
       {/* Market Overview */}
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
+        <SectionHead title="Market Overview" />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Left column: 4 cards stacked, each sized to its content. */}
           <div className="md:col-span-1 grid grid-cols-1 gap-4 content-start">
@@ -221,14 +222,14 @@ export default function DashboardPage() {
           the taller section, keeping the two columns visually flush. */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8 items-stretch">
         <section className="lg:col-span-8 flex flex-col">
-          <h2 className="text-2xl font-semibold mb-4">Proprietary Signals</h2>
+          <h3 className="zg-h3 mb-4">Proprietary Signals</h3>
           <div className="flex-1 min-h-0">
             <ProprietarySignalsSynthesis />
           </div>
         </section>
 
         <section className="lg:col-span-4 flex flex-col">
-          <h2 className="text-2xl font-semibold mb-4">Volatility Monitor</h2>
+          <h3 className="zg-h3 mb-4">Volatility Monitor</h3>
           <div className="flex-1 min-h-0">
             <VolatilityCard stacked />
           </div>
@@ -240,7 +241,7 @@ export default function DashboardPage() {
           cards) and 'Options Sentiment' (3 cards) sections so the related
           dealer/flow metrics live under one header. */}
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Positioning &amp; Flow</h2>
+        <SectionHead title="Positioning & Flow" />
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
@@ -315,6 +316,6 @@ export default function DashboardPage() {
           Last updated: {new Date(gexData.timestamp).toLocaleTimeString()}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Waves } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -54,7 +55,7 @@ export default function TapeFlowBiasPage() {
   const needlePct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Tape Flow Bias"
         subtitle={'"Which way is the tape leaning?"'}
@@ -125,7 +126,7 @@ export default function TapeFlowBiasPage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="tape_flow_bias" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

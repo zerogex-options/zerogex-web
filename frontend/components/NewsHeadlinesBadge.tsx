@@ -339,8 +339,8 @@ export default function NewsHeadlinesBadge({
                 key={h.id}
                 className="rounded-lg border p-3"
                 style={{
-                  borderColor: fresh ? pal.border : `${'var(--text-secondary)'}40`,
-                  background: fresh ? pal.bg : `${'var(--text-secondary)'}1a`,
+                  borderColor: fresh ? pal.border : 'var(--border-default)',
+                  background: fresh ? pal.bg : 'var(--bg-hover)',
                   marginTop: idx === 0 ? 0 : "8px",
                 }}
               >

@@ -71,25 +71,6 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
         </p>
       </div>
 
-      <figure
-        style={{
-          margin: 0,
-          background: 'var(--bg-hover)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 16,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Reuses the shipped dashboard overview capture; see file header. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/blog/zerogex-dashboard-overview.png"
-          alt={`ZeroGEX live dashboard overview showing real-time ${symbol} Net GEX, Gamma Flip, Call Wall, and Put Wall`}
-          loading="lazy"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
-        />
-      </figure>
-
       <ul
         style={{
           margin: 0,

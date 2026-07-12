@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { MarketSession, Theme } from '@/core/types';
-import { colors } from '@/core/colors';
 
 interface SessionBadgeProps {
   session: MarketSession;
@@ -11,7 +10,7 @@ interface SessionBadgeProps {
   compact?: boolean;
 }
 
-export default function SessionBadge({ session, theme, showCountdown = false, compact = false }: SessionBadgeProps) {
+export default function SessionBadge({ session, showCountdown = false, compact = false }: SessionBadgeProps) {
   const [countdown, setCountdown] = useState('');
   const [countdownLabel, setCountdownLabel] = useState('');
 
@@ -76,12 +75,11 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
   if (compact && !showCountdown) {
     return (
       <div
-        className="px-2 py-2 rounded-lg flex items-center justify-center"
+        className="px-2 py-2 rounded-[2px] flex items-center justify-center"
         title={badge.label}
         style={{
-          backgroundColor: theme === 'dark' ? `${'var(--text-secondary)'}15` : `${'var(--text-secondary)'}10`,
-          border: `1px solid ${'var(--text-secondary)'}40`,
-          boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
+          backgroundColor: 'var(--bg-hover)',
+          border: `1px solid var(--border-default)`,
           width: '40px',
           height: '40px',
         }}
@@ -100,12 +98,11 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
   if (showCountdown && countdown) {
     return (
       <div
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider flex items-center gap-2"
+        className="px-3 py-1.5 rounded-[2px] text-xs font-semibold tracking-wider flex items-center gap-2"
         style={{
-          backgroundColor: theme === 'dark' ? `${'var(--text-secondary)'}15` : `${'var(--text-secondary)'}10`,
+          backgroundColor: 'var(--bg-hover)',
           color: 'var(--text-primary)',
-          border: `1px solid ${'var(--text-secondary)'}40`,
-          boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
+          border: `1px solid var(--border-default)`,
         }}
       >
         <span className="text-base leading-none">⏱️</span>
@@ -117,12 +114,12 @@ export default function SessionBadge({ session, theme, showCountdown = false, co
 
   return (
     <div
-      className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider flex items-center gap-2"
+      className="px-3 py-1.5 rounded-[2px] text-xs font-semibold tracking-wider flex items-center gap-2"
       style={{
-        backgroundColor: theme === 'dark' ? `${badge.color}15` : `${badge.color}10`,
+        backgroundColor: 'transparent',
         color: badge.color,
-        border: `1px solid ${badge.color}40`,
-        boxShadow: theme === 'dark' ? '0 2px 8px var(--color-info-soft)' : '0 2px 8px var(--color-info-soft)',
+        border: `1px solid ${badge.color}`,
+        fontFamily: 'var(--font-mono)',
       }}
     >
       <span className="text-base leading-none">{badge.icon}</span>

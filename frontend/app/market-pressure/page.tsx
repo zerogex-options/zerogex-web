@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { ArrowLeftRight, Compass, Flame, Gauge, Layers, ShieldCheck, Wind } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -134,7 +135,7 @@ export default function MarketPressurePage() {
     : '—';
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Market Pressure Index"
         subtitle={'"Is the market loaded to move, and which way will it break?"'}
@@ -325,7 +326,7 @@ export default function MarketPressurePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="market_pressure" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

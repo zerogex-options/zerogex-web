@@ -1,5 +1,6 @@
 'use client';
 
+import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { ArrowLeftRight, Compass, Gauge, Layers, Radar, Radio } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -117,7 +118,7 @@ export default function RangeBreakImminencePage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <PageShell>
       <SignalPageTitle
         title="Range Break Imminence"
         subtitle={'"Is this range about to break?"'}
@@ -249,7 +250,7 @@ export default function RangeBreakImminencePage() {
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="range_break_imminence" symbol={symbol} title="Event Timeline" />
-    </div>
+    </PageShell>
   );
 }
 

@@ -118,7 +118,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
         <div
           className="rounded-2xl p-6 h-full flex items-center justify-center"
-          style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
+          style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-default)` }}
         >
           <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>No heatmap data available</span>
         </div>
@@ -132,7 +132,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         className="rounded-2xl p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
       <div className="flex items-center gap-2 mb-4">

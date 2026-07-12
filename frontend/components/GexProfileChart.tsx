@@ -492,7 +492,7 @@ export default function GexProfileChart({
         className="rounded-2xl p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
         {/* Header: title on the left, legend top-right above the plot area so
@@ -618,7 +618,7 @@ export default function GexProfileChart({
                 data={merged}
                 margin={{ top: REF_LABEL_TOP_MARGIN, right: 16, left: 16, bottom: 8 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.5} />
+                <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                 <XAxis
                   dataKey="strike"
                   type="number"
@@ -740,7 +740,7 @@ export default function GexProfileChart({
                       value: `Spot: ${formatStrikePrecise(spotPrice)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.spot,
-                      fill: '#06B6D4',
+                      fill: 'var(--color-hazy)',
                       fontSize: 10,
                     }}
                   />

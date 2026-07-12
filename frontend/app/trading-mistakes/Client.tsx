@@ -30,7 +30,7 @@ const C = {
 type Mistake = {
   number: string;
   title: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+  icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }>;
   iconColor: string;
   mistake: string;
   whatHappens: string;
@@ -121,19 +121,12 @@ const MISTAKES: Mistake[] = [
 function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span
+      className="zg-eyebrow"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
         color: C.amber,
-        border: `1px solid ${C.amber}55`,
-        borderRadius: 999,
-        background: `${C.amber}12`,
-        padding: '5px 14px',
-        fontSize: 12,
-        fontWeight: 800,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
       }}
     >
       {children}
@@ -145,10 +138,8 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
   const Icon = mistake.icon;
   return (
     <article
+      className="zg-panel trading-mistake-row"
       style={{
-        background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${C.border}`,
-        borderRadius: 22,
         padding: '32px clamp(20px, 4vw, 40px)',
         marginBottom: 28,
         display: 'grid',
@@ -156,7 +147,6 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
         gap: 32,
         alignItems: 'start',
       }}
-      className="trading-mistake-row"
     >
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
@@ -172,20 +162,7 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
           >
             {mistake.number}
           </div>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: `${mistake.iconColor}1f`,
-              border: `1px solid ${mistake.iconColor}55`,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon size={22} color={mistake.iconColor} />
-          </div>
+          <Icon size={24} strokeWidth={1.75} style={{ color: mistake.iconColor, flexShrink: 0, marginTop: 2 }} />
         </div>
 
         <h2
@@ -212,7 +189,7 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
         <div
           style={{
             padding: '18px 20px',
-            borderRadius: 14,
+            borderRadius: 'var(--radius-panel)',
             background: `${C.amber}12`,
             border: `1px solid ${C.amber}55`,
             marginBottom: 18,
@@ -255,11 +232,9 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
       </div>
 
       <figure
+        className="zg-panel"
         style={{
           margin: 0,
-          background: 'var(--bg-hover)',
-          border: `1px solid ${C.border}`,
-          borderRadius: 16,
           overflow: 'hidden',
         }}
       >
@@ -319,15 +294,10 @@ export default function TradingMistakesClient() {
           </button>
           <Link href="/pricing" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-btn zg-btn--secondary"
               style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
-                border: `1px solid ${C.border}`,
-                borderRadius: 10,
                 padding: '8px 14px',
                 fontSize: 13,
-                fontWeight: 700,
-                color: C.light,
-                cursor: 'pointer',
               }}
             >
               Pricing
@@ -335,19 +305,10 @@ export default function TradingMistakesClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
+              className="zg-btn zg-btn--primary"
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                border: 'none',
-                borderRadius: 10,
                 padding: '8px 14px',
                 fontSize: 13,
-                fontWeight: 800,
-                color: 'var(--text-inverse)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                boxShadow: `0 4px 16px ${C.amber}50`,
               }}
             >
               Free Gamma Levels <ArrowRight size={14} />
@@ -389,10 +350,7 @@ export default function TradingMistakesClient() {
             5 trading mistakes{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               ZeroGEX helps you avoid.
@@ -434,10 +392,7 @@ export default function TradingMistakesClient() {
             See the structural map{' '}
             <span
               style={{
-                background: `linear-gradient(135deg, ${C.amber}, var(--heat-mid))`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'var(--color-accent-hot)',
               }}
             >
               before your next trade.
@@ -450,19 +405,10 @@ export default function TradingMistakesClient() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--primary"
                 style={{
-                  background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
-                  border: 'none',
-                  borderRadius: 16,
                   padding: '16px 32px',
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: 'var(--text-inverse)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  boxShadow: `0 12px 36px ${C.amber}45`,
+                  fontSize: 15,
                 }}
               >
                 Open the free gamma levels <ArrowRight size={18} />
@@ -470,18 +416,10 @@ export default function TradingMistakesClient() {
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button
+                className="zg-btn zg-btn--secondary"
                 style={{
-                  background: 'transparent',
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 16,
                   padding: '16px 32px',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: C.light,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
+                  fontSize: 15,
                 }}
               >
                 See pricing <ArrowRight size={18} />

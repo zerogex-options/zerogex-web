@@ -327,7 +327,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         className="rounded-2xl p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
-          border: `1px solid ${'var(--text-secondary)'}`,
+          border: `1px solid var(--border-default)`,
         }}
       >
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -437,7 +437,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.3} />
+                <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                 <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
                 <YAxis
                   yAxisId="value"

@@ -20,6 +20,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
+import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
@@ -120,6 +121,26 @@ const DEFAULTS = {
   showGrid: true,
 };
 
+// ── Saved chart settings ──
+// Durable display *preferences* a user can save so they auto-load on every
+// visit to the gamma heatmap (/gex-heatmap). A subset of DEFAULTS: transient
+// view state (paused / zoom) is never persisted, and `selectedExpiry` is
+// excluded because it holds a concrete expiry date that rolls off and would
+// restore stale.
+const CHART_SETTINGS_ID = 'gamma-heatmap';
+
+type PersistedSettings = {
+  tf: ChartTf;
+  withPrev: boolean;
+  showGrid: boolean;
+};
+
+const PERSISTED_DEFAULTS: PersistedSettings = {
+  tf: DEFAULTS.tf,
+  withPrev: DEFAULTS.withPrev,
+  showGrid: DEFAULTS.showGrid,
+};
+
 // Padding in CSS pixels
 const PAD_L = 56;
 // Right padding holds the vertical color legend plus its value labels.
@@ -140,13 +161,20 @@ export default function GammaHeatmapCanvas() {
   const subtle = 'var(--text-secondary)';
   const popoverBg = isDark ? '#0f2935' : '#FFFFFF';
 
+  // Saved display preferences (or factory defaults on the server / when the user
+  // hasn't saved any), read once to seed the controls below. Reading in the lazy
+  // useState initializer — rather than a mount effect — mirrors how the app's
+  // other persisted prefs (symbol, GEX unit) hydrate, and keeps restore free of
+  // an extra render pass.
+  const [savedSettings] = useState(() => loadChartSettings(CHART_SETTINGS_ID, PERSISTED_DEFAULTS));
+
   // ── User-controlled view state ──
-  const [tf, setTf] = useState<ChartTf>(DEFAULTS.tf);
-  const [withPrev, setWithPrev] = useState<boolean>(DEFAULTS.withPrev);
+  const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
+  const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
   const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
-  const [showGrid, setShowGrid] = useState<boolean>(DEFAULTS.showGrid);
+  const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
@@ -158,7 +186,26 @@ export default function GammaHeatmapCanvas() {
     setZoomMul(DEFAULTS.zoomMul);
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
+    // The auto-save effect below persists this reset-to-defaults state, so a
+    // fresh visit reopens on the factory defaults.
   };
+
+  // Auto-save: silently persist the display preferences whenever the user
+  // changes them, so the chart reopens exactly as they left it — no explicit
+  // "save" step. The first run (right after the lazy-init restore above) is
+  // skipped so a visitor who never touches the settings gets nothing written.
+  const settingsHydrated = useRef(false);
+  useEffect(() => {
+    if (!settingsHydrated.current) {
+      settingsHydrated.current = true;
+      return;
+    }
+    saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
+      tf,
+      withPrev,
+      showGrid,
+    });
+  }, [tf, withPrev, showGrid]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);

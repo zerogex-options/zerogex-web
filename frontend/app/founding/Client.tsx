@@ -65,31 +65,19 @@ function formatMoney(amount: number): string {
 function CtaButton({
   action,
   busy,
-  accent,
   onSubscribe,
   onPortal,
 }: {
   action: TierAction;
   busy: boolean;
-  accent: string;
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
   const baseStyle = {
     marginTop: 22,
     width: '100%',
-    border: 'none',
-    borderRadius: 12,
     padding: '12px 18px',
     fontSize: 14,
-    fontWeight: 800,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    color: 'var(--text-inverse)',
-    background: `linear-gradient(135deg, ${accent} 0%, var(--heat-mid) 100%)`,
   } as const;
 
   if (action.kind === 'current') {
@@ -97,13 +85,8 @@ function CtaButton({
       <button
         type="button"
         disabled
-        style={{
-          ...baseStyle,
-          background: 'transparent',
-          color: C.muted,
-          border: `1px solid ${C.border}`,
-          cursor: 'default',
-        }}
+        className="zg-btn zg-btn--secondary"
+        style={baseStyle as React.CSSProperties}
       >
         {action.label}
       </button>
@@ -113,7 +96,7 @@ function CtaButton({
   if (action.kind === 'link') {
     return (
       <Link href={action.href} style={{ textDecoration: 'none', display: 'block' }}>
-        <span style={baseStyle as React.CSSProperties}>
+        <span className="zg-btn zg-btn--primary" style={baseStyle as React.CSSProperties}>
           {action.label} <ArrowRight size={16} />
         </span>
       </Link>
@@ -131,6 +114,7 @@ function CtaButton({
       type="button"
       onClick={handleClick}
       disabled={busy}
+      className="zg-btn zg-btn--primary"
       style={{ ...baseStyle, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}
     >
       {busy ? <Loader2 size={16} className="animate-spin" /> : action.label}
@@ -251,9 +235,8 @@ function FoundingCard({
       style={{
         background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
         border: `1px solid ${accent}66`,
-        borderRadius: 18,
+        borderRadius: 'var(--radius-panel)',
         padding: 28,
-        boxShadow: `0 12px 40px ${accent}20`,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -327,7 +310,7 @@ function FoundingCard({
         ))}
       </ul>
 
-      <CtaButton action={action} busy={busy} accent={accent} onSubscribe={onSubscribe} onPortal={onPortal} />
+      <CtaButton action={action} busy={busy} onSubscribe={onSubscribe} onPortal={onPortal} />
     </article>
   );
 }
@@ -515,19 +498,12 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div
+              className="zg-eyebrow"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
                 color: C.amber,
-                border: `1px solid ${C.amber}55`,
-                borderRadius: 999,
-                background: `${C.amber}12`,
-                padding: '5px 14px',
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
               }}
             >
               <Crown size={14} /> Founding Member Activation
@@ -547,7 +523,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               maxWidth: 720,
               margin: '0 auto 28px',
               padding: '16px 20px',
-              borderRadius: 14,
+              borderRadius: 'var(--radius-panel)',
               border: `1px solid ${C.amber}55`,
               background: `${C.amber}10`,
               color: C.light,
@@ -650,14 +626,12 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
           <PlanComparison />
 
           <section
+            className="zg-panel"
             style={{
               marginTop: 36,
               maxWidth: 820,
               marginLeft: 'auto',
               marginRight: 'auto',
-              background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-              border: `1px solid ${C.border}`,
-              borderRadius: 18,
               padding: 28,
             }}
           >
