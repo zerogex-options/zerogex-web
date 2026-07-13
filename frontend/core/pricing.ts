@@ -285,3 +285,109 @@ export function computeMrrTrend(
 
   return { windowDays, startMrr, endMrr, changeMrr, monthlyGrowthRate, monthsToTarget };
 }
+
+// Selectable horizons for the MRR Trend extrapolation dropdown. Months keep
+// the projection math simple (calendar-month arithmetic off today's date).
+export const MRR_PROJECTION_HORIZONS = [
+  { months: 6, label: '6 months' },
+  { months: 12, label: '1 year' },
+  { months: 36, label: '3 years' },
+] as const;
+
+// How many trailing days set the extrapolation pace: "the growth rate of the
+// last one week". Falls back to whatever history exists when short of a week.
+export const MRR_PROJECTION_WINDOW_DAYS = 7;
+
+// One extrapolated point on the forward MRR line. `day` is a future ET-style
+// YYYY-MM-DD key continuing the historical series' axis.
+export type MrrProjectionPoint = {
+  day: string;
+  projMrr: number;
+};
+
+export type MrrProjection = {
+  // Trailing days actually used to set the pace — MRR_PROJECTION_WINDOW_DAYS
+  // (7) once there's a full week of real data, fewer while history is thin.
+  windowDays: number;
+  // Absolute dollars-per-day added over that window (negative if MRR is
+  // shrinking). A straight line, not compounding — hence "linear progression".
+  slopePerDay: number;
+  // Latest real MRR: the origin the projection line extends from.
+  originMrr: number;
+  // Latest historical day key; projection points start the day after.
+  originDay: string;
+  horizonMonths: number;
+  // Projected MRR at the far end of the horizon (clamped at 0).
+  horizonMrr: number;
+  // Future points, one per day from originDay+1 out to the horizon.
+  points: MrrProjectionPoint[];
+};
+
+function parseDayKey(day: string): { y: number; m: number; d: number } {
+  const [y, m, d] = day.split('-').map(Number);
+  return { y, m, d };
+}
+
+function formatDayKey(dt: Date): string {
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDaysToDayKey(day: string, add: number): string {
+  const { y, m, d } = parseDayKey(day);
+  return formatDayKey(new Date(Date.UTC(y, m - 1, d + add)));
+}
+
+function addMonthsToDayKey(day: string, addMonths: number): string {
+  const { y, m, d } = parseDayKey(day);
+  return formatDayKey(new Date(Date.UTC(y, m - 1 + addMonths, d)));
+}
+
+function diffDayKeys(a: string, b: string): number {
+  const pa = parseDayKey(a);
+  const pb = parseDayKey(b);
+  return Math.round(
+    (Date.UTC(pb.y, pb.m - 1, pb.d) - Date.UTC(pa.y, pa.m - 1, pa.d)) / 86_400_000,
+  );
+}
+
+// Extrapolate a straight-line MRR projection from today's value and the pace of
+// the trailing `windowDays` (default one week). Linear — a constant dollar
+// amount per day — so the dropdown horizons read as a plain runway rather than
+// a compounding curve. Leading carry-forward zeros (before the first real
+// sample) are skipped, and the pace window is clamped to the history available.
+// Returns null when there isn't at least two days of real (estMrr > 0) history
+// to set a slope, or the horizon is non-positive.
+export function buildMrrProjection(
+  series: ReadonlyArray<{ day: string; estMrr: number }>,
+  horizonMonths: number,
+  opts?: { windowDays?: number },
+): MrrProjection | null {
+  if (horizonMonths <= 0) return null;
+  const firstIdx = series.findIndex((p) => p.estMrr > 0);
+  if (firstIdx < 0) return null;
+  const lastIdx = series.length - 1;
+  const available = lastIdx - firstIdx;
+  if (available <= 0) return null;
+
+  const windowDays = Math.min(opts?.windowDays ?? MRR_PROJECTION_WINDOW_DAYS, available);
+  const originDay = series[lastIdx].day;
+  const originMrr = series[lastIdx].estMrr;
+  const startMrr = series[lastIdx - windowDays].estMrr;
+  const slopePerDay = (originMrr - startMrr) / windowDays;
+
+  const horizonEnd = addMonthsToDayKey(originDay, horizonMonths);
+  const totalDays = diffDayKeys(originDay, horizonEnd);
+  const points: MrrProjectionPoint[] = [];
+  for (let d = 1; d <= totalDays; d++) {
+    points.push({
+      day: addDaysToDayKey(originDay, d),
+      projMrr: Math.max(0, originMrr + slopePerDay * d),
+    });
+  }
+  const horizonMrr = points.length ? points[points.length - 1].projMrr : originMrr;
+
+  return { windowDays, slopePerDay, originMrr, originDay, horizonMonths, horizonMrr, points };
+}
