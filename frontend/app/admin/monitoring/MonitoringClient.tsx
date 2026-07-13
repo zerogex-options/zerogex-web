@@ -7,7 +7,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import { formatDayLabel, formatHourLabel, lighten, niceYScale } from './monitoringHelpers';
-import { buildMrrProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
+import { buildMrrProjection, buildGrowthProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
 
 type SnapshotPoint = {
   bucket: string;
@@ -431,6 +431,25 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             mutedText={mutedText}
             textColor={textColor}
             brandColor={ROW_COLORS.mrr}
+          />
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Growth Projections</h2>
+          <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <GrowthProjectionsCard
+            startingSubs={data.mrr.activeSubscribers}
+            targetMrr={data.mrr.targetMrr}
+            cardBg={cardBg}
+            borderColor={borderColor}
+            axisStroke={axisStroke}
+            mutedText={mutedText}
+            textColor={textColor}
+            brandColor={ROW_COLORS.signups}
           />
         </div>
       </section>
@@ -892,6 +911,390 @@ function MrrTrendCard({
           </ResponsiveContainer>
         </MobileScrollableChart>
       )}
+    </div>
+  );
+}
+
+// --- Growth Projections controls (UI presets; the math lives in core/pricing) ---
+const ACQUISITION_COUNTS = [1, 2, 3, 5, 10, 15, 20, 25, 50, 100] as const;
+const ACQUISITION_PERIODS = [
+  { key: 'day', label: 'per day', perMonth: 365 / 12 },
+  { key: 'week', label: 'per week', perMonth: 52 / 12 },
+  { key: 'month', label: 'per month', perMonth: 1 },
+] as const;
+type AcquisitionPeriodKey = (typeof ACQUISITION_PERIODS)[number]['key'];
+
+// Exponentiality of the acquisition rate, month over month. Linear keeps the
+// add count flat; the rest compound it — spanning what an early SaaS of this
+// size might realistically sustain up to an aggressive best case.
+const GROWTH_SHAPES = [
+  { label: 'Linear — steady adds', accel: 0 },
+  { label: 'Gentle — +5%/mo', accel: 0.05 },
+  { label: 'Moderate — +15%/mo', accel: 0.15 },
+  { label: 'Strong — +25%/mo', accel: 0.25 },
+  { label: 'Aggressive — +40%/mo', accel: 0.4 },
+] as const;
+
+const CHURN_OPTIONS = [0.02, 0.03, 0.05, 0.07, 0.1, 0.15] as const;
+
+const GROWTH_HORIZONS = [
+  { months: 12, label: '1 year' },
+  { months: 24, label: '2 years' },
+  { months: 36, label: '3 years' },
+  { months: 60, label: '5 years' },
+] as const;
+
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+// Compact axis/count formatter: 1.2k / 34M / 2.1B for big numbers so an
+// aggressive exponential scenario doesn't blow out the axis, plain otherwise.
+function formatCompact(n: number, prefix = ''): string {
+  if (!Number.isFinite(n)) return '--';
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return `${prefix}${(n / 1e12).toFixed(abs >= 1e13 ? 0 : 1)}T`;
+  if (abs >= 1e9) return `${prefix}${(n / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
+  if (abs >= 1e6) return `${prefix}${(n / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
+  if (abs >= 1e3) return `${prefix}${(n / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}k`;
+  return `${prefix}${Math.round(n)}`;
+}
+
+function GrowthProjectionsCard({
+  startingSubs,
+  targetMrr,
+  cardBg,
+  borderColor,
+  axisStroke,
+  mutedText,
+  textColor,
+  brandColor,
+}: {
+  startingSubs: number;
+  targetMrr: number;
+  cardBg: string;
+  borderColor: string;
+  axisStroke: string;
+  mutedText: string;
+  textColor: string;
+  brandColor: string;
+}) {
+  const mrrColor = ROW_COLORS.mrr;
+  const targetColor = lighten(mrrColor, 0.2);
+
+  const [acqCount, setAcqCount] = useState<number>(3);
+  const [acqPeriod, setAcqPeriod] = useState<AcquisitionPeriodKey>('day');
+  const [accel, setAccel] = useState<number>(0);
+  const [churn, setChurn] = useState<number>(0.05);
+  const [proShare, setProShare] = useState<number>(0.5);
+  const [proPrice, setProPrice] = useState<number>(40);
+  const [basicPrice, setBasicPrice] = useState<number>(20);
+  const [horizonMonths, setHorizonMonths] = useState<number>(36);
+
+  const period = ACQUISITION_PERIODS.find((p) => p.key === acqPeriod) ?? ACQUISITION_PERIODS[0];
+  const monthlyAdds = acqCount * period.perMonth;
+  const horizonLabel = GROWTH_HORIZONS.find((h) => h.months === horizonMonths)?.label ?? `${horizonMonths} mo`;
+
+  const projection = useMemo(
+    () =>
+      buildGrowthProjection({
+        startingSubs,
+        monthlyAdds,
+        monthlyAccel: accel,
+        monthlyChurn: churn,
+        proShare,
+        proPrice,
+        basicPrice,
+        horizonMonths,
+      }),
+    [startingSubs, monthlyAdds, accel, churn, proShare, proPrice, basicPrice, horizonMonths],
+  );
+
+  // Anchor month labels to the current calendar month, computed once.
+  const now = useMemo(() => new Date(), []);
+  const chartData = useMemo(
+    () =>
+      projection.points.map((p) => {
+        const d = new Date(now.getFullYear(), now.getMonth() + p.month, 1);
+        return {
+          month: p.month,
+          label: `${MONTH_ABBR[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`,
+          subs: Math.round(p.subs),
+          mrr: p.mrr,
+          arr: p.arr,
+          proSubs: Math.round(p.proSubs),
+          basicSubs: Math.round(p.basicSubs),
+        };
+      }),
+    [projection, now],
+  );
+
+  const subsScale = niceYScale(Math.max(1, projection.end.subs));
+  // Only pull the target onto the MRR axis when the projection lands within
+  // ~1.5x of it, so a modest scenario isn't flattened by a far-off target.
+  const showTarget = targetMrr > 0 && targetMrr <= projection.end.mrr * 1.5;
+  const mrrScale = niceYScale(Math.max(1, showTarget ? Math.max(projection.end.mrr, targetMrr) : projection.end.mrr));
+
+  // First month the projected MRR reaches the income-replacement target.
+  const targetMonth = targetMrr > 0 ? (projection.points.find((p) => p.mrr >= targetMrr)?.month ?? null) : null;
+
+  const proPct = Math.round(proShare * 100);
+  const selectCls = 'rounded border px-2 py-1 text-xs';
+  const selectStyle = { backgroundColor: cardBg, borderColor, color: textColor };
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Growth Projections</h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+          <span><span style={{ color: brandColor }}>●</span> Paying subs</span>
+          <span><span style={{ color: mrrColor }}>▬</span> MRR</span>
+          {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+        </div>
+      </div>
+
+      {/* Tunable inputs */}
+      <div className="flex flex-wrap gap-x-5 gap-y-3 mb-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: mutedText }}>New signups</span>
+          <div className="flex items-center gap-1">
+            <select
+              aria-label="New signups per period — count"
+              value={acqCount}
+              onChange={(e) => setAcqCount(Number(e.target.value))}
+              className={selectCls}
+              style={selectStyle}
+            >
+              {ACQUISITION_COUNTS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              aria-label="New signups per period — cadence"
+              value={acqPeriod}
+              onChange={(e) => setAcqPeriod(e.target.value as AcquisitionPeriodKey)}
+              className={selectCls}
+              style={selectStyle}
+            >
+              {ACQUISITION_PERIODS.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: mutedText }}>Growth shape</span>
+          <select
+            aria-label="Growth shape"
+            value={accel}
+            onChange={(e) => setAccel(Number(e.target.value))}
+            className={selectCls}
+            style={selectStyle}
+          >
+            {GROWTH_SHAPES.map((g) => (
+              <option key={g.accel} value={g.accel}>{g.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: mutedText }}>Monthly churn</span>
+          <select
+            aria-label="Monthly churn rate"
+            value={churn}
+            onChange={(e) => setChurn(Number(e.target.value))}
+            className={selectCls}
+            style={selectStyle}
+          >
+            {CHURN_OPTIONS.map((c) => (
+              <option key={c} value={c}>{(c * 100).toFixed(0)}% / mo</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: mutedText }}>Horizon</span>
+          <select
+            aria-label="Projection horizon"
+            value={horizonMonths}
+            onChange={(e) => setHorizonMonths(Number(e.target.value))}
+            className={selectCls}
+            style={selectStyle}
+          >
+            {GROWTH_HORIZONS.map((h) => (
+              <option key={h.months} value={h.months}>{h.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1 min-w-[180px]">
+          <span className="text-xs" style={{ color: mutedText }}>
+            Plan mix — <span style={{ color: textColor }}>Pro {proPct}%</span> / Basic {100 - proPct}%
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={proPct}
+            onChange={(e) => setProShare(Number(e.target.value) / 100)}
+            aria-label="Pro vs Basic split (percent Pro)"
+            className="w-full"
+            style={{ accentColor: brandColor }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: mutedText }}>Prices ($/mo)</span>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 text-xs" style={{ color: mutedText }}>
+              Pro
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={proPrice}
+                onChange={(e) => setProPrice(Math.max(0, Number(e.target.value)))}
+                aria-label="Pro price per month"
+                className="rounded border px-2 py-1 text-xs w-16"
+                style={selectStyle}
+              />
+            </label>
+            <label className="flex items-center gap-1 text-xs" style={{ color: mutedText }}>
+              Basic
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={basicPrice}
+                onChange={(e) => setBasicPrice(Math.max(0, Number(e.target.value)))}
+                aria-label="Basic price per month"
+                className="rounded border px-2 py-1 text-xs w-16"
+                style={selectStyle}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Scenario readout */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: mutedText }}>
+        <span>
+          In {horizonLabel}:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {Math.round(projection.end.subs).toLocaleString()} subs
+          </span>{' '}·{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {formatUsd(projection.end.mrr)} MRR
+          </span>{' '}·{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {formatUsd(projection.end.arr)} ARR
+          </span>
+        </span>
+        <span>
+          Blended ARPU:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {formatUsd(projection.blendedArpu, { cents: true })}
+          </span>{' '}
+          <span style={{ color: mutedText }}>· ~{Math.round(monthlyAdds).toLocaleString()} adds/mo start</span>
+        </span>
+        {targetMrr > 0 && (
+          <span>
+            Income target:{' '}
+            <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+              {targetMonth === null ? `not reached in ${horizonLabel}` : targetMonth === 0 ? 'already met' : `~${targetMonth} mo`}
+            </span>
+          </span>
+        )}
+      </div>
+
+      <MobileScrollableChart>
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeOpacity={0.1} vertical={false} />
+            <XAxis
+              dataKey="label"
+              stroke={axisStroke}
+              tick={{ fill: axisStroke, fontSize: 10 }}
+              tickLine={false}
+              minTickGap={48}
+            />
+            <YAxis
+              yAxisId="subs"
+              stroke={axisStroke}
+              tick={{ fill: axisStroke, fontSize: 10 }}
+              tickLine={false}
+              allowDecimals={false}
+              domain={[0, subsScale.max]}
+              ticks={subsScale.ticks}
+              tickFormatter={(v) => formatCompact(Number(v))}
+            />
+            <YAxis
+              yAxisId="mrr"
+              orientation="right"
+              stroke={axisStroke}
+              tick={{ fill: axisStroke, fontSize: 10 }}
+              tickLine={false}
+              allowDecimals={false}
+              domain={[0, mrrScale.max]}
+              ticks={mrrScale.ticks}
+              tickFormatter={(v) => formatCompact(Number(v), '$')}
+            />
+            <Tooltip
+              cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+              content={({ active, label, payload }) => {
+                if (!active || !payload?.length) return null;
+                const row = payload[0]?.payload as
+                  | { subs: number; mrr: number; arr: number; proSubs: number; basicSubs: number }
+                  | undefined;
+                if (!row) return null;
+                return (
+                  <div
+                    className="rounded-lg border px-3 py-2 text-xs"
+                    style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                  >
+                    <div className="font-semibold mb-1">{String(label)}</div>
+                    <div>Paying subs: {row.subs.toLocaleString()}</div>
+                    <div style={{ color: mutedText }}>Pro {row.proSubs.toLocaleString()} · Basic {row.basicSubs.toLocaleString()}</div>
+                    <div>MRR: {formatUsd(row.mrr)}</div>
+                    <div>ARR: {formatUsd(row.arr)}</div>
+                  </div>
+                );
+              }}
+            />
+            <Area
+              yAxisId="subs"
+              type="monotone"
+              dataKey="subs"
+              name="Paying subs"
+              stroke={brandColor}
+              fill={brandColor}
+              fillOpacity={0.35}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line
+              yAxisId="mrr"
+              type="monotone"
+              dataKey="mrr"
+              name="MRR"
+              stroke={mrrColor}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+            {showTarget && (
+              <ReferenceLine
+                yAxisId="mrr"
+                y={targetMrr}
+                stroke={targetColor}
+                strokeDasharray="6 4"
+                label={{ value: 'Target', position: 'insideTopRight', fill: mutedText, fontSize: 10 }}
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </MobileScrollableChart>
     </div>
   );
 }

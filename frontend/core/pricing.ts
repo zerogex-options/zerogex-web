@@ -391,3 +391,82 @@ export function buildMrrProjection(
 
   return { windowDays, slopePerDay, originMrr, originDay, horizonMonths, horizonMrr, points };
 }
+
+// Tunable inputs for the interactive Growth Projections model. All rates are
+// already normalized to per-month before they reach here (the UI converts the
+// per-day/week/month acquisition dropdown), so this stays pure arithmetic.
+export type GrowthProjectionInputs = {
+  // Paying subscribers today — the projection's month-0 base.
+  startingSubs: number;
+  // Gross new paying subscribers in month 0.
+  monthlyAdds: number;
+  // Month-over-month acceleration of the add rate, as a fraction: 0 = linear
+  // (a steady number of adds each month), 0.15 = adds grow +15%/mo, etc.
+  monthlyAccel: number;
+  // Fraction of the existing base lost each month. Applied to the base the
+  // month's new adds have not joined yet (new signups don't churn same-month).
+  monthlyChurn: number;
+  // Share of the base on the Pro plan (0..1); the rest are Basic.
+  proShare: number;
+  proPrice: number;
+  basicPrice: number;
+  horizonMonths: number;
+};
+
+export type GrowthProjectionPoint = {
+  // Months from today (0 = now).
+  month: number;
+  subs: number;
+  proSubs: number;
+  basicSubs: number;
+  mrr: number;
+  arr: number;
+  // Gross adds and churned subs on the transition out of this month (0 at the
+  // final point). Surfaced for the tooltip so the flow is auditable.
+  adds: number;
+  churned: number;
+};
+
+export type GrowthProjection = {
+  points: GrowthProjectionPoint[];
+  // Blended $/mo per subscriber at the chosen split and prices.
+  blendedArpu: number;
+  // Convenience handle on the horizon endpoint.
+  end: GrowthProjectionPoint;
+};
+
+// Project paying subscribers, MRR and ARR forward month by month from today's
+// base. Each step keeps the fraction of the base that didn't churn and adds
+// that month's new signups, whose count compounds by `monthlyAccel` (0 keeps
+// the add rate flat, i.e. linear growth). Pure and deterministic so the UI can
+// recompute live on every dropdown/slider change and it can be unit-tested.
+export function buildGrowthProjection(inp: GrowthProjectionInputs): GrowthProjection {
+  const horizon = Math.max(0, Math.floor(inp.horizonMonths));
+  const share = Math.min(1, Math.max(0, inp.proShare));
+  const churn = Math.min(1, Math.max(0, inp.monthlyChurn));
+  const accel = Math.max(-1, inp.monthlyAccel);
+  const blendedArpu = share * inp.proPrice + (1 - share) * inp.basicPrice;
+
+  const points: GrowthProjectionPoint[] = [];
+  let subs = Math.max(0, inp.startingSubs);
+  for (let m = 0; m <= horizon; m++) {
+    const proSubs = subs * share;
+    const mrr = subs * blendedArpu;
+    const isLast = m === horizon;
+    const adds = isLast ? 0 : inp.monthlyAdds * Math.pow(1 + accel, m);
+    const churned = isLast ? 0 : subs * churn;
+    points.push({
+      month: m,
+      subs,
+      proSubs,
+      basicSubs: subs - proSubs,
+      mrr,
+      arr: mrr * 12,
+      adds,
+      churned,
+    });
+    subs = Math.max(0, subs - churned + adds);
+  }
+
+  return { points, blendedArpu, end: points[points.length - 1] };
+}
