@@ -155,17 +155,25 @@ export async function sendPaidWelcomeEmail(
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
-  const subject = trialEndDate
-    ? 'Welcome to ZeroGEX — your free trial has started'
+  // A set trial-end date means this is a fresh 7-day trial (the standard
+  // checkout path). Trial copy deliberately avoids "thank you for subscribing"
+  // — a trialer hasn't paid, and that phrasing reads as if they were charged.
+  // The no-trial branch is a genuine immediate paid subscriber, so it keeps
+  // the "subscribing" thank-you.
+  const isTrial = Boolean(trialEndDate);
+  const subject = isTrial
+    ? 'Your ZeroGEX trial is active'
     : 'Thank you for subscribing to ZeroGEX!';
 
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialEndDate}. Cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${trialEndDate}. You can cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. You can cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
@@ -174,16 +182,60 @@ export async function sendPaidWelcomeEmail(
     ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)} &mdash; it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
     : null;
 
+  const thankYouLine = isTrial
+    ? 'I just wanted to personally thank you for trying ZeroGEX.'
+    : 'I just wanted to personally thank you for subscribing to ZeroGEX.';
+  const growthLine = isTrial
+    ? 'ZeroGEX is still growing quickly, and early users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.'
+    : 'It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.';
+
+  // The "start here" focus list — the most relevant pieces of ZeroGEX for a
+  // first session, named to match the live dashboard's actual card/section
+  // titles so a new user can find each one. Today's Read leads because it's
+  // the plain-English regime summary that sits at the very top of the board.
+  const startHere: Array<{ title: string; body: string }> = [
+    {
+      title: "Today's Read",
+      body: 'the plain-English summary at the top of the dashboard telling you whether conditions currently favor stability or bigger moves.',
+    },
+    {
+      title: 'Gamma Flip',
+      body: 'the line between more stabilizing and more volatile dealer positioning.',
+    },
+    {
+      title: 'Call Wall / Put Wall',
+      body: 'the key upside and downside options levels where price may pin, reject, or react.',
+    },
+    {
+      title: 'Net GEX',
+      body: 'whether the broader options structure is more stabilizing or more unstable right now.',
+    },
+    {
+      title: 'SPY / SPX / QQQ',
+      body: 'the same read across all three, for intraday index context.',
+    },
+  ];
+  const disclaimerLine =
+    "ZeroGEX is not a trade-alert service and does not promise guaranteed outcomes. It's designed to give you better market-structure context before price gets there.";
+
   const text = [
     'Hello,',
     '',
     ...(trialLineText ? [trialLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
-    'I just wanted to personally thank you for subscribing to ZeroGEX.',
+    thankYouLine,
     '',
-    "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
+    "The best place to start is the live dashboard. For your first session, here's where I'd look first:",
     '',
-    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
+    ...startHere.map((s) => `  • ${s.title} — ${s.body}`),
+    '',
+    `Start here: ${dashboardUrl}`,
+    '',
+    disclaimerLine,
+    '',
+    growthLine,
+    '',
+    "Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again — I really appreciate your support.',
     '',
@@ -192,14 +244,27 @@ export async function sendPaidWelcomeEmail(
     'Founder, ZeroGEX',
   ].join('\n');
 
+  const startHereHtml = startHere
+    .map(
+      (s) =>
+        `<li style="margin: 0 0 8px;"><strong>${escapeHtml(s.title)}</strong> &mdash; ${escapeHtml(s.body)}</li>`,
+    )
+    .join('');
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
-      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
-      <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
-      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
+      <p>${thankYouLine}</p>
+      <p>The best place to start is the live dashboard. For your first session, here's where I'd look first:</p>
+      <ul style="padding-left: 20px; margin: 12px 0;">${startHereHtml}</ul>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">${disclaimerLine}</p>
+      <p>${growthLine}</p>
+      <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
