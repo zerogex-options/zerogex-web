@@ -3,6 +3,7 @@
 import { Info } from 'lucide-react';
 import { MetricCardProps } from '@/core/types';
 import TooltipWrapper from './TooltipWrapper';
+import AutoFitValue from './AutoFitValue';
 
 export default function MetricCard({
   title,
@@ -33,14 +34,12 @@ export default function MetricCard({
           <Info size={14} />
         </TooltipWrapper>
       </div>
-      <div
-        className="zg-metric text-3xl sm:text-4xl mb-2 break-words"
-        style={{
-          color: trendColors[trend],
-        }}
+      <AutoFitValue
+        className="zg-metric text-3xl sm:text-4xl mb-2"
+        style={{ color: trendColors[trend] }}
       >
         {value}
-      </div>
+      </AutoFitValue>
       {contextBadge && <div className="mb-2">{contextBadge}</div>}
       {subtitle && (
         <div
