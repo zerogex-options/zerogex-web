@@ -55,9 +55,11 @@ This is precisely the number the [Charm-into-Close bulletin](/forced-flow) surfa
 
 ## Putting a number on it
 
-Suppose it is a Friday with heavy 0DTE positioning in SPY, spot at 560, and the dealer book is short the near-the-money calls that customers bought for the day. As those calls decay, their deltas fall, the dealer's short-delta exposure shrinks, and the dealer sells stock to stay hedged. The engine reprices the book at 4pm with spot held at 560 and finds dealer delta about 60,000 shares lower than now. The forced trade is that share change times the price: 60,000 × $560 ≈ **$34 million** of forced selling between now and the bell, most of it landing after 2:30pm — computable at 9:35 that morning.
+Suppose it is a Friday with heavy 0DTE positioning in SPY, spot at 560. The dealer book carries the day's same-day options, and as the clock runs to the bell every one of them has to resolve — finish in the money or expire worthless — so the deltas dealers are hedging swing hard. Reprice the whole book at 4pm with spot held at 560 and the total time-driven forced flow on a heavy 0DTE day runs into the **billion-dollar** range. That is the number the live Charm-into-Close chart plots, and it is what "must dealers trade by the close" literally means.
 
-Flip the book's sign and the same clock forces buying instead. Charm does not have an inherent direction the way gravity has "down"; the direction is set by which strikes the dealers are short and long. What is invariant is the *timing*: whatever the sign, the flow concentrates into the close and you can see it coming.
+Two honest caveats on that headline figure. First, most of it is the same-day options *resolving* at the bell — a pin effect that hinges on exactly where spot settles, not smooth decay — so it is large and it is sensitive to spot. Second, the pure charm drift, the part that is genuinely time decay of the surviving book rather than the expiry event, is a fraction of it: on the order of a few hundred million, accumulating steadily through the afternoon. The dashboard shows both — the full close flow and the charm-only drift — because they answer different questions, and the smaller charm-only number is the cleaner, less spot-sensitive read.
+
+Flip the book's composition and the same clock forces buying instead. Charm does not have an inherent direction the way gravity has "down"; the direction is set by which strikes the dealers are short and long. What is invariant is the *timing*: whatever the sign, the flow concentrates into the close and you can see it coming — computable at 9:35 that morning.
 
 ---
 

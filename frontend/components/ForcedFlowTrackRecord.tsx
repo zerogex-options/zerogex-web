@@ -1,7 +1,10 @@
 'use client';
 
 import { useChartTheme } from '@/hooks/useChartTheme';
-import { useForcedFlowBacktest } from '@/hooks/useApiData';
+import {
+  useForcedFlowBacktest,
+  type ForcedFlowBacktestVariant,
+} from '@/hooks/useApiData';
 
 interface ForcedFlowTrackRecordProps {
   symbol?: string;
@@ -27,29 +30,12 @@ export default function ForcedFlowTrackRecord({
   const { data, loading, error } = useForcedFlowBacktest(symbol, lookbackDays);
 
   const textColor = 'var(--text-primary)';
-  const evaluated = data?.evaluated_sessions ?? 0;
-  const hasSample = !!data && evaluated > 0;
-
-  // Edge over the naive "always guess the more common direction" baseline is
-  // the honest read: green only when the signal genuinely beats a coin lean.
-  const edge = data?.edge ?? null;
-  const edgeColor =
-    edge == null ? 'var(--text-secondary)' : edge > 0.005 ? chart.bull : edge < -0.005 ? chart.bear : chart.warning;
-
-  // Significance verdict — the institutional gate. Only a green "significant"
-  // badge counts; everything else is explicitly "not yet proven".
-  const significant = data?.significant ?? false;
-  const pValue = data?.edge_p_value ?? null;
-  const verdictColor = significant ? chart.bull : chart.warning;
-  const verdictLabel = significant
-    ? 'Significant at 95%'
-    : evaluated < 30
-      ? 'Sample too small'
-      : 'Not yet significant';
-  const ciLabel =
-    data?.hit_rate_ci_low != null && data?.hit_rate_ci_high != null
-      ? `95% CI ${formatPct(data.hit_rate_ci_low, 0)}–${formatPct(data.hit_rate_ci_high, 0)}`
-      : null;
+  // The full (0DTE-inclusive) variant drives the shared sample check + ledger;
+  // the smooth (charm-only) variant rides alongside as the A/B challenger.
+  const full = data?.full;
+  const smooth = data?.smooth;
+  const evaluated = full?.evaluated_sessions ?? 0;
+  const hasSample = !!full && evaluated > 0;
 
   return (
     <div
@@ -67,7 +53,8 @@ export default function ForcedFlowTrackRecord({
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         Did the morning charm-flow sign lean the same way as the actual noon → close move? Scored
         honestly against a naive directional baseline — a hit rate at or below the baseline is worth
-        nothing.
+        nothing. Two definitions run side by side: the <strong>full</strong> close flow (dominated by
+        same-day options resolving at the bell) vs. the <strong>charm-only</strong> drift.
       </p>
 
       {error ? (
@@ -87,66 +74,37 @@ export default function ForcedFlowTrackRecord({
             Collecting sessions…
           </span>
           <span className="text-xs">
-            {data ? `${data.total_sessions} session${data.total_sessions === 1 ? '' : 's'} recorded, ` : ''}
+            {full ? `${full.total_sessions} session${full.total_sessions === 1 ? '' : 's'} recorded, ` : ''}
             not enough decisive days yet to score a hit rate.
           </span>
         </div>
       ) : (
         <>
-          {/* Significance verdict — the first thing an institutional reader
-              should see, so a lucky point estimate can't be mistaken for edge. */}
-          <div
-            className="mb-4 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold"
-            style={{ background: 'var(--bg-elevated, rgba(127,127,127,0.08))', color: verdictColor }}
-          >
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: verdictColor }}
+          {/* A/B: the two forecast definitions, scored over identical sessions. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <VariantPanel
+              title="Full close flow"
+              subtitle="0DTE-inclusive · what the headline shows"
+              variant={full!}
+              chart={chart}
+              textColor={textColor}
             />
-            {verdictLabel}
-            {pValue != null && evaluated >= 30 && (
-              <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
-                p = {pValue < 0.001 ? '<0.001' : pValue.toFixed(3)}
-              </span>
-            )}
-          </div>
-
-          {/* Headline stat row. */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-            <Stat
-              label="Hit rate"
-              value={formatPct(data!.hit_rate, 1)}
-              valueColor={textColor}
-              sub={ciLabel}
-              big
-            />
-            <Stat label="Baseline" value={formatPct(data!.baseline_rate, 1)} valueColor="var(--text-secondary)" />
-            <Stat
-              label="Edge vs. baseline"
-              value={edge == null ? '--' : `${edge >= 0 ? '+' : ''}${(edge * 100).toFixed(1)}pt`}
-              valueColor={edgeColor}
-            />
-            <Stat
-              label="Signal / session"
-              value={data!.signal_mean_return == null ? '--' : formatSignedPct(data!.signal_mean_return)}
-              valueColor={
-                data!.signal_mean_return == null
-                  ? 'var(--text-secondary)'
-                  : data!.signal_mean_return >= 0
-                    ? chart.bull
-                    : chart.bear
-              }
-              sub={data!.signal_t_stat == null ? null : `t = ${data!.signal_t_stat.toFixed(2)}`}
+            <VariantPanel
+              title="Charm-only"
+              subtitle="time-decay drift, ex–expiry resolution"
+              variant={smooth}
+              chart={chart}
+              textColor={textColor}
             />
           </div>
 
           <div className="mb-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            {data!.hits} of {evaluated} decisive session{evaluated === 1 ? '' : 's'} over the last{' '}
+            {full!.hits} of {evaluated} decisive session{evaluated === 1 ? '' : 's'} (full) over the last{' '}
             {data!.lookback_days} days
-            {data!.total_sessions > evaluated ? ` (${data!.total_sessions - evaluated} flat/undecided excluded)` : ''}.
+            {full!.total_sessions > evaluated ? ` · ${full!.total_sessions - evaluated} flat/undecided excluded` : ''}.
           </div>
 
-          {/* Recent sessions ledger. */}
+          {/* Recent sessions ledger for the full variant. */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs" style={{ color: textColor }}>
               <thead>
@@ -160,7 +118,7 @@ export default function ForcedFlowTrackRecord({
                 </tr>
               </thead>
               <tbody>
-                {data!.records.slice(0, 12).map((r) => {
+                {full!.records.slice(0, 12).map((r) => {
                   const predBuy = r.predicted_dir > 0;
                   return (
                     <tr key={r.date} style={{ borderTop: `1px solid ${chart.gridLine}` }}>
@@ -187,11 +145,11 @@ export default function ForcedFlowTrackRecord({
           </div>
 
           <p className="mt-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Hit rate carries a 95% Wilson confidence band; the verdict runs a one-sided test that the
-            accuracy beats the baseline, and only certifies an edge at 95% once at least 30 decisive
-            sessions have accrued. Signal / session is the mean of (charm direction × noon → close
-            return) — the pre-cost drift of taking the charm sign at noon and closing at the bell,
-            with its t-stat against zero. Educational only; not a trade recommendation.
+            Each definition carries a 95% Wilson confidence band; the verdict runs a one-sided test that
+            the accuracy beats the baseline, and only certifies an edge at 95% once at least 30 decisive
+            sessions have accrued. Signal / session is the mean of (charm direction × noon → close return)
+            — the pre-cost drift of taking the charm sign at noon and closing at the bell, with its t-stat
+            against zero. Educational only; not a trade recommendation.
           </p>
         </>
       )}
@@ -199,32 +157,110 @@ export default function ForcedFlowTrackRecord({
   );
 }
 
-function Stat({
-  label,
-  value,
-  valueColor,
-  sub = null,
-  big = false,
+function VariantPanel({
+  title,
+  subtitle,
+  variant,
+  chart,
+  textColor,
 }: {
-  label: string;
-  value: string;
-  valueColor: string;
-  sub?: string | null;
-  big?: boolean;
+  title: string;
+  subtitle: string;
+  variant: ForcedFlowBacktestVariant | undefined;
+  chart: ReturnType<typeof useChartTheme>;
+  textColor: string;
 }) {
+  const evaluated = variant?.evaluated_sessions ?? 0;
+  const edge = variant?.edge ?? null;
+  const edgeColor =
+    edge == null
+      ? 'var(--text-secondary)'
+      : edge > 0.005
+        ? chart.bull
+        : edge < -0.005
+          ? chart.bear
+          : chart.warning;
+  const significant = variant?.significant ?? false;
+  const pValue = variant?.edge_p_value ?? null;
+  const verdictColor = significant ? chart.bull : chart.warning;
+  const verdictLabel = significant
+    ? 'Significant at 95%'
+    : evaluated < 30
+      ? 'Sample too small'
+      : 'Not yet significant';
+  const ciLabel =
+    variant?.hit_rate_ci_low != null && variant?.hit_rate_ci_high != null
+      ? `95% CI ${formatPct(variant.hit_rate_ci_low, 0)}–${formatPct(variant.hit_rate_ci_high, 0)}`
+      : null;
+  const meanRet = variant?.signal_mean_return ?? null;
+
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-        {label}
+    <div
+      className="rounded-xl p-4"
+      style={{ background: 'var(--bg-elevated, rgba(127,127,127,0.05))', border: `1px solid ${chart.gridLine}` }}
+    >
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-sm font-bold" style={{ color: textColor }}>
+          {title}
+        </span>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-semibold"
+          style={{ color: verdictColor }}
+        >
+          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: verdictColor }} />
+          {verdictLabel}
+        </span>
       </div>
-      <div className={big ? 'text-3xl font-bold' : 'text-xl font-bold'} style={{ color: valueColor }}>
-        {value}
+      <div className="mb-3 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+        {subtitle}
       </div>
-      {sub && (
+
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl font-bold" style={{ color: textColor }}>
+          {formatPct(variant?.hit_rate ?? null, 1)}
+        </span>
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          hit rate
+        </span>
+      </div>
+      {ciLabel && (
         <div className="mt-0.5 text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-          {sub}
+          {ciLabel}
         </div>
       )}
+
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+        <MiniStat label="Baseline" value={formatPct(variant?.baseline_rate ?? null, 0)} color="var(--text-secondary)" />
+        <MiniStat
+          label="Edge"
+          value={edge == null ? '--' : `${edge >= 0 ? '+' : ''}${(edge * 100).toFixed(1)}pt`}
+          color={edgeColor}
+        />
+        <MiniStat
+          label="Signal/day"
+          value={meanRet == null ? '--' : formatSignedPct(meanRet)}
+          color={meanRet == null ? 'var(--text-secondary)' : meanRet >= 0 ? chart.bull : chart.bear}
+        />
+      </div>
+      {pValue != null && evaluated >= 30 && (
+        <div className="mt-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          p = {pValue < 0.001 ? '<0.001' : pValue.toFixed(3)}
+          {variant?.signal_t_stat != null ? ` · t = ${variant.signal_t_stat.toFixed(2)}` : ''}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </div>
+      <div className="font-bold" style={{ color }}>
+        {value}
+      </div>
     </div>
   );
 }

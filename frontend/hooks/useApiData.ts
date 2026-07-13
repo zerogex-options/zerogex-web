@@ -1766,9 +1766,7 @@ export interface ForcedFlowBacktestRecord {
   hit: boolean;
 }
 
-export interface ForcedFlowBacktestResponse {
-  symbol: string;
-  lookback_days: number;
+export interface ForcedFlowBacktestVariant {
   // Sessions with usable data. `evaluated_sessions` drops the flat/undecided
   // ones — it's the denominator behind `hit_rate`.
   total_sessions: number;
@@ -1792,6 +1790,17 @@ export interface ForcedFlowBacktestResponse {
   // t-stat of the per-session P&L against zero. |t| ≳ 2 ≈ distinguishable.
   signal_t_stat: number | null;
   records: ForcedFlowBacktestRecord[];
+}
+
+export interface ForcedFlowBacktestResponse {
+  symbol: string;
+  lookback_days: number;
+  // Two forecast definitions scored over identical sessions:
+  //   full   — the 0DTE-inclusive close flow (dominated by same-day expiry
+  //            resolution; large and pin-sensitive)
+  //   smooth — the first-order charm only ("time decay alone")
+  full: ForcedFlowBacktestVariant;
+  smooth: ForcedFlowBacktestVariant;
 }
 
 // The Charm-into-Close track record: does the morning charm-flow sign lean the
