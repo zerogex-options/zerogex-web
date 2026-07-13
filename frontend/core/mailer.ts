@@ -63,6 +63,10 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
     body: 'the plain-English summary at the top of the dashboard telling you whether conditions currently favor stability or bigger moves.',
   },
   {
+    title: 'GEX Strike Profile',
+    body: 'the at-a-glance chart of how much dealer gamma sits at each strike, with the key walls and flip marked right on price, so the levels that matter jump out and are easy to act on.',
+  },
+  {
     title: 'Gamma Flip',
     body: 'the line between more stabilizing and more volatile dealer positioning.',
   },
@@ -80,12 +84,14 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
   },
 ];
 
-// ZeroGEX is a market-structure/context tool, not a signal service. Every
-// trial-facing email that points users at live levels carries this line so the
-// framing is set the first time they open the product. Kept verbatim across
-// emails on purpose.
+// Careful risk framing carried by every trial-facing email that points users
+// at live levels, so the framing is set the first time they open the product.
+// Deliberately does NOT claim "not a trade-alert service" — TradeWorkz does
+// surface trade alerts — but still makes the honest, blanket no-guaranteed-
+// outcome / not-financial-advice point, which applies platform-wide including
+// the alerts. Kept verbatim across emails on purpose.
 const TRIAL_DISCLAIMER_LINE =
-  "ZeroGEX is not a trade-alert service and does not promise guaranteed outcomes. It's designed to give you better market-structure context before price gets there.";
+  "ZeroGEX is built to give you better market-structure context before price gets there. It isn't financial advice, and no tool can promise a guaranteed outcome — how you trade the levels is always your call.";
 
 function startHereTextLines(): string[] {
   return TRIAL_START_HERE.map((s) => `  • ${s.title} — ${s.body}`);
