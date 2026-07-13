@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   computeMrr,
   computeMrrTrend,
+  buildMrrProjection,
   deriveTargetMrr,
   parseAmountTable,
   DEFAULT_AMOUNTS,
@@ -10,6 +11,17 @@ import {
   type MrrConfig,
   type SubscriberBucket,
 } from '../core/pricing.ts';
+
+// Build a daily series of consecutive ET-style day keys starting at `start`,
+// mirroring how buildMrrSeries emits one carry-forward point per day.
+function dailySeries(start: string, estMrrs: number[]): Array<{ day: string; estMrr: number }> {
+  const [y, m, d] = start.split('-').map(Number);
+  return estMrrs.map((estMrr, i) => {
+    const dt = new Date(Date.UTC(y, m - 1, d + i));
+    const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+    return { day: key, estMrr };
+  });
+}
 
 function cfg(over: Partial<MrrConfig> = {}): MrrConfig {
   return { ...DEFAULT_MRR_CONFIG, ...over };
@@ -149,4 +161,70 @@ test('flat or declining MRR yields no ETA to target', () => {
   const declining = computeMrrTrend([{ estMrr: 2000 }, { estMrr: 1000 }], 20_000)!;
   assert.ok(declining.monthlyGrowthRate !== null && declining.monthlyGrowthRate < 0);
   assert.equal(declining.monthsToTarget, null);
+});
+
+test('projection extrapolates a straight line at last week\'s daily pace', () => {
+  // 8 days of history rising exactly $10/day: pace over the trailing week is
+  // $10/day off the latest ($1070) value.
+  const series = dailySeries('2026-07-01', [1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070]);
+  const proj = buildMrrProjection(series, 6)!;
+  assert.equal(proj.windowDays, 7);
+  assert.ok(Math.abs(proj.slopePerDay - 10) < 1e-9);
+  assert.equal(proj.originMrr, 1070);
+  assert.equal(proj.originDay, '2026-07-08');
+  // First projected point is the next day, one slope-step up.
+  assert.equal(proj.points[0].day, '2026-07-09');
+  assert.ok(Math.abs(proj.points[0].projMrr - 1080) < 1e-9);
+  // Straight line: value at N days out is origin + slope*N.
+  const last = proj.points[proj.points.length - 1];
+  assert.ok(Math.abs(last.projMrr - (1070 + 10 * proj.points.length)) < 1e-9);
+  assert.equal(last.projMrr, proj.horizonMrr);
+  // 6 calendar months from Jul 8 lands on Jan 8 -> 184 days.
+  assert.equal(proj.points.length, 184);
+  assert.equal(last.day, '2027-01-08');
+});
+
+test('projection horizons scale the number of forward days', () => {
+  const series = dailySeries('2026-07-01', [1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070]);
+  const y1 = buildMrrProjection(series, 12)!;
+  const y3 = buildMrrProjection(series, 36)!;
+  assert.equal(y1.points[y1.points.length - 1].day, '2027-07-08');
+  assert.equal(y3.points[y3.points.length - 1].day, '2029-07-08');
+  // Same pace, so the 3-year endpoint is far higher than the 1-year one.
+  assert.ok(y3.horizonMrr > y1.horizonMrr);
+});
+
+test('projection uses the shorter window when under a week of history', () => {
+  // Only 5 days of real data (4-day span) -> window clamps to 4.
+  const series = dailySeries('2026-07-01', [100, 130, 160, 190, 220]);
+  const proj = buildMrrProjection(series, 6)!;
+  assert.equal(proj.windowDays, 4);
+  assert.ok(Math.abs(proj.slopePerDay - 30) < 1e-9);
+});
+
+test('projection skips leading pre-launch zeros when setting the pace', () => {
+  const series = dailySeries('2026-07-01', [0, 0, 0, 500, 510, 520, 530, 540, 550, 560, 570]);
+  const proj = buildMrrProjection(series, 6)!;
+  // Trailing week still resolves to $10/day, unaffected by the zero prefix.
+  assert.equal(proj.windowDays, 7);
+  assert.ok(Math.abs(proj.slopePerDay - 10) < 1e-9);
+  assert.equal(proj.originMrr, 570);
+});
+
+test('declining MRR projects downward and clamps at zero', () => {
+  // Falling $100/day from $500 -> hits zero within the horizon, never negative.
+  const series = dailySeries('2026-07-01', [1100, 1000, 900, 800, 700, 600, 500, 400]);
+  const proj = buildMrrProjection(series, 6)!;
+  assert.ok(proj.slopePerDay < 0);
+  assert.equal(proj.horizonMrr, 0);
+  assert.ok(proj.points.every((p) => p.projMrr >= 0));
+});
+
+test('projection is null without enough real history or with no horizon', () => {
+  assert.equal(buildMrrProjection([], 6), null);
+  assert.equal(buildMrrProjection(dailySeries('2026-07-01', [0, 0]), 6), null);
+  // Single real day -> no span to set a slope.
+  assert.equal(buildMrrProjection(dailySeries('2026-07-01', [0, 0, 100]), 6), null);
+  // Non-positive horizon.
+  assert.equal(buildMrrProjection(dailySeries('2026-07-01', [100, 200]), 0), null);
 });
