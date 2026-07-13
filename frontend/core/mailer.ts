@@ -49,6 +49,56 @@ function formatTrialEndDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+// The "start here" focus list — the most relevant pieces of ZeroGEX for a
+// first session, named to match the live dashboard's actual card/section
+// titles so a new user can find each one. Today's Read leads because it's the
+// plain-English regime summary that sits at the very top of the board. Shared
+// by the automated trial welcome (sendPaidWelcomeEmail) and the one-time
+// trial-quickstart bridge (sendTrialQuickstartEmail) so the guidance stays in
+// lockstep between them. Keep this in sync if the dashboard's headline
+// cards/labels change.
+const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
+  {
+    title: "Today's Read",
+    body: 'the plain-English summary at the top of the dashboard telling you whether conditions currently favor stability or bigger moves.',
+  },
+  {
+    title: 'Gamma Flip',
+    body: 'the line between more stabilizing and more volatile dealer positioning.',
+  },
+  {
+    title: 'Call Wall / Put Wall',
+    body: 'the key upside and downside options levels where price may pin, reject, or react.',
+  },
+  {
+    title: 'Net GEX',
+    body: 'whether the broader options structure is more stabilizing or more unstable right now.',
+  },
+  {
+    title: 'SPY / SPX / QQQ',
+    body: 'the same read across all three, for intraday index context.',
+  },
+];
+
+// ZeroGEX is a market-structure/context tool, not a signal service. Every
+// trial-facing email that points users at live levels carries this line so the
+// framing is set the first time they open the product. Kept verbatim across
+// emails on purpose.
+const TRIAL_DISCLAIMER_LINE =
+  "ZeroGEX is not a trade-alert service and does not promise guaranteed outcomes. It's designed to give you better market-structure context before price gets there.";
+
+function startHereTextLines(): string[] {
+  return TRIAL_START_HERE.map((s) => `  • ${s.title} — ${s.body}`);
+}
+
+function startHereHtmlList(): string {
+  const items = TRIAL_START_HERE.map(
+    (s) =>
+      `<li style="margin: 0 0 8px;"><strong>${escapeHtml(s.title)}</strong> &mdash; ${escapeHtml(s.body)}</li>`,
+  ).join('');
+  return `<ul style="padding-left: 20px; margin: 12px 0;">${items}</ul>`;
+}
+
 export async function sendEmailVerification(to: string, verifyUrl: string) {
   const safeLink = escapeHtml(verifyUrl);
   const subject = 'Verify your ZeroGEX email';
@@ -155,17 +205,25 @@ export async function sendPaidWelcomeEmail(
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
-  const subject = trialEndDate
-    ? 'Welcome to ZeroGEX — your free trial has started'
+  // A set trial-end date means this is a fresh 7-day trial (the standard
+  // checkout path). Trial copy deliberately avoids "thank you for subscribing"
+  // — a trialer hasn't paid, and that phrasing reads as if they were charged.
+  // The no-trial branch is a genuine immediate paid subscriber, so it keeps
+  // the "subscribing" thank-you.
+  const isTrial = Boolean(trialEndDate);
+  const subject = isTrial
+    ? 'Your ZeroGEX trial is active'
     : 'Thank you for subscribing to ZeroGEX!';
 
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active — you have full access right away, and you won't be charged until ${trialEndDate}. Cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${trialEndDate}. You can cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active &mdash; you have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. Cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed a cent.`
+    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. You can cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
@@ -174,16 +232,31 @@ export async function sendPaidWelcomeEmail(
     ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)} &mdash; it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
     : null;
 
+  const thankYouLine = isTrial
+    ? 'I just wanted to personally thank you for trying ZeroGEX.'
+    : 'I just wanted to personally thank you for subscribing to ZeroGEX.';
+  const growthLine = isTrial
+    ? 'ZeroGEX is still growing quickly, and early users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.'
+    : 'It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.';
+
   const text = [
     'Hello,',
     '',
     ...(trialLineText ? [trialLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
-    'I just wanted to personally thank you for subscribing to ZeroGEX.',
+    thankYouLine,
     '',
-    "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.",
+    "The best place to start is the live dashboard. For your first session, here's where I'd look first:",
     '',
-    "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
+    ...startHereTextLines(),
+    '',
+    `Start here: ${dashboardUrl}`,
+    '',
+    TRIAL_DISCLAIMER_LINE,
+    '',
+    growthLine,
+    '',
+    "Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again — I really appreciate your support.',
     '',
@@ -197,10 +270,100 @@ export async function sendPaidWelcomeEmail(
       <p>Hello,</p>
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
-      <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
-      <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders.</p>
-      <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
+      <p>${thankYouLine}</p>
+      <p>The best place to start is the live dashboard. For your first session, here's where I'd look first:</p>
+      ${startHereHtmlList()}
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
+      <p>${growthLine}</p>
+      <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// One-time "bridge" email for users who were ALREADY mid-trial when the
+// activation-focused welcome email (sendPaidWelcomeEmail's trial copy) shipped.
+// They received the older welcome that was purely a thank-you note, so they
+// never got the "start here" onboarding the new welcome now includes. This
+// closes that gap: it delivers the same start-here guidance + dashboard link +
+// disclaimer as a standalone founder note, deliberately WITHOUT repeating the
+// old email's thank-you or the full billing/cancel walkthrough (which they
+// already have, and which the ~48h trial-end reminder covers again). Sent
+// manually via scripts/send-trial-quickstart.mts as a one-shot to the current
+// 'trialing' cohort; not wired into any webhook.
+export async function sendTrialQuickstartEmail(
+  to: string,
+  opts?: { trialEndIso?: string | null },
+) {
+  const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const subject = 'Getting the most out of your ZeroGEX trial';
+
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+
+  // Light, single-line trial context — references the dynamic end date without
+  // re-litigating the cancel/billing mechanics the welcome + reminder already
+  // cover. Falls back to a date-free line if we somehow lack a trial_end.
+  const trialContextText = trialEndDate
+    ? `You're currently on your ZeroGEX free trial, with full access through ${trialEndDate}.`
+    : "You're currently on your ZeroGEX free trial, with full access to everything.";
+  const trialContextHtml = trialEndDate
+    ? `You're currently on your ZeroGEX free trial, with full access through <strong>${escapeHtml(trialEndDate)}</strong>.`
+    : "You're currently on your ZeroGEX free trial, with full access to everything.";
+
+  const text = [
+    'Hello,',
+    '',
+    "I'm Michael, the founder of ZeroGEX. " +
+      trialContextText +
+      " I recently put together a short guide on where to focus first, and since you started your trial before it existed, I wanted to make sure you had it too rather than leaving you to dig for the important parts.",
+    '',
+    "The best place to start is the live dashboard. Here's where I'd look first:",
+    '',
+    ...startHereTextLines(),
+    '',
+    `Start here: ${dashboardUrl}`,
+    '',
+    TRIAL_DISCLAIMER_LINE,
+    '',
+    "If anything's unclear or you have a question, just reply to this email. I read every message myself, and it genuinely shapes what I build next.",
+    '',
+    'Thanks for giving ZeroGEX a try.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>I'm Michael, the founder of ZeroGEX. ${trialContextHtml} I recently put together a short guide on where to focus first, and since you started your trial before it existed, I wanted to make sure you had it too rather than leaving you to dig for the important parts.</p>
+      <p>The best place to start is the live dashboard. Here's where I'd look first:</p>
+      ${startHereHtmlList()}
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
+      <p>If anything's unclear or you have a question, just reply to this email. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>Thanks for giving ZeroGEX a try.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
