@@ -930,10 +930,10 @@ type AcquisitionPeriodKey = (typeof ACQUISITION_PERIODS)[number]['key'];
 // size might realistically sustain up to an aggressive best case.
 const GROWTH_SHAPES = [
   { label: 'Linear — steady adds', accel: 0 },
-  { label: 'Gentle — +5%/mo', accel: 0.05 },
-  { label: 'Moderate — +15%/mo', accel: 0.15 },
-  { label: 'Strong — +25%/mo', accel: 0.25 },
-  { label: 'Aggressive — +40%/mo', accel: 0.4 },
+  { label: 'Gentle — +1%/mo', accel: 0.01 },
+  { label: 'Moderate — +2.5%/mo', accel: 0.025 },
+  { label: 'Strong — +5%/mo', accel: 0.05 },
+  { label: 'Aggressive — +8%/mo', accel: 0.08 },
 ] as const;
 
 const CHURN_OPTIONS = [0.02, 0.03, 0.05, 0.07, 0.1, 0.15] as const;
@@ -1028,7 +1028,6 @@ function GrowthProjectionsCard({
     [projection, now],
   );
 
-  const subsScale = niceYScale(Math.max(1, projection.end.subs));
   // Only pull the target onto the MRR axis when the projection lands within
   // ~1.5x of it, so a modest scenario isn't flattened by a far-off target.
   const showTarget = targetMrr > 0 && targetMrr <= projection.end.mrr * 1.5;
@@ -1046,9 +1045,9 @@ function GrowthProjectionsCard({
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>Growth Projections</h3>
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
-          <span><span style={{ color: brandColor }}>●</span> Paying subs</span>
           <span><span style={{ color: mrrColor }}>▬</span> MRR</span>
           {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+          <span style={{ color: mutedText }}>· subs in tooltip</span>
         </div>
       </div>
 
@@ -1220,18 +1219,6 @@ function GrowthProjectionsCard({
               minTickGap={48}
             />
             <YAxis
-              yAxisId="subs"
-              stroke={axisStroke}
-              tick={{ fill: axisStroke, fontSize: 10 }}
-              tickLine={false}
-              allowDecimals={false}
-              domain={[0, subsScale.max]}
-              ticks={subsScale.ticks}
-              tickFormatter={(v) => formatCompact(Number(v))}
-            />
-            <YAxis
-              yAxisId="mrr"
-              orientation="right"
               stroke={axisStroke}
               tick={{ fill: axisStroke, fontSize: 10 }}
               tickLine={false}
@@ -1254,28 +1241,15 @@ function GrowthProjectionsCard({
                     style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                   >
                     <div className="font-semibold mb-1">{String(label)}</div>
-                    <div>Paying subs: {row.subs.toLocaleString()}</div>
-                    <div style={{ color: mutedText }}>Pro {row.proSubs.toLocaleString()} · Basic {row.basicSubs.toLocaleString()}</div>
                     <div>MRR: {formatUsd(row.mrr)}</div>
                     <div>ARR: {formatUsd(row.arr)}</div>
+                    <div>Paying subs: {row.subs.toLocaleString()}</div>
+                    <div style={{ color: mutedText }}>Pro {row.proSubs.toLocaleString()} · Basic {row.basicSubs.toLocaleString()}</div>
                   </div>
                 );
               }}
             />
-            <Area
-              yAxisId="subs"
-              type="monotone"
-              dataKey="subs"
-              name="Paying subs"
-              stroke={brandColor}
-              fill={brandColor}
-              fillOpacity={0.35}
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
             <Line
-              yAxisId="mrr"
               type="monotone"
               dataKey="mrr"
               name="MRR"
@@ -1286,7 +1260,6 @@ function GrowthProjectionsCard({
             />
             {showTarget && (
               <ReferenceLine
-                yAxisId="mrr"
                 y={targetMrr}
                 stroke={targetColor}
                 strokeDasharray="6 4"
