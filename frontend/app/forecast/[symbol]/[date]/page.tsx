@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, CheckCircle2, XCircle, Magnet } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, XCircle, Magnet, Ruler, Gauge } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
@@ -230,6 +230,7 @@ export default async function ForecastPage({
           label="Projected range"
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-accent)"
+          icon={Ruler}
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={(() => {
             const parts: string[] = [];
@@ -273,6 +274,7 @@ export default async function ForecastPage({
           label="Regime"
           value={regimeLabel}
           accent="var(--color-accent)"
+          icon={Gauge}
           verdict={
             receipt && receipt.regime_correct != null
               ? receipt.regime_correct ? 'held' : 'broken'
