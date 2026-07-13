@@ -7,6 +7,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import { formatDayLabel, formatHourLabel, lighten, niceYScale } from './monitoringHelpers';
+import { buildMrrProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
 
 type SnapshotPoint = {
   bucket: string;
@@ -635,6 +636,32 @@ function formatGrowthPct(rate: number | null): string {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
+// One point on the combined historical + projected MRR line. Historical
+// points carry est/committed; projected points carry projMrr. The latest
+// historical point carries both (projMrr seeds the forward line so it
+// visually connects to the actuals).
+type MrrChartPoint = {
+  day: string;
+  estMrr?: number;
+  committedMrr?: number;
+  projMrr?: number;
+};
+
+// Month/two-digit-year axis label (e.g. "1/'27"), since the projected span
+// runs across months and years where a bare M/D would be ambiguous.
+function formatProjAxisLabel(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day);
+  if (!m) return day;
+  return `${Number(m[2])}/'${m[1].slice(2)}`;
+}
+
+// Full M/D/'YY label for the tooltip so a projected day years out is exact.
+function formatProjTooltipLabel(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day);
+  if (!m) return day;
+  return `${Number(m[2])}/${Number(m[3])}/'${m[1].slice(2)}`;
+}
+
 function MrrTrendCard({
   series,
   trend,
@@ -657,32 +684,77 @@ function MrrTrendCard({
   const committedColor = lighten(brandColor, 0.45);
   const targetColor = lighten(brandColor, 0.2);
 
+  const [horizonMonths, setHorizonMonths] = useState<number>(MRR_PROJECTION_HORIZONS[0].months);
+  const horizonLabel =
+    MRR_PROJECTION_HORIZONS.find((h) => h.months === horizonMonths)?.label ?? `${horizonMonths} mo`;
+
+  // Straight-line extrapolation off today's MRR and the last week's pace,
+  // extended to the selected horizon. Recomputed only when the series or the
+  // chosen horizon changes.
+  const projection = useMemo(
+    () => buildMrrProjection(series, horizonMonths),
+    [series, horizonMonths],
+  );
+
+  // History plus the forward projection, plotted on one continuous daily axis.
+  const chartData = useMemo<MrrChartPoint[]>(() => {
+    const rows: MrrChartPoint[] = series.map((p) => ({
+      day: p.day,
+      estMrr: p.estMrr,
+      committedMrr: p.committedMrr,
+    }));
+    if (projection && rows.length > 0) {
+      // Seed the projection at the last actual so the dashed line joins the area.
+      rows[rows.length - 1] = { ...rows[rows.length - 1], projMrr: projection.originMrr };
+      for (const pt of projection.points) {
+        rows.push({ day: pt.day, projMrr: pt.projMrr });
+      }
+    }
+    return rows;
+  }, [series, projection]);
+
   const dataMax = useMemo(
-    () => series.reduce((m, p) => Math.max(m, p.committedMrr, p.estMrr), 0),
-    [series],
+    () => chartData.reduce((m, p) => Math.max(m, p.committedMrr ?? 0, p.estMrr ?? 0, p.projMrr ?? 0), 0),
+    [chartData],
   );
   const hasData = dataMax > 0;
   // The replacement target is ~40x current MRR early on; forcing it onto the
   // axis would flatten the growth curve to an invisible sliver. Only draw the
-  // target line once MRR is within ~2x of it — until then the progress bar
-  // above carries the target context and this chart stays zoomed to the data.
+  // target line once the plotted data (now including the projection) is within
+  // ~2x of it — that way a long-horizon projection that crosses the target
+  // shows where it lands, but a zoomed-in near-term view stays on the data.
   const showTarget = hasData && targetMrr <= dataMax * 2;
   const yBasis = showTarget ? Math.max(dataMax, targetMrr) : dataMax;
   const yScale = useMemo(() => niceYScale(Math.max(1, yBasis)), [yBasis]);
 
-  const growthSub =
-    trend && trend.windowDays > 0
-      ? `over ${trend.windowDays}d · ${formatGrowthPct(trend.monthlyGrowthRate)}/mo`
-      : 'building history';
+  const slopeSign = projection && projection.slopePerDay < 0 ? '-' : '+';
+  const slopeLabel = projection
+    ? `${slopeSign}${formatUsd(Math.abs(projection.slopePerDay), { cents: true })}/day`
+    : '—';
 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>MRR Trend</h3>
-        <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
+        <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: mutedText }}>
           <span><span style={{ color: brandColor }}>●</span> Est. MRR</span>
           <span><span style={{ color: committedColor }}>●</span> Committed</span>
+          <span><span style={{ color: brandColor }}>▬</span> Projected</span>
           {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+          <label className="flex items-center gap-1">
+            <span className="sr-only">Projection horizon</span>
+            <select
+              value={horizonMonths}
+              onChange={(e) => setHorizonMonths(Number(e.target.value))}
+              className="rounded border px-2 py-1 text-xs"
+              style={{ backgroundColor: cardBg, borderColor: `${axisStroke}55`, color: textColor }}
+              aria-label="Projection horizon"
+            >
+              {MRR_PROJECTION_HORIZONS.map((h) => (
+                <option key={h.months} value={h.months}>{h.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
@@ -692,7 +764,22 @@ function MrrTrendCard({
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
             {trend ? formatGrowthPct(trend.monthlyGrowthRate) : '—'}/mo
           </span>{' '}
-          <span style={{ color: mutedText }}>({growthSub})</span>
+          <span style={{ color: mutedText }}>(compounded, full window)</span>
+        </span>
+        <span>
+          Last week&apos;s pace:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {slopeLabel}
+          </span>{' '}
+          {projection && projection.windowDays < 7 && (
+            <span style={{ color: mutedText }}>(over {projection.windowDays}d)</span>
+          )}
+        </span>
+        <span>
+          Projected in {horizonLabel}:{' '}
+          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
+            {projection ? formatUsd(projection.horizonMrr) : '—'}
+          </span>
         </span>
         <span>
           At this rate, target in:{' '}
@@ -709,15 +796,15 @@ function MrrTrendCard({
       ) : (
         <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
               <CartesianGrid strokeOpacity={0.1} vertical={false} />
               <XAxis
                 dataKey="day"
                 stroke={axisStroke}
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
-                minTickGap={40}
-                tickFormatter={formatDayLabel}
+                minTickGap={48}
+                tickFormatter={formatProjAxisLabel}
               />
               <YAxis
                 stroke={axisStroke}
@@ -737,16 +824,24 @@ function MrrTrendCard({
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                 content={({ active, label, payload }) => {
                   if (!active || !payload?.length) return null;
-                  const est = Number(payload.find((p) => p.dataKey === 'estMrr')?.value ?? 0);
-                  const committed = Number(payload.find((p) => p.dataKey === 'committedMrr')?.value ?? 0);
+                  const estRaw = payload.find((p) => p.dataKey === 'estMrr')?.value;
+                  const committedRaw = payload.find((p) => p.dataKey === 'committedMrr')?.value;
+                  const projRaw = payload.find((p) => p.dataKey === 'projMrr')?.value;
+                  const isHistorical = estRaw != null;
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
-                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div>Est. MRR: {formatUsd(est)}</div>
-                      <div>Committed: {formatUsd(committed)}</div>
+                      <div className="font-semibold mb-1">{formatProjTooltipLabel(String(label))}</div>
+                      {isHistorical ? (
+                        <>
+                          <div>Est. MRR: {formatUsd(Number(estRaw))}</div>
+                          <div>Committed: {formatUsd(Number(committedRaw ?? 0))}</div>
+                        </>
+                      ) : (
+                        projRaw != null && <div>Projected: {formatUsd(Number(projRaw))}</div>
+                      )}
                     </div>
                   );
                 }}
@@ -759,6 +854,7 @@ function MrrTrendCard({
                 fill={brandColor}
                 fillOpacity={0.4}
                 strokeWidth={2}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               <Line
@@ -769,6 +865,19 @@ function MrrTrendCard({
                 strokeWidth={2}
                 strokeDasharray="4 3"
                 dot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="projMrr"
+                name="Projected"
+                stroke={brandColor}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                strokeOpacity={0.85}
+                dot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
               {showTarget && (
