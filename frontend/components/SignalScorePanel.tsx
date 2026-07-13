@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import AutoFitValue from './AutoFitValue';
 import { Activity, AlertTriangle, Clock, Cpu, Eye, Info, Minus, Shield, Target, TrendingDown, TrendingUp, Users, X, Zap } from 'lucide-react';
 import { Radar, RadarChart, PolarAngleAxis, PolarGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSignalScore } from '@/hooks/useApiData';
@@ -583,14 +584,14 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
               </TooltipWrapper>
             </div>
-            <div
-              className="text-4xl sm:text-5xl md:text-6xl font-black leading-none break-words"
+            <AutoFitValue
+              className="text-4xl sm:text-5xl md:text-6xl font-black leading-none"
               style={{
                 color: compositeScore != null ? compositeScoreColor(compositeScore) : 'var(--color-text-primary)',
               }}
             >
               {compositeScore != null ? compositeScore.toFixed(2) : '--'}
-            </div>
+            </AutoFitValue>
             <div className="mt-3 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold" style={{ borderColor: verdictColor, color: verdictColor }}>
               <VerdictIcon size={16} />
               <span>{verdictLabel}</span>
