@@ -42,6 +42,38 @@ function formatPrice(value: number): string {
   return value.toFixed(value >= 1000 ? 0 : 2);
 }
 
+// Label for a vertical ReferenceLine that anchors to one side of the line
+// instead of centring on it. When the zero-flow level coincides with spot —
+// which it does at the bell, where the reprice curve crosses zero right at the
+// current price — two centred labels smear on top of each other. Anchoring
+// "Spot" to the left of its line and "Zero-flow" to the right keeps both
+// legible no matter how close the two lines sit.
+function VLineLabel({
+  viewBox,
+  text,
+  color,
+  side,
+}: {
+  viewBox?: { x?: number; y?: number };
+  text: string;
+  color: string;
+  side: 'left' | 'right';
+}) {
+  if (!viewBox || viewBox.x == null || viewBox.y == null) return null;
+  const dx = side === 'left' ? -5 : 5;
+  return (
+    <text
+      x={viewBox.x + dx}
+      y={viewBox.y - 4}
+      fill={color}
+      fontSize={10}
+      textAnchor={side === 'left' ? 'end' : 'start'}
+    >
+      {text}
+    </text>
+  );
+}
+
 interface CurveTooltipRow {
   price: number;
   total: number;
@@ -118,7 +150,7 @@ export default function ForcedFlowCurveChart({
   const vannaColor = chart.series[3];
   const totalColor = chart.text;
 
-  const curve = data?.curve ?? [];
+  const curve = useMemo(() => data?.curve ?? [], [data]);
   const hasData = curve.length > 0;
 
   // Where the dealer flow flips sign — the headline the reader wants fastest.
@@ -306,22 +338,24 @@ export default function ForcedFlowCurveChart({
                 isAnimationActive={false}
               />
 
-              {/* Vertical spot marker. */}
+              {/* Vertical spot marker — label anchored left of the line. */}
               {data?.spot != null && Number.isFinite(data.spot) && (
                 <ReferenceLine
                   x={data.spot}
                   stroke={chart.info}
                   strokeDasharray="4 4"
-                  label={{ value: 'Spot', position: 'top', fill: chart.info, fontSize: 10 }}
+                  label={<VLineLabel text="Spot" color={chart.info} side="left" />}
                 />
               )}
-              {/* Vertical zero-flow (dealer buy→sell flip) marker. */}
+              {/* Vertical zero-flow (dealer buy→sell flip) marker — label
+                  anchored right of the line so it clears the Spot label even
+                  when the two prices coincide at the close. */}
               {data?.zero_flow_level != null && Number.isFinite(data.zero_flow_level) && (
                 <ReferenceLine
                   x={data.zero_flow_level}
                   stroke={chart.warning}
                   strokeDasharray="5 3"
-                  label={{ value: 'Zero-flow', position: 'top', fill: chart.warning, fontSize: 10 }}
+                  label={<VLineLabel text="Zero-flow" color={chart.warning} side="right" />}
                 />
               )}
             </ComposedChart>

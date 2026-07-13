@@ -158,7 +158,13 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
                 tick={{ fontSize: 11, fill: chart.axisText }}
                 tickFormatter={(v) => {
                   const remaining = Math.max(0, sessionDays - Number(v));
-                  return remaining <= 0.001 ? 'close' : `${remaining.toFixed(1)}d`;
+                  const mins = remaining * 24 * 60;
+                  // At/after the bell the whole window is under a minute; show
+                  // minutes so the axis doesn't degenerate to "close close
+                  // close". During a normal session, days read cleaner.
+                  if (mins < 0.5) return 'close';
+                  if (sessionDays < 0.05) return `${Math.round(mins)}m`;
+                  return `${remaining.toFixed(1)}d`;
                 }}
                 label={{
                   value: 'Time to close →',
