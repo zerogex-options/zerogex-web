@@ -20,6 +20,8 @@ interface ForecastDateEntry {
   range_respected: boolean | null;
   pin_hit: boolean | null;
   regime_correct: boolean | null;
+  expected_vol_state: string | null;
+  vol_state_correct: boolean | null;
 }
 
 interface ForecastDateList {
@@ -31,7 +33,7 @@ interface ForecastDateList {
 export const metadata: Metadata = {
   title: 'Gamma Forecast — ZeroGEX',
   description:
-    'Every day we commit tomorrow morning to a projected range, pin, and regime — then grade ourselves at 4 PM. Browse the receipts.',
+    'Every morning we commit to a projected range, an expected-volatility call, and key gamma levels with touch odds — never a direction call — then grade ourselves at 4 PM. Browse the receipts.',
   alternates: { canonical: `${SITE_URL}/forecast` },
   openGraph: {
     type: 'website',
@@ -67,7 +69,7 @@ function humanizeRegime(raw: string | null): string {
 // interesting).
 function verdictSummary(entry: ForecastDateEntry): { label: string; tone: string } {
   if (!entry.has_receipt) return { label: 'Pending 4 PM', tone: 'var(--color-text-secondary)' };
-  const flags = [entry.range_respected, entry.pin_hit, entry.regime_correct];
+  const flags = [entry.range_respected, entry.vol_state_correct];
   const graded = flags.filter((f) => f != null);
   const wins = graded.filter((f) => f === true).length;
   if (graded.length === 0) return { label: 'Ungraded', tone: 'var(--color-text-secondary)' };
@@ -108,10 +110,10 @@ export default async function ForecastLanding({
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Every morning at 7 AM ET we commit {symbol} to a projected range, a pin strike, and a
-          regime call — hashed and immutable. Every afternoon at 4:05 PM we grade ourselves against
-          the actual low, high, and close. Pick a date to see the promise, the receipt, and the
-          verdict pills.
+          Every morning at 7 AM ET we commit {symbol} to a projected range, an expected-volatility
+          call, and the key gamma levels with touch odds — hashed and immutable. We never forecast
+          direction. Every afternoon at 4:05 PM we grade ourselves against the actual low, high, and
+          close. Pick a date to see the promise, the receipt, and the verdict pills.
         </p>
       </header>
 
@@ -144,7 +146,7 @@ export default async function ForecastLanding({
                       className="mt-1 font-mono text-[11px]"
                       style={{ color: 'var(--color-accent)' }}
                     >
-                      {humanizeRegime(entry.regime)}
+                      {humanizeRegime(entry.expected_vol_state)} vol
                     </div>
                   </Link>
                 </li>

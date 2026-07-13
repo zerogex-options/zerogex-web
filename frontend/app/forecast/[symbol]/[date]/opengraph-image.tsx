@@ -5,7 +5,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { resolveSymbol } from '@/core/symbols';
 
 export const runtime = 'nodejs';
-export const alt = 'ZeroGEX Gamma Forecast Card — projected range, pin, regime';
+export const alt = 'ZeroGEX Gamma Forecast Card — projected range, expected volatility, key levels';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const revalidate = 1800;
@@ -15,8 +15,10 @@ interface ForecastMorning {
   open_spot: number | null;
   projected_low: number | null;
   projected_high: number | null;
-  pin_strike: number | null;
-  regime: string | null;
+  expected_vol_state: string | null;
+  expected_vol_ratio: number | null;
+  flip_cross_prob: number | null;
+  level_touch_probs: Record<string, number> | null;
   range_model: string | null;
 }
 
@@ -25,8 +27,9 @@ interface ForecastReceipt {
   actual_high: number | null;
   actual_close: number | null;
   range_respected: boolean | null;
-  pin_hit: boolean | null;
-  regime_correct: boolean | null;
+  vol_state_correct: boolean | null;
+  realized_vol_ratio: number | null;
+  levels_brier: number | null;
 }
 
 interface ForecastPayload {
@@ -82,14 +85,16 @@ export default async function Image({ params }: { params: { symbol: string; date
   const receipt = payload?.receipt;
   const hasReceipt = !!receipt;
   const accent = CARD_ACCENT;
-  const regimeLabel = humanizeRegime(morning?.regime ?? null);
+  const volLabel = humanizeRegime(morning?.expected_vol_state ?? null);
+  const flipPct =
+    morning?.flip_cross_prob != null ? `${Math.round(morning.flip_cross_prob * 100)}%` : '—';
   const heroLabel = hasReceipt ? 'Forecast Receipt' : 'Morning Forecast';
 
   await captureServer(`og:forecast:${date}`, TelemetryEvent.OgPreviewed, {
     surface: 'forecast',
     date,
     symbol,
-    regime: morning?.regime ?? null,
+    expected_vol_state: morning?.expected_vol_state ?? null,
     range_model: morning?.range_model ?? null,
     has_receipt: hasReceipt,
     resolved: Boolean(payload),
@@ -240,7 +245,7 @@ export default async function Image({ params }: { params: { symbol: string; date
               )}
             </div>
 
-            {/* Pin + Regime row */}
+            {/* Volatility + Levels row */}
             <div style={{ display: 'flex', gap: 18 }}>
               <div
                 style={{
@@ -263,9 +268,9 @@ export default async function Image({ params }: { params: { symbol: string; date
                     display: 'flex',
                   }}
                 >
-                  Pin strike {hasReceipt && (
-                    <span style={{ marginLeft: 10, color: receipt?.pin_hit ? '#10B981' : '#F45854' }}>
-                      {receipt?.pin_hit ? '✓' : '✗'}
+                  Expected volatility {hasReceipt && receipt?.vol_state_correct != null && (
+                    <span style={{ marginLeft: 10, color: receipt?.vol_state_correct ? '#10B981' : '#F45854' }}>
+                      {receipt?.vol_state_correct ? '✓' : '✗'}
                     </span>
                   )}
                 </div>
@@ -273,13 +278,19 @@ export default async function Image({ params }: { params: { symbol: string; date
                   style={{
                     fontSize: 54,
                     fontWeight: 900,
-                    color: '#FFF1E6',
+                    color: accent,
                     marginTop: 6,
                     letterSpacing: '-0.5px',
+                    textTransform: 'uppercase',
                     display: 'flex',
                   }}
                 >
-                  {fmtPrice(morning?.pin_strike)}
+                  {volLabel}
+                </div>
+                <div style={{ fontSize: 20, color: '#C8D8DF', marginTop: 2, display: 'flex' }}>
+                  {morning?.expected_vol_ratio != null
+                    ? `≈${Math.round(morning.expected_vol_ratio * 100)}% of implied`
+                    : 'realized vs. implied'}
                 </div>
               </div>
               <div
@@ -303,24 +314,22 @@ export default async function Image({ params }: { params: { symbol: string; date
                     display: 'flex',
                   }}
                 >
-                  Regime {hasReceipt && receipt?.regime_correct != null && (
-                    <span style={{ marginLeft: 10, color: receipt?.regime_correct ? '#10B981' : '#F45854' }}>
-                      {receipt?.regime_correct ? '✓' : '✗'}
-                    </span>
-                  )}
+                  Key levels
                 </div>
                 <div
                   style={{
                     fontSize: 54,
                     fontWeight: 900,
-                    color: accent,
+                    color: '#FFF1E6',
                     marginTop: 6,
                     letterSpacing: '-0.5px',
-                    textTransform: 'uppercase',
                     display: 'flex',
                   }}
                 >
-                  {regimeLabel}
+                  Flip {flipPct}
+                </div>
+                <div style={{ fontSize: 20, color: '#C8D8DF', marginTop: 2, display: 'flex' }}>
+                  cross odds today · walls on the card
                 </div>
               </div>
             </div>
