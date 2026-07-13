@@ -70,6 +70,57 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
   // Higher price -> higher on the rail (top = 0%).
   const posPct = (v: number) => (hi === lo ? 50 : ((hi - v) / (hi - lo)) * 100);
 
+  // De-collided marker layout. When levels cluster near spot (charm flip and
+  // zero-flow frequently sit right on it), their two-line labels overlap into
+  // an unreadable smear. Place every marker at its true price position, then
+  // enforce a minimum vertical gap so the labels stay legible; the price text
+  // on each keeps it exact even where a dot is nudged off its raw pixel.
+  const markers = useMemo(() => {
+    if (!hasData || spot == null) return [];
+    const MIN = 4;
+    const MAX = 96;
+    const GAP = 13; // ~two text lines in the 220px rail
+    const raw = [
+      {
+        key: 'spot',
+        label: 'Spot',
+        price: formatPrice(spot),
+        sub: null as string | null,
+        subColor: undefined as string | undefined,
+        color: chart.info,
+        emphasized: true,
+        value: spot,
+      },
+      ...levels.map((l) => ({
+        key: l.key,
+        label: l.label,
+        price: formatPrice(l.value),
+        sub: formatSignedPrice(l.value - spot) as string | null,
+        subColor: (l.value - spot >= 0 ? chart.bull : chart.bear) as string | undefined,
+        color: l.color,
+        emphasized: false,
+        value: l.value,
+      })),
+    ];
+    const items = raw
+      .map((m) => ({ ...m, top: Math.min(MAX, Math.max(MIN, posPct(m.value))) }))
+      .sort((a, b) => a.top - b.top);
+    // Push overlaps downward...
+    for (let i = 1; i < items.length; i++) {
+      if (items[i].top < items[i - 1].top + GAP) items[i].top = items[i - 1].top + GAP;
+    }
+    // ...then, if the stack overshot the bottom, slide it back up as a block.
+    const overflow = items.length ? items[items.length - 1].top - MAX : 0;
+    if (overflow > 0) {
+      for (const it of items) it.top = Math.max(MIN, it.top - overflow);
+      for (let i = 1; i < items.length; i++) {
+        if (items[i].top < items[i - 1].top + GAP) items[i].top = items[i - 1].top + GAP;
+      }
+    }
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData, spot, levels, lo, hi, chart.info, chart.bull, chart.bear]);
+
   const textColor = 'var(--text-primary)';
 
   return (
@@ -111,27 +162,17 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
             style={{ left: 92, width: 2, backgroundColor: chart.gridLine, borderRadius: 1 }}
           />
 
-          {/* Spot marker — the reference the levels are read against. */}
-          <RailMarker
-            top={posPct(spot)}
-            label="Spot"
-            price={formatPrice(spot)}
-            sub={null}
-            color={chart.info}
-            emphasized
-            trackLeft={92}
-          />
-
-          {/* Regime levels. */}
-          {levels.map((l) => (
+          {/* Spot + regime levels, de-collided so clustered labels stay legible. */}
+          {markers.map((m) => (
             <RailMarker
-              key={l.key}
-              top={posPct(l.value)}
-              label={l.label}
-              price={formatPrice(l.value)}
-              sub={formatSignedPrice(l.value - spot)}
-              subColor={l.value - spot >= 0 ? chart.bull : chart.bear}
-              color={l.color}
+              key={m.key}
+              top={m.top}
+              label={m.label}
+              price={m.price}
+              sub={m.sub}
+              subColor={m.subColor}
+              color={m.color}
+              emphasized={m.emphasized}
               trackLeft={92}
             />
           ))}

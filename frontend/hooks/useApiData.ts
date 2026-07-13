@@ -1660,7 +1660,7 @@ export interface ForcedFlowCurveResponse {
 // Forced-flow reprice curve: total dealer hedging flow (and its gamma / charm /
 // vanna attribution) as a function of a hypothetical spot, spanning
 // spot_range_pct either side of the live spot.
-export function useForcedFlowCurve(symbol = 'SPY', spotRangePct = 0.05, refreshInterval = 15000) {
+export function useForcedFlowCurve(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
   return useApiData<ForcedFlowCurveResponse>(
     `/api/forced-flow/curve?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
     { refreshInterval },
@@ -1747,7 +1747,7 @@ export interface ForcedFlowSurfaceResponse {
 
 // The forced-flow surface: net dealer forced flow over a spot × time-of-day
 // grid, driving the diverging heatmap (time_steps left at the server default).
-export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.05, refreshInterval = 15000) {
+export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
   return useApiData<ForcedFlowSurfaceResponse>(
     `/api/forced-flow/surface?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
     { refreshInterval },

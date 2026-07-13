@@ -105,7 +105,7 @@ function CurveTooltip({
 
 export default function ForcedFlowCurveChart({
   symbol = 'SPY',
-  spotRangePct = 0.05,
+  spotRangePct = 0.02,
 }: ForcedFlowCurveChartProps) {
   const chart = useChartTheme();
   const { data, loading, error } = useForcedFlowCurve(symbol, spotRangePct, 15000);

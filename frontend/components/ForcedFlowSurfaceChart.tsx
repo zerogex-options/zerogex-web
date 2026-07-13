@@ -88,7 +88,7 @@ function formatPrice(value: number): string {
 
 export default function ForcedFlowSurfaceChart({
   symbol = 'SPY',
-  spotRangePct = 0.05,
+  spotRangePct = 0.02,
 }: ForcedFlowSurfaceChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
