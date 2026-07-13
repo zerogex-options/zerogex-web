@@ -1,5 +1,8 @@
 'use client';
 
+import { Info } from 'lucide-react';
+import TooltipWrapper from './TooltipWrapper';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
@@ -366,6 +369,9 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Surface · Spot × Time
         </h3>
+        <TooltipWrapper text="A heatmap of net forced dealer flow across every combination of hypothetical spot (x-axis) and time from now into the close (y-axis). Green = dealers must buy, red = must sell; the pale band is the zero-flow ridge where they have nothing to do. Read down a column to see how flow at one price evolves through the session; read across a row to see flow across prices at a fixed time.">
+          <Info size={14} />
+        </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>

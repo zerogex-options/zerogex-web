@@ -1,5 +1,8 @@
 'use client';
 
+import { Info } from 'lucide-react';
+import TooltipWrapper from './TooltipWrapper';
+
 import { useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowLevels } from '@/hooks/useApiData';
@@ -75,9 +78,14 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h3 className="zg-h3 text-sm" style={{ color: textColor }}>
-          Forced-Flow Rail
-        </h3>
+        <div className="flex items-baseline gap-1.5">
+          <h3 className="zg-h3 text-sm" style={{ color: textColor }}>
+            Forced-Flow Rail
+          </h3>
+          <TooltipWrapper text="The key spot levels that frame the dealer-hedging regime, plotted against the current price. Gamma flip: where dealer gamma crosses zero — below it dealers amplify moves, above it they dampen them. Charm flip and Vanna flip: the prices where time-decay and vol-driven hedging change sign. Zero-flow level: the price at which total forced dealer flow is zero — the spot where dealers have nothing to hedge.">
+            <Info size={14} />
+          </TooltipWrapper>
+        </div>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>

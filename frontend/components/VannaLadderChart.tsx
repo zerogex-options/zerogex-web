@@ -1,5 +1,8 @@
 'use client';
 
+import { Info } from 'lucide-react';
+import TooltipWrapper from './TooltipWrapper';
+
 import { useMemo } from 'react';
 import {
   Bar,
@@ -111,6 +114,9 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
         <h3 className="zg-h3" style={{ color: textColor }}>
           Vanna Ladder · Flow vs Vol
         </h3>
+        <TooltipWrapper text="Dollars of stock dealers must trade if implied volatility shifts, with spot and time held fixed. Each rung steps IV up or down by one point; flow is zero at no change. A vol drop typically forces buying (the vanna grind that lifts markets on no news); a vol spike forces selling, which is part of why fear feeds on itself in a selloff.">
+          <Info size={14} />
+        </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>

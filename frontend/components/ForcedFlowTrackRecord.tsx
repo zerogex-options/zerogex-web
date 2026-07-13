@@ -1,10 +1,12 @@
 'use client';
 
+import { Info } from 'lucide-react';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import {
   useForcedFlowBacktest,
   type ForcedFlowBacktestVariant,
 } from '@/hooks/useApiData';
+import TooltipWrapper from './TooltipWrapper';
 
 interface ForcedFlowTrackRecordProps {
   symbol?: string;
@@ -46,6 +48,9 @@ export default function ForcedFlowTrackRecord({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Charm-into-Close · Track Record
         </h3>
+        <TooltipWrapper text="The honest scorecard for the charm forecast: did the morning charm-flow sign lean the same way as the actual noon→close move? The hit rate is shown against a naive directional baseline (a rate at or below it is worthless), with a 95% confidence band and a significance test that only certifies an edge on a real sample. Two definitions run side by side — the full 0DTE-inclusive close flow versus the smooth charm-only drift — so you can see which actually predicts.">
+          <Info size={14} />
+        </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>

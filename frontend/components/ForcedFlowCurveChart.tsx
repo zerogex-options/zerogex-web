@@ -1,5 +1,8 @@
 'use client';
 
+import { Info } from 'lucide-react';
+import TooltipWrapper from './TooltipWrapper';
+
 import { useMemo } from 'react';
 import {
   Area,
@@ -144,6 +147,9 @@ export default function ForcedFlowCurveChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced Dealer Flow · Reprice Curve
         </h3>
+        <TooltipWrapper text="Dollars of stock dealers are mechanically forced to BUY (+) or SELL (−) to stay delta-hedged as spot moves, computed by fully repricing the entire option book at each hypothetical price — an exact figure, not a Taylor approximation. The stacked bands attribute the flow to gamma (price), charm (time) and vanna (vol); the line is the exact total. It crosses zero at the zero-flow level, where dealers flip from buyers to sellers.">
+          <Info size={14} />
+        </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>

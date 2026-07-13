@@ -1,5 +1,8 @@
 'use client';
 
+import { Info } from 'lucide-react';
+import TooltipWrapper from './TooltipWrapper';
+
 import {
   Area,
   AreaChart,
@@ -103,6 +106,9 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
         <h3 className="zg-h3" style={{ color: textColor }}>
           Charm Into the Close
         </h3>
+        <TooltipWrapper text="Cumulative dollars of stock dealers are forced to trade by the 4pm close from time decay alone, holding spot fixed — a forecast you can read at the open. The curve starts at zero now and grows to the full close-flow at the bell, steepening into the last hour as same-day options resolve. Positive = forced buying into the close; negative = forced selling.">
+          <Info size={14} />
+        </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>
