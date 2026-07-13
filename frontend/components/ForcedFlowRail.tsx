@@ -125,7 +125,7 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
 
   return (
     <div
-      className="rounded-2xl p-4"
+      className="rounded-2xl p-4 flex flex-col"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -143,19 +143,23 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
       </div>
 
       {error ? (
-        <div className="flex items-center justify-center h-[200px] text-xs" style={{ color: chart.bear }}>
+        <div className="flex flex-1 items-center justify-center text-xs" style={{ minHeight: 200, color: chart.bear }}>
           {error === 'No data available yet' ? 'No levels yet.' : `Error: ${error}`}
         </div>
       ) : loading && !data ? (
-        <div className="flex items-center justify-center h-[200px] text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <div className="flex flex-1 items-center justify-center text-xs" style={{ minHeight: 200, color: 'var(--text-secondary)' }}>
           Loading levels…
         </div>
       ) : !hasData || spot == null ? (
-        <div className="flex items-center justify-center h-[200px] text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <div className="flex flex-1 items-center justify-center text-xs" style={{ minHeight: 200, color: 'var(--text-secondary)' }}>
           No regime levels available.
         </div>
       ) : (
-        <div className="relative" style={{ height: 220 }}>
+        // flex-1 so the track fills the card, which stretches to the height of
+        // the reprice curve beside it — the rail no longer floats in the top
+        // third with dead space below. Marker positions are percentages, so
+        // they spread to whatever height the container gives us.
+        <div className="relative flex-1" style={{ minHeight: 240 }}>
           {/* Vertical rail track. */}
           <div
             className="absolute top-0 bottom-0"

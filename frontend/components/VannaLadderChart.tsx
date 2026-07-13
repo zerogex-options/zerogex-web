@@ -94,7 +94,7 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
   const chart = useChartTheme();
   const { data, loading, error } = useForcedFlowVannaLadder(symbol, 15000);
 
-  const curve = data?.curve ?? [];
+  const curve = useMemo(() => data?.curve ?? [], [data]);
   const hasData = curve.length > 0;
 
   // Headline reads the flow at the −1 VIX-point rung if the ladder carries it.
@@ -102,6 +102,18 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
     () => curve.find((p) => Math.abs(p.vol_change_pts + 1) < 1e-6) ?? null,
     [curve],
   );
+
+  // Numeric x-axis centres each bar on its rung, so the outer bars (dataMin /
+  // dataMax) would straddle the plot edge and clip. Pad the domain by ~¾ of a
+  // rung on each side so every bar sits fully inside the frame.
+  const xDomain = useMemo<[number, number]>(() => {
+    if (!hasData) return [-1, 1];
+    const xs = curve.map((p) => p.vol_change_pts);
+    const min = Math.min(...xs);
+    const max = Math.max(...xs);
+    const step = xs.length > 1 ? Math.abs(xs[1] - xs[0]) || 1 : 1;
+    return [min - step * 0.75, max + step * 0.75];
+  }, [curve, hasData]);
 
   const textColor = 'var(--text-primary)';
 
@@ -160,7 +172,8 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
               <XAxis
                 dataKey="vol_change_pts"
                 type="number"
-                domain={['dataMin', 'dataMax']}
+                domain={xDomain}
+                allowDecimals={false}
                 stroke={chart.axisText}
                 tick={{ fontSize: 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatVolPts(Number(v))}
@@ -198,7 +211,7 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
                 }
               />
               <ReferenceLine y={0} stroke={chart.text} opacity={0.4} />
-              <Bar dataKey="flow" name="Forced flow" isAnimationActive={false}>
+              <Bar dataKey="flow" name="Forced flow" maxBarSize={44} isAnimationActive={false}>
                 {curve.map((p, i) => (
                   <Cell key={i} fill={p.flow >= 0 ? chart.bull : chart.bear} />
                 ))}
