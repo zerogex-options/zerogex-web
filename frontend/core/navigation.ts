@@ -82,6 +82,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
       { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
       { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
+      { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
@@ -117,6 +118,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Articles',
         items: [
           { id: '/education/gamma-exposure-explained', label: 'Gamma Exposure Explained' },
+          { id: '/education/why-market-makers-trade-stock', label: 'Why Dealers Are Forced to Trade' },
           { id: '/education/net-volume-vs-directional-flow', label: 'Options Flow Explained' },
           { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
           { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },

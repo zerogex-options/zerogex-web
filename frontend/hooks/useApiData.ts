@@ -1630,3 +1630,189 @@ export function useBasicConfluenceMatrix(symbol = 'SPY', lookback = 120, refresh
     { refreshInterval },
   );
 }
+
+// ── Forced Flow (dealer forced-hedging attribution) — Phase 4 ──
+// The "Forced Flow" endpoints model the dollars of stock dealers are
+// mechanically forced to buy (+) or sell (−) to stay delta-hedged as the
+// underlying moves (gamma), time decays (charm), or implied vol shifts
+// (vanna). Backed by the /api/forced-flow/* API surface.
+
+export interface ForcedFlowCurvePoint {
+  price: number;
+  total: number;
+  gamma: number;
+  charm: number;
+  vanna: number;
+}
+
+export interface ForcedFlowCurveResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  horizon_days: number;
+  // Spot level at which the total forced flow crosses zero (dealers flip from
+  // net buyers to net sellers). Null when the curve is one-signed across the
+  // scanned range.
+  zero_flow_level: number | null;
+  curve: ForcedFlowCurvePoint[];
+}
+
+// Forced-flow reprice curve: total dealer hedging flow (and its gamma / charm /
+// vanna attribution) as a function of a hypothetical spot, spanning
+// spot_range_pct either side of the live spot.
+export function useForcedFlowCurve(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
+  return useApiData<ForcedFlowCurveResponse>(
+    `/api/forced-flow/curve?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowCharmDecayPoint {
+  days_elapsed: number;
+  flow: number;
+}
+
+export interface ForcedFlowCharmDecayResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  session_days: number;
+  // Cumulative charm-driven forced flow ($) realised by the close if spot holds.
+  close_flow_usd: number;
+  curve: ForcedFlowCharmDecayPoint[];
+}
+
+// Cumulative charm-decay flow into the close — how time decay alone forces
+// dealer hedging as the session runs down to 4 PM.
+export function useForcedFlowCharmDecay(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowCharmDecayResponse>(
+    `/api/forced-flow/charm-decay?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowVannaLadderPoint {
+  vol_change_pts: number;
+  flow: number;
+}
+
+export interface ForcedFlowVannaLadderResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  curve: ForcedFlowVannaLadderPoint[];
+}
+
+// Vanna ladder: dealer forced flow ($) as a function of a VIX/implied-vol
+// change in points (−3 … +3), spot held.
+export function useForcedFlowVannaLadder(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowVannaLadderResponse>(
+    `/api/forced-flow/vanna-ladder?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowLevelsResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  gamma_flip: number | null;
+  charm_flip: number | null;
+  vanna_flip: number | null;
+  zero_flow_level: number | null;
+}
+
+// The forced-flow regime map: the key spot levels (gamma / charm / vanna flip
+// and the aggregate zero-flow level) that bound the dealer-hedging regime.
+export function useForcedFlowLevels(symbol = 'SPY', refreshInterval = 15000) {
+  return useApiData<ForcedFlowLevelsResponse>(
+    `/api/forced-flow/levels?${symbolQuery(symbol)}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowSurfaceResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  // Ascending spot levels — the rows of `z` (the heatmap's X axis).
+  spots: number[];
+  // Time from now (0) to the close (session_days) — the columns of `z`
+  // (the heatmap's Y axis).
+  times_days: number[];
+  // z[i][j] = net dealer forced flow ($) at spots[i], times_days[j].
+  // Positive = dealers must BUY, negative = SELL.
+  z: number[][];
+}
+
+// The forced-flow surface: net dealer forced flow over a spot × time-of-day
+// grid, driving the diverging heatmap (time_steps left at the server default).
+export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
+  return useApiData<ForcedFlowSurfaceResponse>(
+    `/api/forced-flow/surface?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
+    { refreshInterval },
+  );
+}
+
+export interface ForcedFlowBacktestRecord {
+  date: string;
+  charm_flow: number;
+  // Noon → close return as a fraction (0.004 = +0.4%).
+  return_pct: number;
+  // Morning charm-flow sign: +1 dealers must buy, −1 must sell.
+  predicted_dir: number;
+  // Realized noon → close direction: +1 up, −1 down.
+  realized_dir: number;
+  hit: boolean;
+}
+
+export interface ForcedFlowBacktestVariant {
+  // Sessions with usable data. `evaluated_sessions` drops the flat/undecided
+  // ones — it's the denominator behind `hit_rate`.
+  total_sessions: number;
+  evaluated_sessions: number;
+  hits: number;
+  hit_rate: number | null;
+  // 95% Wilson confidence band on the hit rate — the honest width of the read.
+  hit_rate_ci_low: number | null;
+  hit_rate_ci_high: number | null;
+  // Naive "always guess the more common direction" accuracy — the honesty
+  // yardstick. hit_rate at or below this is worth nothing.
+  baseline_rate: number | null;
+  edge: number | null;
+  // One-sided p-value that the accuracy beats the baseline by luck. Small = real.
+  edge_p_value: number | null;
+  // True only when the edge clears 95% on a sample of ≥30 decisive sessions.
+  significant: boolean;
+  // Mean of predicted_dir × noon→close return — the signal's average P&L
+  // before costs. Can be negative.
+  signal_mean_return: number | null;
+  // t-stat of the per-session P&L against zero. |t| ≳ 2 ≈ distinguishable.
+  signal_t_stat: number | null;
+  records: ForcedFlowBacktestRecord[];
+}
+
+export interface ForcedFlowBacktestResponse {
+  symbol: string;
+  lookback_days: number;
+  // Two forecast definitions scored over identical sessions:
+  //   full   — the 0DTE-inclusive close flow (dominated by same-day expiry
+  //            resolution; large and pin-sensitive)
+  //   smooth — the first-order charm only ("time decay alone")
+  full: ForcedFlowBacktestVariant;
+  smooth: ForcedFlowBacktestVariant;
+}
+
+// The Charm-into-Close track record: does the morning charm-flow sign lean the
+// same way as the actual noon → close return? Honest hit rate vs. a naive
+// directional baseline. Refreshes slowly — the newest row lands once a session.
+export function useForcedFlowBacktest(
+  symbol = 'SPY',
+  lookbackDays = 180,
+  refreshInterval = 300000,
+) {
+  return useApiData<ForcedFlowBacktestResponse>(
+    `/api/forced-flow/backtest?${symbolQuery(symbol, { lookback_days: lookbackDays })}`,
+    { refreshInterval },
+  );
+}
