@@ -4,13 +4,29 @@ import {
   computeMrr,
   computeMrrTrend,
   buildMrrProjection,
+  buildGrowthProjection,
   deriveTargetMrr,
   parseAmountTable,
   DEFAULT_AMOUNTS,
   DEFAULT_MRR_CONFIG,
   type MrrConfig,
+  type GrowthProjectionInputs,
   type SubscriberBucket,
 } from '../core/pricing.ts';
+
+function growthInputs(over: Partial<GrowthProjectionInputs> = {}): GrowthProjectionInputs {
+  return {
+    startingSubs: 0,
+    monthlyAdds: 10,
+    monthlyAccel: 0,
+    monthlyChurn: 0,
+    proShare: 0.5,
+    proPrice: 40,
+    basicPrice: 20,
+    horizonMonths: 3,
+    ...over,
+  };
+}
 
 // Build a daily series of consecutive ET-style day keys starting at `start`,
 // mirroring how buildMrrSeries emits one carry-forward point per day.
@@ -227,4 +243,68 @@ test('projection is null without enough real history or with no horizon', () => 
   assert.equal(buildMrrProjection(dailySeries('2026-07-01', [0, 0, 100]), 6), null);
   // Non-positive horizon.
   assert.equal(buildMrrProjection(dailySeries('2026-07-01', [100, 200]), 0), null);
+});
+
+test('growth projection: linear adds with no churn grow subs by a fixed step', () => {
+  const proj = buildGrowthProjection(growthInputs({ startingSubs: 100, monthlyAdds: 10 }));
+  assert.deepEqual(proj.points.map((p) => p.subs), [100, 110, 120, 130]);
+  // 50/50 at $40/$20 -> blended $30/sub.
+  assert.equal(proj.blendedArpu, 30);
+  assert.deepEqual(proj.points.map((p) => p.mrr), [3000, 3300, 3600, 3900]);
+  assert.deepEqual(proj.points.map((p) => p.arr), [36000, 39600, 43200, 46800]);
+  assert.equal(proj.end.subs, 130);
+});
+
+test('growth projection: acceleration compounds the monthly add rate', () => {
+  // +50%/mo acceleration off 10 adds: 10, 15, 22.5 added across the steps.
+  const proj = buildGrowthProjection(
+    growthInputs({ startingSubs: 0, monthlyAdds: 10, monthlyAccel: 0.5 }),
+  );
+  assert.deepEqual(proj.points.map((p) => p.subs), [0, 10, 25, 47.5]);
+  assert.deepEqual(
+    proj.points.map((p) => p.adds),
+    [10, 15, 22.5, 0], // last point applies no further flow
+  );
+});
+
+test('growth projection: churn hits the base after the month\'s adds', () => {
+  // start 0, +10 adds/mo, 10% churn: s1 = 0*0.9 + 10 = 10; s2 = 10*0.9 + 10 = 19.
+  const proj = buildGrowthProjection(
+    growthInputs({ startingSubs: 0, monthlyAdds: 10, monthlyChurn: 0.1, horizonMonths: 2 }),
+  );
+  assert.deepEqual(proj.points.map((p) => p.subs), [0, 10, 19]);
+  assert.equal(proj.points[1].churned, 1); // 10 * 0.1
+});
+
+test('growth projection: split and prices drive the blended ARPU', () => {
+  const allPro = buildGrowthProjection(growthInputs({ startingSubs: 10, proShare: 1, horizonMonths: 0 }));
+  assert.equal(allPro.blendedArpu, 40);
+  assert.equal(allPro.points[0].proSubs, 10);
+  assert.equal(allPro.points[0].basicSubs, 0);
+  assert.equal(allPro.points[0].mrr, 400);
+
+  const allBasic = buildGrowthProjection(growthInputs({ startingSubs: 10, proShare: 0, horizonMonths: 0 }));
+  assert.equal(allBasic.blendedArpu, 20);
+  assert.equal(allBasic.points[0].mrr, 200);
+
+  const custom = buildGrowthProjection(
+    growthInputs({ startingSubs: 100, proShare: 0.25, proPrice: 60, basicPrice: 15, horizonMonths: 0 }),
+  );
+  // 0.25*60 + 0.75*15 = 15 + 11.25 = 26.25
+  assert.equal(custom.blendedArpu, 26.25);
+  assert.equal(custom.points[0].mrr, 2625);
+});
+
+test('growth projection: clamps inputs and honors a zero horizon', () => {
+  const single = buildGrowthProjection(growthInputs({ startingSubs: 42, horizonMonths: 0 }));
+  assert.equal(single.points.length, 1);
+  assert.equal(single.end.subs, 42);
+
+  // Churn > 100% and share out of range are clamped, never producing negatives.
+  const clamped = buildGrowthProjection(
+    growthInputs({ startingSubs: 100, monthlyAdds: 0, monthlyChurn: 5, proShare: 9, horizonMonths: 2 }),
+  );
+  assert.equal(clamped.blendedArpu, 40); // share clamped to 1 -> all pro
+  assert.ok(clamped.points.every((p) => p.subs >= 0));
+  assert.equal(clamped.points[1].subs, 0); // 100% churn wipes the base
 });
