@@ -1329,10 +1329,11 @@ function ReplayOverlayChart({
               x={xForTime(cursorMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
-              // The playhead — the minute you've scrubbed to. Deliberately
-              // not "Now": in a historical replay this is the position in
-              // the tape you're viewing, which is rarely the wall-clock now.
-              label="Playhead"
+              // Label the playhead with the ET time of the minute you've
+              // scrubbed to (e.g. "14:55") rather than "Now" — in a
+              // historical replay the marker sits on a past moment, so the
+              // actual clock time reads truer than any static word.
+              label={cursorTimestamp ? formatTime(cursorTimestamp) : '—'}
               color="var(--color-text-primary)"
             />
           )}
