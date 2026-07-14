@@ -36,14 +36,38 @@ function noContent(): NextResponse {
 // sendBeacon/fetch include an Origin header matching our host; a mismatch is a
 // forged submission from another site. A missing Origin is allowed through
 // (some same-origin requests omit it) since the other guards still apply.
+//
+// We deliberately do NOT compare against request.nextUrl.host: behind nginx
+// (proxy_pass to 127.0.0.1:PORT) that resolves to the internal bind address,
+// not the public host, so it would reject every real beacon. Instead compare
+// the Origin host against the forwarded Host header (nginx sets
+// `proxy_set_header Host $host`) and the configured NEXT_PUBLIC_APP_URL — the
+// same canonical-origin sources the rest of the app trusts (see serverAuth).
+// If we can't determine our own host at all, fail open rather than drop data.
 function isSameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
+  let originHost: string;
   try {
-    return new URL(origin).host === request.nextUrl.host;
+    originHost = new URL(origin).host;
   } catch {
     return false;
   }
+  const candidates = new Set<string>();
+  const hostHeader = request.headers.get('host');
+  if (hostHeader) candidates.add(hostHeader);
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  if (forwardedHost) candidates.add(forwardedHost.split(',')[0].trim());
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) {
+    try {
+      candidates.add(new URL(appUrl).host);
+    } catch {
+      // ignore a malformed env value
+    }
+  }
+  if (candidates.size === 0) return true;
+  return candidates.has(originHost);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
