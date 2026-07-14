@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "  make grant-founding EMAIL=<email> [GRANT_FOUNDING_TIER=pro] - Manual founding comp: set tier + founding_eligible=1 in one shot (DRY_RUN=1 to preview)"
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
@@ -267,6 +268,23 @@ diagnose-user:
 extend-trial:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make extend-trial EMAIL=foo@example.com EXTEND_DAYS=14 DRY_RUN=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/extend-trial.mts --email $(EMAIL) $(if $(EXTEND_DAYS),--extend-days $(EXTEND_DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Flip ONE customer's cancel_at_period_end flag on their Stripe subscription.
+# OFF=1 stops a scheduled cancellation (the sub renews, or — on a trial —
+# converts to paid and charges at trial_end); ON=1 schedules a cancel at period
+# end (access until then, no further charge). The webhook mirrors the flag onto
+# the users row automatically; this also writes it directly for immediacy.
+# Only touches trialing/active subs. Sends NO email. NOTE: clearing the flag on
+# someone who chose to cancel means she'll be charged at period end unless she
+# cancels again — tell her, or a surprise charge invites a dispute.
+# Examples:
+#   make set-cancellation EMAIL=foo@example.com OFF=1 DRY_RUN=1
+#   make set-cancellation EMAIL=foo@example.com OFF=1 YES=1
+#   make set-cancellation EMAIL=foo@example.com ON=1 YES=1
+set-cancellation:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make set-cancellation EMAIL=foo@example.com OFF=1 DRY_RUN=1)"; exit 1; fi
+	@if [ -z "$(ON)" ] && [ -z "$(OFF)" ]; then echo "Error: pass ON=1 or OFF=1"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/set-cancellation.mts --email $(EMAIL) $(if $(OFF),--off,) $(if $(ON),--on,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Activate a Creator Partner end-to-end: flip partner_tier='creator', grant
 # them DAYS days of Pro access (no Stripe sub), pre-mint a referral_code,
