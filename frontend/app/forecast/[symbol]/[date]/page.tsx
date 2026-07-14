@@ -216,12 +216,21 @@ export default async function ForecastPage({
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/spx-gamma-levels"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
-        >
-          <ChevronLeft size={14} /> Gamma Levels
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href={sym === 'SPY' ? '/forecast' : `/forecast?symbol=${sym}`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
+          >
+            <ChevronLeft size={14} /> Forecasts
+          </Link>
+          <span className="text-[var(--color-border)]" aria-hidden="true">·</span>
+          <Link
+            href="/spx-gamma-levels"
+            className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
+          >
+            Gamma Levels
+          </Link>
+        </div>
         <ShareCardButton
           cardId={`${sym}:${date}`}
           tweetText={tweetBody}
