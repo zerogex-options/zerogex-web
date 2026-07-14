@@ -393,6 +393,46 @@ function initDb(): DatabaseSync {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL'
   );
 
+  // First-party per-page engagement analytics. One row per page *visit*,
+  // written by the client beacon (components/PageAnalytics.tsx) via
+  // /api/analytics/page-view and aggregated for the admin dashboard by
+  // core/pageAnalytics.ts. This is deliberately raw (one row per visit) rather
+  // than pre-bucketed so the admin view can compute exact COUNT(DISTINCT
+  // user_id) "unique logged-in users" over any window; core/pageAnalytics.ts
+  // prunes rows past the retention horizon to bound growth.
+  //
+  //   visit_id    client-generated per visit. UNIQUE so the two-phase beacon
+  //               (enter INSERT, exit UPDATE) correlates, and so a retried/
+  //               duplicated beacon is idempotent.
+  //   path        the normalized Next.js route TEMPLATE (e.g.
+  //               /scorecard/[symbol]/[date]), not the concrete URL — see
+  //               core/pageAnalyticsPaths.ts.
+  //   user_id     the logged-in user, or NULL for an anonymous visit. Plain
+  //               TEXT with no FK (mirrors audit_events) so an analytics row
+  //               never blocks on referential integrity and survives as
+  //               history; "unique users logged in" counts non-NULL ids.
+  //   tier        the user's tier at visit time, denormalized for cheap
+  //               segment breakdowns without a users join.
+  //   duration_ms visible/active time on the page, filled in by the exit
+  //               beacon (0 until then).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS page_view_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visit_id TEXT NOT NULL UNIQUE,
+      path TEXT NOT NULL,
+      user_id TEXT,
+      tier TEXT,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+  `);
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_page_view_events_path_created ON page_view_events(path, created_at);'
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_page_view_events_created ON page_view_events(created_at);'
+  );
+
   return db;
 }
 

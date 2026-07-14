@@ -19,6 +19,10 @@ function recordRequestForMonitoring(request: NextRequest) {
     if (
       pathname.startsWith('/_next') ||
       pathname.startsWith('/api/admin/monitoring') ||
+      // The page-analytics beacon fires ~2 requests per pageview; counting them
+      // here would inflate this monitor's API-call totals with its own sibling
+      // feature's telemetry. It has its own dashboard at /admin/analytics.
+      pathname.startsWith('/api/analytics/') ||
       STATIC_ASSET_EXT.test(pathname)
     ) {
       return;
