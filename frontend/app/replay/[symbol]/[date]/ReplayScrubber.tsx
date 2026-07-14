@@ -1061,10 +1061,10 @@ function ReplayOverlayChart({
           {/* Call wall (resistance) + put wall (support) as horizontal
               levels across both panels — same canonical gex_summary levels
               the snapshot view draws, and the same color language (call =
-              bear/resistance, put = bull/support). Labels sit at the LEFT
-              edge so they never collide with the Flip label at the right.
-              Call wall is above spot and put wall below, so the two labels
-              can't overlap each other either. */}
+              bear/resistance, put = bull/support). Labels are right-edge
+              anchored to sit in one vertical column with the Flip label:
+              call wall is above spot, flip near it, put wall below, so the
+              three stack top-to-bottom as a level legend without reordering. */}
           {callWall != null && Number.isFinite(callWall) && (() => {
             const y = yForPrice(callWall);
             return (
@@ -1079,9 +1079,9 @@ function ReplayOverlayChart({
                   opacity={0.7}
                 />
                 <text
-                  x={LEFT_X + 4}
+                  x={MID_X + MID_W - 4}
                   y={y - 4}
-                  textAnchor="start"
+                  textAnchor="end"
                   fontSize={10}
                   fontWeight={700}
                   fill="var(--color-bear)"
@@ -1105,9 +1105,9 @@ function ReplayOverlayChart({
                   opacity={0.7}
                 />
                 <text
-                  x={LEFT_X + 4}
-                  y={y + 11}
-                  textAnchor="start"
+                  x={MID_X + MID_W - 4}
+                  y={y - 4}
+                  textAnchor="end"
                   fontSize={10}
                   fontWeight={700}
                   fill="var(--color-bull)"
