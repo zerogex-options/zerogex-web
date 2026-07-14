@@ -289,7 +289,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Daily Subscriptions charts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, with a net-onboards line (adds minus cancels) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus the daily new-account registrations line on a secondary axis.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Subscription Flow charts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, with a net-onboards line (adds minus cancels) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus daily new-account registration columns on a secondary axis.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -307,7 +307,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             brandColor={ROW_COLORS.signups}
             yScale={tierYScale}
           />
-          <DailySubscriptionsChartCard
+          <SubscriptionFlowChartCard
             data={data.signupFlow}
             cardBg={cardBg}
             axisStroke={axisStroke}
@@ -1862,7 +1862,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
   );
 }
 
-type DailySubscriptionsChartCardProps = {
+type SubscriptionFlowChartCardProps = {
   data: SignupFlowPoint[];
   cardBg: string;
   axisStroke: string;
@@ -1876,7 +1876,7 @@ type DailySubscriptionsChartCardProps = {
 // family, cancels a bear-red family, tier the shade within. The net line
 // (adds − cancels for the day) rides the same primary axis as the bars, sharing
 // their zero baseline so it reads directly against the columns it summarizes.
-function DailySubscriptionsChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: DailySubscriptionsChartCardProps) {
+function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SubscriptionFlowChartCardProps) {
   const proAddColor = brandColor;
   const basicAddColor = lighten(brandColor, 0.45);
   const cancelBase = '#c1435b';
@@ -1935,7 +1935,7 @@ function DailySubscriptionsChartCard({ data, cardBg, axisStroke, mutedText, bran
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="zg-h3" style={{ color: axisStroke }}>Daily Subscriptions</h3>
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Subscription Flow</h3>
         <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap" style={{ color: mutedText }}>
           <span><span style={{ color: netColor }}>▬</span> Net onboards: {signed(totals.net)}</span>
           <span><span style={{ color: proAddColor }}>●</span> Pro adds: {totals.proAdd.toLocaleString()}</span>
@@ -2033,14 +2033,14 @@ type DailyRegistrationsChartCardProps = {
 // total registered users (all tiers — the outer envelope) with the disclaimer-
 // accepted subset filled in front of it (always ≤ total, so it reads as the
 // portion of the base that has acknowledged). The daily new-account
-// registrations line rides a secondary (right) axis — those per-day counts are
+// registration columns ride a secondary (right) axis — those per-day counts are
 // far smaller than the running totals and would otherwise flatten against the
 // shared left axis. `data` (snapshots) and `flow` (per-day) share the same day
 // axis, so they merge by day key.
 function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText, brandColor, yScale }: DailyRegistrationsChartCardProps) {
   const totalUsersColor = lighten(brandColor, 0.55);
   const disclaimerColor = brandColor;
-  // Bright accent so the daily registrations line reads clearly in front of the
+  // Bright accent so the daily registration columns read clearly in front of the
   // two cumulative areas.
   const registrationsColor = '#ffa600';
 
@@ -2054,22 +2054,21 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
     }));
   }, [data, flow]);
 
-  // Secondary axis for the per-day registrations line, scaled to its own (much
-  // smaller) values so it isn't flattened by the cumulative-total left axis.
+  // Secondary axis for the per-day registration columns, scaled to their own
+  // (much smaller) values so they aren't flattened by the cumulative-total left
+  // axis.
   const regScale = useMemo(
     () => niceYScale(chartData.reduce((m, p) => Math.max(m, p.registrations), 0)),
     [chartData],
   );
 
   const latest = chartData.length > 0 ? chartData[chartData.length - 1] : { disclaimer: 0, totalUsers: 0 };
-  const totalRegistrations = useMemo(() => flow.reduce((s, p) => s + p.registrations, 0), [flow]);
 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>Daily Registrations</h3>
         <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap" style={{ color: mutedText }}>
-          <span><span style={{ color: registrationsColor }}>▬</span> Registrations: {totalRegistrations.toLocaleString()}</span>
           <span><span style={{ color: totalUsersColor }}>●</span> Total Users: {latest.totalUsers.toLocaleString()}</span>
           <span><span style={{ color: disclaimerColor }}>●</span> Accepted: {latest.disclaimer.toLocaleString()}</span>
         </div>
@@ -2124,7 +2123,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
-                      <div style={{ color: registrationsColor }}>Registrations: {registrations.toLocaleString()}</div>
+                      <div style={{ color: registrationsColor }}>Registrations added: {registrations.toLocaleString()}</div>
                       <div className="mt-1" style={{ color: totalUsersColor }}>Total Users: {totalUsers.toLocaleString()}</div>
                       <div style={{ color: disclaimerColor }}>Accepted: {disclaimer.toLocaleString()}</div>
                     </div>
@@ -2151,14 +2150,12 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />
-              <Line
+              <Bar
                 yAxisId="reg"
-                type="monotone"
                 dataKey="registrations"
-                name="Registrations"
-                stroke={registrationsColor}
-                strokeWidth={2.5}
-                dot={false}
+                name="Registrations added"
+                fill={registrationsColor}
+                maxBarSize={18}
                 isAnimationActive={false}
               />
             </ComposedChart>
