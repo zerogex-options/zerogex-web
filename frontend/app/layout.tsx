@@ -15,6 +15,7 @@ import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
+import PageAnalytics from '@/components/PageAnalytics';
 import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 
 // Site body sans — Inter is the shared body font across every palette.
@@ -157,6 +158,7 @@ export default async function RootLayout({
             <GexUnitProvider>
               <TelemetryProvider />
               <TwitterPixelProvider />
+              <PageAnalytics />
               <ClientLayout>
                 {children}
               </ClientLayout>
