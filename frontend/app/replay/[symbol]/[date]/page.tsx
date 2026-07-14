@@ -16,6 +16,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 interface ReplayFrame {
   timestamp: string;
   gamma_flip: number | null;
+  call_wall: number | null;
+  put_wall: number | null;
   strikes: Array<{ strike: number | null; net_gex: number | null }>;
 }
 
@@ -168,6 +170,8 @@ export default async function ReplayDatePage({
         Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
+        the call wall (resistance), put wall (support), and gamma flip draw as horizontal levels
+        that migrate minute-by-minute as you scrub ·
         candles past the cursor ghost out and light back to full opacity as the playhead sweeps
         through them · drop pin A then pin B to see the strike-by-strike delta between two moments ·
         click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you

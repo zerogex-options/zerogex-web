@@ -33,6 +33,8 @@ import { capture } from '@/core/telemetry/posthog-client';
 interface Frame {
   timestamp: string;
   gamma_flip: number | null;
+  call_wall: number | null;
+  put_wall: number | null;
   strikes: Array<{ strike: number | null; net_gex: number | null }>;
 }
 
@@ -321,6 +323,11 @@ export default function ReplayScrubber({
   }, [currentFrame]);
 
   const gammaFlip = currentFrame?.gamma_flip ?? null;
+  // Call/put walls for the cursor's minute. They migrate through the
+  // session, so they update as you scrub — the same canonical levels the
+  // shareable snapshot shows for a given moment.
+  const callWall = currentFrame?.call_wall ?? null;
+  const putWall = currentFrame?.put_wall ?? null;
 
   // Session-wide GEX peak so the horizontal-bar magnitude axis stays
   // pinned as the user scrubs (otherwise the widest bar this minute
@@ -586,6 +593,8 @@ export default function ReplayScrubber({
         yLo={yBounds.lo}
         yHi={yBounds.hi}
         gammaFlip={gammaFlip}
+        callWall={callWall}
+        putWall={putWall}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
@@ -659,6 +668,8 @@ interface ReplayOverlayChartProps {
   yLo: number;
   yHi: number;
   gammaFlip: number | null;
+  callWall: number | null;
+  putWall: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
@@ -678,6 +689,8 @@ function ReplayOverlayChart({
   yLo,
   yHi,
   gammaFlip,
+  callWall,
+  putWall,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
@@ -1045,6 +1058,66 @@ function ReplayOverlayChart({
             );
           })()}
 
+          {/* Call wall (resistance) + put wall (support) as horizontal
+              levels across both panels — same canonical gex_summary levels
+              the snapshot view draws, and the same color language (call =
+              bear/resistance, put = bull/support). Labels sit at the LEFT
+              edge so they never collide with the Flip label at the right.
+              Call wall is above spot and put wall below, so the two labels
+              can't overlap each other either. */}
+          {callWall != null && Number.isFinite(callWall) && (() => {
+            const y = yForPrice(callWall);
+            return (
+              <g clipPath={`url(#${clipId})`}>
+                <line
+                  x1={LEFT_X}
+                  x2={MID_X + MID_W}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--color-bear)"
+                  strokeDasharray="5 3"
+                  opacity={0.7}
+                />
+                <text
+                  x={LEFT_X + 4}
+                  y={y - 4}
+                  textAnchor="start"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill="var(--color-bear)"
+                >
+                  Call Wall {callWall.toFixed(2)}
+                </text>
+              </g>
+            );
+          })()}
+          {putWall != null && Number.isFinite(putWall) && (() => {
+            const y = yForPrice(putWall);
+            return (
+              <g clipPath={`url(#${clipId})`}>
+                <line
+                  x1={LEFT_X}
+                  x2={MID_X + MID_W}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--color-bull)"
+                  strokeDasharray="5 3"
+                  opacity={0.7}
+                />
+                <text
+                  x={LEFT_X + 4}
+                  y={y + 11}
+                  textAnchor="start"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill="var(--color-bull)"
+                >
+                  Put Wall {putWall.toFixed(2)}
+                </text>
+              </g>
+            );
+          })()}
+
           {/* ── LEFT PANEL: 5-min candles ── */}
           {renderedBuckets.length === 0 ? (
             <text
@@ -1256,7 +1329,11 @@ function ReplayOverlayChart({
               x={xForTime(cursorMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
-              label="Now"
+              // Label the playhead with the ET time of the minute you've
+              // scrubbed to (e.g. "14:55") rather than "Now" — in a
+              // historical replay the marker sits on a past moment, so the
+              // actual clock time reads truer than any static word.
+              label={cursorTimestamp ? formatTime(cursorTimestamp) : '—'}
               color="var(--color-text-primary)"
             />
           )}
@@ -1281,6 +1358,10 @@ function TimeMarker({
   color: string;
   dashed?: boolean;
 }) {
+  // Size the badge to the label so single-char pins ("A"/"B") stay compact
+  // while a word like "Playhead" isn't clipped. Floor at 36 keeps the pin
+  // badges the same width they were before this became variable.
+  const badgeW = Math.max(36, label.length * 6.2 + 12);
   return (
     <g>
       <line
@@ -1294,9 +1375,9 @@ function TimeMarker({
         opacity={0.9}
       />
       <rect
-        x={x - 18}
+        x={x - badgeW / 2}
         y={top - 18}
-        width={36}
+        width={badgeW}
         height={14}
         rx={2}
         fill={color}
