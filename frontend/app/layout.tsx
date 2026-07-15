@@ -4,6 +4,7 @@ import {
   Archivo,
   Cormorant_Garamond,
   DM_Serif_Display,
+  Fraunces,
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
@@ -119,6 +120,14 @@ const outfit = Outfit({
   display: 'swap',
 });
 
+// Tulum Jungle — soft organic serif, boho-editorial.
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-fraunces',
+  display: 'swap',
+});
+
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
@@ -132,10 +141,11 @@ const FONT_VARIABLES = [
   archivo.variable,
   dmSerifDisplay.variable,
   outfit.variable,
+  fraunces.variable,
 ].join(' ');
 
-type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives';
-const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives'];
+type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
+const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
 const DEFAULT_PALETTE: PaletteId = 'california';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',

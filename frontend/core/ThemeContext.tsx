@@ -12,7 +12,8 @@ export type Palette =
   | 'monaco'
   | 'zurich'
   | 'amalfi'
-  | 'maldives';
+  | 'maldives'
+  | 'tulum';
 
 const PALETTES: Palette[] = [
   'california',
@@ -24,6 +25,7 @@ const PALETTES: Palette[] = [
   'zurich',
   'amalfi',
   'maldives',
+  'tulum',
 ];
 const DEFAULT_PALETTE: Palette = 'california';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year

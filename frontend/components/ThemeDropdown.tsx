@@ -65,6 +65,12 @@ const PALETTES: PaletteMeta[] = [
     subtitle: 'Turquoise lagoon, coral, deep-ocean blue',
     swatch: ['#08181C', '#2FD0D0', '#F0987A', '#F0C46A'],
   },
+  {
+    id: 'tulum',
+    name: 'Tulum Jungle',
+    subtitle: 'Cenote jade, terracotta, Caribbean turquoise',
+    swatch: ['#0C1512', '#E89A5E', '#35C4A0', '#E0B85A'],
+  },
 ];
 
 export default function ThemeDropdown() {

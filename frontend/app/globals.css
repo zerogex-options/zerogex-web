@@ -1020,6 +1020,66 @@
   --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
 }
 
+/* ---- Palette: Tulum Jungle ---------- */
+/* Cenote jade, warm sand, terracotta, Caribbean turquoise. */
+:root.palette-tulum {
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #E8C88A; --heat-mid: #D07A45; --heat-high: #A84A3E;
+  --chart-1: #1E9E86; --chart-2: #C9A24B; --chart-3: #A84A3E; --chart-4: #2E7E8E; --chart-5: #223028;
+  --bg-main: #F0EADA; --bg-subtle: #E5DCC6; --bg-card: #F7F2E5; --bg-hover: #E9E0CB; --bg-active: #D1CBB7;
+  --text-primary: #223028;
+  --text-secondary: rgba(34,48,40,0.75);
+  --text-muted: rgba(34,48,40,0.5);
+  --text-inverse: #F0EADA;
+  --border-subtle: rgba(34,48,40,0.1); --border-default: rgba(34,48,40,0.22); --border-strong: rgba(34,48,40,0.4);
+  --accent-1: #A84A3E; --accent-2: #2E7E8E; --accent-3: #C9A24B; --accent-4: #D07A45;
+  --color-accent: #1E9E86;
+  --color-accent-hot: #D07A45;
+  --color-accent-soft: rgba(208,122,69,0.2);
+  --color-gold: #C9A24B; --color-gold-soft: rgba(201,162,75,0.22);
+  --color-maroon: #A84A3E; --color-navy: #2E7E8E;
+  --color-emerald: #2E9E6E; --color-emerald-soft: rgba(46,158,110,0.22);
+  --color-hazy: #6FB0A6; --color-hazy-soft: rgba(111,176,166,0.14);
+  --color-bull: #2E9E6E; --color-bull-soft: rgba(46,158,110,0.22);
+  --color-bear: #C0503A; --color-bear-soft: rgba(192,80,58,0.22);
+  --color-warning: #C9A24B; --color-warning-soft: rgba(201,162,75,0.22);
+  --color-info: #2E7E8E; --color-info-soft: rgba(46,126,142,0.1);
+  --color-brand-primary: #1E9E86; --color-brand-accent: #C9A24B; --color-brand-coral: #D07A45; --color-brand-deep: #A84A3E;
+  --color-chart-tooltip-bg: #F7F2E5; --color-chart-tooltip-border: rgba(34,48,40,0.18);
+  --color-grid-line: rgba(34,48,40,0.08); --color-grid-overlay: rgba(240,234,218,0.3);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-tulum.dark {
+  --heat-low: #F0D89A; --heat-mid: #E89A5E; --heat-high: #D66A52;
+  --chart-1: #35C4A0; --chart-2: #E0B85A; --chart-3: #D66A52; --chart-4: #4FB0C0; --chart-5: #EAE7D6;
+  --bg-main: #0C1512; --bg-subtle: #101B17; --bg-card: #14231D; --bg-hover: #1B2E27; --bg-active: #384840;
+  --text-primary: #EAE7D6;
+  --text-secondary: rgba(234,231,214,0.78);
+  --text-muted: rgba(234,231,214,0.52);
+  --text-inverse: #0C1512;
+  --border-subtle: rgba(234,231,214,0.09); --border-default: rgba(234,231,214,0.22); --border-strong: rgba(234,231,214,0.34);
+  --accent-1: #D66A52; --accent-2: #4FB0C0; --accent-3: #E0B85A; --accent-4: #E89A5E;
+  --color-accent: #35C4A0;
+  --color-accent-hot: #E89A5E;
+  --color-accent-soft: rgba(232,154,94,0.24);
+  --color-gold: #E0B85A; --color-gold-soft: rgba(224,184,90,0.26);
+  --color-maroon: #D66A52; --color-navy: #4FB0C0;
+  --color-emerald: #3FD098; --color-emerald-soft: rgba(63,208,152,0.26);
+  --color-hazy: #7FCAB8; --color-hazy-soft: rgba(127,202,184,0.18);
+  --color-bull: #3FD098; --color-bull-soft: rgba(63,208,152,0.26);
+  --color-bear: #E0685A; --color-bear-soft: rgba(224,104,90,0.26);
+  --color-warning: #E0B85A; --color-warning-soft: rgba(224,184,90,0.26);
+  --color-info: #4FB0C0; --color-info-soft: rgba(79,176,192,0.18);
+  --color-brand-primary: #35C4A0; --color-brand-accent: #E0B85A; --color-brand-coral: #E89A5E; --color-brand-deep: #D66A52;
+  --color-chart-tooltip-bg: #14231D; --color-chart-tooltip-border: rgba(234,231,214,0.16);
+  --color-grid-line: rgba(234,231,214,0.08); --color-grid-overlay: rgba(12,21,18,0.12);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
