@@ -198,7 +198,10 @@ export default function GammaExposurePage() {
   }, [gexByStrike]);
 
   const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
-  const [chartSelectedExpiration, setChartSelectedExpiration] = useState<string>('all');
+  // Charts' expiration selection (Gamma-Exposure-by-Strike bars/walls/flip).
+  // Empty = All (aggregate the whole chain); a non-empty set aggregates the
+  // bars and scopes the walls + flip to exactly those expirations.
+  const [chartSelectedExpirations, setChartSelectedExpirations] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -214,8 +217,11 @@ export default function GammaExposurePage() {
     () => expirationOptions.filter((exp) => exp >= todayKey),
     [expirationOptions, todayKey],
   );
-  if (chartSelectedExpiration !== 'all' && chartSelectedExpiration < todayKey) {
-    setChartSelectedExpiration('all');
+  // Drop any now-past expirations from the chart selection (page left open
+  // across midnight ET, or a refresh rolled the date).  Pruning to a shorter
+  // list only keeps this render-time adjustment convergent.
+  if (chartSelectedExpirations.some((exp) => exp < todayKey)) {
+    setChartSelectedExpirations((cur) => cur.filter((exp) => exp >= todayKey));
   }
 
   // Aggregate by-strike data for the table (respects table's multi-select).
@@ -227,21 +233,34 @@ export default function GammaExposurePage() {
   }, [gexByStrike, selectedExpirations, expirationOptions]);
 
   // Aggregate by-strike data for the GEX-profile chart (respects the chart's
-  // single-select expiration dropdown, independent of the table's filter).
+  // multi-select expiration filter, independent of the table's filter).
+  // Empty set = All: sum every expiration per strike, same as the table's
+  // "All".  A non-empty set sums only the chosen expirations per strike.
   const chartStrikeData = useMemo(() => {
-    const filteredSource = chartSelectedExpiration === 'all'
+    const selectedSet = new Set(chartSelectedExpirations);
+    const filteredSource = chartSelectedExpirations.length === 0
       ? (gexByStrike || [])
-      : (gexByStrike || []).filter((row) => String(row.expiration) === chartSelectedExpiration);
+      : (gexByStrike || []).filter((row) => selectedSet.has(String(row.expiration)));
     return aggregateStrikes(filteredSource as GexByStrikeRow[]);
-  }, [gexByStrike, chartSelectedExpiration]);
+  }, [gexByStrike, chartSelectedExpirations]);
 
-  // Strike-profile timeseries drives the chart's Call/Put Wall reference lines
-  // from the latest bucket, filtered by the chart's expiration dropdown.
-  // Timeframe is pinned to '5min' to share the cache key MarketMakerExposures
-  // populates by default (DEFAULTS.tf = '5m') — wall values are snapshots, so
-  // the bucket cadence doesn't affect them, only cache reuse.
+  // 'all' (empty set) or a sorted, comma-joined list of the chosen
+  // expirations — the canonical value the timeseries hook keys its cache on
+  // and the backend sums the walls across.
+  const chartExpirationsParam = chartSelectedExpirations.length === 0
+    ? 'all'
+    : [...chartSelectedExpirations].sort().join(',');
+
+  // Strike-profile timeseries drives the chart's Call/Put Wall reference
+  // lines from the latest bucket, scoped to the chart's expiration selection.
+  // (The Gamma-Flip line is derived by GexProfileChart itself from the GEX
+  // Profile curve so the two always agree — for a subset both are the
+  // scoped cumulative net-GEX curve.)  Timeframe is pinned to '5min' to share
+  // the cache key MarketMakerExposures populates by default (DEFAULTS.tf =
+  // '5m') — wall values are snapshots, so the bucket cadence doesn't affect
+  // them, only cache reuse.
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
-    symbol, '5min', chartSelectedExpiration,
+    symbol, '5min', chartExpirationsParam,
   );
   const { chartCallWall, chartPutWall } = useMemo(() => {
     if (strikeProfileBuckets.length === 0) {
@@ -544,8 +563,8 @@ export default function GammaExposurePage() {
             callWall={chartCallWall}
             putWall={chartPutWall}
             expirationOptions={chartExpirationOptions}
-            selectedExpiration={chartSelectedExpiration}
-            onSelectedExpirationChange={setChartSelectedExpiration}
+            selectedExpirations={chartSelectedExpirations}
+            onSelectedExpirationsChange={setChartSelectedExpirations}
           />
         </div>
       </section>
