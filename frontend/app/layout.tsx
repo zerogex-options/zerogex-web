@@ -1,13 +1,18 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
+  Archivo,
   Cormorant_Garamond,
+  DM_Serif_Display,
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
+  Newsreader,
   Noto_Sans,
+  Outfit,
   Playfair_Display,
   Poppins,
+  Prata,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -74,6 +79,46 @@ const poppins = Poppins({
   display: 'swap',
 });
 
+// London Fog — English editorial serif, foggy and financial.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-newsreader',
+  display: 'swap',
+});
+
+// Monaco Riviera — high-fashion didone serif, Riviera glamour.
+const prata = Prata({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-prata',
+  display: 'swap',
+});
+
+// Zürich Vault — Swiss grotesque, precise and quiet.
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-archivo',
+  display: 'swap',
+});
+
+// Amalfi Lemon — elegant Italian display serif.
+const dmSerifDisplay = DM_Serif_Display({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-dm-serif',
+  display: 'swap',
+});
+
+// Maldives Lagoon — airy geometric sans, resort-modern.
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
@@ -82,10 +127,15 @@ const FONT_VARIABLES = [
   cormorant.variable,
   notoSans.variable,
   poppins.variable,
+  newsreader.variable,
+  prata.variable,
+  archivo.variable,
+  dmSerifDisplay.variable,
+  outfit.variable,
 ].join(' ');
 
-type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami';
-const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami'];
+type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives';
+const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives'];
 const DEFAULT_PALETTE: PaletteId = 'california';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',

@@ -3,9 +3,28 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
-export type Palette = 'california' | 'kyoto' | 'miami' | 'wallstreet';
+export type Palette =
+  | 'california'
+  | 'kyoto'
+  | 'miami'
+  | 'wallstreet'
+  | 'london'
+  | 'monaco'
+  | 'zurich'
+  | 'amalfi'
+  | 'maldives';
 
-const PALETTES: Palette[] = ['california', 'wallstreet', 'kyoto', 'miami'];
+const PALETTES: Palette[] = [
+  'california',
+  'wallstreet',
+  'kyoto',
+  'miami',
+  'london',
+  'monaco',
+  'zurich',
+  'amalfi',
+  'maldives',
+];
 const DEFAULT_PALETTE: Palette = 'california';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 

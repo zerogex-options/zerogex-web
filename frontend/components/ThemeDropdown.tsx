@@ -35,6 +35,36 @@ const PALETTES: PaletteMeta[] = [
     subtitle: 'Hot pink, neon cyan, cabana yellow',
     swatch: ['#0B1026', '#FF3CAC', '#00E5FF', '#FFE156'],
   },
+  {
+    id: 'london',
+    name: 'London Fog',
+    subtitle: 'Racing green, polished brass, weathered stone',
+    swatch: ['#14171A', '#D6A94E', '#4FA080', '#D66A5E'],
+  },
+  {
+    id: 'monaco',
+    name: 'Monaco Riviera',
+    subtitle: 'Riviera navy, Mediterranean blue, roulette gold',
+    swatch: ['#0C1622', '#E0BE5A', '#4F92D8', '#E0685E'],
+  },
+  {
+    id: 'zurich',
+    name: 'Zürich Vault',
+    subtitle: 'Graphite steel, vault gold, alpine snow',
+    swatch: ['#131518', '#DCC066', '#7E8B98', '#E0574C'],
+  },
+  {
+    id: 'amalfi',
+    name: 'Amalfi Lemon',
+    subtitle: 'Mediterranean blue, citrus yellow, limewash',
+    swatch: ['#0C1620', '#F0D24E', '#4F9BD8', '#E85C7E'],
+  },
+  {
+    id: 'maldives',
+    name: 'Maldives Lagoon',
+    subtitle: 'Turquoise lagoon, coral, deep-ocean blue',
+    swatch: ['#08181C', '#2FD0D0', '#F0987A', '#F0C46A'],
+  },
 ];
 
 export default function ThemeDropdown() {
