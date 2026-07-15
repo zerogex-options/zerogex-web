@@ -246,43 +246,34 @@ export default function GammaExposurePage() {
 
   // 'all' (empty set) or a sorted, comma-joined list of the chosen
   // expirations — the canonical value the timeseries hook keys its cache on
-  // and the backend sums walls / recomputes the flip across.
+  // and the backend sums the walls across.
   const chartExpirationsParam = chartSelectedExpirations.length === 0
     ? 'all'
     : [...chartSelectedExpirations].sort().join(',');
 
-  // Strike-profile timeseries drives the chart's Call/Put Wall + Gamma-Flip
-  // reference lines from the latest bucket, scoped to the chart's expiration
-  // selection.  Timeframe is pinned to '5min' to share the cache key
-  // MarketMakerExposures populates by default (DEFAULTS.tf = '5m') — wall /
-  // flip values are snapshots, so the bucket cadence doesn't affect them,
-  // only cache reuse.
+  // Strike-profile timeseries drives the chart's Call/Put Wall reference
+  // lines from the latest bucket, scoped to the chart's expiration selection.
+  // (The Gamma-Flip line is derived by GexProfileChart itself from the GEX
+  // Profile curve so the two always agree — for a subset both are the
+  // scoped cumulative net-GEX curve.)  Timeframe is pinned to '5min' to share
+  // the cache key MarketMakerExposures populates by default (DEFAULTS.tf =
+  // '5m') — wall values are snapshots, so the bucket cadence doesn't affect
+  // them, only cache reuse.
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, '5min', chartExpirationsParam,
   );
-  const { chartCallWall, chartPutWall, chartScopedFlip } = useMemo(() => {
+  const { chartCallWall, chartPutWall } = useMemo(() => {
     if (strikeProfileBuckets.length === 0) {
-      return { chartCallWall: undefined, chartPutWall: undefined, chartScopedFlip: undefined };
+      return { chartCallWall: undefined, chartPutWall: undefined };
     }
     const latest = strikeProfileBuckets[strikeProfileBuckets.length - 1];
     const cw = Number(latest?.call_wall);
     const pw = Number(latest?.put_wall);
-    const gf = Number(latest?.gamma_flip);
     return {
       chartCallWall: Number.isFinite(cw) ? cw : undefined,
       chartPutWall: Number.isFinite(pw) ? pw : undefined,
-      chartScopedFlip: Number.isFinite(gf) ? gf : undefined,
     };
   }, [strikeProfileBuckets]);
-
-  // Flip drawn on the "Gamma Exposure by Strike" chart.  For "All" (empty
-  // set) keep the canonical aggregate flip from /api/gex/summary so the
-  // chart stays in parity with the headline metric — no regression.  For a
-  // specific expiration set use the scoped flip the timeseries recomputes
-  // from that set's summed-by-strike gamma.
-  const chartGammaFlip = chartSelectedExpirations.length === 0
-    ? gexData?.gamma_flip
-    : chartScopedFlip;
 
   const sortedRows = useMemo(() => {
     const cloned = [...strikeData];
@@ -568,7 +559,7 @@ export default function GammaExposurePage() {
             symbol={symbol}
             strikeData={profileStrikeData}
             spotPrice={quoteData?.close}
-            gammaFlip={chartGammaFlip}
+            gammaFlip={gexData?.gamma_flip}
             callWall={chartCallWall}
             putWall={chartPutWall}
             expirationOptions={chartExpirationOptions}

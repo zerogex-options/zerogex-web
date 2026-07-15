@@ -237,24 +237,84 @@ function mergeProfileWithStrikes(
     return sortedStrikes[lo];
   };
 
+  // Track the snap distance of the sample currently held at each strike so a
+  // closer sample can replace a farther one (denser profile than strike
+  // grid).  Keyed by strike; only meaningful within this call.
+  const snapDist = new Map<number, number>();
   profile.forEach((p) => {
     if (!Number.isFinite(p.price) || !Number.isFinite(p.gex)) return;
     const nearest = findNearest(p.price);
-    // When multiple profile samples snap to the same strike (denser
-    // profile than strike grid) keep the one closest to its target —
-    // this stays a true "profile-at-that-strike" reading instead of
-    // averaging two samples from different sides of the bucket.
-    const existing = nearest.profileGex;
-    if (existing == null) {
+    const dist = Math.abs(nearest.strike - p.price);
+    // When multiple profile samples snap to the same strike keep the one
+    // closest to its target — a true "profile-at-that-strike" reading
+    // instead of last-write-wins between two samples straddling the bucket.
+    if (nearest.profileGex == null || dist < (snapDist.get(nearest.strike) ?? Infinity)) {
       nearest.profileGex = p.gex;
-    } else {
-      const existingDist = Math.abs(nearest.strike - p.price);
-      const newDist = Math.abs(nearest.strike - p.price);
-      if (newDist < existingDist) nearest.profileGex = p.gex;
+      snapDist.set(nearest.strike, dist);
     }
   });
 
   return sortedStrikes;
+}
+
+// Cumulative net-GEX-by-strike curve for a chosen set of expirations.  Walks
+// strikes ascending and accumulates net dealer GEX into ``profileGex`` — the
+// scoped stand-in for the full-chain spot-shift GEX Profile, which can't be
+// rebuilt for a subset (no per-strike IV is persisted).  Its zero crossing is
+// the scoped gamma flip and its value at spot is the scoped Net-GEX-at-spot,
+// so the curve, the flip line and the bars stay mutually consistent — the
+// "low→high cumulative curve" model the chart's header tooltip describes.
+function cumulativeNetGexProfile(strikes: StrikeRow[]): MergedRow[] {
+  const sorted = strikes
+    .filter((row) => Number.isFinite(row.strike))
+    .sort((a, b) => a.strike - b.strike);
+  let cumulative = 0;
+  return sorted.map((row) => {
+    cumulative += Number.isFinite(row.netGex) ? row.netGex : 0;
+    return {
+      strike: row.strike,
+      callGex: row.callGex,
+      putGex: row.putGex,
+      netGex: row.netGex,
+      profileGex: cumulative,
+    };
+  });
+}
+
+// Zero crossing of an ascending cumulative curve — the gamma flip for the
+// scoped cumulative profile above.  Mirrors the backend
+// ``compute_gamma_flip_from_strikes`` (linear-interpolated sign change, exact
+// zeros count, nearest-to-``ref`` wins on a lumpy multi-crossing book) so the
+// per-expiration flip on this chart agrees with the Strike-Profile chart's.
+// Scale-invariant in the y-values, so a gexUnit-scaled ``profileGex`` yields
+// the same crossing price.  Returns ``null`` when the curve never crosses.
+function cumulativeZeroCrossing(rows: MergedRow[], ref?: number | null): number | null {
+  const pts = rows.filter(
+    (r): r is MergedRow & { profileGex: number } =>
+      Number.isFinite(r.strike) && r.profileGex != null && Number.isFinite(r.profileGex),
+  );
+  if (pts.length < 2) return null;
+  const anchor =
+    ref != null && Number.isFinite(ref) ? ref : pts[Math.floor(pts.length / 2)].strike;
+  let best: number | null = null;
+  let bestDist = Infinity;
+  const consider = (x: number) => {
+    const d = Math.abs(x - anchor);
+    if (d < bestDist) {
+      bestDist = d;
+      best = x;
+    }
+  };
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const s1 = pts[i].strike;
+    const c1 = pts[i].profileGex;
+    const s2 = pts[i + 1].strike;
+    const c2 = pts[i + 1].profileGex;
+    if (c1 === 0) consider(s1);
+    else if (c1 * c2 < 0) consider(s1 + ((s2 - s1) * -c1) / (c2 - c1));
+  }
+  if (pts[pts.length - 1].profileGex === 0) consider(pts[pts.length - 1].strike);
+  return best;
 }
 
 function ProfileTooltip({
@@ -343,14 +403,26 @@ export default function GexProfileChart({
   // often than the per-bar quote feed.
   const { data: profileData, loading, error } = useGEXProfile(symbol, 10000);
 
+  // A non-empty selection scopes the whole chart to those expirations.
+  const isSubsetSelection = (selectedExpirations?.length ?? 0) > 0;
+
   // Stored GEX is "per 1% move"; the unit toggle scales every dollar value
-  // (bars + spot-shift profile) by one factor (×100/spot for per-point).
-  // Applying it here, at the single data source the axes/bars/tooltip all
-  // read from, keeps the y-axis ticks, bar heights and tooltip consistent.
+  // (bars + profile) by one factor (×100/spot for per-point).  Applying it
+  // here, at the single data source the axes/bars/tooltip all read from,
+  // keeps the y-axis ticks, bar heights and tooltip consistent.
   const gexFactor = gexScaleFactor(gexUnit, spotPrice);
   const merged = useMemo<MergedRow[]>(() => {
-    const profile = profileData?.profile ?? [];
-    const rows = mergeProfileWithStrikes(strikeData, profile);
+    // GEX Profile curve source:
+    //   * "All" → the persisted full-chain spot-shift profile from
+    //     /api/gex/profile (its zero crossing is the canonical gamma flip and
+    //     its value at spot the headline Net-GEX-at-spot).
+    //   * a specific set → the cumulative net-GEX curve built from that set's
+    //     own bars, since the spot-shift profile can't be rebuilt for a
+    //     subset (no per-strike IV persisted).  Keeps the curve, flip and
+    //     bars mutually consistent for the selection.
+    const rows = isSubsetSelection
+      ? cumulativeNetGexProfile(strikeData)
+      : mergeProfileWithStrikes(strikeData, profileData?.profile ?? []);
     if (gexFactor === 1) return rows;
     return rows.map((r) => ({
       ...r,
@@ -359,7 +431,18 @@ export default function GexProfileChart({
       netGex: r.netGex != null ? r.netGex * gexFactor : r.netGex,
       profileGex: r.profileGex != null ? r.profileGex * gexFactor : r.profileGex,
     }));
-  }, [strikeData, profileData?.profile, gexFactor]);
+  }, [strikeData, profileData?.profile, gexFactor, isSubsetSelection]);
+
+  // Flip drawn on the chart = zero crossing of the GEX Profile curve above,
+  // so the flip line always sits exactly where the curve crosses zero.
+  //   * "All" → the canonical persisted flip passed in via ``gammaFlip``
+  //     (the zero crossing of the spot-shift profile; matches the headline
+  //     metric and /api/gex/summary — no regression).
+  //   * a specific set → the zero crossing of the scoped cumulative curve.
+  const effectiveGammaFlip = useMemo(
+    () => (isSubsetSelection ? cumulativeZeroCrossing(merged, spotPrice) : gammaFlip ?? null),
+    [isSubsetSelection, merged, spotPrice, gammaFlip],
+  );
 
   // The full strike range available in the data — the boundary of how far
   // out the user can pan / zoom out. Recomputed from merged so it stays in
@@ -504,7 +587,7 @@ export default function GexProfileChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the spot-shift GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the Open Interest & Exposure by Strike chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the headline Net GEX at Spot. Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the Open Interest & Exposure by Strike chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations selected the curve is the full-chain spot-shift profile (and the flip matches the headline metric); when you select specific expirations the bars, curve, walls and flip all scope to that set — the curve becomes the cumulative net-GEX of the selected expirations, so its zero crossing is still the flip. Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
@@ -582,11 +665,17 @@ export default function GexProfileChart({
           </div>
         </div>
 
-        {error ? (
+        {/* The error / loading gates below apply only to the /api/gex/profile
+            spot-shift curve, which drives the chart ONLY for "All".  With a
+            specific expiration set the curve, bars, walls and flip are all
+            built from ``strikeData`` (already in hand), so a profile-endpoint
+            error or first-fetch delay must not blank the subset chart —
+            fall straight through to the hasData check. */}
+        {!isSubsetSelection && error ? (
           <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--color-bear)' }}>
             Failed to load GEX profile: {error}
           </div>
-        ) : loading && !profileData ? (
+        ) : !isSubsetSelection && loading && !profileData ? (
           <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--text-secondary)' }}>
             Loading GEX profile…
           </div>
@@ -674,10 +763,15 @@ export default function GexProfileChart({
                 <ReferenceLine yAxisId="strike" y={0} stroke={axisStroke} opacity={0.4} />
 
                 {/* Filled GEX-Profile curve.  Drawn first so the bars and net-GEX
-                    line render on top, matching the screenshot reference. */}
+                    line render on top, matching the screenshot reference.
+                    "All" is the dense spot-shift profile → monotone (smooth);
+                    a subset is the strike-granular cumulative net-GEX curve,
+                    drawn piecewise-linear so the rendered zero crossing lands
+                    exactly on the flip line (which is the linear-interpolated
+                    crossing of the same points). */}
                 <Area
                   yAxisId="profile"
-                  type="monotone"
+                  type={isSubsetSelection ? 'linear' : 'monotone'}
                   dataKey="profileGex"
                   name="GEX Profile"
                   stroke={PROFILE_LINE_COLOR}
@@ -734,14 +828,14 @@ export default function GexProfileChart({
                     }}
                   />
                 )}
-                {gammaFlip != null && Number.isFinite(gammaFlip) && (
+                {effectiveGammaFlip != null && Number.isFinite(effectiveGammaFlip) && (
                   <ReferenceLine
                     yAxisId="strike"
-                    x={gammaFlip}
+                    x={effectiveGammaFlip}
                     stroke={'var(--color-warning)'}
                     strokeDasharray="4 4"
                     label={{
-                      value: `Flip: ${formatStrikePrecise(gammaFlip)}`,
+                      value: `Flip: ${formatStrikePrecise(effectiveGammaFlip)}`,
                       position: 'top',
                       dy: REF_LABEL_STAGGER.flip,
                       fill: 'var(--color-warning)',
