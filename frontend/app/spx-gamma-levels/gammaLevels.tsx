@@ -305,19 +305,56 @@ const REGIME_DISPLAY: Record<
   },
 };
 
+// Last-good snapshot per symbol, held in process memory to ride through a brief
+// upstream outage. A backend deploy bounces the API for ~30–60s (a graceful
+// stop→start); if an ISR revalidation of this page fires inside that window,
+// every /api/gex/summary call returns null. Without a fallback, all three cards
+// render blank and — because the render still "succeeds" — that empty HTML is
+// what ISR caches and serves for the next 900s, turning a 45-second deploy blip
+// into a 15-minute free-page outage.
+//
+// Process-scoped and deliberately simple: it relies on the single-instance PM2
+// fork deployment (ecosystem.config.js — instances:1, exec_mode:'fork'), so
+// every render in the one Node process shares this Map. It is lost on restart,
+// which only means the first render after a restart-during-outage can still
+// blank — a rare, acceptable residual (and frequent process recycling is
+// exactly what keeps a cached snapshot from ever getting very old, so no TTL is
+// needed here). A card served from this cache is always flagged 'stale' below,
+// so last-known-good is never presented as a live read.
+const lastGoodSnapshots = new Map<Symbol, GexSummary>();
+
+interface LoadedSnapshots {
+  snapshots: Record<Symbol, GexSummary | null>;
+  /** Symbols rendered from `lastGoodSnapshots` because this cycle's fetch failed. */
+  fromCache: Set<Symbol>;
+}
+
 // Pull all three symbols in parallel. Each call is cached in the Next.js fetch
 // cache at 900s, so the page itself is effectively ISR'd at the same cadence.
-async function loadSnapshots(): Promise<Record<Symbol, GexSummary | null>> {
+// A successful fetch refreshes the last-good cache; a null (missing token,
+// unreachable backend, non-2xx — see serverApiGet) falls back to the last-good
+// snapshot so a transient blip degrades to "delayed" instead of "unavailable".
+async function loadSnapshots(): Promise<LoadedSnapshots> {
+  const fromCache = new Set<Symbol>();
   const entries = await Promise.all(
     SYMBOLS.map(async (symbol) => {
-      const data = await serverApiGet<GexSummary>(
+      const fresh = await serverApiGet<GexSummary>(
         `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
         900,
       );
-      return [symbol, data] as const;
+      if (fresh) {
+        lastGoodSnapshots.set(symbol, fresh);
+        return [symbol, fresh] as const;
+      }
+      const cached = lastGoodSnapshots.get(symbol) ?? null;
+      if (cached) fromCache.add(symbol);
+      return [symbol, cached] as const;
     }),
   );
-  return Object.fromEntries(entries) as Record<Symbol, GexSummary | null>;
+  return {
+    snapshots: Object.fromEntries(entries) as Record<Symbol, GexSummary | null>,
+    fromCache,
+  };
 }
 
 function LevelRow({
@@ -478,7 +515,7 @@ function SymbolCard({
 export default async function GammaLevelsView({ primary }: { primary: Symbol }) {
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
-  const snapshots = await loadSnapshots();
+  const { snapshots, fromCache } = await loadSnapshots();
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
@@ -499,6 +536,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   );
   const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
     if (snapshots[s] == null) return 'missing';
+    // Served from the last-good cache because this cycle's fetch failed: render
+    // the numbers but flag them "delayed" so a transient upstream blip never
+    // reads as a live snapshot.
+    if (fromCache.has(s)) return 'stale';
     const ms = snapshotMs(s);
     if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
     return 'ok';
