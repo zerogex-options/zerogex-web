@@ -184,7 +184,10 @@ const ZOOM_FIT_RANGE = 1.0;
 const DEFAULTS = {
   tf: '5m' as ChartTf,
   withPrev: false,
-  selectedExpiry: 'all',
+  // Empty set = "All expirations" (aggregate across the whole chain). A
+  // non-empty set restricts / aggregates the gamma surface, walls and flip
+  // to exactly those expirations.
+  selectedExpiries: [] as string[],
   zoomMul: 1.6,
   paused: false,
   gexMode: 'split' as 'split' | 'net',
@@ -198,8 +201,9 @@ const DEFAULTS = {
 // The durable display *preferences* a user can save so they auto-load on every
 // visit to this chart (the Strike Profile — dashboard tile + /gex-strike-profile).
 // Deliberately a subset of DEFAULTS: transient view state (paused / rewind /
-// zoom / pan / fullscreen) is never persisted, and `selectedExpiry` is excluded
-// because it holds a concrete expiry date that rolls off and would restore stale.
+// zoom / pan / fullscreen) is never persisted, and `selectedExpiries` is
+// excluded because it holds concrete expiry dates that roll off and would
+// restore stale.
 const CHART_SETTINGS_ID = 'strike-profile';
 
 type PersistedSettings = {
@@ -268,7 +272,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
   const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
-  const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
+  // Multi-expiration selection. Empty = All (aggregate across every
+  // expiration). A non-empty set aggregates the gamma surface / walls / flip
+  // across exactly those expirations (see expirationsParam below).
+  const [selectedExpiries, setSelectedExpiries] = useState<string[]>(DEFAULTS.selectedExpiries);
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   // ── Rewind state ──
@@ -324,7 +331,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
-    setSelectedExpiry(DEFAULTS.selectedExpiry);
+    setSelectedExpiries(DEFAULTS.selectedExpiries);
     setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
     setRewindActive(false);
@@ -444,7 +451,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   //
   // The hook keeps its seed (full-session rewind depth) + 1Hz tip-poll
   // pattern so the live edge's GEX data ticks in real time.
-  const expirationsParam = selectedExpiry === 'all' ? 'all' : selectedExpiry;
+  // 'all' (empty set) or a sorted, comma-joined list of the selected
+  // expirations.  Sorting makes the value canonical so "17th,18th" and
+  // "18th,17th" share the one module-scoped timeseries cache entry the
+  // hook keys on this string.  The backend sums the gamma surface + walls
+  // and recomputes the flip across exactly this set.
+  const expirationsParam = selectedExpiries.length === 0
+    ? 'all'
+    : [...selectedExpiries].sort().join(',');
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, tfToApi(tf), expirationsParam, paused,
   );
@@ -567,12 +581,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     [latchedRawExpirations, todayKey],
   );
 
-  // If the user previously selected an expiration that's now past (page
-  // stayed open across midnight ET, or a refresh dropped its date), reset
-  // the selection so the chart stops filtering by an expired contract and
-  // the dropdown's "Expiry" chip matches the visible universe.
-  if (selectedExpiry !== 'all' && selectedExpiry < todayKey) {
-    setSelectedExpiry('all');
+  // If the user previously selected expirations that are now past (page
+  // stayed open across midnight ET, or a refresh dropped their date), drop
+  // just those so the chart stops filtering by an expired contract and the
+  // dropdown's "Expiry" chip matches the visible universe.  Pruning to a
+  // shorter list only (never re-adding) keeps this render-time state
+  // adjustment convergent — no update fires once every entry is current.
+  if (selectedExpiries.some((exp) => exp < todayKey)) {
+    setSelectedExpiries((cur) => cur.filter((exp) => exp >= todayKey));
   }
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
@@ -1323,12 +1339,27 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return best;
   })();
 
-  const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
-  const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
+  // Expiry chip: "All" (empty set), the single date, or "N exps" for a
+  // multi-selection.
+  const expiryDisplay =
+    selectedExpiries.length === 0
+      ? 'All'
+      : selectedExpiries.length === 1
+        ? selectedExpiries[0]
+        : `${selectedExpiries.length} exps`;
+  // DTE only has a single meaning when exactly one expiration is selected;
+  // otherwise there's no single days-to-expiry to show.
+  const singleSelectedExpiry = selectedExpiries.length === 1 ? selectedExpiries[0] : null;
+  const dteSourceExpiry = singleSelectedExpiry ?? availableExpirations[0];
   const dteValue = computeDte(dteSourceExpiry);
-  // With all expirations selected there's no single DTE to show, so mirror the
-  // expiry chip and display "All" instead of the front-month's days-to-expiry.
-  const dteLabel = selectedExpiry === 'all' ? 'All' : dteValue != null ? `${dteValue}d` : '—';
+  const dteLabel =
+    selectedExpiries.length === 0
+      ? 'All'
+      : selectedExpiries.length > 1
+        ? 'Multi'
+        : dteValue != null
+          ? `${dteValue}d`
+          : '—';
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   const updatedLabel = useMemo(() => {
@@ -1574,8 +1605,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               setSettingsOpen(false);
             }}
             className={toolbarBtnClass}
-            style={toolbarBtnStyle(selectedExpiry !== 'all')}
-            title="Filter by expiration"
+            style={toolbarBtnStyle(selectedExpiries.length > 0)}
+            title="Filter by expiration (select one or more to aggregate)"
             disabled={availableExpirations.length === 0}
           >
             <span>Expiry {expiryDisplay}</span>
@@ -1584,39 +1615,48 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           {expiryOpen && (
             <div
               className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
-              style={{ ...popoverStyle, minWidth: 160, maxHeight: 260, overflowY: 'auto' }}
+              style={{ ...popoverStyle, minWidth: 180, maxHeight: 280, overflowY: 'auto' }}
             >
+              {/* Multi-select: "All expirations" clears the set (aggregate
+                  the whole chain); each row toggles that expiration in/out.
+                  The popover stays open across individual toggles so the
+                  user can build a set in one interaction. */}
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedExpiry('all');
-                  setExpiryOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
+                onClick={() => setSelectedExpiries([])}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
                 style={{
-                  color: selectedExpiry === 'all' ? textPrimary : subtle,
-                  fontWeight: selectedExpiry === 'all' ? 600 : 400,
+                  color: selectedExpiries.length === 0 ? textPrimary : subtle,
+                  fontWeight: selectedExpiries.length === 0 ? 600 : 400,
                 }}
               >
+                <span className="inline-flex w-3 justify-center">
+                  {selectedExpiries.length === 0 ? '✓' : ''}
+                </span>
                 All expirations
               </button>
-              {availableExpirations.map((exp) => (
-                <button
-                  key={exp}
-                  type="button"
-                  onClick={() => {
-                    setSelectedExpiry(exp);
-                    setExpiryOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
-                  style={{
-                    color: selectedExpiry === exp ? textPrimary : subtle,
-                    fontWeight: selectedExpiry === exp ? 600 : 400,
-                  }}
-                >
-                  {exp}
-                </button>
-              ))}
+              {availableExpirations.map((exp) => {
+                const checked = selectedExpiries.includes(exp);
+                return (
+                  <button
+                    key={exp}
+                    type="button"
+                    onClick={() =>
+                      setSelectedExpiries((cur) =>
+                        cur.includes(exp) ? cur.filter((v) => v !== exp) : [...cur, exp],
+                      )
+                    }
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+                    style={{
+                      color: checked ? textPrimary : subtle,
+                      fontWeight: checked ? 600 : 400,
+                    }}
+                  >
+                    <span className="inline-flex w-3 justify-center">{checked ? '✓' : ''}</span>
+                    {exp}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

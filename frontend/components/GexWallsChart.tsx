@@ -9,6 +9,7 @@ import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
+import ExpirationMultiSelect from './ExpirationMultiSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 // Each zoom click narrows / widens the visible strike range by this factor.
@@ -138,19 +139,24 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
   const inputBg = 'var(--color-surface-subtle)';
   const inputBorder = 'var(--color-border)';
-  const inputColor = 'var(--color-text-primary)';
 
   const expirationOptions = useMemo(() => {
     const source = openInterestData || [];
     return Array.from(new Set(source.map((row) => String(row.expiration || '')).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   }, [openInterestData]);
 
-  const [selectedExpiration, setSelectedExpiration] = useState<string>('all');
+  // Empty set = All (aggregate every expiration); a non-empty set sums the
+  // per-strike call/put values across exactly those expirations.
+  const [selectedExpirations, setSelectedExpirations] = useState<string[]>([]);
   const [displayMode, setDisplayMode] = useState<DisplayMode>('oi');
 
   const chartData = useMemo<ChartRow[]>(() => {
     const source = openInterestData || [];
-    const filtered = selectedExpiration === 'all' ? source : source.filter((row) => String(row.expiration || '') === selectedExpiration);
+    const selectedSet = new Set(selectedExpirations);
+    const filtered =
+      selectedExpirations.length === 0
+        ? source
+        : source.filter((row) => selectedSet.has(String(row.expiration || '')));
     const grouped = new Map<number, ChartRow>();
 
     filtered.forEach((row) => {
@@ -213,7 +219,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     }
 
     return rows.sort((a, b) => a.strike - b.strike);
-  }, [openInterestData, selectedExpiration, displayMode, byStrikeFallback]);
+  }, [openInterestData, selectedExpirations, displayMode, byStrikeFallback]);
 
   const spot = asNum(spotPrice);
 
@@ -374,18 +380,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             </div>
           </div>
           <div className="flex items-center gap-3 mr-8">
-            <label className="text-xs" style={{ color: textColor }}>
-              Expiration
-              <select
-                className="ml-2 rounded px-2 py-1"
-                style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }}
-                value={selectedExpiration}
-                onChange={(e) => setSelectedExpiration(e.target.value)}
-              >
-                <option value="all">All</option>
-                {expirationOptions.map((exp) => <option key={exp} value={exp}>{exp}</option>)}
-              </select>
-            </label>
+            <ExpirationMultiSelect
+              options={expirationOptions}
+              selected={selectedExpirations}
+              onChange={setSelectedExpirations}
+            />
             <div className="inline-flex rounded border" style={{ borderColor: inputBorder, backgroundColor: inputBg }}>
               <button
                 type="button"

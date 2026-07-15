@@ -23,6 +23,7 @@ import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
+import ExpirationMultiSelect from './ExpirationMultiSelect';
 
 // Each zoom click narrows / widens the visible strike range by this factor.
 // 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
@@ -44,8 +45,9 @@ interface GexProfileChartProps {
   callWall?: number | null;
   putWall?: number | null;
   expirationOptions?: string[];
-  selectedExpiration?: string;
-  onSelectedExpirationChange?: (value: string) => void;
+  /** Selected expirations; empty array = All (aggregate across the chain). */
+  selectedExpirations?: string[];
+  onSelectedExpirationsChange?: (value: string[]) => void;
 }
 
 interface MergedRow {
@@ -324,8 +326,8 @@ export default function GexProfileChart({
   callWall,
   putWall,
   expirationOptions,
-  selectedExpiration,
-  onSelectedExpirationChange,
+  selectedExpirations,
+  onSelectedExpirationsChange,
 }: GexProfileChartProps) {
   const { theme } = useTheme();
   const { gexUnit } = useGexUnit();
@@ -554,25 +556,12 @@ export default function GexProfileChart({
             className="flex flex-wrap items-center gap-4 text-xs pr-14"
             style={{ color: textColor }}
           >
-            {expirationOptions && onSelectedExpirationChange && (
-              <label className="text-xs flex items-center" style={{ color: textColor }}>
-                Expiration
-                <select
-                  className="ml-2 rounded px-2 py-1"
-                  style={{
-                    backgroundColor: 'var(--color-surface-subtle)',
-                    color: 'var(--color-text-primary)',
-                    border: `1px solid var(--color-border)`,
-                  }}
-                  value={selectedExpiration ?? 'all'}
-                  onChange={(e) => onSelectedExpirationChange(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  {expirationOptions.map((exp) => (
-                    <option key={exp} value={exp}>{exp}</option>
-                  ))}
-                </select>
-              </label>
+            {expirationOptions && onSelectedExpirationsChange && (
+              <ExpirationMultiSelect
+                options={expirationOptions}
+                selected={selectedExpirations ?? []}
+                onChange={onSelectedExpirationsChange}
+              />
             )}
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bull)' }} />
