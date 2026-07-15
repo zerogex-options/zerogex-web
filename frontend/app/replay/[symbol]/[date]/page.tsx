@@ -173,7 +173,8 @@ export default async function ReplayDatePage({
         the call wall (resistance), put wall (support), and gamma flip draw as horizontal levels
         that migrate minute-by-minute as you scrub ·
         candles past the cursor ghost out and light back to full opacity as the playhead sweeps
-        through them · drop pin A then pin B to see the strike-by-strike delta between two moments ·
+        through them — or hit <em>Future</em> to hide everything ahead of the playhead for an
+        as-it-happened tape · drop pin A then pin B to see the strike-by-strike delta between two moments ·
         click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you
         can share. MP4 export of arbitrary windows is on the roadmap; today you share branded
         stills of the moments that mattered.
