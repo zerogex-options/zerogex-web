@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
+import { Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -733,6 +733,10 @@ function ReplayOverlayChart({
   // the ':' React embeds so the id stays valid inside an SVG url(#…) ref.
   const clipId = `replay-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const [yZoom, setYZoom] = useState<number>(Y_ZOOM_DEFAULT);
+  // Opt-in: drop the ghosted future candles entirely so the tape reads as
+  // an as-it-happened replay with no lookahead past the playhead. Default
+  // off preserves the ghost-and-light-up behavior.
+  const [hideFuture, setHideFuture] = useState(false);
 
   const priceCenter = useMemo(() => {
     let lo = Number.POSITIVE_INFINITY;
@@ -837,6 +841,7 @@ function ReplayOverlayChart({
           low: b.fullLow,
           close: b.fullClose,
           opacity: FUTURE_CANDLE_OPACITY,
+          isFuture: true,
         };
       }
       const partial = partialBucketOHLC(b, cursorMs);
@@ -853,6 +858,7 @@ function ReplayOverlayChart({
           low: partial.low,
           close: partial.close,
           opacity: 1,
+          isFuture: false,
         };
       }
       return {
@@ -862,6 +868,7 @@ function ReplayOverlayChart({
         low: b.fullLow,
         close: b.fullClose,
         opacity: FUTURE_CANDLE_OPACITY,
+        isFuture: true,
       };
     });
   }, [buckets, cursorMs]);
@@ -935,6 +942,27 @@ function ReplayOverlayChart({
               </span>
             </div>
           )}
+          {/* Hide-future-bars toggle — opt into an as-it-happened tape with
+              no candles drawn ahead of the playhead. */}
+          <button
+            type="button"
+            onClick={() => setHideFuture((v) => !v)}
+            aria-pressed={hideFuture}
+            title={
+              hideFuture
+                ? 'Show future bars (ghosted ahead of the playhead)'
+                : 'Hide future bars (draw only up to the playhead)'
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
+            style={{
+              color: hideFuture ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              background: hideFuture ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
+            }}
+          >
+            {hideFuture ? <EyeOff size={13} /> : <Eye size={13} />}
+            Future
+          </button>
+
           {/* Vertical strike-axis zoom — scroll to zoom, or use the buttons. */}
           <div
             className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)]"
@@ -1140,6 +1168,8 @@ function ReplayOverlayChart({
               ) {
                 return null;
               }
+              // Hide-future toggle: drop bars ahead of the playhead entirely.
+              if (hideFuture && rb.isFuture) return null;
               const x = xForTime(rb.bucket.bucketStartMs);
               const isUp = rb.close >= rb.open;
               const color = isUp ? 'var(--color-bull)' : 'var(--color-bear)';
