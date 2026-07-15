@@ -1,1054 +1,601 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ZeroGEX — 10 Theme Explorations</title>
+<title>ZeroGEX — 10 Destination Themes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Amiri:wght@400;700&family=EB+Garamond:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Abril+Fatface&family=Archivo:wght@400;500;600;700&family=DM+Serif+Display&family=Cinzel:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Sora:wght@400;500;600;700&family=Prata&family=Archivo:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Spectral:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background:#191b1f; padding:28px; font-family:'Inter',sans-serif; }
-  .theme-card {
-    width: 1200px; margin: 0 auto 40px; background: var(--bg); color: var(--text);
-    padding: 40px 44px 44px; position: relative; overflow: hidden;
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 52px 52px;
-  }
+  body { background:#191b1f; padding:26px; font-family:'Inter',sans-serif; }
+  .theme-card { width: 1320px; margin: 0 auto 40px; background:#101216; color:#E8E9EC;
+    padding: 34px 36px 36px; border: 1px solid rgba(255,255,255,0.08); }
   .eyebrow { font-family: var(--f-mono); font-size: 11px; font-weight: 500;
-    letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-fade); margin-bottom: 12px; }
-  .eyebrow.accent, .accent { color: var(--accent-hot); }
+    letter-spacing: 0.16em; text-transform: uppercase; color: rgba(232,233,236,0.5); margin-bottom: 12px; }
+  .eyebrow.hot { color: var(--hot); }
+  .accent { color: var(--accent-hot); }
   .neg { color: var(--neg); }
 
   .card-head { display: flex; justify-content: space-between; align-items: flex-start;
-    gap: 30px; padding-bottom: 26px; margin-bottom: 28px; border-bottom: 1px solid var(--line-2); }
-  .theme-name { font-family: var(--f-display); font-weight: var(--dispw, 600); font-size: 42px;
-    letter-spacing: -0.015em; line-height: 1.0; color: var(--text); margin-bottom: 12px; }
-  .theme-concept { font-family: var(--f-body); font-size: 14px; line-height: 1.55;
-    color: var(--text-dim); max-width: 620px; }
-  .ch-right { display: flex; flex-direction: column; gap: 12px; flex: none; min-width: 220px; }
+    gap: 30px; padding-bottom: 24px; margin-bottom: 26px; border-bottom: 1px solid rgba(255,255,255,0.09); }
+  .theme-name { font-family: var(--f-display); font-weight: var(--dispw, 600); font-size: 46px;
+    letter-spacing: -0.015em; line-height: 1.0; color: #F4F5F7; margin-bottom: 12px; }
+  .theme-concept { font-family: var(--f-body); font-size: 14.5px; line-height: 1.55;
+    color: rgba(232,233,236,0.72); max-width: 720px; }
+  .ch-right { display: flex; flex-direction: column; gap: 11px; flex: none; min-width: 230px; }
   .fontleg { display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
-    padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+    padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .fl-k { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.16em;
-    text-transform: uppercase; color: var(--text-fade); }
-  .fl-v { font-size: 17px; font-weight: 600; color: var(--text); }
+    text-transform: uppercase; color: rgba(232,233,236,0.45); }
+  .fl-v { font-size: 17px; font-weight: 600; color: #F4F5F7; }
 
-  .card-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 40px; margin-bottom: 30px; }
+  .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .mode-col { background: var(--bg); border: 1px solid var(--line-2); padding: 22px 22px 24px;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 46px 46px; }
+  .mode-tag { font-family: var(--f-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--text-fade); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .mode-tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-hot); }
+  .specimen { font-family: var(--f-display); font-weight: var(--dispw, 600); font-size: 38px;
+    line-height: 1.0; letter-spacing: -0.015em; color: var(--text); margin-bottom: 20px; }
 
-  .specimen-display { font-family: var(--f-display); font-weight: var(--dispw, 600); font-size: 56px;
-    line-height: 0.98; letter-spacing: -0.015em; color: var(--text); margin: 8px 0 18px; }
-  .specimen-lead { font-family: var(--f-body); font-size: 15px; line-height: 1.6;
-    color: var(--text-dim); max-width: 460px; margin-bottom: 22px; }
-  .specimen-lead em { font-style: normal; color: var(--accent-hot); font-weight: 600; }
-  .readout { border-top: 1px solid var(--line-2); padding-top: 18px; }
-  .ro-price { font-family: var(--f-mono); font-weight: 600; font-size: 34px;
-    letter-spacing: -0.02em; color: var(--text); margin-bottom: 16px; font-variant-numeric: tabular-nums; }
-  .ro-price .neg { font-size: 16px; margin-left: 8px; }
-  .ro-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
-  .ro-rows div { display: flex; justify-content: space-between; align-items: baseline;
-    font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.04em;
-    padding: 7px 0; border-bottom: 1px solid var(--line); }
-  .ro-rows span { color: var(--text-fade); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
-  .ro-rows b { font-weight: 600; font-variant-numeric: tabular-nums; }
-
-  .panel { border: 1px solid var(--line-2); background: var(--panel); }
+  .panel { border: 1px solid var(--line-2); background: var(--panel); margin-bottom: 18px; }
   .p-head { display: flex; justify-content: space-between; align-items: center;
-    padding: 11px 15px; border-bottom: 1px solid var(--line-2); background: var(--panel-2);
-    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.14em;
+    padding: 10px 13px; border-bottom: 1px solid var(--line-2); background: var(--panel-2);
+    font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.13em;
     text-transform: uppercase; color: var(--text-fade); }
-  .p-head .live { color: var(--accent-hot); font-size: 10px; letter-spacing: 0.16em; }
-  .p-body { padding: 16px 16px 10px; }
-  .chart { display: block; width: 100%; height: 190px; }
+  .p-head .live { color: var(--accent-hot); font-size: 9.5px; letter-spacing: 0.16em; }
+  .p-body { padding: 13px 14px 14px; }
+  .chart { display: block; width: 100%; height: 132px; }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;
+    padding-top: 13px; border-top: 1px solid var(--line-2); }
+  .metrics div { display: flex; flex-direction: column; gap: 4px; }
+  .metrics span { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-fade); }
+  .metrics b { font-family: var(--f-mono); font-weight: 600; font-size: 19px;
+    letter-spacing: -0.01em; color: var(--text); font-variant-numeric: tabular-nums; }
 
-  .sig-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-  .sig { border: 1px solid var(--line-2); background: var(--panel); padding: 14px 14px 16px;
-    display: flex; flex-direction: column; gap: 10px; position: relative; }
-  .sig-chip { width: 12px; height: 12px; border-radius: 2px; }
-  .sig-name { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.12em;
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+  .sw { display: flex; flex-direction: column; gap: 6px; }
+  .sw .chip { height: 38px; border-radius: 3px; border: 1px solid var(--line-2); }
+  .sw-label { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--text-dim); }
-  .sig-val { font-family: var(--f-mono); font-weight: 600; font-size: 22px;
-    letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-
-  .palette-row { border-top: 1px solid var(--line-2); padding-top: 22px; }
-  .swatches { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
-  .sw { display: flex; flex-direction: column; gap: 7px; }
-  .sw .chip { height: 46px; border-radius: 3px; border: 1px solid var(--line-2); }
-  .sw-label { font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text-dim); }
-  .sw-hex { font-family: var(--f-mono); font-size: 10px; color: var(--text-fade); letter-spacing: 0.02em; }
-.back{position:fixed;top:14px;left:14px;z-index:200;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;background:#14171c;border:1px solid #f5c451;padding:7px 13px;color:#f5c451;text-decoration:none;}</style></head><body>
+  .sw-hex { font-family: var(--f-mono); font-size: 8.5px; color: var(--text-fade); }
+.back{position:fixed;top:14px;left:14px;z-index:200;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;background:#1a1d22;border:1px solid #D6A94E;padding:7px 13px;color:#D6A94E;text-decoration:none;}</style></head><body>
 <a class="back" href="./index.html">&larr; All Mockups</a>
 
-<div class="theme-card t-santorini" data-card="santorini" style="
-    --bg:#F3F1EA; --bg-2:#E7E4DA; --panel:#FBFAF5; --panel-2:#EAE7DD;
-    --line:rgba(19,38,62,0.08); --line-2:rgba(19,38,62,0.2); --line-3:rgba(19,38,62,0.36);
-    --text:#13263E; --text-dim:rgba(19,38,62,0.68); --text-fade:rgba(19,38,62,0.44);
-    --accent:#1E6FB2; --accent-hot:#E07B43; --accent-soft:rgba(224,123,67,0.16);
-    --gold:#E0A73E; --gold-soft:rgba(224,167,62,0.16);
-    --maroon:#C24A55; --navy:#123C63;
-    --emerald:#2E9E82; --emerald-soft:rgba(46,158,130,0.16);
-    --hazy:#6BA8CE; --hazy-soft:rgba(107,168,206,0.16);
-    --pos:#2E9E6E; --neg:#CC4436; --brand-text:#13263E;
-    --f-display:'Marcellus'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:400;">
+<div class="theme-card" data-card="london" style="--f-display:'Newsreader'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:500; --hot:#D6A94E;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 01 · Cyclades, Greece</div>
-      <div class="theme-name">Santorini</div>
-      <div class="theme-concept">Whitewashed cliffs and Aegean-blue domes, with an apricot sunset over the caldera.</div>
+      <div class="eyebrow hot">№ 01 · Financial · City of London · UK</div>
+      <div class="theme-name">London Fog</div>
+      <div class="theme-concept">The Square Mile under fog — weathered stone, British racing green, and polished brass.</div>
     </div>
     <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Marcellus</span></div>
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Newsreader</span></div>
       <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#E9E9E4; --bg-2:#DDDDD6; --panel:#F4F4EF; --panel-2:#E2E2DA;
+    --line:rgba(35,38,42,0.08); --line-2:rgba(35,38,42,0.2); --line-3:rgba(35,38,42,0.36);
+    --text:#23262A; --text-dim:rgba(35,38,42,0.68); --text-fade:rgba(35,38,42,0.46);
+    --accent:#1F5544; --accent-hot:#B58A3E; --accent-soft:rgba(181,138,62,0.16);
+    --gold:#B58A3E; --maroon:#9C3A34; --navy:#3A5568;
+    --emerald:#2E7D5E; --hazy:#6E8496; --pos:#2E7D5E; --neg:#B23A34;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-santorini" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-santorini" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-london-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-santorini)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-london-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#E9E9E4"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#E9E9E4</span></div>
+    <div class="sw"><span class="chip" style="background:#F4F4EF"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F4F4EF</span></div>
+    <div class="sw"><span class="chip" style="background:#23262A"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#23262A</span></div>
+    <div class="sw"><span class="chip" style="background:#1F5544"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1F5544</span></div>
+    <div class="sw"><span class="chip" style="background:#B58A3E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#B58A3E</span></div>
+    <div class="sw"><span class="chip" style="background:#B58A3E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#B58A3E</span></div>
+    <div class="sw"><span class="chip" style="background:#2E7D5E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E7D5E</span></div>
+    <div class="sw"><span class="chip" style="background:#B23A34"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#B23A34</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#14171A; --bg-2:#191D21; --panel:#1D2226; --panel-2:#262C31;
+    --line:rgba(230,231,226,0.09); --line-2:rgba(230,231,226,0.16); --line-3:rgba(230,231,226,0.3);
+    --text:#E6E7E2; --text-dim:rgba(230,231,226,0.66); --text-fade:rgba(230,231,226,0.44);
+    --accent:#4FA080; --accent-hot:#D6A94E; --accent-soft:rgba(214,169,78,0.16);
+    --gold:#D6A94E; --maroon:#D66A5E; --navy:#6E90AC;
+    --emerald:#4FB588; --hazy:#8FA6B8; --pos:#4FB588; --neg:#E0685E;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-london-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-london-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · light mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#F3F1EA"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#F3F1EA</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#FBFAF5"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#FBFAF5</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#13263E"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#13263E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#1E6FB2"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#1E6FB2</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E07B43"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#E07B43</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0A73E"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E0A73E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2E9E6E"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#2E9E6E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#CC4436"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#CC4436</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#123C63"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#123C63</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#6BA8CE"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#6BA8CE</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#14171A"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#14171A</span></div>
+    <div class="sw"><span class="chip" style="background:#1D2226"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#1D2226</span></div>
+    <div class="sw"><span class="chip" style="background:#E6E7E2"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E6E7E2</span></div>
+    <div class="sw"><span class="chip" style="background:#4FA080"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#4FA080</span></div>
+    <div class="sw"><span class="chip" style="background:#D6A94E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#D6A94E</span></div>
+    <div class="sw"><span class="chip" style="background:#D6A94E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#D6A94E</span></div>
+    <div class="sw"><span class="chip" style="background:#4FB588"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#4FB588</span></div>
+    <div class="sw"><span class="chip" style="background:#E0685E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0685E</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-marrakech" data-card="marrakech" style="
-    --bg:#1E1410; --bg-2:#251913; --panel:#2A1D15; --panel-2:#33241A;
-    --line:rgba(241,228,208,0.09); --line-2:rgba(241,228,208,0.16); --line-3:rgba(241,228,208,0.3);
-    --text:#F1E4D0; --text-dim:rgba(241,228,208,0.66); --text-fade:rgba(241,228,208,0.42);
-    --accent:#3E64C8; --accent-hot:#E8A33D; --accent-soft:rgba(232,163,61,0.16);
-    --gold:#E0B04A; --gold-soft:rgba(224,176,74,0.16);
-    --maroon:#B84A32; --navy:#3E64C8;
-    --emerald:#2FA07E; --emerald-soft:rgba(47,160,126,0.16);
-    --hazy:#7FA0C8; --hazy-soft:rgba(127,160,200,0.16);
-    --pos:#4FB58A; --neg:#E0563C; --brand-text:#F1E4D0;
-    --f-display:'Amiri'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:700;">
+<div class="theme-card" data-card="singapore" style="--f-display:'Sora'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:600; --hot:#F0C154;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 02 · Morocco</div>
-      <div class="theme-name">Marrakech</div>
-      <div class="theme-concept">The souk at dusk — spiced clay walls, Majorelle blue, saffron, and mint tea.</div>
+      <div class="eyebrow hot">№ 02 · Financial · Marina Bay · Singapore</div>
+      <div class="theme-name">Singapore Marina</div>
+      <div class="theme-concept">Marina Bay at blue hour — harbour teal, tower gold, and a flash of orchid.</div>
     </div>
     <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Amiri</span></div>
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Sora</span></div>
       <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#EDEEEA; --bg-2:#E1E4DF; --panel:#F6F7F3; --panel-2:#E4E7E1;
+    --line:rgba(22,41,46,0.08); --line-2:rgba(22,41,46,0.2); --line-3:rgba(22,41,46,0.36);
+    --text:#16292E; --text-dim:rgba(22,41,46,0.68); --text-fade:rgba(22,41,46,0.46);
+    --accent:#1E8A8A; --accent-hot:#E0A23A; --accent-soft:rgba(224,162,58,0.16);
+    --gold:#E0A23A; --maroon:#C13E7A; --navy:#256C99;
+    --emerald:#1E9E7A; --hazy:#5FA6C0; --pos:#1E9E7A; --neg:#D6453E;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-marrakech" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-marrakech" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-singapore-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-marrakech)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-singapore-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#EDEEEA"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#EDEEEA</span></div>
+    <div class="sw"><span class="chip" style="background:#F6F7F3"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F6F7F3</span></div>
+    <div class="sw"><span class="chip" style="background:#16292E"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#16292E</span></div>
+    <div class="sw"><span class="chip" style="background:#1E8A8A"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E8A8A</span></div>
+    <div class="sw"><span class="chip" style="background:#E0A23A"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E0A23A</span></div>
+    <div class="sw"><span class="chip" style="background:#E0A23A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E0A23A</span></div>
+    <div class="sw"><span class="chip" style="background:#1E9E7A"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#1E9E7A</span></div>
+    <div class="sw"><span class="chip" style="background:#D6453E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#D6453E</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0C1518; --bg-2:#101B1F; --panel:#142226; --panel-2:#1B2C31;
+    --line:rgba(232,238,238,0.09); --line-2:rgba(232,238,238,0.16); --line-3:rgba(232,238,238,0.3);
+    --text:#E8EEEE; --text-dim:rgba(232,238,238,0.66); --text-fade:rgba(232,238,238,0.44);
+    --accent:#35C4C0; --accent-hot:#F0C154; --accent-soft:rgba(240,193,84,0.16);
+    --gold:#F0C154; --maroon:#E85C9A; --navy:#4FA6D8;
+    --emerald:#3FD0A8; --hazy:#7FC4D8; --pos:#3FD0A8; --neg:#F0574E;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-singapore-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-singapore-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · dark mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#1E1410"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#1E1410</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2A1D15"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#2A1D15</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F1E4D0"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#F1E4D0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E64C8"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#3E64C8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E8A33D"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#E8A33D</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0B04A"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E0B04A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4FB58A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#4FB58A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0563C"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#E0563C</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E64C8"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#3E64C8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7FA0C8"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#7FA0C8</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#0C1518"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0C1518</span></div>
+    <div class="sw"><span class="chip" style="background:#142226"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#142226</span></div>
+    <div class="sw"><span class="chip" style="background:#E8EEEE"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E8EEEE</span></div>
+    <div class="sw"><span class="chip" style="background:#35C4C0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#35C4C0</span></div>
+    <div class="sw"><span class="chip" style="background:#F0C154"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#F0C154</span></div>
+    <div class="sw"><span class="chip" style="background:#F0C154"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#F0C154</span></div>
+    <div class="sw"><span class="chip" style="background:#3FD0A8"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#3FD0A8</span></div>
+    <div class="sw"><span class="chip" style="background:#F0574E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#F0574E</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-tuscany" data-card="tuscany" style="
-    --bg:#F1E9D6; --bg-2:#E6DBC1; --panel:#F8F2E2; --panel-2:#EADEC6;
-    --line:rgba(43,42,30,0.08); --line-2:rgba(43,42,30,0.2); --line-3:rgba(43,42,30,0.36);
-    --text:#2B2A1E; --text-dim:rgba(43,42,30,0.68); --text-fade:rgba(43,42,30,0.44);
-    --accent:#B5643A; --accent-hot:#C4842E; --accent-soft:rgba(196,132,46,0.16);
-    --gold:#C9A24B; --gold-soft:rgba(201,162,75,0.16);
-    --maroon:#8C2F39; --navy:#3E5540;
-    --emerald:#6E7A3A; --emerald-soft:rgba(110,122,58,0.16);
-    --hazy:#7A8C6A; --hazy-soft:rgba(122,140,106,0.16);
-    --pos:#5E7A3A; --neg:#A83A2E; --brand-text:#2B2A1E;
-    --f-display:'EB Garamond'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:600;">
+<div class="theme-card" data-card="monaco" style="--f-display:'Prata'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:400; --hot:#E0BE5A;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 03 · Italy</div>
-      <div class="theme-name">Tuscany</div>
-      <div class="theme-concept">Wheat fields and cypress lanes. Olive, terracotta roofs, and a glass of Chianti.</div>
+      <div class="eyebrow hot">№ 03 · Financial · Monte Carlo · Monaco</div>
+      <div class="theme-name">Monaco Riviera</div>
+      <div class="theme-concept">Casino Square at dusk — deep navy, Mediterranean blue, and roulette gold.</div>
     </div>
     <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">EB Garamond</span></div>
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Prata</span></div>
       <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#F1ECE0; --bg-2:#E7E0CF; --panel:#F8F4EA; --panel-2:#EBE4D3;
+    --line:rgba(20,36,58,0.08); --line-2:rgba(20,36,58,0.2); --line-3:rgba(20,36,58,0.36);
+    --text:#14243A; --text-dim:rgba(20,36,58,0.68); --text-fade:rgba(20,36,58,0.46);
+    --accent:#1E5AA0; --accent-hot:#C29A3E; --accent-soft:rgba(194,154,62,0.16);
+    --gold:#C29A3E; --maroon:#B24A4A; --navy:#12385F;
+    --emerald:#2E8B6E; --hazy:#6A9CC4; --pos:#2E8B6E; --neg:#C0433A;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-tuscany" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-tuscany" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-monaco-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-tuscany)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-monaco-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
-        </div>
-      </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · light mode</div>
-    <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#F1E9D6"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#F1E9D6</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F8F2E2"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#F8F2E2</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2B2A1E"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#2B2A1E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#B5643A"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#B5643A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#C4842E"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#C4842E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#C9A24B"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#C9A24B</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#5E7A3A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#5E7A3A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#A83A2E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#A83A2E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E5540"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#3E5540</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7A8C6A"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#7A8C6A</span>
-    </div></div>
-  </div>
-</div>
-
-<div class="theme-card t-reykjavik" data-card="reykjavik" style="
-    --bg:#0E1417; --bg-2:#121A1E; --panel:#141D22; --panel-2:#1B262C;
-    --line:rgba(231,238,240,0.09); --line-2:rgba(231,238,240,0.16); --line-3:rgba(231,238,240,0.3);
-    --text:#E7EEF0; --text-dim:rgba(231,238,240,0.66); --text-fade:rgba(231,238,240,0.42);
-    --accent:#5FB8D8; --accent-hot:#6FE3B0; --accent-soft:rgba(111,227,176,0.16);
-    --gold:#E6C86A; --gold-soft:rgba(230,200,106,0.16);
-    --maroon:#E0674E; --navy:#4F9BD1;
-    --emerald:#4FE0A0; --emerald-soft:rgba(79,224,160,0.16);
-    --hazy:#9B8CE0; --hazy-soft:rgba(155,140,224,0.16);
-    --pos:#4FE0A0; --neg:#F0674E; --brand-text:#E7EEF0;
-    --f-display:'Space Grotesk'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:500;">
-  <div class="card-head">
-    <div class="ch-left">
-      <div class="eyebrow accent">№ 04 · Iceland</div>
-      <div class="theme-name">Reykjavík</div>
-      <div class="theme-concept">Black basalt and blue glacier, lit by an aurora. Molten lava marks the downside.</div>
-    </div>
-    <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Space Grotesk</span></div>
-      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
-      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
-    </div>
-  </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
           <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
     </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#F1ECE0"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#F1ECE0</span></div>
+    <div class="sw"><span class="chip" style="background:#F8F4EA"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F8F4EA</span></div>
+    <div class="sw"><span class="chip" style="background:#14243A"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#14243A</span></div>
+    <div class="sw"><span class="chip" style="background:#1E5AA0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E5AA0</span></div>
+    <div class="sw"><span class="chip" style="background:#C29A3E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#C29A3E</span></div>
+    <div class="sw"><span class="chip" style="background:#C29A3E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#C29A3E</span></div>
+    <div class="sw"><span class="chip" style="background:#2E8B6E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E8B6E</span></div>
+    <div class="sw"><span class="chip" style="background:#C0433A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0433A</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0C1622; --bg-2:#101E2E; --panel:#142639; --panel-2:#1B3147;
+    --line:rgba(237,231,214,0.09); --line-2:rgba(237,231,214,0.16); --line-3:rgba(237,231,214,0.3);
+    --text:#EDE7D6; --text-dim:rgba(237,231,214,0.66); --text-fade:rgba(237,231,214,0.44);
+    --accent:#4F92D8; --accent-hot:#E0BE5A; --accent-soft:rgba(224,190,90,0.16);
+    --gold:#E0BE5A; --maroon:#E0685E; --navy:#5FA0D8;
+    --emerald:#4FB58E; --hazy:#8FB4D8; --pos:#4FB58E; --neg:#E0605A;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-reykjavik" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-reykjavik" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-monaco-dark" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-reykjavik)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-monaco-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
-        </div>
-      </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · dark mode</div>
-    <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#0E1417"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#0E1417</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#141D22"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#141D22</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E7EEF0"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#E7EEF0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#5FB8D8"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#5FB8D8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#6FE3B0"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#6FE3B0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E6C86A"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E6C86A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4FE0A0"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#4FE0A0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F0674E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#F0674E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4F9BD1"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#4F9BD1</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#9B8CE0"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#9B8CE0</span>
-    </div></div>
-  </div>
-</div>
-
-<div class="theme-card t-neworleans" data-card="neworleans" style="
-    --bg:#16121A; --bg-2:#1C1622; --panel:#201A28; --panel-2:#2A2233;
-    --line:rgba(241,233,214,0.09); --line-2:rgba(241,233,214,0.16); --line-3:rgba(241,233,214,0.3);
-    --text:#F1E9D6; --text-dim:rgba(241,233,214,0.66); --text-fade:rgba(241,233,214,0.42);
-    --accent:#7B3FB0; --accent-hot:#D4A83C; --accent-soft:rgba(212,168,60,0.16);
-    --gold:#D4A83C; --gold-soft:rgba(212,168,60,0.16);
-    --maroon:#9C2F3E; --navy:#2E7DB0;
-    --emerald:#2F9E5A; --emerald-soft:rgba(47,158,90,0.16);
-    --hazy:#A07FC8; --hazy-soft:rgba(160,127,200,0.16);
-    --pos:#3FB56E; --neg:#D6473E; --brand-text:#F1E9D6;
-    --f-display:'Abril Fatface'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:400;">
-  <div class="card-head">
-    <div class="ch-left">
-      <div class="eyebrow accent">№ 05 · Louisiana, USA</div>
-      <div class="theme-name">New Orleans</div>
-      <div class="theme-concept">The French Quarter after midnight. Mardi Gras purple, green, and antique gold.</div>
-    </div>
-    <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Abril Fatface</span></div>
-      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
-      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
-    </div>
-  </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
           <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
     </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
-  <defs>
-    <linearGradient id="g1-neworleans" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-neworleans" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
-    </linearGradient>
-  </defs>
-  <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
-  </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-neworleans)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
-</svg>
-        </div>
-      </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · dark mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#16121A"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#16121A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#201A28"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#201A28</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F1E9D6"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#F1E9D6</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7B3FB0"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#7B3FB0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D4A83C"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#D4A83C</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D4A83C"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#D4A83C</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3FB56E"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#3FB56E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D6473E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#D6473E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2E7DB0"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#2E7DB0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#A07FC8"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#A07FC8</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#0C1622"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0C1622</span></div>
+    <div class="sw"><span class="chip" style="background:#142639"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#142639</span></div>
+    <div class="sw"><span class="chip" style="background:#EDE7D6"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#EDE7D6</span></div>
+    <div class="sw"><span class="chip" style="background:#4F92D8"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#4F92D8</span></div>
+    <div class="sw"><span class="chip" style="background:#E0BE5A"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E0BE5A</span></div>
+    <div class="sw"><span class="chip" style="background:#E0BE5A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E0BE5A</span></div>
+    <div class="sw"><span class="chip" style="background:#4FB58E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#4FB58E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0605A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0605A</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-marfa" data-card="marfa" style="
-    --bg:#ECE6D8; --bg-2:#E0D8C6; --panel:#F4EFE3; --panel-2:#E5DCCB;
-    --line:rgba(38,37,31,0.08); --line-2:rgba(38,37,31,0.2); --line-3:rgba(38,37,31,0.36);
-    --text:#26251F; --text-dim:rgba(38,37,31,0.68); --text-fade:rgba(38,37,31,0.44);
-    --accent:#4E7C99; --accent-hot:#DE8A6E; --accent-soft:rgba(222,138,110,0.16);
-    --gold:#C8A552; --gold-soft:rgba(200,165,82,0.16);
-    --maroon:#B15843; --navy:#3E6076;
-    --emerald:#6E8B5A; --emerald-soft:rgba(110,139,90,0.16);
-    --hazy:#8FA5B2; --hazy-soft:rgba(143,165,178,0.16);
-    --pos:#5E8B5A; --neg:#C0503E; --brand-text:#26251F;
-    --f-display:'Archivo'; --f-body:'Inter'; --f-mono:'Space Mono';
-    --dispw:600;">
+<div class="theme-card" data-card="zurich" style="--f-display:'Archivo'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:600; --hot:#DCC066;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 06 · West Texas, USA</div>
-      <div class="theme-name">Marfa</div>
-      <div class="theme-concept">High-desert minimalism. Bleached sand, big-sky blue, and a Judd-clean grid.</div>
+      <div class="eyebrow hot">№ 04 · Financial · Paradeplatz · Switzerland</div>
+      <div class="theme-name">Zürich Vault</div>
+      <div class="theme-concept">Swiss private banking — snow, graphite steel, and vault gold. Precise and quiet.</div>
     </div>
     <div class="ch-right">
       <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Archivo</span></div>
       <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
-      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">Space Mono</span></div>
-    </div>
-  </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
-  <defs>
-    <linearGradient id="g1-marfa" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-marfa" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
-    </linearGradient>
-  </defs>
-  <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
-  </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-marfa)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
-</svg>
-        </div>
-      </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · light mode</div>
-    <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#ECE6D8"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#ECE6D8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F4EFE3"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#F4EFE3</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#26251F"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#26251F</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4E7C99"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#4E7C99</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#DE8A6E"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#DE8A6E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#C8A552"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#C8A552</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#5E8B5A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#5E8B5A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#C0503E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#C0503E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E6076"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#3E6076</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#8FA5B2"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#8FA5B2</span>
-    </div></div>
-  </div>
-</div>
-
-<div class="theme-card t-havana" data-card="havana" style="
-    --bg:#EFE7D5; --bg-2:#E4D9C3; --panel:#F6F0E0; --panel-2:#E8DDC7;
-    --line:rgba(34,48,56,0.08); --line-2:rgba(34,48,56,0.2); --line-3:rgba(34,48,56,0.36);
-    --text:#223038; --text-dim:rgba(34,48,56,0.68); --text-fade:rgba(34,48,56,0.44);
-    --accent:#2E9E96; --accent-hot:#E3794E; --accent-soft:rgba(227,121,78,0.16);
-    --gold:#D9A93F; --gold-soft:rgba(217,169,63,0.16);
-    --maroon:#B54A4A; --navy:#3E7EA0;
-    --emerald:#4FA88A; --emerald-soft:rgba(79,168,138,0.16);
-    --hazy:#79B0C8; --hazy-soft:rgba(121,176,200,0.16);
-    --pos:#3E9E6E; --neg:#D6503E; --brand-text:#223038;
-    --f-display:'DM Serif Display'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:400;">
-  <div class="card-head">
-    <div class="ch-left">
-      <div class="eyebrow accent">№ 07 · Cuba</div>
-      <div class="theme-name">Havana</div>
-      <div class="theme-concept">Sun-bleached stucco and a '55 Chevy in teal. Faded tropical glamour.</div>
-    </div>
-    <div class="ch-right">
-      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">DM Serif Display</span></div>
-      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#EEEFF1; --bg-2:#E2E4E7; --panel:#F8F9FA; --panel-2:#E6E8EB;
+    --line:rgba(26,29,33,0.08); --line-2:rgba(26,29,33,0.2); --line-3:rgba(26,29,33,0.36);
+    --text:#1A1D21; --text-dim:rgba(26,29,33,0.68); --text-fade:rgba(26,29,33,0.46);
+    --accent:#3A4650; --accent-hot:#BFA24E; --accent-soft:rgba(191,162,78,0.16);
+    --gold:#BFA24E; --maroon:#C0392B; --navy:#33506E;
+    --emerald:#2E7D5E; --hazy:#6E8496; --pos:#2E7D5E; --neg:#C0392B;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-havana" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-havana" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-zurich-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-havana)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-zurich-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#EEEFF1"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#EEEFF1</span></div>
+    <div class="sw"><span class="chip" style="background:#F8F9FA"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F8F9FA</span></div>
+    <div class="sw"><span class="chip" style="background:#1A1D21"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#1A1D21</span></div>
+    <div class="sw"><span class="chip" style="background:#3A4650"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#3A4650</span></div>
+    <div class="sw"><span class="chip" style="background:#BFA24E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#BFA24E</span></div>
+    <div class="sw"><span class="chip" style="background:#BFA24E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#BFA24E</span></div>
+    <div class="sw"><span class="chip" style="background:#2E7D5E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E7D5E</span></div>
+    <div class="sw"><span class="chip" style="background:#C0392B"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0392B</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#131518; --bg-2:#181B1F; --panel:#1C2024; --panel-2:#262B30;
+    --line:rgba(233,235,238,0.09); --line-2:rgba(233,235,238,0.16); --line-3:rgba(233,235,238,0.3);
+    --text:#E9EBEE; --text-dim:rgba(233,235,238,0.66); --text-fade:rgba(233,235,238,0.44);
+    --accent:#7E8B98; --accent-hot:#DCC066; --accent-soft:rgba(220,192,102,0.16);
+    --gold:#DCC066; --maroon:#D6564A; --navy:#6E90AC;
+    --emerald:#4FB588; --hazy:#9AA8B4; --pos:#4FB588; --neg:#E0574C;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-zurich-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-zurich-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · light mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#EFE7D5"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#EFE7D5</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F6F0E0"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#F6F0E0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#223038"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#223038</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2E9E96"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#2E9E96</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E3794E"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#E3794E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D9A93F"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#D9A93F</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E9E6E"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#3E9E6E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D6503E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#D6503E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#3E7EA0"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#3E7EA0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#79B0C8"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#79B0C8</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#131518"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#131518</span></div>
+    <div class="sw"><span class="chip" style="background:#1C2024"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#1C2024</span></div>
+    <div class="sw"><span class="chip" style="background:#E9EBEE"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E9EBEE</span></div>
+    <div class="sw"><span class="chip" style="background:#7E8B98"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#7E8B98</span></div>
+    <div class="sw"><span class="chip" style="background:#DCC066"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#DCC066</span></div>
+    <div class="sw"><span class="chip" style="background:#DCC066"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#DCC066</span></div>
+    <div class="sw"><span class="chip" style="background:#4FB588"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#4FB588</span></div>
+    <div class="sw"><span class="chip" style="background:#E0574C"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0574C</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-cairo" data-card="cairo" style="
-    --bg:#171208; --bg-2:#1E1810; --panel:#221B10; --panel-2:#2C2416;
-    --line:rgba(239,226,196,0.09); --line-2:rgba(239,226,196,0.16); --line-3:rgba(239,226,196,0.3);
-    --text:#EFE2C4; --text-dim:rgba(239,226,196,0.66); --text-fade:rgba(239,226,196,0.42);
-    --accent:#2E5AA8; --accent-hot:#E0B23A; --accent-soft:rgba(224,178,58,0.16);
-    --gold:#E0B23A; --gold-soft:rgba(224,178,58,0.16);
-    --maroon:#B5623A; --navy:#2E5AA8;
-    --emerald:#2E8B7A; --emerald-soft:rgba(46,139,122,0.16);
-    --hazy:#7FA0C8; --hazy-soft:rgba(127,160,200,0.16);
-    --pos:#4FB58A; --neg:#D66A3C; --brand-text:#EFE2C4;
-    --f-display:'Cinzel'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:600;">
+<div class="theme-card" data-card="dubai" style="--f-display:'Cinzel'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:600; --hot:#E6C24E;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 08 · Egypt</div>
-      <div class="theme-name">Cairo</div>
-      <div class="theme-concept">Lapis lazuli and pharaoh's gold on tomb-dark stone. The Nile runs teal.</div>
+      <div class="eyebrow hot">№ 05 · Financial · DIFC · United Arab Emirates</div>
+      <div class="theme-name">Dubai Gold</div>
+      <div class="theme-concept">The financial centre at golden hour — desert sand, luxe gold, and Gulf teal.</div>
     </div>
     <div class="ch-right">
       <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Cinzel</span></div>
@@ -1056,135 +603,130 @@
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#F1E9D8; --bg-2:#E7DCC5; --panel:#F8F2E4; --panel-2:#EADEC8;
+    --line:rgba(34,27,18,0.08); --line-2:rgba(34,27,18,0.2); --line-3:rgba(34,27,18,0.36);
+    --text:#221B12; --text-dim:rgba(34,27,18,0.68); --text-fade:rgba(34,27,18,0.46);
+    --accent:#1E7E7A; --accent-hot:#C79A34; --accent-soft:rgba(199,154,52,0.16);
+    --gold:#C79A34; --maroon:#B0603A; --navy:#2E6E8E;
+    --emerald:#2E8B6E; --hazy:#6FA6B0; --pos:#2E8B6E; --neg:#C0503A;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-cairo" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-cairo" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-dubai-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-cairo)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-dubai-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#F1E9D8"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#F1E9D8</span></div>
+    <div class="sw"><span class="chip" style="background:#F8F2E4"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F8F2E4</span></div>
+    <div class="sw"><span class="chip" style="background:#221B12"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#221B12</span></div>
+    <div class="sw"><span class="chip" style="background:#1E7E7A"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E7E7A</span></div>
+    <div class="sw"><span class="chip" style="background:#C79A34"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#C79A34</span></div>
+    <div class="sw"><span class="chip" style="background:#C79A34"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#C79A34</span></div>
+    <div class="sw"><span class="chip" style="background:#2E8B6E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E8B6E</span></div>
+    <div class="sw"><span class="chip" style="background:#C0503A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0503A</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#100C08; --bg-2:#17110A; --panel:#1D160C; --panel-2:#271E12;
+    --line:rgba(240,230,206,0.09); --line-2:rgba(240,230,206,0.16); --line-3:rgba(240,230,206,0.3);
+    --text:#F0E6CE; --text-dim:rgba(240,230,206,0.66); --text-fade:rgba(240,230,206,0.44);
+    --accent:#2FA6A0; --accent-hot:#E6C24E; --accent-soft:rgba(230,194,78,0.16);
+    --gold:#E6C24E; --maroon:#D68A4E; --navy:#4FA0C0;
+    --emerald:#4FB58E; --hazy:#7FC0C8; --pos:#4FB58E; --neg:#E0703E;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-dubai-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-dubai-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · dark mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#171208"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#171208</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#221B10"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#221B10</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#EFE2C4"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#EFE2C4</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2E5AA8"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#2E5AA8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0B23A"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#E0B23A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0B23A"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E0B23A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4FB58A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#4FB58A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#D66A3C"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#D66A3C</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2E5AA8"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#2E5AA8</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7FA0C8"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#7FA0C8</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#100C08"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#100C08</span></div>
+    <div class="sw"><span class="chip" style="background:#1D160C"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#1D160C</span></div>
+    <div class="sw"><span class="chip" style="background:#F0E6CE"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#F0E6CE</span></div>
+    <div class="sw"><span class="chip" style="background:#2FA6A0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#2FA6A0</span></div>
+    <div class="sw"><span class="chip" style="background:#E6C24E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E6C24E</span></div>
+    <div class="sw"><span class="chip" style="background:#E6C24E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E6C24E</span></div>
+    <div class="sw"><span class="chip" style="background:#4FB58E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#4FB58E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0703E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0703E</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-provence" data-card="provence" style="
-    --bg:#EFEADC; --bg-2:#E4DCC8; --panel:#F5F1E4; --panel-2:#E9E1CE;
-    --line:rgba(42,39,51,0.08); --line-2:rgba(42,39,51,0.2); --line-3:rgba(42,39,51,0.36);
-    --text:#2A2733; --text-dim:rgba(42,39,51,0.68); --text-fade:rgba(42,39,51,0.44);
-    --accent:#7C6FB0; --accent-hot:#E6B93A; --accent-soft:rgba(230,185,58,0.16);
-    --gold:#E0B23A; --gold-soft:rgba(224,178,58,0.16);
-    --maroon:#A85A6E; --navy:#4A6E8A;
-    --emerald:#7E8B4A; --emerald-soft:rgba(126,139,74,0.16);
-    --hazy:#9A8FC8; --hazy-soft:rgba(154,143,200,0.16);
-    --pos:#6E8B4A; --neg:#C25A4E; --brand-text:#2A2733;
-    --f-display:'Fraunces'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:500;">
+<div class="theme-card" data-card="tulum" style="--f-display:'Fraunces'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:500; --hot:#E89A5E;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 09 · France</div>
-      <div class="theme-name">Provence</div>
-      <div class="theme-concept">Lavender rows and sunflower fields under warm Luberon limestone.</div>
+      <div class="eyebrow hot">№ 06 · Beach · Quintana Roo · Mexico</div>
+      <div class="theme-name">Tulum Jungle</div>
+      <div class="theme-concept">Trade from a cenote — jade water, warm sand, terracotta, and Caribbean turquoise.</div>
     </div>
     <div class="ch-right">
       <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Fraunces</span></div>
@@ -1192,135 +734,261 @@
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#F0EADA; --bg-2:#E5DCC6; --panel:#F7F2E5; --panel-2:#E9E0CB;
+    --line:rgba(34,48,40,0.08); --line-2:rgba(34,48,40,0.2); --line-3:rgba(34,48,40,0.36);
+    --text:#223028; --text-dim:rgba(34,48,40,0.68); --text-fade:rgba(34,48,40,0.46);
+    --accent:#1E9E86; --accent-hot:#D07A45; --accent-soft:rgba(208,122,69,0.16);
+    --gold:#C9A24B; --maroon:#A84A3E; --navy:#2E7E8E;
+    --emerald:#2E9E6E; --hazy:#6FB0A6; --pos:#2E9E6E; --neg:#C0503A;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-provence" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-provence" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-tulum-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-provence)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-tulum-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#F0EADA"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#F0EADA</span></div>
+    <div class="sw"><span class="chip" style="background:#F7F2E5"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F7F2E5</span></div>
+    <div class="sw"><span class="chip" style="background:#223028"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#223028</span></div>
+    <div class="sw"><span class="chip" style="background:#1E9E86"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E9E86</span></div>
+    <div class="sw"><span class="chip" style="background:#D07A45"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#D07A45</span></div>
+    <div class="sw"><span class="chip" style="background:#C9A24B"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#C9A24B</span></div>
+    <div class="sw"><span class="chip" style="background:#2E9E6E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E9E6E</span></div>
+    <div class="sw"><span class="chip" style="background:#C0503A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0503A</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0C1512; --bg-2:#101B17; --panel:#14231D; --panel-2:#1B2E27;
+    --line:rgba(234,231,214,0.09); --line-2:rgba(234,231,214,0.16); --line-3:rgba(234,231,214,0.3);
+    --text:#EAE7D6; --text-dim:rgba(234,231,214,0.66); --text-fade:rgba(234,231,214,0.44);
+    --accent:#35C4A0; --accent-hot:#E89A5E; --accent-soft:rgba(232,154,94,0.16);
+    --gold:#E0B85A; --maroon:#D66A52; --navy:#4FB0C0;
+    --emerald:#3FD098; --hazy:#7FCAB8; --pos:#3FD098; --neg:#E0685A;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-tulum-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-tulum-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · light mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#EFEADC"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#EFEADC</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#F5F1E4"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#F5F1E4</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#2A2733"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#2A2733</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7C6FB0"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#7C6FB0</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E6B93A"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#E6B93A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0B23A"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E0B23A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#6E8B4A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#6E8B4A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#C25A4E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#C25A4E</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#4A6E8A"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#4A6E8A</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#9A8FC8"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#9A8FC8</span>
-    </div></div>
+    <div class="sw"><span class="chip" style="background:#0C1512"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0C1512</span></div>
+    <div class="sw"><span class="chip" style="background:#14231D"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#14231D</span></div>
+    <div class="sw"><span class="chip" style="background:#EAE7D6"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#EAE7D6</span></div>
+    <div class="sw"><span class="chip" style="background:#35C4A0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#35C4A0</span></div>
+    <div class="sw"><span class="chip" style="background:#E89A5E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E89A5E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0B85A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E0B85A</span></div>
+    <div class="sw"><span class="chip" style="background:#3FD098"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#3FD098</span></div>
+    <div class="sw"><span class="chip" style="background:#E0685A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0685A</span></div></div>
+  </div>
   </div>
 </div>
 
-<div class="theme-card t-seoul" data-card="seoul" style="
-    --bg:#14151B; --bg-2:#191B22; --panel:#1C1E26; --panel-2:#262933;
-    --line:rgba(238,239,242,0.09); --line-2:rgba(238,239,242,0.16); --line-3:rgba(238,239,242,0.3);
-    --text:#EEEFF2; --text-dim:rgba(238,239,242,0.66); --text-fade:rgba(238,239,242,0.42);
-    --accent:#3A5BC4; --accent-hot:#D6453E; --accent-soft:rgba(214,69,62,0.16);
-    --gold:#E0B23A; --gold-soft:rgba(224,178,58,0.16);
-    --maroon:#B23A44; --navy:#3A5BC4;
-    --emerald:#2E9E7A; --emerald-soft:rgba(46,158,122,0.16);
-    --hazy:#7F8FD0; --hazy-soft:rgba(127,143,208,0.16);
-    --pos:#3FB07A; --neg:#E0473E; --brand-text:#EEEFF2;
-    --f-display:'Outfit'; --f-body:'Inter'; --f-mono:'JetBrains Mono';
-    --dispw:600;">
+<div class="theme-card" data-card="amalfi" style="--f-display:'DM Serif Display'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:400; --hot:#F0D24E;">
   <div class="card-head">
     <div class="ch-left">
-      <div class="eyebrow accent">№ 10 · South Korea</div>
-      <div class="theme-name">Seoul</div>
-      <div class="theme-concept">Modern ink with dancheong accents — persimmon red, jade green, and royal blue.</div>
+      <div class="eyebrow hot">№ 07 · Beach · Amalfi Coast · Italy</div>
+      <div class="theme-name">Amalfi Lemon</div>
+      <div class="theme-concept">Lemon groves over the Tyrrhenian — limewash white, Mediterranean blue, and citrus.</div>
+    </div>
+    <div class="ch-right">
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">DM Serif Display</span></div>
+      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
+      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
+    </div>
+  </div>
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#F3EFE2; --bg-2:#E9E2CD; --panel:#FAF6EA; --panel-2:#ECE4CF;
+    --line:rgba(28,46,58,0.08); --line-2:rgba(28,46,58,0.2); --line-3:rgba(28,46,58,0.36);
+    --text:#1C2E3A; --text-dim:rgba(28,46,58,0.68); --text-fade:rgba(28,46,58,0.46);
+    --accent:#1E6FA8; --accent-hot:#E0B02E; --accent-soft:rgba(224,176,46,0.16);
+    --gold:#E0B02E; --maroon:#C13E5E; --navy:#164E78;
+    --emerald:#5E8B4A; --hazy:#6FA6C8; --pos:#5E8B4A; --neg:#C0433A;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-amalfi-light" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-amalfi-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#F3EFE2"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#F3EFE2</span></div>
+    <div class="sw"><span class="chip" style="background:#FAF6EA"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#FAF6EA</span></div>
+    <div class="sw"><span class="chip" style="background:#1C2E3A"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#1C2E3A</span></div>
+    <div class="sw"><span class="chip" style="background:#1E6FA8"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E6FA8</span></div>
+    <div class="sw"><span class="chip" style="background:#E0B02E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E0B02E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0B02E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E0B02E</span></div>
+    <div class="sw"><span class="chip" style="background:#5E8B4A"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#5E8B4A</span></div>
+    <div class="sw"><span class="chip" style="background:#C0433A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0433A</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0C1620; --bg-2:#101E2C; --panel:#142638; --panel-2:#1B3145;
+    --line:rgba(238,234,214,0.09); --line-2:rgba(238,234,214,0.16); --line-3:rgba(238,234,214,0.3);
+    --text:#EEEAD6; --text-dim:rgba(238,234,214,0.66); --text-fade:rgba(238,234,214,0.44);
+    --accent:#4F9BD8; --accent-hot:#F0D24E; --accent-soft:rgba(240,210,78,0.16);
+    --gold:#F0D24E; --maroon:#E85C7E; --navy:#5FA0D8;
+    --emerald:#8AB05A; --hazy:#8FB8D8; --pos:#7EA84E; --neg:#E0605A;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-amalfi-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-amalfi-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#0C1620"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0C1620</span></div>
+    <div class="sw"><span class="chip" style="background:#142638"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#142638</span></div>
+    <div class="sw"><span class="chip" style="background:#EEEAD6"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#EEEAD6</span></div>
+    <div class="sw"><span class="chip" style="background:#4F9BD8"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#4F9BD8</span></div>
+    <div class="sw"><span class="chip" style="background:#F0D24E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#F0D24E</span></div>
+    <div class="sw"><span class="chip" style="background:#F0D24E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#F0D24E</span></div>
+    <div class="sw"><span class="chip" style="background:#7EA84E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#7EA84E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0605A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0605A</span></div></div>
+  </div>
+  </div>
+</div>
+
+<div class="theme-card" data-card="maldives" style="--f-display:'Outfit'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:600; --hot:#F0987A;">
+  <div class="card-head">
+    <div class="ch-left">
+      <div class="eyebrow hot">№ 08 · Beach · North Malé Atoll · Maldives</div>
+      <div class="theme-name">Maldives Lagoon</div>
+      <div class="theme-concept">An overwater desk — turquoise lagoon, white sand, coral, and deep-ocean blue.</div>
     </div>
     <div class="ch-right">
       <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Outfit</span></div>
@@ -1328,115 +996,383 @@
       <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
   </div>
-
-  <div class="card-grid">
-    <div class="col-type">
-      <div class="eyebrow">Type specimen</div>
-      <div class="specimen-display">0DTE, <span class="accent">decoded.</span></div>
-      <p class="specimen-lead">A terminal that reads the option chain in real time and tells you where dealers <em>must hedge</em> — the number, the level, the reason.</p>
-      <div class="readout">
-        <div class="ro-price">6,412.30 <span class="neg">−0.42%</span></div>
-        <div class="ro-rows">
-          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
-          <div><span>NET GEX</span><b style="color:var(--maroon)">−1.82B</b></div>
-          <div><span>CALL WALL</span><b style="color:var(--navy)">6,450</b></div>
-          <div><span>SQUEEZE</span><b style="color:var(--accent-hot)">HIGH</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-ui">
-      <div class="panel">
-        <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
-        <div class="p-body">
-          
-<svg viewBox="0 0 520 200" preserveAspectRatio="none" class="chart">
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#EDF1EE; --bg-2:#E0E7E4; --panel:#F6F9F7; --panel-2:#E4EBE8;
+    --line:rgba(20,48,56,0.08); --line-2:rgba(20,48,56,0.2); --line-3:rgba(20,48,56,0.36);
+    --text:#143038; --text-dim:rgba(20,48,56,0.68); --text-fade:rgba(20,48,56,0.46);
+    --accent:#1BA6B0; --accent-hot:#E8846E; --accent-soft:rgba(232,132,110,0.16);
+    --gold:#E0B05A; --maroon:#C15A5A; --navy:#1E7EA0;
+    --emerald:#2E9E7A; --hazy:#6FC0C4; --pos:#2E9E7A; --neg:#D6564E;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
   <defs>
-    <linearGradient id="g1-seoul" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent-hot)" stop-opacity="0.30"/>
-      <stop offset="100%" stop-color="var(--accent-hot)" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="g2-seoul" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="g2-maldives-light" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
     </linearGradient>
   </defs>
   <g stroke="var(--line)" stroke-width="0.5">
-    <line x1="0" y1="50" x2="520" y2="50"/><line x1="0" y1="100" x2="520" y2="100"/><line x1="0" y1="150" x2="520" y2="150"/>
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
   </g>
-  <line x1="0" y1="100" x2="520" y2="100" stroke="var(--line-3)" stroke-dasharray="3 4"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100 L520,200 L0,200 Z" fill="url(#g2-seoul)"/>
-  <path d="M0,100 C40,64 90,28 150,23 C210,18 240,82 270,100 C300,118 340,174 400,182 C450,189 490,136 520,100" fill="none" stroke="var(--accent-hot)" stroke-width="1.6"/>
-  <line x1="270" y1="0" x2="270" y2="200" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
-  <text x="276" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP · 6,398</text>
-  <line x1="140" y1="0" x2="140" y2="200" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="80" y="16" font-family="var(--f-mono)" font-size="10" fill="var(--navy)">CALL WALL 6,450</text>
-  <line x1="400" y1="0" x2="400" y2="200" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
-  <text x="330" y="193" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-maldives-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
 </svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
         </div>
       </div>
-      <div class="sig-row">
-        <div class="sig"><span class="sig-chip" style="background:var(--accent-hot)"></span><span class="sig-name">Gamma Flip</span><span class="sig-val" style="color:var(--gold)">6,398</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--navy)"></span><span class="sig-name">Call Wall</span><span class="sig-val" style="color:var(--navy)">6,450</span></div>
-        <div class="sig"><span class="sig-chip" style="background:var(--maroon)"></span><span class="sig-name">Net GEX</span><span class="sig-val neg">−1.82B</span></div>
+    </div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#EDF1EE"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#EDF1EE</span></div>
+    <div class="sw"><span class="chip" style="background:#F6F9F7"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F6F9F7</span></div>
+    <div class="sw"><span class="chip" style="background:#143038"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#143038</span></div>
+    <div class="sw"><span class="chip" style="background:#1BA6B0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1BA6B0</span></div>
+    <div class="sw"><span class="chip" style="background:#E8846E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E8846E</span></div>
+    <div class="sw"><span class="chip" style="background:#E0B05A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E0B05A</span></div>
+    <div class="sw"><span class="chip" style="background:#2E9E7A"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#2E9E7A</span></div>
+    <div class="sw"><span class="chip" style="background:#D6564E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#D6564E</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#08181C; --bg-2:#0C2126; --panel:#10292F; --panel-2:#17353C;
+    --line:rgba(230,240,239,0.09); --line-2:rgba(230,240,239,0.16); --line-3:rgba(230,240,239,0.3);
+    --text:#E6F0EF; --text-dim:rgba(230,240,239,0.66); --text-fade:rgba(230,240,239,0.44);
+    --accent:#2FD0D0; --accent-hot:#F0987A; --accent-soft:rgba(240,152,122,0.16);
+    --gold:#F0C46A; --maroon:#E86E6E; --navy:#3FB0D8;
+    --emerald:#3FD0A8; --hazy:#7FD8DC; --pos:#3FD0A8; --neg:#F0685E;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-maldives-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-maldives-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <div class="palette-row">
-    <div class="eyebrow">Palette · dark mode</div>
     <div class="swatches">
-    <div class="sw">
-      <span class="chip" style="background:#14151B"></span>
-      <span class="sw-label">Ground</span>
-      <span class="sw-hex">#14151B</span>
+    <div class="sw"><span class="chip" style="background:#08181C"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#08181C</span></div>
+    <div class="sw"><span class="chip" style="background:#10292F"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#10292F</span></div>
+    <div class="sw"><span class="chip" style="background:#E6F0EF"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E6F0EF</span></div>
+    <div class="sw"><span class="chip" style="background:#2FD0D0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#2FD0D0</span></div>
+    <div class="sw"><span class="chip" style="background:#F0987A"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#F0987A</span></div>
+    <div class="sw"><span class="chip" style="background:#F0C46A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#F0C46A</span></div>
+    <div class="sw"><span class="chip" style="background:#3FD0A8"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#3FD0A8</span></div>
+    <div class="sw"><span class="chip" style="background:#F0685E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#F0685E</span></div></div>
+  </div>
+  </div>
+</div>
+
+<div class="theme-card" data-card="bondi" style="--f-display:'Manrope'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:700; --hot:#F09A5E;">
+  <div class="card-head">
+    <div class="ch-left">
+      <div class="eyebrow hot">№ 09 · Beach · Sydney · Australia</div>
+      <div class="theme-name">Bondi Surf</div>
+      <div class="theme-concept">The break at Bondi — ocean blue, warm sand, eucalyptus, and a coral sunset.</div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#1C1E26"></span>
-      <span class="sw-label">Panel</span>
-      <span class="sw-hex">#1C1E26</span>
+    <div class="ch-right">
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Manrope</span></div>
+      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
+      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#EEEFF2"></span>
-      <span class="sw-label">Ink</span>
-      <span class="sw-hex">#EEEFF2</span>
+  </div>
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#EFEBDD; --bg-2:#E4DEC9; --panel:#F7F3E6; --panel-2:#E8E1CC;
+    --line:rgba(26,46,48,0.08); --line-2:rgba(26,46,48,0.2); --line-3:rgba(26,46,48,0.36);
+    --text:#1A2E30; --text-dim:rgba(26,46,48,0.68); --text-fade:rgba(26,46,48,0.46);
+    --accent:#1E7EA0; --accent-hot:#E08A4E; --accent-soft:rgba(224,138,78,0.16);
+    --gold:#D9A83E; --maroon:#B04A4A; --navy:#245E7E;
+    --emerald:#4E8B5E; --hazy:#6FA6C0; --pos:#4E8B5E; --neg:#C0503A;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-bondi-light" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-bondi-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#3A5BC4"></span>
-      <span class="sw-label">Accent</span>
-      <span class="sw-hex">#3A5BC4</span>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#EFEBDD"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#EFEBDD</span></div>
+    <div class="sw"><span class="chip" style="background:#F7F3E6"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F7F3E6</span></div>
+    <div class="sw"><span class="chip" style="background:#1A2E30"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#1A2E30</span></div>
+    <div class="sw"><span class="chip" style="background:#1E7EA0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E7EA0</span></div>
+    <div class="sw"><span class="chip" style="background:#E08A4E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E08A4E</span></div>
+    <div class="sw"><span class="chip" style="background:#D9A83E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#D9A83E</span></div>
+    <div class="sw"><span class="chip" style="background:#4E8B5E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#4E8B5E</span></div>
+    <div class="sw"><span class="chip" style="background:#C0503A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#C0503A</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0C171B; --bg-2:#101F24; --panel:#14272C; --panel-2:#1B3138;
+    --line:rgba(232,238,236,0.09); --line-2:rgba(232,238,236,0.16); --line-3:rgba(232,238,236,0.3);
+    --text:#E8EEEC; --text-dim:rgba(232,238,236,0.66); --text-fade:rgba(232,238,236,0.44);
+    --accent:#3FA6D0; --accent-hot:#F09A5E; --accent-soft:rgba(240,154,94,0.16);
+    --gold:#E6BE5A; --maroon:#D66A5E; --navy:#4F9BC8;
+    --emerald:#6EB07A; --hazy:#7FC0D8; --pos:#6EB07A; --neg:#E0685A;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-bondi-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-bondi-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#D6453E"></span>
-      <span class="sw-label">Accent+</span>
-      <span class="sw-hex">#D6453E</span>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#0C171B"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0C171B</span></div>
+    <div class="sw"><span class="chip" style="background:#14272C"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#14272C</span></div>
+    <div class="sw"><span class="chip" style="background:#E8EEEC"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E8EEEC</span></div>
+    <div class="sw"><span class="chip" style="background:#3FA6D0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#3FA6D0</span></div>
+    <div class="sw"><span class="chip" style="background:#F09A5E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#F09A5E</span></div>
+    <div class="sw"><span class="chip" style="background:#E6BE5A"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#E6BE5A</span></div>
+    <div class="sw"><span class="chip" style="background:#6EB07A"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#6EB07A</span></div>
+    <div class="sw"><span class="chip" style="background:#E0685A"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0685A</span></div></div>
+  </div>
+  </div>
+</div>
+
+<div class="theme-card" data-card="nantucket" style="--f-display:'Spectral'; --f-body:'Inter'; --f-mono:'JetBrains Mono'; --dispw:600; --hot:#E0685E;">
+  <div class="card-head">
+    <div class="ch-left">
+      <div class="eyebrow hot">№ 10 · Beach · Massachusetts · USA</div>
+      <div class="theme-name">Nantucket Harbor</div>
+      <div class="theme-concept">New England at anchor — weathered shingle grey, harbour navy, brass, and nautical red.</div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0B23A"></span>
-      <span class="sw-label">Gold</span>
-      <span class="sw-hex">#E0B23A</span>
+    <div class="ch-right">
+      <div class="fontleg"><span class="fl-k">Display</span><span class="fl-v" style="font-family:var(--f-display);font-weight:var(--dispw)">Spectral</span></div>
+      <div class="fontleg"><span class="fl-k">Body</span><span class="fl-v" style="font-family:var(--f-body)">Inter</span></div>
+      <div class="fontleg"><span class="fl-k">Mono</span><span class="fl-v" style="font-family:var(--f-mono)">JetBrains Mono</span></div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#3FB07A"></span>
-      <span class="sw-label">Positive</span>
-      <span class="sw-hex">#3FB07A</span>
+  </div>
+  <div class="dual">
+    
+  <div class="mode-col" style="
+    --bg:#ECECE6; --bg-2:#E0E1DA; --panel:#F5F5F0; --panel-2:#E4E5DE;
+    --line:rgba(27,42,58,0.08); --line-2:rgba(27,42,58,0.2); --line-3:rgba(27,42,58,0.36);
+    --text:#1B2A3A; --text-dim:rgba(27,42,58,0.68); --text-fade:rgba(27,42,58,0.46);
+    --accent:#1E3A5F; --accent-hot:#B23A34; --accent-soft:rgba(178,58,52,0.16);
+    --gold:#B08A3E; --maroon:#8E2F2A; --navy:#1E3A5F;
+    --emerald:#3E8B6E; --hazy:#6E90AC; --pos:#3E8B6E; --neg:#B23A34;">
+    <div class="mode-tag"><span class="dot"></span>light mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-nantucket-light" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-nantucket-light)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#E0473E"></span>
-      <span class="sw-label">Negative</span>
-      <span class="sw-hex">#E0473E</span>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#ECECE6"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#ECECE6</span></div>
+    <div class="sw"><span class="chip" style="background:#F5F5F0"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#F5F5F0</span></div>
+    <div class="sw"><span class="chip" style="background:#1B2A3A"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#1B2A3A</span></div>
+    <div class="sw"><span class="chip" style="background:#1E3A5F"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#1E3A5F</span></div>
+    <div class="sw"><span class="chip" style="background:#B23A34"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#B23A34</span></div>
+    <div class="sw"><span class="chip" style="background:#B08A3E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#B08A3E</span></div>
+    <div class="sw"><span class="chip" style="background:#3E8B6E"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#3E8B6E</span></div>
+    <div class="sw"><span class="chip" style="background:#B23A34"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#B23A34</span></div></div>
+  </div>
+    
+  <div class="mode-col" style="
+    --bg:#0E1622; --bg-2:#121D2C; --panel:#162538; --panel-2:#1D3045;
+    --line:rgba(231,234,238,0.09); --line-2:rgba(231,234,238,0.16); --line-3:rgba(231,234,238,0.3);
+    --text:#E7EAEE; --text-dim:rgba(231,234,238,0.66); --text-fade:rgba(231,234,238,0.44);
+    --accent:#4F86C0; --accent-hot:#E0685E; --accent-soft:rgba(224,104,94,0.16);
+    --gold:#D6A94E; --maroon:#D6564A; --navy:#5F92C8;
+    --emerald:#5FB59A; --hazy:#8FAAC4; --pos:#5FB59A; --neg:#E0685E;">
+    <div class="mode-tag"><span class="dot"></span>dark mode</div>
+    <div class="specimen">0DTE, <span class="accent">decoded.</span></div>
+    <div class="panel">
+      <div class="p-head"><span>SPX · dealer γ profile</span><span class="live">● LIVE</span></div>
+      <div class="p-body">
+<svg viewBox="0 0 520 150" preserveAspectRatio="none" class="chart">
+  <defs>
+    <linearGradient id="g2-nantucket-dark" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="var(--neg)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--neg)" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="var(--line)" stroke-width="0.5">
+    <line x1="0" y1="38" x2="520" y2="38"/><line x1="0" y1="75" x2="520" y2="75"/><line x1="0" y1="112" x2="520" y2="112"/>
+  </g>
+  <line x1="0" y1="75" x2="520" y2="75" stroke="var(--line-3)" stroke-dasharray="3 4"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75 L520,150 L0,150 Z" fill="url(#g2-nantucket-dark)"/>
+  <path d="M0,75 C40,48 90,20 150,17 C210,14 240,62 270,75 C300,88 340,130 400,137 C450,142 490,102 520,75" fill="none" stroke="var(--accent-hot)" stroke-width="1.7"/>
+  <line x1="270" y1="0" x2="270" y2="150" stroke="var(--gold)" stroke-dasharray="4 4" stroke-width="1.2"/>
+  <text x="276" y="14" font-family="var(--f-mono)" font-size="10" fill="var(--gold)">FLIP 6,398</text>
+  <line x1="140" y1="0" x2="140" y2="150" stroke="var(--navy)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <line x1="400" y1="0" x2="400" y2="150" stroke="var(--maroon)" stroke-dasharray="2 3" stroke-width="0.9"/>
+  <text x="330" y="146" font-family="var(--f-mono)" font-size="10" fill="var(--maroon)">PUT WALL 6,350</text>
+</svg>
+        <div class="metrics">
+          <div><span>SPX</span><b>6,412.30</b></div>
+          <div><span>γ FLIP</span><b style="color:var(--gold)">6,398</b></div>
+          <div><span>NET GEX</span><b class="neg">−1.82B</b></div>
+        </div>
+      </div>
     </div>
-    <div class="sw">
-      <span class="chip" style="background:#3A5BC4"></span>
-      <span class="sw-label">Info</span>
-      <span class="sw-hex">#3A5BC4</span>
-    </div>
-    <div class="sw">
-      <span class="chip" style="background:#7F8FD0"></span>
-      <span class="sw-label">Alt</span>
-      <span class="sw-hex">#7F8FD0</span>
-    </div></div>
+    <div class="swatches">
+    <div class="sw"><span class="chip" style="background:#0E1622"></span>
+      <span class="sw-label">Ground</span><span class="sw-hex">#0E1622</span></div>
+    <div class="sw"><span class="chip" style="background:#162538"></span>
+      <span class="sw-label">Panel</span><span class="sw-hex">#162538</span></div>
+    <div class="sw"><span class="chip" style="background:#E7EAEE"></span>
+      <span class="sw-label">Ink</span><span class="sw-hex">#E7EAEE</span></div>
+    <div class="sw"><span class="chip" style="background:#4F86C0"></span>
+      <span class="sw-label">Accent</span><span class="sw-hex">#4F86C0</span></div>
+    <div class="sw"><span class="chip" style="background:#E0685E"></span>
+      <span class="sw-label">Accent+</span><span class="sw-hex">#E0685E</span></div>
+    <div class="sw"><span class="chip" style="background:#D6A94E"></span>
+      <span class="sw-label">Gold</span><span class="sw-hex">#D6A94E</span></div>
+    <div class="sw"><span class="chip" style="background:#5FB59A"></span>
+      <span class="sw-label">Positive</span><span class="sw-hex">#5FB59A</span></div>
+    <div class="sw"><span class="chip" style="background:#E0685E"></span>
+      <span class="sw-label">Negative</span><span class="sw-hex">#E0685E</span></div></div>
+  </div>
   </div>
 </div>
 </body></html>
