@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, CheckCircle2, XCircle, Ruler, Gauge, Layers } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, XCircle, Ruler, Gauge, Layers, Info } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
+import TooltipWrapper from '@/components/TooltipWrapper';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 
@@ -265,6 +266,7 @@ export default async function ForecastPage({
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-accent)"
           icon={Ruler}
+          tooltip="The high–low band we commit at 7 AM, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage — an 80–90% band should contain the day's full range, wicks included."
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={(() => {
             const parts: string[] = [];
@@ -294,6 +296,7 @@ export default async function ForecastPage({
           value={volLabel}
           accent="var(--color-accent)"
           icon={Gauge}
+          tooltip="How much the day actually moved vs. what options implied: realized daily range ÷ the VIX-implied 1-day move. Long gamma damps it (compression), short gamma amplifies it (expansion). Graded on realized ÷ implied, so a round-trip day that closes flat still reads as expansion."
           verdict={
             receipt && receipt.vol_state_correct != null
               ? receipt.vol_state_correct ? 'held' : 'broken'
@@ -325,6 +328,7 @@ export default async function ForecastPage({
           })()}
           accent="var(--color-accent)"
           icon={Layers}
+          tooltip="The dealer lines in play and how well we called which ones price would reach today — scored by Brier on the ladder below. No direction call."
           verdict={null}
           hint={(() => {
             if (receipt) {
@@ -395,7 +399,11 @@ export default async function ForecastPage({
             <div className="grid grid-cols-3 gap-3 text-center">
               <HitRate label="Range respected" rate={stats.range_respected_rate} />
               <HitRate label="Volatility called" rate={stats.vol_state_correct_rate} />
-              <BrierStat label="Levels Brier" value={stats.levels_brier_avg} />
+              <BrierStat
+                label="Levels Brier"
+                value={stats.levels_brier_avg}
+                tooltip="How well-calibrated the touch-odds were: the average of (committed probability − outcome)² across the levels. 0 = perfect, 0.25 = a coin flip. Lower is better."
+              />
             </div>
           ) : (
             <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
@@ -439,6 +447,7 @@ function Stat({
   verdict,
   hint,
   icon: Icon,
+  tooltip,
 }: {
   label: string;
   value: string;
@@ -446,6 +455,7 @@ function Stat({
   verdict: 'held' | 'broken' | null;
   hint?: string | null;
   icon?: LucideIcon;
+  tooltip?: string;
 }) {
   const VerdictIcon =
     verdict === 'held' ? CheckCircle2 : verdict === 'broken' ? XCircle : null;
@@ -456,6 +466,11 @@ function Stat({
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
         {Icon ? <Icon size={11} /> : null}
         {label}
+        {tooltip && (
+          <TooltipWrapper text={tooltip}>
+            <Info size={12} />
+          </TooltipWrapper>
+        )}
       </div>
       <div className="mt-1 flex items-center gap-2 text-xl font-black tracking-tight" style={{ color: accent }}>
         {value}
@@ -477,6 +492,9 @@ interface LadderRow {
   kind: 'wall' | 'flip' | 'gravity' | 'spot';
   prob: number | null;
   outcome: boolean | null;
+  // Absolute distance by which price fell short of a line it did NOT
+  // reach/cross (null when reached, ungraded, or not applicable).
+  missAbs: number | null;
 }
 
 // The levels ladder: every dealer line ordered by price (high → low), each with
@@ -492,24 +510,44 @@ function LevelsLadder({
   const probs = morning.level_touch_probs ?? {};
   const outcomes = receipt?.level_touch_outcomes ?? {};
 
+  // How close price came to a line it did NOT reach/cross — the honest
+  // near-miss distance ("within $0.20"), shown next to the strict verdict.
+  // Only meaningful once the receipt landed and the outcome came back false.
+  const actualLow = receipt?.actual_low ?? null;
+  const actualHigh = receipt?.actual_high ?? null;
+  const openSpot = morning.open_spot;
+  const missBy = (
+    kind: 'call_wall' | 'put_wall' | 'gamma_flip',
+    price: number,
+    outcome: boolean | null,
+  ): number | null => {
+    if (outcome !== false || actualLow == null || actualHigh == null) return null;
+    let d: number | null = null;
+    if (kind === 'call_wall') d = price - actualHigh; // needed to rise to the wall
+    else if (kind === 'put_wall') d = actualLow - price; // needed to fall to the wall
+    else if (openSpot != null) d = openSpot > price ? actualLow - price : price - actualHigh;
+    return d != null && Number.isFinite(d) && d > 0 ? d : null;
+  };
+
   const rows: LadderRow[] = [];
   if (morning.call_wall != null) {
     rows.push({
       key: 'call_wall', name: 'Call wall', tag: 'resistance', tagColor: 'var(--color-bear)',
       price: morning.call_wall, kind: 'wall',
       prob: probs.call_wall ?? null, outcome: outcomes.call_wall ?? null,
+      missAbs: missBy('call_wall', morning.call_wall, outcomes.call_wall ?? null),
     });
   }
   if (morning.open_spot != null) {
     rows.push({
       key: 'spot', name: 'Open spot', tag: '', tagColor: '',
-      price: morning.open_spot, kind: 'spot', prob: null, outcome: null,
+      price: morning.open_spot, kind: 'spot', prob: null, outcome: null, missAbs: null,
     });
   }
   if (morning.gravity_center != null) {
     rows.push({
       key: 'gravity', name: 'Max-gamma', tag: 'gravity', tagColor: 'var(--color-accent)',
-      price: morning.gravity_center, kind: 'gravity', prob: null, outcome: null,
+      price: morning.gravity_center, kind: 'gravity', prob: null, outcome: null, missAbs: null,
     });
   }
   if (morning.gamma_flip != null) {
@@ -517,6 +555,7 @@ function LevelsLadder({
       key: 'gamma_flip', name: 'Gamma flip', tag: 'regime line', tagColor: 'var(--color-text-secondary)',
       price: morning.gamma_flip, kind: 'flip',
       prob: morning.flip_cross_prob, outcome: outcomes.gamma_flip ?? null,
+      missAbs: missBy('gamma_flip', morning.gamma_flip, outcomes.gamma_flip ?? null),
     });
   }
   if (morning.put_wall != null) {
@@ -524,6 +563,7 @@ function LevelsLadder({
       key: 'put_wall', name: 'Put wall', tag: 'support', tagColor: 'var(--color-bull)',
       price: morning.put_wall, kind: 'wall',
       prob: probs.put_wall ?? null, outcome: outcomes.put_wall ?? null,
+      missAbs: missBy('put_wall', morning.put_wall, outcomes.put_wall ?? null),
     });
   }
   if (rows.length === 0) return null;
@@ -534,6 +574,9 @@ function LevelsLadder({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           <Layers size={11} /> Levels &amp; touch odds
+          <TooltipWrapper text="Each line's touch odds are our 7 AM probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
+            <Info size={12} />
+          </TooltipWrapper>
         </div>
         <div className="text-[10px] text-[var(--color-text-secondary)]">
           {receipt ? 'forecast vs. what happened' : 'P(price reaches this line today)'}
@@ -598,6 +641,12 @@ function LadderRowView({
           ) : outcomeText ? (
             <span className="text-[12px] font-bold" style={{ color: outcomeColor }}>
               {row.prob != null ? `${fmtPct(row.prob)} → ` : ''}{outcomeText}
+              {row.missAbs != null && (
+                <span className="ml-1 text-[11px] font-normal text-[var(--color-text-secondary)]">
+                  · within {fmtPrice(row.missAbs)}
+                  {row.price > 0 ? ` (${((row.missAbs / row.price) * 100).toFixed(2)}%)` : ''}
+                </span>
+              )}
             </span>
           ) : row.kind === 'gravity' ? (
             <span className="text-[11px] text-[var(--color-text-secondary)]">pull center (long-γ)</span>
@@ -652,7 +701,7 @@ function HitRate({ label, rate }: { label: string; rate: number | null }) {
 }
 
 // Brier score: lower is better (0 = perfect calibration, 0.25 = a coin flip).
-function BrierStat({ label, value }: { label: string; value: number | null }) {
+function BrierStat({ label, value, tooltip }: { label: string; value: number | null; tooltip?: string }) {
   const color =
     value == null ? 'var(--color-text-secondary)' :
     value <= 0.15 ? 'var(--color-bull)' :
@@ -660,8 +709,13 @@ function BrierStat({ label, value }: { label: string; value: number | null }) {
     'var(--color-bear)';
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
         {label}
+        {tooltip && (
+          <TooltipWrapper text={tooltip}>
+            <Info size={12} />
+          </TooltipWrapper>
+        )}
       </div>
       <div className="mt-1 font-mono text-xl font-bold" style={{ color }}>
         {value == null ? '—' : value.toFixed(2)}
