@@ -1,9 +1,10 @@
 'use client';
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, CreditCard, Copy, Fingerprint, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -422,12 +423,19 @@ function AccountPageContent() {
           >
             <div
               style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: `${C.amber}26`, border: `1px solid ${C.amber}55`,
+                width: 44, height: 44, borderRadius: '50%',
+                background: '#ffffff', border: `1px solid ${C.amber}55`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                padding: 3,
               }}
             >
-              <Heart size={16} style={{ color: C.amber }} />
+              <Image
+                src="/folds-of-honor-proud-supporter.png"
+                alt=""
+                width={38}
+                height={38}
+                style={{ width: 38, height: 38, objectFit: 'contain' }}
+              />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>

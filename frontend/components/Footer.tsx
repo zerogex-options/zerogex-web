@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, Heart, Youtube } from 'lucide-react';
+import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 
@@ -220,20 +220,30 @@ export default function Footer({ theme }: FooterProps) {
             <SocialLinks align="end" />
             <Link
               href="/giving"
-              className="zg-caption"
+              aria-label={VETERANS_BADGE_TEXT}
+              title={VETERANS_BADGE_TEXT}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '5px 12px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '4px 10px 4px 4px', borderRadius: 999,
                 background: `${'var(--color-brand-primary)'}18`,
                 border: `1px solid ${'var(--color-brand-primary)'}40`,
                 color: 'var(--color-brand-primary)',
-                fontWeight: 700,
-                textDecoration: 'none',
-                marginTop: 4,
+                fontWeight: 700, textDecoration: 'none', marginTop: 4,
               }}
-              title={VETERANS_BADGE_TEXT}
+              className="zg-caption"
             >
-              <Heart size={11} /> 3% supports veterans
+              <Image
+                src="/folds-of-honor-proud-supporter.png"
+                alt=""
+                width={28}
+                height={28}
+                style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: '#ffffff',
+                  padding: 2,
+                }}
+              />
+              3% supports veterans
             </Link>
             <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right' }}>
               © 2026 ZeroGEX, All rights reserved.
@@ -271,20 +281,31 @@ export default function Footer({ theme }: FooterProps) {
             </div>
             <Link
               href="/giving"
-              className="zg-caption"
+              aria-label={VETERANS_BADGE_TEXT}
+              title={VETERANS_BADGE_TEXT}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '5px 10px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '4px 10px 4px 4px', borderRadius: 999,
                 background: `${'var(--color-brand-primary)'}18`,
                 border: `1px solid ${'var(--color-brand-primary)'}40`,
                 color: 'var(--color-brand-primary)',
-                fontWeight: 700,
-                textDecoration: 'none',
+                fontWeight: 700, textDecoration: 'none',
                 width: 'fit-content', marginTop: 4,
               }}
-              title={VETERANS_BADGE_TEXT}
+              className="zg-caption"
             >
-              <Heart size={11} /> 3% supports veterans
+              <Image
+                src="/folds-of-honor-proud-supporter.png"
+                alt=""
+                width={26}
+                height={26}
+                style={{
+                  width: 26, height: 26, borderRadius: '50%',
+                  background: '#ffffff',
+                  padding: 2,
+                }}
+              />
+              3% supports veterans
             </Link>
             <p className="zg-caption" style={{ color: subtext, margin: '10px 0 0 0' }}>
               ZeroGEX provides options-market analytics and educational content for informational

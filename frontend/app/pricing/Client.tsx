@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
@@ -15,7 +16,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
-import { ArrowRight, CheckCircle2, Heart, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 
 const C = {
   card: 'var(--color-surface)',
@@ -352,14 +353,25 @@ function TierCard({
       <Link
         href="/giving"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          margin: '12px 0 0', padding: '4px 10px', borderRadius: 999,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          margin: '12px 0 0', padding: '3px 12px 3px 3px', borderRadius: 999,
           background: `${accent}14`, border: `1px solid ${accent}33`,
           color: accent, fontSize: 11, fontWeight: 700,
           letterSpacing: '0.04em', textDecoration: 'none', alignSelf: 'flex-start',
         }}
       >
-        <Heart size={11} /> Includes 3% donation to Folds of Honor
+        <Image
+          src="/folds-of-honor-proud-supporter.png"
+          alt=""
+          width={22}
+          height={22}
+          style={{
+            width: 22, height: 22, borderRadius: '50%',
+            background: '#ffffff',
+            padding: 1,
+          }}
+        />
+        Includes 3% donation to Folds of Honor
       </Link>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>

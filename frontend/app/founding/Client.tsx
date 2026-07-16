@@ -625,6 +625,48 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
 
           <PlanComparison />
 
+          <Link
+            href="/giving"
+            style={{
+              display: 'block', textDecoration: 'none',
+              maxWidth: 820, marginLeft: 'auto', marginRight: 'auto', marginTop: 36,
+            }}
+          >
+            <div className="zg-panel" style={{
+              padding: 'clamp(18px, 3vw, 24px)',
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              gap: 'clamp(14px, 2.5vw, 20px)',
+              alignItems: 'center',
+              borderColor: `${C.amber}40`,
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 3, flexShrink: 0,
+              }}>
+                <Image
+                  src="/folds-of-honor-proud-supporter.png"
+                  alt="Folds of Honor Proud Supporter"
+                  width={50}
+                  height={50}
+                  style={{ width: 50, height: 50, objectFit: 'contain' }}
+                />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.amber, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  Folds of Honor Proud Supporter
+                </div>
+                <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.55 }}>
+                  3% of every founding subscription funds educational scholarships for the families of fallen
+                  and disabled U.S. service members. See <span style={{ color: C.amber, fontWeight: 700 }}>/giving</span> for
+                  mechanics and the running donation total.
+                </div>
+              </div>
+            </div>
+          </Link>
+
           <section
             className="zg-panel"
             style={{

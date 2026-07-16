@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Heart } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
@@ -27,8 +28,19 @@ export default function AnnouncingFoldsOfHonorPledgePage() {
       </Link>
 
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
-        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">
-          ZeroGEX Announcement • 4 min read
+        <div className="mb-6 flex flex-col items-center gap-4 border-b border-[var(--color-border)] pb-8 text-center">
+          <div className="flex items-center justify-center rounded-full bg-white p-2" style={{ width: 128, height: 128 }}>
+            <Image
+              src="/folds-of-honor-proud-supporter.png"
+              alt="Folds of Honor Proud Supporter"
+              width={116}
+              height={116}
+              style={{ width: 116, height: 116, objectFit: 'contain' }}
+            />
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            ZeroGEX Announcement • 4 min read
+          </div>
         </div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>

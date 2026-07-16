@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
@@ -336,6 +337,49 @@ export default function AboutPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── Giving Back callout ──────────────────────────────────────────────── */}
+      <section style={{ padding: '20px 32px 60px', maxWidth: 1000, margin: '0 auto' }}>
+        <Link href="/giving" style={{ textDecoration: 'none', display: 'block' }}>
+          <div className="zg-panel" style={{
+            padding: 'clamp(20px, 3vw, 28px)',
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr auto',
+            gap: 'clamp(16px, 3vw, 24px)',
+            alignItems: 'center',
+            borderColor: `${C.amber}40`,
+            transition: 'border-color 0.2s',
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%',
+              background: '#ffffff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 4, flexShrink: 0,
+              border: `1px solid ${C.border}`,
+            }}>
+              <Image
+                src="/folds-of-honor-proud-supporter.png"
+                alt="Folds of Honor Proud Supporter"
+                width={64}
+                height={64}
+                style={{ width: 64, height: 64, objectFit: 'contain' }}
+              />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 6, fontSize: 11 }}>
+                Folds of Honor Proud Supporter
+              </div>
+              <div style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', fontWeight: 700, color: text, marginBottom: 4 }}>
+                3% of every ZeroGEX subscription funds educational scholarships for military families.
+              </div>
+              <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
+                Donated quarterly to Folds of Honor. Full mechanics, running total, and receipts on our giving page.
+              </div>
+            </div>
+            <ArrowRight size={20} style={{ color: C.amber, flexShrink: 0 }} />
+          </div>
+        </Link>
       </section>
 
       {/* ── How It Works ─────────────────────────────────────────────────────── */}
