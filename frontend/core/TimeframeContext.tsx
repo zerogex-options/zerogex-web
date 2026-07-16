@@ -1,12 +1,16 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import {
+  persistSymbol,
+  resolveInitialSymbol,
+  symbolFromUrl,
+  type UnderlyingSymbol,
+} from './symbolPersistence';
 
 type Timeframe = '1min' | '5min' | '15min' | '1hr' | '1day';
-export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ';
-
-const SYMBOL_STORAGE_KEY = 'zgx_symbol';
+export type { UnderlyingSymbol };
 
 interface TimeframeContextType {
   timeframe: Timeframe;
@@ -20,39 +24,31 @@ interface TimeframeContextType {
 
 const TimeframeContext = createContext<TimeframeContextType | undefined>(undefined);
 
-function isUnderlyingSymbol(value: string | null): value is UnderlyingSymbol {
-  return value === 'SPY' || value === 'SPX' || value === 'QQQ';
-}
-
-// Reading `?symbol=` from the URL on every navigation is what lets deep-links
-// (e.g. the magnet page's per-symbol "Live dashboard" links) force the active
-// symbol — without this, clicking SPX/SPY/QQQ all land on whatever the user
-// had previously selected via localStorage.
-function symbolFromUrl(): UnderlyingSymbol | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get('symbol');
-    return isUnderlyingSymbol(fromUrl) ? fromUrl : null;
-  } catch {
-    return null;
-  }
-}
-
-function getInitialSymbol(): UnderlyingSymbol {
-  if (typeof window === 'undefined') return 'SPY';
-  const fromUrl = symbolFromUrl();
-  if (fromUrl) return fromUrl;
-  const saved = localStorage.getItem(SYMBOL_STORAGE_KEY);
-  return isUnderlyingSymbol(saved) ? saved : 'SPY';
-}
-
 export function TimeframeProvider({ children }: { children: ReactNode }) {
   const [timeframe, setTimeframe] = useState<Timeframe>('5min');
-  const [symbol, setSymbol] = useState<UnderlyingSymbol>(getInitialSymbol);
+  const [symbol, setSymbolState] = useState<UnderlyingSymbol>(resolveInitialSymbol);
   const pathname = usePathname();
 
+  // Persist synchronously on every symbol change (header picker, forced-flow
+  // buttons, deep links) instead of relying on a passive effect. On iOS/WebKit
+  // the page can be discarded and reloaded at any moment (memory pressure, tab
+  // backgrounding); the symbol is then re-derived from localStorage. A passive
+  // useEffect write could still be pending when that teardown happens, so the
+  // user's pick (e.g. SPY) never reached storage and the reloaded page fell
+  // back to the previously saved value (SPX) — exactly the "won't stick on
+  // mobile" report. Writing in the setter guarantees the value is durable
+  // before any navigation or reload can occur.
+  const setSymbol = useCallback((next: UnderlyingSymbol) => {
+    persistSymbol(next);
+    setSymbolState(next);
+  }, []);
+
+  // Backstop persistence for the value we *started* with — a fresh deep-link
+  // landing (?symbol=QQQ) or the default — so a later reload still restores it.
+  // User-driven changes are already written synchronously by setSymbol above,
+  // so this effectively only fires for the initial mount value.
   useEffect(() => {
-    localStorage.setItem(SYMBOL_STORAGE_KEY, symbol);
+    persistSymbol(symbol);
   }, [symbol]);
 
   // Re-honor ?symbol= on every client-side navigation. Without this the deep
