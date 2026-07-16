@@ -13,6 +13,10 @@ export function isCreatorPartnerProgramEnabled(): boolean {
 export type CreatorPartnerRow = {
   id: string;
   email: string;
+  // Optional X (formerly Twitter) handle, normalized without the leading '@'
+  // (set from Account settings or via grant-partner-pro --x-handle). Handy for
+  // partner outreach / verifying the influencer behind an audience code.
+  x_handle: string | null;
   referral_code: string | null;
   partner_tier: string | null;
   partner_commission_bps: number;
@@ -25,7 +29,7 @@ export type CreatorPartnerRow = {
 };
 
 const PARTNER_SELECT_COLUMNS = `
-  id, email, referral_code, partner_tier, partner_commission_bps,
+  id, email, x_handle, referral_code, partner_tier, partner_commission_bps,
   partner_commission_window_months, partner_audience_coupon_id,
   partner_audience_promo_code, partner_disclosure_url, partner_activated_at,
   partner_pro_grant_expires_at

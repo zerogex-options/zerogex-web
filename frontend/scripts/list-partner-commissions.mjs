@@ -87,12 +87,22 @@ if (!hasTable) {
   process.exit(1);
 }
 
-// userId -> email lookup so ledger rows show human-readable emails.
+// userId -> email / X handle lookups so rows show human-readable identifiers.
+// x_handle is guarded: on a DB where the migration hasn't landed yet the
+// column won't exist, so fall back to email-only rather than throwing.
+const userCols = new Set(db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name));
+const hasXHandle = userCols.has('x_handle');
 const emailById = new Map();
-for (const r of db.prepare(`SELECT id, email FROM users`).all()) {
+const xHandleById = new Map();
+for (const r of db.prepare(`SELECT id, email${hasXHandle ? ', x_handle' : ''} FROM users`).all()) {
   emailById.set(r.id, r.email);
+  if (hasXHandle && r.x_handle) xHandleById.set(r.id, r.x_handle);
 }
 const emailFor = (id) => emailById.get(id) ?? `(deleted ${String(id).slice(0, 12)})`;
+const xHandleFor = (id) => {
+  const h = xHandleById.get(id);
+  return h ? `@${h}` : '—';
+};
 
 // Optional email filter: resolve to a user_id up front so the WHERE clause
 // stays cheap.
@@ -203,12 +213,13 @@ if (filteredRows.length === 0) {
 }
 
 console.log('Per-partner summary:');
-const sHeaders = ['Partner', 'Currency', 'Accrued', 'Owed', 'Paid', 'Paid$', 'Reversed', 'Reversed$'];
+const sHeaders = ['Partner', 'X', 'Currency', 'Accrued', 'Owed', 'Paid', 'Paid$', 'Reversed', 'Reversed$'];
 const sRows = [];
 for (const [partnerId, buckets] of summary) {
   for (const [currency, b] of buckets) {
     sRows.push([
       emailFor(partnerId),
+      xHandleFor(partnerId),
       (currency || 'usd').toUpperCase(),
       String(b.accrued),
       formatMoney(b.accruedAmt, currency),

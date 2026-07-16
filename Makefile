@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -31,9 +31,10 @@ help:
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, PREVIEW_MODE=auto|promo|manual to force a variant, LAG_DAYS=<n>/LOOKBACK_DAYS=<n> to override the 30d/60d window)"
-	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
+	@echo "  make partners [EMAIL=<partner>] - Roster of every Creator Partner: X handle, referral + promo codes, commission rate/window, Pro-grant expiry, activation date, disclosure URL. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
@@ -320,7 +321,7 @@ set-cancellation:
 #   make grant-partner-pro EMAIL=creator@example.com DRY_RUN=1
 grant-partner-pro:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make grant-partner-pro EMAIL=foo@example.com YES=1)"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/grant-partner-pro.mts --email $(EMAIL) $(if $(DAYS),--days $(DAYS),) $(if $(COMMISSION_BPS),--commission-bps $(COMMISSION_BPS),) $(if $(WINDOW_MONTHS),--window-months $(WINDOW_MONTHS),) $(if $(PROMO_CODE),--promo-code $(PROMO_CODE),) $(if $(COUPON_ID),--coupon-id $(COUPON_ID),) $(if $(DISCLOSURE_URL),--disclosure-url $(DISCLOSURE_URL),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/grant-partner-pro.mts --email $(EMAIL) $(if $(DAYS),--days $(DAYS),) $(if $(COMMISSION_BPS),--commission-bps $(COMMISSION_BPS),) $(if $(WINDOW_MONTHS),--window-months $(WINDOW_MONTHS),) $(if $(PROMO_CODE),--promo-code $(PROMO_CODE),) $(if $(COUPON_ID),--coupon-id $(COUPON_ID),) $(if $(DISCLOSURE_URL),--disclosure-url $(DISCLOSURE_URL),) $(if $(X_HANDLE),--x-handle $(X_HANDLE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Wind down a Creator Partner: clear partner_* state on the user, deactivate
 # their Stripe promotion_code, downgrade tier='pro' -> 'public' only if no
@@ -346,6 +347,14 @@ revoke-partner:
 # operators use to dry-run before the next scheduled tick.
 partner-grant-expiry:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Roster of every Creator Partner (partner_tier='creator'): X handle,
+# referral + audience promo codes, commission rate/window, Pro-grant expiry,
+# activation date, and FTC disclosure URL. Read-only. This is the "who are my
+# partners" view; partner-commissions below is the "what do I owe them" view.
+# Filter to one partner with EMAIL=.
+partners:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-partners.mjs $(if $(EMAIL),--email $(EMAIL),)'
 
 # Print the Creator Partner commission ledger. Read-only. Use at month-end
 # to see what you owe each partner; drill into one partner with EMAIL=,
