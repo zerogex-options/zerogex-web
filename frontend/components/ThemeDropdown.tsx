@@ -18,6 +18,12 @@ const PALETTES: PaletteMeta[] = [
     swatch: ['#0B1826', '#F4645F', '#5B8DB8', '#F4F1EC'],
   },
   {
+    id: 'mars',
+    name: 'Mars Olympus',
+    subtitle: 'Iron-oxide rust, dust amber, olive lichen, sky slate',
+    swatch: ['#1A1210', '#E56A3A', '#6E8CA0', '#E0A24A'],
+  },
+  {
     id: 'california',
     name: 'California Sunset',
     subtitle: 'Sunset coral, pacific teal, vintage gold',

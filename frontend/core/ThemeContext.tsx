@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 type Theme = 'light' | 'dark';
 export type Palette =
   | 'zerogex-og'
+  | 'mars'
   | 'california'
   | 'kyoto'
   | 'miami'
@@ -18,6 +19,7 @@ export type Palette =
 
 const PALETTES: Palette[] = [
   'zerogex-og',
+  'mars',
   'california',
   'wallstreet',
   'kyoto',

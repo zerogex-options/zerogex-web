@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
   Archivo,
+  Chakra_Petch,
   Cormorant_Garamond,
   DM_Serif_Display,
   Fraunces,
@@ -138,6 +139,14 @@ const fraunces = Fraunces({
   display: 'swap',
 });
 
+// Mars · Olympus — technical instrument-panel sans, planetary telemetry.
+const chakraPetch = Chakra_Petch({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-chakra-petch',
+  display: 'swap',
+});
+
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
@@ -153,10 +162,11 @@ const FONT_VARIABLES = [
   dmSerifDisplay.variable,
   outfit.variable,
   fraunces.variable,
+  chakraPetch.variable,
 ].join(' ');
 
-type PaletteId = 'zerogex-og' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
-const PALETTES: PaletteId[] = ['zerogex-og', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
+type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
+const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
 const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',

@@ -309,6 +309,144 @@
   --color-surface-subtle: var(--bg-subtle);
 }
 
+/* ---- Palette: Mars · Olympus ---------- */
+/* Planetary telemetry: iron-oxide rust field, dust-amber gold, olive
+   lichen, dusty sky-slate blue. Chakra Petch instrument-panel display.
+   Dark is the hero (Martian night); light is a dust-plain day. */
+:root.palette-mars {
+  --font-display: var(--font-chakra-petch);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #E7C79E;
+  --heat-mid: #D9663A;
+  --heat-high: #A6331E;
+  --chart-1: #4E6E86;
+  --chart-2: #C4491E;
+  --chart-3: #B57E2A;
+  --chart-4: #6E8C2A;
+  --chart-5: #2A180F;
+  --bg-main: #EFE0D0;
+  --bg-subtle: #E4D1BC;
+  --bg-card: #F8EEE0;
+  --bg-hover: #DCC7AF;
+  --bg-active: #D0B79A;
+  --text-primary: #2A180F;
+  --text-secondary: rgba(42,24,15,0.72);
+  --text-muted: rgba(42,24,15,0.50);
+  --text-inverse: #EFE0D0;
+  --border-subtle: rgba(42,24,15,0.10);
+  --border-default: rgba(42,24,15,0.20);
+  --border-strong: rgba(196,73,30,0.42);
+  --accent-1: #5A2E1A;
+  --accent-2: #4E6E86;
+  --accent-3: #B57E2A;
+  --accent-4: #C4491E;
+  --color-accent: #C4491E;
+  --color-accent-hot: #C4491E;
+  --color-accent-soft: rgba(196,73,30,0.16);
+  --color-gold: #B57E2A;
+  --color-gold-soft: rgba(181,126,42,0.20);
+  --color-pop-coral: #C4491E;
+  --color-pop-coral-soft: rgba(196,73,30,0.18);
+  --color-pop-teal: #4E6E86;
+  --color-pop-teal-soft: rgba(78,110,134,0.18);
+  --color-pop-gold: #B57E2A;
+  --color-pop-gold-soft: rgba(181,126,42,0.20);
+  --color-pop-navy: #4E6E86;
+  --color-pop-navy-soft: rgba(78,110,134,0.18);
+  --color-maroon: #5A2E1A;
+  --color-navy: #4E6E86;
+  --color-emerald: #4E8C2E;
+  --color-emerald-soft: rgba(78,140,46,0.20);
+  --color-hazy: #4E6E86;
+  --color-hazy-soft: rgba(78,110,134,0.14);
+  --color-bull: #6E8C2A;
+  --color-bull-soft: rgba(110,140,42,0.20);
+  --color-bear: #B53A1E;
+  --color-bear-soft: rgba(181,58,30,0.20);
+  --color-warning: #B57E2A;
+  --color-warning-soft: rgba(181,126,42,0.20);
+  --color-info: #4E6E86;
+  --color-info-soft: rgba(78,110,134,0.10);
+  --color-brand-primary: #C4491E;
+  --color-brand-accent: #4E6E86;
+  --color-brand-coral: #C4491E;
+  --color-brand-deep: #5A2E1A;
+  --color-chart-tooltip-bg: #F8EEE0;
+  --color-chart-tooltip-border: rgba(42,24,15,0.18);
+  --color-grid-line: rgba(42,24,15,0.08);
+  --color-grid-overlay: rgba(239,224,208,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-mars.dark {
+  --heat-low: #E8C79A;
+  --heat-mid: #E56A3A;
+  --heat-high: #A6331E;
+  --chart-1: #6E8CA0;
+  --chart-2: #E56A3A;
+  --chart-3: #E0A24A;
+  --chart-4: #8CB33F;
+  --chart-5: #F3E2D0;
+  --bg-main: #1A1210;
+  --bg-subtle: #130C0A;
+  --bg-card: #251A15;
+  --bg-hover: #33241C;
+  --bg-active: #40302A;
+  --text-primary: #F3E2D0;
+  --text-secondary: rgba(243,226,208,0.74);
+  --text-muted: #B8967E;
+  --text-inverse: #1A1210;
+  --border-subtle: rgba(243,226,208,0.08);
+  --border-default: rgba(243,226,208,0.16);
+  --border-strong: rgba(229,106,58,0.34);
+  --accent-1: #5A2E1A;
+  --accent-2: #6E8CA0;
+  --accent-3: #E0A24A;
+  --accent-4: #E56A3A;
+  --color-accent: #E56A3A;
+  --color-accent-hot: #FF7B44;
+  --color-accent-soft: rgba(229,106,58,0.22);
+  --color-gold: #E0A24A;
+  --color-gold-soft: rgba(224,162,74,0.24);
+  --color-pop-coral: #E56A3A;
+  --color-pop-coral-soft: rgba(229,106,58,0.22);
+  --color-pop-teal: #6E8CA0;
+  --color-pop-teal-soft: rgba(110,140,160,0.24);
+  --color-pop-gold: #E0A24A;
+  --color-pop-gold-soft: rgba(224,162,74,0.24);
+  --color-pop-navy: #6E8CA0;
+  --color-pop-navy-soft: rgba(110,140,160,0.24);
+  --color-maroon: #5A2E1A;
+  --color-navy: #6E8CA0;
+  --color-emerald: #8CB33F;
+  --color-emerald-soft: rgba(140,179,63,0.26);
+  --color-hazy: #6E8CA0;
+  --color-hazy-soft: rgba(110,140,160,0.16);
+  --color-bull: #8CB33F;
+  --color-bull-soft: rgba(140,179,63,0.26);
+  --color-bear: #D6402B;
+  --color-bear-soft: rgba(214,64,43,0.26);
+  --color-warning: #E0A24A;
+  --color-warning-soft: rgba(224,162,74,0.22);
+  --color-info: #6E8CA0;
+  --color-info-soft: rgba(110,140,160,0.18);
+  --color-brand-primary: #E56A3A;
+  --color-brand-accent: #6E8CA0;
+  --color-brand-coral: #E56A3A;
+  --color-brand-deep: #5A2E1A;
+  --color-chart-tooltip-bg: #251A15;
+  --color-chart-tooltip-border: rgba(243,226,208,0.16);
+  --color-grid-line: rgba(243,226,208,0.12);
+  --color-grid-overlay: rgba(26,18,16,0.14);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+
 /* ---- Palette: Wall Street ---------- */
 /* Tailored ivory, banker navy, old gold, burgundy. */
 :root.palette-wallstreet {
