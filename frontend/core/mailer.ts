@@ -37,6 +37,40 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
+// Folds of Honor Proud Supporter footer block — appended to subscriber-facing
+// emails (paid welcome, founding welcome, welcome back, referral reward) so
+// every recipient sees the pledge in every touchpoint. Deliberately compact so
+// it never dominates the message. The badge sits inside a white circular pad
+// so its red/white/navy palette doesn't clash with any parent background.
+//
+// Deliberately NOT included on transactional/auth emails (verify, password
+// reset, payment failed, checkout recovery) — those need to read urgent, not
+// decorated.
+function renderFohFooterHtml(): string {
+  const givingUrl = escapeHtml(`${getAppUrl()}/giving`);
+  const badgeUrl = escapeHtml(`${getAppUrl()}/folds-of-honor-proud-supporter.png`);
+  return `
+    <div style="margin: 32px 0 0; padding: 20px 0 0; border-top: 1px solid #e8e8e8; display: flex; align-items: center; gap: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <a href="${givingUrl}" style="flex-shrink: 0; display: inline-block; line-height: 0; text-decoration: none;">
+        <img src="${badgeUrl}" alt="Folds of Honor Proud Supporter" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; background: #ffffff; display: block;" />
+      </a>
+      <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.55; color: #555;">
+        <div style="font-weight: 700; color: #1a1a1a; margin-bottom: 2px;">ZeroGEX is a Folds of Honor Proud Supporter.</div>
+        3% of every subscription funds educational scholarships for the families of fallen and disabled U.S. service members. <a href="${givingUrl}" style="color: #f5b400; font-weight: 600; text-decoration: none;">See /giving</a> for the running total.
+      </div>
+    </div>
+  `.trim();
+}
+
+function renderFohFooterTextLines(): string[] {
+  return [
+    '---',
+    'ZeroGEX is a Folds of Honor Proud Supporter. 3% of every subscription',
+    'funds educational scholarships for the families of fallen and disabled',
+    `U.S. service members. Full mechanics at ${getAppUrl()}/giving`,
+  ];
+}
+
 // ET-bound so the displayed day matches how we describe deadlines elsewhere
 // (founding lockin uses 09:30 ET). Formatting in the user's local zone or
 // UTC would produce a confusing off-by-one near midnight on the trial end.
@@ -170,6 +204,8 @@ export async function sendReferralRewardEmail(
     opts.accountUrl,
     '',
     'Thanks for spreading the word.',
+    '',
+    ...renderFohFooterTextLines(),
   ].join('\n');
 
   const html = `
@@ -180,6 +216,7 @@ export async function sendReferralRewardEmail(
         <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">View your referrals</a>
       </p>
       <p style="font-size: 13px; color: #555;">Thanks for spreading the word.</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
@@ -269,6 +306,8 @@ export async function sendPaidWelcomeEmail(
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
   ].join('\n');
 
   const html = `
@@ -287,6 +326,7 @@ export async function sendPaidWelcomeEmail(
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
@@ -356,6 +396,8 @@ export async function sendTrialQuickstartEmail(
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
   ].join('\n');
 
   const html = `
@@ -371,6 +413,7 @@ export async function sendTrialQuickstartEmail(
       <p>If anything's unclear or you have a question, just reply to this email. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Thanks for giving ZeroGEX a try.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
@@ -419,6 +462,8 @@ export async function sendFoundingWelcomeEmail(
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
   ].join('\n');
 
   const html = `
@@ -430,6 +475,7 @@ export async function sendFoundingWelcomeEmail(
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
@@ -754,6 +800,8 @@ export async function sendWelcomeBackEmail(to: string) {
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
   ].join('\n');
 
   const html = `
@@ -764,6 +812,7 @@ export async function sendWelcomeBackEmail(to: string) {
       <p>Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
