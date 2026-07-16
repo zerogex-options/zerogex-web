@@ -71,29 +71,44 @@ export function isBillingCadence(value: unknown): value is BillingCadence {
   return typeof value === 'string' && (BILLING_CADENCES as readonly string[]).includes(value);
 }
 
-// Time-boxed public promo: auto-applies while PROMO_END_AT is in the future.
-// Returns the coupon ID to attach, or null. One coupon per (tier, cadence)
-// so monthly and annual carry independent Stripe coupons:
+// Env var that holds the public-promo coupon for a given (tier, cadence). One
+// coupon per pair so monthly and annual carry independent Stripe coupons:
 //   monthly: repeating, duration_in_months=6 (intro rate for first 6 invoices)
 //   annual:  once (intro rate for the first annual invoice)
-// If the matching coupon env isn't set, the cadence is treated as ineligible
-// even with PROMO_END_AT live.
-export function getActivePromoCouponId(sku: Sku): string | null {
-  const endAt = process.env.PROMO_END_AT;
-  if (!endAt) return null;
-  const endTs = Date.parse(endAt);
-  if (!Number.isFinite(endTs) || endTs <= Date.now()) return null;
-  const envKey = (() => {
-    if (sku.cadence === 'monthly') {
-      return sku.tier === 'basic'
-        ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY'
-        : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
-    }
+function promoCouponEnvKey(sku: Sku): string {
+  if (sku.cadence === 'monthly') {
     return sku.tier === 'basic'
-      ? 'STRIPE_COUPON_PROMO_BASIC_ANNUAL'
-      : 'STRIPE_COUPON_PROMO_PRO_ANNUAL';
-  })();
-  return process.env[envKey] ?? null;
+      ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY'
+      : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
+  }
+  return sku.tier === 'basic'
+    ? 'STRIPE_COUPON_PROMO_BASIC_ANNUAL'
+    : 'STRIPE_COUPON_PROMO_PRO_ANNUAL';
+}
+
+// Whether the time-boxed public promo window is currently open.
+export function isPromoWindowOpen(): boolean {
+  const endAt = process.env.PROMO_END_AT;
+  if (!endAt) return false;
+  const endTs = Date.parse(endAt);
+  return Number.isFinite(endTs) && endTs > Date.now();
+}
+
+// The configured promo coupon for a (tier, cadence), regardless of whether the
+// promo window is open. Use this when you need to reason about the coupon that
+// WOULD be (or already was) attached — e.g. detecting a stale coupon Stripe
+// carried across a plan switch after the window has since closed. For the
+// "should we attach a promo at checkout" decision, use getActivePromoCouponId.
+export function getConfiguredPromoCouponId(sku: Sku): string | null {
+  return process.env[promoCouponEnvKey(sku)] ?? null;
+}
+
+// Time-boxed public promo: auto-applies while PROMO_END_AT is in the future.
+// Returns the coupon ID to attach, or null. If the matching coupon env isn't
+// set, the cadence is treated as ineligible even with PROMO_END_AT live.
+export function getActivePromoCouponId(sku: Sku): string | null {
+  if (!isPromoWindowOpen()) return null;
+  return getConfiguredPromoCouponId(sku);
 }
 
 // Convenience: returns the list of Stripe coupon IDs currently configured for
@@ -176,6 +191,31 @@ export function getFoundingIntroCouponId(
       ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO_ANNUAL'
       : 'STRIPE_COUPON_FOUNDING_PRO_INTRO_ANNUAL';
   return process.env[envKey] ?? null;
+}
+
+// Every cadence-specific "rate" coupon the app manages: the public promo and
+// the founding intro coupons, across all (tier, cadence) combos. Read straight
+// from env and deliberately NOT gated by the promo window — a promo coupon left
+// on a subscription after its window closed is still one of ours to reconcile.
+//
+// The webhook uses this on a plan/cadence switch to recognize a stale,
+// cadence-mismatched coupon Stripe carried across the switch (e.g. a 6-month
+// monthly promo that must not ride along on the annual invoice) so it can be
+// swapped for the correct one or removed. Win-back and referral coupons are
+// intentionally excluded: they're one-shot signup offers the webhook does not
+// re-derive on a switch, and the founding lifetime coupon is excluded because
+// it isn't cadence-specific and validly persists across any switch.
+export function getManagedCadenceCouponIds(): string[] {
+  const ids = new Set<string>();
+  for (const tier of BILLABLE_TIERS) {
+    for (const cadence of BILLING_CADENCES) {
+      const promo = getConfiguredPromoCouponId({ tier, cadence });
+      if (promo) ids.add(promo);
+      const founding = getFoundingIntroCouponId(tier, cadence);
+      if (founding) ids.add(founding);
+    }
+  }
+  return [...ids];
 }
 
 // 25%-off lifetime coupon, applied by the webhook 12 months after founding

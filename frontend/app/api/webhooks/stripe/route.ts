@@ -16,6 +16,7 @@ import {
   getCurrentPeriodEndUnix,
   getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
+  getManagedCadenceCouponIds,
   getStripe,
   priceIdToSku,
   priceIdToTier,
@@ -241,51 +242,62 @@ async function maybeApplyFoundingLifetime(
   }
 }
 
-// True if the subscription already carries the given coupon (by id). Discounts
-// on a webhook payload may be expanded coupon objects or bare ids — handle both,
-// the same shape juggling describePromoIfPresent does above.
-function subscriptionHasCoupon(subscription: Stripe.Subscription, couponId: string): boolean {
+// The coupon ids currently attached to a subscription, de-duplicated and in
+// order. Discounts on a webhook payload may be expanded coupon objects or bare
+// ids — handle both, the same shape juggling describePromoIfPresent does above.
+function subscriptionCouponIds(subscription: Stripe.Subscription): string[] {
   type SubDiscount = { coupon?: { id?: string } | string | null };
   const raw = ((subscription as unknown as { discounts?: SubDiscount[] }).discounts ??
     []) as SubDiscount[];
+  const ids: string[] = [];
   for (const d of raw) {
     const c = d?.coupon;
     const id = typeof c === 'string' ? c : c?.id;
-    if (id && id === couponId) return true;
+    if (id && !ids.includes(id)) ids.push(id);
   }
-  return false;
+  return ids;
 }
 
 // When a member switches plan/cadence in the customer portal, Stripe changes the
-// price but leaves any existing coupon on the subscription. Our founding/promo
-// coupons are cadence-specific (and product-restricted per .env.example), so the
-// old coupon won't validly apply to the new line item — the discount is
-// effectively lost on a monthly<->annual switch. Re-resolve the cadence-correct
-// coupon for the NEW price and apply it so the rate carries across the switch.
+// price but LEAVES any existing coupon on the subscription. Our founding/promo
+// coupons are cadence-specific, so the old coupon is wrong for the new line item
+// on a monthly<->annual switch: e.g. the monthly promo ($20 off, repeating for 6
+// months) keeps discounting an ANNUAL invoice instead of the annual promo ($49
+// off, once). Reconcile the subscription's discounts to what's correct for the
+// NEW (tier, cadence).
+//
+// Reconciliation, not just carry-forward — this is the crux of the fix:
+//   1. Resolve the correct cadence-specific coupon for the NEW price (may be
+//      null — window closed, or that coupon isn't configured).
+//   2. Strip any coupon we manage (getManagedCadenceCouponIds: promo + founding
+//      intro, every tier/cadence) that ISN'T the correct one. This is what stops
+//      a stale monthly coupon from riding along on an annual invoice EVEN WHEN
+//      there's no replacement to grant — the previous version returned early in
+//      that case and left the wrong coupon applied.
+//   3. Ensure the correct coupon (if any) is present.
+// Coupons we don't manage (founding lifetime — not cadence-specific — plus
+// win-back / referral one-shots) are preserved untouched.
 //
 // Precedence mirrors checkout's resolveDiscount, derived from the account's
 // persistent entitlements (there's no request context here):
 //   • Founding member: founding-managed rate, and an EXCLUSIVE branch — never
-//     fall through to the public promo (that would clobber the founding rate).
-//     The 25%-forever lifetime coupon (applied ~month 12) isn't cadence-specific
-//     and persists across the switch on its own, so leave it untouched. Before
-//     that, carry the founding intro coupon for the NEW (tier, cadence).
-//   • Everyone else: carry the ACTIVE public promo for the NEW (tier, cadence).
-//     A promo whose window has closed (getActivePromoCouponId -> null) is not
-//     re-granted; the member simply switches at rack rate.
-// Win-back / referral coupons are one-shot at signup and deliberately not
-// re-derived here.
+//     fall through to the public promo. Once the 25%-forever lifetime coupon is
+//     applied (~month 12) it persists on its own, so leave the subscription's
+//     discounts entirely untouched. Before that, the correct coupon is the
+//     founding intro for the NEW (tier, cadence).
+//   • Everyone else: the correct coupon is the ACTIVE public promo for the NEW
+//     (tier, cadence), or null once the window has closed (in which case the
+//     stale coupon is stripped and the member renews at rack rate).
 //
 // Fires only on an actual switch — a prior synced price that differs from the
 // new one — of an active/trialing sub. It never fires on initial signup or
 // resubscribe (null oldPriceId), where checkout already applied the correct
-// discount and carrying here would clobber it (e.g. a founding coupon on the
-// first sync, before founding_member_started_at is stamped). No-ops if the
-// target coupon is already present, so webhook redeliveries and the follow-up
+// discount. No-ops when there's nothing stale to strip and the correct coupon is
+// already present, so webhook redeliveries and the follow-up
 // customer.subscription.updated our own update triggers can't reset a repeating
 // coupon's clock or loop. Runs BEFORE maybeApplyFoundingLifetime so a lifetime
 // coupon coming due in the same sync takes final precedence.
-async function maybeCarryDiscountOnPlanSwitch(
+async function maybeReconcileDiscountOnPlanSwitch(
   subscription: Stripe.Subscription,
   user: UserRow,
   oldPriceId: string | null,
@@ -298,35 +310,52 @@ async function maybeCarryDiscountOnPlanSwitch(
   const newSku = priceIdToSku(newPriceId);
   if (!newSku) return;
 
-  let couponId: string | null = null;
+  // The correct cadence-specific coupon for the NEW price (may be null).
+  let correctCoupon: string | null;
   if (user.founding_member_started_at) {
-    // Founding is exclusive: never fall through to the public promo below.
-    // Lifetime coupon persists on its own (not cadence-specific) — leave it.
+    // Founding is exclusive: never fall through to the public promo. Once the
+    // lifetime coupon is on, it isn't cadence-specific and validly persists —
+    // leave the subscription's discounts untouched.
     if (user.founding_lifetime_applied_at) return;
-    couponId = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
+    correctCoupon = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
   } else {
-    couponId = getActivePromoCouponId(newSku);
+    correctCoupon = getActivePromoCouponId(newSku);
   }
-  if (!couponId) return; // nothing to carry
-  if (subscriptionHasCoupon(subscription, couponId)) return; // already applied
+
+  const managed = new Set(getManagedCadenceCouponIds());
+  const current = subscriptionCouponIds(subscription);
+  const stale = current.filter((id) => managed.has(id) && id !== correctCoupon);
+  const correctPresent = correctCoupon != null && current.includes(correctCoupon);
+
+  // Nothing to do: no stale managed coupon to strip and the correct coupon (if
+  // any) is already present.
+  if (stale.length === 0 && (correctCoupon == null || correctPresent)) return;
+
+  // Rebuild the discount list: keep every coupon we DON'T manage (founding
+  // lifetime, win-back, referral, anything hand-applied), drop stale managed
+  // ones, and ensure the correct coupon is present.
+  const keep = current.filter((id) => !managed.has(id) || id === correctCoupon);
+  if (correctCoupon && !keep.includes(correctCoupon)) keep.push(correctCoupon);
 
   try {
     await getStripe().subscriptions.update(subscription.id, {
-      discounts: [{ coupon: couponId }],
+      discounts: keep.map((coupon) => ({ coupon })),
     });
     logAudit({
-      type: 'billing_discount_carried_on_switch',
+      type: 'billing_discount_reconciled_on_switch',
       userId: user.id,
       email: user.email,
-      message: `Carried coupon ${couponId} onto sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} (price ${newPriceId})`,
+      message:
+        `Reconciled discounts on sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} ` +
+        `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied ${correctCoupon ?? 'none'}`,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'carry discount failed';
+    const message = err instanceof Error ? err.message : 'reconcile discount failed';
     logAudit({
       type: 'stripe_webhook_error',
       userId: user.id,
       email: user.email,
-      message: `Carry discount onto sub ${subscription.id} after switch failed: ${message}`,
+      message: `Reconcile discount on sub ${subscription.id} after switch failed: ${message}`,
     });
     // Swallow — the tier sync already succeeded; a later sub event can retry.
   }
@@ -454,11 +483,12 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     });
   }
 
-  // Carry the member's founding/promo rate across a plan or cadence switch
-  // (portal monthly<->annual or tier change). Runs before the lifetime step so a
-  // lifetime coupon coming due in the same sync wins. `user.stripe_price_id` is
+  // Reconcile the member's founding/promo rate across a plan or cadence switch
+  // (portal monthly<->annual or tier change): swap in the cadence-correct coupon
+  // and strip any stale one Stripe carried over. Runs before the lifetime step so
+  // a lifetime coupon coming due in the same sync wins. `user.stripe_price_id` is
   // the pre-UPDATE snapshot (old price); `priceId` is the new one.
-  await maybeCarryDiscountOnPlanSwitch(subscription, user, user.stripe_price_id, priceId);
+  await maybeReconcileDiscountOnPlanSwitch(subscription, user, user.stripe_price_id, priceId);
 
   await maybeApplyFoundingLifetime(subscription.id, user);
 
