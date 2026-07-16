@@ -1,6 +1,6 @@
 # ZeroGEX Business Card
 
-Print-ready business-card mockups with a QR code to **https://zerogex.io** and the ZeroGEX logo.
+Print-ready single-sided business card with a QR code to **https://zerogex.io** and the ZeroGEX logo.
 
 ![Mockup](zerogex-card-mockup.png)
 
@@ -8,11 +8,10 @@ Print-ready business-card mockups with a QR code to **https://zerogex.io** and t
 
 | File | What it is |
 | --- | --- |
-| `zerogex-card-front.png` | Front — logo, tagline, `zerogex.io`, and the scannable QR panel. 2100×1200 (3.5″×2″ @ 600 DPI). |
-| `zerogex-card-back.png` | Back — name, title, contact rows, and a second QR. Same dimensions. |
-| `zerogex-card-mockup.png` | Presentation view of both sides, for review. |
+| `zerogex-card.png` | The card — full logo, `GEX · Gamma · Flow Analytics` tagline, `zerogex.io`, and the scannable QR panel. 2100×1200 (3.5″×2″ @ 600 DPI). |
+| `zerogex-card-mockup.png` | Presentation view of the card, for review. |
 | `qr-zerogex.svg` | The QR code (vector) encoding `https://zerogex.io`. Error-correction level H, so the center target mark doesn't affect scanning. |
-| `build-card.js` | Regenerates all three PNGs from the brand assets. |
+| `build-card.js` | Regenerates the PNGs from the brand assets. |
 | `fonts/` | Space Grotesk + JetBrains Mono (OFL) — the brand faces, embedded for offline builds. |
 
 ## Specs
@@ -23,15 +22,14 @@ Print-ready business-card mockups with a QR code to **https://zerogex.io** and t
 
 ## Customizing
 
-The name / title / contact details are **placeholders**. Edit the `CARD` object at the top of
-`build-card.js`, then regenerate:
+Regenerate after any edit:
 
 ```bash
 npm i playwright          # one-time
-node build-card.js        # writes the three PNGs
+node build-card.js        # writes zerogex-card.png + zerogex-card-mockup.png
 ```
 
-To point the QR at a different URL, regenerate `qr-zerogex.svg`:
+To point the QR at a different URL, edit `CARD.qrUrl` in `build-card.js` and regenerate `qr-zerogex.svg`:
 
 ```bash
 pip install segno

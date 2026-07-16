@@ -1,24 +1,20 @@
 #!/usr/bin/env node
 /*
- * ZeroGEX business-card generator
- * ---------------------------------
- * Renders print-ready front / back / presentation mockups from the brand
- * assets in ../branding and the QR in ./qr-zerogex.svg.
+ * ZeroGEX business-card generator (single-sided)
+ * ----------------------------------------------
+ * Renders a print-ready card + presentation mockup from the brand assets
+ * in ../branding and the QR in ./qr-zerogex.svg.
  *
  * Requirements:  npm i playwright   (Chromium)
  * Run:           node build-card.js
- * Output:        zerogex-card-front.png, zerogex-card-back.png, zerogex-card-mockup.png
+ * Output:        zerogex-card.png, zerogex-card-mockup.png
  *
  * Card size:     3.5" x 2" (US standard) rendered at 600 DPI (2100 x 1200 px).
  *
- * ---- EDIT ME: swap these placeholders for the real details ----
+ * ---- EDIT ME ----
  */
 const CARD = {
-  name:  'Your Name',
-  title: 'FOUNDER · OPTIONS ANALYST',
   url:   'zerogex.io',
-  email: 'hello@zerogex.io',
-  phone: '+1 (555) 012‑3456',
   // The QR encodes this URL. If you change it, regenerate qr-zerogex.svg:
   //   pip install segno && python -c "import segno;segno.make('https://zerogex.io',error='h').save('qr-zerogex.svg',scale=10,border=2,dark='#0E1B2A',light=None)"
   qrUrl: 'https://zerogex.io',
@@ -75,73 +71,30 @@ const FRONT = `<div class="card" id="card">
   </div>
 </div>`;
 
-const ICON = {
-  globe:`<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18"/>`,
-  mail:`<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>`,
-  phone:`<path d="M5 3h4l2 5-3 2a12 12 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>`,
-};
-const row = (icon, text) => `<div style="display:flex;align-items:center;gap:16px;">
-  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#F4645F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
-  <span class="mono" style="font-size:19px;color:var(--cream);letter-spacing:.3px;">${text}</span></div>`;
-
-const BACK = `<div class="card" id="card">
-  <div style="position:absolute;inset:0;background:radial-gradient(115% 135% at 20% 22%, #1B3D59 0%, #12283C 44%, #0B1826 74%, #081320 100%);"></div>
-  <div style="position:absolute;top:-80px;left:-40px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(244,100,95,.12),transparent 62%);"></div>
-  <img src="${A.target}" style="position:absolute;bottom:-150px;right:-120px;width:480px;opacity:.10;"/>
-  <div style="position:absolute;top:0;left:0;width:9px;height:100%;background:linear-gradient(180deg,var(--coral),#C7413D);"></div>
-  <div style="position:absolute;top:66px;left:82px;display:flex;align-items:center;gap:16px;">
-    <img src="${A.target}" style="width:56px;height:56px;"/>
-    <div>
-      <div style="font-size:30px;font-weight:700;letter-spacing:2px;line-height:1;">ZER<span style="color:var(--coral)">O</span>GEX</div>
-      <div class="mono" style="font-size:11px;letter-spacing:5px;color:var(--muted);margin-top:6px;">OPTIONS&nbsp;ANALYTICS</div>
-    </div>
-  </div>
-  <div style="position:absolute;top:210px;left:84px;">
-    <div style="font-size:46px;font-weight:700;letter-spacing:.5px;line-height:1;">${CARD.name}</div>
-    <div class="mono" style="font-size:17px;letter-spacing:2px;color:var(--coral);margin-top:14px;font-weight:500;">${CARD.title}</div>
-  </div>
-  <div style="position:absolute;left:84px;bottom:70px;display:flex;flex-direction:column;gap:20px;">
-    ${row(ICON.globe, CARD.url)}
-    ${row(ICON.mail, CARD.email)}
-    ${row(ICON.phone, CARD.phone)}
-  </div>
-  <div style="position:absolute;right:78px;bottom:70px;display:flex;flex-direction:column;align-items:center;gap:12px;">
-    <div style="width:150px;height:150px;border-radius:16px;background:var(--cream);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 30px rgba(0,0,0,.4);">
-      <img src="${A.qr}" style="width:126px;height:126px;"/>
-    </div>
-    <div class="mono" style="font-size:11px;letter-spacing:2.5px;color:var(--muted);">SCAN&nbsp;&rarr;&nbsp;${CARD.url.toUpperCase()}</div>
-  </div>
-</div>`;
-
-async function renderCard(browser, body, out) {
+async function renderCard(browser) {
   const page = await browser.newPage({ viewport:{width:1050,height:600}, deviceScaleFactor:2 });
-  await page.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`, { waitUntil:'networkidle' });
+  await page.setContent(`<!doctype html><html><head>${HEAD}</head><body>${FRONT}</body></html>`, { waitUntil:'networkidle' });
   await page.evaluate(async () => { await document.fonts.ready; });
   await page.waitForTimeout(120);
-  await (await page.$('#card')).screenshot({ path: path.join(HERE, out) });
+  await (await page.$('#card')).screenshot({ path: path.join(HERE, 'zerogex-card.png') });
   await page.close();
-  console.log('  ->', out);
+  console.log('  -> zerogex-card.png');
 }
 
 async function renderMockup(browser) {
-  const front = `data:image/png;base64,${b64(path.join(HERE,'zerogex-card-front.png'))}`;
-  const back  = `data:image/png;base64,${b64(path.join(HERE,'zerogex-card-back.png'))}`;
-  const W = 1680, H = 1080, cardH = Math.round(820*600/1050);
-  const shadow = `box-shadow:0 2px 4px rgba(0,0,0,.3),0 30px 60px -12px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.05) inset;`;
+  const card = `data:image/png;base64,${b64(path.join(HERE,'zerogex-card.png'))}`;
+  const W = 1600, H = 1000, cardW = 1120, cardH = Math.round(cardW*600/1050);
+  const shadow = `box-shadow:0 2px 6px rgba(0,0,0,.35),0 40px 80px -16px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05) inset;`;
   const html = `<!doctype html><html><head><style>
     @font-face{font-family:'JetBrains Mono';font-weight:400 700;src:url('${A.jb}') format('woff2');}
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{width:${W}px;height:${H}px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 50% 40%, #12283C 0%, #0C1B2A 55%, #06101B 100%);font-family:'JetBrains Mono',monospace;}
-    .card{position:absolute;width:820px;height:${cardH}px;border-radius:22px;overflow:hidden;${shadow}}
+    body{width:${W}px;height:${H}px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 50% 42%, #12283C 0%, #0C1B2A 55%, #06101B 100%);font-family:'JetBrains Mono',monospace;}
+    .card{position:absolute;width:${cardW}px;height:${cardH}px;border-radius:26px;overflow:hidden;${shadow}}
     .card img{width:100%;height:100%;display:block;}
-    .tag{position:absolute;font-size:14px;letter-spacing:4px;color:#8CA3B8;font-weight:700;}
   </style></head><body>
-    <img src="${A.target}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:1200px;opacity:.05;"/>
-    <div class="card" style="left:660px;top:520px;transform:rotate(6deg);"><img src="${back}"/></div>
-    <div class="card" style="left:180px;top:150px;transform:rotate(-5deg);"><img src="${front}"/></div>
-    <div class="tag" style="left:225px;top:120px;transform:rotate(-5deg);">FRONT</div>
-    <div class="tag" style="left:1500px;top:600px;transform:rotate(6deg);">BACK</div>
-    <div style="position:absolute;left:0;right:0;bottom:34px;text-align:center;font-size:13px;letter-spacing:3px;color:#4A5D71;">ZEROGEX &middot; BUSINESS CARD &middot; 3.5&quot; &times; 2&quot; &middot; QR &rarr; ${CARD.url.toUpperCase()}</div>
+    <img src="${A.target}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:1150px;opacity:.05;"/>
+    <div class="card" style="left:${(W-cardW)/2}px;top:${(H-cardH)/2 - 24}px;transform:rotate(-3deg);"><img src="${card}"/></div>
+    <div style="position:absolute;left:0;right:0;bottom:40px;text-align:center;font-size:13px;letter-spacing:3px;color:#4A5D71;">ZEROGEX &middot; BUSINESS CARD &middot; 3.5&quot; &times; 2&quot; &middot; QR &rarr; ${CARD.url.toUpperCase()}</div>
   </body></html>`;
   const page = await browser.newPage({ viewport:{width:W,height:H}, deviceScaleFactor:2 });
   await page.setContent(html, { waitUntil:'networkidle' });
@@ -157,8 +110,7 @@ async function renderMockup(browser) {
     executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium',
   });
   console.log('Rendering ZeroGEX business card:');
-  await renderCard(browser, FRONT, 'zerogex-card-front.png');
-  await renderCard(browser, BACK,  'zerogex-card-back.png');
+  await renderCard(browser);
   await renderMockup(browser);
   await browser.close();
   console.log('Done.');
