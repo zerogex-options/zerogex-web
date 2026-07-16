@@ -1,23 +1,84 @@
 # Quarterly Folds of Honor Receipt Workflow
 
-This is the once-per-quarter loop for publishing the ZeroGEX → Folds of Honor
-donation receipt. It is **review-first by design** — nothing is posted to X or
-committed to `content/giving/totals.json` without human approval. The script
-generates drafts; you (Michael) approve and publish.
+Once each quarter (Jan, Apr, Jul, Oct) you make the donation and publish the
+receipt. The whole publish loop is one command:
 
-## The four steps
+```bash
+make quarterly-receipt
+```
 
-### 1. End of quarter — you make the donation
+Interactive. Walks you through everything. Nothing to remember.
 
-At the end of each calendar quarter (or in the first few days of the next
-quarter), you review the Stripe subscription revenue for the quarter, compute
-3%, and wire that amount to Folds of Honor. This step is manual — not because
-it needs to be, but because we deliberately keep a human in the money loop.
+## What the one command does
 
-**Suggested Stripe query** (paste into Sigma or run against your billing
-dashboard):
+1. Prompts you for the donation amount, quarter label (suggests the previous
+   calendar quarter), and date (defaults to today).
+2. Shows a summary of every action it's about to take.
+3. Asks "Proceed? [y/N]".
+4. On confirm:
+   - Updates `frontend/content/giving/totals.json` with the new running total
+   - `git add` + `git commit` (`chore(giving): record Q3 2026 donation ...`)
+   - `git push origin release`
+   - Asks "Rebuild the site now?" — on yes, runs `make rebuild` (build +
+     PM2 restart), streaming the output
+5. Prints the tweet draft for you to copy into X (with the FOH badge
+   attached — that's the one manual publish step remaining).
+
+Safety rails baked in:
+
+- **Won't run on any branch other than `release`.** Prevents you from
+  recording a donation on a feature branch by accident.
+- **Won't run on a dirty working tree.** Prevents unrelated work from
+  getting bundled into the donation commit.
+- **Never posts to X.** X posts are public and unedit-able — the tweet is
+  printed, you paste it into X yourself. No OAuth surface, no accidental
+  autoposts.
+
+## The trigger: calendar reminder, not cron
+
+Because you can only run this **after** you've actually wired money to Folds
+of Honor, the trigger has to be a human moment. Two options — pick one:
+
+### Option A — Google/Apple calendar reminder (recommended)
+
+Create a recurring event, one per quarter, at ~09:00 on:
+
+- January 5
+- April 5
+- July 5
+- October 5
+
+Title: *"Send FOH donation + run `make quarterly-receipt`"*
+
+The 5-day gap after quarter-end lets Stripe's revenue for the closing quarter
+settle before you compute 3%. That's the moment the receipt is legitimate to
+send.
+
+### Option B — Server cron (email reminder only)
+
+If you'd rather get a nudge in email than in your calendar, add this to
+`crontab -e` on the EC2 box (adjust the email delivery to whatever notification
+path you actually check):
+
+```
+# 09:00 ET (14:00 UTC) on Jan 5 / Apr 5 / Jul 5 / Oct 5 — nudge to send the FOH donation
+0 14 5 1,4,7,10 * echo "Quarter closed. Send the FOH donation and run: cd ~/zerogex-web && make quarterly-receipt" | mail -s "[ZeroGEX] FOH quarterly donation due" you@example.com
+```
+
+We deliberately do NOT cron the `make quarterly-receipt` itself. A cron
+that moves money or updates a public ledger without human confirmation is
+one config bug away from being embarrassing — the reminder-plus-manual-run
+loop keeps the wire step consciously human.
+
+## The (roughly) four-step run-through
+
+### Step 1 — Compute what to send
+
+At the start of the new quarter, pull the closing quarter's gross
+subscription revenue from Stripe:
 
 ```sql
+-- Run in Stripe Sigma. Replace the dates with the closing quarter's window.
 SELECT SUM(amount_paid) / 100.0 AS gross_usd_paid
 FROM   invoices
 WHERE  status = 'paid'
@@ -25,122 +86,105 @@ WHERE  status = 'paid'
   AND  paid_at BETWEEN '<quarter-start>' AND '<quarter-end>';
 ```
 
-Multiply the result by `0.03`. That's the quarter's donation.
+Multiply by `0.03`. That's your donation.
 
-Then send that amount to Folds of Honor via the tracked partner donation
-URL: **https://foldsofhonorpartners.donorsupport.co/page/ZeroGX**
+### Step 2 — Send it
 
-Save the receipt PDF Folds of Honor emails you.
+Wire (or donate via card at) **https://foldsofhonorpartners.donorsupport.co/page/ZeroGX**.
+This is the ZeroGEX partner-tracked URL — donations through it are credited
+to your ZeroGEX partner page inside FOH's donor system, which is what lets
+them (and you) see the impact over time.
 
-### 2. Run the draft script
+Save the FOH receipt PDF they email you.
+
+### Step 3 — Run the script
 
 From `~/zerogex-web`:
 
 ```bash
-make quarterly-receipt-draft \
+git checkout release && git pull    # be on the branch, clean
+make quarterly-receipt
+```
+
+Answer the prompts. Confirm. It handles the rest.
+
+Non-interactive shorthand if you already have the numbers on hand:
+
+```bash
+make quarterly-receipt \
   AMOUNT=1247.50 \
   QUARTER="Q3 2026" \
   DATE=2026-09-30 \
-  EMAIL=founder@zerogex.io \
-  WRITE_TOTALS=1
+  YES=1
 ```
 
-Arguments:
+Optional flags:
 
-| Name | Meaning |
+| Flag | Effect |
 |---|---|
-| `AMOUNT` | Dollar amount you actually sent to FOH (`1247.50`, not `$1,247.50`). |
-| `QUARTER` | Human label — `"Q3 2026"`, `"Q4 2026"`, etc. |
-| `DATE` | Donation date in `YYYY-MM-DD`. |
-| `EMAIL` | (Optional) Address to send the review email to. Uses your Resend config. |
-| `WRITE_TOTALS` | (Optional) Write the updated JSON to `content/giving/totals.next.json` for review. |
-| `DRY_RUN` | (Optional) Print only; skip email and file write. |
+| `EMAIL=you@example.com` | Also emails the tweet draft to you |
+| `NO_PUSH=1` | Commit locally, don't push |
+| `NO_REBUILD=1` | Skip `make rebuild` (commit + push only) |
+| `YES=1` | Skip the "Proceed?" and "Rebuild?" confirmations |
+| `DRY_RUN=1` | Preview only — no file/git/rebuild actions |
 
-The script:
+### Step 4 — Post the tweet
 
-- Reads the current `content/giving/totals.json`
-- Appends the new donation to `history`, updates `totalDonatedUsd` and
-  `donationsCount`, computes the next quarter-end date, and prints the new
-  totals object
-- Generates the tweet text using the quarterly-receipt template we drafted
-  in `docs/launch-tweets-folds-of-honor.md`
-- Prints everything to stdout
-- If `EMAIL=` is set, sends a formatted HTML+text summary to that address
-- If `WRITE_TOTALS=1`, writes the updated JSON to `totals.next.json`
+At the end, the script prints:
 
-**Nothing gets posted, and nothing gets committed automatically.** You review.
+```
+Copy this tweet into X and attach the Folds of Honor Proud Supporter badge:
+──────────────────────────────────────────────────
+Quarterly receipt: ZeroGEX just sent $1,248 to @FoldsOfHonor — the Q3 2026 donation
+from your subscriptions.
 
-### 3. Review the drafts
+Total donated to date: $1,248.
 
-Open the email (or read stdout) and check:
+Full ledger and FAQ: https://zerogex.io/giving
 
-- Is the amount right? (Match against the receipt from FOH.)
-- Does the running total look right? (`before + amount = after`.)
-- Does the tweet copy feel appropriate for this quarter — anything to
-  personalize (Veterans Day period, a milestone, a subscriber-anniversary
-  moment)?
+Thank you.
+──────────────────────────────────────────────────
+```
 
-Edit the tweet in the email if you want to tweak the copy before posting.
+Post it on X with the Proud Supporter badge attached. That's the ceremonial
+publish moment.
 
-### 4. Publish
+## Why we didn't full-automate the tweet
 
-**Post the tweet on X** manually. Attach the FOH Proud Supporter badge
-image before posting.
+We considered posting the tweet automatically via X's OAuth. Rejected because:
 
-**Update the site's running total:**
+1. **Public statements need a review pass.** Every quarter's tweet might want
+   a small tweak — a commemorative day near quarter-end, a subscriber-earned
+   matching bonus, a milestone. The paste step is where that judgment happens.
+2. **X posts can't be un-sent.** A misrendered dollar amount from a bug in the
+   script would sit there forever. The manual paste is a natural sanity check.
+3. **X API automation is a maintenance liability.** OAuth tokens rotate,
+   rate limits change, endpoints deprecate. The value isn't worth the ongoing
+   maintenance burden versus a 15-second paste.
+
+## Troubleshooting
+
+**"Refusing to run on branch 'foo'."** You're not on `release`. Switch:
 
 ```bash
-# If you used WRITE_TOTALS=1:
-mv frontend/content/giving/totals.next.json frontend/content/giving/totals.json
-
-# Or edit frontend/content/giving/totals.json by hand from the printed JSON.
-
-git add frontend/content/giving/totals.json
-git commit -m "chore(giving): record Q3 2026 donation to Folds of Honor"
-git push origin release   # or the branch you deploy from
+git checkout release && git pull
 ```
 
-On the server:
+**"Refusing to run: working tree has uncommitted changes."** You have work
+in progress the script would sweep into the donation commit. Stash or
+commit it first:
 
 ```bash
-make rebuild
+git stash        # or: git commit -am "..."
 ```
 
-The `/giving` page and `/api/giving/total` endpoint reflect the new totals
-after the rebuild.
+**Push failed.** The commit is still in place locally. Fix the push cause
+(auth, network) and run `git push origin release`, then `make rebuild`.
 
-**(Optional)** post a short `/articles` entry linking to the giving page with
-the receipt screenshot — good for repeat-quarter engagement.
+**Rebuild failed.** The commit + push succeeded — only the local rebuild
+didn't. Run `make rebuild` by hand to complete the deploy.
 
-## Recommended cron for the reminder (not the post)
-
-If you want a nudge, add this to `crontab -e` on the EC2 box:
-
-```
-# 09:00 ET on Oct 1 / Jan 1 / Apr 1 / Jul 1 — reminder to send the FOH donation
-0 14 1 1,4,7,10 * echo "Quarter ended. Send FOH donation and run: make quarterly-receipt-draft ..." | mail -s "[ZeroGEX] FOH quarterly donation due" you@example.com
-```
-
-Adjust the mail delivery to whatever notification path you actually monitor —
-the point is a reminder to run the workflow, not automation of the workflow.
-
-## Why the review-first split
-
-We considered a fully-automated pipeline (cron script queries Stripe, computes
-3%, sends the wire via a partner API, drafts and auto-posts the tweet), but
-rejected it for three reasons:
-
-1. **The money loop needs a human.** A silent, autonomous system that moves
-   dollars is one wire-transfer bug away from being embarrassing. The wire
-   is the one step you should always do consciously.
-2. **The tweet is a public statement.** X posts can't be un-sent cleanly.
-   Every quarter's copy might want a small adjustment for context (a
-   commemorative day, a milestone, a subscriber-earned matching bonus). A
-   review pass is the natural moment for that.
-3. **The JSON change touches a public ledger.** Getting `totalDonatedUsd`
-   wrong on `/giving` is worse than being a day late — it undermines the
-   credibility of the whole page. The draft-then-merge flow makes the
-   value-check impossible to skip.
-
-The script does the mechanical parts (reading the JSON, computing the new
-totals, formatting the tweet, sending the email). You do the judgment parts.
+**Wrong amount, already published.** Editing history on `release` is a
+rewrite risk. Instead: run the script again with the negative-adjustment
+amount to correct the total, then commit a follow-up message explaining
+the correction. The full history stays visible.
