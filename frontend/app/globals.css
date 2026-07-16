@@ -170,6 +170,145 @@
    Wall Street · California Sunset · Kyoto Zen · Miami Beach
    ============================================================ */
 
+/* ---- Palette: ZeroGEX OG (flagship / default) ---------- */
+/* The house brand, straight off the business card: deep navy field,
+   coral crosshair, cream ink, steel-blue slate. Space Grotesk + JetBrains
+   Mono — the exact faces on the card. Dark mode is the hero (the card
+   itself); light mode is its cream-letterhead inversion. */
+:root.palette-zerogex-og {
+  --font-display: var(--font-space-grotesk);
+  --font-body: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #E7C79E;
+  --heat-mid: #DE6A50;
+  --heat-high: #A63A2A;
+  --chart-1: #2F5D82;
+  --chart-2: #DE5A50;
+  --chart-3: #B98A3E;
+  --chart-4: #0E9E6E;
+  --chart-5: #0B1826;
+  --bg-main: #F4F1EC;
+  --bg-subtle: #EBE6DC;
+  --bg-card: #FBF9F4;
+  --bg-hover: #E4DED1;
+  --bg-active: #D8D0BF;
+  --text-primary: #0B1826;
+  --text-secondary: rgba(11,24,38,0.72);
+  --text-muted: rgba(11,24,38,0.50);
+  --text-inverse: #F4F1EC;
+  --border-subtle: rgba(11,24,38,0.10);
+  --border-default: rgba(11,24,38,0.20);
+  --border-strong: rgba(244,100,95,0.40);
+  --accent-1: #0B1826;
+  --accent-2: #2F5D82;
+  --accent-3: #B98A3E;
+  --accent-4: #E1554F;
+  --color-accent: #E1554F;
+  --color-accent-hot: #E1554F;
+  --color-accent-soft: rgba(225,85,79,0.16);
+  --color-gold: #B98A3E;
+  --color-gold-soft: rgba(185,138,62,0.20);
+  --color-pop-coral: #E1554F;
+  --color-pop-coral-soft: rgba(225,85,79,0.18);
+  --color-pop-teal: #2F5D82;
+  --color-pop-teal-soft: rgba(47,93,130,0.18);
+  --color-pop-gold: #B98A3E;
+  --color-pop-gold-soft: rgba(185,138,62,0.20);
+  --color-pop-navy: #2F5D82;
+  --color-pop-navy-soft: rgba(47,93,130,0.18);
+  --color-maroon: #0B1826;
+  --color-navy: #2F5D82;
+  --color-emerald: #0E9E6E;
+  --color-emerald-soft: rgba(14,158,110,0.20);
+  --color-hazy: #2F5D82;
+  --color-hazy-soft: rgba(47,93,130,0.14);
+  --color-bull: #10985A;
+  --color-bull-soft: rgba(16,152,90,0.20);
+  --color-bear: #D93A34;
+  --color-bear-soft: rgba(217,58,52,0.20);
+  --color-warning: #B98A3E;
+  --color-warning-soft: rgba(185,138,62,0.20);
+  --color-info: #2F5D82;
+  --color-info-soft: rgba(47,93,130,0.10);
+  --color-brand-primary: #E1554F;
+  --color-brand-accent: #2F5D82;
+  --color-brand-coral: #E1554F;
+  --color-brand-deep: #0B1826;
+  --color-chart-tooltip-bg: #FBF9F4;
+  --color-chart-tooltip-border: rgba(11,24,38,0.18);
+  --color-grid-line: rgba(11,24,38,0.08);
+  --color-grid-overlay: rgba(244,241,236,0.30);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-zerogex-og.dark {
+  --heat-low: #E8C79A;
+  --heat-mid: #F4645F;
+  --heat-high: #B23A34;
+  --chart-1: #5B8DB8;
+  --chart-2: #F4645F;
+  --chart-3: #D8B27A;
+  --chart-4: #22C98A;
+  --chart-5: #F4F1EC;
+  --bg-main: #0B1826;
+  --bg-subtle: #081320;
+  --bg-card: #12283C;
+  --bg-hover: #1B3D59;
+  --bg-active: #244E6E;
+  --text-primary: #F4F1EC;
+  --text-secondary: rgba(244,241,236,0.74);
+  --text-muted: #8CA3B8;
+  --text-inverse: #0B1826;
+  --border-subtle: rgba(244,241,236,0.08);
+  --border-default: rgba(140,163,184,0.20);
+  --border-strong: rgba(244,100,95,0.34);
+  --accent-1: #1B3D59;
+  --accent-2: #5B8DB8;
+  --accent-3: #D8B27A;
+  --accent-4: #F4645F;
+  --color-accent: #F4645F;
+  --color-accent-hot: #FF7B6E;
+  --color-accent-soft: rgba(244,100,95,0.22);
+  --color-gold: #D8B27A;
+  --color-gold-soft: rgba(216,178,122,0.24);
+  --color-pop-coral: #F4645F;
+  --color-pop-coral-soft: rgba(244,100,95,0.22);
+  --color-pop-teal: #5B8DB8;
+  --color-pop-teal-soft: rgba(91,141,184,0.24);
+  --color-pop-gold: #D8B27A;
+  --color-pop-gold-soft: rgba(216,178,122,0.24);
+  --color-pop-navy: #5B8DB8;
+  --color-pop-navy-soft: rgba(91,141,184,0.24);
+  --color-maroon: #1B3D59;
+  --color-navy: #5B8DB8;
+  --color-emerald: #22C98A;
+  --color-emerald-soft: rgba(34,201,138,0.26);
+  --color-hazy: #5B8DB8;
+  --color-hazy-soft: rgba(91,141,184,0.16);
+  --color-bull: #22D982;
+  --color-bull-soft: rgba(34,217,130,0.26);
+  --color-bear: #FF4D4A;
+  --color-bear-soft: rgba(255,77,74,0.26);
+  --color-warning: #E8B060;
+  --color-warning-soft: rgba(232,176,96,0.22);
+  --color-info: #5B8DB8;
+  --color-info-soft: rgba(91,141,184,0.18);
+  --color-brand-primary: #F4645F;
+  --color-brand-accent: #5B8DB8;
+  --color-brand-coral: #F4645F;
+  --color-brand-deep: #0B1826;
+  --color-chart-tooltip-bg: #12283C;
+  --color-chart-tooltip-border: rgba(244,241,236,0.16);
+  --color-grid-line: rgba(140,163,184,0.14);
+  --color-grid-overlay: rgba(11,24,38,0.14);
+  --color-surface: var(--bg-card);
+  --color-surface-elevated: var(--bg-card);
+  --color-surface-subtle: var(--bg-subtle);
+}
+
 /* ---- Palette: Wall Street ---------- */
 /* Tailored ivory, banker navy, old gold, burgundy. */
 :root.palette-wallstreet {

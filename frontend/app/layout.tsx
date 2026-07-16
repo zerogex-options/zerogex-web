@@ -14,6 +14,7 @@ import {
   Playfair_Display,
   Poppins,
   Prata,
+  Space_Grotesk,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -37,6 +38,15 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
+
+// ZeroGEX OG — the house grotesque. The face on the brand business card;
+// used for both display and body in the flagship "ZeroGEX OG" palette.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-space-grotesk',
   display: 'swap',
 });
 
@@ -131,6 +141,7 @@ const fraunces = Fraunces({
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
+  spaceGrotesk.variable,
   libreBaskerville.variable,
   playfair.variable,
   cormorant.variable,
@@ -144,9 +155,9 @@ const FONT_VARIABLES = [
   fraunces.variable,
 ].join(' ');
 
-type PaletteId = 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
-const PALETTES: PaletteId[] = ['california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
-const DEFAULT_PALETTE: PaletteId = 'california';
+type PaletteId = 'zerogex-og' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
+const PALETTES: PaletteId[] = ['zerogex-og', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
+const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
   pacific: 'miami',

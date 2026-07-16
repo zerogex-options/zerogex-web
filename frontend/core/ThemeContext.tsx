@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 
 type Theme = 'light' | 'dark';
 export type Palette =
+  | 'zerogex-og'
   | 'california'
   | 'kyoto'
   | 'miami'
@@ -16,6 +17,7 @@ export type Palette =
   | 'tulum';
 
 const PALETTES: Palette[] = [
+  'zerogex-og',
   'california',
   'wallstreet',
   'kyoto',
@@ -27,7 +29,7 @@ const PALETTES: Palette[] = [
   'maldives',
   'tulum',
 ];
-const DEFAULT_PALETTE: Palette = 'california';
+const DEFAULT_PALETTE: Palette = 'zerogex-og';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 function readCookie(name: string): string | null {

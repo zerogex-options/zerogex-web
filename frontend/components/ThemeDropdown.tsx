@@ -12,6 +12,12 @@ interface PaletteMeta {
 
 const PALETTES: PaletteMeta[] = [
   {
+    id: 'zerogex-og',
+    name: 'ZeroGEX OG',
+    subtitle: 'Deep navy field, coral crosshair, cream',
+    swatch: ['#0B1826', '#F4645F', '#5B8DB8', '#F4F1EC'],
+  },
+  {
     id: 'california',
     name: 'California Sunset',
     subtitle: 'Sunset coral, pacific teal, vintage gold',
