@@ -45,6 +45,13 @@ const REFERRAL_LENGTH = 8;
 // omitting --promo-code.
 const PROMO_CODE_REGEX = /^[A-Z][A-Z0-9]{2,30}[A-Z0-9]$/;
 
+// X (formerly Twitter) handle rules — mirror frontend/core/serverAuth.ts:
+// 1-15 chars, letters/digits/underscore, stored without the leading '@'.
+const X_HANDLE_REGEX = /^[A-Za-z0-9_]{1,15}$/;
+function normalizeXHandle(raw: string): string {
+  return raw.trim().replace(/^@+/, '').trim();
+}
+
 type Args = {
   email: string | null;
   days: number;
@@ -53,6 +60,7 @@ type Args = {
   promoCode: string | null;
   couponId: string | null;
   disclosureUrl: string | null;
+  xHandle: string | null;
   dryRun: boolean;
   yes: boolean;
   help: boolean;
@@ -89,6 +97,7 @@ function parseArgs(argv: string[]): Args {
     promoCode: null,
     couponId: null,
     disclosureUrl: null,
+    xHandle: null,
     dryRun: false,
     yes: false,
     help: false,
@@ -102,6 +111,7 @@ function parseArgs(argv: string[]): Args {
     else if (arg === '--promo-code') args.promoCode = (argv[++i] ?? '').toUpperCase();
     else if (arg === '--coupon-id') args.couponId = argv[++i] ?? null;
     else if (arg === '--disclosure-url') args.disclosureUrl = argv[++i] ?? null;
+    else if (arg === '--x-handle' || arg === '--x') args.xHandle = argv[++i] ?? null;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -134,6 +144,11 @@ Options:
                                global env coupon.
       --disclosure-url <url>   Where the creator posts the FTC affiliate
                                disclosure (audit trail; not enforced at checkout).
+      --x-handle <handle>      Creator's X (formerly Twitter) handle, with or
+                               without a leading '@'. 1-15 chars, letters,
+                               numbers, underscores. Pass an empty string to
+                               clear a previously set handle. Leave unset to
+                               leave the current handle untouched.
       --dry-run                Preview changes without writing.
   -y, --yes                    Apply the changes.
   -h, --help                   Show this help.
@@ -331,6 +346,7 @@ type UserRow = {
   partner_activated_at: string | null;
   partner_audience_promo_code: string | null;
   referral_code: string | null;
+  x_handle: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
 };
@@ -338,7 +354,7 @@ const rows = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, tier, partner_tier, partner_pro_grant_expires_at,
           partner_activated_at, partner_audience_promo_code, referral_code,
-          stripe_subscription_id, subscription_status
+          x_handle, stripe_subscription_id, subscription_status
    FROM users WHERE email = '${escapeSqlLiteral(email)}';`,
 );
 if (rows.length === 0) {
@@ -380,6 +396,26 @@ if (desiredPromoCode !== user.partner_audience_promo_code) {
   }
 }
 
+// Resolve the desired X handle. `undefined` means "--x-handle not passed, leave
+// as-is"; `null` means "explicitly clear it" (operator passed an empty value);
+// a string is the validated, normalized handle to store.
+let desiredXHandle: string | null | undefined;
+if (cliArgs.xHandle != null) {
+  const normalized = normalizeXHandle(cliArgs.xHandle);
+  if (normalized === '') {
+    desiredXHandle = null;
+  } else if (X_HANDLE_REGEX.test(normalized)) {
+    desiredXHandle = normalized;
+  } else {
+    console.error(`Error: X handle "${cliArgs.xHandle}" is invalid.`);
+    console.error('Must be 1-15 chars, letters/numbers/underscores only (with or without a leading @).');
+    process.exit(1);
+  }
+}
+const xHandleChanges = desiredXHandle !== undefined && desiredXHandle !== user.x_handle;
+// The handle after this run — the new value if changing, else what's on file.
+const finalXHandle = desiredXHandle !== undefined ? desiredXHandle : user.x_handle;
+
 const now = new Date();
 const newExpiry = new Date(now.getTime() + cliArgs.days * 24 * 60 * 60 * 1000);
 const existingExpiryMs = user.partner_pro_grant_expires_at
@@ -407,6 +443,11 @@ console.log(`                referral_code=${user.referral_code ?? '(unminted)'}
 console.log(
   `                promo_code=${user.partner_audience_promo_code ?? '(unset)'} -> ${desiredPromoCode}`,
 );
+console.log(
+  `                x_handle=${user.x_handle ? '@' + user.x_handle : '(unset)'}${
+    desiredXHandle !== undefined ? ` -> ${desiredXHandle ? '@' + desiredXHandle : '(clear)'}` : ''
+  }`,
+);
 if (user.stripe_subscription_id) {
   console.log(`                stripe_sub=${user.stripe_subscription_id} status=${user.subscription_status}`);
 }
@@ -427,6 +468,7 @@ if (promoCodeChanges) {
 }
 if (couponChanges) planned.push(`partner_audience_coupon_id -> ${cliArgs.couponId}`);
 if (disclosureChanges) planned.push(`partner_disclosure_url -> ${cliArgs.disclosureUrl}`);
+if (xHandleChanges) planned.push(`x_handle -> ${desiredXHandle ? '@' + desiredXHandle : '(clear)'}`);
 if (!user.referral_code) planned.push(`referral_code -> (mint)`);
 planned.push(`stripe promotion_code "${desiredPromoCode}" -> ensure exists on ${audienceCouponId}`);
 
@@ -456,6 +498,11 @@ if (couponChanges) {
 }
 if (disclosureChanges) {
   setClauses.push(`partner_disclosure_url = '${escapeSqlLiteral(cliArgs.disclosureUrl!)}'`);
+}
+if (xHandleChanges) {
+  setClauses.push(
+    desiredXHandle === null ? `x_handle = NULL` : `x_handle = '${escapeSqlLiteral(desiredXHandle!)}'`,
+  );
 }
 
 execSqlite(
@@ -526,7 +573,7 @@ execSqlite(
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'grant-partner-pro-script',
-     '${escapeSqlLiteral(`grant ${cliArgs.days}d Pro, bps=${cliArgs.commissionBps}, window=${cliArgs.windowMonths}mo, expires=${effectiveExpiryIso}, promo=${desiredPromoCode}, stripe_promo=${stripePromoId}`)}',
+     '${escapeSqlLiteral(`grant ${cliArgs.days}d Pro, bps=${cliArgs.commissionBps}, window=${cliArgs.windowMonths}mo, expires=${effectiveExpiryIso}, promo=${desiredPromoCode}, x_handle=${finalXHandle ? '@' + finalXHandle : '(none)'}, stripe_promo=${stripePromoId}`)}',
      '${escapeSqlLiteral(nowIso)}'
    );`,
 );
@@ -539,6 +586,7 @@ const promoLink = `${appUrl.replace(/\/+$/, '')}/register?ref=${encodeURICompone
 console.log('\nActivated.');
 console.log(`  referral_code:       ${referralCode}`);
 console.log(`  audience promo code: ${desiredPromoCode}`);
+console.log(`  x handle:            ${finalXHandle ? '@' + finalXHandle : '(none)'}`);
 console.log(`  partner link:        ${partnerLink}`);
 console.log(`  audience-friendly:   ${promoLink}   (same effect, prettier URL)`);
 console.log(`  expires:             ${effectiveExpiryIso}`);

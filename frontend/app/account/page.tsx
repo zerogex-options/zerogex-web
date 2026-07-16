@@ -3,7 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, Copy, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Bell, CreditCard, Copy, Fingerprint, Gift, Heart, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -80,6 +80,13 @@ function AccountPageContent() {
   const [referral, setReferral] = useState<ReferralPayload | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
+  // X/Twitter handle. `xHandle` is the input value (without the leading @);
+  // `xHandleSaved` is the persisted value the server confirmed (null when unset).
+  const [xHandle, setXHandle] = useState('');
+  const [xHandleSaved, setXHandleSaved] = useState<string | null>(null);
+  const [xHandleLoading, setXHandleLoading] = useState(true);
+  const [savingXHandle, setSavingXHandle] = useState(false);
+  const [xHandleError, setXHandleError] = useState<string | null>(null);
 
   const refreshIdentities = async () => {
     setIdentitiesLoading(true);
@@ -113,6 +120,30 @@ function AccountPageContent() {
         if (!cancelled) setReferral(data);
       } catch {
         /* referral card is non-critical; silently skip on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSession?.authenticated]);
+
+  useEffect(() => {
+    if (!authSession?.authenticated) return;
+    let cancelled = false;
+    (async () => {
+      setXHandleLoading(true);
+      try {
+        const response = await fetch('/api/account/social', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { xHandle: string | null };
+        if (!cancelled) {
+          setXHandleSaved(data.xHandle ?? null);
+          setXHandle(data.xHandle ?? '');
+        }
+      } catch {
+        /* social card is non-critical; silently skip on failure */
+      } finally {
+        if (!cancelled) setXHandleLoading(false);
       }
     })();
     return () => {
@@ -237,6 +268,43 @@ function AccountPageContent() {
       setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
     } finally {
       setUnlinkingProvider(null);
+    }
+  };
+
+  const handleSaveXHandle = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setXHandleError(null);
+    setSavingXHandle(true);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setXHandleError('Unable to obtain CSRF token. Please refresh and try again.');
+        return;
+      }
+      const response = await fetch('/api/account/social', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ xHandle: xHandle.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        xHandle?: string | null;
+        error?: string;
+      };
+      if (!response.ok) {
+        setXHandleError(payload.error ?? 'Failed to save X handle.');
+        return;
+      }
+      const saved = payload.xHandle ?? null;
+      setXHandleSaved(saved);
+      setXHandle(saved ?? '');
+      setFeedback({ type: 'success', message: saved ? 'X handle saved.' : 'X handle removed.' });
+    } catch {
+      setXHandleError('Something went wrong. Please try again.');
+    } finally {
+      setSavingXHandle(false);
     }
   };
 
@@ -471,32 +539,46 @@ function AccountPageContent() {
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Notifications</h2>
+          <SectionHeading icon={<CreditCard size={18} />}>Subscription</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Manage the TradeWorkz™ bots you follow and the channels (in-app / email / webhook)
-            each subscription uses.
+            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.
           </p>
-          <Link
-            href="/account/notifications"
+          <button
+            type="button"
+            onClick={handleManageSubscription}
+            disabled={!canManageBilling || opening}
             style={{
+              background:
+                'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--heat-mid) 100%)',
+              border: 'none',
+              color: 'var(--text-inverse)',
+              borderRadius: 10,
+              padding: '10px 18px',
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: canManageBilling && !opening ? 'pointer' : 'not-allowed',
+              opacity: canManageBilling && !opening ? 1 : 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              padding: '10px 16px',
-              borderRadius: 10,
-              background: 'var(--color-info)',
-              color: 'var(--color-on-info, #ffffff)',
-              fontWeight: 700,
-              fontSize: 13,
-              textDecoration: 'none',
+              boxShadow: '0 6px 20px var(--color-brand-primary-soft, rgba(245,180,0,0.25))',
             }}
           >
-            <Bell size={14} /> Manage notifications
-          </Link>
+            <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
+          </button>
+          {!canManageBilling && tier === 'public' && (
+            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
+              You don&apos;t have an active subscription yet. Choose a plan on the{' '}
+              <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
+                pricing page
+              </Link>{' '}
+              to get started.
+            </p>
+          )}
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Sign-in methods</h2>
+          <SectionHeading icon={<Fingerprint size={18} />}>Sign-in methods</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
             Connect or disconnect the providers you use to sign in. You must keep at least one method active.
           </p>
@@ -650,49 +732,123 @@ function AccountPageContent() {
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light }}>Subscription</h2>
+          <SectionHeading icon={<Bell size={18} />}>Notifications</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.
+            Manage the TradeWorkz™ bots you follow and the channels (in-app / email / webhook)
+            each subscription uses.
           </p>
-          <button
-            type="button"
-            onClick={handleManageSubscription}
-            disabled={!canManageBilling || opening}
+          <Link
+            href="/account/notifications"
             style={{
-              background:
-                'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--heat-mid) 100%)',
-              border: 'none',
-              color: 'var(--text-inverse)',
-              borderRadius: 10,
-              padding: '10px 18px',
-              fontWeight: 800,
-              fontSize: 14,
-              cursor: canManageBilling && !opening ? 'pointer' : 'not-allowed',
-              opacity: canManageBilling && !opening ? 1 : 0.5,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              boxShadow: '0 6px 20px var(--color-brand-primary-soft, rgba(245,180,0,0.25))',
+              padding: '10px 16px',
+              borderRadius: 10,
+              background: 'var(--color-info)',
+              color: 'var(--color-on-info, #ffffff)',
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: 'none',
             }}
           >
-            <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
-          </button>
-          {!canManageBilling && tier === 'public' && (
-            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
-              You don't have an active subscription yet. Choose a plan on the{' '}
-              <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
-                pricing page
-              </Link>{' '}
-              to get started.
-            </p>
+            <Bell size={14} /> Manage notifications
+          </Link>
+        </section>
+
+        <section style={{ marginTop: 24 }}>
+          <SectionHeading icon={<XLogo size={16} />}>Social Media</SectionHeading>
+          <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+            Add your X (formerly Twitter) handle so we can reach you there. It&apos;s optional —
+            add, change, or remove it anytime.
+          </p>
+          {xHandleLoading ? (
+            <p style={{ color: C.muted, fontSize: 14 }}>Loading…</p>
+          ) : (
+            <form onSubmit={handleSaveXHandle} style={{ display: 'grid', gap: 12 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: `1px solid ${C.border}`,
+                  background: 'var(--bg-active)',
+                }}
+              >
+                <span style={{ color: C.muted, display: 'inline-flex', alignItems: 'center' }}>
+                  <XLogo size={16} />
+                </span>
+                <span style={{ color: C.muted, fontSize: 15, fontWeight: 700 }}>@</span>
+                <input
+                  value={xHandle}
+                  onChange={(e) => {
+                    setXHandle(e.target.value.replace(/^@+/, ''));
+                    setXHandleError(null);
+                  }}
+                  placeholder="yourhandle"
+                  maxLength={15}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="X handle"
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    color: C.light,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    outline: 'none',
+                    minWidth: 0,
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={savingXHandle || xHandle.trim() === (xHandleSaved ?? '')}
+                  style={{
+                    ...primaryLinkButtonStyle(),
+                    whiteSpace: 'nowrap',
+                    opacity: savingXHandle || xHandle.trim() === (xHandleSaved ?? '') ? 0.6 : 1,
+                    cursor:
+                      savingXHandle || xHandle.trim() === (xHandleSaved ?? '')
+                        ? 'not-allowed'
+                        : 'pointer',
+                  }}
+                >
+                  {savingXHandle ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+              {xHandleError && (
+                <p style={{ margin: 0, color: 'var(--color-bear)', fontSize: 13, fontWeight: 600 }}>
+                  {xHandleError}
+                </p>
+              )}
+              {xHandleSaved ? (
+                <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
+                  Connected as{' '}
+                  <a
+                    href={`https://x.com/${xHandleSaved}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    @{xHandleSaved}
+                  </a>
+                  . Clear the field and save to remove it.
+                </p>
+              ) : (
+                <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
+                  1–15 characters — letters, numbers, and underscores only.
+                </p>
+              )}
+            </form>
           )}
         </section>
 
         {referral?.enabled && referral.link && (
           <section style={{ marginTop: 24 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.light, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Gift size={18} /> Refer a friend
-            </h2>
+            <SectionHeading icon={<Gift size={18} />}>Refer a friend</SectionHeading>
             <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
               Share your link. Your friend gets their first month free (or 10% off their first year on annual),
               and you earn a free month every time a referral subscribes.
@@ -772,6 +928,43 @@ function AccountPageContent() {
         )}
       </div>
     </main>
+  );
+}
+
+function SectionHeading({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <h2
+      style={{
+        margin: 0,
+        fontSize: 18,
+        fontWeight: 800,
+        color: C.light,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', color: C.amber }}>{icon}</span>
+      {children}
+    </h2>
+  );
+}
+
+// Inline X (formerly Twitter) logo. lucide-react dropped brand glyphs, so we
+// render the official mark ourselves. Uses currentColor + a size prop so it
+// matches the lucide icons used elsewhere on this page.
+function XLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
   );
 }
 

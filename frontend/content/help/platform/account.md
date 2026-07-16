@@ -40,6 +40,13 @@ You can link **Google** and **Apple** sign-in to the same account. The Account p
 
 For step-by-step, see [Billing & Stripe Portal](/help/platform/billing).
 
+## Social media
+
+Optionally add your **X (formerly Twitter) handle** in the Social Media section so the ZeroGEX team can reach you there. It's never required — you're not asked for it at sign-up, and you can add, change, or remove it anytime from your account.
+
+- Enter the handle with or without the leading `@` — 1–15 characters, letters, numbers, and underscores only.
+- Clear the field and save to remove a handle you previously added.
+
 ## Referral panel
 
 If the referral program is enabled for your account, you see:
