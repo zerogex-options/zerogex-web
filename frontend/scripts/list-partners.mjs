@@ -79,7 +79,11 @@ if (!userCols.has('partner_tier')) {
 }
 const hasXHandle = userCols.has('x_handle');
 
-let sql = `SELECT email, ${hasXHandle ? 'x_handle' : 'NULL AS x_handle'} AS x_handle,
+// Select x_handle when the column exists; otherwise alias a NULL so the row
+// shape is identical on an un-migrated DB. (Guard against the double-'AS' that
+// `<col> AS x_handle` would produce for the NULL branch.)
+const xHandleCol = hasXHandle ? 'x_handle' : 'NULL AS x_handle';
+let sql = `SELECT email, ${xHandleCol},
                   referral_code, partner_audience_promo_code,
                   partner_commission_bps, partner_commission_window_months,
                   partner_pro_grant_expires_at, partner_activated_at,
