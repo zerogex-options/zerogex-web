@@ -34,11 +34,10 @@ const C = {
 
 const DONATION_PCT = 3;
 const FOH_URL = 'https://foldsofhonor.org';
-// TODO: replace with the tracked donation URL from the Folds of Honor partner
-// kit (the same URL that the donation QR code encodes). Until then, this
-// falls through to the main donate page — donations still count, but they
-// won't be attributed to the ZeroGEX partner code.
-const FOH_DONATION_URL = 'https://foldsofhonor.org/donate/';
+// Folds of Honor partner-tracked donation URL — same URL the QR code
+// encodes. Donations through this link are attributed to the ZeroGEX
+// partner page inside FOH's donor system.
+const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGX';
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat('en-US', {
