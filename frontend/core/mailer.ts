@@ -226,10 +226,10 @@ export async function sendPaidWelcomeEmail(
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${trialEndDate}. You can cancel anytime before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your 7-day free trial is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active. You have full access right away, and you won't be charged until ${escapeHtml(trialEndDate)}. You can cancel anytime before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your 7-day free trial is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
