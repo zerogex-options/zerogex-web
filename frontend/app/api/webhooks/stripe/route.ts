@@ -11,10 +11,13 @@ import {
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
+  getActivePromoCouponId,
   getActivePromoCouponIds,
   getCurrentPeriodEndUnix,
+  getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
   getStripe,
+  priceIdToSku,
   priceIdToTier,
 } from '@/core/stripe';
 import {
@@ -45,6 +48,9 @@ type UserRow = {
   referral_credit_months: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  // Last-synced price id, read pre-UPDATE so a plan/cadence switch (old price
+  // != new price) can be detected and the member's rate carried across it.
+  stripe_price_id: string | null;
   // Last-synced Stripe status, used to detect transitions (e.g. trialing →
   // active) so the funnel events fire exactly once on the actual change.
   subscription_status: string | null;
@@ -159,7 +165,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
     .prepare(
       `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              subscription_status, cancel_at_period_end
+              stripe_price_id, subscription_status, cancel_at_period_end
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -232,6 +238,97 @@ async function maybeApplyFoundingLifetime(
       message: `Apply founding lifetime to sub ${subscriptionId} failed: ${message}`,
     });
     // Swallow — the tier sync above already succeeded; retry on next sub event.
+  }
+}
+
+// True if the subscription already carries the given coupon (by id). Discounts
+// on a webhook payload may be expanded coupon objects or bare ids — handle both,
+// the same shape juggling describePromoIfPresent does above.
+function subscriptionHasCoupon(subscription: Stripe.Subscription, couponId: string): boolean {
+  type SubDiscount = { coupon?: { id?: string } | string | null };
+  const raw = ((subscription as unknown as { discounts?: SubDiscount[] }).discounts ??
+    []) as SubDiscount[];
+  for (const d of raw) {
+    const c = d?.coupon;
+    const id = typeof c === 'string' ? c : c?.id;
+    if (id && id === couponId) return true;
+  }
+  return false;
+}
+
+// When a member switches plan/cadence in the customer portal, Stripe changes the
+// price but leaves any existing coupon on the subscription. Our founding/promo
+// coupons are cadence-specific (and product-restricted per .env.example), so the
+// old coupon won't validly apply to the new line item — the discount is
+// effectively lost on a monthly<->annual switch. Re-resolve the cadence-correct
+// coupon for the NEW price and apply it so the rate carries across the switch.
+//
+// Precedence mirrors checkout's resolveDiscount, derived from the account's
+// persistent entitlements (there's no request context here):
+//   • Founding member: founding-managed rate, and an EXCLUSIVE branch — never
+//     fall through to the public promo (that would clobber the founding rate).
+//     The 25%-forever lifetime coupon (applied ~month 12) isn't cadence-specific
+//     and persists across the switch on its own, so leave it untouched. Before
+//     that, carry the founding intro coupon for the NEW (tier, cadence).
+//   • Everyone else: carry the ACTIVE public promo for the NEW (tier, cadence).
+//     A promo whose window has closed (getActivePromoCouponId -> null) is not
+//     re-granted; the member simply switches at rack rate.
+// Win-back / referral coupons are one-shot at signup and deliberately not
+// re-derived here.
+//
+// Fires only on an actual switch — a prior synced price that differs from the
+// new one — of an active/trialing sub. It never fires on initial signup or
+// resubscribe (null oldPriceId), where checkout already applied the correct
+// discount and carrying here would clobber it (e.g. a founding coupon on the
+// first sync, before founding_member_started_at is stamped). No-ops if the
+// target coupon is already present, so webhook redeliveries and the follow-up
+// customer.subscription.updated our own update triggers can't reset a repeating
+// coupon's clock or loop. Runs BEFORE maybeApplyFoundingLifetime so a lifetime
+// coupon coming due in the same sync takes final precedence.
+async function maybeCarryDiscountOnPlanSwitch(
+  subscription: Stripe.Subscription,
+  user: UserRow,
+  oldPriceId: string | null,
+  newPriceId: string | null,
+): Promise<void> {
+  if (!ACTIVE_STATUSES.has(subscription.status)) return;
+  // Require a prior synced price: a null oldPriceId is the first sync of a new or
+  // resubscribed subscription, where checkout already set the discount.
+  if (!oldPriceId || !newPriceId || oldPriceId === newPriceId) return; // only real switches
+  const newSku = priceIdToSku(newPriceId);
+  if (!newSku) return;
+
+  let couponId: string | null = null;
+  if (user.founding_member_started_at) {
+    // Founding is exclusive: never fall through to the public promo below.
+    // Lifetime coupon persists on its own (not cadence-specific) — leave it.
+    if (user.founding_lifetime_applied_at) return;
+    couponId = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
+  } else {
+    couponId = getActivePromoCouponId(newSku);
+  }
+  if (!couponId) return; // nothing to carry
+  if (subscriptionHasCoupon(subscription, couponId)) return; // already applied
+
+  try {
+    await getStripe().subscriptions.update(subscription.id, {
+      discounts: [{ coupon: couponId }],
+    });
+    logAudit({
+      type: 'billing_discount_carried_on_switch',
+      userId: user.id,
+      email: user.email,
+      message: `Carried coupon ${couponId} onto sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} (price ${newPriceId})`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'carry discount failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Carry discount onto sub ${subscription.id} after switch failed: ${message}`,
+    });
+    // Swallow — the tier sync already succeeded; a later sub event can retry.
   }
 }
 
@@ -356,6 +453,12 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       email: user.email,
     });
   }
+
+  // Carry the member's founding/promo rate across a plan or cadence switch
+  // (portal monthly<->annual or tier change). Runs before the lifetime step so a
+  // lifetime coupon coming due in the same sync wins. `user.stripe_price_id` is
+  // the pre-UPDATE snapshot (old price); `priceId` is the new one.
+  await maybeCarryDiscountOnPlanSwitch(subscription, user, user.stripe_price_id, priceId);
 
   await maybeApplyFoundingLifetime(subscription.id, user);
 

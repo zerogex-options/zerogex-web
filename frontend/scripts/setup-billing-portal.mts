@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Run from the frontend/ directory (nvm 22):
 //   node --experimental-strip-types --no-warnings scripts/setup-billing-portal.mts \
-//     [--config-id bpc_...] [--proration <behavior>] [--dry-run | --yes]
+//     [--config-id bpc_...] [--proration <behavior>] \
+//     [--trial-update-behavior <continue_trial|end_trial>] [--dry-run | --yes]
 //
 // Provisions (or updates) the Stripe **customer billing portal configuration**
 // so members can self-serve the things our help docs and trial emails already
@@ -24,33 +25,49 @@
 //   bpc_... id to wire into STRIPE_PORTAL_CONFIG_ID (see core/stripe.ts
 //   getPortalConfigId + deploy/steps/036.billing).
 //
+//   The feature set here MIRRORS the account default config as configured in the
+//   Stripe Dashboard (Settings → Billing → Customer portal): trials continue on
+//   switch, prorations deferred to period end, downgrades scheduled at period
+//   end, promotion-code entry OFF. Keep the two in sync if you change either.
+//
 // WHAT IT ENABLES
 //   • subscription_update  — allowed update: price. products = every tier's
 //     monthly + annual price, grouped by their Stripe product, so a member can
 //     move between any of the four prices (cadence swap and tier swap both).
-//     proration_behavior defaults to create_prorations (see --proration).
 //   • subscription_cancel  — at period end (matches our "keep access until the
 //     end of the billing period" policy in content/help/platform/billing.md).
 //   • payment_method_update, invoice_history, customer_update (address/name/
 //     email/tax id — the last so automatic_tax has an address to work from,
 //     consistent with the checkout route's customer_update: address/name auto).
+//   Promotion-code entry is intentionally NOT enabled: checkout applies discounts
+//   server-side and disallows stacking, so letting members type a code in the
+//   portal would reopen that. Honoring a member's existing founding/promo rate
+//   across a cadence switch is handled server-side in the webhook instead.
 //
-// PRORATION (monthly → annual, and tier upgrades)
-//   --proration create_prorations (default): proration line items are created
-//     for the change. For a cadence swap (monthly → annual) the billing
-//     *interval* changes, so Stripe invoices the new annual amount immediately
-//     regardless — with a credit line for the unused monthly time (this is the
-//     -$34.94 "Unused time" credit pattern already visible in invoice history).
-//     For a same-interval tier change (Basic → Pro monthly) the proration lands
-//     on the NEXT invoice rather than an immediate charge.
-//   --proration always_invoice: additionally invoices same-interval tier
-//     changes immediately, matching billing.md's "billed the prorated
-//     difference immediately" copy for Basic → Pro. Use this if you want tier
-//     upgrades to charge on the spot too.
-//   --proration none: no proration credits/charges; the new price simply
-//     applies going forward.
-//   A member still in the free trial is never charged by any of these — the
-//   trial_end is preserved and proration amounts are $0 during a trial.
+// PRORATION (paying members only — trial members are never charged on a switch)
+//   --proration create_prorations (default): matches the Dashboard's "Prorate
+//     charges and credits" + "Invoice prorations at the end of the billing
+//     period". Proration credit/charge line items are created and applied to the
+//     member's NEXT invoice rather than charged on the spot.
+//   --proration always_invoice: same proration, but invoiced IMMEDIATELY at the
+//     time of the switch (the Dashboard's "Invoice prorations immediately").
+//   --proration none: no proration; the new price simply applies going forward.
+//
+// TRIAL BEHAVIOR ON SWITCH
+//   --trial-update-behavior continue_trial (default): keep an active free trial
+//     when a member switches plan/cadence — no charge until the trial ends, then
+//     billed at the new price. Stripe's OWN default is 'end_trial' (end the trial
+//     and charge immediately), so we set this explicitly. Pass end_trial to opt
+//     into immediate conversion instead.
+//   This field requires Stripe API 2025-09-30, which this script pins on its
+//   Stripe client for the config write only (the app's client is unaffected).
+//
+// DOWNGRADES
+//   Switching to a cheaper plan or a shorter interval (annual → monthly) is
+//   scheduled at period end via schedule_at_period_end, so the member keeps what
+//   they paid for until the period ends (matches billing.md). Stripe notes this
+//   relies on subscription schedules, which it creates automatically — our sync
+//   only reacts to the eventual customer.subscription.updated at period end.
 //
 // SAFE BY DEFAULT
 //   Reads STRIPE_SECRET_KEY + the four STRIPE_PRICE_* ids from env or
@@ -62,7 +79,9 @@
 // NOTE ON is_default: Stripe only lets you set the is_default flag at creation
 // time, not via update. This script does not flip it — pinning the id via
 // STRIPE_PORTAL_CONFIG_ID is the auditable, env-driven path the app already
-// supports (see the comment in core/stripe.ts getPortalConfigId).
+// supports (see the comment in core/stripe.ts getPortalConfigId). If you'd
+// rather manage the portal entirely from the Dashboard, leave
+// STRIPE_PORTAL_CONFIG_ID empty and the account default config governs.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -70,10 +89,12 @@ import path from 'node:path';
 import Stripe from 'stripe';
 
 type ProrationBehavior = 'create_prorations' | 'always_invoice' | 'none';
+type TrialUpdateBehavior = 'continue_trial' | 'end_trial';
 
 type Args = {
   configId: string | null;
   proration: ProrationBehavior;
+  trialBehavior: TrialUpdateBehavior;
   privacyUrl: string | null;
   termsUrl: string | null;
   headline: string | null;
@@ -92,6 +113,13 @@ const PRICE_ENV_KEYS = [
 ] as const;
 
 const PRORATION_VALUES: ProrationBehavior[] = ['create_prorations', 'always_invoice', 'none'];
+const TRIAL_BEHAVIOR_VALUES: TrialUpdateBehavior[] = ['continue_trial', 'end_trial'];
+
+// trial_update_behavior landed in Stripe API 2025-09-30 (Clover). The pinned
+// stripe SDK predates it, so pin that version on the config-write client only.
+// The extra request params and the response `.id` we read are stable across
+// versions, and prices.retrieve reads only version-stable fields.
+const PORTAL_API_VERSION = '2025-09-30';
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -119,6 +147,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     configId: null,
     proration: 'create_prorations',
+    trialBehavior: 'continue_trial',
     privacyUrl: null,
     termsUrl: null,
     headline: null,
@@ -136,6 +165,15 @@ function parseArgs(argv: string[]): Args {
         process.exit(1);
       }
       args.proration = v;
+    } else if (arg === '--trial-update-behavior') {
+      const v = (argv[++i] ?? '').trim() as TrialUpdateBehavior;
+      if (!TRIAL_BEHAVIOR_VALUES.includes(v)) {
+        console.error(
+          `Error: --trial-update-behavior must be one of ${TRIAL_BEHAVIOR_VALUES.join(', ')}.`,
+        );
+        process.exit(1);
+      }
+      args.trialBehavior = v;
     } else if (arg === '--privacy-url') args.privacyUrl = (argv[++i] ?? '').trim() || null;
     else if (arg === '--terms-url') args.termsUrl = (argv[++i] ?? '').trim() || null;
     else if (arg === '--headline') args.headline = (argv[++i] ?? '').trim() || null;
@@ -153,21 +191,26 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types --no-warnings scripts/setup-billing-portal.mts \\
-    [--config-id bpc_...] [--proration <behavior>] [--dry-run | --yes]
+    [--config-id bpc_...] [--proration <behavior>] \\
+    [--trial-update-behavior <continue_trial|end_trial>] [--dry-run | --yes]
 
 Creates or updates the Stripe customer billing portal configuration so members
 can switch cadence (monthly <-> annual), change tier, cancel, update payment
-method, and view invoices.
+method, and view invoices. Mirrors the account default config in the Dashboard.
 
 Options:
       --config-id bpc_...   Update this existing configuration in place. Defaults
                             to STRIPE_PORTAL_CONFIG_ID from env/.env.local; if
                             neither is set, a NEW configuration is created and
                             its id is printed for you to wire into the env.
-      --proration <b>       Proration behavior for subscription updates: one of
-                            create_prorations (default), always_invoice, none.
-                            See the header comment for what each does to a
-                            monthly->annual swap vs a same-interval tier change.
+      --proration <b>       Proration for subscription updates: create_prorations
+                            (default; prorations on next invoice), always_invoice
+                            (invoice immediately), or none.
+      --trial-update-behavior <b>
+                            continue_trial (default; keep the free trial on a
+                            switch, no charge until it ends) or end_trial (end the
+                            trial and charge immediately). Stripe's own default is
+                            end_trial, so we set continue_trial explicitly.
       --privacy-url <url>   Override the portal's privacy policy URL
                             (default: <NEXT_PUBLIC_APP_URL>/privacy).
       --terms-url <url>     Override the portal's terms of service URL
@@ -230,7 +273,11 @@ const termsUrl = cliArgs.termsUrl ?? `${appUrl.replace(/\/+$/, '')}/terms`;
 // Which configuration to update in place, if any. --config-id wins over the env.
 const targetConfigId = cliArgs.configId ?? envOrLocal('STRIPE_PORTAL_CONFIG_ID') ?? null;
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+// Pin the newer API version (see PORTAL_API_VERSION) so trial_update_behavior is
+// accepted. Cast through unknown: the pinned SDK's apiVersion union predates it.
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  apiVersion: PORTAL_API_VERSION,
+} as unknown as Stripe.StripeConfig);
 
 // Resolve each price -> its Stripe product, so we can build the
 // subscription_update.products[] list (one entry per product, all its allowed
@@ -307,10 +354,13 @@ if (inactivePrices.length > 0 || inactiveProducts.length > 0) {
 
 // --- Print the resolved plan -----------------------------------------------
 
-console.log(`Stripe:             ${STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE mode' : 'test mode'}`);
+console.log(`Stripe:             ${STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE mode' : 'test mode'} (API ${PORTAL_API_VERSION})`);
 console.log(`App URL:            ${appUrl}`);
 console.log(`Privacy / Terms:    ${privacyUrl}  |  ${termsUrl}`);
 console.log(`Proration:          ${cliArgs.proration}`);
+console.log(`Trial on switch:    ${cliArgs.trialBehavior}`);
+console.log(`Downgrades:         scheduled at period end (cheaper plan + shorter interval)`);
+console.log(`Promotion codes:    off (discounts stay server-side)`);
 console.log(
   `Target config:      ${targetConfigId ? `UPDATE ${targetConfigId}` : 'CREATE new configuration'}`,
 );
@@ -327,13 +377,23 @@ for (const e of productEntries) {
 
 // --- Build the configuration params ----------------------------------------
 
-const features: Stripe.BillingPortal.ConfigurationCreateParams.Features = {
-  subscription_update: {
-    enabled: true,
-    default_allowed_updates: ['price'],
-    proration_behavior: cliArgs.proration,
-    products: productEntries.map((e) => ({ product: e.product, prices: e.prices })),
+// trial_update_behavior isn't in the pinned SDK's types (added API 2025-09-30);
+// cast through unknown so the extra field is sent on the wire.
+const subscriptionUpdate = {
+  enabled: true,
+  default_allowed_updates: ['price'],
+  proration_behavior: cliArgs.proration,
+  products: productEntries.map((e) => ({ product: e.product, prices: e.prices })),
+  // Downgrades wait for period end: cheaper plan => decreasing_item_amount;
+  // annual -> monthly => shortening_interval.
+  schedule_at_period_end: {
+    conditions: [{ type: 'decreasing_item_amount' }, { type: 'shortening_interval' }],
   },
+  trial_update_behavior: cliArgs.trialBehavior,
+} as unknown as Stripe.BillingPortal.ConfigurationCreateParams.Features.SubscriptionUpdate;
+
+const features: Stripe.BillingPortal.ConfigurationCreateParams.Features = {
+  subscription_update: subscriptionUpdate,
   subscription_cancel: {
     enabled: true,
     mode: 'at_period_end',
@@ -394,7 +454,7 @@ try {
     console.log(
       '\n(Without STRIPE_PORTAL_CONFIG_ID pinned, the portal keeps using Stripe\'s',
     );
-    console.log("account-level default configuration, which does not enable plan switching.)");
+    console.log("account-level default configuration, which you manage in the Dashboard.)");
   }
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
