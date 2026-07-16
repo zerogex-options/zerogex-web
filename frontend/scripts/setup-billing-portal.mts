@@ -98,6 +98,7 @@ type Args = {
   privacyUrl: string | null;
   termsUrl: string | null;
   headline: string | null;
+  apiVersion: string | null;
   dryRun: boolean;
   yes: boolean;
   help: boolean;
@@ -115,11 +116,14 @@ const PRICE_ENV_KEYS = [
 const PRORATION_VALUES: ProrationBehavior[] = ['create_prorations', 'always_invoice', 'none'];
 const TRIAL_BEHAVIOR_VALUES: TrialUpdateBehavior[] = ['continue_trial', 'end_trial'];
 
-// trial_update_behavior landed in Stripe API 2025-09-30 (Clover). The pinned
-// stripe SDK predates it, so pin that version on the config-write client only.
-// The extra request params and the response `.id` we read are stable across
-// versions, and prices.retrieve reads only version-stable fields.
-const PORTAL_API_VERSION = '2025-09-30';
+// trial_update_behavior is a recent Stripe field. By DEFAULT we do NOT pin an
+// API version — the client uses the account's default version (exactly like the
+// rest of the app via core/stripe.ts getStripe), which for any modern account
+// already supports the field. Pinning an explicit dated version is opt-in via
+// --api-version, because some accounts reject an arbitrary version string with
+// "Invalid Stripe API version" (and that error fires on the very first read,
+// before the config write). After the write we verify trial_update_behavior
+// actually took effect, so a too-old default version can't silently no-op it.
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -151,6 +155,7 @@ function parseArgs(argv: string[]): Args {
     privacyUrl: null,
     termsUrl: null,
     headline: null,
+    apiVersion: null,
     dryRun: false,
     yes: false,
     help: false,
@@ -177,6 +182,7 @@ function parseArgs(argv: string[]): Args {
     } else if (arg === '--privacy-url') args.privacyUrl = (argv[++i] ?? '').trim() || null;
     else if (arg === '--terms-url') args.termsUrl = (argv[++i] ?? '').trim() || null;
     else if (arg === '--headline') args.headline = (argv[++i] ?? '').trim() || null;
+    else if (arg === '--api-version') args.apiVersion = (argv[++i] ?? '').trim() || null;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -216,6 +222,10 @@ Options:
       --terms-url <url>     Override the portal's terms of service URL
                             (default: <NEXT_PUBLIC_APP_URL>/terms).
       --headline <text>     Optional portal headline text.
+      --api-version <v>     Pin this Stripe API version for the config write only.
+                            Default: your account's default version (recommended).
+                            Use only if the write reports that trial_update_behavior
+                            wasn't applied because your default version is too old.
       --dry-run             Resolve prices + print the plan; no config write.
   -y, --yes                 Apply: create/update the portal configuration.
   -h, --help                Show this help.
@@ -273,11 +283,12 @@ const termsUrl = cliArgs.termsUrl ?? `${appUrl.replace(/\/+$/, '')}/terms`;
 // Which configuration to update in place, if any. --config-id wins over the env.
 const targetConfigId = cliArgs.configId ?? envOrLocal('STRIPE_PORTAL_CONFIG_ID') ?? null;
 
-// Pin the newer API version (see PORTAL_API_VERSION) so trial_update_behavior is
-// accepted. Cast through unknown: the pinned SDK's apiVersion union predates it.
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: PORTAL_API_VERSION,
-} as unknown as Stripe.StripeConfig);
+// By default use the account's default API version (no pin), same as the app.
+// Only pin when --api-version is given (cast through unknown: the pinned SDK's
+// apiVersion union may predate the requested version string).
+const stripe = cliArgs.apiVersion
+  ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: cliArgs.apiVersion } as unknown as Stripe.StripeConfig)
+  : new Stripe(STRIPE_SECRET_KEY);
 
 // Resolve each price -> its Stripe product, so we can build the
 // subscription_update.products[] list (one entry per product, all its allowed
@@ -354,7 +365,7 @@ if (inactivePrices.length > 0 || inactiveProducts.length > 0) {
 
 // --- Print the resolved plan -----------------------------------------------
 
-console.log(`Stripe:             ${STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE mode' : 'test mode'} (API ${PORTAL_API_VERSION})`);
+console.log(`Stripe:             ${STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE mode' : 'test mode'} (API ${cliArgs.apiVersion ?? 'account default'})`);
 console.log(`App URL:            ${appUrl}`);
 console.log(`Privacy / Terms:    ${privacyUrl}  |  ${termsUrl}`);
 console.log(`Proration:          ${cliArgs.proration}`);
@@ -429,6 +440,29 @@ if (!cliArgs.yes) {
 
 // --- Apply -----------------------------------------------------------------
 
+// Stripe silently ignores request params its version doesn't understand, so a
+// too-old default API version would drop trial_update_behavior and leave the
+// portal still ending trials on a switch — a silent failure. Read the field back
+// off the returned config and shout if it didn't stick.
+function verifyTrialBehavior(config: Stripe.BillingPortal.Configuration) {
+  const echoed = (
+    config.features?.subscription_update as unknown as { trial_update_behavior?: string } | undefined
+  )?.trial_update_behavior;
+  if (echoed === cliArgs.trialBehavior) {
+    console.log(`Verified: trial_update_behavior=${echoed} took effect.`);
+    return;
+  }
+  console.error(
+    `\nWARNING: trial_update_behavior did not take effect (asked for ${cliArgs.trialBehavior}, got ${echoed ?? 'undefined'}).`,
+  );
+  console.error('Your account default API version is likely too old for this field. Either:');
+  console.error('  • re-run with --api-version <a version your account supports> (see Stripe');
+  console.error('    Dashboard → Developers → API version), or');
+  console.error('  • set it in the Dashboard: Settings → Billing → Customer portal →');
+  console.error('    "when a customer changes plans during a trial" → keep the trial.');
+  console.error('Until then, a mid-trial plan switch will still end the trial and charge.');
+}
+
 try {
   if (targetConfigId) {
     const updated = await stripe.billingPortal.configurations.update(targetConfigId, {
@@ -437,6 +471,7 @@ try {
     });
     console.log(`\nDone. Updated portal configuration ${updated.id}.`);
     console.log('Plan switching, cancel, payment-method and invoice features are now enabled on it.');
+    verifyTrialBehavior(updated);
     if (envOrLocal('STRIPE_PORTAL_CONFIG_ID') !== updated.id) {
       console.log(`\nMake sure STRIPE_PORTAL_CONFIG_ID=${updated.id} is set in .env.local, then: make rebuild`);
     }
@@ -446,6 +481,7 @@ try {
       business_profile: businessProfile,
     });
     console.log(`\nDone. Created portal configuration ${created.id}.`);
+    verifyTrialBehavior(created);
     console.log('\nNext steps to make the portal use it:');
     console.log(`  1. Set this in frontend/.env.local:`);
     console.log(`       STRIPE_PORTAL_CONFIG_ID=${created.id}`);
