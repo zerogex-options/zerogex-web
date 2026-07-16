@@ -307,6 +307,9 @@ const requiredCols = [
   'partner_tier',
   'partner_audience_promo_code',
   'partner_pro_grant_expires_at',
+  // The user SELECT below reads x_handle, so require it too — a DB migrated
+  // before this column existed would otherwise fail mid-script.
+  'x_handle',
 ];
 const missingCols = requiredCols.filter((c) => !userCols.has(c));
 if (missingCols.length > 0) {
