@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt-draft set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "  make grant-founding EMAIL=<email> [GRANT_FOUNDING_TIER=pro] - Manual founding comp: set tier + founding_eligible=1 in one shot (DRY_RUN=1 to preview)"
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make quarterly-receipt-draft AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> - Generate a review-ready FOH quarterly receipt draft (tweet + updated totals.json + email summary); posts nothing, commits nothing (EMAIL=addr to email summary; WRITE_TOTALS=1 to write totals.next.json for review; DRY_RUN=1 to print only)"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
@@ -291,6 +292,18 @@ dedupe-payment-methods:
 extend-trial:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make extend-trial EMAIL=foo@example.com EXTEND_DAYS=14 DRY_RUN=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/extend-trial.mts --email $(EMAIL) $(if $(EXTEND_DAYS),--extend-days $(EXTEND_DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Generate a review-ready quarterly Folds of Honor receipt draft — the
+# tweet, an email summary, and the updated content/giving/totals.json.
+# Nothing is posted or committed; review the drafts, then post + merge
+# by hand. See docs/quarterly-receipt-workflow.md for the full loop.
+#
+# Examples:
+#   make quarterly-receipt-draft AMOUNT=1247.50 QUARTER="Q3 2026" DATE=2026-09-30 DRY_RUN=1
+#   make quarterly-receipt-draft AMOUNT=1247.50 QUARTER="Q3 2026" DATE=2026-09-30 EMAIL=founder@zerogex.io WRITE_TOTALS=1
+quarterly-receipt-draft:
+	@if [ -z "$(AMOUNT)" ] || [ -z "$(QUARTER)" ] || [ -z "$(DATE)" ]; then echo "Error: AMOUNT, QUARTER, DATE are required (e.g. make quarterly-receipt-draft AMOUNT=1247.50 QUARTER=\"Q3 2026\" DATE=2026-09-30)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/quarterly-receipt-draft.mts --amount $(AMOUNT) --quarter "$(QUARTER)" --date $(DATE) $(if $(EMAIL),--email $(EMAIL),) $(if $(WRITE_TOTALS),--write-totals,) $(if $(DRY_RUN),--dry-run,)'
 
 # Flip ONE customer's cancel_at_period_end flag on their Stripe subscription.
 # OFF=1 stops a scheduled cancellation (the sub renews, or — on a trial —
