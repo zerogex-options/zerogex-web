@@ -490,6 +490,22 @@ logo:
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.
+	@echo "Copying Folds of Honor partner-kit assets..."
+	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \
+		cp assets/branding/folds-of-honor-proud-supporter.png frontend/public/folds-of-honor-proud-supporter.png && \
+		echo "  ✓ Proud Supporter badge"; \
+	else \
+		echo "  ⚠ folds-of-honor-proud-supporter.png missing — /giving badge will 404 until you drop the PNG at assets/branding/folds-of-honor-proud-supporter.png"; \
+	fi
+	@if [ -f assets/branding/folds-of-honor-donation-qr.png ]; then \
+		cp assets/branding/folds-of-honor-donation-qr.png frontend/public/folds-of-honor-donation-qr.png && \
+		echo "  ✓ Donation QR code"; \
+	else \
+		echo "  ⚠ folds-of-honor-donation-qr.png missing — /giving donation QR will 404 until you drop the PNG at assets/branding/folds-of-honor-donation-qr.png"; \
+	fi
+	@if [ -f assets/branding/folds-of-honor-boilerplate.pdf ]; then \
+		cp assets/branding/folds-of-honor-boilerplate.pdf frontend/public/folds-of-honor-boilerplate.pdf; \
+	fi
 	@echo "Logos copied successfully!"
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory

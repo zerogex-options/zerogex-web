@@ -34,6 +34,11 @@ const C = {
 
 const DONATION_PCT = 3;
 const FOH_URL = 'https://foldsofhonor.org';
+// TODO: replace with the tracked donation URL from the Folds of Honor partner
+// kit (the same URL that the donation QR code encodes). Until then, this
+// falls through to the main donate page — donations still count, but they
+// won't be attributed to the ZeroGEX partner code.
+const FOH_DONATION_URL = 'https://foldsofhonor.org/donate/';
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -232,18 +237,19 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             }}
           />
 
-          {/* Logo block — swap /folds-of-honor-logo.svg with the official asset once approved */}
+          {/* Proud Supporter badge — official mark from the Folds of Honor partner
+              kit. See assets/branding/README for source. */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: '#ffffff', border: `1px solid ${C.border}`,
-            borderRadius: 16, padding: 24, minHeight: 160,
+            borderRadius: 16, padding: 20, minHeight: 220,
           }}>
             <Image
-              src="/folds-of-honor-logo.svg"
-              alt="Folds of Honor"
-              width={200}
-              height={200}
-              style={{ width: '100%', height: 'auto', maxHeight: 200, objectFit: 'contain' }}
+              src="/folds-of-honor-proud-supporter.png"
+              alt="Folds of Honor — Proud Supporter"
+              width={260}
+              height={260}
+              style={{ width: '100%', height: 'auto', maxWidth: 260, objectFit: 'contain' }}
             />
           </div>
 
@@ -252,21 +258,22 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               className="zg-eyebrow"
               style={{ display: 'inline-block', color: C.amber, marginBottom: 18 }}
             >
-              Our Charity Partner
+              Proud Supporter · Our Charity Partner
             </div>
             <h2 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 800, color: text, margin: '0 0 14px', lineHeight: 1.2 }}>
               Folds of Honor
             </h2>
             <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.75, margin: '0 0 14px' }}>
-              Founded in 2007 by Lt. Col. Dan Rooney — an Air Force F-16 pilot and PGA
-              professional — Folds of Honor provides educational scholarships to the spouses
-              and children of military service members and first responders who have fallen
-              or been disabled while serving the United States.
+              Founded in 2007 by Lt Col Dan Rooney — the only person to have served as
+              an F-16 fighter pilot (with three combat tours in Iraq) and a PGA
+              Professional — Folds of Honor provides educational scholarships to the
+              spouses and children of U.S. service members and first responders who
+              have fallen or been disabled while serving.
             </p>
             <p style={{ fontSize: 14, color: subtext, lineHeight: 1.7, margin: 0 }}>
-              Since 2007, Folds of Honor has awarded more than 60,000 scholarships totaling
-              over $260 million. The organization holds a 4-star rating from Charity
-              Navigator and is a registered 501(c)(3) non-profit (EIN 20-8551032).
+              Since 2007, Folds of Honor has awarded nearly 73,000 scholarships totaling
+              over $340 million in all 50 states. 91% of expenses fund the scholarship
+              mission. Rated 4-star by Charity Navigator and Platinum on Candid.
             </p>
           </div>
         </div>
@@ -387,6 +394,69 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
         </div>
       </section>
 
+      {/* ── Donate directly (QR + boilerplate) ──────────────────────────────── */}
+      <section style={{ padding: '80px 32px', maxWidth: 1100, margin: '0 auto' }}>
+        <SectionHeading
+          eyebrow="Give More"
+          title="Donate to Folds of Honor directly"
+          sub="Beyond our 3% pledge, you can make a tax-deductible personal donation to Folds of Honor at any time. Scan the code or use the button below."
+          color={C.amber}
+        />
+
+        <div className="zg-panel" style={{
+          padding: 'clamp(28px, 4vw, 44px)',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(180px, 260px) 1fr',
+          gap: 40,
+          alignItems: 'center',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#ffffff', border: `1px solid ${C.border}`,
+            borderRadius: 16, padding: 16,
+          }}>
+            <Image
+              src="/folds-of-honor-donation-qr.png"
+              alt="QR code linking to the Folds of Honor donation page"
+              width={260}
+              height={260}
+              style={{ width: '100%', height: 'auto', maxWidth: 260, objectFit: 'contain' }}
+            />
+          </div>
+
+          <div>
+            <div
+              className="zg-eyebrow"
+              style={{ display: 'inline-block', color: C.amber, marginBottom: 14 }}
+            >
+              About Folds of Honor
+            </div>
+            <p style={{ fontSize: 14, color: subtext, lineHeight: 1.75, margin: '0 0 18px' }}>
+              Folds of Honor is a 501(c)(3) nonprofit that provides educational
+              scholarships to the spouses and children of U.S. military service members
+              and first responders who have fallen or been disabled while serving.
+              Scholarships cover private-school tuition or tutoring in grades K–12,
+              tuition for college, technical or trade school, and post-graduate work —
+              including master&rsquo;s degrees, doctorates, and professional programs.
+              Among students served, 43% are minorities and 57% are female. Personal
+              donations are tax-deductible; the receipt is issued to you directly.
+            </p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <a href={FOH_DONATION_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                <button className="zg-btn zg-btn--primary" style={{ padding: '12px 22px', fontSize: 14 }}>
+                  <Heart size={14} /> Donate directly
+                </button>
+              </a>
+              <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                <button className="zg-btn zg-btn--secondary" style={{ padding: '12px 22px', fontSize: 14 }}>
+                  <ExternalLink size={14} /> foldsofhonor.org
+                </button>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 900, margin: '0 auto' }}>
         <SectionHeading
@@ -414,7 +484,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           />
           <FAQItem isDark={isDark}
             q="Why Folds of Honor specifically?"
-            a="Folds of Honor combines mission alignment (education is how we believe outcomes change), proven impact (over 60,000 scholarships, $260M+ distributed), and top-tier accountability (4-star Charity Navigator rating). The organization was founded by a serving Air Force fighter pilot, and the educational focus pairs cleanly with what ZeroGEX is — a platform for traders who want to learn the market better than the people on the other side of their trades."
+            a="Folds of Honor combines mission alignment (education is how we believe outcomes change), proven impact (nearly 73,000 scholarships and over $340M distributed since 2007), and top-tier accountability (4-star Charity Navigator and Platinum on Candid, with 91% of expenses funding the scholarship mission). The organization was founded by Lt Col Dan Rooney, the only-ever F-16 fighter pilot and PGA Professional, and the educational focus pairs cleanly with what ZeroGEX is — a platform for traders who want to learn the market better than the people on the other side of their trades."
           />
           <FAQItem isDark={isDark}
             q="Will the donation percentage change in the future?"
