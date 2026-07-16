@@ -39,7 +39,7 @@ help:
 	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
-	@echo "  make dedupe-payment-methods (EMAIL=<email> | ALL=1) - Detach duplicate same-card payment methods from Stripe customers, always keeping the default/subscription card (DRY by default, APPLY=1 to detach)"
+	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make clean      - Remove build artifacts"
@@ -265,13 +265,16 @@ reset-user-for-testing:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reset-user-for-testing EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/reset-user-for-testing.mjs --email $(EMAIL) $(if $(APPLY),--apply,) $(if $(KEEP_FOUNDING),--keep-founding,) $(if $(KEEP_CUSTOMER),--keep-customer,)'
 
-# Detach duplicate (same-fingerprint) card payment methods from Stripe customers,
-# always keeping the default / subscription card. Dry-run by default; APPLY=1 to
-# detach. Target one customer with EMAIL=..., or ALL=1 for every customer.
-# Usage: make dedupe-payment-methods EMAIL=foo@example.com [APPLY=1]   (or ALL=1)
+# Detach duplicate (same card fingerprint or same Link email) payment methods
+# from Stripe customers, always keeping the default / subscription method.
+# Dry-run by default; APPLY=1 to detach; INSPECT=1 to just list what a customer
+# has (type, fingerprint, Link email, which are protected). Target one customer
+# with EMAIL=... or CUSTOMER=cus_... (works on orphaned customers), or ALL=1.
+# Usage: make dedupe-payment-methods CUSTOMER=cus_... INSPECT=1
+#        make dedupe-payment-methods EMAIL=foo@example.com APPLY=1   (or ALL=1)
 dedupe-payment-methods:
-	@if [ -z "$(EMAIL)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr> or ALL=1"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(EMAIL),--email $(EMAIL),--all) $(if $(APPLY),--apply,)'
+	@if [ -z "$(EMAIL)" ] && [ -z "$(CUSTOMER)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr>, CUSTOMER=cus_..., or ALL=1"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(CUSTOMER),--customer $(CUSTOMER),$(if $(EMAIL),--email $(EMAIL),--all)) $(if $(INSPECT),--inspect,) $(if $(APPLY),--apply,)'
 
 # Manually lengthen ONE customer's free trial (e.g. to thank a helpful early
 # user) by pushing out the Stripe subscription's trial_end. Everything else

@@ -1,27 +1,34 @@
 #!/usr/bin/env node
 
-// Detach DUPLICATE card payment methods from Stripe customers. Repeated Checkout
-// sessions (e.g. a churned member resubscribing) each attach the card again via
-// Link, so a customer accumulates several payment methods that are really the
-// same card. This groups a customer's cards by Stripe's card.fingerprint and,
-// for each group with more than one, keeps a single card and detaches the rest.
+// Detach DUPLICATE payment methods from Stripe customers, and/or INSPECT what a
+// customer actually has attached. Repeated Checkout sessions (e.g. a churned
+// member resubscribing, often via Link) attach the same card again and again,
+// so a customer accumulates several payment methods that are really one card.
+//
+// It lists ALL payment method types (not just `card`) and groups them by a
+// stable per-card key:
+//   • card-type PMs (including Link-wallet cards)  -> card.fingerprint
+//   • link-type PMs                                -> link.email
+//   • anything with neither                        -> left alone (never grouped)
+// For each group with more than one, it keeps a single method and detaches the
+// rest.
 //
 // SAFE-BY-DESIGN
 //   • Never detaches a PROTECTED payment method: the customer's
-//     invoice_settings.default_payment_method, or any of their subscriptions'
+//     invoice_settings.default_payment_method, or any subscription's
 //     default_payment_method. Those are what actually get charged.
-//   • Within a fingerprint group it keeps the protected card if one is present,
-//     otherwise the newest, and detaches only the other exact-same-card copies.
-//   • Groups of one are never touched. Cards with no fingerprint are skipped.
-//   • Dry-run by default — prints exactly what it WOULD detach. Pass --apply to
-//     detach. Best-effort per customer/PM: one failure never aborts the run.
+//   • Within a group it keeps the protected method if present, else the newest,
+//     and detaches only the other same-card copies.
+//   • Groups of one are never touched. Methods with no usable key are skipped.
+//   • Dry-run by default — prints what it WOULD detach. Pass --apply to detach.
+//   • Best-effort per customer/PM: one failure never aborts the run.
 //
-// This is a backfill you run on demand (or occasionally). It is intentionally
-// NOT wired into the Stripe webhook: auto-detaching cards in the payment hot
-// path is disproportionate risk for what is a cosmetic dedup — run this instead.
+// Intentionally a manual backfill, NOT a webhook auto-detach — auto-detaching
+// cards in the payment hot path is disproportionate risk for a cosmetic dedup.
 //
 // Run from the frontend/ directory (nvm 22):
-//   node --no-warnings scripts/dedupe-payment-methods.mjs (--email <addr> | --all) [--apply]
+//   node --no-warnings scripts/dedupe-payment-methods.mjs \
+//     (--email <addr> | --customer cus_... | --all) [--inspect | --apply]
 // Reads STRIPE_SECRET_KEY from env or .env.local.
 
 import fs from 'node:fs';
@@ -50,11 +57,13 @@ function parseEnvFile(filePath) {
 }
 
 function parseArgs(argv) {
-  const args = { email: null, all: false, apply: false, help: false };
+  const args = { email: null, customer: null, all: false, inspect: false, apply: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--email' || arg === '-e') args.email = (argv[++i] ?? '').trim().toLowerCase() || null;
+    else if (arg === '--customer' || arg === '-c') args.customer = (argv[++i] ?? '').trim() || null;
     else if (arg === '--all') args.all = true;
+    else if (arg === '--inspect') args.inspect = true;
     else if (arg === '--apply') args.apply = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else {
@@ -67,16 +76,24 @@ function parseArgs(argv) {
 
 function usage() {
   console.log(`Usage:
-  node --no-warnings scripts/dedupe-payment-methods.mjs (--email <addr> | --all) [--apply]
+  node --no-warnings scripts/dedupe-payment-methods.mjs \\
+    (--email <addr> | --customer cus_... | --all) [--inspect | --apply]
 
-Detaches duplicate (same-fingerprint) card payment methods from Stripe customers,
-always keeping the default / subscription card. Dry-run unless --apply.
+Detaches duplicate (same card / same Link email) payment methods from Stripe
+customers, always keeping the default / subscription method. Dry-run unless
+--apply. Use --inspect to dump what a customer has (type, fingerprint, Link
+email, which are protected) without changing anything.
 
-Options:
-  -e, --email <addr>   Only the customer(s) with this email.
-      --all            Every customer (paginated).
-      --apply          Detach. Omit for a dry-run preview.
-  -h, --help           Show this help.
+Target (exactly one):
+  -e, --email <addr>       Customer(s) with this email.
+  -c, --customer cus_...   One customer by id (works on orphaned customers too).
+      --all                Every customer (paginated).
+
+Mode:
+      --inspect            List payment methods + flags; never detaches. With
+                           --all, only shows customers with 2+ methods.
+      --apply              Detach duplicates. Omit for a dry-run preview.
+  -h, --help               Show this help.
 
 Reads STRIPE_SECRET_KEY from env or .env.local.`);
 }
@@ -86,12 +103,13 @@ if (cliArgs.help) {
   usage();
   process.exit(0);
 }
-if (cliArgs.email && cliArgs.all) {
-  console.error('Error: --email and --all are mutually exclusive.');
+const targetCount = [cliArgs.email, cliArgs.customer, cliArgs.all ? 'all' : null].filter(Boolean).length;
+if (targetCount !== 1) {
+  console.error('Error: provide exactly one of --email <addr>, --customer cus_..., or --all. See --help.');
   process.exit(1);
 }
-if (!cliArgs.email && !cliArgs.all) {
-  console.error('Error: provide --email <addr> or --all. See --help.');
+if (cliArgs.inspect && cliArgs.apply) {
+  console.error('Error: --inspect and --apply are mutually exclusive.');
   process.exit(1);
 }
 
@@ -105,9 +123,20 @@ if (!STRIPE_SECRET_KEY) {
 
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 const idOf = (v) => (typeof v === 'string' ? v : v && v.id ? v.id : null);
+const isoOf = (unix) => (typeof unix === 'number' ? new Date(unix * 1000).toISOString() : '—');
 
-// The set of payment methods we must never detach for a customer: the invoice
-// default plus every subscription's default_payment_method.
+// Stable per-card identity used to group "the same card". card.fingerprint is
+// the same across PMs for one card (incl. Link-wallet cards); link-type PMs
+// carry no card object, so fall back to the Link email. No key => never grouped.
+function dedupKey(pm) {
+  const fp = pm.card?.fingerprint;
+  if (fp) return `fp:${fp}`;
+  if (pm.type === 'link' && pm.link?.email) return `link:${pm.link.email.toLowerCase()}`;
+  return null;
+}
+
+// The set of payment methods we must never detach: invoice default plus every
+// subscription's default_payment_method.
 async function protectedPmIds(customer) {
   const ids = new Set();
   const invoiceDefault = idOf(customer.invoice_settings?.default_payment_method);
@@ -120,64 +149,87 @@ async function protectedPmIds(customer) {
   return ids;
 }
 
-// Returns the PMs to detach for one customer (never any protected PM). Keeps,
-// per fingerprint group: the protected card(s) if present, else the newest.
-function planDetachments(cards, protectedIds) {
-  const byFingerprint = new Map();
-  for (const pm of cards) {
-    const fp = pm.card?.fingerprint;
-    if (!fp) continue; // can't prove it's a duplicate — leave it
-    (byFingerprint.get(fp) ?? byFingerprint.set(fp, []).get(fp)).push(pm);
+// Returns the PMs to detach (never a protected PM). Keeps, per key group, the
+// protected method(s) if present, else the newest.
+function planDetachments(pms, protectedIds) {
+  const groups = new Map();
+  for (const pm of pms) {
+    const key = dedupKey(pm);
+    if (!key) continue; // can't prove it's a duplicate — leave it
+    (groups.get(key) ?? groups.set(key, []).get(key)).push(pm);
   }
   const toDetach = [];
-  for (const group of byFingerprint.values()) {
+  for (const group of groups.values()) {
     if (group.length < 2) continue;
     const hasProtected = group.some((pm) => protectedIds.has(pm.id));
     if (hasProtected) {
-      // Keep the protected card(s); detach every other copy.
       for (const pm of group) if (!protectedIds.has(pm.id)) toDetach.push(pm);
     } else {
-      // Keep the newest; detach the older copies. Never touch a protected PM
-      // (there are none in this branch, but guard anyway).
       const newest = group.reduce((a, b) => (b.created > a.created ? b : a));
-      for (const pm of group) {
-        if (pm.id !== newest.id && !protectedIds.has(pm.id)) toDetach.push(pm);
-      }
+      for (const pm of group) if (pm.id !== newest.id && !protectedIds.has(pm.id)) toDetach.push(pm);
     }
   }
   return toDetach;
 }
 
-async function processCustomer(customer) {
-  let protectedIds;
+function pmDescriptor(pm) {
+  const who = pm.card ? `${pm.card.brand ?? 'card'} ••••${pm.card.last4 ?? '????'}` : pm.link?.email ?? '—';
+  const fp = pm.card?.fingerprint ?? '—';
+  const wallet = pm.card?.wallet?.type ?? '—';
+  return `${pm.id} type=${pm.type} ${who} fp=${fp} wallet=${wallet} key=${dedupKey(pm) ?? '—'} created=${isoOf(pm.created)}`;
+}
+
+async function listPmsAndProtected(customer) {
+  const protectedIds = await protectedPmIds(customer);
+  // No `type` filter => all payment method types (cards, link, etc.).
+  const pms = (await stripe.paymentMethods.list({ customer: customer.id, limit: 100 })).data;
+  return { protectedIds, pms };
+}
+
+async function inspectCustomer(customer, showEmptyish) {
+  let data;
   try {
-    protectedIds = await protectedPmIds(customer);
+    data = await listPmsAndProtected(customer);
   } catch (err) {
-    console.error(`  ! ${customer.id} (${customer.email ?? '—'}): could not read subscriptions: ${err.message}`);
+    console.error(`  ! ${customer.id} (${customer.email ?? '—'}): ${err.message}`);
+    return;
+  }
+  const { protectedIds, pms } = data;
+  if (!showEmptyish && pms.length < 2) return; // --all inspect: skip singletons
+  const detachSet = new Set(planDetachments(pms, protectedIds).map((p) => p.id));
+  console.log(`\nCustomer ${customer.id} (${customer.email ?? '—'}) — ${pms.length} payment method(s):`);
+  for (const pm of [...pms].sort((a, b) => a.created - b.created)) {
+    const flag = detachSet.has(pm.id)
+      ? 'DUP → would detach'
+      : protectedIds.has(pm.id)
+        ? 'keep (default/subscription)'
+        : 'keep';
+    console.log(`  [${flag}] ${pmDescriptor(pm)}`);
+  }
+}
+
+async function dedupeCustomer(customer) {
+  let data;
+  try {
+    data = await listPmsAndProtected(customer);
+  } catch (err) {
+    console.error(`  ! ${customer.id} (${customer.email ?? '—'}): ${err.message}`);
     return { detached: 0 };
   }
-  let cards;
-  try {
-    cards = (await stripe.paymentMethods.list({ customer: customer.id, type: 'card', limit: 100 })).data;
-  } catch (err) {
-    console.error(`  ! ${customer.id} (${customer.email ?? '—'}): could not list cards: ${err.message}`);
-    return { detached: 0 };
-  }
-  const toDetach = planDetachments(cards, protectedIds);
+  const { protectedIds, pms } = data;
+  const toDetach = planDetachments(pms, protectedIds);
   if (toDetach.length === 0) return { detached: 0 };
 
-  const label = (pm) =>
-    `${pm.id} ${pm.card?.brand ?? 'card'} ••••${pm.card?.last4 ?? '????'} (fp ${pm.card?.fingerprint?.slice(0, 8) ?? '—'})`;
-  console.log(`  ${customer.id} (${customer.email ?? '—'}): ${cards.length} cards, ${toDetach.length} duplicate(s) to detach`);
+  console.log(`  ${customer.id} (${customer.email ?? '—'}): ${pms.length} methods, ${toDetach.length} duplicate(s) to detach`);
   let detached = 0;
   for (const pm of toDetach) {
     if (!cliArgs.apply) {
-      console.log(`      would detach ${label(pm)}`);
+      console.log(`      would detach ${pmDescriptor(pm)}`);
       continue;
     }
     try {
       await stripe.paymentMethods.detach(pm.id);
-      console.log(`      detached ${label(pm)}`);
+      console.log(`      detached ${pmDescriptor(pm)}`);
       detached++;
     } catch (err) {
       console.error(`      ! failed to detach ${pm.id}: ${err.message}`);
@@ -187,6 +239,19 @@ async function processCustomer(customer) {
 }
 
 async function* customersToProcess() {
+  if (cliArgs.customer) {
+    try {
+      const c = await stripe.customers.retrieve(cliArgs.customer);
+      if (!c || c.deleted) {
+        console.error(`No such customer ${cliArgs.customer} (or it is deleted).`);
+        return;
+      }
+      yield c;
+    } catch (err) {
+      console.error(`Could not retrieve customer ${cliArgs.customer}: ${err.message}`);
+    }
+    return;
+  }
   if (cliArgs.email) {
     const res = await stripe.customers.list({ email: cliArgs.email, limit: 100 });
     for (const c of res.data) yield c;
@@ -205,16 +270,22 @@ async function* customersToProcess() {
 }
 
 console.log(`Stripe: ${STRIPE_SECRET_KEY.startsWith('sk_live') ? 'LIVE mode' : 'test mode'}`);
-console.log(cliArgs.apply ? 'Mode:   APPLY (detaching duplicates)' : 'Mode:   dry-run (no changes)');
-console.log('');
+console.log(cliArgs.inspect ? 'Mode:   INSPECT (no changes)' : cliArgs.apply ? 'Mode:   APPLY (detaching duplicates)' : 'Mode:   dry-run (no changes)');
+
+// A single-customer target (email/customer) prints even singletons; --all only
+// surfaces customers with 2+ methods so the scan stays readable.
+const showEmptyish = !cliArgs.all;
 
 let customersSeen = 0;
 let totalDetached = 0;
 try {
   for await (const customer of customersToProcess()) {
     customersSeen++;
-    const { detached } = await processCustomer(customer);
-    totalDetached += detached;
+    if (cliArgs.inspect) await inspectCustomer(customer, showEmptyish);
+    else {
+      const { detached } = await dedupeCustomer(customer);
+      totalDetached += detached;
+    }
   }
 } catch (err) {
   console.error(`\nError: ${err.message}`);
@@ -222,10 +293,12 @@ try {
 }
 
 console.log('');
-if (cliArgs.email && customersSeen === 0) {
-  console.log(`No Stripe customer found with email ${cliArgs.email}.`);
+if ((cliArgs.email || cliArgs.customer) && customersSeen === 0) {
+  console.log(`No matching Stripe customer found.`);
+} else if (cliArgs.inspect) {
+  console.log(`Inspected ${customersSeen} customer(s).`);
 } else if (cliArgs.apply) {
-  console.log(`Done. Scanned ${customersSeen} customer(s); detached ${totalDetached} duplicate card(s).`);
+  console.log(`Done. Scanned ${customersSeen} customer(s); detached ${totalDetached} duplicate(s).`);
 } else {
-  console.log(`Dry-run complete. Scanned ${customersSeen} customer(s); ${totalDetached} duplicate card(s) would be detached. Re-run with --apply.`);
+  console.log(`Dry-run complete. Scanned ${customersSeen} customer(s); ${totalDetached} duplicate(s) would be detached. Re-run with --apply.`);
 }
