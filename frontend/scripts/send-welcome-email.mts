@@ -28,10 +28,28 @@ const VALID_VARIANTS: Variant[] = ['paid', 'founding', 'welcome-back'];
 type Args = {
   email: string | null;
   variant: Variant;
+  trialEnd: string | null;
   force: boolean;
   dryRun: boolean;
   help: boolean;
 };
+
+// Turn a --trial-end value into the ISO string the mailer expects. A bare
+// calendar date (YYYY-MM-DD) is anchored to midday UTC so it renders as that
+// same calendar day in the America/New_York timezone the email formats in
+// (a bare date would otherwise parse as UTC-midnight and slip to the prior
+// day once shifted to ET). A full timestamp is passed through untouched.
+function normalizeTrialEnd(value: string): string {
+  const trimmed = value.trim();
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T16:00:00Z` : trimmed;
+  if (Number.isNaN(new Date(iso).getTime())) {
+    console.error(
+      `Error: invalid --trial-end "${value}". Expected YYYY-MM-DD or an ISO timestamp.`,
+    );
+    process.exit(1);
+  }
+  return iso;
+}
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -64,6 +82,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     email: null,
     variant: 'paid',
+    trialEnd: null,
     force: false,
     dryRun: false,
     help: false,
@@ -72,6 +91,7 @@ function parseArgs(argv: string[]): Args {
     const arg = argv[i];
     if (arg === '--email' || arg === '-e') args.email = argv[++i] ?? null;
     else if (arg === '--variant' || arg === '-v') args.variant = (argv[++i] ?? '') as Variant;
+    else if (arg === '--trial-end' || arg === '-t') args.trialEnd = argv[++i] ?? null;
     else if (arg === '--force') args.force = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -82,15 +102,21 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-welcome-email.mts \\
-    --email <user@example.com> [--variant <variant>] [--force] [--dry-run]
+    --email <user@example.com> [--variant <variant>] [--trial-end <date>] \\
+    [--force] [--dry-run]
 
 Options:
-  -e, --email <email>      Target user (required).
-  -v, --variant <variant>  paid | founding | welcome-back. Default: paid.
-      --force              Send even if paid_welcome_email_sent_at is already
-                           set (only meaningful for paid/founding).
-      --dry-run            Print what would happen without sending or writing.
-  -h, --help               Show this help.
+  -e, --email <email>       Target user (required).
+  -v, --variant <variant>   paid | founding | welcome-back. Default: paid.
+  -t, --trial-end <date>    Render the trial copy ("Your ZeroGEX trial is
+                            active") using this trial-end date. Accepts a
+                            calendar date (YYYY-MM-DD) or a full ISO
+                            timestamp. Only applies to paid/founding; ignored
+                            for welcome-back. Omit for the non-trial copy.
+      --force               Send even if paid_welcome_email_sent_at is already
+                            set (only meaningful for paid/founding).
+      --dry-run             Print what would happen without sending or writing.
+  -h, --help                Show this help.
 
 Reads RESEND_API_KEY and RESEND_FROM_EMAIL from the environment or .env.local.
 Set AUTH_DB_PATH (env or .env.local) to override the default DB path.
@@ -161,6 +187,14 @@ if (!VALID_VARIANTS.includes(cliArgs.variant)) {
   process.exit(1);
 }
 
+// welcome-back has no trial copy, so --trial-end can't apply there.
+if (cliArgs.trialEnd && cliArgs.variant === 'welcome-back') {
+  console.error('Error: --trial-end does not apply to the welcome-back variant.');
+  process.exit(1);
+}
+
+const trialEndIso = cliArgs.trialEnd ? normalizeTrialEnd(cliArgs.trialEnd) : null;
+
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 
@@ -223,13 +257,16 @@ if (stampsThisVariant && user.paid_welcome_email_sent_at && !cliArgs.force) {
   process.exit(3);
 }
 
+const copyMode = trialEndIso ? `trial (ends ${trialEndIso})` : 'non-trial';
+
 console.log(`Auth DB:    ${dbPath}`);
 console.log(`User:       ${user.email} (id=${user.id}, tier=${user.tier})`);
 console.log(`Variant:    ${cliArgs.variant}`);
+console.log(`Copy:       ${copyMode}`);
 console.log(`Prior stamp: ${user.paid_welcome_email_sent_at ?? '(none)'}`);
 
 if (cliArgs.dryRun) {
-  console.log(`\n[dry-run] Would send "${cliArgs.variant}" welcome email to ${email}.`);
+  console.log(`\n[dry-run] Would send "${cliArgs.variant}" welcome email (${copyMode}) to ${email}.`);
   if (stampsThisVariant) {
     console.log(
       `[dry-run] Would stamp paid_welcome_email_sent_at, clear subscription_lapsed, insert audit row.`,
@@ -241,9 +278,9 @@ if (cliArgs.dryRun) {
 }
 
 if (cliArgs.variant === 'paid') {
-  await sendPaidWelcomeEmail(email);
+  await sendPaidWelcomeEmail(email, { trialEndIso });
 } else if (cliArgs.variant === 'founding') {
-  await sendFoundingWelcomeEmail(email);
+  await sendFoundingWelcomeEmail(email, { trialEndIso });
 } else {
   await sendWelcomeBackEmail(email);
 }
