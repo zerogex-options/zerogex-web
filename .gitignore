@@ -221,6 +221,7 @@ frontend/public/title*.svg
 frontend/public/og-image.png
 frontend/public/favicon.ico
 frontend/public/target.svg
+frontend/public/folds-of-honor-*
 
 # blog post images, synced from assets/blog by `make blog-images`
 frontend/public/blog/
