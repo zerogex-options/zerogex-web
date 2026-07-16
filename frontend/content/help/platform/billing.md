@@ -34,9 +34,9 @@ To prevent that auto-renew: cancel in the portal before the trial ends. You keep
 
 ## Tier upgrades and downgrades
 
-- **Upgrade (Basic → Pro)** — proration is applied. You're billed the prorated difference immediately and tier access updates instantly.
+- **Upgrade (Basic → Pro)** — proration is applied. Tier access updates instantly; the prorated difference (a credit for unused time plus the new-tier charge) appears on your **next invoice** rather than being billed on the spot.
 - **Downgrade (Pro → Basic)** — the change takes effect at the end of the current billing period. You keep Pro features until then.
-- **Cadence change** — same logic as tier changes.
+- **Cadence change** — monthly → annual applies right away (with proration on your next invoice); annual → monthly takes effect at the end of the current period, like a downgrade.
 
 ## Cancellation
 
@@ -66,7 +66,7 @@ For exceptions, email [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Switching from monthly to annual
 
-Most users hit this around month 3 — the math works out in your favor. The portal handles the switch. Proration applies on the remainder of the monthly cycle.
+Most users hit this around month 3 — the math works out in your favor. The portal handles the switch: it applies right away, and proration (a credit for the unused part of the current month plus the annual charge) lands on your next invoice. If you're still in your free trial, switching keeps the trial — you won't be charged until it ends, and then you're billed the annual rate.
 
 ## Promo and coupon codes
 

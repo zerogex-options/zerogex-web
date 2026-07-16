@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -38,6 +38,8 @@ help:
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
+	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
+	@echo "  make dedupe-payment-methods (EMAIL=<email> | ALL=1) - Detach duplicate same-card payment methods from Stripe customers, always keeping the default/subscription card (DRY by default, APPLY=1 to detach)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make clean      - Remove build artifacts"
@@ -253,6 +255,23 @@ winback:
 diagnose-user:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make diagnose-user EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/diagnose-user.mts --email $(EMAIL)'
+
+# Reset ONE account to a clean pre-signup state (tier=public, subscription mirror
+# and trial/lifecycle latches cleared) so you can re-run signup + plan switching.
+# TESTING TOOL — wipes local subscription history; never calls Stripe. Dry-run by
+# default; APPLY=1 to write. KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 preserve those.
+# Usage: make reset-user-for-testing EMAIL=foo@example.com [APPLY=1]
+reset-user-for-testing:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reset-user-for-testing EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/reset-user-for-testing.mjs --email $(EMAIL) $(if $(APPLY),--apply,) $(if $(KEEP_FOUNDING),--keep-founding,) $(if $(KEEP_CUSTOMER),--keep-customer,)'
+
+# Detach duplicate (same-fingerprint) card payment methods from Stripe customers,
+# always keeping the default / subscription card. Dry-run by default; APPLY=1 to
+# detach. Target one customer with EMAIL=..., or ALL=1 for every customer.
+# Usage: make dedupe-payment-methods EMAIL=foo@example.com [APPLY=1]   (or ALL=1)
+dedupe-payment-methods:
+	@if [ -z "$(EMAIL)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr> or ALL=1"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(EMAIL),--email $(EMAIL),--all) $(if $(APPLY),--apply,)'
 
 # Manually lengthen ONE customer's free trial (e.g. to thank a helpful early
 # user) by pushing out the Stripe subscription's trial_end. Everything else

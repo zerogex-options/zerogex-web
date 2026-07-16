@@ -30,7 +30,7 @@
 
 **Subscription says "past due".** Stripe is retrying the charge. Update the payment method to resolve. Paid features stay live during the retry window.
 
-**Bill is higher than expected.** Open the invoice in the portal — line items are detailed. Common surprises: a plan change mid-cycle is prorated; a switch from monthly to annual is billed upfront.
+**Bill is higher than expected.** Open the invoice in the portal — line items are detailed. Common surprises: a plan or cadence change is prorated — you get a credit for the unused part of the current period plus the new-plan charge, applied to your **next invoice** rather than billed on the spot.
 
 **Cancellation didn't go through.** Cancellation takes effect at the end of the billing period. Until then, you keep paid access. The portal shows the planned end date.
 

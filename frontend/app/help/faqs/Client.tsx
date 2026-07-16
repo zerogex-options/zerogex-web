@@ -140,9 +140,14 @@ const FAQ_DATA: FAQCategory[] = [
         a: 'Annual is meaningfully discounted versus monthly — the exact rate is on the Pricing page. Most active users switch to annual after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
       },
       {
+        id: 'switch-plan',
+        q: 'How do I switch my plan (tier or monthly/annual)?',
+        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal — you can move between Basic and Pro and between monthly and annual right there. Upgrades (and monthly → annual) take effect immediately; downgrades and annual → monthly take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in your free trial, switching keeps the trial — you won’t be charged until it ends, and then you’re billed the new plan’s rate.',
+      },
+      {
         id: 'tier-upgrade',
         q: 'How do I upgrade from Basic to Pro?',
-        a: 'Open the Account page, click "Manage subscription" to open the Stripe billing portal, and switch tiers there. Proration is applied — you pay the difference for the remainder of the current cycle, and tier access updates immediately.',
+        a: 'Open the Account page, click "Manage subscription" to open the Stripe billing portal, and switch tiers there. Tier access updates immediately; the prorated difference is applied to your next invoice.',
       },
       {
         id: 'cancellation',
