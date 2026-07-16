@@ -13,8 +13,8 @@
 //      --skip-refund if you already refunded by hand).
 //   2. Restores the free trial by setting the subscription's trial_end to a
 //      FUTURE date (proration_behavior=none), which moves the subscription back
-//      to 'trialing' so no charge lands until then. Defaults to a date a couple
-//      of weeks out as an apology; override with --trial-end.
+//      to 'trialing' so no charge lands until then. Defaults to a fresh 7-day
+//      trial from now; override with --trial-end for a longer goodwill window.
 //   3. Verifies the correct cadence promo coupon is still attached so the
 //      eventual trial->paid conversion charges the right amount (e.g. the annual
 //      $49-off promo => $150, not rack rate). If it's missing, it says so and
@@ -119,8 +119,8 @@ was ended by a portal plan switch. Then verifies the promo coupon so the eventua
 conversion charges the correct amount.
 
 Options:
-      --trial-end <ISO>  Restored trial end, e.g. 2026-08-03T13:11:43Z. Must be
-                         >48h out. Defaults to ~2.5 weeks from now as an apology.
+      --trial-end <ISO>  Restored trial end, e.g. 2026-07-23T16:00:00Z. Must be
+                         >48h out. Defaults to a fresh 7-day trial from now.
       --invoice in_...   Refund this specific invoice's charge. Default: the most
                          recent paid, non-zero invoice on the customer.
       --skip-refund      Don't refund (use if you already refunded by hand).
@@ -230,10 +230,12 @@ if (!STRIPE_SECRET_KEY) {
   process.exit(1);
 }
 
-// Default restored trial end: ~2.5 weeks out (generous apology cushion), at a
-// clean 13:11:43Z to echo the member's original trial time-of-day. Override with
-// --trial-end. Resolved from Date so it always sits comfortably past the 48h floor.
-const DEFAULT_TRIAL_DAYS = 18;
+// Default restored trial: a fresh standard 7-day trial from now (matches the
+// product's TRIAL_PERIOD_DAYS in the checkout route), so "restore the trial"
+// gives back a normal trial rather than a surprise long comp. Override with
+// --trial-end for an exact date or a longer goodwill window. Comfortably past
+// Stripe's ~48h trial_end floor.
+const DEFAULT_TRIAL_DAYS = 7;
 let newTrialEndMs: number;
 if (cliArgs.trialEndIso) {
   const ms = Date.parse(cliArgs.trialEndIso);
