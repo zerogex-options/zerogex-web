@@ -1045,6 +1045,44 @@ export async function clearSession(request: NextRequest) {
   appendAuditEvent({ type: 'logout', userId: data.user.id, ip: getClientIp(request), message: 'User logged out' });
 }
 
+// X (formerly Twitter) usernames are 1–15 chars, letters/digits/underscore
+// only. We store the handle normalized WITHOUT the leading '@'.
+const X_HANDLE_RE = /^[A-Za-z0-9_]{1,15}$/;
+
+export function getUserXHandle(userId: string): string | null {
+  const row = getDb()
+    .prepare('SELECT x_handle FROM users WHERE id = ?')
+    .get(userId) as { x_handle: string | null } | undefined;
+  return row?.x_handle ?? null;
+}
+
+/**
+ * Set (or clear) the caller's X handle. Accepts an optional leading '@' and
+ * surrounding whitespace and normalizes those away before validation. An empty
+ * string (or one that is only '@'/whitespace) clears the handle. Returns the
+ * stored value (null when cleared). Throws on an invalid handle.
+ */
+export function setUserXHandle(userId: string, rawHandle: string): { xHandle: string | null } {
+  const normalized = rawHandle.trim().replace(/^@+/, '').trim();
+
+  let value: string | null;
+  if (normalized === '') {
+    value = null;
+  } else if (X_HANDLE_RE.test(normalized)) {
+    value = normalized;
+  } else {
+    throw new Error(
+      'Enter a valid X handle: 1–15 characters, letters, numbers, and underscores only.',
+    );
+  }
+
+  getDb()
+    .prepare('UPDATE users SET x_handle = ?, updated_at = ? WHERE id = ?')
+    .run(value, nowIso(), userId);
+
+  return { xHandle: value };
+}
+
 export async function requireSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;

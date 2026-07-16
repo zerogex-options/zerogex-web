@@ -433,6 +433,14 @@ function initDb(): DatabaseSync {
     'CREATE INDEX IF NOT EXISTS idx_page_view_events_created ON page_view_events(created_at);'
   );
 
+  // Optional, user-supplied X (formerly Twitter) handle, surfaced as a
+  // contact/social field in Account settings. Deliberately NOT collected at
+  // signup — a user opts in later from the Social Media section. Stored
+  // normalized WITHOUT the leading '@' (see setUserXHandle in core/serverAuth),
+  // NULL when unset. Unverified — treat as a display/contact hint, never as an
+  // identity or auth signal.
+  ensureColumn('users', 'x_handle', 'TEXT');
+
   return db;
 }
 
