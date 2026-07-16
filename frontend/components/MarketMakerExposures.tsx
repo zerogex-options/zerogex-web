@@ -647,9 +647,36 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     return null;
   }, [strikeProfileBuckets]);
+
+  // Freeze the last non-empty gamma surface so the Gamma / Positions panels
+  // (and the wall / flip levels) NEVER go blank once we've seen data this
+  // session.  ``liveGexBucket`` already walks back to the last bucket with
+  // real gamma inside the CURRENT fetch; this ref extends that across fetches
+  // and — the case that matters here — across the outside-session FUTURES
+  // swap.  When cash is closed the candle series switches to the index's
+  // future while the analytics engine stops writing per-strike gamma, so the
+  // live gamma surface would otherwise disappear.  Holding the last
+  // cash-session close here keeps the levels frozen in place; when cash
+  // reopens and fresh gamma arrives, ``liveGexBucket`` becomes non-null again
+  // and the panels pick right back up.  Held in state (safe to read during
+  // render), tagged with the symbol so a previous underlying's frozen surface
+  // can never flash while the new symbol's first fetch is in flight.
+  const [lastGoodGexBucket, setLastGoodGexBucket] =
+    useState<{ symbol: string; bucket: StrikeProfileBucketRow } | null>(null);
+  // Adjust-state-during-render — React's recommended alternative to a
+  // set-state-in-effect (the same pattern the expiration latch below uses).
+  // The reference guard makes it converge: once the current live bucket is
+  // captured, no further update fires until ``liveGexBucket`` changes again.
+  if (liveGexBucket && lastGoodGexBucket?.bucket !== liveGexBucket) {
+    setLastGoodGexBucket({ symbol, bucket: liveGexBucket });
+  }
+  const frozenGexBucket =
+    liveGexBucket ??
+    (lastGoodGexBucket?.symbol === symbol ? lastGoodGexBucket.bucket : null);
+
   const strikeAggregations = useMemo<StrikeAggregation[]>(
-    () => bucketToStrikeAggregations(liveGexBucket),
-    [liveGexBucket],
+    () => bucketToStrikeAggregations(frozenGexBucket),
+    [frozenGexBucket],
   );
 
   // Y-axis anchor fallback for the brief moment before any candle has loaded.
@@ -945,12 +972,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effStrikeAggregations = rewoundStrikes ?? strikeAggregations;
 
   const visibleStrikes = useMemo(() => {
-    // Futures mode: no gamma overlay — the index-strike bars don't line up
-    // with the future's price scale.
-    if (isFuturesMode) return [] as StrikeAggregation[];
+    // Show the gamma surface even in the outside-session futures view: rather
+    // than blanking, the panels display the frozen last-cash-close surface
+    // (see frozenGexBucket).  The index strikes sit on the futures price axis
+    // offset by the index↔future basis — an accepted trade-off for keeping the
+    // gamma / OI levels visible while cash is closed instead of showing blanks.
     if (!yBounds) return [] as StrikeAggregation[];
     return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
-  }, [effStrikeAggregations, yBounds, isFuturesMode]);
+  }, [effStrikeAggregations, yBounds]);
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -1158,12 +1187,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // "now".  Each field independently falls back to the live summary if the
   // bucket has no recorded value (rare — typically when the analytics writer
   // hadn't resolved the flip yet on that cycle).
-  const levelSourceBucket = rewoundBucket ?? liveGexBucket;
-  // Futures mode: suppress the index-strike levels (they'd draw offset from the
-  // futures candles); the spot line (candle close) still renders.
-  const effFlip = isFuturesMode ? null : (toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip));
-  const effCallWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall));
-  const effPutWall = isFuturesMode ? null : (toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall));
+  const levelSourceBucket = rewoundBucket ?? frozenGexBucket;
+  // Draw the flip / call wall / put wall from the frozen last-close surface
+  // even in the outside-session futures view — same freeze-don't-blank rule as
+  // the gamma / OI panels above.  They sit on the futures price axis offset by
+  // the index↔future basis; the spot line still tracks the futures candle close.
+  const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
+  const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
+  const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
@@ -1585,14 +1616,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
 
         {/* Futures display swap (outside cash session): the candle series is
-            the cash index's future; the gamma overlay is hidden. */}
+            the cash index's future; the gamma / OI surface stays frozen at the
+            last cash close (see frozenGexBucket) rather than blanking. */}
         {isFuturesMode && (
           <div
             className={toolbarBtnClass}
             style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
-            title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} (gamma levels hidden until the cash open)`}
+            title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} candles; gamma & OI levels are frozen at the last cash close until the next open`}
           >
-            <span>◆ {futuresChartTicker ?? 'FUTURES'}</span>
+            <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
           </div>
         )}
 
