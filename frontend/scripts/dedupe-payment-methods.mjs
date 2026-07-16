@@ -135,18 +135,33 @@ function dedupKey(pm) {
   return null;
 }
 
-// The set of payment methods we must never detach: invoice default plus every
-// subscription's default_payment_method.
-async function protectedPmIds(customer) {
-  const ids = new Set();
+// Subscription statuses that can still produce a charge — their
+// default_payment_method must be protected. canceled / incomplete_expired subs
+// never charge again, so the card they once used is free to dedupe. (A customer
+// who resubscribed several times has a dead sub per old card; protecting those
+// would make the dedupe a no-op.)
+const LIVE_SUB_STATUSES = new Set([
+  'active',
+  'trialing',
+  'past_due',
+  'unpaid',
+  'paused',
+  'incomplete',
+]);
+
+// Map of payment-method-id -> why it is protected (must never be detached): the
+// customer's invoice default, or the default of a still-live subscription.
+async function protectedPmInfo(customer) {
+  const reasons = new Map();
   const invoiceDefault = idOf(customer.invoice_settings?.default_payment_method);
-  if (invoiceDefault) ids.add(invoiceDefault);
+  if (invoiceDefault) reasons.set(invoiceDefault, 'invoice-default');
   const subs = await stripe.subscriptions.list({ customer: customer.id, status: 'all', limit: 100 });
   for (const s of subs.data) {
+    if (!LIVE_SUB_STATUSES.has(s.status)) continue; // dead sub — its card can be deduped
     const d = idOf(s.default_payment_method);
-    if (d) ids.add(d);
+    if (d && !reasons.has(d)) reasons.set(d, `sub:${s.status}`);
   }
-  return ids;
+  return reasons;
 }
 
 // Returns the PMs to detach (never a protected PM). Keeps, per key group, the
@@ -180,10 +195,10 @@ function pmDescriptor(pm) {
 }
 
 async function listPmsAndProtected(customer) {
-  const protectedIds = await protectedPmIds(customer);
+  const reasons = await protectedPmInfo(customer);
   // No `type` filter => all payment method types (cards, link, etc.).
   const pms = (await stripe.paymentMethods.list({ customer: customer.id, limit: 100 })).data;
-  return { protectedIds, pms };
+  return { reasons, protectedIds: new Set(reasons.keys()), pms };
 }
 
 async function inspectCustomer(customer, showEmptyish) {
@@ -194,15 +209,15 @@ async function inspectCustomer(customer, showEmptyish) {
     console.error(`  ! ${customer.id} (${customer.email ?? '—'}): ${err.message}`);
     return;
   }
-  const { protectedIds, pms } = data;
+  const { reasons, protectedIds, pms } = data;
   if (!showEmptyish && pms.length < 2) return; // --all inspect: skip singletons
   const detachSet = new Set(planDetachments(pms, protectedIds).map((p) => p.id));
   console.log(`\nCustomer ${customer.id} (${customer.email ?? '—'}) — ${pms.length} payment method(s):`);
   for (const pm of [...pms].sort((a, b) => a.created - b.created)) {
     const flag = detachSet.has(pm.id)
       ? 'DUP → would detach'
-      : protectedIds.has(pm.id)
-        ? 'keep (default/subscription)'
+      : reasons.has(pm.id)
+        ? `keep (${reasons.get(pm.id)})`
         : 'keep';
     console.log(`  [${flag}] ${pmDescriptor(pm)}`);
   }
