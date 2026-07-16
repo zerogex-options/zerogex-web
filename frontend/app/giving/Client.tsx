@@ -101,7 +101,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
 }
 
 // ── FAQ item ──────────────────────────────────────────────────────────────────
-function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boolean }) {
+function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDark?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{
@@ -479,7 +479,25 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           />
           <FAQItem isDark={isDark}
             q="Can I get a tax receipt for the donation?"
-            a="No — the donation is made by ZeroGEX, not by you, so the receipt is issued to ZeroGEX. If you would like to make a personal tax-deductible donation directly to Folds of Honor in addition to your subscription, you can do so at foldsofhonor.org."
+            a={
+              <>
+                No — the donation is made by ZeroGEX, not by you, so the receipt is issued
+                to ZeroGEX. If you would like to make a personal tax-deductible donation
+                directly to Folds of Honor in addition to your subscription, you can do so
+                through our tracked partner page at{' '}
+                <a
+                  href={FOH_DONATION_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: C.amber, fontWeight: 600, textDecoration: 'none' }}
+                >
+                  foldsofhonorpartners.donorsupport.co/page/ZeroGX
+                </a>
+                . Donations through that link are attributed to the ZeroGEX partner page
+                inside FOH&rsquo;s donor system, so you also help us track the total
+                community impact.
+              </>
+            }
           />
           <FAQItem isDark={isDark}
             q="Why Folds of Honor specifically?"
