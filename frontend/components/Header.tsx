@@ -632,18 +632,22 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
-            <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(66vw, 240px)", padding: 0, margin: 0, lineHeight: 0 }}>
+            <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(56vw, 210px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <Image
                 src="/title.svg"
                 alt="ZeroGEX"
                 width={300}
                 height={60}
                 priority
+                // Fit the wordmark fully inside the mobile top bar: cap it to the
+                // bar height AND the (flex-shrunk) container width so it never
+                // clips top/bottom or on the right the way a fixed 130%-height,
+                // width:auto image did once the icons on the right claimed space.
                 style={{
-                  height: "130%",
+                  height: "auto",
                   width: "auto",
-                  maxHeight: "none",
-                  maxWidth: "none",
+                  maxHeight: "100%",
+                  maxWidth: "100%",
                   objectFit: "contain",
                   objectPosition: "left center",
                   display: "block",
@@ -676,8 +680,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <div
               className="space-y-4 overflow-y-auto overscroll-contain"
               style={{
+                // Subtract the top-bar height PLUS the ~10px of header chrome
+                // above the menu (header padding + the top-bar's mb-1) so the
+                // scroll area ends just inside the viewport instead of spilling
+                // a few px past the fold and hiding the last row.
                 maxHeight:
-                  "calc(100dvh - var(--zgx-mobile-topbar-height, 44px))",
+                  "calc(100dvh - var(--zgx-mobile-topbar-height, 44px) - 10px)",
               }}
             >
               <div className="space-y-3">

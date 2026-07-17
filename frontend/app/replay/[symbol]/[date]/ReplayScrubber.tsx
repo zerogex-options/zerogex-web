@@ -1008,7 +1008,13 @@ function ReplayOverlayChart({
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMinYMin meet"
           className="block w-full"
-          style={{ aspectRatio: `${CW} / ${CH}` }}
+          // Keep the chart at a legible size on narrow screens instead of
+          // scaling the whole 1200-wide canvas down to phone width (which shrank
+          // every candle, bar and axis label to a few pixels). Below ~880px the
+          // SVG holds this min width and the wrapper's overflow-x-auto lets the
+          // user pan horizontally; on desktop the container is wider than the
+          // floor so width:100% still governs and nothing changes.
+          style={{ aspectRatio: `${CW} / ${CH}`, minWidth: "880px" }}
         >
           {/* Clip price-dependent marks (candles, strike bars, flip line) to
               the plot box so magnified content never spills past the axes. */}

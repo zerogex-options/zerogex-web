@@ -881,7 +881,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       {selectedComponent && selectedComponentDetails && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedComponent(null)} role="presentation">
           <div
-            className="w-full max-w-xl rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+            className="w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
