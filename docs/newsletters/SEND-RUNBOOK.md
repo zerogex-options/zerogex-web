@@ -1,69 +1,58 @@
 # July 2026 Product Update — Send Runbook
 
-Two audiences, two email files, one cohort script. The actual send goes out
-through **Resend Broadcasts** (the emails use `{{{RESEND_UNSUBSCRIBE_URL}}}`,
-which only Broadcasts resolve, and Broadcasts manage the unsubscribe/suppression
-list for CAN-SPAM). The cohort script never sends the broadcast — you review and
-click **Send** in Resend. That review is the intended gate on a mass send.
+Sent **directly, per-recipient, from the server** via Resend (`emails.send`) with
+`scripts/send-product-update.mts`. No unsubscribe link in the email body (by
+request); the script attaches an invisible `List-Unsubscribe` header for
+deliverability (disable with `--no-list-unsubscribe`, not recommended).
 
 | Audience | Who | Files | Subject |
 |---|---|---|---|
 | `subscribers` | Active + trialing customers (`subscription_status IN ('active','trialing')`) | `2026-07-product-update.html` / `.txt` | What's new at ZeroGEX — and what's coming next |
-| `registrants` | Signed up ≤30d, verified email, logged in (has authenticated page-view activity), never subscribed, **and not already sent the verified-never-paid nudge** (no double-touch) | `2026-07-product-update-registrants.html` / `.txt` | Your ZeroGEX account is ready — start with the free levels |
+| `registrants` | Signed up ≤30d, verified, logged in, never subscribed, not already sent the verified-never-paid nudge | `2026-07-product-update-registrants.html` / `.txt` | Your ZeroGEX account is ready — start with the free levels |
 
-## Prerequisites (production)
+## Prerequisites (run in production, from `frontend/`)
 
-- Run from `frontend/` in the environment that has the real `auth.db`
-  (`AUTH_DB_PATH`), with `RESEND_API_KEY` + `RESEND_FROM_EMAIL` set (or in
-  `.env.local`). `sqlite3` CLI on PATH (`sudo apt-get install sqlite3`).
-- Resend sending domain (zerogex.io) verified.
-- **Header image live**: the emails reference
-  `https://zerogex.io/email/zerogex-header.png` — deploy so it serves, or upload
-  the PNG in Resend and swap the `LOGO-IMG` src.
+- Real `auth.db` reachable (`AUTH_DB_PATH`), `RESEND_API_KEY` + `RESEND_FROM_EMAIL`
+  set (or in `frontend/.env.local`), Resend sending domain verified, `sqlite3`
+  CLI installed.
+- **Header image live:** deploy so `https://zerogex.io/email/zerogex-header.png`
+  serves (otherwise the logo is a broken image).
 
-## Steps (repeat per audience)
+## Send to subscribers
 
-1. **Count the cohort**
-   ```
-   node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --dry-run
-   node --experimental-strip-types scripts/send-product-update.mts --audience registrants --dry-run
-   ```
-   The registrant cohort already **excludes** anyone the automated
-   *verified-never-paid* nudge reached; the dry-run reports how many were
-   excluded for that reason.
+```
+cd frontend
 
-2. **Preview to yourself** (real inbox, desktop + phone)
-   ```
-   node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --preview-to Michael@zerogex.io
-   ```
+# 1. See the count + a sample (nothing sent)
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --dry-run
 
-3. **Create a Resend Audience** for the campaign (e.g. "Product Update Jul 2026 — subscribers").
+# 2. Send one preview to yourself; open on desktop + phone
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --preview-to Michael@zerogex.io
 
-4. **Stage the cohort** into that audience:
-   ```
-   node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --sync-to-audience <audienceId>
-   ```
-   (or `--csv subscribers.csv` and import the CSV in the Resend UI.)
+# 3. Small live test batch (first 5 real recipients)
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --send --yes --limit 5
 
-5. **Create the Broadcast** in Resend → select the audience → From
-   `ZeroGEX <you@zerogex.io>`, Reply-To `Michael@zerogex.io`, the subject above →
-   paste the `.html` as the HTML body and the `.txt` as the plain-text body.
-   Resend injects the unsubscribe link automatically.
+# 4. Send to everyone remaining
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --send --yes
+```
 
-6. **Send a Resend test** from the Broadcast composer; review once more.
+`--send` requires `--yes`. The script stamps `audit_events(type='product_update_2026_07_sent')`
+per successful send, so re-running (including after the `--limit 5` test) skips
+anyone already emailed — an interrupted run resumes cleanly.
 
-7. **Send** (or schedule). Resend handles unsubscribe + suppression.
+## Send to registrants (later)
 
-## Notes / decisions
+Same command with `--audience registrants` — or export the cohort and send from
+the Resend UI:
 
-- **No double-touch:** the registrant cohort excludes anyone the automated
-  `send-verified-never-paid` cron already emailed. That cron keeps running, so if
-  you want a clean split, consider pausing its timer while this campaign is out.
-- **"Logged in"** is proxied by authenticated page-view activity (there is no
-  `last_login` column). Adjust the cohort query if you want a stricter/looser
-  signal.
-- **Verified addresses only:** the registrant cohort already requires
-  `email_verified_at`; subscribers are verified by definition. Don't send to
-  unverified accounts (protects sender reputation).
-- One-shot manual broadcast — no DB latch is written; Resend won't double-send
-  within a broadcast, and re-running `--sync-to-audience` dedupes contacts.
+```
+node --experimental-strip-types scripts/send-product-update.mts --audience registrants --csv registrants.csv
+```
+
+## Notes
+
+- **Throttle:** `--throttle-ms` (default 550ms ≈ 1.8/s) stays under Resend's rate
+  limit; 429s are retried with backoff automatically.
+- **Idempotency key:** `product_update_2026_07`. One-shot campaign.
+- **Verified only:** the registrant cohort requires `email_verified_at`;
+  subscribers are verified by definition.

@@ -1,9 +1,9 @@
 ZeroGEX — Getting Started · July 2026
 Subject: Your ZeroGEX account is ready — start with the free levels
 
-(Plain-text version of 2026-07-product-update-registrants.html, for people who
-registered but haven't subscribed or started a trial. Send to VERIFIED
-registrant addresses only. {{{RESEND_UNSUBSCRIBE_URL}}} is a Resend merge tag.)
+(Plain-text version of 2026-07-product-update-registrants.html, for verified
+registrants who haven't subscribed. Sent per-recipient via
+scripts/send-product-update.mts.)
 
 ------------------------------------------------------------
 
@@ -169,6 +169,5 @@ Giving:            https://zerogex.io/giving
 Help & FAQ:        https://zerogex.io/help/faqs
 
 You're receiving this because you created a ZeroGEX account.
-Unsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}
 Questions? Just reply, or email Michael@zerogex.io
 ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
