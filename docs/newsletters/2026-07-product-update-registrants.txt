@@ -1,0 +1,174 @@
+ZeroGEX — Getting Started · July 2026
+Subject: Your ZeroGEX account is ready — start with the free levels
+
+(Plain-text version of 2026-07-product-update-registrants.html, for people who
+registered but haven't subscribed or started a trial. Send to VERIFIED
+registrant addresses only. {{{RESEND_UNSUBSCRIBE_URL}}} is a Resend merge tag.)
+
+------------------------------------------------------------
+
+Hi there,
+
+Thanks for creating a ZeroGEX account. I'm Michael, the founder — I wanted to
+introduce myself, give you a quick tour of what ZeroGEX does and what's new,
+and point you to the easiest way to start (the core levels are free).
+
+ZeroGEX is built for active traders. It shows you where options dealers are
+positioned, so you can read intraday price action the way market makers hedge
+it — the gamma flip, the call and put walls, and the levels price tends to pin,
+reject, or react around. Here's what's inside, where it's headed, and how to
+jump in.
+
+
+== HIGHLIGHTS ==
+
+* Free Gamma Levels (https://zerogex.io/spx-gamma-levels). Today's gamma flip,
+  call and put walls, max pain, and dealer gamma profile for SPX, SPY, and
+  QQQ — free and 15-minute delayed, no signup, no card. The easiest place to
+  see what ZeroGEX does.
+
+* Backtesting (https://zerogex.io/backtesting). Test any options strategy
+  against historical market data — a full tearsheet (risk-adjusted returns,
+  drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable
+  "prove it" report links.
+
+* Forced Flow & Charm-into-Close. A read on dealer hedging pressure into the
+  close — where charm and vanna are quietly pushing price late in the session.
+
+* Daily Forecast (https://zerogex.io/forecast). Each morning, a plain-English
+  read on the day ahead: an Expected Volatility estimate, a projected range,
+  and the Key Levels that matter — and it grades itself against what actually
+  happened, so you see a track record, not just a claim.
+
+* TradeWorkz™ (https://zerogex.io/trading-signals). A fleet of automated
+  strategies that trade off ZeroGEX's own proprietary metrics and levels,
+  posting their entries and exits in real time — backed by a fully public
+  trade audit (every win and loss, not just the highlights).
+
+See the free Gamma Levels: https://zerogex.io/spx-gamma-levels
+
+
+== WHAT'S COMING NEXT ==
+
+A quick look at where ZeroGEX is headed — the current direction:
+
+-> My Dashboard. A customizable, widget-based view — pull your favorite charts
+   and cards into one board, move things where you want them, and save your
+   layout, chart settings, and symbol selections.
+
+-> Enhanced backtesting. More strategies, more control, deeper analytics, and
+   a longer history window as we expand the dataset.
+
+-> More tickers. Expanding coverage beyond SPY, SPX, and QQQ.
+
+-> More automated strategies. Additional TradeWorkz™ bots — each with the same
+   public, no-cherry-picking track record.
+
+-> A sharper mobile experience. Continued work to make ZeroGEX feel great on
+   the phone, not just the desktop.
+
+
+== TWO WAYS IN — BOTH FREE TO START ==
+
+The free, 15-minute-delayed Gamma Levels pages (SPX, SPY, QQQ) are open right
+now — no card, nothing to set up. See today's gamma flip, call and put walls,
+and max pain: https://zerogex.io/spx-gamma-levels
+
+Want the real-time Dashboard, signals, and everything above? A free trial
+gives you full access — you won't be charged until it ends, and you can cancel
+anytime.
+
+Start your free trial: https://zerogex.io/pricing
+
+
+== WE'RE A FOLDS OF HONOR PROUD SUPPORTER ==
+
+3% of every subscription is pledged to Folds of Honor, funding educational
+scholarships for the spouses and children of fallen and disabled U.S. service
+members — at no extra cost to you. It comes out of ZeroGEX's share, not your
+price. We settle one consolidated donation each quarter and publish the
+running total at https://zerogex.io/giving — the ledger, not a marketing claim.
+
+
+== A FEW COMMON QUESTIONS ==
+
+--- Using ZeroGEX ---
+
+Q: Where do I start — how should I actually use it?
+A: Start free. The Gamma Levels pages (https://zerogex.io/spx-gamma-levels)
+show the three levels that matter most: the Gamma Flip (stabilizing vs.
+amplifying regime), and the Call Wall and Put Wall (your likely upside and
+downside friction). On a free trial you also get the live Dashboard and GEX
+Strike Profile in real time. The idea: the levels tell you WHERE to pay
+attention; your own price action (VWAP, the opening-range break) tells you WHEN.
+
+Q: Why is ZeroGEX's Gamma Flip / Net GEX different from other sites?
+A: Because most sites take a shortcut we don't. The common method just adds up
+each strike's static gamma and calls the zero-crossing the "flip" — but that
+flip tends to stick to whatever wall is in the snapshot, even when the true
+zero-gamma level has moved several percent away. ZeroGEX computes the
+spot-shift dealer gamma profile instead (the original SpotGamma / SqueezeMetrics
+definition): we re-price every contract's gamma across a grid of hypothetical
+prices around spot, apply the dealer sign convention (calls +, puts −), and
+weight by open interest and time to expiry. Everything reads off one curve, so
+the headline Net GEX and the flip regime can never contradict each other. Full
+write-up: https://zerogex.io/guides/gamma-flip-calculation-before-vs-after
+
+Q: Can I replay or backtest the levels against historical price action?
+A: Yes to both. Replay (https://zerogex.io/replay) lets you scrub back through
+a past session and watch how price behaved around the Gamma Flip, Call Wall,
+and Put Wall as they moved — with a toggle to hide future candles. Backtesting
+(https://zerogex.io/backtesting) runs a signal or rule against historical data
+with a full tearsheet.
+
+Q: Can I use it for futures like ES, MES, NQ, or MNQ?
+A: Yes — you map the future to its index book. /ES and /MES trade off the SPX
+(and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The
+structural levels are identical — only the price scale differs.
+
+--- Trial & plans ---
+
+Q: How does the free trial work — and when would I be charged?
+A: Both Basic and Pro start with a free trial (length is shown on the Pricing
+page, https://zerogex.io/pricing). You're not charged during it — at the end it
+continues automatically at the rate you signed up for. Cancel any time before
+the trial ends and you're never charged a cent.
+
+Q: What's the difference between free, Basic, and Pro?
+A: The free, 15-minute-delayed Gamma Levels pages (SPX, SPY, QQQ) are open to
+anyone, no signup. Basic adds the live Dashboard, the Live Bulletin, all
+metrics, the strategy tools, and the Basic signals. Pro adds the Advanced
+signals, the Composite Score, Backtesting, and programmatic API access. Full
+breakdown: https://zerogex.io/pricing
+
+More questions? The full FAQ — 50+ answers — lives at
+https://zerogex.io/help/faqs
+
+
+------------------------------------------------------------
+
+That's the tour. Your account's ready whenever you are — the free Gamma Levels
+are one click away, and a free trial opens up the rest. Questions, or something
+you'd want to see before subscribing? Just hit reply — I read every message
+myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+ZeroGEX provides options market-structure data and analytics for educational
+and informational purposes only. It is not investment advice, and nothing here
+is a recommendation to buy or sell any security. Options trading involves
+substantial risk and is not suitable for every investor.
+
+Free Gamma Levels: https://zerogex.io/spx-gamma-levels
+Pricing:           https://zerogex.io/pricing
+Giving:            https://zerogex.io/giving
+Help & FAQ:        https://zerogex.io/help/faqs
+
+You're receiving this because you created a ZeroGEX account.
+Unsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
