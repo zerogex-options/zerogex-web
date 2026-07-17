@@ -326,6 +326,13 @@ function initDb(): DatabaseSync {
   // over once (if) they verify.
   ensureColumn('users', 'verify_reminder_email_sent_at', 'TEXT');
 
+  // Marketing-email opt-out. NULL = opted in; set to the ISO timestamp when the
+  // user unsubscribes via app/unsubscribe/route.ts (the footer link / one-click
+  // header on product-update emails). Honored by scripts/send-product-update.mts,
+  // which excludes any user with a non-NULL value. Does not affect essential
+  // account/billing/transactional email.
+  ensureColumn('users', 'marketing_unsubscribed_at', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when

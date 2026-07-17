@@ -15,8 +15,13 @@ deliverability (disable with `--no-list-unsubscribe`, not recommended).
 - Real `auth.db` reachable (`AUTH_DB_PATH`), `RESEND_API_KEY` + `RESEND_FROM_EMAIL`
   set (or in `frontend/.env.local`), Resend sending domain verified, `sqlite3`
   CLI installed.
-- **Header image live:** deploy so `https://zerogex.io/email/zerogex-header.png`
-  serves (otherwise the logo is a broken image).
+- `ZEROGEX_END_USER_TOKEN_SECRET` and `NEXT_PUBLIC_APP_URL` set — used to sign the
+  per-recipient unsubscribe links.
+- **Deploy first.** It (a) serves the header image at
+  `https://zerogex.io/email/zerogex-header.png` (otherwise the logo is broken),
+  (b) runs the DB migration that adds `users.marketing_unsubscribed_at`, and
+  (c) publishes the `/unsubscribe` route the footer link and one-click header
+  point to. The send script reads `marketing_unsubscribed_at`, so it must exist.
 
 ## Send to subscribers
 
