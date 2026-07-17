@@ -25,14 +25,13 @@ The docs require a Pro account. Public users are routed to the Pricing page on c
 
 ## Authentication
 
-Authentication uses **bearer tokens** issued from your Account page. The flow:
+Authentication uses **bearer tokens**. Self-serve key generation from your Account page is on the way; until it ships, keys are issued by hand:
 
-1. Open [Account](/account).
-2. Open the API panel (Pro accounts only).
-3. Generate a new API key. Copy it immediately — you won't see it again.
-4. Include it as `Authorization: Bearer <key>` on every request.
+1. Email [support@zerogex.io](mailto:support@zerogex.io) from your account address (Pro accounts only).
+2. We send you a key and setup notes.
+3. Include it as `Authorization: Bearer <key>` on every request.
 
-Rotate keys at any time. Revoking a key takes effect within seconds.
+Need a key rotated or revoked? Email support and we'll turn it around quickly.
 
 ## Rate limits
 

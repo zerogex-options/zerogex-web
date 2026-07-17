@@ -66,6 +66,11 @@ const FAQ_DATA: FAQCategory[] = [
         a: 'Not on the roadmap. The dealer-positioning model works best in instruments where institutional options flow dominates the underlying — that is the index complex. Single names have idiosyncratic-news noise that makes the GEX read less reliable.',
       },
       {
+        id: 'futures',
+        q: 'Can I use ZeroGEX to trade futures like ES, MES, NQ, or MNQ?',
+        a: 'Yes — you map the future to its index book. /ES and /MES trade off the SPX (and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The structural levels are identical; only the price scale differs. When the cash index is closed, the Live Bulletin already shows the ES/NQ futures-implied price for context. Translating the levels directly into futures prices is on the roadmap.',
+      },
+      {
         id: 'refresh-cadence',
         q: 'How often does the data refresh?',
         a: 'Quotes and flow refresh every ~1 second during regular hours. Signal scores refresh every 1–5 seconds depending on the signal. The GEX surface refreshes every 5–15 seconds (the chain snapshot is the bottleneck). Everything streams — you do not need to reload the page.',
@@ -179,7 +184,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'dashboard-workflow',
         q: 'What is the right workflow for using ZeroGEX during a trading day?',
-        a: 'Open the Dashboard first — orient on the regime, the flip, the walls. Open the Live Bulletin in a second tab to catch trigger events as they happen. Drill into the signal or metric page only when a trigger or confluence warrants it. The dashboard is for orientation, not analysis.',
+        a: 'Start simple. On the Dashboard, read the three levels that matter most first: the Gamma Flip (stabilizing vs. amplifying regime), then the Call Wall and Put Wall (your likely upside and downside friction). Pull up the GEX Strike Profile to see how that structure sits on price, then confirm with your own price action — VWAP, the opening-range break, whatever you already trust. Keep the Live Bulletin open in a second tab for trigger events. The levels tell you where to pay attention; your execution triggers tell you when. Don\'t try to watch all fourteen signals at once on day one.',
       },
       {
         id: 'multiple-symbols',
@@ -267,8 +272,8 @@ const FAQ_DATA: FAQCategory[] = [
       },
       {
         id: 'api-keys',
-        q: 'How do I generate an API key?',
-        a: 'Open the Account page (Pro users), open the API panel, and generate a key. Copy it immediately — it will not be shown again. Use it as Authorization: Bearer <key>. Rotate keys at any time.',
+        q: 'I\'m on Pro — how do I get my API key?',
+        a: 'API access is a Pro feature. Self-serve key generation from your Account page is on the way; until it ships, keys are issued by hand — email support@zerogex.io from your account address and we\'ll send you a key plus setup notes. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. Email us to rotate or revoke a key.',
       },
       {
         id: 'api-streaming',
