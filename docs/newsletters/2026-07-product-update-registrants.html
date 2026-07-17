@@ -66,12 +66,12 @@
 
         <table role="presentation" class="zg-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(15,34,52,0.10);">
 
-          <!-- Header: full-bleed logo banner -->
+          <!-- Header: logo on a navy band (reduced from full-bleed) -->
           <tr>
-            <td align="center" bgcolor="#0f2234" style="background-color:#0f2234; line-height:0; font-size:0;">
+            <td align="center" bgcolor="#0d1d2d" style="background-color:#0d1d2d; padding:20px 0; line-height:0; font-size:0;">
               <!-- LOGO-IMG -->
               <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0;">
-                <img src="https://zerogex.io/email/zerogex-header.png" width="600" height="251" alt="ZeroGEX — Options Analytics" style="display:block; width:100%; max-width:600px; height:auto; border:0;">
+                <img src="https://zerogex.io/email/zerogex-header.png" width="400" height="167" alt="ZeroGEX — Options Analytics" style="display:block; width:400px; max-width:78%; height:auto; border:0; margin:0 auto;">
               </a>
             </td>
           </tr>
@@ -119,7 +119,7 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
                 <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
                 <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
-                  <strong><a href="https://zerogex.io/backtesting" target="_blank" style="color:#cc352f; text-decoration:none;">Backtesting</a>.</strong> Test any options strategy against historical market data &mdash; a full tearsheet (risk-adjusted returns, drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable &ldquo;prove it&rdquo; report links.
+                  <strong><a href="https://zerogex.io/backtesting" target="_blank" style="color:#cc352f; text-decoration:none;">Backtesting</a>.</strong> Test options strategies and ZeroGEX signals against historical market data &mdash; a full tearsheet (risk-adjusted returns, drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable &ldquo;prove it&rdquo; report links.
                 </td>
               </tr></table>
 
@@ -140,7 +140,7 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px 0;"><tr>
                 <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
                 <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
-                  <strong><a href="https://zerogex.io/trading-signals" target="_blank" style="color:#cc352f; text-decoration:none;">TradeWorkz&trade;</a>.</strong> A fleet of automated strategies that trade off ZeroGEX's own proprietary metrics and levels, posting their entries and exits in real time &mdash; backed by a fully public trade audit (every win and loss, not just the highlights).
+                  <strong><a href="https://zerogex.io/trading-signals" target="_blank" style="color:#cc352f; text-decoration:none;">TradeWorkz&trade;</a>.</strong> A growing set of automated strategies built around ZeroGEX's proprietary metrics and levels, posting their entries and exits in real time &mdash; backed by a fully public trade audit (every win and loss, not just the highlights).
                 </td>
               </tr></table>
 
@@ -278,11 +278,11 @@
               </details>
 
               <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
-                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Why is ZeroGEX's Gamma Flip / Net GEX different from other sites?</span></summary>
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Why might ZeroGEX show a different Gamma Flip or Net GEX than another platform?</span></summary>
                 <div style="padding:2px 2px 15px 26px;">
-                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">Because most sites take a shortcut we don't. The common method just adds up each strike's <em>static</em> gamma and calls the zero-crossing the &ldquo;flip.&rdquo; It's fast &mdash; but that flip tends to stick to whatever wall is in the snapshot, even when the true zero-gamma level has moved several percent away.</p>
-                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">ZeroGEX computes the <strong>spot-shift dealer gamma profile</strong> instead &mdash; the original SpotGamma / SqueezeMetrics definition. We re-price every contract's gamma across a grid of hypothetical prices around spot, apply the dealer sign convention (calls&nbsp;+, puts&nbsp;&minus;), and weight by open interest and time to expiry. Everything reads off one curve: the <strong>Gamma Flip</strong> is where it crosses zero, and <strong>Net GEX at spot</strong> is its value at today's price &mdash; so the headline number and the regime can never contradict each other.</p>
-                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Full write-up, with a vendor-by-vendor comparison, is at <a href="https://zerogex.io/guides/gamma-flip-calculation-before-vs-after" target="_blank" style="color:#cc352f; font-weight:700;">zerogex.io/guides/gamma-flip-calculation-before-vs-after</a>.</p>
+                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">Gamma calculations are highly methodology-dependent. Rather than treating each strike as a static snapshot, ZeroGEX models how dealer gamma exposure changes across a range of hypothetical underlying prices. The Gamma Flip is derived from where that modeled exposure crosses zero, while Net GEX represents the same curve at the current price.</p>
+                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">Differences in expiration weighting, implied volatility, contract filtering, dealer-sign assumptions, and data timing can all produce different results between platforms. When the available chain is too thin or noisy to resolve a reliable level, ZeroGEX shows it as unresolved rather than presenting a potentially misleading number.</p>
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;"><a href="https://zerogex.io/guides/gamma-flip-calculation-before-vs-after" target="_blank" style="color:#cc352f; font-weight:700;">Read the full methodology &rarr;</a></p>
                 </div>
               </details>
 
@@ -296,7 +296,7 @@
               <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
                 <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Can I use it for futures like ES, MES, NQ, or MNQ?</span></summary>
                 <div style="padding:2px 2px 15px 26px;">
-                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Yes &mdash; you map the future to its index book. <strong>/ES</strong> and <strong>/MES</strong> trade off the <strong>SPX</strong> (and SPY) gamma levels; <strong>/NQ</strong> and <strong>/MNQ</strong> off <strong>QQQ</strong> today, with <strong>NDX</strong> coming. The structural levels are identical &mdash; only the price scale differs.</p>
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Yes &mdash; the index and ETF options books can provide highly relevant structural context for futures. ES and MES traders can reference <strong>SPX</strong> and <strong>SPY</strong> levels, while NQ and MNQ traders can use <strong>QQQ</strong> today, with <strong>NDX</strong> coverage coming. The markets are closely related, but the levels aren't always a perfect one-to-one translation, since futures can trade at a basis to the underlying index or ETF.</p>
                 </div>
               </details>
 
