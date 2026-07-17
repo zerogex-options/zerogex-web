@@ -14,10 +14,13 @@
  * ---- EDIT ME ----
  */
 const CARD = {
-  url:   'zerogex.io',
-  // The QR encodes this URL. If you change it, regenerate qr-zerogex.svg:
-  //   pip install segno && python -c "import segno;segno.make('https://zerogex.io',error='h').save('qr-zerogex.svg',scale=10,border=2,dark='#0E1B2A',light=None)"
-  qrUrl: 'https://zerogex.io',
+  url:      'zerogex.io',
+  offer:    '50% OFF YOUR FIRST YEAR',
+  code:     'TARGET',
+  // The QR carries the promo link so the rate is captured automatically on scan.
+  // If you change it, regenerate qr-zerogex.svg:
+  //   pip install segno && python -c "import segno;segno.make('https://zerogex.io/register?ref=TARGET',error='h').save('qr-zerogex.svg',scale=10,border=2,dark='#0E1B2A',light=None)"
+  qrUrl: 'https://zerogex.io/register?ref=TARGET',
 };
 /* --------------------------------------------------------------- */
 
@@ -57,13 +60,17 @@ const FRONT = `<div class="card" id="card">
         <img src="${A.target}" style="width:40px;height:40px;"/>
       </div>
     </div>
-    <div class="mono" style="font-size:14px;letter-spacing:2.5px;color:var(--coral);font-weight:700;">SCAN ME</div>
-    <div class="mono" style="font-size:11px;letter-spacing:2px;color:var(--muted);margin-top:-14px;">LIVE&nbsp;OPTIONS&nbsp;ANALYTICS</div>
+    <div class="mono" style="font-size:14px;letter-spacing:2.5px;color:var(--coral);font-weight:700;">SCAN TO CLAIM</div>
+    <div class="mono" style="font-size:11px;letter-spacing:2px;color:var(--muted);margin-top:-14px;">50%&nbsp;OFF&nbsp;&middot;&nbsp;FIRST&nbsp;YEAR</div>
   </div>
-  <div style="position:absolute;top:88px;left:82px;width:600px;">
-    <img src="${A.darkFull}" style="width:470px;display:block;margin-left:-6px;"/>
-    <div style="width:70px;height:4px;background:var(--coral);border-radius:3px;margin:30px 0 22px 2px;"></div>
-    <div class="mono" style="font-size:15px;letter-spacing:4.5px;color:var(--muted);font-weight:500;">GEX&nbsp;&middot;&nbsp;GAMMA&nbsp;&middot;&nbsp;FLOW&nbsp;ANALYTICS</div>
+  <div style="position:absolute;top:82px;left:82px;width:600px;">
+    <img src="${A.darkFull}" style="width:440px;display:block;margin-left:-6px;"/>
+    <div style="width:64px;height:4px;background:var(--coral);border-radius:3px;margin:26px 0 18px 2px;"></div>
+    <div class="mono" style="font-size:14px;letter-spacing:4px;color:var(--muted);font-weight:500;">GEX&nbsp;&middot;&nbsp;GAMMA&nbsp;&middot;&nbsp;FLOW&nbsp;ANALYTICS</div>
+    <div style="margin-top:30px;font-size:23px;font-weight:700;color:var(--coral);letter-spacing:.3px;">${CARD.offer}</div>
+    <div class="mono" style="font-size:12px;letter-spacing:1.2px;color:var(--cream);margin-top:11px;">
+      SCAN THE QR CODE TO CLAIM&nbsp;&middot;&nbsp;CODE <span style="color:var(--coral);font-weight:700;">${CARD.code}</span>
+    </div>
   </div>
   <div style="position:absolute;left:84px;bottom:64px;display:flex;align-items:center;gap:12px;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F4645F" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18"/></svg>
