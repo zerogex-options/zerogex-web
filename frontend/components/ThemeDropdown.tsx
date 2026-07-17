@@ -140,6 +140,14 @@ export default function ThemeDropdown() {
           style={{
             [anchor]: 0,
             minWidth: '260px',
+            // Cap the panel to the viewport and scroll internally. With ten
+            // palettes (~740px) the list otherwise ran off the bottom of a
+            // phone with no way to reach the last few themes. The floor leaves
+            // room for the trigger above and a small gap below; on a tall
+            // desktop window the whole list still fits, so no scrollbar shows.
+            maxHeight: 'calc(100dvh - 72px)',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
             padding: '6px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-default)',

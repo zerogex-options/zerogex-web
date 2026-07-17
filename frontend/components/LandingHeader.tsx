@@ -79,12 +79,15 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           width={300}
           height={60}
           priority
-          className="h-[130%] sm:h-[150%] w-auto block"
+          // Cap the wordmark's width on phones so it can't hog the row and push
+          // the action buttons off the right edge (a 5:1 wordmark at 130% of the
+          // bar height is ~360px wide otherwise). Desktop keeps the full-size
+          // crop via sm:max-w-none.
+          className="h-[130%] sm:h-[150%] w-auto block max-w-[92px] sm:max-w-none"
           style={{
             maxHeight: 'none',
-            maxWidth: 'none',
             objectFit: 'contain',
-            objectPosition: 'center',
+            objectPosition: 'left center',
             margin: 0,
             padding: 0,
           }}
@@ -148,12 +151,11 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
 
         <Link href={isAuthed ? '/account' : '/login'} style={{ textDecoration: 'none' }}>
           <button
-            className="zg-small"
+            className="zg-small px-2.5 py-1.5 sm:px-[14px] sm:py-2 whitespace-nowrap"
             style={{
               background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               borderRadius: 'var(--radius-control)',
-              padding: '8px 14px',
               fontWeight: 700,
               color: 'var(--color-text-primary)',
               cursor: 'pointer',
@@ -172,8 +174,18 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               : () => capture(TelemetryEvent.TrialCtaClick, { location: 'site_header', ...readUtmParams() })
           }
         >
-          <button className="zg-btn zg-btn--primary" style={{ padding: '8px 16px', fontSize: 13 }}>
-            {canLaunchApp ? 'Launch App' : 'Start Free Trial'} <ArrowRight size={14} />
+          <button className="zg-btn zg-btn--primary whitespace-nowrap" style={{ padding: '8px 12px', fontSize: 13 }}>
+            {canLaunchApp ? (
+              'Launch App'
+            ) : (
+              <>
+                {/* Shorten the label on phones so the CTA fits beside the logo
+                    and Login button; desktop keeps the full wording. */}
+                <span className="sm:hidden">Start Trial</span>
+                <span className="hidden sm:inline">Start Free Trial</span>
+              </>
+            )}{' '}
+            <ArrowRight size={14} />
           </button>
         </Link>
       </div>
