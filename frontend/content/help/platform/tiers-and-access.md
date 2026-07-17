@@ -10,7 +10,7 @@ ZeroGEX has three account tiers. They map to what data and which signals you see
 
 | Tier | Who it's for | What you get |
 | --- | --- | --- |
-| Public | Browsing, education | The landing site, education, guides, articles, free SPX / SPY / QQQ gamma levels pages |
+| Public | Browsing, education | The landing site, education, guides, articles, free SPX / SPY / QQQ gamma levels pages (15-min delayed) |
 | Basic | Active intraday traders | Dashboard, Live Bulletin, all Metrics, Strategy Builder, Live Options Quotes, all Basic Signals |
 | Pro | Serious operators | Everything in Basic + all Advanced Signals + Composite Score + Backtesting + API access |
 
@@ -21,7 +21,7 @@ See the live breakdown — and a 14-day trial path — on the [Pricing](/pricing
 ### Public (no account needed)
 
 - The marketing site (landing, About, Education Hub, Articles, Guides)
-- Free SPX, SPY, and QQQ gamma levels pages — updated each trading day
+- Free SPX, SPY, and QQQ gamma levels pages — delayed about 15 minutes
 - Help Center, FAQs, Quick Starts
 - Privacy, Terms
 

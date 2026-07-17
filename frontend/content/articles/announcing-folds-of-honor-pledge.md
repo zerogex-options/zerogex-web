@@ -67,7 +67,7 @@ A monthly Pro subscriber, for example, contributes $1.49 to Folds of Honor every
 
 If you are a ZeroGEX subscriber: thank you. Every subscription on the platform helps fund a scholarship for a military family. That's the cleanest alignment we have been able to find between what we build and what we believe.
 
-If you are thinking about subscribing: the [free Gamma Levels pages](/spx-gamma-levels) (SPX, SPY, and QQQ) are always free, and a paid subscription helps both — it unlocks the real-time Dashboard and Pro features, and contributes 3% to Folds of Honor.
+If you are thinking about subscribing: the [free Gamma Levels pages](/spx-gamma-levels) (SPX, SPY, and QQQ) — delayed about 15 minutes — are always free, and a paid subscription helps both — it unlocks the real-time Dashboard and Pro features, and contributes 3% to Folds of Honor.
 
 Full mechanics, the running donation total, and our FAQ live at [/giving](/giving).
 

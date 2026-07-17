@@ -399,7 +399,7 @@ export default function TradingMistakesClient() {
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 620, fontSize: 16, color: C.muted, lineHeight: 1.65 }}>
-            The free ZeroGEX Gamma Levels pages surface today&apos;s gamma flip, call and put walls, max pain, and dealer gamma profile for SPY, SPX, and QQQ. No signup, no card.
+            The free ZeroGEX Gamma Levels pages surface today&apos;s gamma flip, call and put walls, max pain, and dealer gamma profile for SPY, SPX, and QQQ, delayed about 15 minutes. No signup, no card.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>

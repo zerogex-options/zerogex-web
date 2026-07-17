@@ -656,7 +656,7 @@ export default function AboutPage() {
             </span>
           </h2>
           <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 500, lineHeight: 1.65 }}>
-            The Dashboard is the real-time command center — and the free Gamma Levels pages (SPX, SPY, QQQ) are open to anyone, no sign-up required.
+            The Dashboard is the real-time command center — and the free Gamma Levels pages (SPX, SPY, QQQ) — delayed about 15 minutes — are open to anyone, no sign-up required.
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>

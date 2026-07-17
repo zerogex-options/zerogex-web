@@ -3,8 +3,7 @@ Subject: What's new at ZeroGEX — and what's coming next
 
 (Plain-text version of the HTML broadcast, kept in sync with
 2026-07-product-update.html. {{{RESEND_UNSUBSCRIBE_URL}}} is a Resend
-Broadcasts merge tag. Add a physical postal address before sending — CAN-SPAM
-requires one.)
+Broadcasts merge tag.)
 
 ------------------------------------------------------------
 
@@ -21,31 +20,33 @@ So first: thank you. Keep it coming — I read every reply.
 
 == WHAT'S NEW ==
 
-* Backtesting. Test any options strategy against years of real market
-  history — a full tearsheet (risk-adjusted returns, drawdown, win rate), a
-  Monte Carlo outcome cone, a benchmark, and shareable "prove it" report
-  links you can send to anyone.
+* Backtesting (https://zerogex.io/backtesting). Test any options strategy
+  against historical market data — a full tearsheet (risk-adjusted returns,
+  drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable
+  "prove it" report links you can send to anyone. (History depth is growing —
+  see the roadmap.)
 
-* Multi-expiration GEX. The GEX Strike Profile and strike charts now let you
-  select multiple expirations at once, so you can see how the walls and the
-  gamma flip stack across the dates you actually trade.
+* Multi-expiration GEX. The GEX Strike Profile
+  (https://zerogex.io/gex-strike-profile) and strike charts now let you select
+  multiple expirations at once, so you can see how the walls and the gamma
+  flip stack across the dates you actually trade.
 
 * Forced Flow & Charm-into-Close. A new read on dealer hedging pressure into
   the close — where charm and vanna are quietly pushing price late in the
-  session — now featured in the pre-market Live Bulletin.
+  session.
 
-* Forecast card v1.4. Cleaner Expected Volatility and Key Levels tiles,
-  near-miss distances, and a track record you can grade — the vol and
-  level-odds calls get scored against what actually happened.
+* Daily Forecast — brand new (https://zerogex.io/forecast). Each morning, a
+  plain-English read on the day ahead: an Expected Volatility estimate, a
+  projected range, and the Key Levels that matter — with how far price sits
+  from each. It deliberately doesn't call direction. And it grades itself: the
+  volatility and level-odds calls are scored against what actually happened,
+  so you're looking at a track record, not just a claim.
 
-* Trading Signals & TradeWorkz. A fleet of automated strategies that post
-  their entries and exits in real time, backed by a fully public trade
-  audit — every win and loss, not just the highlights.
-
-* A faster board — and self-serve billing. Speed improvements across the
-  dashboard, an iOS ticker fix, a set of new light & dark themes, and you can
-  now switch plans and billing cadence yourself from your account page (more
-  on that in the FAQ below).
+* TradeWorkz™ (https://zerogex.io/trading-signals). A fleet of automated
+  strategies that trade off ZeroGEX's own proprietary metrics and levels —
+  posting their entries and exits in real time, backed by a fully public trade
+  audit (every win and loss, not just the highlights). You can subscribe to
+  notifications and follow the trades as they happen.
 
 Open the live dashboard: https://zerogex.io/dashboard
 
@@ -55,17 +56,17 @@ Open the live dashboard: https://zerogex.io/dashboard
 Here's where I'm pointing next. Roadmaps shift — often because of something
 one of you flags — but this is the current direction:
 
--> My Dashboard. A customizable, widget-based view — pull your favorite
-   charts and cards into one board, move things where you want them, save
-   your layout, and set your own ORB period. Built around how you trade.
+-> My Dashboard. A customizable, widget-based view — pull your favorite charts
+   and cards into one board, move things where you want them, and save your
+   layout, chart settings, and symbol selections. Built around how you trade.
 
--> Enhanced backtesting. More strategies, more control, and deeper analytics
-   on top of what's there today.
+-> Enhanced backtesting. More strategies, more control, deeper analytics, and
+   a longer history window as we expand the dataset.
 
 -> More tickers. Expanding coverage beyond SPY, SPX, and QQQ — the same gamma
    read on more of what you watch.
 
--> More automated strategies. Additional TradeWorkz bots — each with the same
+-> More automated strategies. Additional TradeWorkz™ bots — each with the same
    public, no-cherry-picking track record as the rest.
 
 -> A sharper mobile experience. Continued work to make ZeroGEX feel great on
@@ -81,9 +82,10 @@ Every trader you refer who subscribes earns you a full free month of ZeroGEX,
 credited straight to your next invoice — and they start with their first
 month free (or 10% off if they go annual). It stacks: refer three, get three.
 
-Your personal code and link live on your Account page, under Referrals. Share
-the link, drop the code in a trading chat, or send it to the friend who keeps
-asking you about gamma walls.
+Your personal code and link live on your Account page
+(https://zerogex.io/account), under Referrals. Share the link, drop the code
+in a trading chat, or send it to the friend who keeps asking you about gamma
+walls.
 
 Grab your referral link: https://zerogex.io/account
 
@@ -109,13 +111,15 @@ scholarship for a military family.
 --- Using ZeroGEX ---
 
 Q: Where do I start — how should I actually use the dashboard?
-A: Start simple. On the Dashboard, read the three levels that matter most
-first: the Gamma Flip (are we in a stabilizing or an amplifying regime?),
-then the Call Wall and Put Wall (your likely upside and downside friction).
-Pull up the GEX Strike Profile to see how that structure sits on price — then
-confirm with your own price action: VWAP, the opening-range break, whatever
-you already trust. The levels tell you WHERE to pay attention; your triggers
-tell you WHEN. Don't try to watch all fourteen signals at once on day one.
+A: Start simple. On the Dashboard (https://zerogex.io/dashboard), read the
+three levels that matter most first: the Gamma Flip (are we in a stabilizing
+or an amplifying regime?), then the Call Wall and Put Wall (your likely upside
+and downside friction). Pull up the GEX Strike Profile
+(https://zerogex.io/gex-strike-profile) to see how that structure sits on
+price — then confirm with your own price action: VWAP, the opening-range
+break, whatever you already trust. The levels tell you WHERE to pay attention;
+your triggers tell you WHEN. Don't try to watch all fourteen signals at once
+on day one.
 
 Q: Why am I seeing a different Gamma Flip or Net GEX than on other sites?
 A: Because most sites take a shortcut we don't. The common method just adds
@@ -139,45 +143,47 @@ with a vendor-by-vendor comparison:
 https://zerogex.io/guides/gamma-flip-calculation-before-vs-after
 
 Q: Can I replay or backtest the levels against historical price action?
-A: Yes to both. Replay lets you scrub back through a past session and watch
-how price behaved around the Gamma Flip, Call Wall, and Put Wall as they
-moved — with a toggle to hide future candles so you're testing your read
-honestly. Backtesting lets you run a signal or rule against historical data
-with a full tearsheet. Longer history, full-dashboard replay, and richer
-scenario testing are actively on the roadmap.
+A: Yes to both. Replay (https://zerogex.io/replay) lets you scrub back through
+a past session and watch how price behaved around the Gamma Flip, Call Wall,
+and Put Wall as they moved — with a toggle to hide future candles so you're
+testing your read honestly. Backtesting (https://zerogex.io/backtesting) lets
+you run a signal or rule against historical data with a full tearsheet. Longer
+history, full-dashboard replay, and richer scenario testing are actively on
+the roadmap.
 
 Q: Can I trade futures like ES, MES, NQ, or MNQ with it?
 A: Yes — you map the future to its index book. /ES and /MES trade off the SPX
 (and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The
 structural levels are identical — only the price scale differs. When the cash
-index is closed, the Live Bulletin already shows the ES/NQ futures-implied
-price for context, and translating the levels directly into futures prices is
-on the roadmap.
+index is closed, the Live Bulletin (https://zerogex.io/live-bulletin) already
+shows the ES/NQ futures-implied price for context, and translating the levels
+directly into futures prices is on the roadmap.
 
 --- Plans, billing & access ---
 
 Q: When will I be charged, and how does the free trial work?
 A: Both Basic and Pro start with a free trial (length is shown on the Pricing
-page). You're not charged during it — at the end it continues automatically
-at the rate you signed up for, and renews on your billing date after that.
-Cancel any time before the trial ends from the billing portal and you're
-never charged a cent.
+page, https://zerogex.io/pricing). You're not charged during it — at the end
+it continues automatically at the rate you signed up for, and renews on your
+billing date after that. Cancel any time before the trial ends from the
+billing portal and you're never charged a cent.
 
 Q: How do I switch or cancel my plan?
 A: Both live in one place: Account -> Manage subscription (the Stripe billing
-portal). Switch Basic <-> Pro or monthly <-> annual there — upgrades and
-monthly -> annual apply immediately, downgrades and annual -> monthly at
-period end, with proration on your next invoice. Cancelling also takes effect
-at period end, so you keep full access until then and your account isn't
-deleted. And if cost is the issue, just reply — I'd rather find something
-that works than see you go.
+portal), https://zerogex.io/account. Switch Basic <-> Pro or monthly <->
+annual there — upgrades and monthly -> annual apply immediately, downgrades
+and annual -> monthly at period end, with proration on your next invoice.
+Cancelling also takes effect at period end, so you keep full access until then
+and your account isn't deleted. And if cost is the issue, just reply — I'd
+rather find something that works than see you go.
 
 Q: What's the difference between Basic and Pro?
 A: Basic gives you the live Dashboard, the Live Bulletin, all metrics, the
 strategy tools, and the Basic signals. Pro adds the Advanced signals, the
 Composite Score, Backtesting, and programmatic API access. The full breakdown
-is on the Pricing page. (The free Gamma Levels pages — SPX, SPY, QQQ — stay
-open to anyone, no signup.)
+is on the Pricing page (https://zerogex.io/pricing). (The free, 15-minute-delayed
+Gamma Levels pages — SPX, SPY, QQQ — stay open to anyone, no signup:
+https://zerogex.io/spx-gamma-levels)
 
 Q: I'm on Pro — where's my API key?
 A: API access is a Pro feature, but self-serve key generation isn't live
@@ -210,9 +216,9 @@ substantial risk and is not suitable for every investor.
 Dashboard: https://zerogex.io/dashboard
 Pricing:   https://zerogex.io/pricing
 Giving:    https://zerogex.io/giving
-Help:      https://zerogex.io/help/platform
+Help & FAQ: https://zerogex.io/help/faqs
 
 You're receiving this because you have a ZeroGEX account.
 Unsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}
 Questions? Just reply, or email Michael@zerogex.io
-ZeroGEX · [ADD POSTAL ADDRESS — CAN-SPAM requires a physical mailing address]
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

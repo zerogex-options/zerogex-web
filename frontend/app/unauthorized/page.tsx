@@ -148,7 +148,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               Try the free Gamma Levels
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, and QQQ — daily, no signup, no card.
+              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, and QQQ — 15-min delayed, no signup, no card.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Open Gamma Levels <ArrowRight size={14} />
