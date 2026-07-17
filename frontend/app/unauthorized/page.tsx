@@ -133,25 +133,25 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
           </div>
         </section>
 
-        {/* Conversion-funnel CTAs — surface the free dashboard and the education
+        {/* Conversion-funnel CTAs — surface the free Gamma Levels pages and the education
             stack so visitors who hit this page from a paid-tier deep link have
             an obvious next step that isn't "go away." */}
         <section className="grid gap-4 sm:grid-cols-3">
           <Link
-            href="/dashboard"
+            href="/spx-gamma-levels"
             className="zg-feature-shell group flex h-full flex-col p-5 transition hover:border-[var(--color-warning-soft)]"
           >
             <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
               <BarChart2 size={18} />
             </div>
             <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
-              Try the free dashboard
+              Try the free Gamma Levels
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Net GEX, the gamma flip, call and put walls, max pain — real-time, no signup, no card.
+              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, and QQQ — daily, no signup, no card.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-              Open dashboard <ArrowRight size={14} />
+              Open Gamma Levels <ArrowRight size={14} />
             </span>
           </Link>
 
