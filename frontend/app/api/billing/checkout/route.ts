@@ -135,6 +135,15 @@ export async function POST(request: NextRequest) {
     (row?.subscription_lapsed ?? 0) === 1 &&
     row?.winback_email_sent_at != null;
 
+  // Whether this account has ever held a paid subscription (stamped welcome
+  // email or the churn flag). Drives BOTH the trial gate further down AND the
+  // referee-coupon gate: the referral bonus is a NEW-customer incentive, so a
+  // returning customer doesn't get it. Because only first-time users get a
+  // trial, gating the referee coupon this way also guarantees the stack-coupon
+  // webhook step always has its pre-first-invoice (trialing) window.
+  const hasPriorPaidSubscription =
+    row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
+
   // Resolve any discount before talking to Stripe so we can fail fast on
   // misconfiguration (e.g. founding code accepted but coupon env unset)
   // without leaving a half-created customer behind on retries.
@@ -145,16 +154,15 @@ export async function POST(request: NextRequest) {
     foundingEligible: (row?.founding_eligible ?? 0) === 1,
     referredByCode: row?.referred_by_code ?? null,
     winbackEligible,
+    hasPriorPaid: hasPriorPaidSubscription,
   });
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
   }
 
   // Once-per-account trial gate. Anyone who has previously held a paid
-  // sub on this account (either a stamped welcome email or the lapsed
-  // flag set by clearSubscriptionFromUser) is ineligible.
-  const hasPriorPaidSubscription =
-    row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
+  // sub on this account (computed above as hasPriorPaidSubscription) is
+  // ineligible for the 7-day trial.
   const trialDays = hasPriorPaidSubscription ? null : TRIAL_PERIOD_DAYS;
 
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
@@ -324,6 +332,9 @@ function resolveDiscount(input: {
   foundingEligible: boolean;
   referredByCode: string | null;
   winbackEligible: boolean;
+  // True when the account has held a paid sub before. The standard referee
+  // bonus (a new-customer incentive) is withheld from returning customers.
+  hasPriorPaid: boolean;
 }): DiscountResolution {
   if (input.foundingCode) {
     const expected = getFoundingPromoCode();
@@ -422,9 +433,12 @@ function resolveDiscount(input: {
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
 
   // Standard referee coupon (first month free monthly / 10% off first year
-  // annual), resolved independently of the promo so the two can STACK.
+  // annual), resolved independently of the promo so the two can STACK. Gated to
+  // first-time customers: the referee bonus is a new-customer incentive, and a
+  // returning customer (no trial) also has no pre-first-invoice window to stack
+  // the coupon into — so we withhold it rather than deliver it inconsistently.
   let refereeCouponId: string | null = null;
-  if (input.referredByCode && isReferralProgramEnabled()) {
+  if (input.referredByCode && isReferralProgramEnabled() && !input.hasPriorPaid) {
     const refereeCoupon = getRefereeCouponId(input.cadence);
     if (refereeCoupon) {
       // Defense-in-depth: the monthly referee coupon is 100%-off (first month
