@@ -5,6 +5,7 @@ import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/
 import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
+import { normalizeCampaignCode } from '@/core/campaigns';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
@@ -373,6 +374,26 @@ export function validateCsrf(request: NextRequest) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+// Campaign attribution (e.g. the business-card QR's ?ref=TARGET). A campaign
+// code is a marketing code, not a referrer, so recordReferralSignup drops it —
+// stamp it onto referred_by_code directly for reporting. Best-effort and
+// idempotent: only stamps when the row isn't already attributed, so a genuine
+// referral link always wins, and a bad/absent code is a silent no-op.
+function attributeCampaignSignup(userId: string, code: string | null | undefined): void {
+  const campaign = normalizeCampaignCode(code);
+  if (!campaign) return;
+  try {
+    getDb()
+      .prepare(
+        `UPDATE users SET referred_by_code = ?, updated_at = ?
+         WHERE id = ? AND referred_by_code IS NULL`,
+      )
+      .run(campaign, nowIso(), userId);
+  } catch (err) {
+    console.error('[register] campaign attribution failed:', err);
+  }
+}
+
 export async function registerUser(
   request: NextRequest,
   email: string,
@@ -406,6 +427,7 @@ export async function registerUser(
     } catch (err) {
       console.error('[register] referral attribution failed:', err);
     }
+    attributeCampaignSignup(user.id, referralCode);
   }
 
   appendAuditEvent({
@@ -899,6 +921,7 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
           } catch (err) {
             console.error('[oauth] referral attribution failed:', err);
           }
+          attributeCampaignSignup(user.id, refCode);
         }
       }
 
