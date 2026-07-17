@@ -17,10 +17,9 @@
       below (search: LOGO-IMG).
 
   NOTES FOR SENDING:
-  - {{{RESEND_UNSUBSCRIBE_URL}}} is a Resend Broadcasts merge tag — substituted
-    automatically when sent as a Broadcast. If you send another way, replace it.
-  - Optional first-name personalization: replace "Hi there," with
-    "Hi {{{FIRST_NAME|there}}}," (Resend fills the name, or "there" if unknown).
+  - Sent directly per-recipient via scripts/send-product-update.mts (Resend
+    emails.send). By request there is no unsubscribe link in the body; the send
+    script attaches a List-Unsubscribe header for deliverability.
   - The Folds of Honor badge loads from
     https://zerogex.io/folds-of-honor-proud-supporter.png (already live).
 -->
@@ -380,7 +379,6 @@
               </p>
               <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#68798a;">
                 You're receiving this because you have a ZeroGEX account.
-                <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" target="_blank" style="color:#9fb0be; text-decoration:underline;">Unsubscribe</a>.
                 Questions? Just reply, or email <a href="mailto:Michael@zerogex.io" style="color:#9fb0be; text-decoration:underline;">Michael@zerogex.io</a>.
                 <br>
                 ZeroGEX &middot; 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

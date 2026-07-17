@@ -1,9 +1,8 @@
 ZeroGEX — Product Update · July 2026
 Subject: What's new at ZeroGEX — and what's coming next
 
-(Plain-text version of the HTML broadcast, kept in sync with
-2026-07-product-update.html. {{{RESEND_UNSUBSCRIBE_URL}}} is a Resend
-Broadcasts merge tag.)
+(Plain-text version of 2026-07-product-update.html. Sent per-recipient via
+scripts/send-product-update.mts.)
 
 ------------------------------------------------------------
 
@@ -219,6 +218,5 @@ Giving:    https://zerogex.io/giving
 Help & FAQ: https://zerogex.io/help/faqs
 
 You're receiving this because you have a ZeroGEX account.
-Unsubscribe: {{{RESEND_UNSUBSCRIBE_URL}}}
 Questions? Just reply, or email Michael@zerogex.io
 ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
