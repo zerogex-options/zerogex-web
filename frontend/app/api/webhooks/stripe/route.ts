@@ -361,6 +361,54 @@ async function maybeReconcileDiscountOnPlanSwitch(
   }
 }
 
+// Stack a SECOND coupon — the standard referee referral bonus — onto the
+// subscription, on top of the promo coupon Checkout already attached. Stripe
+// Checkout Sessions accept only one discount, so a referred user who also
+// qualifies for the public promo has the promo on the session and the referee
+// coupon carried in subscription.metadata.stack_coupon (set by the checkout
+// route); this applies it.
+//
+// Gated on `trialing`: the discount set must be finalised BEFORE the first
+// invoice. A referee coupon is duration:once, so adding it after the first
+// (trial-end) invoice would wrongly discount a later cycle instead. Every
+// referred user gets the 7-day trial, so the window always exists in practice;
+// a rare no-trial referred user (a returning churner) simply keeps the promo
+// without the stack. Idempotent: a no-op once the coupon is already present, so
+// redeliveries and the self-triggered subscription.updated from our own update
+// don't loop. Best-effort: a failure never unwinds the tier sync.
+async function maybeStackReferralCoupon(
+  subscription: Stripe.Subscription,
+  user: UserRow,
+): Promise<void> {
+  const stackCoupon = (subscription.metadata ?? {})['stack_coupon'];
+  if (!stackCoupon) return;
+  if (subscription.status !== 'trialing') return;
+
+  const current = subscriptionCouponIds(subscription);
+  if (current.includes(stackCoupon)) return;
+
+  try {
+    await getStripe().subscriptions.update(subscription.id, {
+      discounts: [...current, stackCoupon].map((coupon) => ({ coupon })),
+    });
+    logAudit({
+      type: 'referral_coupon_stacked',
+      userId: user.id,
+      email: user.email,
+      message: `Stacked referee coupon ${stackCoupon} onto sub ${subscription.id} on top of [${current.join(', ') || 'none'}]`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'stack referral coupon failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Stack referee coupon ${stackCoupon} onto sub ${subscription.id} failed: ${message}`,
+    });
+    // Swallow — tier sync already succeeded; a later trialing sub event retries.
+  }
+}
+
 async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
@@ -489,6 +537,11 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   // a lifetime coupon coming due in the same sync wins. `user.stripe_price_id` is
   // the pre-UPDATE snapshot (old price); `priceId` is the new one.
   await maybeReconcileDiscountOnPlanSwitch(subscription, user, user.stripe_price_id, priceId);
+
+  // Stack the referee referral bonus on top of the promo (metadata-driven,
+  // trialing-only, idempotent). Runs after reconcile so both coupons are on the
+  // sub before the first post-trial invoice.
+  await maybeStackReferralCoupon(subscription, user);
 
   await maybeApplyFoundingLifetime(subscription.id, user);
 
