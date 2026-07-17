@@ -27,8 +27,8 @@ jump in.
   QQQ — free and 15-minute delayed, no signup, no card. The easiest place to
   see what ZeroGEX does.
 
-* Backtesting (https://zerogex.io/backtesting). Test any options strategy
-  against historical market data — a full tearsheet (risk-adjusted returns,
+* Backtesting (https://zerogex.io/backtesting). Test options strategies and
+  ZeroGEX signals against historical market data — a full tearsheet (risk-adjusted returns,
   drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable
   "prove it" report links.
 
@@ -40,10 +40,10 @@ jump in.
   and the Key Levels that matter — and it grades itself against what actually
   happened, so you see a track record, not just a claim.
 
-* TradeWorkz™ (https://zerogex.io/trading-signals). A fleet of automated
-  strategies that trade off ZeroGEX's own proprietary metrics and levels,
-  posting their entries and exits in real time — backed by a fully public
-  trade audit (every win and loss, not just the highlights).
+* TradeWorkz™ (https://zerogex.io/trading-signals). A growing set of automated
+  strategies built around ZeroGEX's proprietary metrics and levels, posting
+  their entries and exits in real time — backed by a fully public trade audit
+  (every win and loss, not just the highlights).
 
 See the free Gamma Levels: https://zerogex.io/spx-gamma-levels
 
@@ -102,17 +102,19 @@ downside friction). On a free trial you also get the live Dashboard and GEX
 Strike Profile in real time. The idea: the levels tell you WHERE to pay
 attention; your own price action (VWAP, the opening-range break) tells you WHEN.
 
-Q: Why is ZeroGEX's Gamma Flip / Net GEX different from other sites?
-A: Because most sites take a shortcut we don't. The common method just adds up
-each strike's static gamma and calls the zero-crossing the "flip" — but that
-flip tends to stick to whatever wall is in the snapshot, even when the true
-zero-gamma level has moved several percent away. ZeroGEX computes the
-spot-shift dealer gamma profile instead (the original SpotGamma / SqueezeMetrics
-definition): we re-price every contract's gamma across a grid of hypothetical
-prices around spot, apply the dealer sign convention (calls +, puts −), and
-weight by open interest and time to expiry. Everything reads off one curve, so
-the headline Net GEX and the flip regime can never contradict each other. Full
-write-up: https://zerogex.io/guides/gamma-flip-calculation-before-vs-after
+Q: Why might ZeroGEX show a different Gamma Flip or Net GEX than another
+platform?
+A: Gamma calculations are highly methodology-dependent. Rather than treating
+each strike as a static snapshot, ZeroGEX models how dealer gamma exposure
+changes across a range of hypothetical underlying prices. The Gamma Flip is
+derived from where that modeled exposure crosses zero, while Net GEX represents
+the same curve at the current price. Differences in expiration weighting,
+implied volatility, contract filtering, dealer-sign assumptions, and data
+timing can all produce different results between platforms. When the available
+chain is too thin or noisy to resolve a reliable level, ZeroGEX shows it as
+unresolved rather than presenting a potentially misleading number.
+Read the full methodology:
+https://zerogex.io/guides/gamma-flip-calculation-before-vs-after
 
 Q: Can I replay or backtest the levels against historical price action?
 A: Yes to both. Replay (https://zerogex.io/replay) lets you scrub back through
@@ -122,9 +124,11 @@ and Put Wall as they moved — with a toggle to hide future candles. Backtesting
 with a full tearsheet.
 
 Q: Can I use it for futures like ES, MES, NQ, or MNQ?
-A: Yes — you map the future to its index book. /ES and /MES trade off the SPX
-(and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The
-structural levels are identical — only the price scale differs.
+A: Yes — the index and ETF options books can provide highly relevant structural
+context for futures. ES and MES traders can reference SPX and SPY levels, while
+NQ and MNQ traders can use QQQ today, with NDX coverage coming. The markets are
+closely related, but the levels aren't always a perfect one-to-one translation,
+since futures can trade at a basis to the underlying index or ETF.
 
 --- Trial & plans ---
 

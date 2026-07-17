@@ -8,7 +8,7 @@ scripts/send-product-update.mts.)
 
 Hi there,
 
-I wanted to send the first real ZeroGEX update — a quick look at what's
+I wanted to send the first ZeroGEX product update — a quick look at what's
 shipped recently, what's coming next, and a genuine thank-you.
 
 Nearly everything below started as a message from one of you. ZeroGEX is
@@ -19,8 +19,8 @@ So first: thank you. Keep it coming — I read every reply.
 
 == WHAT'S NEW ==
 
-* Backtesting (https://zerogex.io/backtesting). Test any options strategy
-  against historical market data — a full tearsheet (risk-adjusted returns,
+* Backtesting (https://zerogex.io/backtesting). Test options strategies and
+  ZeroGEX signals against historical market data — a full tearsheet (risk-adjusted returns,
   drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable
   "prove it" report links you can send to anyone. (History depth is growing —
   see the roadmap.)
@@ -41,11 +41,11 @@ So first: thank you. Keep it coming — I read every reply.
   volatility and level-odds calls are scored against what actually happened,
   so you're looking at a track record, not just a claim.
 
-* TradeWorkz™ (https://zerogex.io/trading-signals). A fleet of automated
-  strategies that trade off ZeroGEX's own proprietary metrics and levels —
-  posting their entries and exits in real time, backed by a fully public trade
-  audit (every win and loss, not just the highlights). You can subscribe to
-  notifications and follow the trades as they happen.
+* TradeWorkz™ (https://zerogex.io/trading-signals). A growing set of automated
+  strategies built around ZeroGEX's proprietary metrics and levels — posting
+  their entries and exits in real time, backed by a fully public trade audit
+  (every win and loss, not just the highlights). Subscribe to notifications to
+  follow the strategy signals as they happen.
 
 Open the live dashboard: https://zerogex.io/dashboard
 
@@ -77,9 +77,10 @@ list.
 
 == REFER A FRIEND, GET A FREE MONTH ==
 
-Every trader you refer who subscribes earns you a full free month of ZeroGEX,
-credited straight to your next invoice — and they start with their first
-month free (or 10% off if they go annual). It stacks: refer three, get three.
+Every trader you refer who becomes a paid subscriber earns you one free month
+of ZeroGEX — credited to your next invoice once their first payment processes.
+Your friend gets their first paid month free after the trial, or 10% off an
+annual plan. It stacks: refer three, get three.
 
 Your personal code and link live on your Account page
 (https://zerogex.io/account), under Referrals. Share the link, drop the code
@@ -101,8 +102,8 @@ quarter — the first goes out at the end of September. The running total is
 public at https://zerogex.io/giving. That page is the ledger, not a marketing
 claim.
 
-Thank you for making it possible — every subscription helps fund a
-scholarship for a military family.
+Thank you for making it possible — every subscription helps support
+educational scholarships for military families.
 
 
 == A FEW QUESTIONS I'VE BEEN GETTING ==
@@ -120,25 +121,19 @@ break, whatever you already trust. The levels tell you WHERE to pay attention;
 your triggers tell you WHEN. Don't try to watch all fourteen signals at once
 on day one.
 
-Q: Why am I seeing a different Gamma Flip or Net GEX than on other sites?
-A: Because most sites take a shortcut we don't. The common method just adds
-up each strike's static gamma into a bar chart and calls the zero-crossing
-the "flip." It's fast — but that flip tends to stick to whatever wall is in
-the snapshot, even when the true zero-gamma level has moved several percent
-away.
-   ZeroGEX computes the spot-shift dealer gamma profile instead — the
-original SpotGamma / SqueezeMetrics definition. We take the live option chain
-and re-price every contract's gamma across a grid of hypothetical prices
-around spot, apply the dealer sign convention (calls +, puts −), and weight
-by open interest and time to expiry so a single 0DTE spike can't hijack a
-multi-day level. Everything reads off that one curve: the Gamma Flip is where
-it crosses zero, and Net GEX at spot is its value at today's price — so the
-headline number and the regime can never contradict each other.
-   Two more reasons the numbers differ: we compute our own implied volatility
-and Greeks from live data in real time (not an end-of-day vendor snapshot),
-and when a chain is too thin or noisy to resolve a real flip, we show it as
-unresolved rather than silently freezing yesterday's level. Full write-up,
-with a vendor-by-vendor comparison:
+Q: Why might ZeroGEX show a different Gamma Flip or Net GEX than another
+platform?
+A: Gamma calculations are highly methodology-dependent. Rather than treating
+each strike as a static snapshot, ZeroGEX models how dealer gamma exposure
+changes across a range of hypothetical underlying prices. The Gamma Flip is
+derived from where that modeled exposure crosses zero, while Net GEX
+represents the same curve at the current price.
+   Differences in expiration weighting, implied volatility, contract
+filtering, dealer-sign assumptions, and data timing can all produce different
+results between platforms. When the available chain is too thin or noisy to
+resolve a reliable level, ZeroGEX shows it as unresolved rather than
+presenting a potentially misleading number.
+   Read the full methodology:
 https://zerogex.io/guides/gamma-flip-calculation-before-vs-after
 
 Q: Can I replay or backtest the levels against historical price action?
@@ -151,12 +146,14 @@ history, full-dashboard replay, and richer scenario testing are actively on
 the roadmap.
 
 Q: Can I trade futures like ES, MES, NQ, or MNQ with it?
-A: Yes — you map the future to its index book. /ES and /MES trade off the SPX
-(and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The
-structural levels are identical — only the price scale differs. When the cash
-index is closed, the Live Bulletin (https://zerogex.io/live-bulletin) already
-shows the ES/NQ futures-implied price for context, and translating the levels
-directly into futures prices is on the roadmap.
+A: Yes — the index and ETF options books can provide highly relevant
+structural context for futures. ES and MES traders can reference SPX and SPY
+levels, while NQ and MNQ traders can use QQQ today, with NDX coverage coming.
+The markets are closely related, but the levels aren't always a perfect
+one-to-one translation, since futures can trade at a basis to the underlying
+index or ETF. When the cash index is closed, the Live Bulletin
+(https://zerogex.io/live-bulletin) already shows the ES/NQ futures-implied
+price for context.
 
 --- Plans, billing & access ---
 
@@ -168,13 +165,11 @@ billing date after that. Cancel any time before the trial ends from the
 billing portal and you're never charged a cent.
 
 Q: How do I switch or cancel my plan?
-A: Both live in one place: Account -> Manage subscription (the Stripe billing
-portal), https://zerogex.io/account. Switch Basic <-> Pro or monthly <->
-annual there — upgrades and monthly -> annual apply immediately, downgrades
-and annual -> monthly at period end, with proration on your next invoice.
-Cancelling also takes effect at period end, so you keep full access until then
-and your account isn't deleted. And if cost is the issue, just reply — I'd
-rather find something that works than see you go.
+A: You can change or cancel your plan through Account -> Manage subscription
+(the Stripe billing portal), https://zerogex.io/account. The portal shows when
+the change takes effect and whether any prorated adjustment applies before you
+confirm it. And if cost is ever the issue, just reply — I'd rather find
+something that works than see you go.
 
 Q: What's the difference between Basic and Pro?
 A: Basic gives you the live Dashboard, the Live Bulletin, all metrics, the
