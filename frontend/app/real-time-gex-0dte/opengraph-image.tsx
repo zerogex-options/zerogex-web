@@ -106,7 +106,7 @@ export default async function Image() {
               display: 'flex',
             }}
           >
-            Free dashboard · zerogex.io
+            Free gamma levels · zerogex.io
           </div>
         </div>
       </div>

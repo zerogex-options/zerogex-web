@@ -105,7 +105,7 @@ In the interest of being upfront about where this comparison is hosted: ZeroGEX 
 - **Hardened gamma flip resolver** with interior, structural, and actionable-distance gates against grid-edge artifacts, noise-floor crossings, and far-from-spot levels. Reports NULL when the chain does not support a confident answer rather than carrying forward a stale value.
 - **Per-DTE gamma bucketing** so 0DTE concentration is visible directly and weighted appropriately for intraday reads.
 - **Composite signal layer** on top of the structural reads — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure, and others — each with published methodology in the [Education section](/articles), not black-box outputs.
-- **Free dashboard** for the core structural reads (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, dealer gamma profile) — paid plans (Basic, Pro) unlock the signal layer, deeper historical data, and Advanced Signals.
+- **Free Gamma Levels pages** (SPX, SPY, QQQ) for the core structural reads (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, dealer gamma profile), no signup — paid plans (Basic, Pro) add the real-time Dashboard, the signal layer, deeper historical data, and Advanced Signals.
 
 Like every tool in the category, ZeroGEX has trade-offs. Historical archive depth is shorter than the established Bucket 1 vendors. Coverage is concentrated on SPX/SPY and the major index ETFs, not deep single-name coverage. The signal layer is opinionated by design, which is a feature for traders who want a defined framework and a limitation for traders who want raw data only. Whether those trade-offs fit your workflow is a question worth answering before committing to any tool, including this one.
 
@@ -143,10 +143,10 @@ A short list of traps to avoid:
 
 The right discipline is to evaluate against the eight criteria above (real-time, 0DTE coverage, methodology, flip quality, walls, signals, coverage, price), match those against your actual workflow, and verify any specific vendor claim on the vendor's own site before committing — because feature sets, pricing, and methodology choices in this category change often.
 
-If you want to try the real-time + 0DTE + spot-shift + hardened-flip stack without committing to a paid plan, the free ZeroGEX dashboard is the easiest place to look.
+If you want to see the spot-shift + hardened-flip methodology without committing to a paid plan, the free ZeroGEX Gamma Levels pages (SPX, SPY, QQQ) are the easiest place to look; the real-time + 0DTE stack lives in the paid Dashboard.
 
 Educational content only — none of the above is a trade recommendation, and this comparison should be verified against current vendor information before any purchase decision.
 
 ---
 
-If you want to see the ZeroGEX stack in real time — Net GEX, the gamma flip, the call and put walls, max pain, and the dealer gamma profile — the free dashboard is open to anyone, no signup required.
+If you want to see the ZeroGEX read — Net GEX, the gamma flip, the call and put walls, max pain, and the dealer gamma profile — the free Gamma Levels pages (SPX, SPY, QQQ) are open to anyone, no signup required; the real-time Dashboard and signal layer come with a paid plan.
