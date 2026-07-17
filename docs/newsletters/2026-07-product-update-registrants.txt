@@ -32,8 +32,9 @@ jump in.
   drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable
   "prove it" report links.
 
-* Forced Flow & Charm-into-Close. A read on dealer hedging pressure into the
-  close — where charm and vanna are quietly pushing price late in the session.
+* Forced Flow & Charm-into-Close. A read on potential dealer hedging pressure
+  into the close — showing where charm and vanna may influence late-session
+  flows.
 
 * Daily Forecast (https://zerogex.io/forecast). Each morning, a plain-English
   read on the day ahead: an Expected Volatility estimate, a projected range,
@@ -173,5 +174,6 @@ Giving:            https://zerogex.io/giving
 Help & FAQ:        https://zerogex.io/help/faqs
 
 You're receiving this because you created a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
 Questions? Just reply, or email Michael@zerogex.io
 ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

@@ -13,7 +13,7 @@ shipped recently, what's coming next, and a genuine thank-you.
 
 Nearly everything below started as a message from one of you. ZeroGEX is
 built for active traders — the kind of tool I want in front of me every
-session — and the fastest way it gets better is the feedback you send back.
+session — and the fastest way it gets better is through the feedback you send.
 So first: thank you. Keep it coming — I read every reply.
 
 
@@ -30,9 +30,9 @@ So first: thank you. Keep it coming — I read every reply.
   multiple expirations at once, so you can see how the walls and the gamma
   flip stack across the dates you actually trade.
 
-* Forced Flow & Charm-into-Close. A new read on dealer hedging pressure into
-  the close — where charm and vanna are quietly pushing price late in the
-  session.
+* Forced Flow & Charm-into-Close. A new read on potential dealer hedging
+  pressure into the close — showing where charm and vanna may influence
+  late-session flows.
 
 * Daily Forecast (https://zerogex.io/forecast). Each morning, a
   plain-English read on the day ahead: an Expected Volatility estimate, a
@@ -168,8 +168,8 @@ Q: How do I switch or cancel my plan?
 A: You can change or cancel your plan through Account -> Manage subscription
 (the Stripe billing portal), https://zerogex.io/account. The portal shows when
 the change takes effect and whether any prorated adjustment applies before you
-confirm it. And if cost is ever the issue, just reply — I'd rather find
-something that works than see you go.
+confirm it. And if you ever run into a billing or account issue, just reply —
+I'll be happy to help.
 
 Q: What's the difference between Basic and Pro?
 A: Basic gives you the live Dashboard, the Live Bulletin, all metrics, the
@@ -213,5 +213,6 @@ Giving:    https://zerogex.io/giving
 Help & FAQ: https://zerogex.io/help/faqs
 
 You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
 Questions? Just reply, or email Michael@zerogex.io
 ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

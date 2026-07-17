@@ -10,10 +10,12 @@
 // matching docs/newsletters/*.html + *.txt to each recipient, and stamps an
 // audit row so re-runs resume instead of double-sending.
 //
-// No unsubscribe link in the email body (by request). A List-Unsubscribe header
-// (mailto) is attached by default so mail clients still offer one-click
-// unsubscribe and deliverability/reputation is protected; disable with
-// --no-list-unsubscribe.
+// The email body carries a per-recipient Unsubscribe link: the {{UNSUB_URL}}
+// placeholder is replaced with a signed /unsubscribe link, and the same URL is
+// set as a one-click List-Unsubscribe header (RFC 8058). Users who have
+// unsubscribed (users.marketing_unsubscribed_at) are excluded from the cohort.
+// --no-list-unsubscribe drops only the header (the body link stays).
+// Requires ZEROGEX_END_USER_TOKEN_SECRET (to sign) and NEXT_PUBLIC_APP_URL.
 //
 // Audiences:
 //   subscribers  → active + trialing customers.
@@ -33,6 +35,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { buildUnsubUrl } from '../core/unsubToken.ts';
 
 type Audience = 'subscribers' | 'registrants';
 
@@ -53,7 +56,6 @@ type Args = {
 
 const CAMPAIGN = 'product_update_2026_07';
 const REPLY_TO = 'Michael@zerogex.io';
-const LIST_UNSUB = '<mailto:Michael@zerogex.io?subject=unsubscribe>';
 
 const SUBJECTS: Record<Audience, string> = {
   subscribers: "What's new at ZeroGEX — and what's coming next",
@@ -242,6 +244,11 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY || '';
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL || '';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || 'https://zerogex.io';
+// unsubToken.ts reads the signing secret from process.env directly.
+if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET && envLocal.ZEROGEX_END_USER_TOKEN_SECRET) {
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET = envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
+}
 
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
@@ -274,6 +281,7 @@ if (audience === 'subscribers') {
     `SELECT id, email, created_at
        FROM users
       WHERE subscription_status IN ('active','trialing')
+        AND marketing_unsubscribed_at IS NULL
       ORDER BY created_at ASC;`,
   );
 } else {
@@ -288,6 +296,7 @@ if (audience === 'subscribers') {
         AND COALESCE(subscription_lapsed, 0) = 0
         AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
         AND verified_never_paid_email_sent_at IS NULL
+        AND marketing_unsubscribed_at IS NULL
         AND created_at >= '${esc(sinceIso)}'
         AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)
       ORDER BY created_at ASC;`,
@@ -337,16 +346,22 @@ if (cli.csvPath) {
 const html = fs.readFileSync(htmlPath, 'utf8');
 const text = fs.readFileSync(textPath, 'utf8');
 
-function buildPayload(to: string, subj: string): Record<string, unknown> {
+function buildPayload(to: string, subj: string, unsubUrl: string): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     from: RESEND_FROM_EMAIL,
     to,
     reply_to: REPLY_TO,
     subject: subj,
-    html,
-    text,
+    html: html.replaceAll('{{UNSUB_URL}}', unsubUrl),
+    text: text.replaceAll('{{UNSUB_URL}}', unsubUrl),
   };
-  if (cli.listUnsub) payload.headers = { 'List-Unsubscribe': LIST_UNSUB };
+  if (cli.listUnsub) {
+    // RFC 8058 one-click: the URL must accept a POST with no auth (route does).
+    payload.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
   return payload;
 }
 
@@ -358,7 +373,12 @@ if (cli.previewTo) {
     process.exit(1);
   }
   console.log(`\nSending a single preview to ${cli.previewTo}...`);
-  const res = await sendOne(RESEND_API_KEY, buildPayload(cli.previewTo, `[PREVIEW] ${subject}`));
+  // Preview uses a tokenless placeholder unsubscribe URL (real sends get a
+  // signed per-recipient link).
+  const res = await sendOne(
+    RESEND_API_KEY,
+    buildPayload(cli.previewTo, `[PREVIEW] ${subject}`, `${APP_URL}/unsubscribe`),
+  );
   if (!res.ok) {
     console.error(`Preview failed: ${res.status} ${res.body}`);
     process.exit(1);
@@ -372,6 +392,10 @@ if (cli.previewTo) {
 if (cli.send) {
   if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
     console.error('\nError: RESEND_API_KEY and RESEND_FROM_EMAIL required to send.');
+    process.exit(1);
+  }
+  if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+    console.error('\nError: ZEROGEX_END_USER_TOKEN_SECRET required to sign unsubscribe links.');
     process.exit(1);
   }
 
@@ -406,7 +430,10 @@ if (cli.send) {
   let fail = 0;
   for (let i = 0; i < todo.length; i++) {
     const user = todo[i];
-    const res = await sendOne(RESEND_API_KEY, buildPayload(user.email, subject));
+    const res = await sendOne(
+      RESEND_API_KEY,
+      buildPayload(user.email, subject, buildUnsubUrl(APP_URL, user.id)),
+    );
     if (res.ok) {
       const nowIso = new Date().toISOString();
       const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
