@@ -493,8 +493,18 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   await maybeApplyFoundingLifetime(subscription.id, user);
 
   if (isActive) {
-    await maybeProcessReferral(user, subscription);
     await maybeSendPaidWelcomeEmail(user, subscription);
+  }
+
+  // Referral rewards must reflect a REAL paid conversion, not a trial start.
+  // `trialing` counts as active for tier/access above, but a trial that never
+  // converts must not reward the referrer or consume the subscriber's banked
+  // credit — so gate referral processing on the paid `active` status only,
+  // never on `trialing`. This fires on the trialing→active transition (and on
+  // a no-trial signup that lands straight in `active`); the latches inside
+  // core/referrals keep it idempotent across renewals and webhook redeliveries.
+  if (subscription.status === 'active') {
+    await maybeProcessReferral(user, subscription);
   }
 
   await maybeHandleCancelAckTransition(user, {
