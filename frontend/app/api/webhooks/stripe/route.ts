@@ -23,6 +23,7 @@ import {
 } from '@/core/stripe';
 import {
   backAttributeReferral,
+  getRefereeCouponId,
   redeemBankedReferralCredit,
   rewardReferrerForConvertedReferee,
 } from '@/core/referrals';
@@ -310,32 +311,55 @@ async function maybeReconcileDiscountOnPlanSwitch(
   const newSku = priceIdToSku(newPriceId);
   if (!newSku) return;
 
-  // The correct cadence-specific coupon for the NEW price (may be null).
-  let correctCoupon: string | null;
+  const current = subscriptionCouponIds(subscription);
+
+  // (1) Correct promo/founding coupon for the NEW cadence (may be null).
+  let correctPrimary: string | null;
   if (user.founding_member_started_at) {
     // Founding is exclusive: never fall through to the public promo. Once the
     // lifetime coupon is on, it isn't cadence-specific and validly persists —
     // leave the subscription's discounts untouched.
     if (user.founding_lifetime_applied_at) return;
-    correctCoupon = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
+    correctPrimary = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
   } else {
-    correctCoupon = getActivePromoCouponId(newSku);
+    correctPrimary = getActivePromoCouponId(newSku);
   }
 
-  const managed = new Set(getManagedCadenceCouponIds());
-  const current = subscriptionCouponIds(subscription);
-  const stale = current.filter((id) => managed.has(id) && id !== correctCoupon);
-  const correctPresent = correctCoupon != null && current.includes(correctCoupon);
+  // (2) Referee referral coupon: cadence-specific and duration:once. If one is
+  // still on the sub it hasn't been consumed yet (Stripe drops a once-coupon
+  // after it applies), so a cadence switch must SWAP it to the new cadence's
+  // referee coupon — otherwise the 100%-off-monthly coupon rides an annual
+  // invoice as a free YEAR. We only ever carry a pending bonus across cadences;
+  // we never newly grant one here.
+  const monthlyReferee = getRefereeCouponId('monthly');
+  const annualReferee = getRefereeCouponId('annual');
+  const refereeIds = new Set([monthlyReferee, annualReferee].filter(Boolean) as string[]);
+  const hadReferee = current.some((id) => refereeIds.has(id));
+  let correctReferee: string | null = null;
+  if (hadReferee) {
+    const c = getRefereeCouponId(newSku.cadence);
+    // Misconfig guard: never let the 100%-off monthly coupon land on annual.
+    if (c && !(newSku.cadence === 'annual' && monthlyReferee && c === monthlyReferee)) {
+      correctReferee = c;
+    }
+  }
 
-  // Nothing to do: no stale managed coupon to strip and the correct coupon (if
-  // any) is already present.
-  if (stale.length === 0 && (correctCoupon == null || correctPresent)) return;
+  // Managed = cadence-specific promo/founding coupons ∪ referee coupons. Correct
+  // = the cadence-correct primary + referee (either may be null). Strip any
+  // managed coupon that isn't currently correct, keep everything we DON'T manage
+  // (founding lifetime, win-back, hand-applied), and ensure the correct ones
+  // are present.
+  const managed = new Set([...getManagedCadenceCouponIds(), ...refereeIds]);
+  const correctSet = new Set([correctPrimary, correctReferee].filter(Boolean) as string[]);
 
-  // Rebuild the discount list: keep every coupon we DON'T manage (founding
-  // lifetime, win-back, referral, anything hand-applied), drop stale managed
-  // ones, and ensure the correct coupon is present.
-  const keep = current.filter((id) => !managed.has(id) || id === correctCoupon);
-  if (correctCoupon && !keep.includes(correctCoupon)) keep.push(correctCoupon);
+  const stale = current.filter((id) => managed.has(id) && !correctSet.has(id));
+  const missing = [...correctSet].filter((id) => !current.includes(id));
+
+  // Nothing to do: nothing stale to strip and every correct coupon already present.
+  if (stale.length === 0 && missing.length === 0) return;
+
+  const keep = current.filter((id) => !managed.has(id) || correctSet.has(id));
+  for (const id of correctSet) if (!keep.includes(id)) keep.push(id);
 
   try {
     await getStripe().subscriptions.update(subscription.id, {
@@ -347,7 +371,7 @@ async function maybeReconcileDiscountOnPlanSwitch(
       email: user.email,
       message:
         `Reconciled discounts on sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} ` +
-        `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied ${correctCoupon ?? 'none'}`,
+        `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied [${[...correctSet].join(', ') || 'none'}]`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'reconcile discount failed';
@@ -383,6 +407,16 @@ async function maybeStackReferralCoupon(
   const stackCoupon = (subscription.metadata ?? {})['stack_coupon'];
   if (!stackCoupon) return;
   if (subscription.status !== 'trialing') return;
+
+  // Only stack if the coupon still matches the sub's CURRENT cadence. If the
+  // member switched plans mid-trial, the reconciler swaps the referee coupon to
+  // the correct cadence; re-adding the original (e.g. a 100%-off-monthly coupon
+  // onto an annual line) would reintroduce the free-year hole. This also stops
+  // us fighting the reconciler on the self-triggered subscription.updated.
+  const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+  const sku = priceId ? priceIdToSku(priceId) : null;
+  const cadenceCorrectReferee = sku ? getRefereeCouponId(sku.cadence) : null;
+  if (!cadenceCorrectReferee || stackCoupon !== cadenceCorrectReferee) return;
 
   const current = subscriptionCouponIds(subscription);
   if (current.includes(stackCoupon)) return;
