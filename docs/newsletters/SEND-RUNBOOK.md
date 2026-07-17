@@ -9,7 +9,7 @@ click **Send** in Resend. That review is the intended gate on a mass send.
 | Audience | Who | Files | Subject |
 |---|---|---|---|
 | `subscribers` | Active + trialing customers (`subscription_status IN ('active','trialing')`) | `2026-07-product-update.html` / `.txt` | What's new at ZeroGEX — and what's coming next |
-| `registrants` | Signed up ≤30d, verified email, logged in (has authenticated page-view activity), never subscribed | `2026-07-product-update-registrants.html` / `.txt` | Your ZeroGEX account is ready — start with the free levels |
+| `registrants` | Signed up ≤30d, verified email, logged in (has authenticated page-view activity), never subscribed, **and not already sent the verified-never-paid nudge** (no double-touch) | `2026-07-product-update-registrants.html` / `.txt` | Your ZeroGEX account is ready — start with the free levels |
 
 ## Prerequisites (production)
 
@@ -28,8 +28,9 @@ click **Send** in Resend. That review is the intended gate on a mass send.
    node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --dry-run
    node --experimental-strip-types scripts/send-product-update.mts --audience registrants --dry-run
    ```
-   The registrant dry-run also reports how many recipients already got the
-   automated *verified-never-paid* trial nudge (potential double-touch).
+   The registrant cohort already **excludes** anyone the automated
+   *verified-never-paid* nudge reached; the dry-run reports how many were
+   excluded for that reason.
 
 2. **Preview to yourself** (real inbox, desktop + phone)
    ```
@@ -55,9 +56,9 @@ click **Send** in Resend. That review is the intended gate on a mass send.
 
 ## Notes / decisions
 
-- **Overlap with verified-never-paid:** the `send-verified-never-paid` cron
-  already nudges the registrant cohort. Decide whether to double-touch; consider
-  pausing that timer around this campaign.
+- **No double-touch:** the registrant cohort excludes anyone the automated
+  `send-verified-never-paid` cron already emailed. That cron keeps running, so if
+  you want a clean split, consider pausing its timer while this campaign is out.
 - **"Logged in"** is proxied by authenticated page-view activity (there is no
   `last_login` column). Adjust the cohort query if you want a stricter/looser
   signal.

@@ -238,6 +238,7 @@ const subject = cli.subject || SUBJECTS[audience];
 type Row = { id: string; email: string; created_at: string };
 
 let rows: Row[];
+let excludedNudged = 0;
 if (audience === 'subscribers') {
   rows = querySqlite<Row>(
     dbPath,
@@ -257,10 +258,27 @@ if (audience === 'subscribers') {
         AND stripe_subscription_id IS NULL
         AND COALESCE(subscription_lapsed, 0) = 0
         AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
+        AND verified_never_paid_email_sent_at IS NULL
         AND created_at >= '${esc(sinceIso)}'
         AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)
       ORDER BY created_at ASC;`,
   );
+  // No double-touch: how many otherwise-eligible registrants we skipped because
+  // the automated verified-never-paid trial nudge already reached them.
+  excludedNudged =
+    querySqlite<{ n: number }>(
+      dbPath,
+      `SELECT COUNT(*) AS n
+         FROM users u
+        WHERE email_verified_at IS NOT NULL
+          AND tier = 'public'
+          AND stripe_subscription_id IS NULL
+          AND COALESCE(subscription_lapsed, 0) = 0
+          AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
+          AND verified_never_paid_email_sent_at IS NOT NULL
+          AND created_at >= '${esc(sinceIso)}'
+          AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id);`,
+    )[0]?.n ?? 0;
 }
 
 console.log(`Auth DB:        ${dbPath}`);
@@ -270,16 +288,10 @@ console.log(`Subject:        ${subject}`);
 if (audience === 'registrants') console.log(`Signup window:  last ${cli.days} days`);
 console.log(`Recipients:     ${rows.length}`);
 
-if (audience === 'registrants' && rows.length > 0) {
-  const overlap = querySqlite<{ n: number }>(
-    dbPath,
-    `SELECT COUNT(*) AS n FROM users
-      WHERE verified_never_paid_email_sent_at IS NOT NULL
-        AND id IN (${rows.map((r) => `'${esc(r.id)}'`).join(',')});`,
-  );
+if (audience === 'registrants') {
   console.log(
-    `  ↳ of those, ${overlap[0]?.n ?? 0} already received the automated ` +
-      `"verified-never-paid" trial nudge (potential double-touch).`,
+    `Excluded:       ${excludedNudged} already got the automated ` +
+      `"verified-never-paid" nudge (no double-touch)`,
   );
 }
 
