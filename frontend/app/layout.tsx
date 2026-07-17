@@ -156,7 +156,7 @@ const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
 // Shared site-wide description, sized for both Google SERP snippets and
 // LinkedIn/X social cards (LinkedIn warns under 100 chars; Google truncates
 // around 160). 138 characters lands cleanly inside both windows.
-const SITE_DESCRIPTION = 'Real-time gamma exposure, dealer positioning, gamma walls, and live options flow for SPX/0DTE traders. Free daily gamma levels, no signup required.';
+const SITE_DESCRIPTION = 'Real-time gamma exposure, dealer positioning, gamma walls, and live options flow for SPX/0DTE traders. Free 15-min-delayed gamma levels, no signup required.';
 
 export const metadata: Metadata = {
   title: 'ZeroGEX™ | Real-Time Options Analytics',

@@ -36,7 +36,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'do-i-need-to-sign-up',
         q: 'Do I need to sign up to use ZeroGEX?',
-        a: 'The free Gamma Levels pages — SPX, SPY, and QQQ — are open to anyone with no account: the daily gamma flip, call and put walls, max pain, and dealer gamma profile. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
+        a: 'The free Gamma Levels pages — SPX, SPY, and QQQ — are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
       },
       {
         id: 'free-trial',

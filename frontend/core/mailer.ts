@@ -1018,10 +1018,10 @@ export async function sendWinbackEmail(
     {
       title: 'Backtesting',
       body:
-        'test any options strategy against years of real market history, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
+        'test any options strategy against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
     },
     {
-      title: 'TradeWorkz automated bots',
+      title: 'TradeWorkz™ automated bots',
       body:
         'a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
     },

@@ -181,8 +181,8 @@ Q: What's the difference between Basic and Pro?
 A: Basic gives you the live Dashboard, the Live Bulletin, all metrics, the
 strategy tools, and the Basic signals. Pro adds the Advanced signals, the
 Composite Score, Backtesting, and programmatic API access. The full breakdown
-is on the Pricing page (https://zerogex.io/pricing). (The free Gamma Levels
-pages — SPX, SPY, QQQ — stay open to anyone, no signup:
+is on the Pricing page (https://zerogex.io/pricing). (The free, 15-minute-delayed
+Gamma Levels pages — SPX, SPY, QQQ — stay open to anyone, no signup:
 https://zerogex.io/spx-gamma-levels)
 
 Q: I'm on Pro — where's my API key?
