@@ -105,6 +105,11 @@ export default function FoundingLockinModal({
         style={{
           width: '100%',
           maxWidth: 520,
+          // Cap to the viewport and scroll internally so a short/landscape phone
+          // can always reach the CTA and the "do not show again" control instead
+          // of having the bottom of the modal pushed off-screen.
+          maxHeight: 'calc(100dvh - 32px)',
+          overflowY: 'auto',
           position: 'relative',
           backgroundColor: 'var(--bg-card)',
           color: 'var(--text-primary)',

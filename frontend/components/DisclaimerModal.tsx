@@ -78,6 +78,11 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
         style={{
           width: '100%',
           maxWidth: 520,
+          // First-load gate for the whole app — cap to the viewport and scroll
+          // internally so the acknowledge button stays reachable on small or
+          // landscape phones where the content would otherwise clip.
+          maxHeight: 'calc(100dvh - 32px)',
+          overflowY: 'auto',
           backgroundColor: 'var(--bg-card)',
           color: 'var(--text-primary)',
           border: '1px solid var(--border-default)',

@@ -175,7 +175,7 @@ function CompositeMsiCard({ score }: CompositeMsiCardProps) {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-4 gap-1 text-[10px] text-center">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-1 text-[10px] text-center">
         {REGIME_BANDS.map((band) => (
           <div
             key={band.regime.key}
