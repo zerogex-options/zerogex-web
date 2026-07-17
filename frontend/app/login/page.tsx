@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 // Friendly copy for the ?error=... codes the OAuth callbacks redirect with on
 // failure (google/callback/route.ts, apple/callback/route.ts). Without this
@@ -59,12 +60,36 @@ function LoginPageContent() {
   }, [searchParams]);
   const [error, setError] = useState<string | null>(oauthError);
   const [loading, setLoading] = useState(false);
+  // Shared session store (same request the layout/header already fire, so this
+  // adds no extra fetch). Drives the "already signed in" forward below.
+  const { data: authSession, loading: authLoading } = useAuthSession();
 
   const nextPath = useMemo(() => {
     const next = searchParams.get('next');
-    if (!next || !next.startsWith('/')) return '/dashboard';
+    // Only honor same-origin app paths, and never a path back to an auth page:
+    // a ?next=/login (or /register) would make the already-authenticated
+    // forward below bounce back to this page and loop. Fall through to the
+    // dashboard for anything unusable.
+    if (!next || !next.startsWith('/') || next.startsWith('/login') || next.startsWith('/register')) {
+      return '/dashboard';
+    }
     return next;
   }, [searchParams]);
+
+  // Forward visitors who already have a valid session instead of leaving them
+  // stranded on the sign-in form. Without this, a signed-in user who lands on
+  // /login (a stale bookmark, the landing "Login" link, a middleware round-trip
+  // that resolved after they'd authenticated in another tab) sees the form and
+  // nothing happens — "stuck on the login page." A fresh/incognito browser has
+  // no session cookie, so it takes the normal credential path and works, which
+  // is exactly the "works in a private window" report. Waits for the session
+  // fetch to resolve so we never redirect on the initial loading snapshot.
+  const alreadyAuthenticated = !authLoading && authSession?.authenticated === true;
+  useEffect(() => {
+    if (alreadyAuthenticated) {
+      router.replace(nextPath);
+    }
+  }, [alreadyAuthenticated, nextPath, router]);
 
   const loadCsrf = async () => {
     try {
@@ -123,6 +148,13 @@ function LoginPageContent() {
       setLoading(false);
     }
   };
+
+  // Already signed in: render the plain background (matching the Suspense
+  // fallback) while the effect above forwards them, rather than flashing a
+  // sign-in form they don't need.
+  if (alreadyAuthenticated) {
+    return <main className="min-h-screen bg-[var(--color-bg)]" />;
+  }
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
