@@ -1,0 +1,373 @@
+<!--
+  ZeroGEX — Registrant / Prospect Update (July 2026)
+  --------------------------------------------------
+  A variant of 2026-07-product-update.html tailored for people who registered
+  an account but have NOT subscribed or started a trial. Softer, conversion-
+  oriented: founder intro, free-Gamma-Levels-first, "start a free trial" CTA
+  instead of the referral perk (which requires an active paid plan to earn).
+  Send this ONLY to verified registrant addresses; use the main file for
+  subscribed + trial users.
+
+  RECOMMENDED SUBJECT LINE:
+      Your ZeroGEX account is ready — start with the free levels
+  Alternatives:
+      What ZeroGEX does (and what's new)
+      A quick tour of ZeroGEX — and how to start free
+
+  HEADER LOGO IMAGE (search: LOGO-IMG): https://zerogex.io/email/zerogex-header.png
+  {{{RESEND_UNSUBSCRIBE_URL}}} is the Resend Broadcasts unsubscribe merge tag.
+  Optional first-name: replace "Hi there," with "Hi {{{FIRST_NAME|there}}},".
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>ZeroGEX — Getting Started</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td, a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
+  <style type="text/css">
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    table { border-collapse: collapse !important; }
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { text-decoration: none; }
+    /* Collapsible FAQ (progressive enhancement): interactive in Apple Mail / iOS
+       Mail (WebKit); Gmail/Outlook strip <details> and render answers expanded. */
+    details.zg-faq { border-bottom: 1px solid #eef1f4; }
+    details.zg-faq > summary { list-style: none; }
+    details.zg-faq > summary::-webkit-details-marker { display: none; }
+    details.zg-faq > summary::marker { content: ""; }
+    .zg-tri { transition: transform 0.15s ease; }
+    details.zg-faq[open] > summary .zg-tri { transform: rotate(90deg); }
+    @media only screen and (max-width: 620px) {
+      .zg-container { width: 100% !important; }
+      .zg-pad { padding-left: 22px !important; padding-right: 22px !important; }
+      .zg-badge-cell { display: block !important; width: 100% !important; text-align: center !important; padding: 0 0 14px 0 !important; }
+      .zg-badge-text { display: block !important; width: 100% !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#eceff3;">
+  <!-- Preheader -->
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all; color:#eceff3;">
+    A quick tour of ZeroGEX — what it does, what's new, and how to start free. The core gamma levels are open to anyone, no card required.
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eceff3;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+
+        <table role="presentation" class="zg-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(15,34,52,0.10);">
+
+          <!-- Header: full-bleed logo banner -->
+          <tr>
+            <td align="center" bgcolor="#0f2234" style="background-color:#0f2234; line-height:0; font-size:0;">
+              <!-- LOGO-IMG -->
+              <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0;">
+                <img src="https://zerogex.io/email/zerogex-header.png" width="600" height="251" alt="ZeroGEX — Options Analytics" style="display:block; width:100%; max-width:600px; height:auto; border:0;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- Eyebrow -->
+          <tr>
+            <td align="center" class="zg-pad" style="padding:26px 34px 0 34px;">
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; color:#c93a34; text-transform:uppercase;">
+                Getting Started &nbsp;&middot;&nbsp; July 2026
+              </div>
+            </td>
+          </tr>
+
+          <!-- Intro -->
+          <tr>
+            <td class="zg-pad" style="padding:16px 34px 6px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">Hi there,</p>
+              <p style="margin:0 0 16px 0;">Thanks for creating a ZeroGEX account. I'm Michael, the founder &mdash; I wanted to introduce myself, give you a quick tour of what ZeroGEX does and what's new, and point you to the easiest way to start (the core levels are free).</p>
+              <p style="margin:0 0 6px 0;">ZeroGEX is built for active traders. It shows you where options dealers are positioned, so you can read intraday price action the way market makers hedge it &mdash; the <strong>gamma flip</strong>, the <strong>call and put walls</strong>, and the levels price tends to pin, reject, or react around. Here's what's inside, where it's headed, and how to jump in.</p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:22px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- SECTION: Highlights -->
+          <tr>
+            <td class="zg-pad" style="padding:24px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="width:4px; background-color:#f45854; border-radius:2px;">&nbsp;</td>
+                <td style="padding-left:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:19px; font-weight:800; color:#12283c; letter-spacing:-0.2px;">Highlights</td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td class="zg-pad" style="padding:14px 34px 4px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.6;">
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong><a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#cc352f; text-decoration:none;">Free Gamma Levels</a>.</strong> Today's gamma flip, call and put walls, max pain, and dealer gamma profile for SPX, SPY, and QQQ &mdash; free and 15-minute delayed, no signup, no card. The easiest place to see what ZeroGEX does.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong><a href="https://zerogex.io/backtesting" target="_blank" style="color:#cc352f; text-decoration:none;">Backtesting</a>.</strong> Test any options strategy against historical market data &mdash; a full tearsheet (risk-adjusted returns, drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable &ldquo;prove it&rdquo; report links.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">Forced Flow &amp; Charm-into-Close.</strong> A read on dealer hedging pressure into the close &mdash; where charm and vanna are quietly pushing price late in the session.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;"><a href="https://zerogex.io/forecast" target="_blank" style="color:#cc352f; text-decoration:none;">Daily Forecast</a>.</strong> Each morning, a plain-English read on the day ahead: an Expected Volatility estimate, a projected range, and the Key Levels that matter &mdash; and it grades itself against what actually happened, so you see a track record, not just a claim.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong><a href="https://zerogex.io/trading-signals" target="_blank" style="color:#cc352f; text-decoration:none;">TradeWorkz&trade;</a>.</strong> A fleet of automated strategies that trade off ZeroGEX's own proprietary metrics and levels, posting their entries and exits in real time &mdash; backed by a fully public trade audit (every win and loss, not just the highlights).
+                </td>
+              </tr></table>
+
+            </td>
+          </tr>
+          <tr>
+            <td class="zg-pad" style="padding:8px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td align="center" bgcolor="#f45854" style="border-radius:8px;">
+                  <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="display:inline-block; padding:13px 26px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:800; color:#11212f; border-radius:8px;">See the free Gamma Levels &rarr;</a>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:24px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- SECTION: Roadmap -->
+          <tr>
+            <td class="zg-pad" style="padding:24px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="width:4px; background-color:#f45854; border-radius:2px;">&nbsp;</td>
+                <td style="padding-left:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:19px; font-weight:800; color:#12283c; letter-spacing:-0.2px;">What's coming next</td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td class="zg-pad" style="padding:12px 34px 4px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.6;">
+              <p style="margin:0 0 14px 0;">A quick look at where ZeroGEX is headed &mdash; the current direction:</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#8a97a4; font-weight:800;">&rarr;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;"><strong style="color:#12283c;">My Dashboard.</strong> A customizable, widget-based view &mdash; pull your favorite charts and cards into one board, move things where you want them, and save your layout, chart settings, and symbol selections.</td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#8a97a4; font-weight:800;">&rarr;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;"><strong style="color:#12283c;">Enhanced backtesting.</strong> More strategies, more control, deeper analytics, and a longer history window as we expand the dataset.</td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#8a97a4; font-weight:800;">&rarr;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;"><strong style="color:#12283c;">More tickers.</strong> Expanding coverage beyond SPY, SPX, and QQQ &mdash; the same gamma read on more of what you watch.</td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#8a97a4; font-weight:800;">&rarr;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;"><strong style="color:#12283c;">More automated strategies.</strong> Additional <a href="https://zerogex.io/trading-signals" target="_blank" style="color:#cc352f; font-weight:700;">TradeWorkz&trade;</a> bots &mdash; each with the same public, no-cherry-picking track record.</td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 6px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#8a97a4; font-weight:800;">&rarr;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;"><strong style="color:#12283c;">A sharper mobile experience.</strong> Continued work to make ZeroGEX feel great on the phone, not just the desktop.</td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <!-- SECTION: Start free (highlighted) -->
+          <tr>
+            <td class="zg-pad" style="padding:26px 34px 0 34px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fdeeed; border-left:4px solid #f45854; border-radius:8px;">
+                <tr>
+                  <td style="padding:20px 22px 20px 22px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+                    <div style="font-size:18px; font-weight:800; color:#12283c; margin-bottom:8px;">Two ways in &mdash; both free to start</div>
+                    <p style="margin:0 0 10px 0; font-size:15px; line-height:1.6; color:#3a4650;">
+                      The <strong>free, 15-minute-delayed Gamma Levels</strong> pages (SPX, SPY, QQQ) are open right now &mdash; no card, nothing to set up. See today's gamma flip, call and put walls, and max pain.
+                    </p>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:1.6; color:#3a4650;">
+                      Want the real-time Dashboard, signals, and everything above? A <strong>free trial</strong> gives you full access &mdash; you won't be charged until it ends, and you can cancel anytime.
+                    </p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                      <td align="center" bgcolor="#0f2234" style="border-radius:8px;">
+                        <a href="https://zerogex.io/pricing" target="_blank" style="display:inline-block; padding:12px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:14px; font-weight:700; color:#ffffff; border-radius:8px;">Start your free trial &rarr;</a>
+                      </td>
+                    </tr></table>
+                    <p style="margin:14px 0 0 0; font-size:14px; line-height:1.5; color:#66727e;">
+                      Or just browse the <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#cc352f; font-weight:700;">free Gamma Levels</a> first &mdash; no account needed.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- SECTION: Folds of Honor -->
+          <tr>
+            <td class="zg-pad" style="padding:26px 34px 0 34px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f4f7; border:1px solid #e4e8ec; border-radius:8px;">
+                <tr>
+                  <td style="padding:20px 22px 20px 22px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                      <td class="zg-badge-cell" valign="top" style="width:64px; padding-right:16px;">
+                        <a href="https://zerogex.io/giving" target="_blank" style="line-height:0; display:inline-block;">
+                          <img src="https://zerogex.io/folds-of-honor-proud-supporter.png" alt="Folds of Honor Proud Supporter" width="56" height="56" style="width:56px; height:56px; border-radius:50%; background:#ffffff; display:block;">
+                        </a>
+                      </td>
+                      <td class="zg-badge-text" valign="top">
+                        <div style="font-size:17px; font-weight:800; color:#12283c; margin-bottom:6px;">We're a Folds of Honor Proud Supporter</div>
+                        <p style="margin:0 0 10px 0; font-size:14px; line-height:1.6; color:#3a4650;">
+                          <strong>3% of every subscription</strong> is pledged to Folds of Honor, funding educational scholarships for the spouses and children of fallen and disabled U.S. service members &mdash; at no extra cost to you. It comes out of ZeroGEX's share, not your price.
+                        </p>
+                        <p style="margin:0; font-size:14px; line-height:1.6; color:#3a4650;">We settle one consolidated donation each quarter and publish the running total at <a href="https://zerogex.io/giving" target="_blank" style="color:#cc352f; font-weight:700;">zerogex.io/giving</a> &mdash; the ledger, not a marketing claim.</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:26px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- SECTION: FAQ -->
+          <tr>
+            <td class="zg-pad" style="padding:24px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="width:4px; background-color:#f45854; border-radius:2px;">&nbsp;</td>
+                <td style="padding-left:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:19px; font-weight:800; color:#12283c; letter-spacing:-0.2px;">A few common questions</td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td class="zg-pad" style="padding:16px 34px 4px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.6;">
+
+              <!-- Group 1: product / how-to (collapsible) -->
+              <p style="margin:0 0 12px 0; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:#c93a34;">Using ZeroGEX</p>
+
+              <details class="zg-faq" style="border-top:1px solid #eef1f4; border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Where do I start &mdash; how should I actually use it?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Start free. The <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#cc352f; font-weight:700;">Gamma Levels</a> pages show the three levels that matter most: the Gamma Flip (stabilizing vs. amplifying regime), and the Call Wall and Put Wall (your likely upside and downside friction). On a free trial you also get the live <a href="https://zerogex.io/dashboard" target="_blank" style="color:#cc352f; font-weight:700;">Dashboard</a> and <a href="https://zerogex.io/gex-strike-profile" target="_blank" style="color:#cc352f; font-weight:700;">GEX Strike Profile</a> in real time. The idea: the levels tell you <em>where</em> to pay attention; your own price action (VWAP, the opening-range break) tells you <em>when</em>.</p>
+                </div>
+              </details>
+
+              <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Why is ZeroGEX's Gamma Flip / Net GEX different from other sites?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">Because most sites take a shortcut we don't. The common method just adds up each strike's <em>static</em> gamma and calls the zero-crossing the &ldquo;flip.&rdquo; It's fast &mdash; but that flip tends to stick to whatever wall is in the snapshot, even when the true zero-gamma level has moved several percent away.</p>
+                  <p style="margin:0 0 12px 0; font-size:15px; line-height:1.62; color:#3a4650;">ZeroGEX computes the <strong>spot-shift dealer gamma profile</strong> instead &mdash; the original SpotGamma / SqueezeMetrics definition. We re-price every contract's gamma across a grid of hypothetical prices around spot, apply the dealer sign convention (calls&nbsp;+, puts&nbsp;&minus;), and weight by open interest and time to expiry. Everything reads off one curve: the <strong>Gamma Flip</strong> is where it crosses zero, and <strong>Net GEX at spot</strong> is its value at today's price &mdash; so the headline number and the regime can never contradict each other.</p>
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Full write-up, with a vendor-by-vendor comparison, is at <a href="https://zerogex.io/guides/gamma-flip-calculation-before-vs-after" target="_blank" style="color:#cc352f; font-weight:700;">zerogex.io/guides/gamma-flip-calculation-before-vs-after</a>.</p>
+                </div>
+              </details>
+
+              <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Can I replay or backtest the levels against historical price action?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Yes to both. <a href="https://zerogex.io/replay" target="_blank" style="color:#cc352f; font-weight:700;">Replay</a> lets you scrub back through a past session and watch how price behaved around the Gamma Flip, Call Wall, and Put Wall as they moved &mdash; with a toggle to hide future candles so you're testing your read honestly. <a href="https://zerogex.io/backtesting" target="_blank" style="color:#cc352f; font-weight:700;">Backtesting</a> runs a signal or rule against historical data with a full tearsheet.</p>
+                </div>
+              </details>
+
+              <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">Can I use it for futures like ES, MES, NQ, or MNQ?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Yes &mdash; you map the future to its index book. <strong>/ES</strong> and <strong>/MES</strong> trade off the <strong>SPX</strong> (and SPY) gamma levels; <strong>/NQ</strong> and <strong>/MNQ</strong> off <strong>QQQ</strong> today, with <strong>NDX</strong> coming. The structural levels are identical &mdash; only the price scale differs.</p>
+                </div>
+              </details>
+
+              <!-- Group 2: getting started / billing (collapsible) -->
+              <p style="margin:26px 0 12px 0; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:#c93a34;">Trial &amp; plans</p>
+
+              <details class="zg-faq" style="border-top:1px solid #eef1f4; border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">How does the free trial work &mdash; and when would I be charged?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">Both Basic and Pro start with a free trial (length is shown on the <a href="https://zerogex.io/pricing" target="_blank" style="color:#cc352f; font-weight:700;">Pricing page</a>). You're not charged during it &mdash; at the end it continues automatically at the rate you signed up for. Cancel any time before the trial ends from the billing portal and you're never charged a cent.</p>
+                </div>
+              </details>
+
+              <details class="zg-faq" style="border-bottom:1px solid #eef1f4;">
+                <summary style="cursor:pointer; padding:13px 2px; font-size:15px; font-weight:700; color:#12283c; list-style:none;"><span class="zg-tri" style="display:inline-block; color:#f45854; font-size:12px; line-height:1; margin-right:10px;">&#9656;</span><span style="font-weight:700; color:#12283c;">What's the difference between free, Basic, and Pro?</span></summary>
+                <div style="padding:2px 2px 15px 26px;">
+                  <p style="margin:0; font-size:15px; line-height:1.62; color:#3a4650;">The free, 15-minute-delayed <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#cc352f; font-weight:700;">Gamma Levels</a> pages (SPX, SPY, QQQ) are open to anyone, no signup. <strong>Basic</strong> adds the live <a href="https://zerogex.io/dashboard" target="_blank" style="color:#cc352f; font-weight:700;">Dashboard</a>, the <a href="https://zerogex.io/live-bulletin" target="_blank" style="color:#cc352f; font-weight:700;">Live Bulletin</a>, all metrics, the strategy tools, and the Basic signals. <strong>Pro</strong> adds the Advanced signals, the Composite Score, <a href="https://zerogex.io/backtesting" target="_blank" style="color:#cc352f; font-weight:700;">Backtesting</a>, and programmatic API access. The full breakdown is on the <a href="https://zerogex.io/pricing" target="_blank" style="color:#cc352f; font-weight:700;">Pricing page</a>.</p>
+                </div>
+              </details>
+
+              <!-- Full FAQ link -->
+              <p style="margin:22px 0 6px 0; font-size:14px; line-height:1.6; color:#66727e;">
+                More questions? The full FAQ &mdash; 50+ answers on data, signals, billing, and methodology &mdash; lives at <a href="https://zerogex.io/help/faqs" target="_blank" style="color:#cc352f; font-weight:700;">zerogex.io/help/faqs</a>.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:24px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- Closer / signature -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 26px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">That's the tour. Your account's ready whenever you are &mdash; the free Gamma Levels are one click away, and a free trial opens up the rest. Questions, or something you'd want to see before subscribing? Just hit reply &mdash; I read every message myself.</p>
+              <p style="margin:0 0 2px 0;">Trade well,</p>
+              <p style="margin:0; font-weight:700; color:#12283c;">Michael</p>
+              <p style="margin:0; color:#66727e; font-size:14px;">Founder, ZeroGEX</p>
+            </td>
+          </tr>
+
+          <!-- Footer (navy) -->
+          <tr>
+            <td style="padding:26px 34px 30px 34px; background-color:#0f2234;" class="zg-pad">
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:16px; font-weight:800; letter-spacing:-0.3px; color:#ffffff; margin-bottom:14px;">zerogex<span style="color:#ff6361;">.io</span></div>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#7f90a0;">
+                ZeroGEX provides options market-structure data and analytics for educational and informational purposes only. It is not investment advice, and nothing here is a recommendation to buy or sell any security. Options trading involves substantial risk and is not suitable for every investor.
+              </p>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:13px; line-height:1.6;">
+                <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#c3d0da; font-weight:600;">Free Gamma Levels</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/pricing" target="_blank" style="color:#c3d0da; font-weight:600;">Pricing</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/giving" target="_blank" style="color:#c3d0da; font-weight:600;">Giving</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/help/faqs" target="_blank" style="color:#c3d0da; font-weight:600;">Help &amp; FAQ</a>
+              </p>
+              <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#68798a;">
+                You're receiving this because you created a ZeroGEX account.
+                <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" target="_blank" style="color:#9fb0be; text-decoration:underline;">Unsubscribe</a>.
+                Questions? Just reply, or email <a href="mailto:Michael@zerogex.io" style="color:#9fb0be; text-decoration:underline;">Michael@zerogex.io</a>.
+                <br>
+                ZeroGEX &middot; 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -35,7 +35,7 @@ So first: thank you. Keep it coming — I read every reply.
   the close — where charm and vanna are quietly pushing price late in the
   session.
 
-* Daily Forecast — brand new (https://zerogex.io/forecast). Each morning, a
+* Daily Forecast (https://zerogex.io/forecast). Each morning, a
   plain-English read on the day ahead: an Expected Volatility estimate, a
   projected range, and the Key Levels that matter — with how far price sits
   from each. It deliberately doesn't call direction. And it grades itself: the
