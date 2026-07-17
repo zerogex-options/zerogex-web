@@ -251,6 +251,10 @@ export async function POST(request: NextRequest) {
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
         ...(discountResult.partnerApplied ? { partner_referred: '1' } : {}),
         ...(discountResult.winbackApplied ? { winback: '1' } : {}),
+        // Second coupon to stack onto the subscription (referee bonus on top of
+        // the promo). The webhook applies it while the sub is still trialing,
+        // before the first invoice. Checkout can only carry one coupon itself.
+        ...(discountResult.stackCouponId ? { stack_coupon: discountResult.stackCouponId } : {}),
       },
       // Stripe accepts only one of trial_end / trial_period_days. Founding
       // members get the absolute July-1 trial_end; everyone else (first-time
@@ -295,7 +299,17 @@ export async function POST(request: NextRequest) {
 type DiscountResolution =
   | {
       ok: true;
+      // The single coupon attached to the Checkout Session. Stripe allows only
+      // ONE discount per Checkout Session, so when two discounts apply (see
+      // stackCouponId) this is the one shown at checkout; the other is added to
+      // the subscription by the webhook before the first (post-trial) invoice.
       couponId: string | null;
+      // A SECOND coupon to stack onto the subscription in addition to couponId.
+      // Non-null only for a referred user who ALSO qualifies for the public
+      // promo: the referee bonus stacks on top of the promo. Carried to the
+      // webhook via subscription metadata and applied while the sub is still
+      // trialing (before any charge). Null in every single-discount case.
+      stackCouponId: string | null;
       foundingApplied: boolean;
       referralApplied: boolean;
       partnerApplied: boolean;
@@ -352,6 +366,7 @@ function resolveDiscount(input: {
     return {
       ok: true,
       couponId,
+      stackCouponId: null,
       foundingApplied: true,
       referralApplied: false,
       partnerApplied: false,
@@ -371,6 +386,7 @@ function resolveDiscount(input: {
       return {
         ok: true,
         couponId: winbackCouponId,
+        stackCouponId: null,
         foundingApplied: false,
         referralApplied: false,
         partnerApplied: false,
@@ -379,11 +395,84 @@ function resolveDiscount(input: {
     }
   }
 
+  // Creator-partner audience coupon is exclusive (like founding/winback): it's
+  // the curated deal negotiated with the creator, and stacking the public promo
+  // on top of it isn't intended. Resolve it first and return alone if present.
+  if (input.referredByCode && isCreatorPartnerProgramEnabled()) {
+    const partner = findCreatorByReferralCode(input.referredByCode);
+    if (partner) {
+      const partnerCoupon = getPartnerAudienceCouponId(partner, input.cadence);
+      if (partnerCoupon) {
+        return {
+          ok: true,
+          couponId: partnerCoupon,
+          stackCouponId: null,
+          foundingApplied: false,
+          referralApplied: false,
+          partnerApplied: true,
+          winbackApplied: false,
+        };
+      }
+      // Partner resolved but no coupon for this cadence — fall through to the
+      // standard referee path so the referee still gets SOMETHING (and the
+      // partner still gets attribution + commission via referred_by_code).
+    }
+  }
+
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
+
+  // Standard referee coupon (first month free monthly / 10% off first year
+  // annual), resolved independently of the promo so the two can STACK.
+  let refereeCouponId: string | null = null;
+  if (input.referredByCode && isReferralProgramEnabled()) {
+    const refereeCoupon = getRefereeCouponId(input.cadence);
+    if (refereeCoupon) {
+      // Defense-in-depth: the monthly referee coupon is 100%-off (first month
+      // free). On an annual line item that same coupon would make the entire
+      // first YEAR free. The coupon is already keyed to cadence, but guard the
+      // env-misconfig case where the annual var was pointed at the monthly
+      // coupon — drop the referee coupon rather than give away a free year.
+      const monthlyCoupon = getRefereeCouponId('monthly');
+      if (!(input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon)) {
+        refereeCouponId = refereeCoupon;
+      }
+    }
+  }
+
+  // Stack: a referred user who ALSO qualifies for the public promo gets BOTH.
+  // Stripe Checkout allows only one discount, so the promo rides the Checkout
+  // Session (it's the public-facing rate shown at checkout) and the referee
+  // coupon is stacked onto the subscription by the webhook before the first
+  // (post-trial) invoice. Both then apply to that first invoice.
+  if (promoCouponId && refereeCouponId) {
+    return {
+      ok: true,
+      couponId: promoCouponId,
+      stackCouponId: refereeCouponId,
+      foundingApplied: false,
+      referralApplied: true,
+      partnerApplied: false,
+      winbackApplied: false,
+    };
+  }
+
+  // Only one (or neither) applies.
+  if (refereeCouponId) {
+    return {
+      ok: true,
+      couponId: refereeCouponId,
+      stackCouponId: null,
+      foundingApplied: false,
+      referralApplied: true,
+      partnerApplied: false,
+      winbackApplied: false,
+    };
+  }
   if (promoCouponId) {
     return {
       ok: true,
       couponId: promoCouponId,
+      stackCouponId: null,
       foundingApplied: false,
       referralApplied: false,
       partnerApplied: false,
@@ -391,69 +480,10 @@ function resolveDiscount(input: {
     };
   }
 
-  // Referral-derived discounts. The code can resolve to either:
-  //   - a creator partner -> partner audience coupon (richer, monthly only)
-  //   - a standard user   -> standard referee coupon (one-shot)
-  // Partner wins when both apply because the partner offer is the curated
-  // deal we negotiated with the creator and is what their audience was
-  // promised. Standard referee is the fallback for everyone else.
-  if (input.referredByCode) {
-    if (isCreatorPartnerProgramEnabled()) {
-      const partner = findCreatorByReferralCode(input.referredByCode);
-      if (partner) {
-        const partnerCoupon = getPartnerAudienceCouponId(partner, input.cadence);
-        if (partnerCoupon) {
-          return {
-            ok: true,
-            couponId: partnerCoupon,
-            foundingApplied: false,
-            referralApplied: false,
-            partnerApplied: true,
-            winbackApplied: false,
-          };
-        }
-        // Partner resolved but no monthly coupon configured / annual cadence.
-        // Fall through to the standard referee path so the referee still gets
-        // SOMETHING (and the partner still gets attribution + commission via
-        // the referred_by_code that's already recorded on the user row).
-      }
-    }
-
-    if (isReferralProgramEnabled()) {
-      const refereeCoupon = getRefereeCouponId(input.cadence);
-      if (refereeCoupon) {
-        // Defense-in-depth: the monthly referee coupon is 100%-off (first
-        // month free). On an annual line item that same coupon would make the
-        // entire first YEAR free. The coupon is already keyed to cadence, but
-        // guard the env-misconfig case where the annual var was pointed at
-        // the monthly coupon — drop the discount rather than give away a
-        // free year.
-        const monthlyCoupon = getRefereeCouponId('monthly');
-        if (input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon) {
-          return {
-            ok: true,
-            couponId: null,
-            foundingApplied: false,
-            referralApplied: false,
-            partnerApplied: false,
-            winbackApplied: false,
-          };
-        }
-        return {
-          ok: true,
-          couponId: refereeCoupon,
-          foundingApplied: false,
-          referralApplied: true,
-          partnerApplied: false,
-          winbackApplied: false,
-        };
-      }
-    }
-  }
-
   return {
     ok: true,
     couponId: null,
+    stackCouponId: null,
     foundingApplied: false,
     referralApplied: false,
     partnerApplied: false,
