@@ -34,6 +34,13 @@ type ReferralPayload = {
   creditOnNextBill?: string;
 };
 
+type BillingStatusPayload = {
+  status: string | null;
+  hasSubscription: boolean;
+  paymentIssue: boolean;
+  currentPeriodEnd: string | null;
+};
+
 const PASSWORD_MIN_LENGTH = 12;
 
 const C = {
@@ -80,6 +87,7 @@ function AccountPageContent() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralPayload | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [billing, setBilling] = useState<BillingStatusPayload | null>(null);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
   // X/Twitter handle. `xHandle` is the input value (without the leading @);
   // `xHandleSaved` is the persisted value the server confirmed (null when unset).
@@ -121,6 +129,24 @@ function AccountPageContent() {
         if (!cancelled) setReferral(data);
       } catch {
         /* referral card is non-critical; silently skip on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSession?.authenticated]);
+
+  useEffect(() => {
+    if (!authSession?.authenticated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/billing/status', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = (await response.json()) as BillingStatusPayload;
+        if (!cancelled) setBilling(data);
+      } catch {
+        /* billing-status banner is non-critical; silently skip on failure */
       }
     })();
     return () => {
@@ -548,6 +574,24 @@ function AccountPageContent() {
 
         <section style={{ marginTop: 24 }}>
           <SectionHeading icon={<CreditCard size={18} />}>Subscription</SectionHeading>
+          {billing?.paymentIssue && (
+            <div
+              role="alert"
+              style={{
+                margin: '6px 0 14px',
+                borderRadius: 12,
+                padding: '12px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                border: '1px solid var(--color-bear)',
+                color: 'var(--color-bear)',
+                background: 'var(--color-bear-soft)',
+              }}
+            >
+              ⚠️ Your last payment didn&apos;t go through, so your access is paused. Update your
+              payment method below to restore your subscription — no need to sign up again.
+            </div>
+          )}
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
             Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.
           </p>
@@ -572,7 +616,12 @@ function AccountPageContent() {
               boxShadow: '0 6px 20px var(--color-brand-primary-soft, rgba(245,180,0,0.25))',
             }}
           >
-            <Settings size={16} /> {opening ? 'Opening portal…' : 'Manage Subscription'}
+            <Settings size={16} />{' '}
+            {opening
+              ? 'Opening portal…'
+              : billing?.paymentIssue
+                ? 'Update payment method'
+                : 'Manage Subscription'}
           </button>
           {!canManageBilling && tier === 'public' && (
             <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
