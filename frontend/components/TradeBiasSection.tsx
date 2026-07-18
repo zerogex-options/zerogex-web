@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -86,7 +87,7 @@ const BIAS_TOOLTIP =
 const PLAYBOOK_TOOLTIP =
   'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it — entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
 
-export default function TradeBiasSection() {
+export default function TradeBiasSection({ compact = false }: { compact?: boolean } = {}) {
   const { symbol } = useTimeframe();
 
   const gex = useGEXSummary(symbol, 5000);
@@ -214,6 +215,50 @@ export default function TradeBiasSection() {
   const color = trendColor(bias.trend);
   const biasIcon = bias.trend === 'bullish' ? TrendingUp : bias.trend === 'bearish' ? TrendingDown : AlertTriangle;
   const confidencePct = (bias.confidence / bias.maxConfidence) * 100;
+
+  // Compact mode — a single glance-first card for the dashboard. The full
+  // three-card breakdown + playbook now lives on the dedicated /trade-bias page.
+  if (compact) {
+    const CompactIcon = biasIcon;
+    return (
+      <section className="mb-8">
+        <div
+          className="zg-feature-shell p-4 flex flex-wrap items-center gap-x-6 gap-y-3"
+          style={{ borderColor: color }}
+        >
+          <span
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
+            <CompactIcon size={16} style={{ color }} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+              Trade Bias · {bias.regimeLabel}
+            </div>
+            <div className="text-xl sm:text-2xl font-black leading-tight break-words" style={{ color }}>
+              {bias.biasLabel}
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xl font-black" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
+              {bias.confidence.toFixed(1)}
+            </span>
+            <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+              Conf / {bias.maxConfidence}
+            </span>
+          </div>
+          <Link
+            href="/trade-bias"
+            className="ml-auto text-sm font-semibold hover:underline"
+            style={{ color: 'var(--color-info)' }}
+          >
+            Open Trade Bias →
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-8">
