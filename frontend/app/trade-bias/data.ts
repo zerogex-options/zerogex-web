@@ -106,8 +106,30 @@ export interface TradeBiasPayload {
   watching: BiasWatchingItem[];
   hasData: boolean;
   inputs: Record<BiasInputKey, number | null>;
+  // The tactical live read (Phase 3): four directional pillars fused into a
+  // signed direction + conviction that confirms / diverges from / overrides
+  // the structural baseline.
+  tactical: {
+    direction: number | null; // [-1, 1]
+    conviction: number | null; // [0, 1]
+    alignedCount: number | null;
+    availableCount: number | null;
+    pillars: { priceAction: number | null; flow: number | null; tape: number | null; momentum: number | null };
+  };
+  structuralBiasLabel: string | null;
   timestamp: string | null;
 }
+
+export const TACTICAL_PILLAR_META: Array<{
+  key: 'priceAction' | 'flow' | 'tape' | 'momentum';
+  label: string;
+  description: string;
+}> = [
+  { key: 'priceAction', label: 'Price Action', description: 'Bounce off a low / rejection of a high vs the recent swing range.' },
+  { key: 'flow', label: 'Order Flow', description: 'Smart-money call vs put premium imbalance.' },
+  { key: 'tape', label: 'Tape', description: 'Directional lean of the live premium tape.' },
+  { key: 'momentum', label: 'Momentum', description: 'Vol-normalized n-bar momentum (z-scored).' },
+];
 
 export interface TradeBiasHistoryRow {
   timestamp: string;
@@ -159,6 +181,9 @@ export function parseBiasPayload(raw: unknown): TradeBiasPayload {
   const biasObj = asObject(obj.bias) ?? {};
   const regimeObj = asObject(obj.regime) ?? {};
   const overrideObj = asObject(obj.override) ?? {};
+  const tacticalObj = asObject(obj.tactical) ?? {};
+  const pillarsObj = asObject(tacticalObj.pillars) ?? {};
+  const structuralBiasObj = asObject(obj.structural_bias) ?? {};
   const directionRaw = typeof obj.direction === 'string' ? obj.direction : String(biasObj.trend ?? '');
 
   return {
@@ -187,6 +212,19 @@ export function parseBiasPayload(raw: unknown): TradeBiasPayload {
     watching: parseWatching(obj.watching),
     hasData: getBool(obj.has_data),
     inputs: parseInputs(obj.inputs),
+    tactical: {
+      direction: getNumber(tacticalObj.direction),
+      conviction: getNumber(tacticalObj.conviction),
+      alignedCount: getNumber(tacticalObj.aligned_count),
+      availableCount: getNumber(tacticalObj.available_count),
+      pillars: {
+        priceAction: getNumber(pillarsObj.price_action),
+        flow: getNumber(pillarsObj.flow),
+        tape: getNumber(pillarsObj.tape),
+        momentum: getNumber(pillarsObj.momentum),
+      },
+    },
+    structuralBiasLabel: typeof structuralBiasObj.label === 'string' ? structuralBiasObj.label : null,
     timestamp: typeof obj.timestamp === 'string' ? obj.timestamp : null,
   };
 }

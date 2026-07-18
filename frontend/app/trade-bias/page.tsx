@@ -21,7 +21,7 @@ import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
 import BiasSparkline from './BiasSparkline';
 import { useTradeBiasData } from './useTradeBiasData';
-import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TradeBiasPayload } from './data';
+import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload } from './data';
 
 const TITLE_TOOLTIP =
   'Trade Bias is a single, signed directional call — which way to lean, how convinced, and the regime it started from. ' +
@@ -35,8 +35,19 @@ const TENOR_TOOLTIP =
   'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can — and often do — disagree.';
 
 const INPUTS_TOOLTIP =
-  'The inputs behind the bias, split into the structural baseline (gamma regime, volatility, positioning) and the tactical live read (flow, tape, momentum). ' +
+  'The nine signals behind the structural baseline. ' +
   'Each is shown on its −100…+100 scale; green leans bullish, red bearish.';
+
+const LIVE_READ_TOOLTIP =
+  'The tactical layer — price action (bounce/reject), order flow, tape, and momentum — fused into one signed direction and a conviction. ' +
+  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides — flipping the bias to a reversal/squeeze playbook.';
+
+const STATE_VERB: Record<string, string> = {
+  confirmed: 'confirms',
+  divergent: 'diverges from',
+  override: 'overrode',
+  baseline: 'sits on',
+};
 
 const TENOR_OPTIONS: { value: string; label: string }[] = [
   { value: 'swing', label: 'Swing · Multi-day' },
@@ -216,6 +227,63 @@ function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
   );
 }
 
+function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
+  const t = payload.tactical;
+  const dirTrend: SignalTrend =
+    t.direction == null ? 'neutral' : t.direction > 0.15 ? 'bullish' : t.direction < -0.15 ? 'bearish' : 'neutral';
+  const dirColor = trendColor(dirTrend);
+  const dirLabel = dirTrend === 'bullish' ? 'Long' : dirTrend === 'bearish' ? 'Short' : 'Neutral';
+  const convPct = t.conviction != null ? Math.round(t.conviction * 100) : null;
+  const verb = STATE_VERB[payload.state] ?? 'sits on';
+
+  return (
+    <section className="zg-feature-shell mt-8 p-6">
+      <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+        <Zap size={20} />
+        Live read
+        <TooltipWrapper text={LIVE_READ_TOOLTIP} placement="bottom">
+          <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
+        </TooltipWrapper>
+      </h2>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+        Price action, order flow, tape and momentum — the tactical layer that {verb} the{' '}
+        {payload.structuralBiasLabel ?? 'structural'} baseline.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+        {TACTICAL_PILLAR_META.map((p) => {
+          const v = payload.tactical.pillars[p.key];
+          return (
+            <div key={p.key} className="grid grid-cols-[minmax(0,1fr)_120px_46px] items-center gap-3 py-1.5">
+              <div className="min-w-0 flex items-center gap-1.5">
+                <span className="text-[13px] font-medium truncate">{p.label}</span>
+                <TooltipWrapper text={p.description} />
+              </div>
+              <InputBar value={v == null ? null : v * 100} />
+              <span className="text-[12px] font-mono text-right" style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                {v == null ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
+        <span className="text-[var(--color-text-secondary)]">
+          Tactical direction <span className="font-semibold" style={{ color: dirColor }}>{dirLabel}</span>
+        </span>
+        <span className="text-[var(--color-text-secondary)]">
+          Conviction <span className="font-semibold font-mono text-[var(--color-text-primary)]">{convPct == null ? '—' : `${convPct}%`}</span>
+        </span>
+        <span className="text-[var(--color-text-secondary)]">
+          <span className="font-semibold font-mono text-[var(--color-text-primary)]">{t.alignedCount ?? '—'}/{t.availableCount ?? '—'}</span> pillars aligned
+        </span>
+        <span className="flex items-center gap-1.5 text-[var(--color-text-secondary)]">
+          → resolved as <StateChip state={payload.state} overrideActive={payload.overrideActive} />
+        </span>
+      </div>
+    </section>
+  );
+}
+
 export default function TradeBiasPage() {
   const { symbol } = useTimeframe();
   const [tenor, setTenor] = useState('swing');
@@ -340,6 +408,9 @@ export default function TradeBiasPage() {
           </div>
         ) : null}
       </section>
+
+      {/* Live read — the tactical layer that confirms / diverges / overrides */}
+      {payload && !noData && <TacticalPanel payload={payload} />}
 
       {/* Regime / Bias / Playbook — the read, its behavior, and the plan */}
       {payload && !noData && (
