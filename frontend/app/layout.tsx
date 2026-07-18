@@ -21,6 +21,7 @@ import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
+import { DensityProvider } from '@/core/DensityContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 import PageAnalytics from '@/components/PageAnalytics';
@@ -237,12 +238,14 @@ export default async function RootLayout({
         <ThemeProvider>
           <TimeframeProvider>
             <GexUnitProvider>
-              <TelemetryProvider />
-              <TwitterPixelProvider />
-              <PageAnalytics />
-              <ClientLayout>
-                {children}
-              </ClientLayout>
+              <DensityProvider>
+                <TelemetryProvider />
+                <TwitterPixelProvider />
+                <PageAnalytics />
+                <ClientLayout>
+                  {children}
+                </ClientLayout>
+              </DensityProvider>
             </GexUnitProvider>
           </TimeframeProvider>
         </ThemeProvider>

@@ -22,8 +22,10 @@ import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
 import SignalsGuide from '@/components/SignalsGuide';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import Collapsible from '@/components/Collapsible';
 import TrialStartedBanner from './TrialStartedBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useDensity } from '@/core/DensityContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
@@ -40,9 +42,38 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
   return `${sign}$${abs.toFixed(0)}`;
 }
 
+function DensityToggle() {
+  const { density, setDensity } = useDensity();
+  return (
+    <div
+      className="inline-flex rounded-md border overflow-hidden text-xs"
+      style={{ borderColor: 'var(--color-border)' }}
+      role="group"
+      aria-label="View density"
+    >
+      {(['simple', 'detailed'] as const).map((d) => (
+        <button
+          key={d}
+          type="button"
+          onClick={() => setDensity(d)}
+          className="px-3 py-1.5 font-medium capitalize"
+          aria-pressed={density === d}
+          style={{
+            background: density === d ? 'var(--color-info-soft)' : 'transparent',
+            color: density === d ? 'var(--color-info)' : 'var(--color-text-secondary)',
+          }}
+        >
+          {d}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
+  const { density, detailed } = useDensity();
   
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
@@ -114,14 +145,23 @@ export default function DashboardPage() {
     <PageShell>
       <TrialStartedBanner />
 
-      {/* Today's Read — at-a-glance regime summary above everything else, so a
-          visitor lands on the dashboard and gets the structural read before
-          the raw metric cards. Composed from the same buildReportModel used
-          by /live-bulletin so the prose stays in lockstep with the operator
-          surface. */}
-      <div className="mb-8">
-        <TodaysReadCard model={todaysReadModel} bulletinLink />
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="zg-h1">Dashboard</h1>
+        <DensityToggle />
       </div>
+
+      {/* Today's Read — the auto-generated regime prose. Collapsed by default in
+          Simple mode so the dashboard opens glance-first; the compact Trade Bias
+          summary below carries the at-a-glance directional read. Composed from
+          the same buildReportModel as /live-bulletin so the two stay in sync. */}
+      <Collapsible
+        key={`todays-read-${density}`}
+        title="Today's Read"
+        subtitle="auto-generated regime summary"
+        defaultOpen={detailed}
+      >
+        <TodaysReadCard model={todaysReadModel} bulletinLink />
+      </Collapsible>
 
       {/* Error Messages */}
       {gexError && (
@@ -208,40 +248,48 @@ export default function DashboardPage() {
       </section>
 
 
+      {/* Trade Bias — compact glance-first summary; the full regime / bias /
+          playbook breakdown + the Intraday/Swing horizon now live on the
+          dedicated /trade-bias page. */}
+      <TradeBiasSection compact />
+
       {/* How-to-read explainer (collapsed by default) */}
       <SignalsGuide current="trade-bias" />
 
-      {/* Trade Bias Engine */}
-      <TradeBiasSection />
+      {/* Proprietary Signals + Volatility Monitor — the detailed synthesis.
+          Collapsed by default in Simple mode; expanded in Detailed. Proprietary
+          takes 8/12 cols; Vol Monitor 4/12 with gauges stacked. */}
+      <Collapsible
+        key={`signals-vol-${density}`}
+        title="Proprietary Signals & Volatility"
+        subtitle="MSI synthesis, breadth, regime, vol monitor"
+        defaultOpen={detailed}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          <section className="lg:col-span-8 flex flex-col">
+            <h3 className="zg-h3 mb-4">Proprietary Signals</h3>
+            <div className="flex-1 min-h-0">
+              <ProprietarySignalsSynthesis />
+            </div>
+          </section>
 
-      {/* Proprietary Signals + Volatility Monitor side-by-side.
-          Proprietary takes 8/12 cols so its MSI-on-top + Breadth/Regime-below
-          layout has room; Vol Monitor takes 4/12 with its gauges stacked
-          vertically to fill the narrower sidebar. Both sections use
-          flex-col + flex-1 inside so the inner content stretches to match
-          the taller section, keeping the two columns visually flush. */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8 items-stretch">
-        <section className="lg:col-span-8 flex flex-col">
-          <h3 className="zg-h3 mb-4">Proprietary Signals</h3>
-          <div className="flex-1 min-h-0">
-            <ProprietarySignalsSynthesis />
-          </div>
-        </section>
+          <section className="lg:col-span-4 flex flex-col">
+            <h3 className="zg-h3 mb-4">Volatility Monitor</h3>
+            <div className="flex-1 min-h-0">
+              <VolatilityCard stacked />
+            </div>
+          </section>
+        </div>
+      </Collapsible>
 
-        <section className="lg:col-span-4 flex flex-col">
-          <h3 className="zg-h3 mb-4">Volatility Monitor</h3>
-          <div className="flex-1 min-h-0">
-            <VolatilityCard stacked />
-          </div>
-        </section>
-      </div>
-
-      {/* Positioning & Flow — full-width section: 4-wide gamma row on top,
-          3-wide flow row below. Merged from the prior 'Gamma Exposure' (4
-          cards) and 'Options Sentiment' (3 cards) sections so the related
-          dealer/flow metrics live under one header. */}
-      <section className="mb-8">
-        <SectionHead title="Positioning & Flow" />
+      {/* Positioning & Flow — dealer gamma walls (4-wide) + session flow
+          (3-wide). Collapsed by default in Simple mode. */}
+      <Collapsible
+        key={`positioning-${density}`}
+        title="Positioning & Flow"
+        subtitle="dealer gamma walls + session flow"
+        defaultOpen={detailed}
+      >
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
@@ -308,7 +356,7 @@ export default function DashboardPage() {
             />
           </div>
         </div>
-      </section>
+      </Collapsible>
 
       {/* Data Freshness */}
       {gexData && (

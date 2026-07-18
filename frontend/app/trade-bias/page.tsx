@@ -343,12 +343,11 @@ export default function TradeBiasPage() {
         ) : noData ? (
           <div className="rounded-xl border p-12 text-center" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}>
             <div className="text-lg font-semibold mb-1">
-              {isIntraday ? 'Intraday (0DTE) bias isn’t published yet' : `No bias for ${symbol} yet`}
+              No {isIntraday ? 'intraday' : 'swing'} bias for {symbol} yet
             </div>
             <div className="text-sm text-[var(--color-text-secondary)]">
-              {isIntraday
-                ? 'The same-day read is coming soon. Switch to Swing for the multi-day structural bias.'
-                : 'The signal engine has no bias rows for this underlying. Try another symbol or check back during market hours.'}
+              The signal engine has no {isIntraday ? 'same-day (0DTE)' : 'multi-day'} bias rows for this
+              underlying yet. Check back during market hours{isIntraday ? '' : ', or try another symbol'}.
             </div>
           </div>
         ) : payload ? (
