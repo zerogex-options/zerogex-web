@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>ZeroGEX — Testimonial Share Cards</title>
+<!--
+  Shareable testimonial cards for social / newsletters / decks.
+
+  Source of truth for the copy is frontend/core/testimonials.ts — if the quote
+  or attribution changes there, mirror it here. The cards below are fixed-size
+  export frames: open this file in a browser and screenshot each frame (or use
+  the browser's element-screenshot / a headless shot at the labelled size).
+
+  Formats:
+    • Landscape 1200×630  — link unfurls (X / OG), blog headers
+    • Square    1080×1080 — Instagram / general social
+    • Full quote 1200×860 — testimonial slide, newsletter block
+-->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:        #00202E;
+    --bg-deep:   #001A26;
+    --panel:     #003F5C;
+    --coral:     #FF6361;
+    --orange:    #FF8531;
+    --gold:      #FFD380;
+    --cream:     #FFF1E6;
+    --tan:       #D1B8A6;
+    --green:     #1BC47D;
+    --hairline:  rgba(255,211,128,0.22);
+    --hairline-soft: rgba(255,211,130,0.10);
+    --grid:      rgba(255,241,230,0.045);
+    --font-sans: system-ui, -apple-system, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+  /* These cards deliberately commit to ZeroGEX's dark trading-terminal identity —
+     the product ships dark and every brand asset is dark teal. */
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: #0a1418;
+    color: var(--cream);
+    font-family: var(--font-sans);
+    padding: 40px clamp(16px, 4vw, 56px) 96px;
+  }
+
+  .page-note {
+    max-width: 1200px; margin: 0 auto 32px; color: var(--tan);
+    font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; letter-spacing: 0.02em;
+  }
+  .page-note b { color: var(--cream); }
+  .page-note code { color: var(--gold); }
+
+  .frame-label {
+    max-width: 1200px; margin: 40px auto 12px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--tan);
+  }
+  .scroll { max-width: 1200px; margin: 0 auto; overflow-x: auto; }
+
+  /* ---------- shared card shell ---------- */
+  .card {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(1200px 620px at 84% -12%, rgba(255,133,49,0.12), transparent 60%),
+      radial-gradient(900px 520px at -6% 4%, rgba(34,199,214,0.08), transparent 55%),
+      var(--bg);
+    color: var(--cream);
+    border: 1px solid var(--hairline-soft);
+  }
+  .card::before {
+    /* faint terminal grid */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .card::after {
+    /* left accent rule, echoing the app's testimonial card */
+    content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, var(--coral), var(--orange));
+  }
+  .card__inner { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
+
+  /* masthead */
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand__reticle { color: var(--coral); filter: drop-shadow(0 0 10px rgba(255,99,97,0.55)); flex: none; }
+  .brand__reticle svg { display: block; }
+  .brand__name { font-weight: 800; letter-spacing: -0.02em; }
+  .brand__name .zero { color: var(--coral); }
+  .brand__tag {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--tan); margin-top: 2px;
+  }
+
+  .quote-mark { font-family: Georgia, 'Times New Roman', serif; color: var(--coral); opacity: 0.5; line-height: 0.7; }
+
+  .pull {
+    font-weight: 800; letter-spacing: -0.02em; color: var(--cream);
+    text-wrap: balance; margin: 0;
+  }
+  .full { color: var(--tan); margin: 0; }
+  .full b { color: var(--cream); font-weight: 600; }
+
+  /* author row */
+  .author { display: flex; align-items: center; gap: 16px; }
+  .mono {
+    display: flex; align-items: center; justify-content: center; flex: none;
+    border-radius: 50%; background: rgba(255,211,128,0.12);
+    border: 1px solid var(--hairline); color: var(--gold);
+    font-family: var(--font-mono); font-weight: 700;
+  }
+  .author__name { font-weight: 700; color: var(--cream); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--green); border: 1px solid var(--green); border-radius: 4px; padding: 2px 8px; font-size: 11px;
+  }
+  .author__role { font-family: var(--font-mono); color: var(--tan); letter-spacing: 0.02em; }
+
+  .card__foot {
+    margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    border-top: 1px solid var(--hairline-soft); color: var(--tan);
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+  }
+  .card__foot .url { color: var(--gold); }
+
+  /* ---------- size variants ---------- */
+  .card--wide { width: 1200px; height: 630px; padding: 56px 64px; }
+  .card--wide .brand__name { font-size: 22px; }
+  .card--wide .quote-mark { font-size: 96px; height: 52px; overflow: hidden; margin-bottom: 6px; }
+  .card--wide .pull { font-size: 46px; line-height: 1.12; max-width: 20ch; }
+  .card--wide .author { margin-top: 30px; }
+  .card--wide .mono { width: 56px; height: 56px; font-size: 19px; }
+  .card--wide .author__name { font-size: 20px; }
+  .card--wide .author__role { font-size: 13.5px; margin-top: 3px; }
+  .card--wide .card__foot { padding-top: 22px; margin-top: 28px; font-size: 13px; }
+
+  .card--square { width: 1080px; height: 1080px; padding: 84px 84px; }
+  .card--square .brand__name { font-size: 26px; }
+  .card--square .quote-mark { font-size: 150px; height: 78px; overflow: hidden; margin: 40px 0 8px; }
+  .card--square .pull { font-size: 62px; line-height: 1.1; }
+  .card--square .author { margin-top: 48px; }
+  .card--square .mono { width: 74px; height: 74px; font-size: 26px; }
+  .card--square .author__name { font-size: 27px; }
+  .card--square .author__role { font-size: 17px; margin-top: 5px; }
+  .card--square .card__foot { padding-top: 30px; margin-top: 40px; font-size: 16px; }
+
+  .card--long { width: 1200px; height: 860px; padding: 64px 72px; }
+  .card--long .brand__name { font-size: 22px; }
+  .card--long .quote-mark { font-size: 92px; height: 48px; overflow: hidden; margin: 28px 0 4px; }
+  .card--long .pull { font-size: 34px; line-height: 1.2; max-width: 26ch; margin-bottom: 26px; }
+  .card--long .full { font-size: 20px; line-height: 1.62; max-width: 62ch; }
+  .card--long .full + .full { margin-top: 18px; }
+  .card--long .author { margin-top: 40px; }
+  .card--long .mono { width: 60px; height: 60px; font-size: 20px; }
+  .card--long .author__name { font-size: 21px; }
+  .card--long .author__role { font-size: 14px; margin-top: 3px; }
+  .card--long .card__foot { padding-top: 24px; margin-top: 32px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+  <p class="page-note">
+    <b>ZeroGEX testimonial share cards.</b> Screenshot each frame at its labelled pixel size.
+    Copy mirrors <code>frontend/core/testimonials.ts</code> — keep them in sync.
+  </p>
+
+  <!-- reusable reticle: defined once, referenced by each card -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="reticle" viewBox="0 0 100 100">
+      <g fill="none" stroke="currentColor" stroke-width="2.4">
+        <circle cx="50" cy="50" r="45"/>
+        <circle cx="50" cy="50" r="27" stroke-dasharray="3 5" stroke-width="1.6"/>
+        <path d="M50 4 V27 M50 73 V96 M4 50 H27 M73 50 H96"/>
+      </g>
+      <circle cx="50" cy="50" r="4" fill="currentColor"/>
+    </symbol>
+  </svg>
+
+  <!-- ============================ LANDSCAPE 1200×630 ============================ -->
+  <div class="frame-label">Landscape · 1200 × 630 · link unfurl / X / OG</div>
+  <div class="scroll">
+    <div class="card card--wide">
+      <div class="card__inner">
+        <div class="brand">
+          <span class="brand__reticle"><svg width="46" height="46"><use href="#reticle"/></svg></span>
+          <div>
+            <div class="brand__name"><span class="zero">Zero</span>GEX</div>
+            <div class="brand__tag">Options-market intelligence</div>
+          </div>
+        </div>
+
+        <div style="margin-top:auto">
+          <div class="quote-mark">&ldquo;</div>
+          <p class="pull">ZeroGEX makes sophisticated data feel clear and actionable rather than overwhelming.</p>
+          <div class="author">
+            <div class="mono">JD</div>
+            <div>
+              <div class="author__name">Johnny D. <span class="chip">✓ Verified</span></div>
+              <div class="author__role">Builder of Market Sentinel · ZeroGEX API user</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card__foot">
+          <span>Live gamma · walls · flip · dealer positioning</span>
+          <span class="url">zerogex.io</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ SQUARE 1080×1080 ============================ -->
+  <div class="frame-label">Square · 1080 × 1080 · Instagram / general social</div>
+  <div class="scroll">
+    <div class="card card--square">
+      <div class="card__inner">
+        <div class="brand">
+          <span class="brand__reticle"><svg width="58" height="58"><use href="#reticle"/></svg></span>
+          <div>
+            <div class="brand__name"><span class="zero">Zero</span>GEX</div>
+            <div class="brand__tag">Options-market intelligence</div>
+          </div>
+        </div>
+
+        <div class="quote-mark">&ldquo;</div>
+        <p class="pull">Making sophisticated data feel clear and actionable — rather than overwhelming.</p>
+
+        <div class="author">
+          <div class="mono">JD</div>
+          <div>
+            <div class="author__name">Johnny D. <span class="chip">✓ Verified</span></div>
+            <div class="author__role">Builder of Market Sentinel · ZeroGEX API user</div>
+          </div>
+        </div>
+
+        <div class="card__foot">
+          <span>Serious options-market insight</span>
+          <span class="url">zerogex.io</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ FULL QUOTE 1200×860 ============================ -->
+  <div class="frame-label">Full quote · 1200 × 860 · testimonial slide / newsletter</div>
+  <div class="scroll">
+    <div class="card card--long">
+      <div class="card__inner">
+        <div class="brand">
+          <span class="brand__reticle"><svg width="46" height="46"><use href="#reticle"/></svg></span>
+          <div>
+            <div class="brand__name"><span class="zero">Zero</span>GEX</div>
+            <div class="brand__tag">What traders say</div>
+          </div>
+        </div>
+
+        <div class="quote-mark">&ldquo;</div>
+        <p class="pull">A genuine turning point in the development of my Market Sentinel system.</p>
+        <p class="full">
+          Its structured, integration-friendly API and broad range of options-market data — including
+          GEX profiles, flip range, call and put walls, vanna and charm, volatility, flow, and snapshot —
+          have given me a powerful way to add market structure and confirmation-or-divergence context to
+          my decision-support workflow. It turns a large amount of complex information into clear,
+          practical context that my system can use.
+        </p>
+        <p class="full">
+          The website is equally impressive — a dense range of market information through a clean,
+          intuitive design. <b>Compared with other services I have used, ZeroGEX does an exceptional job
+          of making sophisticated data feel clear and actionable rather than overwhelming.</b>
+        </p>
+
+        <div class="author">
+          <div class="mono">JD</div>
+          <div>
+            <div class="author__name">Johnny D. <span class="chip">✓ Verified</span></div>
+            <div class="author__role">Builder of Market Sentinel · ZeroGEX API user</div>
+          </div>
+        </div>
+
+        <div class="card__foot">
+          <span>SPY · SPX · QQQ — live options positioning</span>
+          <span class="url">zerogex.io</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

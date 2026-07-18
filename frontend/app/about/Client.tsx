@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
+import { TestimonialCard } from '@/components/marketing/Testimonials';
 import { useTheme } from '@/core/ThemeContext';
 import {
   ArrowRight,
@@ -280,6 +281,11 @@ export default function AboutPage() {
             understand where support, resistance, acceleration, pinning, or squeeze risk may develop.
           </p>
         </div>
+      </section>
+
+      {/* ── What a user says ─────────────────────────────────────────────────── */}
+      <section style={{ padding: '48px 32px 0', maxWidth: 880, margin: '0 auto' }}>
+        <TestimonialCard />
       </section>
 
       {/* ── Mission ──────────────────────────────────────────────────────────── */}

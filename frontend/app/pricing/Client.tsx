@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import PlanComparison from '@/components/PlanComparison';
+import { TestimonialStrip } from '@/components/marketing/Testimonials';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier, TierId } from '@/core/auth';
@@ -1015,6 +1016,11 @@ function PricingClientInner({
           </div>
 
           <PlanComparison />
+
+          <TestimonialStrip
+            moreHref="/about"
+            style={{ marginTop: 36, maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}
+          />
 
           <section
             className="zg-panel"

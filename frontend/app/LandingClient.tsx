@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import GammaProfileHero from '@/components/marketing/GammaProfileHero';
+import { TestimonialsSection } from '@/components/marketing/Testimonials';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -882,6 +883,11 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* ── Testimonials ─────────────────────────────────────────────────────── */}
+      {/* Social proof, placed immediately before the final CTA: let a real user
+          make the case in their own words, then ask for the trial. */}
+      <TestimonialsSection />
 
       {/* ── Final CTA ────────────────────────────────────────────────────────── */}
       <section
