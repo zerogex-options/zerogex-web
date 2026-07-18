@@ -50,9 +50,9 @@ function renderFohFooterHtml(): string {
   const givingUrl = escapeHtml(`${getAppUrl()}/giving`);
   const badgeUrl = escapeHtml(`${getAppUrl()}/folds-of-honor-proud-supporter.png`);
   return `
-    <div style="margin: 32px 0 0; padding: 20px 0 0; border-top: 1px solid #e8e8e8; display: flex; align-items: center; gap: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="margin: 32px 0 0; padding: 20px 0 0; border-top: 1px solid #e8e8e8; display: flex; align-items: center; gap: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <a href="${givingUrl}" style="flex-shrink: 0; display: inline-block; line-height: 0; text-decoration: none;">
-        <img src="${badgeUrl}" alt="Folds of Honor Proud Supporter" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; background: #ffffff; display: block;" />
+        <img src="${badgeUrl}" alt="Folds of Honor Proud Supporter" width="52" height="52" style="width: 52px; height: 52px; border-radius: 50%; background: #ffffff; padding: 3px; box-sizing: border-box; display: block;" />
       </a>
       <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 1.55; color: #555;">
         <div style="font-weight: 700; color: #1a1a1a; margin-bottom: 2px;">ZeroGEX is a Folds of Honor Proud Supporter.</div>
