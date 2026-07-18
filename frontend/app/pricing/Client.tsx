@@ -75,6 +75,11 @@ type Props = {
   // active. Used in the banner copy and as a soft urgency cue.
   promoDeadlineLabel: string | null;
   referralEnabled: boolean;
+  // True when the persisted zgx_ref cookie is a CAMPAIGN code (business-card /
+  // offline collateral) rather than a person-to-person referral. Classified
+  // server-side (campaign codes live in STRIPE_CAMPAIGN_* env). Swaps the
+  // referral banner for a neutral discount banner.
+  campaignActive: boolean;
 };
 
 type TierAction =
@@ -524,6 +529,7 @@ function PricingClientInner({
   promoAnnualActive,
   promoDeadlineLabel,
   referralEnabled,
+  campaignActive,
 }: Props) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -539,8 +545,11 @@ function PricingClientInner({
   const [hasRefCookie] = useState(
     () => typeof document !== 'undefined' && /(?:^|;\s*)zgx_ref=/.test(document.cookie),
   );
-  // Only promise a discount when the program is actually live.
-  const referralPresent = hasRefCookie && referralEnabled;
+  // Only promise a discount when the program is actually live. A campaign code
+  // (business-card ?ref=TARGET) also sets zgx_ref, but it's a coupon — not a
+  // person-to-person referral — so it gets the neutral campaign banner instead.
+  const referralPresent = hasRefCookie && referralEnabled && !campaignActive;
+  const campaignPresent = campaignActive;
 
   // Derived (not stored) from ?verified=1 / ?verify_error=… so we don't have
   // to setState inside an effect. If the user reloads the page, the param
@@ -908,6 +917,25 @@ function PricingClientInner({
               }}
             >
               [ REFERRAL APPLIED ] &nbsp;A friend referred you — your discount is applied automatically at checkout.
+            </div>
+          )}
+
+          {campaignPresent && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-panel)',
+                border: '1px solid var(--color-brand-primary)',
+                color: 'var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              [ DISCOUNT APPLIED ] &nbsp;Your discount is applied automatically at checkout.
             </div>
           )}
 

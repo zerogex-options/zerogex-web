@@ -10,15 +10,27 @@ import { readUtmParams } from '@/core/telemetry/utm';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
-export default function RegisterClient({ referralEnabled }: { referralEnabled: boolean }) {
+export default function RegisterClient({
+  referralEnabled,
+  campaignActive,
+}: {
+  referralEnabled: boolean;
+  campaignActive: boolean;
+}) {
   return (
     <Suspense fallback={<main className="min-h-screen bg-[var(--color-bg)]" />}>
-      <RegisterPageContent referralEnabled={referralEnabled} />
+      <RegisterPageContent referralEnabled={referralEnabled} campaignActive={campaignActive} />
     </Suspense>
   );
 }
 
-function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) {
+function RegisterPageContent({
+  referralEnabled,
+  campaignActive,
+}: {
+  referralEnabled: boolean;
+  campaignActive: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -60,8 +72,12 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
     setReferralPresent(/(?:^|;\s*)zgx_ref=/.test(document.cookie));
   }, [refCode]);
 
-  // Only promise a discount when the program is actually live.
-  const showReferralBanner = referralPresent && referralEnabled;
+  // Only promise a discount when the program is actually live. Campaign codes
+  // (e.g. the business-card ?ref=TARGET) also set zgx_ref, but they're a coupon
+  // — not a person-to-person referral — so they get the neutral campaign banner
+  // below instead of the "a friend referred you" copy.
+  const showReferralBanner = referralPresent && referralEnabled && !campaignActive;
+  const showCampaignBanner = campaignActive;
 
   // Funnel step: the signup page was viewed. Fires once on mount, carrying any
   // UTM campaign string so paid traffic that reaches signup is attributable
@@ -188,6 +204,11 @@ function RegisterPageContent({ referralEnabled }: { referralEnabled: boolean }) 
         {showReferralBanner && (
           <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
             🎉 A friend referred you — your discount is applied at checkout.
+          </div>
+        )}
+        {showCampaignBanner && (
+          <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
+            🎯 Your discount is applied automatically at checkout.
           </div>
         )}
         <p className="mt-3 text-[var(--color-text-secondary)]">
