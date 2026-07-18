@@ -86,6 +86,7 @@ const config = {
     '/education/decoding-gamma-exposure',
     // Auth-gated tools — middleware 307s anonymous Googlebot to /login,
     // which Google Search Console reports as "Page with redirect".
+    '/trade-bias',
     '/signal-score',
     '/trading-signals',
     '/advanced-signals',
