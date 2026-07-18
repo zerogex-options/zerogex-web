@@ -15,6 +15,7 @@
     "test:options-calendar": "node --experimental-strip-types --test tests/optionsCalendar.test.ts",
     "test:news-headlines": "node --experimental-strip-types --test tests/newsHeadlines.test.ts",
     "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts",
+    "test:campaigns": "node --experimental-strip-types --test tests/campaigns.test.ts",
     "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts",
     "test:insights-view": "node --experimental-strip-types --test tests/insightsView.test.ts",
     "test:page-analytics": "node --experimental-strip-types --test tests/pageAnalytics.test.ts",

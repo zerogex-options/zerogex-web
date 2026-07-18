@@ -44,18 +44,28 @@ python -c "import segno; segno.make('https://zerogex.io/register?ref=TARGET', er
 
 ## Activating the promo (`TARGET`)
 
-A bare marketing code is **not** honored automatically: `recordReferralSignup` in
-`frontend/core/referrals.ts` only stamps `referred_by_code` when the code resolves to a real
-referrer/partner, and both referral programs sit behind env flags. To make `TARGET` grant
-50% off the first year **and** be identifiable, treat it as a dedicated campaign code:
+The app side is **already wired** — `TARGET` is handled as a dedicated *campaign code*
+(`frontend/core/campaigns.ts`): scanning `/register?ref=TARGET` stamps `referred_by_code`
+on the new account, and checkout auto-applies the matching coupon (see the campaign branch
+in `frontend/app/api/billing/checkout/route.ts`). All that's left is Stripe config:
 
-1. In **Stripe**, create a coupon: 50% off, restricted to first-time customers, with an
+1. In **Stripe**, create the coupon(s): 50% off, restricted to first-time customers, with an
    expiry / max-redemption cap. For "first year": annual → `duration: once`; monthly →
    `duration: repeating, duration_in_months: 12`.
-2. Wire the code into checkout so `?ref=TARGET` (and the typed code) auto-applies that coupon
-   and stamps `referred_by_code = 'TARGET'` — mirrors the existing `foundingCode` branch in
-   `frontend/app/api/billing/checkout/route.ts`.
+2. Set the coupon IDs in env (see `frontend/.env.example`):
+   ```
+   STRIPE_CAMPAIGN_TARGET_MONTHLY=<coupon id>   # 50% off, repeating 12 months
+   STRIPE_CAMPAIGN_TARGET_ANNUAL=<coupon id>    # 50% off, once
+   ```
+   The promo is live as soon as either is set; unset = inert. New campaigns need no code
+   change — just add `STRIPE_CAMPAIGN_<CODE>_MONTHLY/ANNUAL` and print a card.
 
-**Identifying redeemers** once wired: `SELECT id, email, created_at FROM users WHERE
-referred_by_code = 'TARGET'` (signups from the card), joined to subscription state for
-conversions. Stripe also shows redemption counts on the coupon/promotion code.
+**Identifying redeemers:**
+
+```sql
+SELECT id, email, created_at FROM users WHERE referred_by_code = 'TARGET';
+```
+
+Join to subscription state for conversions. Each such checkout also tags the Stripe
+subscription with `metadata.campaign_code = TARGET`, and the coupon's redemption count shows
+in the Stripe dashboard.

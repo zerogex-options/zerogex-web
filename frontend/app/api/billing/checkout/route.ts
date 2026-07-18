@@ -23,6 +23,7 @@ import {
   getPartnerAudienceCouponId,
   isCreatorPartnerProgramEnabled,
 } from '@/core/creatorPartners';
+import { getCampaignCouponId, normalizeCampaignCode } from '@/core/campaigns';
 
 // Card is collected at checkout (Stripe subscription mode defaults
 // payment_method_collection to 'always'); tier is granted immediately
@@ -263,6 +264,9 @@ export async function POST(request: NextRequest) {
         // the promo). The webhook applies it while the sub is still trialing,
         // before the first invoice. Checkout can only carry one coupon itself.
         ...(discountResult.stackCouponId ? { stack_coupon: discountResult.stackCouponId } : {}),
+        ...(discountResult.campaignApplied && discountResult.campaignCode
+          ? { campaign_code: discountResult.campaignCode }
+          : {}),
       },
       // Stripe accepts only one of trial_end / trial_period_days. Founding
       // members get the absolute July-1 trial_end; everyone else (first-time
@@ -298,7 +302,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -322,6 +326,8 @@ type DiscountResolution =
       referralApplied: boolean;
       partnerApplied: boolean;
       winbackApplied: boolean;
+      campaignApplied: boolean;
+      campaignCode: string | null;
     }
   | { ok: false; status: number; error: string };
 
@@ -382,6 +388,8 @@ function resolveDiscount(input: {
       referralApplied: false,
       partnerApplied: false,
       winbackApplied: false,
+      campaignApplied: false,
+      campaignCode: null,
     };
   }
 
@@ -402,6 +410,8 @@ function resolveDiscount(input: {
         referralApplied: false,
         partnerApplied: false,
         winbackApplied: true,
+        campaignApplied: false,
+        campaignCode: null,
       };
     }
   }
@@ -422,11 +432,52 @@ function resolveDiscount(input: {
           referralApplied: false,
           partnerApplied: true,
           winbackApplied: false,
+          campaignApplied: false,
+          campaignCode: null,
         };
       }
       // Partner resolved but no coupon for this cadence — fall through to the
       // standard referee path so the referee still gets SOMETHING (and the
       // partner still gets attribution + commission via referred_by_code).
+    }
+  }
+
+  // Campaign codes (e.g. the business-card QR's ?ref=TARGET). A campaign code is
+  // attributed via referred_by_code but resolves straight to a configured
+  // coupon, NOT a referrer — so it's handled here, terminally, and must never
+  // reach the referee/promo logic below (which would otherwise hand a cardholder
+  // the generic referee coupon). Checked before the site-wide active promo so
+  // the cardholder gets their campaign rate. If the campaign has no coupon for
+  // this cadence, fall back to the same treatment a normal buyer gets (active
+  // promo, if any) — never the referral path.
+  if (input.referredByCode) {
+    const campaignCode = normalizeCampaignCode(input.referredByCode);
+    if (campaignCode) {
+      const campaignCoupon = getCampaignCouponId(campaignCode, input.cadence);
+      if (campaignCoupon) {
+        return {
+          ok: true,
+          couponId: campaignCoupon,
+          stackCouponId: null,
+          foundingApplied: false,
+          referralApplied: false,
+          partnerApplied: false,
+          winbackApplied: false,
+          campaignApplied: true,
+          campaignCode,
+        };
+      }
+      return {
+        ok: true,
+        couponId: getActivePromoCouponId({ tier: input.tier, cadence: input.cadence }),
+        stackCouponId: null,
+        foundingApplied: false,
+        referralApplied: false,
+        partnerApplied: false,
+        winbackApplied: false,
+        campaignApplied: false,
+        campaignCode,
+      };
     }
   }
 
@@ -467,6 +518,8 @@ function resolveDiscount(input: {
       referralApplied: true,
       partnerApplied: false,
       winbackApplied: false,
+      campaignApplied: false,
+      campaignCode: null,
     };
   }
 
@@ -480,6 +533,8 @@ function resolveDiscount(input: {
       referralApplied: true,
       partnerApplied: false,
       winbackApplied: false,
+      campaignApplied: false,
+      campaignCode: null,
     };
   }
   if (promoCouponId) {
@@ -491,6 +546,8 @@ function resolveDiscount(input: {
       referralApplied: false,
       partnerApplied: false,
       winbackApplied: false,
+      campaignApplied: false,
+      campaignCode: null,
     };
   }
 
@@ -502,5 +559,7 @@ function resolveDiscount(input: {
     referralApplied: false,
     partnerApplied: false,
     winbackApplied: false,
+    campaignApplied: false,
+    campaignCode: null,
   };
 }
