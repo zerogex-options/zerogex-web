@@ -1134,6 +1134,35 @@ export async function updateUserTier(actorUserId: string, targetEmail: string, t
     message: `Role changed from ${previousTier} to ${nextTier}`,
   });
 
+  // If an admin dropped this user out of Pro, deprovision their personal API
+  // keys at the backend. Best-effort and dynamically imported (the key client
+  // is server-only; this module is imported broadly, including by the BFF
+  // proxy) — a failure here must never unwind the role change.
+  try {
+    const { revokeApiKeysIfTierDropped } = await import('@/core/apiKeys');
+    const result = await revokeApiKeysIfTierDropped(user.email, previousTier, nextTier);
+    if (result && result.revoked > 0) {
+      appendAuditEvent({
+        type: 'api_key_auto_revoked',
+        userId: user.id,
+        actorUserId,
+        email: user.email,
+        ip,
+        message: `Revoked ${result.revoked} API key(s): tier dropped ${previousTier} → ${nextTier}`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'revoke failed';
+    appendAuditEvent({
+      type: 'api_key_auto_revoke_error',
+      userId: user.id,
+      actorUserId,
+      email: user.email,
+      ip,
+      message: `API key auto-revoke failed on tier drop ${previousTier} → ${nextTier}: ${message}`,
+    });
+  }
+
   return { email: user.email, tier: nextTier };
 }
 

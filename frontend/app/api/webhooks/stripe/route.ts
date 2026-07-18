@@ -2,7 +2,8 @@ import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
-import { TierId } from '@/core/auth';
+import { normalizeTier, TierId } from '@/core/auth';
+import { revokeApiKeysIfTierDropped } from '@/core/apiKeys';
 import {
   sendCancellationEmail,
   sendFoundingWelcomeEmail,
@@ -50,6 +51,9 @@ type UserRow = {
   referral_credit_months: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  // Last-synced tier, read pre-UPDATE so a drop out of Pro can trigger
+  // auto-revocation of the member's personal API keys.
+  tier: string;
   // Last-synced price id, read pre-UPDATE so a plan/cadence switch (old price
   // != new price) can be detected and the member's rate carried across it.
   stripe_price_id: string | null;
@@ -165,7 +169,7 @@ function formatInvoiceAmount(invoice: Stripe.Invoice): string | null {
 function findUserByCustomerId(customerId: string): UserRow | null {
   const row = getDb()
     .prepare(
-      `SELECT id, email, founding_member_started_at, founding_lifetime_applied_at,
+      `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
               stripe_price_id, subscription_status, cancel_at_period_end
        FROM users WHERE stripe_customer_id = ?`,
@@ -190,6 +194,37 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
       input.message,
       nowIso(),
     );
+}
+
+// Best-effort auto-revoke of a member's personal API keys when their tier
+// drops out of Pro. Fully swallows failures (logging them to the audit trail)
+// so a hiccup reaching the key service can never unwind the tier sync or
+// trigger Stripe webhook retries. A no-op unless this is an actual drop out of
+// eligibility.
+async function maybeRevokeApiKeysOnTierDrop(
+  user: { id: string; email: string },
+  previousTier: TierId,
+  nextTier: TierId,
+): Promise<void> {
+  try {
+    const result = await revokeApiKeysIfTierDropped(user.email, previousTier, nextTier);
+    if (result && result.revoked > 0) {
+      logAudit({
+        type: 'api_key_auto_revoked',
+        userId: user.id,
+        email: user.email,
+        message: `Revoked ${result.revoked} API key(s): tier dropped ${previousTier} → ${nextTier}`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'revoke failed';
+    logAudit({
+      type: 'api_key_auto_revoke_error',
+      userId: user.id,
+      email: user.email,
+      message: `API key auto-revoke failed on tier drop ${previousTier} → ${nextTier}: ${message}`,
+    });
+  }
 }
 
 function shouldApplyFoundingLifetime(user: UserRow): boolean {
@@ -459,6 +494,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   // emit funnel events only on the actual transition (so trial_started and
   // subscription_paid each fire once, not on every poll/redelivery).
   const previousStatus = user.subscription_status;
+  const previousTier = normalizeTier(user.tier);
   const previousCancelAtPeriodEnd = user.cancel_at_period_end ? 1 : 0;
   const nextCancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
@@ -520,6 +556,10 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  // If this sync dropped the member out of Pro (e.g. downgrade to Basic, or a
+  // lapse to public), deprovision their personal API keys at the backend.
+  await maybeRevokeApiKeysOnTierDrop(user, previousTier, nextTier);
 
   // Funnel analytics (server-side conversion truth). Keyed to transitions off
   // the previous status so each event fires exactly once. Best-effort.
@@ -857,6 +897,9 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} ended; tier reset to public`,
   });
+
+  // The member just churned to public — deprovision any personal API keys.
+  await maybeRevokeApiKeysOnTierDrop(user, normalizeTier(user.tier), 'public');
 
   // Funnel: churn. Best-effort server-side event.
   await captureServer(user.id, TelemetryEvent.SubscriptionCancelled, {
