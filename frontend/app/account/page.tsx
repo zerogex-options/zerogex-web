@@ -8,6 +8,7 @@ import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocke
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
+import AccountApiKeys from '@/components/AccountApiKeys';
 
 type DonationPayload = {
   pledgePct: number;
@@ -633,6 +634,8 @@ function AccountPageContent() {
             </p>
           )}
         </section>
+
+        <AccountApiKeys />
 
         <section style={{ marginTop: 24 }}>
           <SectionHeading icon={<Fingerprint size={18} />}>Sign-in methods</SectionHeading>

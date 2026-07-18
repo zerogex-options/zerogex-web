@@ -168,3 +168,12 @@ export function hasTierAccess(currentTier: TierId, requiredTier: TierId | null) 
 export function hasRequiredTier(pathname: string, currentTier?: string | null) {
   return hasTierAccess(normalizeTier(currentTier), requiredTierForRoute(pathname));
 }
+
+// Whether a tier is entitled to a personal API key. Self-service key
+// generation is a Pro benefit, so Pro and above (admin) qualify. Used both to
+// gate the account-page UI + POST route and to decide, on a subscription
+// change, whether keys must be auto-revoked because the member dropped below
+// Pro. Rank-based so it stays correct if new tiers are inserted.
+export function isApiKeyEligibleTier(tier: TierId): boolean {
+  return TIER_RANKS[tier] >= TIER_RANKS.pro;
+}

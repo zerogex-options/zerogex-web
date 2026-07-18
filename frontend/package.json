@@ -21,7 +21,8 @@
     "test:page-analytics": "node --experimental-strip-types --test tests/pageAnalytics.test.ts",
     "test:premium-breakeven": "node --experimental-strip-types --test tests/premiumBreakeven.test.ts",
     "test:chart-settings": "node --experimental-strip-types --test tests/chartSettings.test.ts",
-    "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts"
+    "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
+    "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
