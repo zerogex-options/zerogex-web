@@ -25,6 +25,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Main',
     items: [
       { id: '/dashboard', label: 'Dashboard', requiredTier: 'basic' },
+      { id: '/my-dashboard', label: 'My Dashboard', requiredTier: 'basic' },
       { id: '/live-bulletin', label: 'Live Bulletin', requiredTier: 'basic' },
     ],
   },

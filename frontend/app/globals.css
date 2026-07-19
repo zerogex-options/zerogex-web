@@ -1699,3 +1699,41 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   MY DASHBOARD — customizable widget grid
+   A 4-column desktop grid; each widget's footprint (sm/md/lg/xl)
+   collapses responsively (4→2→1 columns). Tiles align to the top at
+   their natural height and pack with dense flow, so a board of mixed
+   tile sizes reads as an intentional layout rather than a ragged column.
+   ============================================================ */
+.zg-mydash-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  align-items: start;
+}
+@media (min-width: 640px) {
+  .zg-mydash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .zg-mydash-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Footprints. Base (mobile) is a single column; they widen at the two
+   breakpoints. `min-width: 0` lets tile contents (charts, tables) shrink
+   inside the track instead of forcing horizontal overflow. */
+.zg-w-sm, .zg-w-md, .zg-w-lg, .zg-w-xl { grid-column: span 1; min-width: 0; }
+@media (min-width: 640px) {
+  .zg-w-sm { grid-column: span 1; }
+  .zg-w-md { grid-column: span 2; }
+  .zg-w-lg { grid-column: span 2; }
+  .zg-w-xl { grid-column: span 2; }
+}
+@media (min-width: 1024px) {
+  .zg-w-sm { grid-column: span 1; }
+  .zg-w-md { grid-column: span 2; }
+  .zg-w-lg { grid-column: span 3; }
+  .zg-w-xl { grid-column: span 4; }
+}
