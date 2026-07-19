@@ -131,7 +131,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'dealer-exposures',
     title: 'Dealer Strike Profile',
-    blurb: 'The flagship GEX-by-strike chart with price, walls and flip overlaid.',
+    blurb: 'The full strike profile — price, gamma-by-strike and open-interest panels.',
     category: 'overview',
     tier: 'basic',
     icon: BarChart3,
