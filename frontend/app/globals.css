@@ -1099,10 +1099,10 @@
 
 /* ---- Palette: Vinyl Topanga ---------- */
 /* 1970s groovy: rust-orange field, harvest gold, avocado lichen, petrol
-   teal, warm chocolate & cream. Monoton retro-multiline display (record-
-   groove stripes) over Rubik. Dark is a velvet 70s night; light a dust day. */
+   teal, warm chocolate & cream. Titan One chunky-rounded block display over
+   Rubik. Dark is a velvet 70s night; light a warm dust-plain day. */
 :root.palette-vinyl-topanga {
-  --font-display: var(--font-monoton);
+  --font-display: var(--font-titan-one);
   --font-body: var(--font-rubik);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #F0D8A8; --heat-mid: #DE7A34; --heat-high: #A6331A;
