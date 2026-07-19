@@ -13,8 +13,10 @@ Print-ready single-sided business card with the ZeroGEX logo and a QR code that 
 
 | File | What it is |
 | --- | --- |
-| `zerogex-card.png` | The card — full logo, `GEX · Gamma · Flow Analytics` tagline, `zerogex.io`, and the scannable QR panel. 2100×1200 (3.5″×2″ @ 600 DPI). |
-| `zerogex-card-print.pdf` | **Send this to the printer.** Full-bleed artwork (3.75″×2.25″) with crop marks at the 3.5″×2″ trim. |
+| `zerogex-card.png` | The card — full logo, `Gamma · Dealer Flow · Key Levels` tagline, `zerogex.io`, and the scannable QR panel. 2100×1200 (3.5″×2″ @ 600 DPI). |
+| `zerogex-card-vistaprint-cmyk.pdf` | **Upload this to VistaPrint.** Same as below but converted to **CMYK** (DeviceCMYK) — print-ready color. |
+| `zerogex-card-vistaprint.pdf` | RGB version for online printers that prefer/convert RGB. Exactly 3.75″×2.25″, full-bleed, **no crop marks**. |
+| `zerogex-card-print.pdf` | For a **traditional print shop**: 4.1″×2.6″ sheet, full-bleed art, with crop marks at the 3.5″×2″ trim. |
 | `zerogex-card-mockup.png` | Presentation view of the card, for review. |
 | `qr-zerogex.svg` | The QR code (vector) encoding `https://zerogex.io/register?ref=TARGET` — the promo link. Error-correction level H, so the center target mark doesn't affect scanning. |
 | `build-card.js` | Regenerates the PNGs from the brand assets. |
@@ -31,8 +33,14 @@ Print-ready single-sided business card with the ZeroGEX logo and a QR code that 
 Regenerate after any edit:
 
 ```bash
-npm i playwright          # one-time
-node build-card.js        # writes zerogex-card.png + zerogex-card-mockup.png
+npm i playwright             # one-time
+node build-card.js           # writes zerogex-card.png + zerogex-card-mockup.png
+node build-print-pdf.js      # writes zerogex-card-print.pdf + zerogex-card-vistaprint.pdf (RGB)
+# CMYK version for VistaPrint (needs ghostscript):
+gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite \
+   -dProcessColorModel=/DeviceCMYK -sColorConversionStrategy=CMYK -dConvertCMYKImagesToRGB=false \
+   -dDownsampleColorImages=false -dAutoFilterColorImages=false -dColorImageFilter=/FlateEncode \
+   -o zerogex-card-vistaprint-cmyk.pdf zerogex-card-vistaprint.pdf
 ```
 
 To point the QR at a different URL, edit `CARD.qrUrl` in `build-card.js` and regenerate `qr-zerogex.svg`:

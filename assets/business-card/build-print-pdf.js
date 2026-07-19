@@ -1,19 +1,25 @@
 #!/usr/bin/env node
 /*
- * ZeroGEX business-card -> print PDF
- * ----------------------------------
- * Wraps zerogex-card.png in a 0.125" full-bleed (edge-replicated) and lays it
- * out on a sheet with crop marks at the 3.5"x2" trim. Run build-card.js first.
+ * ZeroGEX business-card -> print PDFs
+ * -----------------------------------
+ * Wraps zerogex-card.png in a 0.125" full-bleed (edge-replicated) and emits two
+ * print files. Run build-card.js first.
  *
  * Requirements:  npm i playwright
  * Run:           node build-print-pdf.js
- * Output:        zerogex-card-print.pdf   (send this to the printer)
+ * Output:
+ *   zerogex-card-print.pdf      4.1x2.6" sheet WITH crop marks — for a
+ *                               traditional print shop that wants trim marks.
+ *   zerogex-card-vistaprint.pdf 3.75x2.25" full-bleed, NO crop marks — for
+ *                               online uploaders (VistaPrint, Moo, etc.) that
+ *                               add their own trim guides. Upload THIS one.
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const HERE = __dirname;
 const OUT = path.join(HERE, 'zerogex-card-print.pdf');
+const VP_OUT = path.join(HERE, 'zerogex-card-vistaprint.pdf');
 const cardPng = `data:image/png;base64,${fs.readFileSync(path.join(HERE,'zerogex-card.png')).toString('base64')}`;
 
 // Geometry, inches (page top-left origin)
@@ -64,6 +70,20 @@ const marks = [
   // Chromium's page.pdf overshoots the requested size by ~0.01in; compensate.
   await page.pdf({ path: OUT, width: `${PW-0.01}in`, height: `${PH-0.01}in`,
     printBackground: true, margin:{top:0,right:0,bottom:0,left:0}, scale:1, pageRanges:'1' });
-  await browser.close();
   console.log('wrote', path.basename(OUT));
+
+  // VistaPrint / online uploader version: the bleed image fills a single
+  // 3.75x2.25" page (600 DPI), no crop marks. Their tool trims to 3.5x2".
+  const vpHtml = `<!doctype html><html><head><style>
+    @page{ margin:0; }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{width:${BW}in;height:${BH}in;}
+    img{display:block;width:100%;height:100%;}
+  </style></head><body><img src="${bleed}"/></body></html>`;
+  await page.setContent(vpHtml, { waitUntil:'networkidle' });
+  await page.pdf({ path: VP_OUT, width: `${BW-0.01}in`, height: `${BH-0.01}in`,
+    printBackground: true, margin:{top:0,right:0,bottom:0,left:0}, scale:1, pageRanges:'1' });
+  console.log('wrote', path.basename(VP_OUT));
+
+  await browser.close();
 })();
