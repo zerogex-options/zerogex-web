@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useLanguage } from '@/core/LanguageContext';
 
 // Friendly copy for the ?error=... codes the OAuth callbacks redirect with on
 // failure (google/callback/route.ts, apple/callback/route.ts). Without this
@@ -48,6 +49,7 @@ export default function LoginPage() {
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
@@ -124,7 +126,7 @@ function LoginPageContent() {
       // always matches whatever the server will compare against.
       const token = (await getCsrfToken()) || csrfToken;
       if (!token) {
-        setError('Unable to initialize secure login. Please refresh and try again.');
+        setError(t('login.csrfError'));
         return;
       }
 
@@ -139,7 +141,7 @@ function LoginPageContent() {
 
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setError(payload.error ?? 'Login failed');
+        setError(payload.error ?? t('login.genericError'));
         return;
       }
 
@@ -159,17 +161,17 @@ function LoginPageContent() {
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">Sign in to ZeroGEX</h1>
+        <h1 className="text-3xl font-bold">{t('login.title')}</h1>
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          Use your account credentials to authenticate. Session tokens are secure, HttpOnly cookies.
+          {t('login.subtitle')}
         </p>
         <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
-          ZeroGEX helps traders understand where the market may react before price gets there.
+          {t('login.valueProp')}
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-text-secondary)]">Email</span>
+            <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.emailLabel')}</span>
             <input
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
               type="email"
@@ -180,7 +182,7 @@ function LoginPageContent() {
           </label>
 
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-text-secondary)]">Password</span>
+            <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.passwordLabel')}</span>
             <input
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
               type="password"
@@ -197,12 +199,12 @@ function LoginPageContent() {
             className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black transition-all duration-150 hover:brightness-110 hover:shadow-[0_8px_20px_var(--color-info-soft)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
             type="submit"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? t('login.submitting') : t('login.submit')}
           </button>
 
           <div className="text-right text-sm">
             <Link href="/forgot-password" className="text-[var(--color-brand-primary)] hover:underline">
-              Forgot password?
+              {t('login.forgotPassword')}
             </Link>
           </div>
         </form>
@@ -212,22 +214,22 @@ function LoginPageContent() {
             href="/api/auth/oauth/google/start"
             className="w-full rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--bg-hover)]"
           >
-            Continue with Google
+            {t('login.continueGoogle')}
           </a>
           <span
             aria-disabled="true"
             className="w-full cursor-not-allowed rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold opacity-50"
           >
-            Continue with Apple (coming soon)
+            {t('login.continueApple')}
           </span>
         </div>
 
         <div className="mt-6 flex items-center justify-between text-sm">
           <Link href="/register" className="text-[var(--color-brand-primary)] hover:underline">
-            Create account
+            {t('login.createAccount')}
           </Link>
           <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-            Back to landing
+            {t('login.backToLanding')}
           </Link>
         </div>
       </section>

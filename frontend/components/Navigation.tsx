@@ -8,6 +8,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { useLanguage } from "@/core/LanguageContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
@@ -25,6 +26,11 @@ const SIDEBAR_WIDTH = 272;
 
 export default function Navigation({ theme }: NavigationProps) {
   const { symbol } = useTimeframe();
+  const { t } = useLanguage();
+  // Resolve a nav entry's display text: translated when it carries a labelKey,
+  // otherwise the English label (trading feature names stay English on purpose).
+  const navLabel = (entry: { label: string; labelKey?: NavItem['labelKey'] }) =>
+    entry.labelKey ? t(entry.labelKey) : entry.label;
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
@@ -66,13 +72,14 @@ export default function Navigation({ theme }: NavigationProps) {
       ...NAV_GROUPS,
       {
         label: "More",
+        labelKey: "nav.group.more",
         // Account is appended last so it sits at the bottom of the sidebar.
         // Only shown for authed users — for guests the link would just bounce
         // through /login and add a confusing detour.
         items: [
-          { id: "/about", label: "About" },
+          { id: "/about", label: "About", labelKey: "nav.about" as const },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
-          ...(isAuthenticated ? [{ id: "/account", label: "Account" }] : []),
+          ...(isAuthenticated ? [{ id: "/account", label: "Account", labelKey: "nav.account" as const }] : []),
         ],
       },
     ],
@@ -256,7 +263,7 @@ export default function Navigation({ theme }: NavigationProps) {
                       className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                       style={commonStyle}
                     >
-                      <span>{page.label}</span>
+                      <span>{navLabel(page)}</span>
                       {page.beta && <BetaBadge />}
                     </Link>
                   );
@@ -272,7 +279,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     style={commonStyle}
                     type="button"
                   >
-                    <span>{page.label}</span>
+                    <span>{navLabel(page)}</span>
                     {page.beta && <BetaBadge />}
                   </button>
                 );
@@ -289,7 +296,7 @@ export default function Navigation({ theme }: NavigationProps) {
                       background: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}0f`,
                     }}
                   >
-                    {group.label}
+                    {group.labelKey ? t(group.labelKey) : group.label}
                     <ChevronDown
                       size={14}
                       style={{ transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
@@ -346,16 +353,16 @@ export default function Navigation({ theme }: NavigationProps) {
                                   className="flex-1 px-3 py-3 text-left bg-transparent"
                                   style={{ color: "inherit" }}
                                 >
-                                  {subgroup.label}
+                                  {navLabel(subgroup)}
                                 </button>
                               ) : (
                                 <span className="flex-1 px-3 py-3" style={{ color: "inherit" }}>
-                                  {subgroup.label}
+                                  {navLabel(subgroup)}
                                 </span>
                               )}
                               <button
                                 type="button"
-                                aria-label={isSubExpanded ? `Collapse ${subgroup.label}` : `Expand ${subgroup.label}`}
+                                aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
@@ -394,7 +401,7 @@ export default function Navigation({ theme }: NavigationProps) {
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
             }}
-            aria-label="Hide left navigation"
+            aria-label={t('nav.hideSidebar')}
           >
             <ChevronLeft size={18} />
           </button>
@@ -414,10 +421,10 @@ export default function Navigation({ theme }: NavigationProps) {
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
           }}
-          aria-label="Show left navigation"
+          aria-label={t('nav.showSidebar')}
         >
           <ChevronRight size={18} />
-          <span className="text-[10px] font-semibold uppercase tracking-wide">menu</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide">{t('nav.menu')}</span>
         </button>
       )}
     </>
