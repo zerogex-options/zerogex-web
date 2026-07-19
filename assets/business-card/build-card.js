@@ -66,7 +66,7 @@ const FRONT = `<div class="card" id="card">
   <div style="position:absolute;top:82px;left:82px;width:600px;">
     <img src="${A.darkFull}" style="width:440px;display:block;margin-left:-6px;"/>
     <div style="width:64px;height:4px;background:var(--coral);border-radius:3px;margin:26px 0 18px 2px;"></div>
-    <div class="mono" style="font-size:14px;letter-spacing:4px;color:var(--muted);font-weight:500;">GEX&nbsp;&middot;&nbsp;GAMMA&nbsp;&middot;&nbsp;FLOW&nbsp;ANALYTICS</div>
+    <div class="mono" style="font-size:14px;letter-spacing:3.2px;color:var(--muted);font-weight:500;">GAMMA&nbsp;&middot;&nbsp;DEALER&nbsp;FLOW&nbsp;&middot;&nbsp;KEY&nbsp;LEVELS</div>
     <div style="margin-top:30px;font-size:23px;font-weight:700;color:var(--coral);letter-spacing:.3px;">${CARD.offer}</div>
     <div class="mono" style="font-size:12px;letter-spacing:1.2px;color:var(--cream);margin-top:11px;">
       SCAN THE QR CODE TO CLAIM&nbsp;&middot;&nbsp;CODE <span style="color:var(--coral);font-weight:700;">${CARD.code}</span>
