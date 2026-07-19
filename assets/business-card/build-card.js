@@ -51,8 +51,10 @@ const HEAD = `<style>
 
 const FRONT = `<div class="card" id="card">
   <div style="position:absolute;inset:0;background:radial-gradient(120% 140% at 78% 50%, #1B3D59 0%, #12283C 42%, #0B1826 72%, #081320 100%);"></div>
-  <img src="${A.target}" style="position:absolute;top:50%;left:70%;transform:translateY(-50%);width:560px;opacity:.12;"/>
-  <div style="position:absolute;top:50%;left:70%;transform:translate(-30%,-50%);width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(244,100,95,.20),transparent 60%);"></div>
+  <!-- Complete target watermark, fully within the open center pocket (no edge
+       clipping — replaces the old off-the-right-edge arcs). -->
+  <div style="position:absolute;top:300px;left:672px;transform:translate(-50%,-50%);width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(244,100,95,.10),transparent 62%);pointer-events:none;"></div>
+  <img src="${A.target}" style="position:absolute;top:300px;left:672px;transform:translate(-50%,-50%);width:300px;opacity:.14;pointer-events:none;"/>
   <div style="position:absolute;top:0;right:0;width:322px;height:600px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));border-left:1px solid rgba(244,100,95,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
     <div style="position:relative;width:212px;height:212px;border-radius:20px;background:var(--cream);box-shadow:0 18px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;">
       <img src="${A.qr}" style="width:176px;height:176px;display:block;"/>
