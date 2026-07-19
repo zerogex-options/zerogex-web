@@ -83,6 +83,24 @@ const PALETTES: PaletteMeta[] = [
     subtitle: 'Cenote jade, terracotta, Caribbean turquoise',
     swatch: ['#0C1512', '#E89A5E', '#35C4A0', '#E0B85A'],
   },
+  {
+    id: 'vinyl-topanga',
+    name: 'Vinyl Topanga',
+    subtitle: '70s rust-orange, avocado, harvest gold, cream',
+    swatch: ['#2A1A10', '#E86A34', '#9CB84A', '#E0A93B'],
+  },
+  {
+    id: 'monochrome-madison',
+    name: 'Monochrome Madison',
+    subtitle: 'Graphite black-and-white, steel blue, signal red',
+    swatch: ['#0C0D10', '#C2C8D0', '#9FB8D8', '#C6403A'],
+  },
+  {
+    id: 'palm-springs',
+    name: 'Palm Springs',
+    subtitle: 'Cactus green, living coral, turquoise, sand',
+    swatch: ['#14201E', '#F0846A', '#35C0B0', '#E0B36A'],
+  },
 ];
 
 export default function ThemeDropdown() {

@@ -1357,6 +1357,192 @@
   --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
 }
 
+/* ---- Palette: Vinyl Topanga ---------- */
+/* 1970s groovy: rust-orange field, harvest gold, avocado lichen, petrol
+   teal, warm chocolate & cream. Pacifico puffy-script display over Rubik.
+   Dark is a velvet 70s night; light is a warm dust-plain day. */
+:root.palette-vinyl-topanga {
+  --font-display: var(--font-pacifico);
+  --font-body: var(--font-rubik);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #F0D8A8; --heat-mid: #DE7A34; --heat-high: #A6331A;
+  --chart-1: #2E6E6B; --chart-2: #C8542B; --chart-3: #D99A2B; --chart-4: #6B7A2E; --chart-5: #3A2416;
+  --bg-main: #F1E3CB; --bg-subtle: #E8D6B8; --bg-card: #F8EEDA; --bg-hover: #E0CBA8; --bg-active: #D6BE96;
+  --text-primary: #3A2416;
+  --text-secondary: rgba(58,36,22,0.72);
+  --text-muted: rgba(58,36,22,0.52);
+  --text-inverse: #F8EEDA;
+  --border-subtle: rgba(58,36,22,0.10); --border-default: rgba(58,36,22,0.20); --border-strong: rgba(200,84,43,0.42);
+  --accent-1: #4A2F1C; --accent-2: #6B7A2E; --accent-3: #D99A2B; --accent-4: #C8542B;
+  --color-accent: #C8542B;
+  --color-accent-hot: #C8542B;
+  --color-accent-soft: rgba(200,84,43,0.16);
+  --color-gold: #C99A2E; --color-gold-soft: rgba(201,154,46,0.20);
+  --color-maroon: #7A2E1C; --color-navy: #2E6E6B;
+  --color-emerald: #4E7A2E; --color-emerald-soft: rgba(78,122,46,0.20);
+  --color-hazy: #2E6E6B; --color-hazy-soft: rgba(46,110,107,0.14);
+  --color-bull: #5F7D22; --color-bull-soft: rgba(95,125,34,0.20);
+  --color-bear: #C0421F; --color-bear-soft: rgba(192,66,31,0.20);
+  --color-warning: #D99A2B; --color-warning-soft: rgba(217,154,43,0.20);
+  --color-info: #2E6E6B; --color-info-soft: rgba(46,110,107,0.10);
+  --color-brand-primary: #C8542B; --color-brand-accent: #6B7A2E; --color-brand-coral: #C8542B; --color-brand-deep: #3A2416;
+  --color-chart-tooltip-bg: #F8EEDA; --color-chart-tooltip-border: rgba(58,36,22,0.18);
+  --color-grid-line: rgba(58,36,22,0.08); --color-grid-overlay: rgba(241,227,203,0.30);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-vinyl-topanga.dark {
+  --heat-low: #E8C79A; --heat-mid: #E8763A; --heat-high: #B23A1E;
+  --chart-1: #3FA095; --chart-2: #E86A34; --chart-3: #E0A93B; --chart-4: #9CB84A; --chart-5: #F3E4C7;
+  --bg-main: #2A1A10; --bg-subtle: #21140B; --bg-card: #3A2416; --bg-hover: #4A2F1C; --bg-active: #5A3A22;
+  --text-primary: #F3E4C7;
+  --text-secondary: rgba(243,228,199,0.74);
+  --text-muted: #C9A87E;
+  --text-inverse: #2A1A10;
+  --border-subtle: rgba(243,228,199,0.08); --border-default: rgba(216,178,122,0.20); --border-strong: rgba(232,106,52,0.40);
+  --accent-1: #4A2F1C; --accent-2: #9CB84A; --accent-3: #E0A93B; --accent-4: #E86A34;
+  --color-accent: #E86A34;
+  --color-accent-hot: #FF7E3E;
+  --color-accent-soft: rgba(232,106,52,0.22);
+  --color-gold: #E0A93B; --color-gold-soft: rgba(224,169,59,0.24);
+  --color-maroon: #7A2E1C; --color-navy: #3FA095;
+  --color-emerald: #9CB84A; --color-emerald-soft: rgba(156,184,74,0.26);
+  --color-hazy: #3FA095; --color-hazy-soft: rgba(63,160,149,0.16);
+  --color-bull: #9CB84A; --color-bull-soft: rgba(156,184,74,0.26);
+  --color-bear: #E8552E; --color-bear-soft: rgba(232,85,46,0.26);
+  --color-warning: #E0A93B; --color-warning-soft: rgba(224,169,59,0.22);
+  --color-info: #3FA095; --color-info-soft: rgba(63,160,149,0.18);
+  --color-brand-primary: #E86A34; --color-brand-accent: #9CB84A; --color-brand-coral: #FF7E3E; --color-brand-deep: #2A1A10;
+  --color-chart-tooltip-bg: #3A2416; --color-chart-tooltip-border: rgba(243,228,199,0.16);
+  --color-grid-line: rgba(216,178,122,0.14); --color-grid-overlay: rgba(42,26,16,0.14);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+
+/* ---- Palette: Monochrome Madison ---------- */
+/* Late-50s/early-60s Madison Avenue & Twilight Zone: near-black graphite,
+   bone white, one cold steel/phosphor-blue accent and a single restrained
+   signal red. Oswald editorial display over Spectral. Dark is the hero. */
+:root.palette-monochrome-madison {
+  --font-display: var(--font-oswald);
+  --font-body: var(--font-spectral);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #D8DEE6; --heat-mid: #7C8DA2; --heat-high: #2C3440;
+  --chart-1: #4E6486; --chart-2: #B23A34; --chart-3: #8A929C; --chart-4: #5E7A6E; --chart-5: #14161A;
+  --bg-main: #EDEEF0; --bg-subtle: #E3E5E8; --bg-card: #F7F8F9; --bg-hover: #DDE0E4; --bg-active: #CFD3D9;
+  --text-primary: #14161A;
+  --text-secondary: rgba(20,22,26,0.72);
+  --text-muted: rgba(20,22,26,0.52);
+  --text-inverse: #F7F8F9;
+  --border-subtle: rgba(20,22,26,0.10); --border-default: rgba(20,22,26,0.20); --border-strong: rgba(62,90,130,0.42);
+  --accent-1: #14161A; --accent-2: #4E6486; --accent-3: #8A929C; --accent-4: #3E5A82;
+  --color-accent: #3E5A82;
+  --color-accent-hot: #3E5A82;
+  --color-accent-soft: rgba(62,90,130,0.16);
+  --color-gold: #8A929C; --color-gold-soft: rgba(138,146,156,0.20);
+  --color-maroon: #7A2A26; --color-navy: #3E5A82;
+  --color-emerald: #5E7A6E; --color-emerald-soft: rgba(94,122,110,0.20);
+  --color-hazy: #4E6486; --color-hazy-soft: rgba(78,100,134,0.14);
+  --color-bull: #5E7A6E; --color-bull-soft: rgba(94,122,110,0.20);
+  --color-bear: #B23A34; --color-bear-soft: rgba(178,58,52,0.20);
+  --color-warning: #9A8A5E; --color-warning-soft: rgba(154,138,94,0.20);
+  --color-info: #4E6486; --color-info-soft: rgba(78,100,134,0.10);
+  --color-brand-primary: #3E5A82; --color-brand-accent: #8A929C; --color-brand-coral: #B23A34; --color-brand-deep: #14161A;
+  --color-chart-tooltip-bg: #F7F8F9; --color-chart-tooltip-border: rgba(20,22,26,0.18);
+  --color-grid-line: rgba(20,22,26,0.08); --color-grid-overlay: rgba(237,238,240,0.30);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-monochrome-madison.dark {
+  --heat-low: #C6D0DC; --heat-mid: #6E7C8E; --heat-high: #262B33;
+  --chart-1: #8FA6C0; --chart-2: #C6403A; --chart-3: #C2C8D0; --chart-4: #86A79A; --chart-5: #F2F3F5;
+  --bg-main: #0C0D10; --bg-subtle: #08090B; --bg-card: #16181C; --bg-hover: #1E2128; --bg-active: #282C34;
+  --text-primary: #F2F3F5;
+  --text-secondary: rgba(242,243,245,0.72);
+  --text-muted: #9AA0A8;
+  --text-inverse: #0C0D10;
+  --border-subtle: rgba(242,243,245,0.08); --border-default: rgba(154,160,168,0.22); --border-strong: rgba(180,196,214,0.34);
+  --accent-1: #2A2E36; --accent-2: #8FA6C0; --accent-3: #C2C8D0; --accent-4: #9FB8D8;
+  --color-accent: #9FB8D8;
+  --color-accent-hot: #B9D0EE;
+  --color-accent-soft: rgba(159,184,216,0.18);
+  --color-gold: #C2C8D0; --color-gold-soft: rgba(194,200,208,0.20);
+  --color-maroon: #7A2E2A; --color-navy: #8FA6C0;
+  --color-emerald: #86A79A; --color-emerald-soft: rgba(134,167,154,0.26);
+  --color-hazy: #8FA6C0; --color-hazy-soft: rgba(143,166,192,0.16);
+  --color-bull: #86A79A; --color-bull-soft: rgba(134,167,154,0.24);
+  --color-bear: #C6403A; --color-bear-soft: rgba(198,64,58,0.26);
+  --color-warning: #C8B98F; --color-warning-soft: rgba(200,185,143,0.22);
+  --color-info: #8FA6C0; --color-info-soft: rgba(143,166,192,0.18);
+  --color-brand-primary: #9FB8D8; --color-brand-accent: #C2C8D0; --color-brand-coral: #C6403A; --color-brand-deep: #0C0D10;
+  --color-chart-tooltip-bg: #16181C; --color-chart-tooltip-border: rgba(242,243,245,0.16);
+  --color-grid-line: rgba(154,160,168,0.14); --color-grid-overlay: rgba(12,13,16,0.14);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+
+/* ---- Palette: Palm Springs ---------- */
+/* Desert millennial: cactus & succulent green, living coral, turquoise
+   teal, sand-gold & warm cream. Gloock boutique serif over Hanken Grotesk.
+   Light is sun-washed desert modern; dark is a midnight oasis. */
+:root.palette-palm-springs {
+  --font-display: var(--font-gloock);
+  --font-body: var(--font-hanken-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+  --heat-low: #F1D9B8; --heat-mid: #E0745A; --heat-high: #A63E2A;
+  --chart-1: #2FA39C; --chart-2: #E0745A; --chart-3: #D9A85E; --chart-4: #4E9A6E; --chart-5: #24484A;
+  --bg-main: #F6EFE6; --bg-subtle: #EEE4D6; --bg-card: #FDF8F1; --bg-hover: #E7DAC8; --bg-active: #DCCDB8;
+  --text-primary: #2E3A38;
+  --text-secondary: rgba(46,58,56,0.72);
+  --text-muted: rgba(46,58,56,0.52);
+  --text-inverse: #FDF8F1;
+  --border-subtle: rgba(46,58,56,0.10); --border-default: rgba(46,58,56,0.20); --border-strong: rgba(224,110,90,0.42);
+  --accent-1: #2E5A52; --accent-2: #2FA39C; --accent-3: #D9A85E; --accent-4: #E0745A;
+  --color-accent: #E0745A;
+  --color-accent-hot: #E0745A;
+  --color-accent-soft: rgba(224,116,90,0.16);
+  --color-gold: #D2A24E; --color-gold-soft: rgba(210,162,78,0.20);
+  --color-maroon: #B0503A; --color-navy: #24605A;
+  --color-emerald: #3E9A6E; --color-emerald-soft: rgba(62,154,110,0.20);
+  --color-hazy: #2FA39C; --color-hazy-soft: rgba(47,163,156,0.14);
+  --color-bull: #3E9A6E; --color-bull-soft: rgba(62,154,110,0.20);
+  --color-bear: #D65A42; --color-bear-soft: rgba(214,90,66,0.20);
+  --color-warning: #D2A24E; --color-warning-soft: rgba(210,162,78,0.20);
+  --color-info: #2FA39C; --color-info-soft: rgba(47,163,156,0.10);
+  --color-brand-primary: #E0745A; --color-brand-accent: #2FA39C; --color-brand-coral: #E0745A; --color-brand-deep: #2E3A38;
+  --color-chart-tooltip-bg: #FDF8F1; --color-chart-tooltip-border: rgba(46,58,56,0.18);
+  --color-grid-line: rgba(46,58,56,0.08); --color-grid-overlay: rgba(246,239,230,0.30);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+:root.palette-palm-springs.dark {
+  --heat-low: #F0D6A8; --heat-mid: #F0846A; --heat-high: #B0402A;
+  --chart-1: #35C0B0; --chart-2: #F0846A; --chart-3: #E0B36A; --chart-4: #4FC48A; --chart-5: #F2E9DC;
+  --bg-main: #14201E; --bg-subtle: #0E1817; --bg-card: #1E2E2B; --bg-hover: #28403B; --bg-active: #335049;
+  --text-primary: #F2E9DC;
+  --text-secondary: rgba(242,233,220,0.74);
+  --text-muted: #A9B8B0;
+  --text-inverse: #14201E;
+  --border-subtle: rgba(242,233,220,0.08); --border-default: rgba(120,180,168,0.20); --border-strong: rgba(240,130,104,0.38);
+  --accent-1: #28403B; --accent-2: #35C0B0; --accent-3: #E0B36A; --accent-4: #F0846A;
+  --color-accent: #F0846A;
+  --color-accent-hot: #FF9678;
+  --color-accent-soft: rgba(240,132,106,0.22);
+  --color-gold: #E0B36A; --color-gold-soft: rgba(224,179,106,0.24);
+  --color-maroon: #C05A40; --color-navy: #2A7A70;
+  --color-emerald: #4FC48A; --color-emerald-soft: rgba(79,196,138,0.26);
+  --color-hazy: #35C0B0; --color-hazy-soft: rgba(53,192,176,0.16);
+  --color-bull: #4FC48A; --color-bull-soft: rgba(79,196,138,0.24);
+  --color-bear: #F0604A; --color-bear-soft: rgba(240,96,74,0.26);
+  --color-warning: #E0B36A; --color-warning-soft: rgba(224,179,106,0.22);
+  --color-info: #35C0B0; --color-info-soft: rgba(53,192,176,0.18);
+  --color-brand-primary: #F0846A; --color-brand-accent: #35C0B0; --color-brand-coral: #FF9678; --color-brand-deep: #14201E;
+  --color-chart-tooltip-bg: #1E2E2B; --color-chart-tooltip-border: rgba(242,233,220,0.16);
+  --color-grid-line: rgba(120,180,168,0.14); --color-grid-overlay: rgba(20,32,30,0.14);
+  --background: var(--bg-main); --foreground: var(--text-primary);
+  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

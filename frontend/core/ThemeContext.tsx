@@ -15,7 +15,10 @@ export type Palette =
   | 'zurich'
   | 'amalfi'
   | 'maldives'
-  | 'tulum';
+  | 'tulum'
+  | 'vinyl-topanga'
+  | 'monochrome-madison'
+  | 'palm-springs';
 
 const PALETTES: Palette[] = [
   'zerogex-og',
@@ -30,6 +33,9 @@ const PALETTES: Palette[] = [
   'amalfi',
   'maldives',
   'tulum',
+  'vinyl-topanga',
+  'monochrome-madison',
+  'palm-springs',
 ];
 const DEFAULT_PALETTE: Palette = 'zerogex-og';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year

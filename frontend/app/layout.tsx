@@ -6,16 +6,22 @@ import {
   Cormorant_Garamond,
   DM_Serif_Display,
   Fraunces,
+  Gloock,
+  Hanken_Grotesk,
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
   Newsreader,
   Noto_Sans,
+  Oswald,
   Outfit,
+  Pacifico,
   Playfair_Display,
   Poppins,
   Prata,
+  Rubik,
   Space_Grotesk,
+  Spectral,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -148,6 +154,54 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
+// Vinyl Topanga — 70s groovy: big puffy script display.
+const pacifico = Pacifico({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-pacifico',
+  display: 'swap',
+});
+
+// Vinyl Topanga — warm rounded body sans.
+const rubik = Rubik({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-rubik',
+  display: 'swap',
+});
+
+// Monochrome Madison — condensed mid-century editorial display.
+const oswald = Oswald({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oswald',
+  display: 'swap',
+});
+
+// Monochrome Madison — serious editorial reading serif.
+const spectral = Spectral({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-spectral',
+  display: 'swap',
+});
+
+// Palm Springs — warm boutique serif display.
+const gloock = Gloock({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-gloock',
+  display: 'swap',
+});
+
+// Palm Springs — clean modern body sans.
+const hankenGrotesk = Hanken_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-hanken-grotesk',
+  display: 'swap',
+});
+
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
@@ -164,10 +218,16 @@ const FONT_VARIABLES = [
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
+  pacifico.variable,
+  rubik.variable,
+  oswald.variable,
+  spectral.variable,
+  gloock.variable,
+  hankenGrotesk.variable,
 ].join(' ');
 
-type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
-const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
+type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum' | 'vinyl-topanga' | 'monochrome-madison' | 'palm-springs';
+const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum', 'vinyl-topanga', 'monochrome-madison', 'palm-springs'];
 const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
