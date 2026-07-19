@@ -22,6 +22,8 @@ import {
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import BetaBadge from "./BetaBadge";
 import ThemeDropdown from "./ThemeDropdown";
+import LanguageDropdown from "./LanguageDropdown";
+import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -42,6 +44,7 @@ interface HeaderProps {
 }
 
 export default function Header({ theme, onToggleTheme }: HeaderProps) {
+  const { t } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
@@ -341,11 +344,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px", padding: isCollapsed ? "6px" : "9px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                  aria-label="Toggle theme"
+                  aria-label={t('menu.toggleTheme')}
                 >
                   {theme === "dark" ? <Moon size={isCollapsed ? 18 : 20} /> : <Sun size={isCollapsed ? 18 : 20} />}
                 </button>
                 <ThemeDropdown />
+                {isCollapsed && <LanguageDropdown compact />}
                 {isCollapsed && (
                   <div ref={profileMenuRef} style={{ position: "relative" }}>
                     <button
@@ -355,7 +359,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                      aria-label="Open profile menu"
+                      aria-label={t('menu.openProfile')}
                     >
                       <CircleUserRound size={18} />
                     </button>
@@ -383,7 +387,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
                           >
-                            <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
+                            <span className="inline-flex items-center gap-2.5"><User size={16} />{t('menu.account')}</span>
                           </button>
                         )}
                         {canUpgrade && (
@@ -396,7 +400,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
                           >
-                            <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
+                            <span className="inline-flex items-center gap-2.5"><Rocket size={16} />{t('menu.upgrade')}</span>
                           </button>
                         )}
                         <button
@@ -414,7 +418,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         >
                           <span className="inline-flex items-center gap-2.5">
                             {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
-                            {authSession?.authenticated ? "Logout" : "Login"}
+                            {authSession?.authenticated ? t('menu.logout') : t('menu.login')}
                           </span>
                         </button>
                       </div>
@@ -540,6 +544,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 </div>
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
+                <LanguageDropdown />
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -548,7 +553,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                    aria-label="Open profile menu"
+                    aria-label={t('menu.openProfile')}
                   >
                     <CircleUserRound size={20} />
                   </button>
@@ -576,7 +581,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          <span className="inline-flex items-center gap-2.5"><User size={16} />Account</span>
+                          <span className="inline-flex items-center gap-2.5"><User size={16} />{t('menu.account')}</span>
                         </button>
                       )}
                       {canUpgrade && (
@@ -589,7 +594,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          <span className="inline-flex items-center gap-2.5"><Rocket size={16} />Upgrade</span>
+                          <span className="inline-flex items-center gap-2.5"><Rocket size={16} />{t('menu.upgrade')}</span>
                         </button>
                       )}
                       <button
@@ -665,11 +670,12 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                aria-label="Toggle theme"
+                aria-label={t('menu.toggleTheme')}
               >
                 {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
               </button>
               <ThemeDropdown />
+              <LanguageDropdown compact />
               <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-0 mr-1">
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
@@ -836,7 +842,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     className="rounded-lg border px-3 py-2 text-sm font-semibold col-span-2"
                     style={{ borderColor: border, color: 'var(--text-secondary)' }}
                   >
-                    Account
+                    {t('menu.account')}
                   </button>
                 )}
                 {canUpgrade && (
@@ -849,7 +855,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     className="rounded-lg border px-3 py-2 text-sm font-semibold"
                     style={{ borderColor: border, color: 'var(--text-secondary)' }}
                   >
-                    Upgrade
+                    {t('menu.upgrade')}
                   </button>
                 )}
                 <button
@@ -865,7 +871,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   className="rounded-lg border px-3 py-2 text-sm font-semibold"
                   style={{ borderColor: border, color: 'var(--text-secondary)' }}
                 >
-                  {authSession?.authenticated ? "Log out" : "Login"}
+                  {authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
                 </button>
               </div>
 
