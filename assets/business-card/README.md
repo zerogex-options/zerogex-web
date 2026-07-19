@@ -14,7 +14,8 @@ Print-ready single-sided business card with the ZeroGEX logo and a QR code that 
 | File | What it is |
 | --- | --- |
 | `zerogex-card.png` | The card — full logo, `GEX · Gamma · Flow Analytics` tagline, `zerogex.io`, and the scannable QR panel. 2100×1200 (3.5″×2″ @ 600 DPI). |
-| `zerogex-card-print.pdf` | **Send this to the printer.** Full-bleed artwork (3.75″×2.25″) with crop marks at the 3.5″×2″ trim. |
+| `zerogex-card-vistaprint.pdf` | **Upload this to VistaPrint / Moo / other online printers.** Exactly 3.75″×2.25″, full-bleed, **no crop marks** (their uploader adds its own trim guides). |
+| `zerogex-card-print.pdf` | For a **traditional print shop**: 4.1″×2.6″ sheet, full-bleed art, with crop marks at the 3.5″×2″ trim. |
 | `zerogex-card-mockup.png` | Presentation view of the card, for review. |
 | `qr-zerogex.svg` | The QR code (vector) encoding `https://zerogex.io/register?ref=TARGET` — the promo link. Error-correction level H, so the center target mark doesn't affect scanning. |
 | `build-card.js` | Regenerates the PNGs from the brand assets. |
