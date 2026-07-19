@@ -161,13 +161,9 @@
 }
 
 /* ============================================================
-   THEME PALETTES — 4 palettes × 2 modes
-   Combines with .dark on <html> for dark-mode variants.
-   ============================================================ */
-
-/* ============================================================
-   4 THEME PALETTES — mockup-matched
-   Wall Street · California Sunset · Kyoto Zen · Miami Beach
+   THEME PALETTES — 12 selectable themes × 2 modes
+   Each :root.palette-<id> sets the light tokens; add .dark on <html>
+   for the dark-mode variant.
    ============================================================ */
 
 /* ---- Palette: ZeroGEX OG (flagship / default) ---------- */
@@ -855,146 +851,10 @@
   --color-surface-subtle: var(--bg-subtle);
 }
 
-/* ---- Palette: Miami Beach ---------- */
-/* White sand, hot pink, pool cyan, flash yellow, electric purple.
-   Wide geometric Poppins for 80s marquee typography. */
-:root.palette-miami {
-  --font-display: var(--font-poppins);
-  --font-body: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
-  --heat-low: #FFE066;
-  --heat-mid: #FFD23F;
-  --heat-high: #E5A500;
-  --chart-1: #00BFD8;
-  --chart-2: #FF2FA2;
-  --chart-3: #FFD23F;
-  --chart-4: #7B2CFF;
-  --chart-5: #15151F;
-  --bg-main: #F7F3E8;
-  --bg-subtle: #EDE9DC;
-  --bg-card: #FBF8ED;
-  --bg-hover: #E4E0D2;
-  --bg-active: #D6D1C0;
-  --text-primary: #15151F;
-  --text-secondary: rgba(21,21,31,0.75);
-  --text-muted: rgba(21,21,31,0.50);
-  --text-inverse: #F7F3E8;
-  --border-subtle: rgba(21,21,31,0.10);
-  --border-default: rgba(21,21,31,0.22);
-  --border-strong: rgba(21,21,31,0.40);
-  --accent-1: #7B2CFF;
-  --accent-2: #FF2FA2;
-  --accent-3: #00BFD8;
-  --accent-4: #FFD23F;
-  --color-accent: #FF2FA2;
-  --color-accent-hot: #00BFD8;
-  --color-accent-soft: rgba(255,47,162,0.22);
-  --color-gold: #FFD23F;
-  --color-gold-soft: rgba(255,210,63,0.24);
-  --color-pop-pink: #FF2FA2;
-  --color-pop-pink-soft: rgba(255,47,162,0.22);
-  --color-pop-cyan: #00BFD8;
-  --color-pop-cyan-soft: rgba(0,191,216,0.22);
-  --color-pop-yellow: #FFD23F;
-  --color-pop-yellow-soft: rgba(255,210,63,0.24);
-  --color-pop-purple: #7B2CFF;
-  --color-pop-purple-soft: rgba(123,44,255,0.22);
-  --color-maroon: #7B2CFF;
-  --color-navy: #7B2CFF;
-  --color-emerald: #00BFD8;
-  --color-emerald-soft: rgba(0,191,216,0.22);
-  --color-hazy: #00BFD8;
-  --color-hazy-soft: rgba(0,191,216,0.14);
-  --color-bull: #10D960;
-  --color-bull-soft: rgba(16,217,96,0.22);
-  --color-bear: #FF2C4E;
-  --color-bear-soft: rgba(255,44,78,0.22);
-  --color-warning: #FFD23F;
-  --color-warning-soft: rgba(255,210,63,0.22);
-  --color-info: #7B2CFF;
-  --color-info-soft: rgba(123,44,255,0.10);
-  --color-brand-primary: #FF2FA2;
-  --color-brand-accent: #00BFD8;
-  --color-brand-coral: #FF2FA2;
-  --color-brand-deep: #7B2CFF;
-  --color-chart-tooltip-bg: #FBF8ED;
-  --color-chart-tooltip-border: rgba(21,21,31,0.18);
-  --color-grid-line: rgba(21,21,31,0.08);
-  --color-grid-overlay: rgba(247,243,232,0.30);
-  --background: var(--bg-main);
-  --foreground: var(--text-primary);
-  --color-surface: var(--bg-card);
-  --color-surface-elevated: var(--bg-card);
-  --color-surface-subtle: var(--bg-subtle);
-}
-:root.palette-miami.dark {
-  --heat-low: #FFEE7D;
-  --heat-mid: #FFE156;
-  --heat-high: #CFA500;
-  --chart-1: #00E5FF;
-  --chart-2: #FF3CAC;
-  --chart-3: #FFE156;
-  --chart-4: #9B5CFF;
-  --chart-5: #F8F4FF;
-  --bg-main: #0B1026;
-  --bg-subtle: #101532;
-  --bg-card: #161C3E;
-  --bg-hover: #1D244D;
-  --bg-active: #262D5E;
-  --text-primary: #F8F4FF;
-  --text-secondary: rgba(248,244,255,0.80);
-  --text-muted: rgba(248,244,255,0.54);
-  --text-inverse: #0B1026;
-  --border-subtle: rgba(248,244,255,0.10);
-  --border-default: rgba(248,244,255,0.22);
-  --border-strong: rgba(248,244,255,0.34);
-  --accent-1: #9B5CFF;
-  --accent-2: #FF3CAC;
-  --accent-3: #00E5FF;
-  --accent-4: #FFE156;
-  --color-accent: #FF3CAC;
-  --color-accent-hot: #00E5FF;
-  --color-accent-soft: rgba(255,60,172,0.26);
-  --color-gold: #FFE156;
-  --color-gold-soft: rgba(255,225,86,0.28);
-  --color-pop-pink: #FF3CAC;
-  --color-pop-pink-soft: rgba(255,60,172,0.26);
-  --color-pop-cyan: #00E5FF;
-  --color-pop-cyan-soft: rgba(0,229,255,0.26);
-  --color-pop-yellow: #FFE156;
-  --color-pop-yellow-soft: rgba(255,225,86,0.28);
-  --color-pop-purple: #9B5CFF;
-  --color-pop-purple-soft: rgba(155,92,255,0.26);
-  --color-maroon: #9B5CFF;
-  --color-navy: #9B5CFF;
-  --color-emerald: #00E5FF;
-  --color-emerald-soft: rgba(0,229,255,0.28);
-  --color-hazy: #00E5FF;
-  --color-hazy-soft: rgba(0,229,255,0.16);
-  --color-bull: #22FF6A;
-  --color-bull-soft: rgba(34,255,106,0.30);
-  --color-bear: #FF3062;
-  --color-bear-soft: rgba(255,48,98,0.30);
-  --color-warning: #FFE156;
-  --color-warning-soft: rgba(255,225,86,0.28);
-  --color-info: #9B5CFF;
-  --color-info-soft: rgba(155,92,255,0.20);
-  --color-brand-primary: #FF3CAC;
-  --color-brand-accent: #00E5FF;
-  --color-brand-coral: #FF3CAC;
-  --color-brand-deep: #9B5CFF;
-  --color-chart-tooltip-bg: #161C3E;
-  --color-chart-tooltip-border: rgba(248,244,255,0.16);
-  --color-grid-line: rgba(248,244,255,0.08);
-  --color-grid-overlay: rgba(11,16,38,0.12);
-  --color-surface: var(--bg-card);
-  --color-surface-elevated: var(--bg-card);
-  --color-surface-subtle: var(--bg-subtle);
-}
-
 /* ============================================================
-   DESTINATION PALETTES — 5 selectable themes × 2 modes
-   London Fog · Monaco Riviera · Zürich Vault · Amalfi Lemon · Maldives Lagoon
+   DESTINATION & ERA PALETTES (continued)
+   London Fog · Zürich Vault · Maldives Lagoon · Tulum Jungle ·
+   Vinyl Topanga · Monochrome Madison · Palm Springs
    ============================================================ */
 
 /* ---- Palette: London Fog ---------- */
@@ -1057,66 +917,6 @@
   --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
 }
 
-/* ---- Palette: Monaco Riviera ---------- */
-/* Casino navy, Mediterranean blue, roulette gold, coral. */
-:root.palette-monaco {
-  --font-display: var(--font-prata);
-  --font-body: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
-  --heat-low: #E8CE86; --heat-mid: #C29A3E; --heat-high: #B24A4A;
-  --chart-1: #1E5AA0; --chart-2: #C29A3E; --chart-3: #B24A4A; --chart-4: #2E8B6E; --chart-5: #14243A;
-  --bg-main: #F1ECE0; --bg-subtle: #E7E0CF; --bg-card: #F8F4EA; --bg-hover: #EBE4D3; --bg-active: #D1CDC1;
-  --text-primary: #14243A;
-  --text-secondary: rgba(20,36,58,0.75);
-  --text-muted: rgba(20,36,58,0.5);
-  --text-inverse: #F1ECE0;
-  --border-subtle: rgba(20,36,58,0.1); --border-default: rgba(20,36,58,0.22); --border-strong: rgba(20,36,58,0.4);
-  --accent-1: #B24A4A; --accent-2: #12385F; --accent-3: #C29A3E; --accent-4: #C29A3E;
-  --color-accent: #1E5AA0;
-  --color-accent-hot: #C29A3E;
-  --color-accent-soft: rgba(194,154,62,0.2);
-  --color-gold: #C29A3E; --color-gold-soft: rgba(194,154,62,0.22);
-  --color-maroon: #B24A4A; --color-navy: #12385F;
-  --color-emerald: #2E8B6E; --color-emerald-soft: rgba(46,139,110,0.22);
-  --color-hazy: #6A9CC4; --color-hazy-soft: rgba(106,156,196,0.14);
-  --color-bull: #2E8B6E; --color-bull-soft: rgba(46,139,110,0.22);
-  --color-bear: #C0433A; --color-bear-soft: rgba(192,67,58,0.22);
-  --color-warning: #C29A3E; --color-warning-soft: rgba(194,154,62,0.22);
-  --color-info: #12385F; --color-info-soft: rgba(18,56,95,0.1);
-  --color-brand-primary: #1E5AA0; --color-brand-accent: #C29A3E; --color-brand-coral: #C29A3E; --color-brand-deep: #B24A4A;
-  --color-chart-tooltip-bg: #F8F4EA; --color-chart-tooltip-border: rgba(20,36,58,0.18);
-  --color-grid-line: rgba(20,36,58,0.08); --color-grid-overlay: rgba(241,236,224,0.3);
-  --background: var(--bg-main); --foreground: var(--text-primary);
-  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
-}
-:root.palette-monaco.dark {
-  --heat-low: #F0D98E; --heat-mid: #E0BE5A; --heat-high: #D6564A;
-  --chart-1: #4F92D8; --chart-2: #E0BE5A; --chart-3: #E0685E; --chart-4: #4FB58E; --chart-5: #EDE7D6;
-  --bg-main: #0C1622; --bg-subtle: #101E2E; --bg-card: #142639; --bg-hover: #1B3147; --bg-active: #384A5B;
-  --text-primary: #EDE7D6;
-  --text-secondary: rgba(237,231,214,0.78);
-  --text-muted: rgba(237,231,214,0.52);
-  --text-inverse: #0C1622;
-  --border-subtle: rgba(237,231,214,0.09); --border-default: rgba(237,231,214,0.22); --border-strong: rgba(237,231,214,0.34);
-  --accent-1: #E0685E; --accent-2: #5FA0D8; --accent-3: #E0BE5A; --accent-4: #E0BE5A;
-  --color-accent: #4F92D8;
-  --color-accent-hot: #E0BE5A;
-  --color-accent-soft: rgba(224,190,90,0.24);
-  --color-gold: #E0BE5A; --color-gold-soft: rgba(224,190,90,0.26);
-  --color-maroon: #E0685E; --color-navy: #5FA0D8;
-  --color-emerald: #4FB58E; --color-emerald-soft: rgba(79,181,142,0.26);
-  --color-hazy: #8FB4D8; --color-hazy-soft: rgba(143,180,216,0.18);
-  --color-bull: #4FB58E; --color-bull-soft: rgba(79,181,142,0.26);
-  --color-bear: #E0605A; --color-bear-soft: rgba(224,96,90,0.26);
-  --color-warning: #E0BE5A; --color-warning-soft: rgba(224,190,90,0.26);
-  --color-info: #5FA0D8; --color-info-soft: rgba(95,160,216,0.18);
-  --color-brand-primary: #4F92D8; --color-brand-accent: #E0BE5A; --color-brand-coral: #E0BE5A; --color-brand-deep: #E0685E;
-  --color-chart-tooltip-bg: #142639; --color-chart-tooltip-border: rgba(237,231,214,0.16);
-  --color-grid-line: rgba(237,231,214,0.08); --color-grid-overlay: rgba(12,22,34,0.12);
-  --background: var(--bg-main); --foreground: var(--text-primary);
-  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
-}
-
 /* ---- Palette: Zürich Vault ---------- */
 /* Alpine snow, graphite steel, vault gold, Swiss red. */
 :root.palette-zurich {
@@ -1173,66 +973,6 @@
   --color-brand-primary: #7E8B98; --color-brand-accent: #DCC066; --color-brand-coral: #DCC066; --color-brand-deep: #D6564A;
   --color-chart-tooltip-bg: #1C2024; --color-chart-tooltip-border: rgba(233,235,238,0.16);
   --color-grid-line: rgba(233,235,238,0.08); --color-grid-overlay: rgba(19,21,24,0.12);
-  --background: var(--bg-main); --foreground: var(--text-primary);
-  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
-}
-
-/* ---- Palette: Amalfi Lemon ---------- */
-/* Limewash white, Mediterranean blue, citrus yellow, bougainvillea. */
-:root.palette-amalfi {
-  --font-display: var(--font-dm-serif);
-  --font-body: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
-  --heat-low: #F0DE8A; --heat-mid: #E0B02E; --heat-high: #C13E5E;
-  --chart-1: #1E6FA8; --chart-2: #E0B02E; --chart-3: #C13E5E; --chart-4: #5E8B4A; --chart-5: #1C2E3A;
-  --bg-main: #F3EFE2; --bg-subtle: #E9E2CD; --bg-card: #FAF6EA; --bg-hover: #ECE4CF; --bg-active: #D3CEBD;
-  --text-primary: #1C2E3A;
-  --text-secondary: rgba(28,46,58,0.75);
-  --text-muted: rgba(28,46,58,0.5);
-  --text-inverse: #F3EFE2;
-  --border-subtle: rgba(28,46,58,0.1); --border-default: rgba(28,46,58,0.22); --border-strong: rgba(28,46,58,0.4);
-  --accent-1: #C13E5E; --accent-2: #164E78; --accent-3: #E0B02E; --accent-4: #E0B02E;
-  --color-accent: #1E6FA8;
-  --color-accent-hot: #E0B02E;
-  --color-accent-soft: rgba(224,176,46,0.2);
-  --color-gold: #E0B02E; --color-gold-soft: rgba(224,176,46,0.22);
-  --color-maroon: #C13E5E; --color-navy: #164E78;
-  --color-emerald: #5E8B4A; --color-emerald-soft: rgba(94,139,74,0.22);
-  --color-hazy: #6FA6C8; --color-hazy-soft: rgba(111,166,200,0.14);
-  --color-bull: #5E8B4A; --color-bull-soft: rgba(94,139,74,0.22);
-  --color-bear: #C0433A; --color-bear-soft: rgba(192,67,58,0.22);
-  --color-warning: #E0B02E; --color-warning-soft: rgba(224,176,46,0.22);
-  --color-info: #164E78; --color-info-soft: rgba(22,78,120,0.1);
-  --color-brand-primary: #1E6FA8; --color-brand-accent: #E0B02E; --color-brand-coral: #E0B02E; --color-brand-deep: #C13E5E;
-  --color-chart-tooltip-bg: #FAF6EA; --color-chart-tooltip-border: rgba(28,46,58,0.18);
-  --color-grid-line: rgba(28,46,58,0.08); --color-grid-overlay: rgba(243,239,226,0.3);
-  --background: var(--bg-main); --foreground: var(--text-primary);
-  --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
-}
-:root.palette-amalfi.dark {
-  --heat-low: #F5E79A; --heat-mid: #F0D24E; --heat-high: #E85C7E;
-  --chart-1: #4F9BD8; --chart-2: #F0D24E; --chart-3: #E85C7E; --chart-4: #8AB05A; --chart-5: #EEEAD6;
-  --bg-main: #0C1620; --bg-subtle: #101E2C; --bg-card: #142638; --bg-hover: #1B3145; --bg-active: #394B59;
-  --text-primary: #EEEAD6;
-  --text-secondary: rgba(238,234,214,0.78);
-  --text-muted: rgba(238,234,214,0.52);
-  --text-inverse: #0C1620;
-  --border-subtle: rgba(238,234,214,0.09); --border-default: rgba(238,234,214,0.22); --border-strong: rgba(238,234,214,0.34);
-  --accent-1: #E85C7E; --accent-2: #5FA0D8; --accent-3: #F0D24E; --accent-4: #F0D24E;
-  --color-accent: #4F9BD8;
-  --color-accent-hot: #F0D24E;
-  --color-accent-soft: rgba(240,210,78,0.24);
-  --color-gold: #F0D24E; --color-gold-soft: rgba(240,210,78,0.26);
-  --color-maroon: #E85C7E; --color-navy: #5FA0D8;
-  --color-emerald: #8AB05A; --color-emerald-soft: rgba(138,176,90,0.26);
-  --color-hazy: #8FB8D8; --color-hazy-soft: rgba(143,184,216,0.18);
-  --color-bull: #7EA84E; --color-bull-soft: rgba(126,168,78,0.26);
-  --color-bear: #E0605A; --color-bear-soft: rgba(224,96,90,0.26);
-  --color-warning: #F0D24E; --color-warning-soft: rgba(240,210,78,0.26);
-  --color-info: #5FA0D8; --color-info-soft: rgba(95,160,216,0.18);
-  --color-brand-primary: #4F9BD8; --color-brand-accent: #F0D24E; --color-brand-coral: #F0D24E; --color-brand-deep: #E85C7E;
-  --color-chart-tooltip-bg: #142638; --color-chart-tooltip-border: rgba(238,234,214,0.16);
-  --color-grid-line: rgba(238,234,214,0.08); --color-grid-overlay: rgba(12,22,32,0.12);
   --background: var(--bg-main); --foreground: var(--text-primary);
   --color-surface: var(--bg-card); --color-surface-elevated: var(--bg-card); --color-surface-subtle: var(--bg-subtle);
 }
@@ -1359,10 +1099,10 @@
 
 /* ---- Palette: Vinyl Topanga ---------- */
 /* 1970s groovy: rust-orange field, harvest gold, avocado lichen, petrol
-   teal, warm chocolate & cream. Pacifico puffy-script display over Rubik.
-   Dark is a velvet 70s night; light is a warm dust-plain day. */
+   teal, warm chocolate & cream. Monoton retro-multiline display (record-
+   groove stripes) over Rubik. Dark is a velvet 70s night; light a dust day. */
 :root.palette-vinyl-topanga {
-  --font-display: var(--font-pacifico);
+  --font-display: var(--font-monoton);
   --font-body: var(--font-rubik);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #F0D8A8; --heat-mid: #DE7A34; --heat-high: #A6331A;

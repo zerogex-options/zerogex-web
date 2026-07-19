@@ -4,21 +4,18 @@ import {
   Archivo,
   Chakra_Petch,
   Cormorant_Garamond,
-  DM_Serif_Display,
   Fraunces,
   Gloock,
   Hanken_Grotesk,
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
+  Monoton,
   Newsreader,
   Noto_Sans,
   Oswald,
   Outfit,
-  Pacifico,
   Playfair_Display,
-  Poppins,
-  Prata,
   Rubik,
   Space_Grotesk,
   Spectral,
@@ -90,14 +87,6 @@ const notoSans = Noto_Sans({
   display: 'swap',
 });
 
-// Miami Beach — display sans, wide geometric 80s marquee.
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800', '900'],
-  variable: '--font-poppins',
-  display: 'swap',
-});
-
 // London Fog — English editorial serif, foggy and financial.
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -106,27 +95,11 @@ const newsreader = Newsreader({
   display: 'swap',
 });
 
-// Monaco Riviera — high-fashion didone serif, Riviera glamour.
-const prata = Prata({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-prata',
-  display: 'swap',
-});
-
 // Zürich Vault — Swiss grotesque, precise and quiet.
 const archivo = Archivo({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-archivo',
-  display: 'swap',
-});
-
-// Amalfi Lemon — elegant Italian display serif.
-const dmSerifDisplay = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-dm-serif',
   display: 'swap',
 });
 
@@ -154,11 +127,11 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
-// Vinyl Topanga — 70s groovy: big puffy script display.
-const pacifico = Pacifico({
+// Vinyl Topanga — 70s retro multiline display (record-groove stripes).
+const monoton = Monoton({
   subsets: ['latin'],
   weight: ['400'],
-  variable: '--font-pacifico',
+  variable: '--font-monoton',
   display: 'swap',
 });
 
@@ -210,15 +183,12 @@ const FONT_VARIABLES = [
   playfair.variable,
   cormorant.variable,
   notoSans.variable,
-  poppins.variable,
   newsreader.variable,
-  prata.variable,
   archivo.variable,
-  dmSerifDisplay.variable,
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
-  pacifico.variable,
+  monoton.variable,
   rubik.variable,
   oswald.variable,
   spectral.variable,
@@ -226,13 +196,18 @@ const FONT_VARIABLES = [
   hankenGrotesk.variable,
 ].join(' ');
 
-type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum' | 'vinyl-topanga' | 'monochrome-madison' | 'palm-springs';
-const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum', 'vinyl-topanga', 'monochrome-madison', 'palm-springs'];
+type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'london' | 'zurich' | 'maldives' | 'tulum' | 'vinyl-topanga' | 'monochrome-madison' | 'palm-springs';
+const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'london', 'zurich', 'maldives', 'tulum', 'vinyl-topanga', 'monochrome-madison', 'palm-springs'];
 const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
+// Retired palettes migrate to their nearest successor so a saved preference
+// never resolves to nothing (walnut/pacific/deluxe were earlier renames).
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
-  pacific: 'miami',
   deluxe: 'wallstreet',
+  pacific: 'palm-springs',
+  miami: 'palm-springs',
+  monaco: 'monochrome-madison',
+  amalfi: 'palm-springs',
 };
 
 // Shared site-wide description, sized for both Google SERP snippets and
