@@ -22,6 +22,8 @@ import {
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
+import { LanguageProvider } from '@/core/LanguageContext';
+import { normalizeLocale } from '@/core/i18n/locales';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import { DensityProvider } from '@/core/DensityContext';
@@ -262,27 +264,34 @@ export default async function RootLayout({
     : DEFAULT_PALETTE;
   const theme = cookieStore.get('theme')?.value === 'light' ? 'light' : 'dark';
 
+  // Persisted UI language — seeds both <html lang> (for a11y/SEO and correct
+  // initial paint) and the LanguageProvider so SSR and the first client render
+  // agree. Defaults to English when the cookie is absent.
+  const locale = normalizeLocale(cookieStore.get('lang')?.value);
+
   const htmlClass = `${FONT_VARIABLES} palette-${palette}${theme === 'dark' ? ' dark' : ''}`;
 
   return (
-    <html lang="en" className={htmlClass}>
+    <html lang={locale} className={htmlClass}>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <ThemeProvider>
-          <TimeframeProvider>
-            <GexUnitProvider>
-              <DensityProvider>
-                <TelemetryProvider />
-                <TwitterPixelProvider />
-                <PageAnalytics />
-                <ClientLayout>
-                  {children}
-                </ClientLayout>
-              </DensityProvider>
-            </GexUnitProvider>
-          </TimeframeProvider>
+          <LanguageProvider initialLocale={locale}>
+            <TimeframeProvider>
+              <GexUnitProvider>
+                <DensityProvider>
+                  <TelemetryProvider />
+                  <TwitterPixelProvider />
+                  <PageAnalytics />
+                  <ClientLayout>
+                    {children}
+                  </ClientLayout>
+                </DensityProvider>
+              </GexUnitProvider>
+            </TimeframeProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -7,6 +7,8 @@ import { getCsrfToken } from '@/core/csrfClient';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { useLanguage } from '@/core/LanguageContext';
+import { LOCALE_META, type Locale } from '@/core/i18n/locales';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -33,6 +35,7 @@ function RegisterPageContent({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { locale, setLocale, t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
@@ -129,10 +132,7 @@ function RegisterPageContent({
       // validates against.
       const token = (await getCsrfToken()) || csrfToken;
       if (!token) {
-        setError(
-          'Couldn’t initialize secure signup. Please refresh and try again. ' +
-            'If you’ve blocked cookies for this site, allow them first.',
-        );
+        setError(t('register.csrfError'));
         return;
       }
       const response = await fetch('/api/auth/register', {
@@ -149,7 +149,7 @@ function RegisterPageContent({
         emailVerificationSent?: boolean;
       };
       if (!response.ok) {
-        setError(payload.error ?? 'Registration failed');
+        setError(payload.error ?? t('register.genericError'));
         return;
       }
 
@@ -200,28 +200,43 @@ function RegisterPageContent({
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">Create your ZeroGEX account</h1>
+        <h1 className="text-3xl font-bold">{t('register.title')}</h1>
         {showReferralBanner && (
           <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
-            🎉 A friend referred you — your discount is applied at checkout.
+            {t('register.referralBanner')}
           </div>
         )}
         {showCampaignBanner && (
           <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
-            🎯 Your discount is applied automatically at checkout.
+            {t('register.campaignBanner')}
           </div>
         )}
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          Start your 7-day free trial after account creation. No charge until day 7. Cancel anytime.
+          {t('register.trialInfo')}
         </p>
         <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
-          ZeroGEX helps SPY, SPX, and QQQ traders track live gamma levels, dealer positioning, flow
-          pressure, and market state signals before price gets there.
+          {t('register.valueProp')}
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-text-secondary)]">Email</span>
+            <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.languageLabel')}</span>
+            <select
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as Locale)}
+              aria-label={t('language.select')}
+            >
+              {LOCALE_META.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.flag} {l.label} ({l.englishName})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.emailLabel')}</span>
             <input
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
               type="email"
@@ -232,7 +247,7 @@ function RegisterPageContent({
           </label>
 
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-text-secondary)]">Password</span>
+            <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.passwordLabel')}</span>
             <input
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
               type="password"
@@ -242,7 +257,7 @@ function RegisterPageContent({
               required
             />
             <span className="mt-1 block text-xs text-[var(--color-text-secondary)] opacity-80">
-              Use a strong password — 12 or more characters.
+              {t('register.passwordHint')}
             </span>
           </label>
 
@@ -253,17 +268,17 @@ function RegisterPageContent({
             className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black disabled:opacity-60"
             type="submit"
           >
-            {loading ? 'Creating account…' : 'Create Account & Continue to Trial'}
+            {loading ? t('register.submitting') : t('register.submit')}
           </button>
 
           <p className="text-center text-xs text-[var(--color-text-secondary)]">
-            Next step: choose your plan. No charge until day 7.
+            {t('register.nextStep')}
           </p>
         </form>
 
         <div className="mt-6 text-sm">
           <Link href={loginHref} className="text-[var(--color-brand-primary)] hover:underline">
-            Already have an account? Sign in
+            {t('register.haveAccount')}
           </Link>
         </div>
       </section>
