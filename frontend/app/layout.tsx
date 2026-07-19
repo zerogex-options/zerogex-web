@@ -10,7 +10,6 @@ import {
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
-  Monoton,
   Newsreader,
   Noto_Sans,
   Oswald,
@@ -19,6 +18,7 @@ import {
   Rubik,
   Space_Grotesk,
   Spectral,
+  Titan_One,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -127,11 +127,11 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
-// Vinyl Topanga — 70s retro multiline display (record-groove stripes).
-const monoton = Monoton({
+// Vinyl Topanga — chunky rounded 70s block display.
+const titanOne = Titan_One({
   subsets: ['latin'],
   weight: ['400'],
-  variable: '--font-monoton',
+  variable: '--font-titan-one',
   display: 'swap',
 });
 
@@ -188,7 +188,7 @@ const FONT_VARIABLES = [
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
-  monoton.variable,
+  titanOne.variable,
   rubik.variable,
   oswald.variable,
   spectral.variable,
