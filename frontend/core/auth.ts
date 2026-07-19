@@ -85,6 +85,10 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // visitors to /dashboard are redirected by proxy.ts to the free, 15-min
   // delayed /spx-gamma-levels preview instead of bouncing to /login.
   { pattern: '/dashboard', minimumTier: 'basic' },
+  // My Dashboard — the customizable widget board. Gated at Basic (any paid
+  // member); the page itself further gates individual Pro-only widgets and
+  // shows Basic members an upgrade prompt in their place.
+  { pattern: '/my-dashboard', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
