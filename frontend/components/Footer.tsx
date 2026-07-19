@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
+import { useLanguage } from '@/core/LanguageContext';
+import type { TranslationKey } from '@/core/i18n';
 
 interface FooterProps {
   theme: Theme;
@@ -12,15 +14,15 @@ interface FooterProps {
 
 const border = 'var(--border-default)';
 
-const footerLinks = [
-  { href: '/dashboard', label: 'Platform', external: false },
-  { href: '/spx-gamma-levels', label: 'Free Gamma Levels', external: false },
-  { href: '/about', label: 'About', external: false },
-  { href: '/giving', label: 'Giving Back', external: false },
-  { href: 'https://api.zerogex.io/docs', label: 'API Docs', external: true },
-  { href: '/education', label: 'Education', external: false },
-  { href: '/privacy', label: 'Privacy', external: false },
-  { href: '/terms', label: 'Terms', external: false },
+const footerLinks: { href: string; label: string; labelKey: TranslationKey; external: boolean }[] = [
+  { href: '/dashboard', label: 'Platform', labelKey: 'footer.platform', external: false },
+  { href: '/spx-gamma-levels', label: 'Free Gamma Levels', labelKey: 'footer.freeGammaLevels', external: false },
+  { href: '/about', label: 'About', labelKey: 'nav.about', external: false },
+  { href: '/giving', label: 'Giving Back', labelKey: 'footer.givingBack', external: false },
+  { href: 'https://api.zerogex.io/docs', label: 'API Docs', labelKey: 'footer.apiDocs', external: true },
+  { href: '/education', label: 'Education', labelKey: 'nav.group.education', external: false },
+  { href: '/privacy', label: 'Privacy', labelKey: 'footer.privacy', external: false },
+  { href: '/terms', label: 'Terms', labelKey: 'footer.terms', external: false },
 ];
 
 const VETERANS_BADGE_TEXT = '3% of every subscription supports U.S. military families via Folds of Honor.';
@@ -157,6 +159,7 @@ function SocialLinks({
 }
 
 export default function Footer({ theme }: FooterProps) {
+  const { t } = useLanguage();
   const isDark = theme === 'dark';
   const subtext = isDark ? 'var(--text-secondary)' : 'var(--text-muted)';
   const textLight = isDark ? "var(--text-primary)" : 'var(--text-inverse)';
@@ -173,7 +176,7 @@ export default function Footer({ theme }: FooterProps) {
         <div className="hidden md:flex" style={{ alignItems: 'center', gap: 32 }}>
           <div style={{ flex: 1 }}>
             <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 14 }}>
-              Navigation
+              {t('footer.navigation')}
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               {footerLinks.map((item) => (
@@ -188,7 +191,7 @@ export default function Footer({ theme }: FooterProps) {
                       onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
                     >
-                      {item.label}
+                      {t(item.labelKey)}
                     </a>
                   ) : (
                     <Link
@@ -198,7 +201,7 @@ export default function Footer({ theme }: FooterProps) {
                       onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
                     >
-                      {item.label}
+                      {t(item.labelKey)}
                     </Link>
                   )}
                 </div>
@@ -243,16 +246,13 @@ export default function Footer({ theme }: FooterProps) {
                   padding: 2,
                 }}
               />
-              3% supports veterans
+              {t('footer.veteransBadge')}
             </Link>
             <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right' }}>
-              © 2026 ZeroGEX, All rights reserved.
+              {t('footer.rights')}
             </p>
             <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right', maxWidth: 360 }}>
-              ZeroGEX provides options-market analytics and educational content for informational
-              purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
-              registered investment adviser. Options trading involves significant risk and is not
-              suitable for all investors. Past performance is not indicative of future results.
+              {t('footer.disclaimer')}
             </p>
           </div>
         </div>
@@ -260,17 +260,17 @@ export default function Footer({ theme }: FooterProps) {
         <div className="flex md:hidden" style={{ gap: 16 }}>
           <div style={{ flex: '0 0 62%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 4 }}>
-              Navigation
+              {t('footer.navigation')}
             </div>
             {footerLinks.map((item) => (
               <div key={item.href} style={{ marginBottom: 2 }}>
                 {item.external ? (
                   <a href={item.href} target="_blank" rel="noreferrer" className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </a>
                 ) : (
                   <Link href={item.href} className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 )}
               </div>
@@ -305,16 +305,13 @@ export default function Footer({ theme }: FooterProps) {
                   padding: 2,
                 }}
               />
-              3% supports veterans
+              {t('footer.veteransBadge')}
             </Link>
             <p className="zg-caption" style={{ color: subtext, margin: '10px 0 0 0' }}>
-              ZeroGEX provides options-market analytics and educational content for informational
-              purposes only. It is not investment advice, and ZeroGEX is not a broker-dealer or a
-              registered investment adviser. Options trading involves significant risk and is not
-              suitable for all investors. Past performance is not indicative of future results.
+              {t('footer.disclaimer')}
             </p>
             <p className="zg-caption" style={{ color: subtext, margin: 0 }}>
-              © 2026 ZeroGEX All rights reserved.
+              {t('footer.rights')}
             </p>
           </div>
 

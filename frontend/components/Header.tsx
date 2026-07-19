@@ -71,14 +71,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       ...NAV_GROUPS,
       {
         label: "More",
+        labelKey: "nav.group.more",
         items: [
-          { id: "/about", label: "About" },
+          { id: "/about", label: "About", labelKey: "nav.about" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
         ],
       },
     ],
     [],
   );
+  // Translated nav label when the entry carries a labelKey; English otherwise.
+  const navLabel = (entry: { label: string; labelKey?: NavItem["labelKey"] }) =>
+    entry.labelKey ? t(entry.labelKey) : entry.label;
 
   const [mobileExpandedGroups, setMobileExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -716,7 +720,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             color: 'var(--text-primary)',
                           }}
                         >
-                          <span>{page.label}</span>
+                          <span>{navLabel(page)}</span>
                           {page.beta && <BetaBadge />}
                         </a>
                       );
@@ -750,7 +754,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         className="mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]"
                         style={{ color: 'var(--color-brand-primary)' }}
                       >
-                        {group.label}
+                        {navLabel(group)}
                         <ChevronDown size={14} style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
                       </button>
                       {isExpanded ? (
@@ -780,16 +784,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                       className="flex-1 text-left bg-transparent"
                                       style={subgroupLabelStyle}
                                     >
-                                      {subgroup.label}
+                                      {navLabel(subgroup)}
                                     </button>
                                   ) : (
                                     <span className="flex-1" style={subgroupLabelStyle}>
-                                      {subgroup.label}
+                                      {navLabel(subgroup)}
                                     </span>
                                   )}
                                   <button
                                     type="button"
-                                    aria-label={isSubExpanded ? `Collapse ${subgroup.label}` : `Expand ${subgroup.label}`}
+                                    aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
