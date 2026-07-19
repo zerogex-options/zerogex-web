@@ -52,12 +52,13 @@ export function TodaysReadPanel() {
 }
 
 export function DealerExposuresPanel() {
+  // Full (non-compact) view: candle + gamma + open-interest/positions panels,
+  // matching /gex-strike-profile. It carries its own bordered card + title bar
+  // and fullscreen control, so it renders bare (no extra WidgetCard chrome).
   return (
-    <WidgetCard title="Dealer Strike Profile" href="/gamma-exposure" pad={false}>
-      <div className="p-2">
-        <MarketMakerExposures compact />
-      </div>
-    </WidgetCard>
+    <div className="h-full">
+      <MarketMakerExposures />
+    </div>
   );
 }
 
