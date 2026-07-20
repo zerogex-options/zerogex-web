@@ -64,7 +64,9 @@ export type SignupPoint = {
 
 // Per-day paid-subscription flow plus account registrations, sourced from the
 // audit_events log. The paid flow counts each user's own Stripe signup/cancel:
-//   • basicAdd / proAdd     — a subscription's first paid observation (conversion)
+//   • basicAdd / proAdd     — a paid activation: a subscription's first paid
+//                             observation (conversion), OR a re-activation the day
+//                             a sub climbs back out of dunning (payment recovered)
 //   • basicPaymentFail / proPaymentFail — an INVOLUNTARY downgrade to public,
 //                               booked the day a failed payment pushes the sub
 //                               into dunning (past_due/unpaid): a failed renewal,
@@ -760,8 +762,11 @@ const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 // Per-day paid-subscription flow and account registrations, sourced from the
 // audit_events log, spanning the same MAX_DAILY window as the other daily charts.
 //
-//   • Paid adds        — the FIRST `stripe_subscription_sync` that saw a given
-//     subscription in a paid tier (pro/basic): the day that user converted.
+//   • Paid adds        — a paid activation, from two sources (both positive): the
+//     FIRST `stripe_subscription_sync` that saw a subscription in a paid tier
+//     (pro/basic) — the day that user converted — AND a re-activation the day a
+//     sub climbs back out of dunning into a paid tier (payment recovered), which
+//     offsets its earlier payment-failure downgrade so the net line stays honest.
 //   • Payment-failure downgrades — booked the day a subscription first crosses
 //     INTO a dunning state (past_due/unpaid), i.e. the instant a failed payment
 //     downgrades it to public. Covers both a failed renewal and a trial whose
@@ -821,33 +826,46 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       const subId = parseSubIdFromMessage(row.message);
       if (!subId) continue;
       const status = parseSyncStatus(row.message);
+      const tier = parseSyncTier(row.message);
       const day = etDay(row.created_at);
+      const wasDunning = DUNNING_STATUSES.has(lastStatus.get(subId) ?? '');
 
-      // Payment-failure downgrade, booked the moment it happens: a sub crossing
-      // from a healthy state into dunning (past_due/unpaid) is downgraded to
-      // public right then, so record it on THIS day rather than waiting for the
-      // deletion Stripe emits only after its retries are exhausted. Only the
-      // entry transition counts (Stripe re-emits past_due on every failed retry),
-      // and the tier is the one held just before the failure — which also means a
-      // trial whose first charge fails at trial-end (trialing → past_due) is
-      // captured, attributed to the tier the trial was for.
-      if (status && DUNNING_STATUSES.has(status) && !DUNNING_STATUSES.has(lastStatus.get(subId) ?? '')) {
+      if (status && DUNNING_STATUSES.has(status) && !wasDunning) {
+        // Payment-failure downgrade, booked the moment it happens: a sub crossing
+        // from a healthy state into dunning (past_due/unpaid) is downgraded to
+        // public right then, so record it on THIS day rather than waiting for the
+        // deletion Stripe emits only after its retries are exhausted. Only the
+        // entry transition counts (Stripe re-emits past_due on every failed
+        // retry), and the tier is the one held just before the failure — which
+        // also captures a trial whose first charge fails at trial-end (trialing →
+        // past_due), attributed to the tier the trial was for.
         if (day && acc[day]) {
           const failTier = lastPaidTier.get(subId) ?? 'basic';
           if (failTier === 'pro') acc[day].proPaymentFail -= 1;
           else acc[day].basicPaymentFail -= 1;
         }
+      } else if (tier && wasDunning) {
+        // Recovery re-add: a sub climbing back OUT of dunning into a healthy paid
+        // tier (its payment recovered on a later retry) is re-promoted to
+        // pro/basic. Book a positive add on the recovery day so it offsets the
+        // earlier downgrade and the net line reflects that the customer is back.
+        // `tier` is non-null only for active/trialing syncs, so this fires just on
+        // a genuine return to a paying state — attributed to the recovered tier.
+        if (day && acc[day]) {
+          if (tier === 'pro') acc[day].proAdd += 1;
+          else acc[day].basicAdd += 1;
+        }
       }
       if (status) lastStatus.set(subId, status);
 
-      const tier = parseSyncTier(row.message);
       if (!tier) continue;
       if (!day) continue;
       if (!firstPaid.has(subId)) firstPaid.set(subId, { day, tier });
       lastPaidTier.set(subId, tier);
     }
 
-    // Paid adds: one per subscription, on the day it first went paid.
+    // Paid adds (first conversion): one per subscription, on the day it first
+    // went paid. Re-activations out of dunning are booked inline in the scan above.
     for (const { day, tier } of firstPaid.values()) {
       const bucket = acc[day];
       if (!bucket) continue; // conversion day predates the window
