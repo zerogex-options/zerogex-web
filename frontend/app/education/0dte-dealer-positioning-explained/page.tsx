@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
@@ -6,13 +5,14 @@ import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = articleMetadata('0dte-dealer-positioning-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/0dte-dealer-positioning-explained.md');
 
-export default function ZeroDteDealerPositioningExplainedPage() {
-  const markdown = fs.readFileSync(articlePath, 'utf8');
+export default async function ZeroDteDealerPositioningExplainedPage() {
+  const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

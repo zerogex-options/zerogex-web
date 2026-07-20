@@ -1,7 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = {
   title: 'Gamma Flip Calculation: Before vs After (ZeroGEX Guide)',
@@ -12,8 +12,8 @@ export const metadata = {
 
 const guidePath = path.join(process.cwd(), 'content/guides/gamma-flip-calculation-before-vs-after.md');
 
-export default function GammaFlipBeforeVsAfterGuidePage() {
-  const markdown = fs.readFileSync(guidePath, 'utf8');
+export default async function GammaFlipBeforeVsAfterGuidePage() {
+  const markdown = await loadLocalizedMarkdown(guidePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
