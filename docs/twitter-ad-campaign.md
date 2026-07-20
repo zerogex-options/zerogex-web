@@ -89,6 +89,12 @@ accounts). Starter list to **confirm targetable** before launch:
 
 ### ② WARM — retargeting custom audiences (turn on once pools ≥ ~500)
 
+> **The ~500 floor is a hard gate, not a low-budget setting.** Under ~500 matched
+> users X does **not** fail closed — it **silently broadens** the ad group to its
+> interest / look-alike / geo targeting (observed: a ~87–98M "audience," not the
+> ~380 real visitors). So a sub-500 pool must be **held entirely** — running it at
+> a trickle budget just funds a broad campaign wearing a retargeting label.
+
 - Website visitors — **all**, plus a **free-levels** segment (visited `/spx-gamma-levels`).
 - **Video viewers** — 25%+ of any campaign video.
 - **Account engagers** — engaged with @ZeroGEXOptions.
@@ -381,11 +387,34 @@ video (1280×720, ≤15s)**; optional **2–6 card carousel** ("the 4 levels tha
 - **Days 3–4:** pause ads <0.8% CTR after ~1k impressions; note cheapest cost-per-`ViewFreeLevels`.
 - **Days 7–10:** once CONVERT has ~15–20 `TrialStart`s, compute cost-per-trial; kill losers,
   shift budget to winners, switch CONVERT bid to **target cost**.
-- **Week 3:** turn on **WARM**; rebalance to ~45 / 25 / 30 (COLD/WARM/CONVERT).
+- **WARM is pool-gated, not calendar-gated:** turn it on only once **All-Visitors
+  ≥ ~500** (see the operations log below), *not* on a fixed week. Until then, hold
+  WARM and run its budget on the proven broad / COLD line. Once it's live, rebalance
+  toward ~45 / 25 / 30 (COLD/WARM/CONVERT).
 - **Ongoing:** scale winners **+20–30%** every few days; **refresh creative every ~2–3 weeks**
   to fight fatigue (rotate territories C1↔C4, new hooks from the copy bank in §11).
 - **Then widen:** graduate to the **Growth** budget by adding audiences (interest, extra
   look-alikes), a second video, and a multi-tier retargeting split.
+
+### Operations log
+
+**2026-07-20 — WARM held; retargeting pools under X's floor.** Tools → Audiences
+(Jul-19 refresh) measured: **All-Visitors 381**, **Free-Levels 352**,
+**Subscribers/Converters "Audience too small."** All three sit below X's ~500
+targetable floor, so WARM couldn't actually retarget — X silently broadened it to
+a ~87–98M interest/look-alike blob (the trap documented in §3 ②). Actions taken:
+
+- **Hold WARM** (pause, don't delete) and redirect its ~$50/day into the proven
+  broad / COLD line that drove the ~July-9 signup lift. Broad performs *now* **and**
+  fills the retargeting pools **forward** — the X pixel has only been live since the
+  campaigns started (~July 9), so no longer lookback can backfill the pools; only
+  traffic + time grow them (expect ~500 in ~2–4 weeks at current traffic).
+- **Weekly check → switch WARM on when All-Visitors ≥ ~500:** start it at
+  **$12–15/day** with the Subscribers/Converters audience excluded.
+- **Measure lift honestly:** judge on **aggregate signups vs. the pre-July-9
+  baseline**, ideally with a **3–5 day full-paid holdout** for a clean incremental
+  read. Do **not** trust X's per-campaign last-click for the broad line — it
+  under-credits top-of-funnel.
 
 ---
 
