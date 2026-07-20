@@ -18,6 +18,7 @@ import {
   LogOut,
   Rocket,
   User,
+  Search,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import BetaBadge from "./BetaBadge";
@@ -549,6 +550,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
+                <Link
+                  href="/search"
+                  aria-label="Search"
+                  className="rounded-full border transition-colors flex items-center justify-center"
+                  style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                >
+                  <Search size={20} />
+                </Link>
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -666,6 +677,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                href="/search"
+                aria-label="Search"
+                className="rounded-full border transition-colors flex items-center justify-center"
+                style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+              >
+                <Search size={18} />
+              </Link>
               <OptionsCalendarBadge theme={theme} compact mobile />
               <NewsHeadlinesBadge theme={theme} compact mobile />
               <button
