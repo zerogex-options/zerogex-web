@@ -2,6 +2,7 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
+import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
@@ -25,6 +26,8 @@ export default async function BestGexToolsPage() {
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 11 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
+
+      <ArticleFaq slug="best-gex-tools" />
 
       <RelatedArticles slug="best-gex-tools" />
 
