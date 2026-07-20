@@ -160,6 +160,118 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Yes. Some platforms, including ZeroGEX, publish free delayed gamma levels — gamma flip, call wall, put wall, and net GEX — with no signup, while real-time data and deeper analytics are typically paid.',
     },
   ],
+  'how-to-trade-around-gamma-flip': [
+    {
+      q: 'How do you trade around the gamma flip?',
+      a: 'Treat the gamma flip as a regime switch, not a signal line. Above it, in positive gamma, lean on mean reversion and fade extremes back toward the walls. Below it, in negative gamma, lean on momentum and trade breakouts and trends. The flip tells you which playbook to run, not which direction to take.',
+    },
+    {
+      q: 'What changes when price crosses the gamma flip intraday?',
+      a: 'Crossing the flip switches the dealer-hedging regime, so the tape can change character — from dip-buying and pinning above it to trend-extending, wider-range behavior below it. Many traders change playbooks and widen their range expectations when spot crosses the level.',
+    },
+    {
+      q: 'Why is the zone right at the gamma flip so choppy?',
+      a: 'Near the flip, net dealer gamma is close to neutral, so hedging gives little consistent push either way. Neither the mean-reversion nor the momentum playbook works cleanly there, so many traders size down or wait until price commits to one side.',
+    },
+  ],
+  'spy-vs-spx-gamma-levels': [
+    {
+      q: 'What is the difference between SPY and SPX gamma levels?',
+      a: 'SPY and SPX track the same index but trade as two separate options books, each with its own dealer gamma. So each has its own gamma flip, call wall, and put wall — related, but not identical, and they can diverge intraday.',
+    },
+    {
+      q: 'How do you convert SPX levels to SPY?',
+      a: 'SPY trades at roughly one-tenth of the S&P 500 index, so divide an SPX level by about 10 for the rough SPY equivalent, and multiply a SPY level by about 10 for the SPX equivalent. The ratio is never exactly 10 because of dividends and tracking drift, so use it for orientation, not to the penny.',
+    },
+    {
+      q: 'Which matters more, SPY or SPX gamma?',
+      a: 'SPX is the heavier index-level book, so it usually sets the larger structural levels, while SPY adds granularity and pinning detail. The levels worth the most respect are the ones where both books agree.',
+    },
+  ],
+  'why-spy-pins-near-strikes': [
+    {
+      q: 'Why does SPY pin near certain strikes?',
+      a: 'Pinning is dealer hedging at a heavy-gamma strike, not superstition. When dealers are long gamma at a strike, they buy dips and sell rips around it to stay hedged, and that two-sided hedging mechanically pulls price toward the strike.',
+    },
+    {
+      q: 'Why does pinning get stronger near expiration?',
+      a: 'As expiry approaches, gamma at near-the-money strikes spikes, so the hedging required for each point of price movement grows. That intensifying, tightening hedging is why pins often firm up into the close on expiration days.',
+    },
+    {
+      q: 'Does SPY always pin to a strike?',
+      a: 'No. Pinning needs concentrated dealer gamma and a positive-gamma regime. In a negative-gamma regime, or when no single strike carries dominant gamma, hedging pushes price away from strikes instead of toward them, and the pin breaks.',
+    },
+  ],
+  'why-spy-reverses-at-levels': [
+    {
+      q: 'Why does SPY reverse at certain levels?',
+      a: 'Many SPY reversals happen at options-positioning levels rather than chart lines. Dealer hedging concentrates at specific strikes, and as price reaches them that hedging flow can absorb and turn the move.',
+    },
+    {
+      q: 'Which levels does SPY tend to reverse at?',
+      a: 'Four options-based levels matter most: the call wall, which tends to cap the upside; the put wall, which tends to support the downside; a gamma magnet, a heavy strike price gravitates toward; and the gamma flip, the regime line. Each comes from real positioning, which is why price reacts there.',
+    },
+    {
+      q: 'Do these levels always hold?',
+      a: 'No — the regime decides. In a positive-gamma regime, hedging defends the levels and reversals are more likely; in a negative-gamma regime, the same levels tend to give way and breaks extend.',
+    },
+  ],
+  'why-do-breakouts-fail': [
+    {
+      q: 'Why do breakouts fail?',
+      a: 'Failed breakouts are often dealer hedging, not weak momentum. In a long-gamma regime, dealers sell into rallies and buy into dips at concentrated strikes to stay hedged, which absorbs the move and snaps price back before a breakout can extend.',
+    },
+    {
+      q: 'How can you tell a breakout is likely to fail?',
+      a: 'The odds rise when all three structural conditions line up: a long-gamma (positive) regime, a strengthening net GEX, and a static gamma wall sitting just beyond the breakout level. When fewer of the three line up, the breakout is more likely to run.',
+    },
+    {
+      q: 'When do breakouts actually hold?',
+      a: 'Breakouts extend far more readily in a negative-gamma regime, where dealer hedging reinforces moves instead of fading them, and when net GEX is decaying or there is no heavy wall parked just past the level to cap it.',
+    },
+  ],
+  'how-to-avoid-chasing-0dte': [
+    {
+      q: 'How do you avoid chasing 0DTE moves?',
+      a: 'Replace the urge to chase with a structural read before entering: the gamma regime (spot versus the flip), the nearest wall, whether net GEX is strengthening or decaying, and where price sits in its range. If the structure does not support continuation, the move is likelier a fade than a breakout.',
+    },
+    {
+      q: 'How do you know if you are chasing?',
+      a: 'The tells are positional and emotional: entering only because price is already moving fast, buying into a call or put wall, or adding size so you do not miss out. Those are chase signals, not setups — and 0DTE punishes them, because the same gamma reflex that ran a contract up can reverse it just as fast.',
+    },
+    {
+      q: 'When is 0DTE momentum actually real?',
+      a: 'It tends to be real in a short-gamma (negative) regime with open room to the next wall and a supportive net-GEX backdrop — conditions where dealer hedging pushes the move along instead of absorbing it.',
+    },
+  ],
+  '0dte-dealer-positioning-explained': [
+    {
+      q: 'What is 0DTE dealer positioning?',
+      a: 'It is how options dealers are hedged in same-day-expiry (0DTE) options. Because 0DTE now makes up a large share of SPX volume, that positioning drives much of the intraday tape through dealers’ minute-to-minute hedging.',
+    },
+    {
+      q: 'Why does 0DTE matter so much for intraday moves?',
+      a: '0DTE options carry very high gamma near the money, so dealers must hedge aggressively as price moves. With same-day expiries dominating daily SPX volume, those hedging flows have an outsized effect on intraday support, resistance, and volatility.',
+    },
+    {
+      q: 'How does 0DTE behave in different gamma regimes?',
+      a: 'In a positive-gamma regime, 0DTE hedging dampens moves — tighter ranges and pinning into the close. In a negative-gamma regime, it amplifies them — faster trends, wider ranges, and sharper reversals as dealers chase price.',
+    },
+  ],
+  'vanna-and-charm-explained': [
+    {
+      q: 'What are vanna and charm?',
+      a: 'They are two ways an option’s delta changes without the underlying moving. Vanna is how delta shifts when implied volatility changes; charm is how delta shifts as time passes. Both force dealers to trade the underlying to stay hedged, even on a flat tape.',
+    },
+    {
+      q: 'How does vanna move the market?',
+      a: 'When priced-in fear drains out and implied volatility falls — often after an event that did not deliver — vanna pushes dealers into a steady bid. That produces the slow "up on no news" grind that shows up in the drift rather than the volume.',
+    },
+    {
+      q: 'How does charm affect the close?',
+      a: 'Charm bleeds delta as expiration nears, forcing dealers to hedge as the clock runs down. Because time passes predictably, charm flow is one of the few dealer flows you can anticipate, and it often shapes a directional drift into the final hours of the session.',
+    },
+  ],
 };
 
 export function getArticleFaq(slug: string): FaqItem[] | null {
