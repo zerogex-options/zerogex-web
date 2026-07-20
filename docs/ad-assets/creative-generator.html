@@ -54,11 +54,11 @@
   .offer .price{margin-top:36px;font-family:var(--mono);font-size:31px;color:var(--tan);}
   .offer .price b{color:var(--cream);}
 
-  /* folds of honor */
-  .foh .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;}
-  .foh .pct{font-family:var(--sans);font-weight:800;font-size:96px;line-height:.9;letter-spacing:-.02em;color:var(--gold);}
-  .foh .lead{font-family:var(--mono);font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:var(--cream);}
-  .foh .badge{width:min(74%,540px);border-radius:18px;display:block;box-shadow:0 30px 60px -28px rgba(0,0,0,.75);}
+  /* folds of honor — official Proud Supporter seal (do not alter/crop/recolor) */
+  .foh .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;text-align:center;}
+  .foh .seal{width:min(54%,420px);height:auto;display:block;}
+  .foh .pledge{font-family:var(--mono);font-size:24px;letter-spacing:.05em;color:var(--tan);max-width:84%;line-height:1.5;}
+  .foh .pledge b{color:var(--gold);font-weight:800;font-size:30px;}
 </style>
 </head>
 <body>
@@ -126,11 +126,10 @@
 <!-- CONVERT 7 : Folds of Honor (redesigned) -->
 <section class="frame sq foh" id="convert7">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Supporting veterans</span></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Proud Supporter</span></div>
   <div class="body lyr">
-    <div class="pct">3%</div>
-    <div class="lead">of every subscription funds</div>
-    <img class="badge" src="../../assets/branding/folds-of-honor-logo.svg" alt="Folds of Honor — ZeroGEX charity partner">
+    <img class="seal" src="../../assets/branding/folds-of-honor-proud-supporter.png" alt="Folds of Honor — Proud Supporter">
+    <div class="pledge"><b>3%</b> of every subscription funds their scholarships for military families</div>
   </div>
   <h3 class="headline lyr">Institutional gamma. <span class="hl">A cause behind it.</span></h3>
   <div class="chip lyr"><span class="cash">Receipts &middot; /giving</span><span class="cta">7-day free trial &rarr;</span></div>
