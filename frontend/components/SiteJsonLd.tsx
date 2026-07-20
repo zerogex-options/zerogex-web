@@ -16,12 +16,10 @@ import {
  *     answer-engine / AI-overview entity reconciliation. Previously the brand
  *     only appeared as a nested `publisher` inside per-article JSON-LD, with no
  *     top-level entity node and no `sameAs`.
- *   - WebSite — the site entity, tied back to the Organization as publisher.
- *
- * No SearchAction / sitelinks searchbox is emitted: Google requires it to point
- * at a working on-site search results page (e.g. /search?q={term}), which the
- * site does not currently expose. Wire it up here once a real search route
- * exists — a fabricated target would be invalid structured data.
+ *   - WebSite — the site entity, tied back to the Organization as publisher,
+ *     carrying a SearchAction (sitelinks searchbox) that points at the on-site
+ *     /search results page. That route reads the `q` query parameter, so the
+ *     urlTemplate below resolves to real results.
  */
 export default function SiteJsonLd() {
   const ld = [
@@ -47,6 +45,14 @@ export default function SiteJsonLd() {
       url: SITE_URL,
       publisher: { '@id': `${SITE_URL}/#organization` },
       inLanguage: 'en-US',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
     },
   ];
 
