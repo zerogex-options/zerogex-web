@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
@@ -6,13 +5,14 @@ import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { articleMetadata } from '@/core/articleRegistry';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = articleMetadata('what-is-a-call-wall');
 
 const articlePath = path.join(process.cwd(), 'content/articles/what-is-a-call-wall.md');
 
-export default function CallWallPage() {
-  const markdown = fs.readFileSync(articlePath, 'utf8');
+export default async function CallWallPage() {
+  const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

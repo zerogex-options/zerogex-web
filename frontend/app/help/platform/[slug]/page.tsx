@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import { HELP_ARTICLES, getHelpArticleBySlug, getHelpNeighbors } from '@/core/helpRegistry';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 type Params = { slug: string };
 
@@ -33,7 +34,7 @@ export default async function HelpPlatformArticlePage({ params }: { params: Prom
   const filePath = path.join(contentRoot, `${article.slug}.md`);
   if (!fs.existsSync(filePath)) notFound();
 
-  const markdown = fs.readFileSync(filePath, 'utf8');
+  const markdown = await loadLocalizedMarkdown(filePath);
   const { prev, next } = getHelpNeighbors(article.slug);
 
   return (

@@ -1,7 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = {
   title: 'ZeroGEX Signals Explained: Score Reference & Trigger Guide',
@@ -12,8 +12,8 @@ export const metadata = {
 
 const guidePath = path.join(process.cwd(), 'content/guides/signals-explained.md');
 
-export default function SignalsExplainedGuidePage() {
-  const markdown = fs.readFileSync(guidePath, 'utf8');
+export default async function SignalsExplainedGuidePage() {
+  const markdown = await loadLocalizedMarkdown(guidePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

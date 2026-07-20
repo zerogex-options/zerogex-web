@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -6,6 +5,7 @@ import { ArrowRight, Heart } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import { articleMetadata } from '@/core/articleRegistry';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = articleMetadata('announcing-folds-of-honor-pledge');
 
@@ -14,8 +14,8 @@ const articlePath = path.join(
   'content/articles/announcing-folds-of-honor-pledge.md',
 );
 
-export default function AnnouncingFoldsOfHonorPledgePage() {
-  const markdown = fs.readFileSync(articlePath, 'utf8');
+export default async function AnnouncingFoldsOfHonorPledgePage() {
+  const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

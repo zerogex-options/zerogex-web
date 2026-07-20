@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
@@ -7,13 +6,14 @@ import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
+import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = articleMetadata('squeeze-setup-positioning-trap-and-trap-detection');
 
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-positioning-trap-and-trap-detection.md');
 
-export default function SqueezeSetupPositioningTrapAndTrapDetectionPage() {
-  const markdown = fs.readFileSync(articlePath, 'utf8');
+export default async function SqueezeSetupPositioningTrapAndTrapDetectionPage() {
+  const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
